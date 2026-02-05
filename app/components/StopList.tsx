@@ -35,12 +35,8 @@ function groupRoutes(trips: TripAtStop[]): RouteGroup[] {
 
 async function getRouteTimeTable(route: RouteGroup, stopName: string) {
   if (route.headsigns.outbound.includes(stopName) || route.headsigns.inbound.includes(stopName)) {
-    try {
-      const timeTable = await getTimetable(route.route_short_name);
-      console.log(timeTable);
-    } catch (e) {
-      console.log(`Failed to get route timetable: ${route.route_short_name}`);
-    }
+    const timeTable = await getTimetable(route.route_short_name);
+    console.log(timeTable);
   }
 }
 

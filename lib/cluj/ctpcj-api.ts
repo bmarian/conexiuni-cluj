@@ -1,7 +1,7 @@
 "use server";
 
-import { Schedule, ScheduleEntry, Timetable } from '@/types/ctpcj';
-import { fetchWithFallback } from '@/lib/cache';
+import {Schedule, ScheduleEntry, Timetable} from '@/types/ctpcj';
+import {fetchWithFallback} from '@/lib/cache';
 
 const CTPCJ_CSV_BASE = 'https://ctpcj.ro/orare/csv';
 
@@ -12,8 +12,7 @@ function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } 
   for (let i = 0; i < 5; i++) {
     const idx = lines[i].indexOf(',');
     const key = lines[i].substring(0, idx);
-    const value = lines[i].substring(idx + 1);
-    meta[key] = value;
+    meta[key] = lines[i].substring(idx + 1);
   }
 
   const times: ScheduleEntry[] = [];
