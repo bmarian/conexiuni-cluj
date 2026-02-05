@@ -35,29 +35,33 @@ function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } 
   };
 }
 
-export async function getTimetable(routeShortName: string, revalidate: number = 60*60*24): Promise<Timetable | null> {
+export async function getTimetable(routeShortName: string, revalidate: number = 60*60*24*365): Promise<Timetable | null> {
   return fetchWithFallback<Timetable | null>(routeShortName, async () => {
-      const suffixes = ['lv', 's', 'd'] as const;
-      const responses = await Promise.all(
-        suffixes.map(suffix =>
-          fetch(`${CTPCJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`)
-        )
-      );
+      try {
+        const suffixes = ['lv', 's', 'd'] as const;
+        const responses = await Promise.all(
+          suffixes.map(suffix =>
+            fetch(`${CTPCJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`)
+          )
+        );
 
-      for (const res of responses) {
-        if (!res.ok) return null;
+        for (const res of responses) {
+          if (!res.ok) return null;
+        }
+
+        const csvTexts = await Promise.all(responses.map(res => res.text()));
+        const [weekdayParsed, saturdayParsed, sundayParsed] = csvTexts.map(parseCsv);
+
+        return {
+          route_short_name: routeShortName,
+          route_long_name: weekdayParsed.route_long_name,
+          weekday: weekdayParsed.schedule,
+          saturday: saturdayParsed.schedule,
+          sunday: sundayParsed.schedule,
+        };
+      } catch {
+        return null;
       }
-
-      const csvTexts = await Promise.all(responses.map(res => res.text()));
-      const [weekdayParsed, saturdayParsed, sundayParsed] = csvTexts.map(parseCsv);
-
-      return {
-        route_short_name: routeShortName,
-        route_long_name: weekdayParsed.route_long_name,
-        weekday: weekdayParsed.schedule,
-        saturday: saturdayParsed.schedule,
-        sunday: sundayParsed.schedule,
-      };
     }, revalidate
   );
 }

@@ -1,5 +1,7 @@
 import {DirectionType, StopWithTrips, TripAtStop} from "@/types/tranzy";
+import {Timetable} from "@/types/ctpcj";
 import {getTimetable} from "@/lib/cluj/ctpcj-api";
+import RouteItem from "@/app/components/RouteItem";
 
 interface RouteGroup {
   route_id: number;
@@ -33,19 +35,18 @@ function groupRoutes(trips: TripAtStop[]): RouteGroup[] {
   return Array.from(routeGroup.values());
 }
 
-async function getRouteTimeTable(route: RouteGroup, stopName: string) {
-  if (route.headsigns.outbound.includes(stopName) || route.headsigns.inbound.includes(stopName)) {
-    const timeTable = await getTimetable(route.route_short_name);
-    console.log(timeTable);
-  }
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
 }
 
-function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+async function getRouteTimeTable(route: RouteGroup, stopName: string): Promise<Timetable | null> {
+  const norm = normalize(stopName);
+  const match = [...route.headsigns.outbound, ...route.headsigns.inbound].some(h => normalize(h) === norm);
+  return match ? getTimetable(route.route_short_name) : null;
 }
 
 export default function StopList({ stops }: { stops: StopWithTrips[] }) {
@@ -69,37 +70,14 @@ export default function StopList({ stops }: { stops: StopWithTrips[] }) {
 
             <div className="flex flex-col gap-2">
               {routes.map(async (route) => {
-                const routeTimeTable = await getRouteTimeTable(route, stop.stop_name);
+                const timetable = await getRouteTimeTable(route, stop.stop_name);
 
                 return (
-                    <div key={route.route_id} className="flex items-start gap-2">
-                  <span
-                      className="mt-0.5 inline-block rounded px-2 py-0.5 text-xs font-bold leading-snug"
-                      style={{
-                        backgroundColor: `${route.route_color}`,
-                        color: isLightColor(route.route_color) ? "#000" : "#fff",
-                      }}
-                  >
-                    {route.route_short_name}
-                  </span>
-
-                      <div className="min-w-0 text-sm">
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                      {route.route_long_name}
-                    </span>
-
-                        {route.headsigns.outbound.length > 0 && (
-                            <p className="text-zinc-500 dark:text-zinc-400">
-                              → {route.headsigns.outbound.join(", ")}
-                            </p>
-                        )}
-                        {route.headsigns.inbound.length > 0 && (
-                            <p className="text-zinc-500 dark:text-zinc-400">
-                              ← {route.headsigns.inbound.join(", ")}
-                            </p>
-                        )}
-                      </div>
-                    </div>
+                  <RouteItem
+                    key={route.route_id}
+                    route={route}
+                    timetable={timetable}
+                  />
                 );
               })}
             </div>
