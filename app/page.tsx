@@ -1,4 +1,4 @@
-import {getAgency, getFormattedStops} from "@/lib/tranzy-cluj-api";
+import {getAgency, getFormattedStops} from "@/lib/cluj/tranzy-cluj-api";
 import StopList from "@/app/components/StopList";
 
 export default async function Home() {

@@ -1,3 +1,5 @@
+"use server";
+
 import {Agency, Route, StopWithTrips, Trip} from "@/types/tranzy";
 import {
     getAgencies,
