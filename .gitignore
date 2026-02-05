@@ -44,3 +44,5 @@ lib/TranzyAPI.json
 
 # api cache
 /.cache
+
+.claude
