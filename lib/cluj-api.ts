@@ -2,11 +2,13 @@
 
 import {Route, Shape, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
 import {getDb} from "@/lib/db";
-import {Timetable} from "@/types/ctpcj";
+import {Schedule, Timetable} from "@/types/ctpcj";
+import {parseCsv} from "@/lib/ctpcj-csv-parser";
 
 const API_KEY = process.env.TRANZY_API_KEY;
 const TRANZY_BASE_URL = process.env.TRANZY_BASE_URL;
 const CLUJ_AGENCY_ID = process.env.CLUJ_AGENCY_ID;
+const CTP_CJ_CSV_BASE = process.env.CTP_CJ_CSV_BASE;
 
 const TRANZY_CACHING_IDS = {
     AGENCIES: 'AGENCIES',
@@ -516,6 +518,21 @@ export async function getStopTimes() {
     return stopTimes;
 }
 
+async function fetchSchedule(routeShortName: string, suffix: string): Promise<{
+    route_long_name: string;
+    schedule: Schedule
+} | null> {
+    try {
+        const res = await fetch(`${CTP_CJ_CSV_BASE!}/orar_${routeShortName}_${suffix}.csv`);
+        if (!res.ok) return null;
+
+        const csv = await res.text();
+        return await parseCsv(csv);
+    } catch {
+        return null;
+    }
+}
+
 export async function getTimetable(routeShortName: string) {
     const db = await getDb();
     if (!IS_INITIALIZED.TIMETABLE) {
@@ -523,7 +540,7 @@ export async function getTimetable(routeShortName: string) {
             CREATE TABLE IF NOT EXISTS timetable
             (
                 route_short_name PRIMARY KEY,
-                route_long_name TEXT NOT NULL,
+                route_long_name TEXT,
                 weekdays        TEXT,
                 saturday        TEXT,
                 sunday          TEXT
@@ -541,12 +558,44 @@ export async function getTimetable(routeShortName: string) {
                   WHERE route_short_name = ?`,
             args: [routeShortName],
         });
-        return results.rows.map(row => ({
+        return (results.rows.map(row => ({
             route_short_name: row.route_short_name,
             route_long_name: row.route_long_name,
-            weekdays: row.weekdays,
-            saturday: row.saturday,
-            sunday: row.sunday,
-        })) as Timetable[];
+            weekdays: JSON.parse(row.weekdays as string),
+            saturday: JSON.parse(row.saturday as string),
+            sunday: JSON.parse(row.sunday as string),
+        })) as Timetable[])[0];
     }
+
+    const [weekdays, saturday, sunday] = await Promise.all([
+        fetchSchedule(routeShortName, 'lv'),
+        fetchSchedule(routeShortName, 's'),
+        fetchSchedule(routeShortName, 'd'),
+    ]);
+
+    const routeLongName = (weekdays ?? saturday ?? sunday)!.route_long_name;
+    const response = {
+        route_short_name: routeShortName,
+        route_long_name: routeLongName,
+        weekdays: weekdays?.schedule ?? null,
+        saturday: saturday?.schedule ?? null,
+        sunday: sunday?.schedule ?? null,
+    } as Timetable;
+
+    await db.execute({
+        sql: `INSERT OR
+              REPLACE
+              INTO timetable (route_short_name, route_long_name, weekdays, saturday, sunday)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [response.route_short_name, response.route_long_name ?? null, JSON.stringify(response.weekdays ?? null), JSON.stringify(response.saturday ?? null), JSON.stringify(response.sunday ?? null)],
+    });
+
+    await db.execute({
+        sql: `INSERT OR
+              REPLACE
+              INTO cache_times (id, timestamp, lifespan)
+              VALUES (?, ?, ?)`,
+        args: [cacheId, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.TIMETABLE_PREFIX]],
+    })
+    return response;
 }
