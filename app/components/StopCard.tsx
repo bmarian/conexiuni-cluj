@@ -45,7 +45,7 @@ function ScheduleSection({schedule}: {schedule: Schedule}) {
 
 function TimetablePanel({timetable, routeName, onClose}: {timetable: Timetable; routeName: string; onClose: () => void}) {
   return (
-    <div className="flex max-h-[28rem] min-h-48 w-80 flex-shrink-0 self-stretch flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+    <div className="flex max-h-112 min-h-48 w-80 shrink-0 self-stretch flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
         <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{routeName}</span>
         <button
