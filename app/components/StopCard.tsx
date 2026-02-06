@@ -129,11 +129,16 @@ function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable:
   const [activeDay, setActiveDay] = useState<DayTab>(getDefaultDay);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const scheduleMap: Record<DayTab, Schedule> = {
+  const scheduleMap: Record<DayTab, Schedule | null> = {
     weekday: timetable.weekday,
     saturday: timetable.saturday,
     sunday: timetable.sunday,
   };
+
+  const activeSchedule = scheduleMap[activeDay];
+  const firstAvailable = timetable.weekday ?? timetable.saturday ?? timetable.sunday;
+  const fallbackInName = firstAvailable?.in_stop_name ?? "";
+  const fallbackOutName = firstAvailable?.out_stop_name ?? "";
 
   return (
     <div className="flex max-h-112 min-h-48 w-80 shrink-0 self-stretch flex-col rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
@@ -148,19 +153,24 @@ function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable:
           {routeName}
         </span>
         <div className="flex flex-1 gap-0.5 rounded-md bg-zinc-200 p-0.5 dark:bg-zinc-700">
-          {(Object.keys(DAY_LABELS) as DayTab[]).map((day) => (
-            <button
-              key={day}
-              onClick={() => setActiveDay(day)}
-              className={`flex-1 rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
-                activeDay === day
-                  ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-600 dark:text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              {DAY_LABELS[day]}
-            </button>
-          ))}
+          {(Object.keys(DAY_LABELS) as DayTab[]).map((day) => {
+            const hasSchedule = scheduleMap[day] !== null;
+            return (
+              <button
+                key={day}
+                onClick={() => setActiveDay(day)}
+                className={`flex-1 rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
+                  activeDay === day
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-600 dark:text-zinc-100"
+                    : hasSchedule
+                      ? "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      : "text-zinc-400 dark:text-zinc-600"
+                }`}
+              >
+                {DAY_LABELS[day]}
+              </button>
+            );
+          })}
         </div>
         <button
           onClick={onClose}
@@ -170,13 +180,21 @@ function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable:
         </button>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 bg-zinc-50 dark:bg-zinc-800">
-        <ScheduleTable
-          schedule={scheduleMap[activeDay]}
-          fallbackInName={timetable.weekday.in_stop_name}
-          fallbackOutName={timetable.weekday.out_stop_name}
-          isToday={activeDay === getCurrentDayTab()}
-          scrollContainerRef={scrollRef}
-        />
+        {activeSchedule ? (
+          <ScheduleTable
+            schedule={activeSchedule}
+            fallbackInName={fallbackInName}
+            fallbackOutName={fallbackOutName}
+            isToday={activeDay === getCurrentDayTab()}
+            scrollContainerRef={scrollRef}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center py-8">
+            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+              No service on this day.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

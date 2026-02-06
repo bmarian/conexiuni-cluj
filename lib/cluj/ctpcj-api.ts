@@ -39,34 +39,37 @@ function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } 
   };
 }
 
+async function fetchSchedule(routeShortName: string, suffix: string): Promise<{ route_long_name: string; schedule: Schedule } | null> {
+  try {
+    const res = await fetch(`${CTP_CJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`);
+    if (!res.ok) return null;
+    const csv = await res.text();
+    return parseCsv(csv);
+  } catch {
+    return null;
+  }
+}
+
 export async function getTimetable(routeShortName: string, revalidate: number = 60*60*24*365): Promise<Timetable | null> {
   return fetchWithFallback<Timetable | null>(routeShortName, async () => {
-      try {
-        const suffixes = ['lv', 's', 'd'] as const;
-        const responses = await Promise.all(
-          suffixes.map(suffix =>
-            fetch(`${CTP_CJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`)
-          )
-        );
+      const [weekday, saturday, sunday] = await Promise.all([
+        fetchSchedule(routeShortName, 'lv'),
+        fetchSchedule(routeShortName, 's'),
+        fetchSchedule(routeShortName, 'd'),
+      ]);
 
-        for (const res of responses) {
-          if (!res.ok) return null;
-        }
+      if (!weekday && !saturday && !sunday) return null;
 
-        const csvTexts = await Promise.all(responses.map(res => res.text()));
-        const [weekdayParsed, saturdayParsed, sundayParsed] = csvTexts.map(parseCsv);
+      const routeLongName = (weekday ?? saturday ?? sunday)!.route_long_name;
 
-        console.log(`Successfully fetched timetable for ${routeShortName}`);
-        return {
-          route_short_name: routeShortName,
-          route_long_name: weekdayParsed.route_long_name,
-          weekday: weekdayParsed.schedule,
-          saturday: saturdayParsed.schedule,
-          sunday: sundayParsed.schedule,
-        };
-      } catch {
-        return null;
-      }
+      console.log(`Successfully fetched timetable for ${routeShortName} (lv:${!!weekday} s:${!!saturday} d:${!!sunday})`);
+      return {
+        route_short_name: routeShortName,
+        route_long_name: routeLongName,
+        weekday: weekday?.schedule ?? null,
+        saturday: saturday?.schedule ?? null,
+        sunday: sunday?.schedule ?? null,
+      };
     }, revalidate
   );
 }

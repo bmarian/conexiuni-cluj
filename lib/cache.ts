@@ -1,36 +1,35 @@
 "use server";
 
-import fs from 'fs/promises';
-import path from 'path';
-
-const CACHE_DIR = path.join(process.cwd(), '.cache');
+import { getDb } from "@/lib/db";
 
 interface CacheEntry<T> {
   timestamp: number;
   data: T;
 }
 
-async function ensureCacheDir() {
-  await fs.mkdir(CACHE_DIR, { recursive: true });
-}
-
-function cacheFilePath(key: string): string {
-  return path.join(CACHE_DIR, `${key}.json`);
-}
-
 async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
-  try {
-    const raw = await fs.readFile(cacheFilePath(key), 'utf-8');
-    return JSON.parse(raw) as CacheEntry<T>;
-  } catch {
-    return null;
-  }
+  const db = await getDb();
+  const result = await db.execute({
+    sql: "SELECT data, timestamp FROM cache WHERE key = ?",
+    args: [key],
+  });
+
+  if (result.rows.length === 0) return null;
+
+  const row = result.rows[0];
+  return {
+    timestamp: row.timestamp as number,
+    data: JSON.parse(row.data as string) as T,
+  };
 }
 
 async function writeCache<T>(key: string, data: T): Promise<void> {
-  await ensureCacheDir();
-  const entry: CacheEntry<T> = { timestamp: Date.now(), data };
-  await fs.writeFile(cacheFilePath(key), JSON.stringify(entry));
+  const db = await getDb();
+  await db.execute({
+    sql: `INSERT INTO cache (key, data, timestamp) VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET data = excluded.data, timestamp = excluded.timestamp`,
+    args: [key, JSON.stringify(data), Date.now()],
+  });
 }
 
 export async function fetchWithFallback<T>(key: string, fetcher: () => Promise<T>, revalidate: number): Promise<T> {
