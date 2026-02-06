@@ -573,7 +573,7 @@ export async function getTimetable(routeShortName: string) {
         fetchSchedule(routeShortName, 'd'),
     ]);
 
-    const routeLongName = (weekdays ?? saturday ?? sunday)!.route_long_name;
+    const routeLongName = (weekdays ?? saturday ?? sunday ?? {})!.route_long_name || null;
     const response = {
         route_short_name: routeShortName,
         route_long_name: routeLongName,
