@@ -7,7 +7,7 @@ import {
     getStopsByAgencyId,
     getStopTimesByAgencyId,
     getTripsByAgencyId
-} from "@/lib/tranzy-api";
+} from "@/lib/tranzy-api-old";
 
 const CLUJ_AGENCY_ID = 2;
 

@@ -1,21 +1,20 @@
-import { createClient } from "@libsql/client";
+"use server";
 
-const db = createClient({
-  url: "file:local.db",
-});
+import { Client, createClient} from "@libsql/client";
 
-let initialized = false;
+const db = createClient({url: "file:local.db"});
 
 export async function getDb() {
-  if (!initialized) {
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS cache (
-        key TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
-      )
-    `);
-    initialized = true;
-  }
   return db;
+}
+
+export async function getFromDbWithFallback(dbQueryFn, fallback) {
+  const db = await getDb();
+
+  try {
+    return await dbQueryFn(db);
+  } catch (error) {
+    console.warn("Could not find data in db, using fallback", error);
+    return await fallback(db);
+  }
 }
