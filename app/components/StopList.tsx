@@ -42,15 +42,34 @@ async function getRouteTimeTable(route: RouteGroup, stopName: string): Promise<T
 }
 
 export default async function StopList({ stops }: { stops: StopWithTrips[] }) {
+  // Pre-fetch all timetables to know which routes exist in CTPCJ
+  const allRouteNames = new Set<string>();
+  stops.forEach(stop => {
+    groupRoutes(stop.trips_at_stop).forEach(r => allRouteNames.add(r.route_short_name));
+  });
+
+  const timetableMap = new Map<string, Timetable | null>();
+  await Promise.all(
+    Array.from(allRouteNames).map(async (name) => {
+      timetableMap.set(name, await getTimetable(name));
+    })
+  );
+
   const stopsData = await Promise.all(
     stops.map(async (stop) => {
       const routes = groupRoutes(stop.trips_at_stop);
-      const routesWithTimetables: RouteWithTimetable[] = await Promise.all(
-        routes.map(async (route) => ({
+      // Only include routes that have a timetable from CTPCJ
+      const routesWithTimetables: RouteWithTimetable[] = routes
+        .filter(route => timetableMap.get(route.route_short_name) !== null)
+        .map(route => ({
           route,
-          timetable: await getRouteTimeTable(route, stop.stop_name),
-        }))
-      );
+          // Attach the timetable only if this stop matches a headsign
+          timetable: (() => {
+            const norm = normalize(stop.stop_name);
+            const match = [...route.headsigns.outbound, ...route.headsigns.inbound].some(h => normalize(h) === norm);
+            return match ? timetableMap.get(route.route_short_name) ?? null : null;
+          })(),
+        }));
       return { stop, routesWithTimetables };
     })
   );
