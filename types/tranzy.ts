@@ -1,3 +1,5 @@
+import {Timetable} from "@/types/ctpcj";
+
 export interface Agency {
     agency_id: number;
     agency_name: string;
@@ -115,4 +117,17 @@ export const ROUTE_TYPE_LABELS: Record<RouteType, string> = {
 export const DIRECTION_LABELS: Record<DirectionType, string> = {
     [DirectionType.Inbound]: 'Inbound',
     [DirectionType.Outbound]: 'Outbound',
+}
+
+export interface RouteGroup {
+    route_id: number;
+    route_short_name: string;
+    route_long_name: string;
+    route_color: string;
+    headsigns: { outbound: string[]; inbound: string[] };
+}
+
+export interface RouteWithTimetable {
+    route: RouteGroup;
+    timetable: Timetable | null;
 }
