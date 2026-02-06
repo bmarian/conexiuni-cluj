@@ -53,7 +53,7 @@ export interface Stop {
     stop_lat: number;
     stop_lon: number;
     location_type?: number;
-    stop_code: string;
+    stop_code?: string;
 }
 
 export enum DirectionType {
