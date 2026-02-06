@@ -39,6 +39,7 @@ async function genericGetByAgencyId(agencyId: number, endpoint: string, revalida
             throw new Error(`Failed to fetch ${endpoint}: ${response.status}`);
         }
 
+        console.log(`Successfully fetched ${endpoint} for agency: ${agencyId}`);
         return response.json();
     }, revalidate);
 }

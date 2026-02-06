@@ -3,7 +3,7 @@
 import {Schedule, ScheduleEntry, Timetable} from '@/types/ctpcj';
 import {fetchWithFallback} from '@/lib/cache';
 
-const CTPCJ_CSV_BASE = 'https://ctpcj.ro/orare/csv';
+const CTP_CJ_CSV_BASE = 'https://ctpcj.ro/orare/csv';
 
 function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } {
   const lines = csv.split('\n').map(line => line.trim()).filter(Boolean);
@@ -41,7 +41,7 @@ export async function getTimetable(routeShortName: string, revalidate: number = 
         const suffixes = ['lv', 's', 'd'] as const;
         const responses = await Promise.all(
           suffixes.map(suffix =>
-            fetch(`${CTPCJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`)
+            fetch(`${CTP_CJ_CSV_BASE}/orar_${routeShortName}_${suffix}.csv`)
           )
         );
 
@@ -52,6 +52,7 @@ export async function getTimetable(routeShortName: string, revalidate: number = 
         const csvTexts = await Promise.all(responses.map(res => res.text()));
         const [weekdayParsed, saturdayParsed, sundayParsed] = csvTexts.map(parseCsv);
 
+        console.log(`Successfully fetched timetable for ${routeShortName}`);
         return {
           route_short_name: routeShortName,
           route_long_name: weekdayParsed.route_long_name,
