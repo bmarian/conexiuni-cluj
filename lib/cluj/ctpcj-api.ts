@@ -52,21 +52,21 @@ async function fetchSchedule(routeShortName: string, suffix: string): Promise<{ 
 
 export async function getTimetable(routeShortName: string, revalidate: number = 60*60*24*365): Promise<Timetable | null> {
   return fetchWithFallback<Timetable | null>(routeShortName, async () => {
-      const [weekday, saturday, sunday] = await Promise.all([
+      const [weekdays, saturday, sunday] = await Promise.all([
         fetchSchedule(routeShortName, 'lv'),
         fetchSchedule(routeShortName, 's'),
         fetchSchedule(routeShortName, 'd'),
       ]);
 
-      if (!weekday && !saturday && !sunday) return null;
+      if (!weekdays && !saturday && !sunday) return null;
 
-      const routeLongName = (weekday ?? saturday ?? sunday)!.route_long_name;
+      const routeLongName = (weekdays ?? saturday ?? sunday)!.route_long_name;
 
-      console.log(`Successfully fetched timetable for ${routeShortName} (lv:${!!weekday} s:${!!saturday} d:${!!sunday})`);
+      console.log(`Successfully fetched timetable for ${routeShortName} (lv:${!!weekdays} s:${!!saturday} d:${!!sunday})`);
       return {
         route_short_name: routeShortName,
         route_long_name: routeLongName,
-        weekday: weekday?.schedule ?? null,
+        weekdays: weekdays?.schedule ?? null,
         saturday: saturday?.schedule ?? null,
         sunday: sunday?.schedule ?? null,
       };

@@ -11,10 +11,10 @@ function isLightColor(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 150;
 }
 
-type DayTab = "weekday" | "saturday" | "sunday";
+type DayTab = "weekdays" | "saturday" | "sunday";
 
 const DAY_LABELS: Record<DayTab, string> = {
-  weekday: "L-V",
+  weekdays: "L-V",
   saturday: "S",
   sunday: "D",
 };
@@ -23,7 +23,7 @@ function getDefaultDay(): DayTab {
   const day = new Date().getDay();
   if (day === 0) return "sunday";
   if (day === 6) return "saturday";
-  return "weekday";
+  return "weekdays";
 }
 
 function timeToMinutes(time: string): number {
@@ -35,7 +35,7 @@ function getCurrentDayTab(): DayTab {
   const day = new Date().getDay();
   if (day === 0) return "sunday";
   if (day === 6) return "saturday";
-  return "weekday";
+  return "weekdays";
 }
 
 function ScheduleTable({schedule, fallbackInName, fallbackOutName, isToday, scrollContainerRef}: {schedule: Schedule; fallbackInName: string; fallbackOutName: string; isToday: boolean; scrollContainerRef: React.RefObject<HTMLDivElement | null>}) {
@@ -130,13 +130,13 @@ function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable:
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scheduleMap: Record<DayTab, Schedule | null> = {
-    weekday: timetable.weekday,
+    weekdays: timetable.weekdays,
     saturday: timetable.saturday,
     sunday: timetable.sunday,
   };
 
   const activeSchedule = scheduleMap[activeDay];
-  const firstAvailable = timetable.weekday ?? timetable.saturday ?? timetable.sunday;
+  const firstAvailable = timetable.weekdays ?? timetable.saturday ?? timetable.sunday;
   const fallbackInName = firstAvailable?.in_stop_name ?? "";
   const fallbackOutName = firstAvailable?.out_stop_name ?? "";
 

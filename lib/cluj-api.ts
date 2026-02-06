@@ -2,6 +2,7 @@
 
 import {Route, Shape, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
 import {getDb} from "@/lib/db";
+import {Timetable} from "@/types/ctpcj";
 
 const API_KEY = process.env.TRANZY_API_KEY;
 const TRANZY_BASE_URL = process.env.TRANZY_BASE_URL;
@@ -513,4 +514,39 @@ export async function getStopTimes() {
     })
 
     return stopTimes;
+}
+
+export async function getTimetable(routeShortName: string) {
+    const db = await getDb();
+    if (!IS_INITIALIZED.TIMETABLE) {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS timetable
+            (
+                route_short_name PRIMARY KEY,
+                route_long_name TEXT NOT NULL,
+                weekdays        TEXT,
+                saturday        TEXT,
+                sunday          TEXT
+            )
+        `)
+        IS_INITIALIZED.SHAPES = true;
+    }
+
+    const cacheId = `${TRANZY_CACHING_IDS.TIMETABLE_PREFIX}_${routeShortName}`;
+    const isCacheInvalid = await shouldInvalidateCache(cacheId);
+    if (!isCacheInvalid) {
+        const results = await db.execute({
+            sql: `SELECT *
+                  FROM timetable
+                  WHERE route_short_name = ?`,
+            args: [routeShortName],
+        });
+        return results.rows.map(row => ({
+            route_short_name: row.route_short_name,
+            route_long_name: row.route_long_name,
+            weekdays: row.weekdays,
+            saturday: row.saturday,
+            sunday: row.sunday,
+        })) as Timetable[];
+    }
 }
