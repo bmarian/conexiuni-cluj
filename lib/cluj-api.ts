@@ -1,6 +1,6 @@
 "use server";
 
-import {Route, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
+import {Route, Shape, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
 import {getDb} from "@/lib/db";
 
 const API_KEY = process.env.TRANZY_API_KEY;
@@ -12,9 +12,11 @@ const TRANZY_CACHING_IDS = {
     VEHICLES: 'VEHICLES',
     ROUTES: 'ROUTES',
     TRIPS: 'TRIPS',
-    SHAPES: 'SHAPES',
+    SHAPES_PREFIX: 'SHAPES',
     STOPS: 'STOPS',
     STOP_TIMES: 'STOP_TIMES',
+
+    TIMETABLE_PREFIX: 'TIMETABLE',
 };
 
 const TRANZY_ROUTES_IDS = {
@@ -32,7 +34,7 @@ const CACHE_VALIDITY = {
     VEHICLES: 10000, // 10S
     ROUTES: 8.64e+7, // 24H
     TRIPS: 8.64e+7, // 24H
-    SHAPES: 8.64e+7, // 24H
+    SHAPES: 10000, // 10S
     STOPS: 8.64e+7, // 24H
     STOP_TIMES: 8.64e+7, // 24H
 
@@ -296,6 +298,75 @@ export async function getTrips() {
     })
 
     return trips;
+}
+
+export async function getShapes(shapeId: string) {
+    const db = await getDb();
+    if (!IS_INITIALIZED.SHAPES) {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS shapes
+            (
+                shape_id            TEXT    NOT NULL,
+                shape_pt_lat        REAL    NOT NULL,
+                shape_pt_lon        REAL    NOT NULL,
+                shape_pt_sequence   INTEGER NOT NULL,
+                shape_dist_traveled REAL,
+                PRIMARY KEY (shape_id, shape_pt_sequence)
+            )
+        `)
+        IS_INITIALIZED.SHAPES = true;
+    }
+
+    const cacheId = `${TRANZY_CACHING_IDS.SHAPES_PREFIX}_${shapeId}`;
+    const isCacheInvalid = await shouldInvalidateCache(cacheId);
+    if (!isCacheInvalid) {
+        const results = await db.execute({
+            sql: `SELECT *
+                  FROM shapes
+                  WHERE shape_id = ?`,
+            args: [shapeId],
+        });
+        return results.rows.map(row => ({
+            shape_id: row.shape_id,
+            shape_pt_lat: row.shape_pt_lat,
+            shape_pt_lon: row.shape_pt_lon,
+            shape_pt_sequence: row.shape_pt_sequence,
+            shape_dist_traveled: row.shape_dist_traveled,
+        })) as Shape[];
+    }
+
+    const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.SHAPES}?shape_id=${shapeId}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-API-KEY': API_KEY!,
+            'X-Agency-Id': CLUJ_AGENCY_ID!,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.SHAPES} for shape_id ${shapeId}: ${response.status}`);
+    }
+
+    const shapes = await response.json() as Shape[];
+    for (const shape of shapes) {
+        await db.execute({
+            sql: `INSERT OR
+                  REPLACE
+                  INTO shapes (shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence, shape_dist_traveled)
+                  VALUES (?, ?, ?, ?, ?)`,
+            args: [shape.shape_id, shape.shape_pt_lat, shape.shape_pt_lon, shape.shape_pt_sequence, shape.shape_dist_traveled ?? null],
+        });
+    }
+
+    await db.execute({
+        sql: `INSERT OR
+              REPLACE
+              INTO cache_times (id, timestamp, lifespan)
+              VALUES (?, ?, ?)`,
+        args: [cacheId, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.SHAPES_PREFIX]],
+    })
+
+    return shapes;
 }
 
 export async function getStops() {
