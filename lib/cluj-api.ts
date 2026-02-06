@@ -1,6 +1,6 @@
 "use server";
 
-import {Route, Stop, Trip} from "@/types/tranzy";
+import {Route, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
 import {getDb} from "@/lib/db";
 
 const API_KEY = process.env.TRANZY_API_KEY;
@@ -29,7 +29,7 @@ const TRANZY_ROUTES_IDS = {
 
 const CACHE_VALIDITY = {
     AGENCIES: 8.64e+7, // 24H
-    VEHICLES: 8.64e+7, // 24H
+    VEHICLES: 10000, // 10S
     ROUTES: 8.64e+7, // 24H
     TRIPS: 8.64e+7, // 24H
     SHAPES: 8.64e+7, // 24H
@@ -79,6 +79,84 @@ async function shouldInvalidateCache(cacheId: string) {
 
     const {timestamp, lifespan} = result.rows[0];
     return Date.now() - (timestamp as number) > (lifespan as number);
+}
+
+export async function getVehicles() {
+    const db = await getDb();
+    if (!IS_INITIALIZED.VEHICLES) {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS vehicles
+            (
+                id                    TEXT PRIMARY KEY,
+                label                 TEXT    NOT NULL,
+                latitude              REAL,
+                longitude             REAL,
+                timestamp             TEXT    NOT NULL,
+                vehicle_type          INTEGER NOT NULL,
+                bike_accessible       TEXT,
+                wheelchair_accessible TEXT,
+                speed                 REAL,
+                route_id              INTEGER,
+                trip_id               TEXT
+            )
+        `)
+        IS_INITIALIZED.VEHICLES = true;
+    }
+
+    const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.VEHICLES);
+    if (!isCacheInvalid) {
+        const results = await db.execute(
+            `SELECT *
+             FROM vehicles`
+        );
+        return results.rows.map(row => ({
+            id: row.id,
+            label: row.label,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            timestamp: row.timestamp,
+            vehicle_type: row.vehicle_type,
+            bike_accessible: row.bike_accessible,
+            wheelchair_accessible: row.wheelchair_accessible,
+            speed: row.speed,
+            route_id: row.route_id,
+            trip_id: row.trip_id,
+        })) as Vehicle[];
+    }
+
+    const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.VEHICLES}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-API-KEY': API_KEY!,
+            'X-Agency-Id': CLUJ_AGENCY_ID!,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.VEHICLES}: ${response.status}`);
+    }
+
+    const vehicles = await response.json() as Vehicle[];
+    for (const vehicle of vehicles) {
+        await db.execute({
+            sql: `INSERT OR
+                  REPLACE
+                  INTO vehicles (id, label, latitude, longitude, timestamp, vehicle_type,
+                                 bike_accessible, wheelchair_accessible, speed, route_id, trip_id)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [vehicle.id, vehicle.label, vehicle.latitude ?? null, vehicle.longitude ?? null, vehicle.timestamp, vehicle.vehicle_type, vehicle.bike_accessible ?? null, vehicle.wheelchair_accessible ?? null, vehicle.speed ?? null, vehicle.route_id ?? null, vehicle.trip_id ?? null],
+        });
+    }
+
+    await db.execute({
+        sql: `INSERT OR
+              REPLACE
+              INTO cache_times (id, timestamp, lifespan)
+              VALUES (?, ?, ?)`,
+        args: [TRANZY_CACHING_IDS.VEHICLES, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.VEHICLES]],
+    })
+
+    return vehicles;
 }
 
 export async function getRoutes() {
@@ -287,4 +365,81 @@ export async function getStops() {
     })
 
     return stops;
+}
+
+export async function getStopTimes() {
+    const db = await getDb();
+    if (!IS_INITIALIZED.STOP_TIMES) {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS stop_times
+            (
+                trip_id             TEXT    NOT NULL,
+                arrival_time        TEXT,
+                departure_time      TEXT,
+                stop_id             INTEGER NOT NULL,
+                stop_sequence       INTEGER NOT NULL,
+                stop_headsign       TEXT,
+                pickup_type         INTEGER,
+                drop_off_type       INTEGER,
+                shape_dist_traveled REAL,
+                timepoint           INTEGER,
+                PRIMARY KEY (trip_id, stop_sequence)
+            )
+        `)
+        IS_INITIALIZED.STOP_TIMES = true;
+    }
+
+    const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.STOP_TIMES);
+    if (!isCacheInvalid) {
+        const results = await db.execute(
+            `SELECT *
+             FROM stop_times`
+        );
+        return results.rows.map(row => ({
+            trip_id: row.trip_id,
+            arrival_time: row.arrival_time,
+            departure_time: row.departure_time,
+            stop_id: row.stop_id,
+            stop_sequence: row.stop_sequence,
+            stop_headsign: row.stop_headsign,
+            pickup_type: row.pickup_type,
+            drop_off_type: row.drop_off_type,
+            shape_dist_traveled: row.shape_dist_traveled,
+            timepoint: row.timepoint,
+        })) as StopTime[];
+    }
+
+    const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.STOP_TIMES}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-API-KEY': API_KEY!,
+            'X-Agency-Id': CLUJ_AGENCY_ID!,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.STOP_TIMES}: ${response.status}`);
+    }
+
+    const stopTimes = await response.json() as StopTime[];
+    for (const st of stopTimes) {
+        await db.execute({
+            sql: `INSERT OR
+                  REPLACE
+                  INTO stop_times (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
+                                   stop_headsign, pickup_type, drop_off_type, shape_dist_traveled, timepoint)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [st.trip_id, st.arrival_time ?? null, st.departure_time ?? null, st.stop_id, st.stop_sequence, st.stop_headsign ?? null, st.pickup_type ?? null, st.drop_off_type ?? null, st.shape_dist_traveled ?? null, st.timepoint ?? null],
+        });
+    }
+
+    await db.execute({
+        sql: `INSERT OR
+              REPLACE
+              INTO cache_times (id, timestamp, lifespan)
+              VALUES (?, ?, ?)`,
+        args: [TRANZY_CACHING_IDS.STOP_TIMES, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.STOP_TIMES]],
+    })
+
+    return stopTimes;
 }
