@@ -68,8 +68,8 @@ export interface Trip {
     trip_headsign: string;
     block_id: number;
     shape_id: number;
-    wheelchair_accessible: number;
-    bikes_allowed: number;
+    wheelchair_accessible?: number;
+    bikes_allowed?: number;
 }
 
 export interface Shape {
