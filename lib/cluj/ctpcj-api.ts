@@ -5,6 +5,10 @@ import {fetchWithFallback} from '@/lib/cache';
 
 const CTP_CJ_CSV_BASE = 'https://ctpcj.ro/orare/csv';
 
+function cleanValue(s: string): string {
+  return s.replace(/^["']+|["']+$/g, '').replace(/\.+$/, '').trim();
+}
+
 function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } {
   const lines = csv.split('\n').map(line => line.trim()).filter(Boolean);
 
@@ -12,7 +16,7 @@ function parseCsv(csv: string): { route_long_name: string; schedule: Schedule } 
   for (let i = 0; i < 5; i++) {
     const idx = lines[i].indexOf(',');
     const key = lines[i].substring(0, idx);
-    meta[key] = lines[i].substring(idx + 1);
+    meta[key] = cleanValue(lines[i].substring(idx + 1));
   }
 
   const times: ScheduleEntry[] = [];

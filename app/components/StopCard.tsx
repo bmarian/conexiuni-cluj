@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useRef, useEffect, useCallback} from "react";
 import type {Timetable, Schedule} from "@/types/ctpcj";
 import {RouteWithTimetable} from "@/types/tranzy";
 
@@ -26,9 +26,54 @@ function getDefaultDay(): DayTab {
   return "weekday";
 }
 
-function ScheduleTable({schedule}: {schedule: Schedule}) {
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function getCurrentDayTab(): DayTab {
+  const day = new Date().getDay();
+  if (day === 0) return "sunday";
+  if (day === 6) return "saturday";
+  return "weekday";
+}
+
+function ScheduleTable({schedule, fallbackInName, fallbackOutName, isToday, scrollContainerRef}: {schedule: Schedule; fallbackInName: string; fallbackOutName: string; isToday: boolean; scrollContainerRef: React.RefObject<HTMLDivElement | null>}) {
+  const nextRowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (nextRowRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const row = nextRowRef.current;
+      // Scroll so the highlighted row is near the top of the visible area
+      container.scrollTop = row.offsetTop - container.offsetTop - 30;
+    }
+  }, [schedule, scrollContainerRef]);
+
   if (schedule.times.length === 0) {
     return <p className="px-3 py-4 text-center text-xs text-zinc-500">No schedule available.</p>;
+  }
+
+  const clean = (s: string) => s.replace(/^["']+|["']+$/g, '').replace(/\.+$/, '').trim();
+  const inName = clean(schedule.in_stop_name || fallbackInName);
+  const outName = clean(schedule.out_stop_name || fallbackOutName);
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // Find the index of the next departure (first row where either time is in the future)
+  let nextDepartureIdx = -1;
+  if (isToday) {
+    for (let i = 0; i < schedule.times.length; i++) {
+      const entry = schedule.times[i];
+      const inMin = entry.in_time ? timeToMinutes(entry.in_time) : -1;
+      const outMin = entry.out_time ? timeToMinutes(entry.out_time) : -1;
+      const latestTime = Math.max(inMin, outMin);
+      if (latestTime >= nowMinutes) {
+        nextDepartureIdx = i;
+        break;
+      }
+    }
   }
 
   return (
@@ -36,20 +81,45 @@ function ScheduleTable({schedule}: {schedule: Schedule}) {
       <thead>
         <tr className="sticky top-0 z-10 border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
           <th className="py-1.5 pr-3 text-left font-medium text-zinc-500 dark:text-zinc-400">
-            {schedule.in_stop_name}
+            {inName}
           </th>
           <th className="py-1.5 text-left font-medium text-zinc-500 dark:text-zinc-400">
-            {schedule.out_stop_name}
+            {outName}
           </th>
         </tr>
       </thead>
       <tbody>
-        {schedule.times.map((entry, i) => (
-          <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
-            <td className="py-0.5 pr-3 text-zinc-700 dark:text-zinc-300">{entry.in_time}</td>
-            <td className="py-0.5 text-zinc-700 dark:text-zinc-300">{entry.out_time}</td>
-          </tr>
-        ))}
+        {schedule.times.map((entry, i) => {
+          const isPast = isToday && (nextDepartureIdx === -1 || i < nextDepartureIdx);
+          const isNext = isToday && i === nextDepartureIdx;
+
+          return (
+            <tr
+              key={i}
+              ref={isNext ? nextRowRef : undefined}
+              className={`border-b border-zinc-100 dark:border-zinc-800 ${
+                isNext
+                  ? "bg-emerald-50 dark:bg-emerald-950"
+                  : ""
+              }`}
+            >
+              <td className={`py-0.5 pr-3 ${
+                isPast
+                  ? "text-zinc-400 dark:text-zinc-600"
+                  : isNext
+                    ? "font-semibold text-emerald-700 dark:text-emerald-400"
+                    : "text-zinc-700 dark:text-zinc-300"
+              }`}>{entry.in_time}</td>
+              <td className={`py-0.5 ${
+                isPast
+                  ? "text-zinc-400 dark:text-zinc-600"
+                  : isNext
+                    ? "font-semibold text-emerald-700 dark:text-emerald-400"
+                    : "text-zinc-700 dark:text-zinc-300"
+              }`}>{entry.out_time}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -57,6 +127,7 @@ function ScheduleTable({schedule}: {schedule: Schedule}) {
 
 function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable: Timetable; routeName: string; routeColor: string; onClose: () => void}) {
   const [activeDay, setActiveDay] = useState<DayTab>(getDefaultDay);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const scheduleMap: Record<DayTab, Schedule> = {
     weekday: timetable.weekday,
@@ -98,8 +169,14 @@ function TimetablePanel({timetable, routeName, routeColor, onClose}: {timetable:
           ✕
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 bg-zinc-50 dark:bg-zinc-800">
-        <ScheduleTable schedule={scheduleMap[activeDay]} />
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 bg-zinc-50 dark:bg-zinc-800">
+        <ScheduleTable
+          schedule={scheduleMap[activeDay]}
+          fallbackInName={timetable.weekday.in_stop_name}
+          fallbackOutName={timetable.weekday.out_stop_name}
+          isToday={activeDay === getCurrentDayTab()}
+          scrollContainerRef={scrollRef}
+        />
       </div>
     </div>
   );
