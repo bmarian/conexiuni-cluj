@@ -61,6 +61,7 @@ const DEFAULT_SPEED_BUS = 20;
 const DEFAULT_SPEED_TRAM = 18;
 const MAX_ETA_MINUTES = 30;
 const MAX_VEHICLES_PER_DIRECTION = 3;
+const DEPOT_DISTANCE_THRESHOLD = 200; // meters — vehicles within this distance of the first stop with speed 0 are likely at the depot
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6_371_000;
@@ -118,6 +119,12 @@ function computeETAsForDirection(
 
   for (const v of vehicles) {
     if (v.latitude == null || v.longitude == null) continue;
+
+    // Filter out vehicles likely parked at the depot: near the first stop with speed 0
+    if ((!v.speed || v.speed === 0) && stops.length > 0) {
+      const distToFirst = haversine(v.latitude, v.longitude, stops[0].stop_lat, stops[0].stop_lon);
+      if (distToFirst < DEPOT_DISTANCE_THRESHOLD) continue;
+    }
 
     const vehicleIdx = nearestStopIndex(v.latitude, v.longitude, stops);
     if (vehicleIdx >= targetIdx) continue;

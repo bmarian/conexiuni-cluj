@@ -39,6 +39,13 @@ export interface WorkerOutput {
 
 /** Max distance (meters) to associate a vehicle with a stop on the linear map. */
 const PROXIMITY_THRESHOLD = 300;
+const DEPOT_DISTANCE_THRESHOLD = 200; // meters — vehicles within this distance of the first stop with speed 0 are likely at the depot
+
+function isAtDepot(v: VehicleData, stops: StopData[]): boolean {
+  if (stops.length === 0 || v.latitude == null || v.longitude == null) return false;
+  if (v.speed && v.speed > 0) return false;
+  return haversine(v.latitude, v.longitude, stops[0].stop_lat, stops[0].stop_lon) < DEPOT_DISTANCE_THRESHOLD;
+}
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6_371_000;
@@ -81,19 +88,22 @@ function process(input: WorkerInput): WorkerOutput {
     if (v.latitude == null || v.longitude == null) continue;
 
     if (v.direction_id === 0) {
+      if (isAtDepot(v, input.outboundStops)) continue;
       outboundVehicles.push(v);
       const result = nearestStop(v.latitude, v.longitude, input.outboundStops);
       if (result && result.dist < PROXIMITY_THRESHOLD) {
         (outboundMap[result.stop.stop_id] ??= []).push(v);
       }
     } else if (v.direction_id === 1) {
+      if (isAtDepot(v, input.inboundStops)) continue;
       inboundVehicles.push(v);
       const result = nearestStop(v.latitude, v.longitude, input.inboundStops);
       if (result && result.dist < PROXIMITY_THRESHOLD) {
         (inboundMap[result.stop.stop_id] ??= []).push(v);
       }
     } else {
-      // Unknown direction — show in both, assign to nearest stop overall
+      // Unknown direction — filter if at depot in either direction
+      if (isAtDepot(v, input.outboundStops) || isAtDepot(v, input.inboundStops)) continue;
       outboundVehicles.push(v);
       inboundVehicles.push(v);
       const outResult = nearestStop(v.latitude, v.longitude, input.outboundStops);
