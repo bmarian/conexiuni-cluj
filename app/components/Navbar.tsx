@@ -7,8 +7,8 @@ import { useState } from "react";
 
 const tabs = [
   { label: "Acasă", href: "/" },
-  { label: "Stații", href: "/statii" },
   { label: "Linii", href: "/linii" },
+  { label: "Stații", href: "/statii" },
   { label: "Planifică", href: "/planifica" },
 ];
 

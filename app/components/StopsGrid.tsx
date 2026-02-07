@@ -1,6 +1,7 @@
 "use client";
 
 import {useState} from "react";
+import Link from "next/link";
 import type {Stop} from "@/types/tranzy";
 
 function normalize(str: string) {
@@ -82,13 +83,14 @@ export default function StopsGrid({stops}: { stops: Stop[] }) {
       {filtered.length > 0 ? (
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {filtered.map((stop, i) => (
-            <div
+            <Link
               key={stop.stop_id}
+              href={`/statii/${encodeURIComponent(stop.stop_name)}`}
               className="animate-row rounded-lg border border-zinc-100 bg-white px-3 py-2.5 text-sm text-zinc-800 transition-colors hover:border-purple-200 hover:bg-purple-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-purple-800 dark:hover:bg-purple-950/20"
               style={{animationDelay: `${Math.min(i * 15, 300)}ms`}}
             >
               {stop.stop_name}
-            </div>
+            </Link>
           ))}
         </div>
       ) : (

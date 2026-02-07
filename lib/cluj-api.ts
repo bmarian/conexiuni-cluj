@@ -175,7 +175,8 @@ export async function getRoutes() {
             route_short_name TEXT    NOT NULL,
             route_long_name  TEXT    NOT NULL,
             route_type       INTEGER NOT NULL,
-            route_desc       TEXT    NOT NULL
+            route_desc       TEXT    NOT NULL,
+            route_color      TEXT    NOT NULL
         )
     `)
     IS_INITIALIZED.ROUTES = true;
@@ -194,6 +195,7 @@ export async function getRoutes() {
       route_long_name: row.route_long_name,
       route_type: row.route_type,
       route_desc: row.route_desc,
+      route_color: row.route_color,
     })) as Route[];
   }
 
@@ -214,9 +216,9 @@ export async function getRoutes() {
     await db.execute({
       sql: `INSERT OR
             REPLACE
-            INTO routes (route_id, agency_id, route_short_name, route_long_name, route_type, route_desc)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [route.route_id, route.agency_id, route.route_short_name, route.route_long_name, route.route_type, route.route_desc],
+            INTO routes (route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [route.route_id, route.agency_id, route.route_short_name, route.route_long_name, route.route_type, route.route_desc, route.route_color],
     });
   }
 
@@ -598,4 +600,31 @@ export async function getTimetable(routeShortName: string) {
     args: [cacheId, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.TIMETABLE_PREFIX]],
   })
   return response;
+}
+
+export async function getRoutesForStop(stopName: string): Promise<Route[]> {
+  const [stops, stopTimes, trips, routes] = await Promise.all([
+    getStops(),
+    getStopTimes(),
+    getTrips(),
+    getRoutes(),
+  ]);
+
+  // A stop name can have multiple stop_ids (one per direction)
+  const stopIds = new Set(
+    stops.filter((s) => s.stop_name === stopName).map((s) => s.stop_id)
+  );
+
+  // Find all trip_ids that visit any of these stop_ids
+  const tripIds = new Set(
+    stopTimes.filter((st) => stopIds.has(st.stop_id)).map((st) => st.trip_id)
+  );
+
+  // Map trip_ids → route_ids
+  const routeIds = new Set(
+    trips.filter((t) => tripIds.has(t.trip_id)).map((t) => t.route_id)
+  );
+
+  // Return deduplicated routes
+  return routes.filter((r) => routeIds.has(r.route_id));
 }
