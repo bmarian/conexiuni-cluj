@@ -2,6 +2,7 @@
 
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
 import type {Stop} from "@/types/tranzy";
 import {RouteType} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
@@ -59,6 +60,7 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
   const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
+  const router = useRouter();
 
   // Get Leaflet from singleton (instant if already preloaded)
   useEffect(() => {
@@ -122,6 +124,15 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
       }).addTo(map);
 
       circle.bindTooltip(stop.stop_name, {direction: "top", offset: [0, -8]});
+      circle.on("click", () => {
+        router.push(`/statii/${encodeURIComponent(stop.stop_name)}`);
+      });
+      circle.on("mouseover", () => {
+        map.getContainer().style.cursor = "pointer";
+      });
+      circle.on("mouseout", () => {
+        map.getContainer().style.cursor = "";
+      });
       bounds.extend([stop.stop_lat, stop.stop_lon]);
       markersRef.current.set(stop.stop_name, circle);
     });

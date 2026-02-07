@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect, useMemo, useRef, useState} from "react";
+import {useRouter} from "next/navigation";
 import type {Shape} from "@/types/tranzy";
 import type {RouteStopInfo} from "@/lib/cluj-api";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
@@ -18,6 +19,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
   const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
   const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const activeShape = direction === "outbound" ? outboundShape : inboundShape;
   const activeStops = direction === "outbound" ? outboundStops : inboundStops;
@@ -108,6 +110,15 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       circle.bindTooltip(stop.stop_name, {
         direction: "top",
         offset: [0, -8],
+      });
+      circle.on("click", () => {
+        router.push(`/statii/${encodeURIComponent(stop.stop_name)}`);
+      });
+      circle.on("mouseover", () => {
+        map.getContainer().style.cursor = "pointer";
+      });
+      circle.on("mouseout", () => {
+        map.getContainer().style.cursor = "";
       });
     });
 

@@ -20,6 +20,8 @@ const TRANZY_CACHING_IDS = {
   STOP_TIMES: 'STOP_TIMES',
 
   TIMETABLE_PREFIX: 'TIMETABLE',
+  ROUTE_STOPS_PREFIX: 'ROUTE_STOPS',
+  ROUTE_SHAPES_PREFIX: 'ROUTE_SHAPES',
 };
 
 const TRANZY_ROUTES_IDS = {
@@ -33,15 +35,17 @@ const TRANZY_ROUTES_IDS = {
 }
 
 const CACHE_VALIDITY = {
-  AGENCIES: 8.64e+7, // 24H
-  VEHICLES: 10000, // 10S
-  ROUTES: 8.64e+7, // 24H
-  TRIPS: 8.64e+7, // 24H
-  SHAPES: 8.64e+7, // 24H
-  STOPS: 8.64e+7, // 24H
-  STOP_TIMES: 8.64e+7, // 24H
+  AGENCIES: 6.048e+8, // 1 WEEK
+  VEHICLES: 60000, // 1M
+  ROUTES: 6.048e+8, // 1 WEEK
+  TRIPS: 6.048e+8, // 1 WEEK
+  SHAPES: 6.048e+8, // 1 WEEK
+  STOPS: 6.048e+8, // 1 WEEK
+  STOP_TIMES: 6.048e+8, // 1 WEEK
 
   TIMETABLE: 6.048e+8, // 1 WEEK
+
+  COMPUTED_CACHE_TTL: 6.048e+8, // 1 WEEK
 };
 
 const IS_INITIALIZED = {
@@ -53,6 +57,8 @@ const IS_INITIALIZED = {
   SHAPES: false,
   STOPS: false,
   STOP_TIMES: false,
+  ROUTE_STOPS: false,
+  ROUTE_SHAPES: false,
 
   TIMETABLE: false,
 };
@@ -615,30 +621,37 @@ export interface RouteStops {
   inbound: RouteStopInfo[];
 }
 
-// In-memory cache for computed route data (24H TTL)
-const COMPUTED_CACHE_TTL = 8.64e+7; // 24H
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
-
-const stopsForRouteCache = new Map<string, CacheEntry<RouteStops>>();
-const shapesForRouteCache = new Map<string, CacheEntry<RouteShapes>>();
-
-function getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > COMPUTED_CACHE_TTL) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.data;
-}
-
 export async function getStopsForRoute(routeShortName: string): Promise<RouteStops> {
-  const cached = getCached(stopsForRouteCache, routeShortName);
-  if (cached) return cached;
+  const db = await getDb();
+  if (!IS_INITIALIZED.ROUTE_STOPS) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS route_stops
+        (
+            route_short_name TEXT PRIMARY KEY,
+            outbound         TEXT NOT NULL,
+            inbound          TEXT NOT NULL
+        )
+    `);
+    IS_INITIALIZED.ROUTE_STOPS = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.ROUTE_STOPS_PREFIX}_${routeShortName}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM route_stops
+            WHERE route_short_name = ?`,
+      args: [routeShortName],
+    });
+    if (results.rows.length > 0) {
+      const row = results.rows[0];
+      return {
+        outbound: JSON.parse(row.outbound as string),
+        inbound: JSON.parse(row.inbound as string),
+      } as RouteStops;
+    }
+  }
 
   const [routes, trips, stopTimes, stops] = await Promise.all([
     getRoutes(),
@@ -674,7 +687,13 @@ export async function getStopsForRoute(routeShortName: string): Promise<RouteSto
     return tripStopTimes
       .map((st) => {
         const stop = stopMap.get(st.stop_id);
-        return stop ? {stop_name: stop.stop_name, stop_id: stop.stop_id, stop_sequence: st.stop_sequence, stop_lat: stop.stop_lat, stop_lon: stop.stop_lon} : null;
+        return stop ? {
+          stop_name: stop.stop_name,
+          stop_id: stop.stop_id,
+          stop_sequence: st.stop_sequence,
+          stop_lat: stop.stop_lat,
+          stop_lon: stop.stop_lon
+        } : null;
       })
       .filter((s): s is RouteStopInfo => s !== null);
   }
@@ -687,7 +706,20 @@ export async function getStopsForRoute(routeShortName: string): Promise<RouteSto
     inbound: getOrderedStops(inboundTrips),
   };
 
-  stopsForRouteCache.set(routeShortName, {data: result, timestamp: Date.now()});
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO route_stops (route_short_name, outbound, inbound)
+          VALUES (?, ?, ?)`,
+    args: [routeShortName, JSON.stringify(result.outbound), JSON.stringify(result.inbound)],
+  });
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY.COMPUTED_CACHE_TTL],
+  });
+
   return result;
 }
 
@@ -697,8 +729,36 @@ export interface RouteShapes {
 }
 
 export async function getShapesForRoute(routeShortName: string): Promise<RouteShapes> {
-  const cached = getCached(shapesForRouteCache, routeShortName);
-  if (cached) return cached;
+  const db = await getDb();
+  if (!IS_INITIALIZED.ROUTE_SHAPES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS route_shapes
+        (
+            route_short_name TEXT PRIMARY KEY,
+            outbound         TEXT NOT NULL,
+            inbound          TEXT NOT NULL
+        )
+    `);
+    IS_INITIALIZED.ROUTE_SHAPES = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.ROUTE_SHAPES_PREFIX}_${routeShortName}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM route_shapes
+            WHERE route_short_name = ?`,
+      args: [routeShortName],
+    });
+    if (results.rows.length > 0) {
+      const row = results.rows[0];
+      return {
+        outbound: JSON.parse(row.outbound as string),
+        inbound: JSON.parse(row.inbound as string),
+      } as RouteShapes;
+    }
+  }
 
   const [routes, trips] = await Promise.all([
     getRoutes(),
@@ -725,7 +785,20 @@ export async function getShapesForRoute(routeShortName: string): Promise<RouteSh
     inbound: inbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
   };
 
-  shapesForRouteCache.set(routeShortName, {data: result, timestamp: Date.now()});
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO route_shapes (route_short_name, outbound, inbound)
+          VALUES (?, ?, ?)`,
+    args: [routeShortName, JSON.stringify(result.outbound), JSON.stringify(result.inbound)],
+  });
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY.COMPUTED_CACHE_TTL],
+  });
+
   return result;
 }
 
