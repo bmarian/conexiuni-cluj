@@ -175,12 +175,48 @@ function RecentStopsSection() {
   );
 }
 
+function WelcomeSection() {
+  return (
+    <section className="animate-fade-slide-up text-center py-12">
+      <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
+        Bine ai venit!
+      </h1>
+      <p className="mt-3 text-zinc-500 dark:text-zinc-400">
+        Transportul public din Cluj-Napoca, la un click distanță.
+      </p>
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <Link
+          href="/linii"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-purple-700"
+        >
+          🚌 Vezi toate liniile
+        </Link>
+        <Link
+          href="/statii"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition-colors hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:border-zinc-600"
+        >
+          📍 Caută o stație
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage({stops}: { stops: Stop[] }) {
+  const [contentState, setContentState] = useState<"loading" | "empty" | "has-content">("loading");
+
+  useEffect(() => {
+    const lines = getRecentLines();
+    const recentStops = getRecentStops();
+    setContentState(lines.length > 0 || recentStops.length > 0 ? "has-content" : "empty");
+  }, []);
+
   return (
     <div className="flex flex-col gap-8">
       <NearbyStationsSection stops={stops} />
       <RecentLinesSection />
       <RecentStopsSection />
+      {contentState === "empty" && <WelcomeSection />}
     </div>
   );
 }

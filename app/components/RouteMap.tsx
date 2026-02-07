@@ -82,41 +82,35 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
     // Direction arrow at the start of the route
     if (positions.length >= 2) {
       const [startLat, startLon] = positions[0];
-      const [nextLat, nextLon] = positions[Math.min(3, positions.length - 1)];
+      const [nextLat, nextLon] = positions[Math.min(5, positions.length - 1)];
 
-      // Calculate angle
-      const angle = Math.atan2(nextLon - startLon, nextLat - startLat) * (180 / Math.PI);
+      // Determine general direction: left or right based on longitude change
+      const goingRight = nextLon >= startLon;
+      const arrowChar = goingRight ? "→" : "←";
 
       const arrowIcon = L.divIcon({
         className: "",
-        html: `<svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(${90 - angle}deg);">
-          <polygon points="4,10 24,14 4,18" fill="${color}" stroke="white" stroke-width="1.5"/>
-        </svg>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div style="
+          background: ${color};
+          color: white;
+          font-weight: bolder;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid white;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          line-height: 1;
+        ">${arrowChar}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
       L.marker([startLat, startLon], {icon: arrowIcon}).addTo(map);
     }
 
-    // Add periodic arrows along the route for direction clarity
-    const arrowInterval = Math.max(Math.floor(positions.length / 6), 10);
-    for (let i = arrowInterval; i < positions.length - arrowInterval; i += arrowInterval) {
-      const [lat, lon] = positions[i];
-      const [nextLat, nextLon] = positions[Math.min(i + 3, positions.length - 1)];
-      const angle = Math.atan2(nextLon - lon, nextLat - lat) * (180 / Math.PI);
-
-      const smallArrow = L.divIcon({
-        className: "",
-        html: `<svg width="16" height="16" viewBox="0 0 16 16" style="transform: rotate(${90 - angle}deg);">
-          <polygon points="2,5 14,8 2,11" fill="${color}" opacity="0.7"/>
-        </svg>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-
-      L.marker([lat, lon], {icon: smallArrow, interactive: false}).addTo(map);
-    }
 
     // Add stop markers
     activeStops.forEach((stop, i) => {
