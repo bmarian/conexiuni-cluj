@@ -8,6 +8,8 @@ import type {RouteStopInfo} from "@/lib/cluj-api";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 import {useRouteVehicles} from "@/app/hooks/useRouteVehicles";
 import {getVehicleIconPath} from "@/app/utils/route-utils";
+import {useUserLocation} from "@/app/hooks/useUserLocation";
+import {addCenterOnUserControl} from "@/app/components/CenterOnUserButton";
 
 interface RouteMapInnerProps {
   outboundShape: Shape[];
@@ -28,6 +30,9 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
   const vehicleMarkersRef = useRef<L.Marker[]>([]);
 
   const vehicleData = useRouteVehicles(routeId, outboundStops, inboundStops);
+  const userLocation = useUserLocation();
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const centerControlRef = useRef<L.Control | null>(null);
 
   const activeShape = direction === "outbound" ? outboundShape : inboundShape;
   const activeStops = direction === "outbound" ? outboundStops : inboundStops;
@@ -51,11 +56,10 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
-        attributionControl: true,
+        attributionControl: false,
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
         maxZoom: 19,
       }).addTo(mapRef.current);
     }
@@ -186,6 +190,38 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       vehicleMarkersRef.current.push(marker);
     }
   }, [L, vehicleData, direction, routeType]);
+
+  // User location marker + center control
+  useEffect(() => {
+    if (!L || !mapRef.current || !userLocation) return;
+    const map = mapRef.current;
+
+    if (userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current);
+    }
+    if (centerControlRef.current) {
+      map.removeControl(centerControlRef.current);
+    }
+
+    const userIcon = L.divIcon({
+      className: "",
+      html: `<div style="
+        width: 14px; height: 14px;
+        background: #3b82f6;
+        border: 2.5px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.3), 0 2px 4px rgba(0,0,0,0.3);
+      "></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+
+    userMarkerRef.current = L.marker([userLocation.latitude, userLocation.longitude], {icon: userIcon, zIndexOffset: 900})
+      .bindTooltip("Tu ești aici", {direction: "top", offset: [0, -10]})
+      .addTo(map);
+
+    centerControlRef.current = addCenterOnUserControl(L, map, userLocation.latitude, userLocation.longitude);
+  }, [L, userLocation]);
 
   useEffect(() => {
     return () => {

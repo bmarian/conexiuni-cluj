@@ -8,6 +8,7 @@ import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/rece
 import {getFavoriteLines, getFavoriteStops, FavoriteLine, FavoriteStop} from "@/lib/favorites";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 import {routeTypeLabel, haversine} from "@/app/utils/route-utils";
+import {addCenterOnUserControl} from "@/app/components/CenterOnUserButton";
 
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
@@ -54,11 +55,10 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
-        attributionControl: true,
+        attributionControl: false,
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
         maxZoom: 19,
       }).addTo(mapRef.current);
     }
@@ -72,6 +72,9 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
       }
     });
     markersRef.current.clear();
+
+    // Center on user control
+    addCenterOnUserControl(L, map, nearbyData.userLat, nearbyData.userLon);
 
     // User location marker — pulsing blue dot
     const userIcon = L.divIcon({
