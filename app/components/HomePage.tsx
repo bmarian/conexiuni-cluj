@@ -164,7 +164,18 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
 
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" style={{minHeight: "250px"}}>
-      <div ref={mapContainerRef} style={{height: "100%", minHeight: "250px", width: "100%"}} />
+      {!L && (
+        <div className="flex h-full min-h-[250px] items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Se încarcă harta...
+          </div>
+        </div>
+      )}
+      <div ref={mapContainerRef} style={{height: "100%", minHeight: "250px", width: "100%", display: L ? undefined : "none"}} />
     </div>
   );
 }

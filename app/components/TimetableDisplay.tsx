@@ -73,13 +73,10 @@ function ScheduleTable({schedule, isToday, isPast, routeType, now}: {
   useEffect(() => {
     if (nextRowRef.current && !hasScrolled.current) {
       hasScrolled.current = true;
-      // On desktop, scroll within the capped container; on mobile, scroll the page
       const container = nextRowRef.current.closest(".overflow-auto");
-      if (container && container.scrollHeight > container.clientHeight) {
+      if (container) {
         const rowTop = nextRowRef.current.offsetTop;
         container.scrollTo({top: rowTop - container.clientHeight / 2, behavior: "smooth"});
-      } else {
-        nextRowRef.current.scrollIntoView({behavior: "smooth", block: "center"});
       }
     }
   }, [nextIndex]);
@@ -122,7 +119,7 @@ function ScheduleTable({schedule, isToday, isPast, routeType, now}: {
         </div>
       )}
 
-      <div className="overflow-auto rounded-lg border border-zinc-200 md:max-h-[500px] dark:border-zinc-700">
+      <div className="overflow-auto rounded-lg border border-zinc-200 max-h-[60vh] md:max-h-[500px] dark:border-zinc-700">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10">
           <tr className="bg-zinc-100 dark:bg-zinc-800">
