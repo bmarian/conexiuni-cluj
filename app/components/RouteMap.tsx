@@ -28,6 +28,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const vehicleMarkersRef = useRef<L.Marker[]>([]);
+  const routeLayersRef = useRef<L.Layer[]>([]);
 
   const vehicleData = useRouteVehicles(routeId, outboundStops, inboundStops);
   const userLocation = useUserLocation();
@@ -66,13 +67,16 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
 
     const map = mapRef.current;
 
-    map.eachLayer((layer) => {
-      if (!(layer instanceof L.TileLayer)) {
-        map.removeLayer(layer);
-      }
-    });
+    // Remove only route-specific layers (polyline, stops, arrow) — not user marker or controls
+    for (const layer of routeLayersRef.current) {
+      map.removeLayer(layer);
+    }
+    routeLayersRef.current = [];
 
-    // Clear vehicle markers ref
+    // Clear vehicle markers (they'll be re-added by their own effect)
+    for (const m of vehicleMarkersRef.current) {
+      map.removeLayer(m);
+    }
     vehicleMarkersRef.current = [];
 
     const polyline = L.polyline(positions, {
@@ -80,6 +84,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       weight: 4,
       opacity: 0.85,
     }).addTo(map);
+    routeLayersRef.current.push(polyline);
 
     if (positions.length >= 2) {
       const [startLat, startLon] = positions[0];
@@ -107,7 +112,8 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
         iconAnchor: [16, 16],
       });
 
-      L.marker([startLat, startLon], {icon: arrowIcon}).addTo(map);
+      const arrowMarker = L.marker([startLat, startLon], {icon: arrowIcon}).addTo(map);
+      routeLayersRef.current.push(arrowMarker);
     }
 
     activeStops.forEach((stop, i) => {
@@ -121,6 +127,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
         fillOpacity: 1,
         weight: 2,
       }).addTo(map);
+      routeLayersRef.current.push(circle);
 
       circle.bindTooltip(stop.stop_name, {
         direction: "top",
