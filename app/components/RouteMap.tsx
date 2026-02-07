@@ -3,8 +3,16 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
 import type {Shape} from "@/types/tranzy";
+import type {RouteType} from "@/types/tranzy";
 import type {RouteStopInfo} from "@/lib/cluj-api";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
+import {useRouteVehicles} from "@/app/hooks/useRouteVehicles";
+
+function getVehicleIconPath(routeType?: RouteType): string {
+  if (routeType === 0) return "/tram-icon.svg";
+  if (routeType === 11) return "/trolleybus-icon.svg";
+  return "/bus-icon.svg";
+}
 
 interface RouteMapInnerProps {
   outboundShape: Shape[];
@@ -12,14 +20,19 @@ interface RouteMapInnerProps {
   outboundStops: RouteStopInfo[];
   inboundStops: RouteStopInfo[];
   color: string;
+  routeId?: number;
+  routeType?: RouteType;
 }
 
-function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops, color}: RouteMapInnerProps) {
+function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops, color, routeId, routeType}: RouteMapInnerProps) {
   const mapRef = useRef<L.Map | null>(null);
   const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
   const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const vehicleMarkersRef = useRef<L.Marker[]>([]);
+
+  const vehicleData = useRouteVehicles(routeId, outboundStops, inboundStops);
 
   const activeShape = direction === "outbound" ? outboundShape : inboundShape;
   const activeStops = direction === "outbound" ? outboundStops : inboundStops;
@@ -59,6 +72,9 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
         map.removeLayer(layer);
       }
     });
+
+    // Clear vehicle markers ref
+    vehicleMarkersRef.current = [];
 
     const polyline = L.polyline(positions, {
       color: color,
@@ -124,6 +140,57 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
 
     map.fitBounds(polyline.getBounds(), {padding: [30, 30]});
   }, [L, positions, activeStops, color]);
+
+  // Overlay vehicle markers (separate effect so they update without re-rendering the whole map)
+  useEffect(() => {
+    if (!L || !mapRef.current || !vehicleData) return;
+    const map = mapRef.current;
+
+    // Remove previous vehicle markers
+    for (const m of vehicleMarkersRef.current) {
+      map.removeLayer(m);
+    }
+    vehicleMarkersRef.current = [];
+
+    const vehicles = direction === "outbound"
+      ? vehicleData.directionVehicles.outbound
+      : vehicleData.directionVehicles.inbound;
+
+    const iconPath = getVehicleIconPath(routeType);
+
+    for (const v of vehicles) {
+      if (v.latitude == null || v.longitude == null) continue;
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+          <img src="${iconPath}" width="28" height="28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
+          <div style="
+            background:white;
+            padding:2px 5px;
+            border-radius:4px;
+            font-size:11px;
+            font-weight:bold;
+            white-space:nowrap;
+            box-shadow:0 1px 4px rgba(0,0,0,0.3);
+            margin-top:1px;
+            color:#1a1a1a;
+            line-height:1;
+          ">${v.label}</div>
+        </div>`,
+        iconSize: [40, 44],
+        iconAnchor: [20, 22],
+      });
+
+      const marker = L.marker([v.latitude, v.longitude], {icon, zIndexOffset: 1000}).addTo(map);
+      const speed = v.speed != null ? `${Math.round(v.speed)} km/h` : "";
+      marker.bindTooltip(`${v.label}${speed ? ` · ${speed}` : ""}`, {
+        direction: "top",
+        offset: [0, -20],
+      });
+      vehicleMarkersRef.current.push(marker);
+    }
+  }, [L, vehicleData, direction, routeType]);
 
   useEffect(() => {
     return () => {

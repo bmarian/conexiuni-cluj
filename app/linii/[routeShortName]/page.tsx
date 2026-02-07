@@ -26,7 +26,12 @@ function MapSkeleton({height, label}: { height: string; label: string }) {
   );
 }
 
-async function RouteMaps({routeShortName, color}: { routeShortName: string; color: string }) {
+async function RouteMaps({routeShortName, color, routeId, routeType}: {
+  routeShortName: string;
+  color: string;
+  routeId?: number;
+  routeType?: number;
+}) {
   const [routeStops, routeShapes] = await Promise.all([
     getStopsForRoute(routeShortName),
     getShapesForRoute(routeShortName),
@@ -34,13 +39,15 @@ async function RouteMaps({routeShortName, color}: { routeShortName: string; colo
 
   return (
     <>
-      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={routeShortName} />
+      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={routeShortName} routeId={routeId} routeType={routeType} />
       <RouteMapWrapper
         outboundShape={routeShapes.outbound}
         inboundShape={routeShapes.inbound}
         outboundStops={routeStops.outbound}
         inboundStops={routeStops.inbound}
         color={color}
+        routeId={routeId}
+        routeType={routeType}
       />
     </>
   );
@@ -102,7 +109,7 @@ export default async function RouteTimetablePage({params}: {
           <MapSkeleton height="400px" label="Hartă traseu" />
         </>
       }>
-        <RouteMaps routeShortName={decoded} color={color} />
+        <RouteMaps routeShortName={decoded} color={color} routeId={route?.route_id} routeType={route?.route_type} />
       </Suspense>
     </div>
   );
