@@ -1,15 +1,6 @@
 import {getRoutesForStop} from "@/lib/cluj-api";
-import {RouteType} from "@/types/tranzy";
+import RouteCard from "@/app/components/RouteCard";
 import Link from "next/link";
-
-function routeTypeLabel(type: RouteType): string {
-  switch (type) {
-    case RouteType.Tram: return "Tramvai";
-    case RouteType.Bus: return "Autobuz";
-    case RouteType.Trolleybus: return "Troleibuz";
-    default: return "Linie";
-  }
-}
 
 function sortRoutes(a: string, b: string) {
   const numA = parseInt(a);
@@ -50,31 +41,9 @@ export default async function StopDetailPage({params}: { params: Promise<{ stopN
 
       {sorted.length > 0 ? (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {sorted.map((route, i) => {
-            const color = route.route_color ? `${route.route_color}` : "#7c3aed";
-            return (
-              <div
-                key={route.route_id}
-                className="animate-row flex items-start gap-3 rounded-lg border border-zinc-100 bg-white p-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
-                style={{animationDelay: `${Math.min(i * 30, 300)}ms`}}
-              >
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white"
-                  style={{backgroundColor: color}}
-                >
-                  {route.route_short_name}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    {routeTypeLabel(route.route_type)}
-                  </div>
-                  <div className="mt-0.5 line-clamp-2 text-xs text-zinc-700 dark:text-zinc-300">
-                    {route.route_long_name}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {sorted.map((route, i) => (
+            <RouteCard key={route.route_id} route={route} index={i} fromStop={decodedName} />
+          ))}
         </div>
       ) : (
         <div className="mt-12 text-center text-zinc-400 dark:text-zinc-500">
