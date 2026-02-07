@@ -1,4 +1,4 @@
-import {Timetable} from "@/types/ctpcj";
+import {Timetable} from "@/types/ctp";
 
 export interface Agency {
     agency_id: number;

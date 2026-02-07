@@ -8,12 +8,12 @@ export default async function Home() {
     return (
         <div className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-8 font-sans dark:bg-black overflow-x-clip">
             {/* Animated header */}
-            <div className="relative mb-8 w-full">
+            <div className="relative mb-8 w-full max-w-2xl overflow-hidden">
                 {/* Driving bus */}
                 <div className="pointer-events-none h-10">
                     <div style={{
                         width: 'fit-content',
-                        animation: 'drive 8s linear infinite',
+                        animation: 'drive 20s linear infinite',
                     }}>
                         <Image src="/bus.svg" alt="Bus" width={64} height={36}/>
                     </div>

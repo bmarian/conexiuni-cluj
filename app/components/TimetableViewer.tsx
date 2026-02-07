@@ -2,7 +2,7 @@
 
 import {useRef, useState} from "react";
 import {Route} from "@/types/tranzy";
-import {Schedule, Timetable} from "@/types/ctpcj";
+import {Schedule, Timetable} from "@/types/ctp";
 
 type TabKey = "weekdays" | "saturday" | "sunday";
 

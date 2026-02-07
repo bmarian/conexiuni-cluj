@@ -1,6 +1,6 @@
 "use server";
 
-import {ScheduleEntry} from "@/types/ctpcj";
+import {ScheduleEntry} from "@/types/ctp";
 
 function cleanValue(s: string): string {
     return s.replace(/^["']+|["']+$/g, '').replace(/\.+$/, '').trim();

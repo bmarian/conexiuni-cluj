@@ -2,13 +2,13 @@
 
 import {Route, Shape, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
 import {getDb} from "@/lib/db";
-import {Schedule, Timetable} from "@/types/ctpcj";
-import {parseCsv} from "@/lib/ctpcj-csv-parser";
+import {Schedule, Timetable} from "@/types/ctp";
+import {parseCsv} from "@/lib/ctp-csv-parser";
 
 const API_KEY = process.env.TRANZY_API_KEY;
 const TRANZY_BASE_URL = process.env.TRANZY_BASE_URL;
 const CLUJ_AGENCY_ID = process.env.CLUJ_AGENCY_ID;
-const CTP_CJ_CSV_BASE = process.env.CTP_CJ_CSV_BASE;
+const CTP_CSV_BASE = process.env.CTP_CSV_BASE;
 
 const TRANZY_CACHING_IDS = {
     AGENCIES: 'AGENCIES',
@@ -523,7 +523,7 @@ async function fetchSchedule(routeShortName: string, suffix: string): Promise<{
     schedule: Schedule
 } | null> {
     try {
-        const res = await fetch(`${CTP_CJ_CSV_BASE!}/orar_${routeShortName}_${suffix}.csv`);
+        const res = await fetch(`${CTP_CSV_BASE!}/orar_${routeShortName}_${suffix}.csv`);
         if (!res.ok) return null;
 
         const csv = await res.text();
