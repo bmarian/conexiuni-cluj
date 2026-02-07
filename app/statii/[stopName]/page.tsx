@@ -1,5 +1,6 @@
 import {getRoutesForStop} from "@/lib/cluj-api";
 import RouteCard from "@/app/components/RouteCard";
+import {RecentStopTracker} from "@/app/components/RecentTracker";
 import Link from "next/link";
 
 function sortRoutes(a: string, b: string) {
@@ -11,22 +12,29 @@ function sortRoutes(a: string, b: string) {
   return a.localeCompare(b, "ro");
 }
 
-export default async function StopDetailPage({params}: { params: Promise<{ stopName: string }> }) {
+export default async function StopDetailPage({params, searchParams}: {
+  params: Promise<{ stopName: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const {stopName} = await params;
+  const {from} = await searchParams;
   const decodedName = decodeURIComponent(stopName);
   const routes = await getRoutesForStop(decodedName);
 
   const sorted = routes
-    .filter((r) => r.route_color !== "#000" && r.route_color !== "#000000")
     .sort((a, b) => sortRoutes(a.route_short_name, b.route_short_name));
+
+  const backHref = from === "home" ? "/" : "/statii";
+  const backLabel = from === "home" ? "← Acasă" : "← Toate stațiile";
 
   return (
     <div className="mx-auto min-h-screen max-w-5xl px-4 py-8">
+      <RecentStopTracker stopName={decodedName} />
       <Link
-        href="/statii"
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
       >
-        ← Toate stațiile
+        {backLabel}
       </Link>
 
       <h1 className="animate-fade-slide-up mt-4 text-3xl font-bold text-zinc-900 dark:text-white">

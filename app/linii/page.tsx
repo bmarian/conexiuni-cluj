@@ -14,7 +14,6 @@ export default async function LiniiPage() {
   const allRoutes = await getRoutes();
 
   const routes = allRoutes
-    .filter((r) => r.route_color !== "#000" && r.route_color !== "#000000")
     .sort((a, b) => sortRoutes(a.route_short_name, b.route_short_name));
 
   return (

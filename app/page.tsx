@@ -1,12 +1,13 @@
-import {getRoutes} from "@/lib/cluj-api";
+import {getStops} from "@/lib/cluj-api";
+import HomePage from "@/app/components/HomePage";
 import Image from "next/image";
 
 export default async function Home() {
-  const routes = await getRoutes();
+  const stops = await getStops();
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-8 font-sans dark:bg-black overflow-x-clip">
-     Home page
+    <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
+      <HomePage stops={stops} />
     </div>
   );
 }

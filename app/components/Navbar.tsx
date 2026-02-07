@@ -33,7 +33,7 @@ export default function Navbar() {
             <Image src="/bus.svg" alt="Conexiuni Cluj" width={40} height={22} />
           </span>
           <span className="text-lg font-bold text-zinc-900 dark:text-white">
-            Conexiuni
+            Conexiuni Cluj
           </span>
         </Link>
 

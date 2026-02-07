@@ -1,5 +1,6 @@
 import {getRoutes, getTimetable} from "@/lib/cluj-api";
 import TimetableDisplay from "@/app/components/TimetableDisplay";
+import {RecentLineTracker} from "@/app/components/RecentTracker";
 import Link from "next/link";
 
 export default async function RouteTimetablePage({params, searchParams}: {
@@ -18,12 +19,16 @@ export default async function RouteTimetablePage({params, searchParams}: {
   const route = routes.find((r) => r.route_short_name === decoded);
   const color = route?.route_color || "#7c3aed";
 
-  const backHref = from
-    ? `/statii/${encodeURIComponent(from)}`
-    : "/linii";
-  const backLabel = from
-    ? `← Stația ${from}`
-    : "← Toate liniile";
+  const backHref = from === "home"
+    ? "/"
+    : from
+      ? `/statii/${encodeURIComponent(from)}`
+      : "/linii";
+  const backLabel = from === "home"
+    ? "← Acasă"
+    : from
+      ? `← Stația ${from}`
+      : "← Toate liniile";
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
@@ -55,6 +60,15 @@ export default async function RouteTimetablePage({params, searchParams}: {
           )}
         </div>
       </div>
+
+      {route && (
+        <RecentLineTracker
+          routeShortName={route.route_short_name}
+          routeLongName={route.route_long_name}
+          routeColor={route.route_color}
+          routeType={route.route_type}
+        />
+      )}
 
       <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
     </div>

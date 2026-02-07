@@ -123,3 +123,12 @@ body {
   animation: bus-bob 1s ease-in-out infinite;
 }
 
+/* Hide scrollbar for horizontal scroll sections */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
