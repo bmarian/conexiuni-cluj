@@ -1,6 +1,7 @@
-import {getRoutes, getStopsForRoute, getTimetable} from "@/lib/cluj-api";
+import {getRoutes, getShapesForRoute, getStopsForRoute, getTimetable} from "@/lib/cluj-api";
 import TimetableDisplay from "@/app/components/TimetableDisplay";
 import LinearRouteMap from "@/app/components/LinearRouteMap";
+import RouteMapWrapper from "@/app/components/RouteMap";
 import {RecentLineTracker} from "@/app/components/RecentTracker";
 import BackButton from "@/app/components/BackButton";
 
@@ -10,10 +11,11 @@ export default async function RouteTimetablePage({params}: {
   const {routeShortName} = await params;
   const decoded = decodeURIComponent(routeShortName);
 
-  const [timetable, routes, routeStops] = await Promise.all([
+  const [timetable, routes, routeStops, routeShapes] = await Promise.all([
     getTimetable(decoded),
     getRoutes(),
     getStopsForRoute(decoded),
+    getShapesForRoute(decoded),
   ]);
 
   const route = routes.find((r) => r.route_short_name === decoded);
@@ -55,6 +57,13 @@ export default async function RouteTimetablePage({params}: {
       )}
       <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
       <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={decoded} />
+      <RouteMapWrapper
+        outboundShape={routeShapes.outbound}
+        inboundShape={routeShapes.inbound}
+        outboundStops={routeStops.outbound}
+        inboundStops={routeStops.inbound}
+        color={color}
+      />
     </div>
   );
 }

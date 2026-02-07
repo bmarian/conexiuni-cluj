@@ -606,6 +606,8 @@ export interface RouteStopInfo {
   stop_name: string;
   stop_id: number;
   stop_sequence: number;
+  stop_lat: number;
+  stop_lon: number;
 }
 
 export interface RouteStops {
@@ -648,7 +650,7 @@ export async function getStopsForRoute(routeShortName: string): Promise<RouteSto
     return tripStopTimes
       .map((st) => {
         const stop = stopMap.get(st.stop_id);
-        return stop ? {stop_name: stop.stop_name, stop_id: stop.stop_id, stop_sequence: st.stop_sequence} : null;
+        return stop ? {stop_name: stop.stop_name, stop_id: stop.stop_id, stop_sequence: st.stop_sequence, stop_lat: stop.stop_lat, stop_lon: stop.stop_lon} : null;
       })
       .filter((s): s is RouteStopInfo => s !== null);
   }
@@ -659,6 +661,38 @@ export async function getStopsForRoute(routeShortName: string): Promise<RouteSto
   return {
     outbound: getOrderedStops(outboundTrips),
     inbound: getOrderedStops(inboundTrips),
+  };
+}
+
+export interface RouteShapes {
+  outbound: Shape[];
+  inbound: Shape[];
+}
+
+export async function getShapesForRoute(routeShortName: string): Promise<RouteShapes> {
+  const [routes, trips] = await Promise.all([
+    getRoutes(),
+    getTrips(),
+  ]);
+
+  const route = routes.find((r) => r.route_short_name === routeShortName);
+  if (!route) return {outbound: [], inbound: []};
+
+  const routeTrips = trips.filter((t) => t.route_id === route.route_id);
+  const outboundTrips = routeTrips.filter((t) => t.direction_id === 0);
+  const inboundTrips = routeTrips.filter((t) => t.direction_id === 1);
+
+  const outboundShapeId = outboundTrips[0]?.shape_id;
+  const inboundShapeId = inboundTrips[0]?.shape_id;
+
+  const [outbound, inbound] = await Promise.all([
+    outboundShapeId != null ? getShapes(outboundShapeId.toString()) : Promise.resolve([]),
+    inboundShapeId != null ? getShapes(inboundShapeId.toString()) : Promise.resolve([]),
+  ]);
+
+  return {
+    outbound: outbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
+    inbound: inbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
   };
 }
 
