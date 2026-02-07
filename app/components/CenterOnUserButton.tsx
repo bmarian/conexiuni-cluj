@@ -1,11 +1,13 @@
 "use client";
 
+import type {LeafletLib} from "@/lib/leaflet-loader";
+
 /**
  * Adds a "center on user" Leaflet control button that matches the native zoom controls.
  * Call this after the map is created. Returns a cleanup function to remove the control.
  */
 export function addCenterOnUserControl(
-  L: typeof import("leaflet"),
+  L: LeafletLib,
   map: L.Map,
   lat: number,
   lon: number,

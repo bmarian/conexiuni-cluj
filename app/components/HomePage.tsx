@@ -6,7 +6,7 @@ import {useRouter} from "next/navigation";
 import type {Stop} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
 import {getFavoriteLines, getFavoriteStops, FavoriteLine, FavoriteStop} from "@/lib/favorites";
-import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
+import {getLeaflet, loadLeaflet, type LeafletLib} from "@/lib/leaflet-loader";
 import {routeTypeLabel, haversine} from "@/app/utils/route-utils";
 import {addCenterOnUserControl} from "@/app/components/CenterOnUserButton";
 
@@ -38,7 +38,7 @@ function SectionTitle({children}: { children: React.ReactNode }) {
 
 function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hoveredStop: string | null }) {
   const mapRef = useRef<L.Map | null>(null);
-  const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
+  const [L, setL] = useState<LeafletLib | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const router = useRouter();
@@ -163,12 +163,48 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
   );
 }
 
+function NearbyStopsSkeleton() {
+  return (
+    <section className="animate-fade-slide-up">
+      <SectionTitle>📍 Stații aproape de tine</SectionTitle>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          {Array.from({length: 5}).map((_, i) => (
+            <div key={i} className="flex items-center gap-2" style={{animationDelay: `${i * 50}ms`}}>
+              <div className="flex flex-1 items-center justify-between rounded-lg border border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="h-4 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+                <div className="h-5 w-14 animate-pulse rounded-full bg-purple-100 dark:bg-purple-950/50" />
+              </div>
+              <div className="flex shrink-0 items-center justify-center rounded-lg border border-zinc-100 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="h-[18px] w-[18px] animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" style={{minHeight: "250px"}}>
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Se localizează...
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function NearbyStationsSection({stops}: { stops: Stop[] }) {
   const [nearbyData, setNearbyData] = useState<NearbyData | null>(null);
   const [hoveredStop, setHoveredStop] = useState<string | null>(null);
+  const [geoState, setGeoState] = useState<"loading" | "denied" | "ready">("loading");
 
   useEffect(() => {
-    if (!("geolocation" in navigator)) return;
+    if (!("geolocation" in navigator)) {
+      setGeoState("denied");
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -190,15 +226,18 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
           .slice(0, 5);
 
         setNearbyData({stops: sorted, userLat: latitude, userLon: longitude});
+        setGeoState("ready");
       },
       () => {
-        // Permission denied or error — don't show section
+        setGeoState("denied");
       },
       {enableHighAccuracy: false, timeout: 10000, maximumAge: 60000},
     );
   }, [stops]);
 
-  if (!nearbyData || nearbyData.stops.length === 0) return null;
+  if (geoState === "denied") return null;
+  if (geoState === "loading" || !nearbyData) return <NearbyStopsSkeleton />;
+  if (nearbyData.stops.length === 0) return null;
 
   return (
     <section className="animate-fade-slide-up">

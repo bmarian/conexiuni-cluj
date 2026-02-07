@@ -167,7 +167,7 @@ function ScheduleTable({schedule, isToday, isPast, routeType, now}: {
               <tr
                 key={i}
                 ref={isScrollTarget ? nextRowRef : undefined}
-                className={`animate-row border-t ${
+                className={`animate-row ${
                   (isPast || (inPast && outPast))
                     ? ""
                     : "even:bg-zinc-50 dark:even:bg-zinc-900"

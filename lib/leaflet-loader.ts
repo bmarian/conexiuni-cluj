@@ -1,17 +1,21 @@
 // Singleton Leaflet loader — imports leaflet once and caches the result
-let leafletPromise: Promise<typeof import("leaflet")> | null = null;
-let leafletInstance: typeof import("leaflet") | null = null;
+import type L from "leaflet";
 
-export function getLeaflet(): typeof import("leaflet") | null {
+export type LeafletLib = typeof L;
+
+let leafletPromise: Promise<LeafletLib> | null = null;
+let leafletInstance: LeafletLib | null = null;
+
+export function getLeaflet(): LeafletLib | null {
   return leafletInstance;
 }
 
-export function loadLeaflet(): Promise<typeof import("leaflet")> {
+export function loadLeaflet(): Promise<LeafletLib> {
   if (leafletInstance) return Promise.resolve(leafletInstance);
 
   if (!leafletPromise) {
     leafletPromise = import("leaflet").then((mod) => {
-      leafletInstance = mod.default ? mod.default : (mod as typeof import("leaflet"));
+      leafletInstance = mod.default ? mod.default : (mod as LeafletLib);
       return leafletInstance;
     });
   }

@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 import type {Shape} from "@/types/tranzy";
 import type {RouteType} from "@/types/tranzy";
 import type {RouteStopInfo} from "@/lib/cluj-api";
-import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
+import {getLeaflet, loadLeaflet, type LeafletLib} from "@/lib/leaflet-loader";
 import {useRouteVehicles} from "@/app/hooks/useRouteVehicles";
 import {getVehicleIconPath} from "@/app/utils/route-utils";
 import {useUserLocation} from "@/app/hooks/useUserLocation";
@@ -24,7 +24,7 @@ interface RouteMapInnerProps {
 function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops, color, routeId, routeType}: RouteMapInnerProps) {
   const mapRef = useRef<L.Map | null>(null);
   const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
-  const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
+  const [L, setL] = useState<LeafletLib | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const vehicleMarkersRef = useRef<L.Marker[]>([]);

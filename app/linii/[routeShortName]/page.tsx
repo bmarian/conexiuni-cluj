@@ -111,7 +111,6 @@ export default async function RouteTimetablePage({params}: {
         />
       )}
       <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
-
       <Suspense fallback={
         <>
           <MapSkeleton height="300px" label="Hartă liniară" />
