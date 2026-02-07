@@ -213,7 +213,9 @@ export default function LinearRouteMap({outbound, inbound, color, routeId, route
   const vehicleData = useRouteVehicles(routeId, outbound, inbound);
   const userLocation = useUserLocation();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const outVehicles = vehicleData?.stopVehicleMap.outbound ?? {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const inVehicles = vehicleData?.stopVehicleMap.inbound ?? {};
 
   // Compute the closest stop + ETA for each direction
