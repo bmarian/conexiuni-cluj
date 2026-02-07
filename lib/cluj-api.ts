@@ -602,6 +602,66 @@ export async function getTimetable(routeShortName: string) {
   return response;
 }
 
+export interface RouteStopInfo {
+  stop_name: string;
+  stop_id: number;
+  stop_sequence: number;
+}
+
+export interface RouteStops {
+  outbound: RouteStopInfo[];
+  inbound: RouteStopInfo[];
+}
+
+export async function getStopsForRoute(routeShortName: string): Promise<RouteStops> {
+  const [routes, trips, stopTimes, stops] = await Promise.all([
+    getRoutes(),
+    getTrips(),
+    getStopTimes(),
+    getStops(),
+  ]);
+
+  const route = routes.find((r) => r.route_short_name === routeShortName);
+  if (!route) return {outbound: [], inbound: []};
+
+  const routeTrips = trips.filter((t) => t.route_id === route.route_id);
+  const stopMap = new Map(stops.map((s) => [s.stop_id, s]));
+
+  function getOrderedStops(directionTrips: Trip[]): RouteStopInfo[] {
+    if (directionTrips.length === 0) return [];
+
+    // Pick the trip with the most stops (most representative)
+    let bestTrip = directionTrips[0];
+    let bestCount = 0;
+    for (const trip of directionTrips) {
+      const count = stopTimes.filter((st) => st.trip_id === trip.trip_id).length;
+      if (count > bestCount) {
+        bestCount = count;
+        bestTrip = trip;
+      }
+    }
+
+    const tripStopTimes = stopTimes
+      .filter((st) => st.trip_id === bestTrip.trip_id)
+      .sort((a, b) => a.stop_sequence - b.stop_sequence);
+
+    return tripStopTimes
+      .map((st) => {
+        const stop = stopMap.get(st.stop_id);
+        return stop ? {stop_name: stop.stop_name, stop_id: stop.stop_id, stop_sequence: st.stop_sequence} : null;
+      })
+      .filter((s): s is RouteStopInfo => s !== null);
+  }
+
+  const outboundTrips = routeTrips.filter((t) => t.direction_id === 0);
+  const inboundTrips = routeTrips.filter((t) => t.direction_id === 1);
+
+  return {
+    outbound: getOrderedStops(outboundTrips),
+    inbound: getOrderedStops(inboundTrips),
+  };
+}
+
 export async function getRoutesForStop(stopName: string): Promise<Route[]> {
   const [stops, stopTimes, trips, routes] = await Promise.all([
     getStops(),
