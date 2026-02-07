@@ -6,6 +6,7 @@ import {useRouter} from "next/navigation";
 import type {Stop} from "@/types/tranzy";
 import {RouteType} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
+import {getFavoriteLines, getFavoriteStops, FavoriteLine, FavoriteStop} from "@/lib/favorites";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 
 function routeTypeLabel(type: RouteType): string {
@@ -263,6 +264,78 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
   );
 }
 
+function FavoriteLinesSection() {
+  const [lines, setLines] = useState<FavoriteLine[]>([]);
+
+  useEffect(() => {
+    setLines(getFavoriteLines());
+  }, []);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <section className="animate-fade-slide-up">
+      <SectionTitle>⭐ Linii favorite</SectionTitle>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {lines.map((line, i) => {
+          const color = line.route_color || "#7c3aed";
+          return (
+            <Link
+              key={line.route_short_name}
+              href={`/linii/${encodeURIComponent(line.route_short_name)}`}
+              className="animate-row flex items-start gap-3 rounded-lg border border-zinc-100 bg-white p-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
+              style={{animationDelay: `${i * 50}ms`}}
+            >
+              <div
+                className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold text-white"
+                style={{backgroundColor: color}}
+              >
+                {line.route_short_name}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  {routeTypeLabel(line.route_type)}
+                </div>
+                <div className="mt-0.5 line-clamp-2 text-xs text-zinc-700 dark:text-zinc-300">
+                  {line.route_long_name}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FavoriteStopsSection() {
+  const [stops, setStops] = useState<FavoriteStop[]>([]);
+
+  useEffect(() => {
+    setStops(getFavoriteStops());
+  }, []);
+
+  if (stops.length === 0) return null;
+
+  return (
+    <section className="animate-fade-slide-up" style={{animationDelay: "0.05s"}}>
+      <SectionTitle>⭐ Stații favorite</SectionTitle>
+      <div className="flex flex-wrap gap-2">
+        {stops.map((stop, i) => (
+          <Link
+            key={stop.stop_name}
+            href={`/statii/${encodeURIComponent(stop.stop_name)}`}
+            className="animate-row rounded-lg border border-zinc-100 bg-white px-3 py-2 text-sm font-medium text-zinc-900 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white dark:hover:border-zinc-600"
+            style={{animationDelay: `${i * 50}ms`}}
+          >
+            {stop.stop_name}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RecentLinesSection() {
   const [lines, setLines] = useState<RecentLine[]>([]);
 
@@ -370,13 +443,21 @@ export default function HomePage({stops}: { stops: Stop[] }) {
   useEffect(() => {
     const lines = getRecentLines();
     const recentStops = getRecentStops();
+    const favLines = getFavoriteLines();
+    const favStops = getFavoriteStops();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setContentState(lines.length > 0 || recentStops.length > 0 ? "has-content" : "empty");
+    setContentState(
+      lines.length > 0 || recentStops.length > 0 || favLines.length > 0 || favStops.length > 0
+        ? "has-content"
+        : "empty",
+    );
   }, []);
 
   return (
     <div className="flex flex-col gap-8">
       <NearbyStationsSection stops={stops} />
+      <FavoriteLinesSection />
+      <FavoriteStopsSection />
       <RecentLinesSection />
       <RecentStopsSection />
       {contentState === "empty" && <WelcomeSection />}

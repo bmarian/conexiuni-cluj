@@ -1,6 +1,7 @@
 import {getRoutesForStop} from "@/lib/cluj-api";
 import RouteCard from "@/app/components/RouteCard";
 import {RecentStopTracker} from "@/app/components/RecentTracker";
+import {FavoriteStopButton} from "@/app/components/FavoriteButton";
 import BackButton from "@/app/components/BackButton";
 
 function sortRoutes(a: string, b: string) {
@@ -27,15 +28,20 @@ export default async function StopDetailPage({params}: {
       <RecentStopTracker stopName={decodedName} />
       <BackButton fallbackHref="/statii" fallbackLabel="← Înapoi" />
 
-      <h1 className="animate-fade-slide-up mt-4 text-3xl font-bold text-zinc-900 dark:text-white">
-        {decodedName}
-      </h1>
-      <p
-        className="animate-fade-slide-up mt-1 text-zinc-500 dark:text-zinc-400"
-        style={{animationDelay: "0.1s"}}
-      >
-        {sorted.length} {sorted.length === 1 ? "linie" : "linii"} de transport
-      </p>
+      <div className="mt-4 flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="animate-fade-slide-up text-3xl font-bold text-zinc-900 dark:text-white">
+            {decodedName}
+          </h1>
+          <p
+            className="animate-fade-slide-up mt-1 text-zinc-500 dark:text-zinc-400"
+            style={{animationDelay: "0.1s"}}
+          >
+            {sorted.length} {sorted.length === 1 ? "linie" : "linii"} de transport
+          </p>
+        </div>
+        <FavoriteStopButton stopName={decodedName} />
+      </div>
 
       {sorted.length > 0 ? (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

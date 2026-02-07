@@ -4,6 +4,7 @@ import TimetableDisplay from "@/app/components/TimetableDisplay";
 import LinearRouteMap from "@/app/components/LinearRouteMap";
 import RouteMapWrapper from "@/app/components/RouteMap";
 import {RecentLineTracker} from "@/app/components/RecentTracker";
+import {FavoriteLineButton} from "@/app/components/FavoriteButton";
 import BackButton from "@/app/components/BackButton";
 
 function MapSkeleton({height, label}: { height: string; label: string }) {
@@ -78,7 +79,7 @@ export default async function RouteTimetablePage({params}: {
         >
           {decoded}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="animate-fade-slide-up text-2xl font-bold text-zinc-900 dark:text-white">
             Linia {decoded}
           </h1>
@@ -91,6 +92,14 @@ export default async function RouteTimetablePage({params}: {
             </p>
           )}
         </div>
+        {route && (
+          <FavoriteLineButton
+            routeShortName={route.route_short_name}
+            routeLongName={route.route_long_name}
+            routeColor={route.route_color}
+            routeType={route.route_type}
+          />
+        )}
       </div>
 
       {route && (
