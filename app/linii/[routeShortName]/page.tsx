@@ -1,3 +1,4 @@
+import {Suspense} from "react";
 import {getRoutes, getShapesForRoute, getStopsForRoute, getTimetable} from "@/lib/cluj-api";
 import TimetableDisplay from "@/app/components/TimetableDisplay";
 import LinearRouteMap from "@/app/components/LinearRouteMap";
@@ -5,17 +6,55 @@ import RouteMapWrapper from "@/app/components/RouteMap";
 import {RecentLineTracker} from "@/app/components/RecentTracker";
 import BackButton from "@/app/components/BackButton";
 
+function MapSkeleton({height, label}: { height: string; label: string }) {
+  return (
+    <div className="animate-fade-slide-up mt-6">
+      <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">{label}</h2>
+      <div
+        className="flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
+        style={{height}}
+      >
+        <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Se încarcă...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function RouteMaps({routeShortName, color}: { routeShortName: string; color: string }) {
+  const [routeStops, routeShapes] = await Promise.all([
+    getStopsForRoute(routeShortName),
+    getShapesForRoute(routeShortName),
+  ]);
+
+  return (
+    <>
+      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={routeShortName} />
+      <RouteMapWrapper
+        outboundShape={routeShapes.outbound}
+        inboundShape={routeShapes.inbound}
+        outboundStops={routeStops.outbound}
+        inboundStops={routeStops.inbound}
+        color={color}
+      />
+    </>
+  );
+}
+
 export default async function RouteTimetablePage({params}: {
   params: Promise<{ routeShortName: string }>;
 }) {
   const {routeShortName} = await params;
   const decoded = decodeURIComponent(routeShortName);
 
-  const [timetable, routes, routeStops, routeShapes] = await Promise.all([
+  const [timetable, routes] = await Promise.all([
     getTimetable(decoded),
     getRoutes(),
-    getStopsForRoute(decoded),
-    getShapesForRoute(decoded),
   ]);
 
   const route = routes.find((r) => r.route_short_name === decoded);
@@ -56,14 +95,15 @@ export default async function RouteTimetablePage({params}: {
         />
       )}
       <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
-      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={decoded} />
-      <RouteMapWrapper
-        outboundShape={routeShapes.outbound}
-        inboundShape={routeShapes.inbound}
-        outboundStops={routeStops.outbound}
-        inboundStops={routeStops.inbound}
-        color={color}
-      />
+
+      <Suspense fallback={
+        <>
+          <MapSkeleton height="300px" label="Hartă liniară" />
+          <MapSkeleton height="400px" label="Hartă traseu" />
+        </>
+      }>
+        <RouteMaps routeShortName={decoded} color={color} />
+      </Suspense>
     </div>
   );
 }

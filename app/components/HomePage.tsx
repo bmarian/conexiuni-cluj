@@ -58,33 +58,13 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
   const mapRef = useRef<L.Map | null>(null);
   const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
-  const [isVisible, setIsVisible] = useState(false);
 
-  // Observe visibility
+  // Get Leaflet from singleton (instant if already preloaded)
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      {rootMargin: "100px"},
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // Get Leaflet from singleton when visible (instant if already loaded)
-  useEffect(() => {
-    if (!isVisible || L) return;
+    if (L) return;
     loadLeaflet().then(setL);
-  }, [isVisible, L]);
+  }, [L]);
 
   useEffect(() => {
     if (!L || !mapContainerRef.current) return;
@@ -172,7 +152,7 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
   }, []);
 
   return (
-    <div ref={sentinelRef} className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" style={{minHeight: "250px"}}>
+    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" style={{minHeight: "250px"}}>
       <div ref={mapContainerRef} style={{height: "100%", minHeight: "250px", width: "100%"}} />
     </div>
   );
