@@ -54,10 +54,11 @@ function SectionTitle({children}: { children: React.ReactNode }) {
   );
 }
 
-function NearbyStopsMapInner({nearbyData}: { nearbyData: NearbyData }) {
+function NearbyStopsMapInner({nearbyData, hoveredStop}: { nearbyData: NearbyData; hoveredStop: string | null }) {
   const mapRef = useRef<L.Map | null>(null);
   const [L, setL] = useState<typeof import("leaflet") | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
 
   useEffect(() => {
     import("leaflet").then((leaflet) => {
@@ -96,6 +97,7 @@ function NearbyStopsMapInner({nearbyData}: { nearbyData: NearbyData }) {
         map.removeLayer(layer);
       }
     });
+    markersRef.current.clear();
 
     // User location marker — pulsing blue dot
     const userIcon = L.divIcon({
@@ -129,10 +131,24 @@ function NearbyStopsMapInner({nearbyData}: { nearbyData: NearbyData }) {
 
       circle.bindTooltip(stop.stop_name, {direction: "top", offset: [0, -8]});
       bounds.extend([stop.stop_lat, stop.stop_lon]);
+      markersRef.current.set(stop.stop_name, circle);
     });
 
     map.fitBounds(bounds, {padding: [40, 40]});
   }, [L, nearbyData]);
+
+  // Highlight hovered stop
+  useEffect(() => {
+    markersRef.current.forEach((marker, name) => {
+      if (name === hoveredStop) {
+        marker.setStyle({radius: 10, fillColor: "#a855f7", color: "#a855f7", weight: 3});
+        marker.openTooltip();
+      } else {
+        marker.setStyle({radius: 6, fillColor: "#7c3aed", color: "#7c3aed", weight: 2});
+        marker.closeTooltip();
+      }
+    });
+  }, [hoveredStop]);
 
   useEffect(() => {
     return () => {
@@ -145,7 +161,7 @@ function NearbyStopsMapInner({nearbyData}: { nearbyData: NearbyData }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
-      <div ref={mapContainerRef} style={{height: "250px", width: "100%"}} />
+      <div ref={mapContainerRef} style={{height: "100%", width: "100%"}} />
     </div>
   );
 }
@@ -156,6 +172,7 @@ const NearbyStopsMap = dynamic(() => Promise.resolve(NearbyStopsMapInner), {
 
 function NearbyStationsSection({stops}: { stops: Stop[] }) {
   const [nearbyData, setNearbyData] = useState<NearbyData | null>(null);
+  const [hoveredStop, setHoveredStop] = useState<string | null>(null);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -193,22 +210,45 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
   return (
     <section className="animate-fade-slide-up">
       <SectionTitle>📍 Stații aproape de tine</SectionTitle>
-      <div className="mt-3 mb-5 flex flex-col gap-2">
-        {nearbyData.stops.map((stop, i) => (
-          <Link
-            key={stop.stop_name}
-            href={`/statii/${encodeURIComponent(stop.stop_name)}`}
-            className="animate-row flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-4 py-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
-            style={{animationDelay: `${i * 50}ms`}}
-          >
-            <span className="font-medium text-zinc-900 dark:text-white">{stop.stop_name}</span>
-            <span className="shrink-0 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
-              {formatDistance(stop.distance)}
-            </span>
-          </Link>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          {nearbyData.stops.map((stop, i) => (
+            <div
+              key={stop.stop_name}
+              className="animate-row flex items-center gap-2"
+              style={{animationDelay: `${i * 50}ms`}}
+              onMouseEnter={() => setHoveredStop(stop.stop_name)}
+              onMouseLeave={() => setHoveredStop(null)}
+            >
+              <Link
+                href={`/statii/${encodeURIComponent(stop.stop_name)}`}
+                className={`flex flex-1 items-center justify-between rounded-lg border bg-white px-4 py-3 transition-all dark:bg-zinc-900 ${
+                  hoveredStop === stop.stop_name
+                    ? "border-purple-300 shadow-sm dark:border-purple-700"
+                    : "border-zinc-100 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-600"
+                }`}
+              >
+                <span className="font-medium text-zinc-900 dark:text-white">{stop.stop_name}</span>
+                <span className="shrink-0 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
+                  {formatDistance(stop.distance)}
+                </span>
+              </Link>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${stop.stop_lat},${stop.stop_lon}&travelmode=walking`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-full shrink-0 items-center justify-center rounded-lg border border-zinc-100 bg-white px-3 py-3 text-zinc-400 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:hover:text-blue-400"
+                title="Navighează cu Google Maps"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                </svg>
+              </a>
+            </div>
+          ))}
+        </div>
+        <NearbyStopsMap nearbyData={nearbyData} hoveredStop={hoveredStop} />
       </div>
-      <NearbyStopsMap nearbyData={nearbyData} />
     </section>
   );
 }
@@ -217,6 +257,7 @@ function RecentLinesSection() {
   const [lines, setLines] = useState<RecentLine[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLines(getRecentLines());
   }, []);
 
@@ -261,6 +302,7 @@ function RecentStopsSection() {
   const [stops, setStops] = useState<RecentStop[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStops(getRecentStops());
   }, []);
 
