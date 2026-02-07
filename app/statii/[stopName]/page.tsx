@@ -1,5 +1,6 @@
 import {getRoutesForStop} from "@/lib/cluj-api";
 import RouteCard from "@/app/components/RouteCard";
+import StopArrivals from "@/app/components/StopArrivals";
 import {RecentStopTracker} from "@/app/components/RecentTracker";
 import {FavoriteStopButton} from "@/app/components/FavoriteButton";
 import BackButton from "@/app/components/BackButton";
@@ -42,6 +43,8 @@ export default async function StopDetailPage({params}: {
         </div>
         <FavoriteStopButton stopName={decodedName} />
       </div>
+
+      <StopArrivals stopName={decodedName} />
 
       {sorted.length > 0 ? (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

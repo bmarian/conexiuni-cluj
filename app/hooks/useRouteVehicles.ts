@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import type {RouteStopInfo} from "@/lib/cluj-api";
 import type {VehicleWithDirection, VehicleWorkerOutput} from "@/types/vehicle-tracking";
+import {clientCache} from "@/app/utils/client-cache";
 
 const POLL_INTERVAL = 60_000; // 1 minute
 
@@ -26,9 +27,16 @@ export function useRouteVehicles(
 
     async function fetchAndProcess() {
       try {
-        const res = await fetch(`/api/vehicles?route_id=${routeId}`);
-        if (!res.ok) return;
-        const json = (await res.json()) as {vehicles: VehicleWithDirection[]};
+        const cacheKey = `vehicles:${routeId}`;
+        let json = clientCache.get<{vehicles: VehicleWithDirection[]}>(cacheKey);
+
+        if (!json) {
+          const res = await fetch(`/api/vehicles?route_id=${routeId}`);
+          if (!res.ok) return;
+          json = (await res.json()) as {vehicles: VehicleWithDirection[]};
+          clientCache.set(cacheKey, json);
+        }
+
         workerRef.current?.postMessage({
           vehicles: json.vehicles,
           outboundStops,

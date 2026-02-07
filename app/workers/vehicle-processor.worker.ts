@@ -38,7 +38,7 @@ export interface WorkerOutput {
 }
 
 /** Max distance (meters) to associate a vehicle with a stop on the linear map. */
-const PROXIMITY_THRESHOLD = 150;
+const PROXIMITY_THRESHOLD = 300;
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6_371_000;
@@ -120,6 +120,32 @@ function process(input: WorkerInput): WorkerOutput {
   };
 }
 
+// Cache within the worker to avoid recomputing identical inputs
+let lastInputHash = "";
+let lastOutput: WorkerOutput | null = null;
+let lastTimestamp = 0;
+const WORKER_CACHE_TTL = 60_000;
+
+function hashInput(input: WorkerInput): string {
+  const parts: string[] = [];
+  for (const v of input.vehicles) {
+    parts.push(`${v.id}:${v.latitude}:${v.longitude}:${v.direction_id}`);
+  }
+  return parts.join("|");
+}
+
 self.onmessage = (e: MessageEvent<WorkerInput>) => {
-  self.postMessage(process(e.data));
+  const hash = hashInput(e.data);
+  const now = Date.now();
+
+  if (hash === lastInputHash && lastOutput && now - lastTimestamp < WORKER_CACHE_TTL) {
+    self.postMessage(lastOutput);
+    return;
+  }
+
+  const result = process(e.data);
+  lastInputHash = hash;
+  lastOutput = result;
+  lastTimestamp = now;
+  self.postMessage(result);
 };
