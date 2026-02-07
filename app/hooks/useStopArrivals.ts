@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {clientCache} from "@/app/utils/client-cache";
 import type {ETAWorkerOutput} from "@/app/workers/eta-processor.worker";
 
-const POLL_INTERVAL = 60_000;
+const POLL_INTERVAL = 30_000;
 
 export function useStopArrivals(stopName: string) {
   const [data, setData] = useState<ETAWorkerOutput | null>(null);

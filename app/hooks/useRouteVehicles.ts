@@ -3,7 +3,7 @@ import type {RouteStopInfo} from "@/lib/cluj-api";
 import type {VehicleWithDirection, VehicleWorkerOutput} from "@/types/vehicle-tracking";
 import {clientCache} from "@/app/utils/client-cache";
 
-const POLL_INTERVAL = 60_000; // 1 minute
+const POLL_INTERVAL = 30_000; // 1 minute
 
 export function useRouteVehicles(
   routeId: number | undefined,
