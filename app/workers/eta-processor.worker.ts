@@ -35,14 +35,16 @@ export interface ETAWorkerInput {
   routes: RouteData[];
 }
 
-interface VehicleETA {
+export interface VehicleETA {
+  vehicle_id: string;
   vehicle_label: string;
   eta_minutes: number;
   direction: "outbound" | "inbound";
   stops_away: number;
+  destination: string; // last stop name in this direction
 }
 
-interface RouteArrival {
+export interface RouteArrival {
   route_id: number;
   route_short_name: string;
   route_color: string;
@@ -61,7 +63,7 @@ const MAX_ETA_MINUTES = 30;
 const MAX_VEHICLES_PER_DIRECTION = 3;
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6_371_000; // meters
+  const R = 6_371_000;
   const toRad = Math.PI / 180;
   const dLat = (lat2 - lat1) * toRad;
   const dLon = (lon2 - lon1) * toRad;
@@ -108,18 +110,16 @@ function computeETAsForDirection(
 ): VehicleETA[] {
   if (stops.length === 0) return [];
 
-  // Find the target stop index (by name match)
   const targetIdx = stops.findIndex((s) => s.stop_name === targetStopName);
   if (targetIdx === -1) return [];
 
+  const destination = stops[stops.length - 1].stop_name;
   const etas: VehicleETA[] = [];
 
   for (const v of vehicles) {
     if (v.latitude == null || v.longitude == null) continue;
 
     const vehicleIdx = nearestStopIndex(v.latitude, v.longitude, stops);
-
-    // Vehicle must be before the target stop (approaching)
     if (vehicleIdx >= targetIdx) continue;
 
     const distance = sumDistanceBetweenStops(stops, vehicleIdx, targetIdx);
@@ -130,14 +130,15 @@ function computeETAsForDirection(
     if (etaMinutes > MAX_ETA_MINUTES) continue;
 
     etas.push({
+      vehicle_id: v.id,
       vehicle_label: v.label,
-      eta_minutes: Math.max(1, etaMinutes), // minimum 1 minute
+      eta_minutes: Math.max(1, etaMinutes),
       direction,
       stops_away: targetIdx - vehicleIdx,
+      destination,
     });
   }
 
-  // Sort by ETA and take closest vehicles
   etas.sort((a, b) => a.eta_minutes - b.eta_minutes);
   return etas.slice(0, MAX_VEHICLES_PER_DIRECTION);
 }
@@ -148,7 +149,6 @@ function process(input: ETAWorkerInput): ETAWorkerOutput {
   for (const route of input.routes) {
     const outboundVehicles = route.vehicles.filter((v) => v.direction_id === 0);
     const inboundVehicles = route.vehicles.filter((v) => v.direction_id === 1);
-    // Unknown direction vehicles — try both
     const unknownVehicles = route.vehicles.filter((v) => v.direction_id == null);
 
     const outETAs = computeETAsForDirection(
@@ -167,14 +167,25 @@ function process(input: ETAWorkerInput): ETAWorkerOutput {
       "inbound",
     );
 
-    const allVehicleETAs = [...outETAs, ...inETAs];
-    if (allVehicleETAs.length > 0) {
+    // Deduplicate: if a vehicle appears in both directions (unknown direction),
+    // keep only the one with the shorter ETA
+    const seen = new Set<string>();
+    const deduped: VehicleETA[] = [];
+    const all = [...outETAs, ...inETAs].sort((a, b) => a.eta_minutes - b.eta_minutes);
+    for (const eta of all) {
+      if (!seen.has(eta.vehicle_id)) {
+        seen.add(eta.vehicle_id);
+        deduped.push(eta);
+      }
+    }
+
+    if (deduped.length > 0) {
       arrivals.push({
         route_id: route.route_id,
         route_short_name: route.route_short_name,
         route_color: route.route_color,
         route_type: route.route_type,
-        vehicles: allVehicleETAs,
+        vehicles: deduped,
       });
     }
   }
@@ -189,7 +200,6 @@ let lastTimestamp = 0;
 const WORKER_CACHE_TTL = 60_000;
 
 function hashInput(input: ETAWorkerInput): string {
-  // Simple hash: concat vehicle IDs + positions
   const parts: string[] = [input.stopName];
   for (const r of input.routes) {
     for (const v of r.vehicles) {

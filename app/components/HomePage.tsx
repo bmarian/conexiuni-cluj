@@ -4,31 +4,10 @@ import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import type {Stop} from "@/types/tranzy";
-import {RouteType} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
 import {getFavoriteLines, getFavoriteStops, FavoriteLine, FavoriteStop} from "@/lib/favorites";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
-
-function routeTypeLabel(type: RouteType): string {
-  switch (type) {
-    case 0: return "Tramvai";
-    case 3: return "Autobuz";
-    case 11: return "Troleibuz";
-    default: return "Linie";
-  }
-}
-
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // Earth radius in meters
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import {routeTypeLabel, haversine} from "@/app/utils/route-utils";
 
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
@@ -195,7 +174,7 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
         // Calculate distances and deduplicate by name (keep closest with coords)
         const byName = new Map<string, { distance: number; stop_lat: number; stop_lon: number }>();
         for (const stop of stops) {
-          const dist = haversineDistance(latitude, longitude, stop.stop_lat, stop.stop_lon);
+          const dist = haversine(latitude, longitude, stop.stop_lat, stop.stop_lon);
           const existing = byName.get(stop.stop_name);
           if (existing === undefined || dist < existing.distance) {
             byName.set(stop.stop_name, {distance: dist, stop_lat: stop.stop_lat, stop_lon: stop.stop_lon});

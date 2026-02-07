@@ -2,21 +2,27 @@
 
 import Link from "next/link";
 import {useStopArrivals} from "@/app/hooks/useStopArrivals";
+import {routeTypeLabel} from "@/app/utils/route-utils";
+import type {VehicleETA} from "@/app/workers/eta-processor.worker";
 
-function routeTypeLabel(type: number): string {
-  switch (type) {
-    case 0: return "Tramvai";
-    case 3: return "Autobuz";
-    case 11: return "Troleibuz";
-    default: return "Linie";
-  }
-}
+function ETABadge({vehicle}: {vehicle: VehicleETA}) {
+  const isImminent = vehicle.eta_minutes <= 2;
 
-function DirectionArrow({direction}: {direction: "outbound" | "inbound"}) {
   return (
-    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-      {direction === "outbound" ? "→" : "←"}
-    </span>
+    <div className="flex items-center gap-1.5">
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+          isImminent
+            ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+        }`}
+      >
+        {isImminent ? "" : "~"}{vehicle.eta_minutes} min
+      </span>
+      <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+        {vehicle.stops_away} {vehicle.stops_away === 1 ? "stație" : "stații"}
+      </span>
+    </div>
   );
 }
 
@@ -88,32 +94,30 @@ export default function StopArrivals({stopName}: {stopName: string}) {
                 {routeTypeLabel(route.route_type)}
               </div>
 
-              <div className="mt-1 space-y-1">
+              <div className="mt-1.5 space-y-2">
                 {route.outbound.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <DirectionArrow direction="outbound" />
-                    {route.outbound.map((v, j) => (
-                      <span
-                        key={j}
-                        className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      >
-                        ~{v.eta_minutes} min
-                      </span>
-                    ))}
+                  <div>
+                    <div className="mb-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                      spre {route.outbound[0].destination}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {route.outbound.map((v) => (
+                        <ETABadge key={v.vehicle_id} vehicle={v} />
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {route.inbound.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <DirectionArrow direction="inbound" />
-                    {route.inbound.map((v, j) => (
-                      <span
-                        key={j}
-                        className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      >
-                        ~{v.eta_minutes} min
-                      </span>
-                    ))}
+                  <div>
+                    <div className="mb-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                      spre {route.inbound[0].destination}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {route.inbound.map((v) => (
+                        <ETABadge key={v.vehicle_id} vehicle={v} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

@@ -5,12 +5,7 @@ import type {RouteType} from "@/types/tranzy";
 import Link from "next/link";
 import Image from "next/image";
 import {useRouteVehicles} from "@/app/hooks/useRouteVehicles";
-
-function getVehicleIconPath(routeType?: RouteType): string {
-  if (routeType === 0) return "/tram-icon.svg";
-  if (routeType === 11) return "/trolleybus-icon.svg";
-  return "/bus-icon.svg";
-}
+import {getVehicleIconPath} from "@/app/utils/route-utils";
 
 interface VehicleAtStop {
   id: string;

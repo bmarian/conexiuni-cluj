@@ -7,12 +7,7 @@ import type {RouteType} from "@/types/tranzy";
 import type {RouteStopInfo} from "@/lib/cluj-api";
 import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 import {useRouteVehicles} from "@/app/hooks/useRouteVehicles";
-
-function getVehicleIconPath(routeType?: RouteType): string {
-  if (routeType === 0) return "/tram-icon.svg";
-  if (routeType === 11) return "/trolleybus-icon.svg";
-  return "/bus-icon.svg";
-}
+import {getVehicleIconPath} from "@/app/utils/route-utils";
 
 interface RouteMapInnerProps {
   outboundShape: Shape[];

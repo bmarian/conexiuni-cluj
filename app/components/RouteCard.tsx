@@ -1,14 +1,6 @@
 import Link from "next/link";
-import type {Route, RouteType} from "@/types/tranzy";
-
-function routeTypeLabel(type: RouteType): string {
-  switch (type) {
-    case 0: return "Tramvai";
-    case 3: return "Autobuz";
-    case 11: return "Troleibuz";
-    default: return "Linie";
-  }
-}
+import type {Route} from "@/types/tranzy";
+import {routeTypeLabel} from "@/app/utils/route-utils";
 
 export default function RouteCard({route, index = 0}: { route: Route; index?: number }) {
   const color = route.route_color || "#7c3aed";
