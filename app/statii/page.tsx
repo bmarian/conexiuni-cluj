@@ -16,10 +16,10 @@ export default async function StatiiPage() {
   return (
     <div className="mx-auto min-h-screen max-w-5xl px-4 py-8">
       <h1 className="animate-fade-slide-up text-3xl font-bold text-zinc-900 dark:text-white">
-        Statii
+        Stații
       </h1>
       <p className="animate-fade-slide-up mt-1 text-zinc-500 dark:text-zinc-400" style={{animationDelay: "0.1s"}}>
-        {uniqueStops.length} statii de transport public
+        {uniqueStops.length} stații de transport public
       </p>
 
       <StopsGrid stops={uniqueStops} />

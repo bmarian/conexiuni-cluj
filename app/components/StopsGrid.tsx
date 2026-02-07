@@ -3,20 +3,50 @@
 import {useState} from "react";
 import type {Stop} from "@/types/tranzy";
 
-function removeDiacritics(str: string) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function normalize(str: string) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** Fuzzy match: every character in the query appears in order in the target */
+function fuzzyMatch(target: string, query: string): number {
+  const t = normalize(target);
+  const q = normalize(query);
+
+  let ti = 0;
+  let qi = 0;
+  let score = 0;
+  let consecutive = 0;
+
+  while (ti < t.length && qi < q.length) {
+    if (t[ti] === q[qi]) {
+      consecutive++;
+      score += consecutive; // reward consecutive matches
+      // bonus for matching at word start
+      if (ti === 0 || t[ti - 1] === " ") score += 5;
+      qi++;
+    } else {
+      consecutive = 0;
+    }
+    ti++;
+  }
+
+  return qi === q.length ? score : -1; // -1 = no match
 }
 
 export default function StopsGrid({stops}: { stops: Stop[] }) {
   const [query, setQuery] = useState("");
 
-  const filtered = query.trim()
-    ? stops.filter((s) =>
-        removeDiacritics(s.stop_name.toLowerCase()).includes(
-          removeDiacritics(query.toLowerCase())
-        )
-      )
-    : stops;
+  const filtered = (() => {
+    const q = query.trim();
+    if (!q) return stops;
+
+    const scored = stops
+      .map((s) => ({stop: s, score: fuzzyMatch(s.stop_name, q)}))
+      .filter((r) => r.score >= 0);
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((r) => r.stop);
+  })();
 
   return (
     <div className="mt-6">
@@ -36,7 +66,7 @@ export default function StopsGrid({stops}: { stops: Stop[] }) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cauta o statie..."
+          placeholder="Caută o stație..."
           className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:placeholder-zinc-500 dark:focus:border-purple-500 dark:focus:ring-purple-900/30"
         />
       </div>
@@ -44,7 +74,7 @@ export default function StopsGrid({stops}: { stops: Stop[] }) {
       {/* Results count when searching */}
       {query.trim() && (
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-          {filtered.length} {filtered.length === 1 ? "statie gasita" : "statii gasite"}
+          {filtered.length} {filtered.length === 1 ? "stație găsită" : "stații găsite"}
         </p>
       )}
 
@@ -63,8 +93,8 @@ export default function StopsGrid({stops}: { stops: Stop[] }) {
         </div>
       ) : (
         <div className="mt-12 text-center text-zinc-400 dark:text-zinc-500">
-          <p className="text-lg">Nicio statie gasita</p>
-          <p className="mt-1 text-sm">Incearca un alt termen de cautare</p>
+          <p className="text-lg">Nicio stație găsită</p>
+          <p className="mt-1 text-sm">Încearcă un alt termen de căutare</p>
         </div>
       )}
     </div>

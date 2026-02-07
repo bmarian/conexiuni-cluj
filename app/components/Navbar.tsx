@@ -6,10 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 const tabs = [
-  { label: "Acasa", href: "/" },
-  { label: "Statii", href: "/statii" },
+  { label: "Acasă", href: "/" },
+  { label: "Stații", href: "/statii" },
   { label: "Linii", href: "/linii" },
-  { label: "Planifica", href: "/planifica" },
+  { label: "Planifică", href: "/planifica" },
 ];
 
 function getActiveIndex(pathname: string) {
