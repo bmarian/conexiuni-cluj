@@ -1,4 +1,4 @@
-import {Timetable} from "@/types/ctpcj";
+import {Timetable} from "@/types/ctp";
 
 export interface Agency {
     agency_id: number;
@@ -12,14 +12,14 @@ export interface Agency {
 export interface Vehicle {
     id: string;
     label: string;
-    latitude: number;
-    longitude: number;
+    latitude?: number;
+    longitude?: number;
     timestamp: string;
     vehicle_type: number;
-    bike_accessible: 'BIKE_INACCESSIBLE' | 'BIKE_ACCESSIBLE' | 'UNKNOWN';
-    wheelchair_accessible: 'NO_VALUE' | 'UNKNOWN' | 'WHEELCHAIR_ACCESSIBLE' | 'WHEELCHAIR_INACCESSIBLE';
-    speed: number;
-    route_id: number;
+    bike_accessible?: 'BIKE_INACCESSIBLE' | 'BIKE_ACCESSIBLE' | 'UNKNOWN';
+    wheelchair_accessible?: 'NO_VALUE' | 'UNKNOWN' | 'WHEELCHAIR_ACCESSIBLE' | 'WHEELCHAIR_INACCESSIBLE';
+    speed?: number;
+    route_id?: number;
     trip_id?: string;
 }
 
@@ -53,7 +53,7 @@ export interface Stop {
     stop_lat: number;
     stop_lon: number;
     location_type?: number;
-    stop_code: string;
+    stop_code?: string;
 }
 
 export enum DirectionType {
@@ -68,8 +68,8 @@ export interface Trip {
     trip_headsign: string;
     block_id: number;
     shape_id: number;
-    wheelchair_accessible: number;
-    bikes_allowed: number;
+    wheelchair_accessible?: number;
+    bikes_allowed?: number;
 }
 
 export interface Shape {

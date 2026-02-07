@@ -1,16 +1,13 @@
-import {getAgency, getFormattedStops} from "@/lib/cluj/tranzy-cluj-api";
-import StopList from "@/app/components/StopList";
+import {getStops} from "@/lib/cluj-api";
+import HomePage from "@/app/components/HomePage";
+import Image from "next/image";
 
 export default async function Home() {
-  const {agency_name, agency_url} = await getAgency();
-  const stops = await getFormattedStops();
+  const stops = await getStops();
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-8 font-sans dark:bg-black">
-      <h1 className="mb-8 text-3xl font-bold text-zinc-900 dark:text-white">
-        <a href={agency_url || ""}>{agency_name}</a>
-      </h1>
-      <StopList stops={stops} />
+    <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
+      <HomePage stops={stops} />
     </div>
   );
 }

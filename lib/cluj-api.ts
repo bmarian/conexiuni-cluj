@@ -1,0 +1,830 @@
+"use server";
+
+import {Route, Shape, Stop, StopTime, Trip, Vehicle} from "@/types/tranzy";
+import {getDb} from "@/lib/db";
+import {Schedule, Timetable} from "@/types/ctp";
+import {parseCsv} from "@/lib/ctp-csv-parser";
+
+const API_KEY = process.env.TRANZY_API_KEY;
+const TRANZY_BASE_URL = process.env.TRANZY_BASE_URL;
+const CLUJ_AGENCY_ID = process.env.CLUJ_AGENCY_ID;
+const CTP_CSV_BASE = process.env.CTP_CSV_BASE;
+
+const TRANZY_CACHING_IDS = {
+  AGENCIES: 'AGENCIES',
+  VEHICLES: 'VEHICLES',
+  ROUTES: 'ROUTES',
+  TRIPS: 'TRIPS',
+  SHAPES_PREFIX: 'SHAPES',
+  STOPS: 'STOPS',
+  STOP_TIMES: 'STOP_TIMES',
+
+  TIMETABLE_PREFIX: 'TIMETABLE',
+  ROUTE_STOPS_PREFIX: 'ROUTE_STOPS',
+  ROUTE_SHAPES_PREFIX: 'ROUTE_SHAPES',
+};
+
+const TRANZY_ROUTES_IDS = {
+  AGENCIES: 'agencies',
+  VEHICLES: 'vehicles',
+  ROUTES: 'routes',
+  TRIPS: 'trips',
+  SHAPES: 'shapes',
+  STOPS: 'stops',
+  STOP_TIMES: 'stop_times',
+}
+
+const CACHE_VALIDITY = {
+  AGENCIES: 6.048e+8, // 1 WEEK
+  VEHICLES: 60000, // 1M
+  ROUTES: 6.048e+8, // 1 WEEK
+  TRIPS: 6.048e+8, // 1 WEEK
+  SHAPES: 6.048e+8, // 1 WEEK
+  STOPS: 6.048e+8, // 1 WEEK
+  STOP_TIMES: 6.048e+8, // 1 WEEK
+
+  TIMETABLE: 6.048e+8, // 1 WEEK
+
+  COMPUTED_CACHE_TTL: 6.048e+8, // 1 WEEK
+};
+
+const IS_INITIALIZED = {
+  CACHE: false,
+  AGENCIES: false,
+  VEHICLES: false,
+  ROUTES: false,
+  TRIPS: false,
+  SHAPES: false,
+  STOPS: false,
+  STOP_TIMES: false,
+  ROUTE_STOPS: false,
+  ROUTE_SHAPES: false,
+
+  TIMETABLE: false,
+};
+
+async function shouldInvalidateCache(cacheId: string) {
+  const db = await getDb();
+  if (!IS_INITIALIZED.CACHE) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS cache_times
+        (
+            id        TEXT PRIMARY KEY,
+            timestamp INTEGER NOT NULL,
+            lifespan  INTEGER NOT NULL
+        )
+    `);
+    IS_INITIALIZED.CACHE = true;
+  }
+
+  const result = await db.execute({
+    sql: `SELECT timestamp, lifespan
+          FROM cache_times
+          WHERE id = ?`,
+    args: [cacheId],
+  });
+
+  if (result.rows.length === 0) {
+    return true;
+  }
+
+  const {timestamp, lifespan} = result.rows[0];
+  return Date.now() - (timestamp as number) > (lifespan as number);
+}
+
+export async function getVehicles() {
+  const db = await getDb();
+  if (!IS_INITIALIZED.VEHICLES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS vehicles
+        (
+            id                    TEXT PRIMARY KEY,
+            label                 TEXT    NOT NULL,
+            latitude              REAL,
+            longitude             REAL,
+            timestamp             TEXT    NOT NULL,
+            vehicle_type          INTEGER NOT NULL,
+            bike_accessible       TEXT,
+            wheelchair_accessible TEXT,
+            speed                 REAL,
+            route_id              INTEGER,
+            trip_id               TEXT
+        )
+    `)
+    IS_INITIALIZED.VEHICLES = true;
+  }
+
+  const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.VEHICLES);
+  if (!isCacheInvalid) {
+    const results = await db.execute(
+      `SELECT *
+       FROM vehicles`
+    );
+    return results.rows.map(row => ({
+      id: row.id,
+      label: row.label,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      timestamp: row.timestamp,
+      vehicle_type: row.vehicle_type,
+      bike_accessible: row.bike_accessible,
+      wheelchair_accessible: row.wheelchair_accessible,
+      speed: row.speed,
+      route_id: row.route_id,
+      trip_id: row.trip_id,
+    })) as Vehicle[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.VEHICLES}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.VEHICLES}: ${response.status}`);
+  }
+
+  const vehicles = await response.json() as Vehicle[];
+  for (const vehicle of vehicles) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO vehicles (id, label, latitude, longitude, timestamp, vehicle_type,
+                           bike_accessible, wheelchair_accessible, speed, route_id, trip_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [vehicle.id, vehicle.label, vehicle.latitude ?? null, vehicle.longitude ?? null, vehicle.timestamp, vehicle.vehicle_type, vehicle.bike_accessible ?? null, vehicle.wheelchair_accessible ?? null, vehicle.speed ?? null, vehicle.route_id ?? null, vehicle.trip_id ?? null],
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [TRANZY_CACHING_IDS.VEHICLES, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.VEHICLES]],
+  })
+
+  return vehicles;
+}
+
+export async function getRoutes() {
+  const db = await getDb();
+  if (!IS_INITIALIZED.ROUTES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS routes
+        (
+            route_id         INTEGER PRIMARY KEY,
+            agency_id        INTEGER NOT NULL,
+            route_short_name TEXT    NOT NULL,
+            route_long_name  TEXT    NOT NULL,
+            route_type       INTEGER NOT NULL,
+            route_desc       TEXT    NOT NULL,
+            route_color      TEXT    NOT NULL
+        )
+    `)
+    IS_INITIALIZED.ROUTES = true;
+  }
+
+  const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.ROUTES);
+  if (!isCacheInvalid) {
+    const results = await db.execute(
+      `SELECT *
+       FROM routes`
+    );
+    return results.rows.map(row => ({
+      route_id: row.route_id,
+      agency_id: row.agency_id,
+      route_short_name: row.route_short_name,
+      route_long_name: row.route_long_name,
+      route_type: row.route_type,
+      route_desc: row.route_desc,
+      route_color: row.route_color,
+    })) as Route[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.ROUTES}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.ROUTES}: ${response.status}`);
+  }
+
+  const routes = await response.json() as Route[];
+  for (const route of routes) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO routes (route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [route.route_id, route.agency_id, route.route_short_name, route.route_long_name, route.route_type, route.route_desc, route.route_color],
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [TRANZY_CACHING_IDS.ROUTES, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.ROUTES]],
+  })
+
+  return routes;
+}
+
+export async function getTrips() {
+  const db = await getDb();
+  if (!IS_INITIALIZED.TRIPS) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS trips
+        (
+            trip_id               TEXT PRIMARY KEY,
+            route_id              INTEGER NOT NULL,
+            direction_id          INTEGER NOT NULL,
+            trip_headsign         TEXT    NOT NULL,
+            block_id              INTEGER NOT NULL,
+            shape_id              INTEGER NOT NULL,
+            wheelchair_accessible INTEGER,
+            bikes_allowed         INTEGER
+        )
+    `)
+    IS_INITIALIZED.TRIPS = true;
+  }
+
+  const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.TRIPS);
+  if (!isCacheInvalid) {
+    const results = await db.execute(
+      `SELECT *
+       FROM trips`
+    );
+    return results.rows.map(row => ({
+      trip_id: row.trip_id,
+      route_id: row.route_id,
+      direction_id: row.direction_id,
+      trip_headsign: row.trip_headsign,
+      block_id: row.block_id,
+      shape_id: row.shape_id,
+      wheelchair_accessible: row.wheelchair_accessible,
+      bikes_allowed: row.bikes_allowed,
+    })) as Trip[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.TRIPS}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.TRIPS}: ${response.status}`);
+  }
+
+  const trips = await response.json() as Trip[];
+  for (const trip of trips) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO trips (trip_id, route_id, direction_id, trip_headsign, block_id, shape_id,
+                        wheelchair_accessible, bikes_allowed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [trip.trip_id, trip.route_id, trip.direction_id, trip.trip_headsign, trip.block_id, trip.shape_id, trip.wheelchair_accessible ?? null, trip.bikes_allowed ?? null]
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [TRANZY_CACHING_IDS.TRIPS, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.TRIPS]],
+  })
+
+  return trips;
+}
+
+export async function getShapes(shapeId: string) {
+  const db = await getDb();
+  if (!IS_INITIALIZED.SHAPES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS shapes
+        (
+            shape_id            TEXT    NOT NULL,
+            shape_pt_lat        REAL    NOT NULL,
+            shape_pt_lon        REAL    NOT NULL,
+            shape_pt_sequence   INTEGER NOT NULL,
+            shape_dist_traveled REAL,
+            PRIMARY KEY (shape_id, shape_pt_sequence)
+        )
+    `)
+    IS_INITIALIZED.SHAPES = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.SHAPES_PREFIX}_${shapeId}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM shapes
+            WHERE shape_id = ?`,
+      args: [shapeId],
+    });
+    return results.rows.map(row => ({
+      shape_id: row.shape_id,
+      shape_pt_lat: row.shape_pt_lat,
+      shape_pt_lon: row.shape_pt_lon,
+      shape_pt_sequence: row.shape_pt_sequence,
+      shape_dist_traveled: row.shape_dist_traveled,
+    })) as Shape[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.SHAPES}?shape_id=${shapeId}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.SHAPES} for shape_id ${shapeId}: ${response.status}`);
+  }
+
+  const shapes = await response.json() as Shape[];
+  for (const shape of shapes) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO shapes (shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence, shape_dist_traveled)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [shape.shape_id, shape.shape_pt_lat, shape.shape_pt_lon, shape.shape_pt_sequence, shape.shape_dist_traveled ?? null],
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.SHAPES_PREFIX]],
+  })
+
+  return shapes;
+}
+
+export async function getStops() {
+  const db = await getDb();
+  if (!IS_INITIALIZED.STOPS) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS stops
+        (
+            stop_id       INTEGER PRIMARY KEY,
+            stop_name     TEXT NOT NULL,
+            stop_desc     TEXT,
+            stop_lat      REAL NOT NULL,
+            stop_lon      REAL NOT NULL,
+            location_type INTEGER,
+            stop_code     TEXT
+        )
+    `)
+    IS_INITIALIZED.STOPS = true;
+  }
+
+  const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.STOPS);
+  if (!isCacheInvalid) {
+    const results = await db.execute(
+      `SELECT *
+       FROM stops`
+    );
+    return results.rows.map(row => ({
+      stop_id: row.stop_id,
+      stop_name: row.stop_name,
+      stop_desc: row.stop_desc,
+      stop_lat: row.stop_lat,
+      stop_lon: row.stop_lon,
+      location_type: row.location_type,
+      stop_code: row.stop_code,
+    })) as Stop[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.STOPS}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.STOPS}: ${response.status}`);
+  }
+
+  const stops = await response.json() as Stop[];
+  for (const stop of stops) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO stops (stop_id, stop_name, stop_desc, stop_lat, stop_lon, location_type, stop_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [stop.stop_id, stop.stop_name, stop.stop_desc ?? null, stop.stop_lat, stop.stop_lon, stop.location_type ?? null, stop.stop_code ?? null],
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [TRANZY_CACHING_IDS.STOPS, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.STOPS]],
+  })
+
+  return stops;
+}
+
+export async function getStopTimes() {
+  const db = await getDb();
+  if (!IS_INITIALIZED.STOP_TIMES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS stop_times
+        (
+            trip_id             TEXT    NOT NULL,
+            arrival_time        TEXT,
+            departure_time      TEXT,
+            stop_id             INTEGER NOT NULL,
+            stop_sequence       INTEGER NOT NULL,
+            stop_headsign       TEXT,
+            pickup_type         INTEGER,
+            drop_off_type       INTEGER,
+            shape_dist_traveled REAL,
+            timepoint           INTEGER,
+            PRIMARY KEY (trip_id, stop_sequence)
+        )
+    `)
+    IS_INITIALIZED.STOP_TIMES = true;
+  }
+
+  const isCacheInvalid = await shouldInvalidateCache(TRANZY_CACHING_IDS.STOP_TIMES);
+  if (!isCacheInvalid) {
+    const results = await db.execute(
+      `SELECT *
+       FROM stop_times`
+    );
+    return results.rows.map(row => ({
+      trip_id: row.trip_id,
+      arrival_time: row.arrival_time,
+      departure_time: row.departure_time,
+      stop_id: row.stop_id,
+      stop_sequence: row.stop_sequence,
+      stop_headsign: row.stop_headsign,
+      pickup_type: row.pickup_type,
+      drop_off_type: row.drop_off_type,
+      shape_dist_traveled: row.shape_dist_traveled,
+      timepoint: row.timepoint,
+    })) as StopTime[];
+  }
+
+  const response = await fetch(`${TRANZY_BASE_URL!}/${TRANZY_ROUTES_IDS.STOP_TIMES}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-KEY': API_KEY!,
+      'X-Agency-Id': CLUJ_AGENCY_ID!,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${TRANZY_ROUTES_IDS.STOP_TIMES}: ${response.status}`);
+  }
+
+  const stopTimes = await response.json() as StopTime[];
+  for (const st of stopTimes) {
+    await db.execute({
+      sql: `INSERT OR
+            REPLACE
+            INTO stop_times (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
+                             stop_headsign, pickup_type, drop_off_type, shape_dist_traveled, timepoint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [st.trip_id, st.arrival_time ?? null, st.departure_time ?? null, st.stop_id, st.stop_sequence, st.stop_headsign ?? null, st.pickup_type ?? null, st.drop_off_type ?? null, st.shape_dist_traveled ?? null, st.timepoint ?? null],
+    });
+  }
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [TRANZY_CACHING_IDS.STOP_TIMES, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.STOP_TIMES]],
+  })
+
+  return stopTimes;
+}
+
+async function fetchSchedule(routeShortName: string, suffix: string): Promise<{
+  route_long_name: string;
+  schedule: Schedule
+} | null> {
+  try {
+    const res = await fetch(`${CTP_CSV_BASE!}/orar_${routeShortName}_${suffix}.csv`);
+    if (!res.ok) return null;
+
+    const csv = await res.text();
+    return await parseCsv(csv);
+  } catch {
+    return null;
+  }
+}
+
+export async function getTimetable(routeShortName: string) {
+  const db = await getDb();
+  if (!IS_INITIALIZED.TIMETABLE) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS timetable
+        (
+            route_short_name PRIMARY KEY,
+            route_long_name TEXT,
+            weekdays        TEXT,
+            saturday        TEXT,
+            sunday          TEXT
+        )
+    `)
+    IS_INITIALIZED.SHAPES = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.TIMETABLE_PREFIX}_${routeShortName}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM timetable
+            WHERE route_short_name = ?`,
+      args: [routeShortName],
+    });
+    return (results.rows.map(row => ({
+      route_short_name: row.route_short_name,
+      route_long_name: row.route_long_name,
+      weekdays: JSON.parse(row.weekdays as string),
+      saturday: JSON.parse(row.saturday as string),
+      sunday: JSON.parse(row.sunday as string),
+    })) as Timetable[])[0];
+  }
+
+  const [weekdays, saturday, sunday] = await Promise.all([
+    fetchSchedule(routeShortName, 'lv'),
+    fetchSchedule(routeShortName, 's'),
+    fetchSchedule(routeShortName, 'd'),
+  ]);
+
+  const routeLongName = (weekdays ?? saturday ?? sunday ?? {})!.route_long_name || null;
+  const response = {
+    route_short_name: routeShortName,
+    route_long_name: routeLongName,
+    weekdays: weekdays?.schedule ?? null,
+    saturday: saturday?.schedule ?? null,
+    sunday: sunday?.schedule ?? null,
+  } as Timetable;
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO timetable (route_short_name, route_long_name, weekdays, saturday, sunday)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [response.route_short_name, response.route_long_name ?? null, JSON.stringify(response.weekdays ?? null), JSON.stringify(response.saturday ?? null), JSON.stringify(response.sunday ?? null)],
+  });
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE
+          INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY[TRANZY_CACHING_IDS.TIMETABLE_PREFIX]],
+  })
+  return response;
+}
+
+export interface RouteStopInfo {
+  stop_name: string;
+  stop_id: number;
+  stop_sequence: number;
+  stop_lat: number;
+  stop_lon: number;
+}
+
+export interface RouteStops {
+  outbound: RouteStopInfo[];
+  inbound: RouteStopInfo[];
+}
+
+export async function getStopsForRoute(routeShortName: string): Promise<RouteStops> {
+  const db = await getDb();
+  if (!IS_INITIALIZED.ROUTE_STOPS) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS route_stops
+        (
+            route_short_name TEXT PRIMARY KEY,
+            outbound         TEXT NOT NULL,
+            inbound          TEXT NOT NULL
+        )
+    `);
+    IS_INITIALIZED.ROUTE_STOPS = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.ROUTE_STOPS_PREFIX}_${routeShortName}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM route_stops
+            WHERE route_short_name = ?`,
+      args: [routeShortName],
+    });
+    if (results.rows.length > 0) {
+      const row = results.rows[0];
+      return {
+        outbound: JSON.parse(row.outbound as string),
+        inbound: JSON.parse(row.inbound as string),
+      } as RouteStops;
+    }
+  }
+
+  const [routes, trips, stopTimes, stops] = await Promise.all([
+    getRoutes(),
+    getTrips(),
+    getStopTimes(),
+    getStops(),
+  ]);
+
+  const route = routes.find((r) => r.route_short_name === routeShortName);
+  if (!route) return {outbound: [], inbound: []};
+
+  const routeTrips = trips.filter((t) => t.route_id === route.route_id);
+  const stopMap = new Map(stops.map((s) => [s.stop_id, s]));
+
+  function getOrderedStops(directionTrips: Trip[]): RouteStopInfo[] {
+    if (directionTrips.length === 0) return [];
+
+    // Pick the trip with the most stops (most representative)
+    let bestTrip = directionTrips[0];
+    let bestCount = 0;
+    for (const trip of directionTrips) {
+      const count = stopTimes.filter((st) => st.trip_id === trip.trip_id).length;
+      if (count > bestCount) {
+        bestCount = count;
+        bestTrip = trip;
+      }
+    }
+
+    const tripStopTimes = stopTimes
+      .filter((st) => st.trip_id === bestTrip.trip_id)
+      .sort((a, b) => a.stop_sequence - b.stop_sequence);
+
+    return tripStopTimes
+      .map((st) => {
+        const stop = stopMap.get(st.stop_id);
+        return stop ? {
+          stop_name: stop.stop_name,
+          stop_id: stop.stop_id,
+          stop_sequence: st.stop_sequence,
+          stop_lat: stop.stop_lat,
+          stop_lon: stop.stop_lon
+        } : null;
+      })
+      .filter((s): s is RouteStopInfo => s !== null);
+  }
+
+  const outboundTrips = routeTrips.filter((t) => t.direction_id === 0);
+  const inboundTrips = routeTrips.filter((t) => t.direction_id === 1);
+
+  const result: RouteStops = {
+    outbound: getOrderedStops(outboundTrips),
+    inbound: getOrderedStops(inboundTrips),
+  };
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO route_stops (route_short_name, outbound, inbound)
+          VALUES (?, ?, ?)`,
+    args: [routeShortName, JSON.stringify(result.outbound), JSON.stringify(result.inbound)],
+  });
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY.COMPUTED_CACHE_TTL],
+  });
+
+  return result;
+}
+
+export interface RouteShapes {
+  outbound: Shape[];
+  inbound: Shape[];
+}
+
+export async function getShapesForRoute(routeShortName: string): Promise<RouteShapes> {
+  const db = await getDb();
+  if (!IS_INITIALIZED.ROUTE_SHAPES) {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS route_shapes
+        (
+            route_short_name TEXT PRIMARY KEY,
+            outbound         TEXT NOT NULL,
+            inbound          TEXT NOT NULL
+        )
+    `);
+    IS_INITIALIZED.ROUTE_SHAPES = true;
+  }
+
+  const cacheId = `${TRANZY_CACHING_IDS.ROUTE_SHAPES_PREFIX}_${routeShortName}`;
+  const isCacheInvalid = await shouldInvalidateCache(cacheId);
+  if (!isCacheInvalid) {
+    const results = await db.execute({
+      sql: `SELECT *
+            FROM route_shapes
+            WHERE route_short_name = ?`,
+      args: [routeShortName],
+    });
+    if (results.rows.length > 0) {
+      const row = results.rows[0];
+      return {
+        outbound: JSON.parse(row.outbound as string),
+        inbound: JSON.parse(row.inbound as string),
+      } as RouteShapes;
+    }
+  }
+
+  const [routes, trips] = await Promise.all([
+    getRoutes(),
+    getTrips(),
+  ]);
+
+  const route = routes.find((r) => r.route_short_name === routeShortName);
+  if (!route) return {outbound: [], inbound: []};
+
+  const routeTrips = trips.filter((t) => t.route_id === route.route_id);
+  const outboundTrips = routeTrips.filter((t) => t.direction_id === 0);
+  const inboundTrips = routeTrips.filter((t) => t.direction_id === 1);
+
+  const outboundShapeId = outboundTrips[0]?.shape_id;
+  const inboundShapeId = inboundTrips[0]?.shape_id;
+
+  const [outbound, inbound] = await Promise.all([
+    outboundShapeId != null ? getShapes(outboundShapeId.toString()) : Promise.resolve([]),
+    inboundShapeId != null ? getShapes(inboundShapeId.toString()) : Promise.resolve([]),
+  ]);
+
+  const result: RouteShapes = {
+    outbound: outbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
+    inbound: inbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
+  };
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO route_shapes (route_short_name, outbound, inbound)
+          VALUES (?, ?, ?)`,
+    args: [routeShortName, JSON.stringify(result.outbound), JSON.stringify(result.inbound)],
+  });
+
+  await db.execute({
+    sql: `INSERT OR
+          REPLACE INTO cache_times (id, timestamp, lifespan)
+          VALUES (?, ?, ?)`,
+    args: [cacheId, Date.now(), CACHE_VALIDITY.COMPUTED_CACHE_TTL],
+  });
+
+  return result;
+}
+
+export async function getRoutesForStop(stopName: string): Promise<Route[]> {
+  const [stops, stopTimes, trips, routes] = await Promise.all([
+    getStops(),
+    getStopTimes(),
+    getTrips(),
+    getRoutes(),
+  ]);
+
+  // A stop name can have multiple stop_ids (one per direction)
+  const stopIds = new Set(
+    stops.filter((s) => s.stop_name === stopName).map((s) => s.stop_id)
+  );
+
+  // Find all trip_ids that visit any of these stop_ids
+  const tripIds = new Set(
+    stopTimes.filter((st) => stopIds.has(st.stop_id)).map((st) => st.trip_id)
+  );
+
+  // Map trip_ids → route_ids
+  const routeIds = new Set(
+    trips.filter((t) => tripIds.has(t.trip_id)).map((t) => t.route_id)
+  );
+
+  // Return deduplicated routes
+  return routes.filter((r) => routeIds.has(r.route_id));
+}

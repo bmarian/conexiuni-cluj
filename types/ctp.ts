@@ -13,8 +13,8 @@ export interface Schedule {
 
 export interface Timetable {
   route_short_name: string;
-  route_long_name: string;
-  weekday: Schedule;
-  saturday: Schedule;
-  sunday: Schedule;
+  route_long_name?: string;
+  weekdays: Schedule | null;
+  saturday: Schedule | null;
+  sunday: Schedule | null;
 }
