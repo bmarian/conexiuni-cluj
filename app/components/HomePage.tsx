@@ -1,7 +1,8 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import type {Stop} from "@/types/tranzy";
 import {RouteType} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
@@ -34,7 +35,15 @@ function formatDistance(meters: number): string {
 
 interface NearbyStop {
   stop_name: string;
+  stop_lat: number;
+  stop_lon: number;
   distance: number;
+}
+
+interface NearbyData {
+  stops: NearbyStop[];
+  userLat: number;
+  userLon: number;
 }
 
 function SectionTitle({children}: { children: React.ReactNode }) {
@@ -45,8 +54,108 @@ function SectionTitle({children}: { children: React.ReactNode }) {
   );
 }
 
+function NearbyStopsMapInner({nearbyData}: { nearbyData: NearbyData }) {
+  const mapRef = useRef<L.Map | null>(null);
+  const [L, setL] = useState<typeof import("leaflet") | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    import("leaflet").then((leaflet) => {
+      setL(leaflet.default ? leaflet.default : leaflet);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (document.querySelector('link[href*="leaflet.css"]')) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+  }, []);
+
+  useEffect(() => {
+    if (!L || !mapContainerRef.current) return;
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current, {
+        zoomControl: true,
+        attributionControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+        maxZoom: 19,
+      }).addTo(mapRef.current);
+    }
+
+    const map = mapRef.current;
+
+    // Clear existing layers (except tile layer)
+    map.eachLayer((layer) => {
+      if (!(layer instanceof L.TileLayer)) {
+        map.removeLayer(layer);
+      }
+    });
+
+    // User location marker — pulsing blue dot
+    const userIcon = L.divIcon({
+      className: "",
+      html: `<div style="
+        width: 16px; height: 16px;
+        background: #3b82f6;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.3), 0 2px 4px rgba(0,0,0,0.3);
+      "></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    L.marker([nearbyData.userLat, nearbyData.userLon], {icon: userIcon})
+      .bindTooltip("Tu ești aici", {direction: "top", offset: [0, -10]})
+      .addTo(map);
+
+    // Stop markers
+    const bounds = L.latLngBounds([[nearbyData.userLat, nearbyData.userLon]]);
+
+    nearbyData.stops.forEach((stop) => {
+      const circle = L.circleMarker([stop.stop_lat, stop.stop_lon], {
+        radius: 6,
+        color: "#7c3aed",
+        fillColor: "#7c3aed",
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(map);
+
+      circle.bindTooltip(stop.stop_name, {direction: "top", offset: [0, -8]});
+      bounds.extend([stop.stop_lat, stop.stop_lon]);
+    });
+
+    map.fitBounds(bounds, {padding: [40, 40]});
+  }, [L, nearbyData]);
+
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div ref={mapContainerRef} style={{height: "250px", width: "100%"}} />
+    </div>
+  );
+}
+
+const NearbyStopsMap = dynamic(() => Promise.resolve(NearbyStopsMapInner), {
+  ssr: false,
+});
+
 function NearbyStationsSection({stops}: { stops: Stop[] }) {
-  const [nearby, setNearby] = useState<NearbyStop[] | null>(null);
+  const [nearbyData, setNearbyData] = useState<NearbyData | null>(null);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -55,22 +164,22 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
       (pos) => {
         const {latitude, longitude} = pos.coords;
 
-        // Calculate distances and deduplicate by name (keep closest)
-        const byName = new Map<string, number>();
+        // Calculate distances and deduplicate by name (keep closest with coords)
+        const byName = new Map<string, { distance: number; stop_lat: number; stop_lon: number }>();
         for (const stop of stops) {
           const dist = haversineDistance(latitude, longitude, stop.stop_lat, stop.stop_lon);
           const existing = byName.get(stop.stop_name);
-          if (existing === undefined || dist < existing) {
-            byName.set(stop.stop_name, dist);
+          if (existing === undefined || dist < existing.distance) {
+            byName.set(stop.stop_name, {distance: dist, stop_lat: stop.stop_lat, stop_lon: stop.stop_lon});
           }
         }
 
         const sorted = Array.from(byName.entries())
-          .map(([stop_name, distance]) => ({stop_name, distance}))
+          .map(([stop_name, data]) => ({stop_name, ...data}))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 5);
 
-        setNearby(sorted);
+        setNearbyData({stops: sorted, userLat: latitude, userLon: longitude});
       },
       () => {
         // Permission denied or error — don't show section
@@ -79,13 +188,13 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
     );
   }, [stops]);
 
-  if (!nearby || nearby.length === 0) return null;
+  if (!nearbyData || nearbyData.stops.length === 0) return null;
 
   return (
     <section className="animate-fade-slide-up">
       <SectionTitle>📍 Stații aproape de tine</SectionTitle>
-      <div className="flex flex-col gap-2">
-        {nearby.map((stop, i) => (
+      <div className="mt-3 mb-5 flex flex-col gap-2">
+        {nearbyData.stops.map((stop, i) => (
           <Link
             key={stop.stop_name}
             href={`/statii/${encodeURIComponent(stop.stop_name)}`}
@@ -99,6 +208,7 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
           </Link>
         ))}
       </div>
+      <NearbyStopsMap nearbyData={nearbyData} />
     </section>
   );
 }
@@ -208,6 +318,7 @@ export default function HomePage({stops}: { stops: Stop[] }) {
   useEffect(() => {
     const lines = getRecentLines();
     const recentStops = getRecentStops();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContentState(lines.length > 0 || recentStops.length > 0 ? "has-content" : "empty");
   }, []);
 
