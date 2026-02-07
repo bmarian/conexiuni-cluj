@@ -61,12 +61,15 @@ export default function StopArrivals({stopName}: {stopName: string}) {
     );
   }
 
-  // Group vehicles by direction within each route
-  const groupedArrivals = data.arrivals.map((route) => {
-    const outbound = route.vehicles.filter((v) => v.direction === "outbound");
-    const inbound = route.vehicles.filter((v) => v.direction === "inbound");
-    return {...route, outbound, inbound};
-  });
+  // Group vehicles by direction within each route, sort by soonest arrival
+  const groupedArrivals = data.arrivals
+    .map((route) => {
+      const outbound = route.vehicles.filter((v) => v.direction === "outbound");
+      const inbound = route.vehicles.filter((v) => v.direction === "inbound");
+      const soonest = Math.min(...route.vehicles.map((v) => v.eta_minutes));
+      return {...route, outbound, inbound, soonest};
+    })
+    .sort((a, b) => a.soonest - b.soonest);
 
   return (
     <div className="animate-fade-slide-up mt-6">

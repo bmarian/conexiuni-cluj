@@ -46,13 +46,24 @@ export default async function StopDetailPage({params}: {
 
       <StopArrivals stopName={decodedName} />
 
-      {sorted.length > 0 ? (
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {sorted.map((route, i) => (
-            <RouteCard key={route.route_id} route={route} index={i} />
-          ))}
-        </div>
-      ) : (
+      {sorted.length > 0 && (
+        <>
+          <hr className="mt-8 border-zinc-200 dark:border-zinc-800" />
+
+          <div className="mt-6">
+            <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">
+              Toate liniile
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {sorted.map((route, i) => (
+                <RouteCard key={route.route_id} route={route} index={i} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {sorted.length === 0 && (
         <div className="mt-12 text-center text-zinc-400 dark:text-zinc-500">
           <p className="text-lg">Nicio linie găsită pentru această stație</p>
         </div>
