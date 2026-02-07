@@ -23,7 +23,7 @@ export default function RouteCard({route, index = 0, fromStop}: { route: Route; 
       style={{animationDelay: `${Math.min(index * 30, 300)}ms`}}
     >
       <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white"
+        className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold text-white"
         style={{backgroundColor: color}}
       >
         {route.route_short_name}

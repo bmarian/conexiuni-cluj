@@ -34,20 +34,20 @@ export default async function RouteTimetablePage({params, searchParams}: {
         {backLabel}
       </Link>
 
-      <div className="mt-4 flex items-center gap-4">
+      <div className="mt-4 flex items-center gap-3">
         <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-xl font-bold text-white"
+          className="flex h-12 min-w-12 shrink-0 items-center justify-center rounded-lg px-2 text-base font-bold text-white"
           style={{backgroundColor: color}}
         >
           {decoded}
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="animate-fade-slide-up text-2xl font-bold text-zinc-900 dark:text-white">
             Linia {decoded}
           </h1>
           {timetable.route_long_name && (
             <p
-              className="animate-fade-slide-up mt-0.5 text-zinc-500 dark:text-zinc-400"
+              className="animate-fade-slide-up mt-0.5 truncate text-sm text-zinc-500 dark:text-zinc-400"
               style={{animationDelay: "0.1s"}}
             >
               {timetable.route_long_name}
@@ -56,7 +56,7 @@ export default async function RouteTimetablePage({params, searchParams}: {
         </div>
       </div>
 
-      <TimetableDisplay timetable={timetable} />
+      <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
     </div>
   );
 }

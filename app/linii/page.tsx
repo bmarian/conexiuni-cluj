@@ -1,5 +1,5 @@
 import {getRoutes} from "@/lib/cluj-api";
-import RouteCard from "@/app/components/RouteCard";
+import RoutesGrid from "@/app/components/RoutesGrid";
 
 function sortRoutes(a: string, b: string) {
   const numA = parseInt(a);
@@ -26,11 +26,7 @@ export default async function LiniiPage() {
         {routes.length} linii de transport public
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {routes.map((route, i) => (
-          <RouteCard key={route.route_id} route={route} index={i} />
-        ))}
-      </div>
+      <RoutesGrid routes={routes} />
     </div>
   );
 }
