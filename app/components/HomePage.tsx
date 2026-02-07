@@ -88,7 +88,7 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
         {nearby.map((stop, i) => (
           <Link
             key={stop.stop_name}
-            href={`/statii/${encodeURIComponent(stop.stop_name)}?from=home`}
+            href={`/statii/${encodeURIComponent(stop.stop_name)}`}
             className="animate-row flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-4 py-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
             style={{animationDelay: `${i * 50}ms`}}
           >
@@ -115,15 +115,15 @@ function RecentLinesSection() {
   return (
     <section className="animate-fade-slide-up" style={{animationDelay: "0.1s"}}>
       <SectionTitle>🚌 Linii vizualizate recent</SectionTitle>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {lines.map((line, i) => {
           const color = line.route_color || "#7c3aed";
           return (
             <Link
               key={line.route_short_name}
-              href={`/linii/${encodeURIComponent(line.route_short_name)}?from=home`}
-              className="animate-row flex shrink-0 items-start gap-3 rounded-lg border border-zinc-100 bg-white p-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
-              style={{animationDelay: `${i * 50}ms`, minWidth: "180px"}}
+              href={`/linii/${encodeURIComponent(line.route_short_name)}`}
+              className="animate-row flex items-start gap-3 rounded-lg border border-zinc-100 bg-white p-3 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
+              style={{animationDelay: `${i * 50}ms`}}
             >
               <div
                 className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold text-white"
@@ -159,12 +159,12 @@ function RecentStopsSection() {
   return (
     <section className="animate-fade-slide-up" style={{animationDelay: "0.2s"}}>
       <SectionTitle>🏁 Stații vizualizate recent</SectionTitle>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex flex-wrap gap-2">
         {stops.map((stop, i) => (
           <Link
             key={stop.stop_name}
-            href={`/statii/${encodeURIComponent(stop.stop_name)}?from=home`}
-            className="animate-row shrink-0 rounded-lg border border-zinc-100 bg-white px-4 py-3 text-sm font-medium text-zinc-900 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white dark:hover:border-zinc-600"
+            href={`/statii/${encodeURIComponent(stop.stop_name)}`}
+            className="animate-row rounded-lg border border-zinc-100 bg-white px-3 py-2 text-sm font-medium text-zinc-900 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white dark:hover:border-zinc-600"
             style={{animationDelay: `${i * 50}ms`}}
           >
             {stop.stop_name}

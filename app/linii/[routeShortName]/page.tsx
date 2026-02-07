@@ -2,14 +2,12 @@ import {getRoutes, getStopsForRoute, getTimetable} from "@/lib/cluj-api";
 import TimetableDisplay from "@/app/components/TimetableDisplay";
 import LinearRouteMap from "@/app/components/LinearRouteMap";
 import {RecentLineTracker} from "@/app/components/RecentTracker";
-import Link from "next/link";
+import BackButton from "@/app/components/BackButton";
 
-export default async function RouteTimetablePage({params, searchParams}: {
+export default async function RouteTimetablePage({params}: {
   params: Promise<{ routeShortName: string }>;
-  searchParams: Promise<{ from?: string }>;
 }) {
   const {routeShortName} = await params;
-  const {from} = await searchParams;
   const decoded = decodeURIComponent(routeShortName);
 
   const [timetable, routes, routeStops] = await Promise.all([
@@ -21,25 +19,9 @@ export default async function RouteTimetablePage({params, searchParams}: {
   const route = routes.find((r) => r.route_short_name === decoded);
   const color = route?.route_color || "#7c3aed";
 
-  const backHref = from === "home"
-    ? "/"
-    : from
-      ? `/statii/${encodeURIComponent(from)}`
-      : "/linii";
-  const backLabel = from === "home"
-    ? "← Acasă"
-    : from
-      ? `← Stația ${from}`
-      : "← Toate liniile";
-
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
-      <Link
-        href={backHref}
-        className="inline-flex items-center gap-1 text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-      >
-        {backLabel}
-      </Link>
+      <BackButton fallbackHref="/linii" fallbackLabel="← Înapoi" />
 
       <div className="mt-4 flex items-center gap-3">
         <div
@@ -72,7 +54,7 @@ export default async function RouteTimetablePage({params, searchParams}: {
         />
       )}
       <TimetableDisplay timetable={timetable} routeType={route?.route_type} />
-      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} />
+      <LinearRouteMap outbound={routeStops.outbound} inbound={routeStops.inbound} color={color} routeShortName={decoded} />
     </div>
   );
 }

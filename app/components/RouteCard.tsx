@@ -10,11 +10,9 @@ function routeTypeLabel(type: RouteType): string {
   }
 }
 
-export default function RouteCard({route, index = 0, fromStop}: { route: Route; index?: number; fromStop?: string }) {
+export default function RouteCard({route, index = 0}: { route: Route; index?: number }) {
   const color = route.route_color || "#7c3aed";
-  const href = fromStop
-    ? `/linii/${encodeURIComponent(route.route_short_name)}?from=${encodeURIComponent(fromStop)}`
-    : `/linii/${encodeURIComponent(route.route_short_name)}`;
+  const href = `/linii/${encodeURIComponent(route.route_short_name)}`;
 
   return (
     <Link

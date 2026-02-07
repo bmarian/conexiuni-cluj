@@ -2,7 +2,6 @@ import type {RouteStopInfo} from "@/lib/cluj-api";
 import Link from "next/link";
 
 function StopLine({stops, color, label}: { stops: RouteStopInfo[]; color: string; label: string }) {
-  // Ensure dark colors get a readable accent — use the color for dots/line but always readable text
   return (
     <div>
       <p className="mb-2 px-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
@@ -16,13 +15,11 @@ function StopLine({stops, color, label}: { stops: RouteStopInfo[]; color: string
             <div key={`${stop.stop_id}-${i}`} className="flex items-stretch">
               {/* Left column: line + dot */}
               <div className="relative flex w-8 shrink-0 flex-col items-center">
-                {/* Top segment of line */}
                 {!isFirst && (
                   <div className="w-0.5 grow" style={{backgroundColor: color}} />
                 )}
                 {isFirst && <div className="grow" />}
 
-                {/* Stop dot */}
                 <div
                   className={`relative z-10 shrink-0 rounded-full border-2 ${
                     isTerminal ? "h-3.5 w-3.5" : "h-2.5 w-2.5"
@@ -33,7 +30,6 @@ function StopLine({stops, color, label}: { stops: RouteStopInfo[]; color: string
                   }}
                 />
 
-                {/* Bottom segment of line */}
                 {!isLast && (
                   <div className="w-0.5 grow" style={{backgroundColor: color}} />
                 )}
@@ -63,13 +59,13 @@ export default function LinearRouteMap({outbound, inbound, color}: {
   outbound: RouteStopInfo[];
   inbound: RouteStopInfo[];
   color: string;
+  routeShortName?: string;
 }) {
   if (outbound.length === 0 && inbound.length === 0) return null;
 
   const firstDir = outbound.length > 0 ? outbound : null;
   const secondDir = inbound.length > 0 ? inbound : null;
 
-  // Build labels from terminal stops
   const outLabel = firstDir
     ? `${firstDir[0].stop_name} → ${firstDir[firstDir.length - 1].stop_name}`
     : "";
