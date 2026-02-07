@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
     const tripMap = new Map(trips.map((t) => [t.trip_id, t]));
 
     const filtered: VehicleWithDirection[] = vehicles
-      .filter((v) => v.route_id === rid)
+      .filter((v) => v.route_id === rid && v.trip_id && tripMap.has(v.trip_id))
       .map((v) => {
-        const trip = v.trip_id ? tripMap.get(v.trip_id) : undefined;
-        return {...v, direction_id: trip?.direction_id};
+        const trip = tripMap.get(v.trip_id!)!;
+        return {...v, direction_id: trip.direction_id};
       });
 
     return NextResponse.json({vehicles: filtered});
