@@ -2,10 +2,10 @@
 
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import type {Stop} from "@/types/tranzy";
 import {RouteType} from "@/types/tranzy";
 import {getRecentLines, getRecentStops, RecentLine, RecentStop} from "@/lib/recent-history";
+import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 
 function routeTypeLabel(type: RouteType): string {
   switch (type) {
@@ -54,25 +54,37 @@ function SectionTitle({children}: { children: React.ReactNode }) {
   );
 }
 
-function NearbyStopsMapInner({nearbyData, hoveredStop}: { nearbyData: NearbyData; hoveredStop: string | null }) {
+function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hoveredStop: string | null }) {
   const mapRef = useRef<L.Map | null>(null);
-  const [L, setL] = useState<typeof import("leaflet") | null>(null);
+  const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
+  const [isVisible, setIsVisible] = useState(false);
 
+  // Observe visibility
   useEffect(() => {
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default ? leaflet.default : leaflet);
-    });
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      {rootMargin: "100px"},
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
+  // Get Leaflet from singleton when visible (instant if already loaded)
   useEffect(() => {
-    if (document.querySelector('link[href*="leaflet.css"]')) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
-  }, []);
+    if (!isVisible || L) return;
+    loadLeaflet().then(setL);
+  }, [isVisible, L]);
 
   useEffect(() => {
     if (!L || !mapContainerRef.current) return;
@@ -160,15 +172,11 @@ function NearbyStopsMapInner({nearbyData, hoveredStop}: { nearbyData: NearbyData
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
-      <div ref={mapContainerRef} style={{height: "100%", width: "100%"}} />
+    <div ref={sentinelRef} className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" style={{minHeight: "250px"}}>
+      <div ref={mapContainerRef} style={{height: "100%", minHeight: "250px", width: "100%"}} />
     </div>
   );
 }
-
-const NearbyStopsMap = dynamic(() => Promise.resolve(NearbyStopsMapInner), {
-  ssr: false,
-});
 
 function NearbyStationsSection({stops}: { stops: Stop[] }) {
   const [nearbyData, setNearbyData] = useState<NearbyData | null>(null);

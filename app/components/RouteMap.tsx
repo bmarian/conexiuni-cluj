@@ -3,9 +3,7 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import type {Shape} from "@/types/tranzy";
 import type {RouteStopInfo} from "@/lib/cluj-api";
-
-// Dynamically import Leaflet to avoid SSR issues
-import dynamic from "next/dynamic";
+import {getLeaflet, loadLeaflet} from "@/lib/leaflet-loader";
 
 interface RouteMapInnerProps {
   outboundShape: Shape[];
@@ -18,8 +16,10 @@ interface RouteMapInnerProps {
 function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops, color}: RouteMapInnerProps) {
   const mapRef = useRef<L.Map | null>(null);
   const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
-  const [L, setL] = useState<typeof import("leaflet") | null>(null);
+  const [L, setL] = useState<typeof import("leaflet") | null>(getLeaflet);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   const activeShape = direction === "outbound" ? outboundShape : inboundShape;
   const activeStops = direction === "outbound" ? outboundStops : inboundStops;
@@ -30,27 +30,34 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
     [activeShape],
   );
 
-  // Load Leaflet on mount
+  // Observe visibility
   useEffect(() => {
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default ? leaflet.default : leaflet);
-    });
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      {rootMargin: "200px"},
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  // Import Leaflet CSS via link tag
+  // Get Leaflet from singleton when visible (instant if already loaded)
   useEffect(() => {
-    if (document.querySelector('link[href*="leaflet.css"]')) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
-  }, []);
+    if (!isVisible || L) return;
+    loadLeaflet().then(setL);
+  }, [isVisible, L]);
 
   // Create / update map
   useEffect(() => {
     if (!L || !mapContainerRef.current || positions.length === 0) return;
 
-    // Create map if not exists
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
@@ -65,26 +72,21 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
 
     const map = mapRef.current;
 
-    // Clear existing layers (except tile layer)
     map.eachLayer((layer) => {
       if (!(layer instanceof L.TileLayer)) {
         map.removeLayer(layer);
       }
     });
 
-    // Draw route polyline
     const polyline = L.polyline(positions, {
       color: color,
       weight: 4,
       opacity: 0.85,
     }).addTo(map);
 
-    // Direction arrow at the start of the route
     if (positions.length >= 2) {
       const [startLat, startLon] = positions[0];
       const [nextLat, nextLon] = positions[Math.min(5, positions.length - 1)];
-
-      // Determine general direction: left or right based on longitude change
       const goingRight = nextLon >= startLon;
       const arrowChar = goingRight ? "→" : "←";
 
@@ -111,8 +113,6 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       L.marker([startLat, startLon], {icon: arrowIcon}).addTo(map);
     }
 
-
-    // Add stop markers
     activeStops.forEach((stop, i) => {
       const isTerminal = i === 0 || i === activeStops.length - 1;
       const radius = isTerminal ? 7 : 4;
@@ -131,13 +131,11 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       });
     });
 
-    // Fit bounds
     map.fitBounds(polyline.getBounds(), {padding: [30, 30]});
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [L, positions, activeStops, color]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (mapRef.current) {
@@ -150,7 +148,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
   if (positions.length === 0) return null;
 
   return (
-    <div className="animate-fade-slide-up mt-6">
+    <div className="animate-fade-slide-up mt-6" ref={sentinelRef}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
           Hartă traseu
@@ -188,22 +186,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
   );
 }
 
-// Dynamic import wrapper to prevent SSR
-const RouteMap = dynamic(() => Promise.resolve(RouteMapInner), {
-  ssr: false,
-  loading: () => (
-    <div className="mt-6">
-      <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">
-        Hartă traseu
-      </h2>
-      <div className="flex h-[400px] items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-        <p className="text-sm text-zinc-400">Se încarcă harta...</p>
-      </div>
-    </div>
-  ),
-});
-
 export default function RouteMapWrapper(props: RouteMapInnerProps) {
   if (props.outboundShape.length === 0 && props.inboundShape.length === 0) return null;
-  return <RouteMap {...props} />;
+  return <RouteMapInner {...props} />;
 }

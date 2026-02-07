@@ -1,6 +1,7 @@
 import type {Metadata} from "next";
 import "./globals.css";
 import Navbar from "@/app/components/Navbar";
+import LeafletPreloader from "@/app/components/LeafletPreloader";
 
 export const metadata: Metadata = {
   title: "Conexiuni Cluj",
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ro">
       <body>
         <Navbar />
+        <LeafletPreloader />
         <main>{children}</main>
       </body>
     </html>
