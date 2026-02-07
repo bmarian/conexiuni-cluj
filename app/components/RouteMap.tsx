@@ -66,7 +66,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
 
     if (positions.length >= 2) {
       const [startLat, startLon] = positions[0];
-      const [nextLat, nextLon] = positions[Math.min(5, positions.length - 1)];
+      const [, nextLon] = positions[Math.min(5, positions.length - 1)];
       const goingRight = nextLon >= startLon;
       const arrowChar = goingRight ? "→" : "←";
 
@@ -112,8 +112,6 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
     });
 
     map.fitBounds(polyline.getBounds(), {padding: [30, 30]});
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [L, positions, activeStops, color]);
 
   useEffect(() => {

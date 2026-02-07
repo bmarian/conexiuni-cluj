@@ -37,7 +37,7 @@ const CACHE_VALIDITY = {
   VEHICLES: 10000, // 10S
   ROUTES: 8.64e+7, // 24H
   TRIPS: 8.64e+7, // 24H
-  SHAPES: 10000, // 10S
+  SHAPES: 8.64e+7, // 24H
   STOPS: 8.64e+7, // 24H
   STOP_TIMES: 8.64e+7, // 24H
 
@@ -615,7 +615,31 @@ export interface RouteStops {
   inbound: RouteStopInfo[];
 }
 
+// In-memory cache for computed route data (24H TTL)
+const COMPUTED_CACHE_TTL = 8.64e+7; // 24H
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const stopsForRouteCache = new Map<string, CacheEntry<RouteStops>>();
+const shapesForRouteCache = new Map<string, CacheEntry<RouteShapes>>();
+
+function getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > COMPUTED_CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
 export async function getStopsForRoute(routeShortName: string): Promise<RouteStops> {
+  const cached = getCached(stopsForRouteCache, routeShortName);
+  if (cached) return cached;
+
   const [routes, trips, stopTimes, stops] = await Promise.all([
     getRoutes(),
     getTrips(),
@@ -658,10 +682,13 @@ export async function getStopsForRoute(routeShortName: string): Promise<RouteSto
   const outboundTrips = routeTrips.filter((t) => t.direction_id === 0);
   const inboundTrips = routeTrips.filter((t) => t.direction_id === 1);
 
-  return {
+  const result: RouteStops = {
     outbound: getOrderedStops(outboundTrips),
     inbound: getOrderedStops(inboundTrips),
   };
+
+  stopsForRouteCache.set(routeShortName, {data: result, timestamp: Date.now()});
+  return result;
 }
 
 export interface RouteShapes {
@@ -670,6 +697,9 @@ export interface RouteShapes {
 }
 
 export async function getShapesForRoute(routeShortName: string): Promise<RouteShapes> {
+  const cached = getCached(shapesForRouteCache, routeShortName);
+  if (cached) return cached;
+
   const [routes, trips] = await Promise.all([
     getRoutes(),
     getTrips(),
@@ -690,10 +720,13 @@ export async function getShapesForRoute(routeShortName: string): Promise<RouteSh
     inboundShapeId != null ? getShapes(inboundShapeId.toString()) : Promise.resolve([]),
   ]);
 
-  return {
+  const result: RouteShapes = {
     outbound: outbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
     inbound: inbound.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence),
   };
+
+  shapesForRouteCache.set(routeShortName, {data: result, timestamp: Date.now()});
+  return result;
 }
 
 export async function getRoutesForStop(stopName: string): Promise<Route[]> {
