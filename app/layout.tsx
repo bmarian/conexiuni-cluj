@@ -1,5 +1,6 @@
 import type {Metadata} from "next";
 import "./globals.css";
+import Navbar from "@/app/components/Navbar";
 
 export const metadata: Metadata = {
   title: "Conexiuni Cluj",
@@ -10,7 +11,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ro">
       <body>
-        {children}
+        <Navbar />
+        <main>{children}</main>
       </body>
     </html>
   );

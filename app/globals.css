@@ -105,3 +105,21 @@ body {
 .tab-underline {
   transition: left 0.3s ease, width 0.3s ease;
 }
+
+/* Bus road bobbing */
+@keyframes bus-bob {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-3px) rotate(-2deg);
+  }
+  75% {
+    transform: translateY(-2px) rotate(2deg);
+  }
+}
+
+.animate-bus-bob {
+  animation: bus-bob 1s ease-in-out infinite;
+}
+
