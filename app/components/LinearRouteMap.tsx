@@ -216,7 +216,7 @@ export default function LinearRouteMap({outbound, inbound, color, routeId, route
   const outVehicles = vehicleData?.stopVehicleMap.outbound ?? {};
   const inVehicles = vehicleData?.stopVehicleMap.inbound ?? {};
 
-  // Compute closest stop + ETA for each direction
+  // Compute the closest stop + ETA for each direction
   const outClosest = useMemo(() => {
     if (!userLocation || !vehicleData) return null;
     return computeClosestStopETAs(

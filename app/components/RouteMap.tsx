@@ -163,7 +163,7 @@ function RouteMapInner({outboundShape, inboundShape, outboundStops, inboundStops
       const icon = L.divIcon({
         className: "",
         html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
-          <img src="${iconPath}" width="28" height="28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
+          <img src="${iconPath}" width="28" height="28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"  alt=""/>
           <div style="
             background:white;
             padding:2px 5px;

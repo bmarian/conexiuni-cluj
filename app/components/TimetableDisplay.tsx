@@ -77,9 +77,6 @@ function ScheduleTable({schedule, isToday, isPast, routeType, now}: {
       : nextInIndex >= 0 ? nextInIndex : nextOutIndex
     : -1;
 
-  // For future day tabs, find the first entry
-  const isFutureDay = !isToday && !isPast;
-
   useEffect(() => {
     if (nextRowRef.current && !hasScrolled.current) {
       hasScrolled.current = true;
@@ -143,7 +140,7 @@ function ScheduleTable({schedule, isToday, isPast, routeType, now}: {
         </div>
       )}
 
-      <div className="overflow-auto rounded-lg border border-zinc-200 max-h-[60vh] md:max-h-[500px] dark:border-zinc-700">
+      <div className="overflow-auto rounded-lg border border-zinc-200 max-h-[60vh] md:max-h-125 dark:border-zinc-700">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10">
           <tr className="bg-zinc-100 dark:bg-zinc-800">

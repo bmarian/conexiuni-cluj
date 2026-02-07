@@ -148,7 +148,7 @@ function NearbyStopsMap({nearbyData, hoveredStop}: { nearbyData: NearbyData; hov
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" style={{minHeight: "250px"}}>
       {!L && (
-        <div className="flex h-full min-h-[250px] items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+        <div className="flex h-full min-h-62.5 items-center justify-center bg-zinc-50 dark:bg-zinc-900">
           <div className="flex items-center gap-2 text-sm text-zinc-400">
             <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -176,7 +176,7 @@ function NearbyStopsSkeleton() {
                 <div className="h-5 w-14 animate-pulse rounded-full bg-purple-100 dark:bg-purple-950/50" />
               </div>
               <div className="flex shrink-0 items-center justify-center rounded-lg border border-zinc-100 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-                <div className="h-[18px] w-[18px] animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+                <div className="h-4.5 w-4.5 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
               </div>
             </div>
           ))}
@@ -202,6 +202,7 @@ function NearbyStationsSection({stops}: { stops: Stop[] }) {
 
   useEffect(() => {
     if (!("geolocation" in navigator)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGeoState("denied");
       return;
     }
@@ -289,6 +290,7 @@ function FavoriteLinesSection() {
   const [lines, setLines] = useState<FavoriteLine[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration: localStorage is client-only
     setLines(getFavoriteLines());
   }, []);
 
@@ -333,6 +335,7 @@ function FavoriteStopsSection() {
   const [stops, setStops] = useState<FavoriteStop[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration: localStorage is client-only
     setStops(getFavoriteStops());
   }, []);
 
@@ -361,7 +364,7 @@ function RecentLinesSection() {
   const [lines, setLines] = useState<RecentLine[]>([]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration: localStorage is client-only
     setLines(getRecentLines());
   }, []);
 
@@ -406,7 +409,7 @@ function RecentStopsSection() {
   const [stops, setStops] = useState<RecentStop[]>([]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration: localStorage is client-only
     setStops(getRecentStops());
   }, []);
 
@@ -466,7 +469,7 @@ export default function HomePage({stops}: { stops: Stop[] }) {
     const recentStops = getRecentStops();
     const favLines = getFavoriteLines();
     const favStops = getFavoriteStops();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration: localStorage is client-only
     setContentState(
       lines.length > 0 || recentStops.length > 0 || favLines.length > 0 || favStops.length > 0
         ? "has-content"
