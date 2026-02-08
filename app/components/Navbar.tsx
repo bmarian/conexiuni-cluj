@@ -9,7 +9,7 @@ const tabs = [
   { label: "Acasă", href: "/" },
   { label: "Linii", href: "/linii" },
   { label: "Stații", href: "/statii" },
-  // { label: "Planifică", href: "/planifica" },
+  { label: "Planifică", href: "/planifica" },
 ];
 
 function getActiveIndex(pathname: string) {
