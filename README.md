@@ -4,6 +4,12 @@ A fast, mobile-friendly web app for navigating public transit in Cluj-Napoca, Ro
 
 Built with Next.js and powered by the [Tranzy API](https://tranzy.ai) and [CTP Cluj](https://ctpcj.ro) timetable data.
 
+<p align="center">
+  <img src="https://github.com/bmarian/conexiuni-cluj/blob/master/readme/HomePage.jpg?raw=true" width="250" />
+  <img src="https://github.com/bmarian/conexiuni-cluj/blob/master/readme/BusPage.jpg?raw=true" width="250" />
+  <img src="https://github.com/bmarian/conexiuni-cluj/blob/master/readme/StationPage.jpg?raw=true" width="250" />
+</p>
+
 ## Features
 
 ### Nearby Stations
