@@ -2,3 +2,4 @@
 .idea
 data/conexiuni-cluj.db
 keys.env
+**/*_templ.go

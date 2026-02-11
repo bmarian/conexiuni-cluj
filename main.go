@@ -1,48 +1,20 @@
 package main
 
 import (
-	"encoding/json"
+	"conexiuni-cluj/config"
+	"conexiuni-cluj/frontend"
 	"log"
-	"net/http"
-	"os"
+
+	"github.com/a-h/templ"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 )
 
-type Response struct {
-	Message string `json:"message"`
-	Status  string `json:"status"`
-}
-
-func enableCORS(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-}
-
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	response := Response{
-		Message: "Hello from CTP Cluj Go Server!",
-		Status:  "success",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "42069"
-	}
+	conf := config.Load()
+	app := fiber.New()
 
-	http.HandleFunc("/api/hello", helloHandler)
-
-	log.Printf("Server starting on port %s...", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	component := frontend.Hello("Fuck Life")
+	app.Get("/", adaptor.HTTPHandler(templ.Handler(component)))
+	log.Fatal(app.Listen(":" + conf.Port))
 }
