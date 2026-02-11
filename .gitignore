@@ -1,4 +1,4 @@
 .claude
 .idea
 data/conexiuni-cluj.db
-.env
+keys.env
