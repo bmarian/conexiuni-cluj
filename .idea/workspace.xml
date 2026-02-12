@@ -121,30 +121,6 @@
     </key>
   </component>
   <component name="RunManager" selected="Go Build.Go Build">
-    <configuration name="Go Build" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true">
-      <module name="conexiuni-cluj" />
-      <working_directory value="$PROJECT_DIR$" />
-      <kind value="PACKAGE" />
-      <package value="conexiuni-cluj" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$/main.go" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Templ Watch" type="ShConfigurationType">
-      <option name="SCRIPT_TEXT" value="templ generate --watch --proxy=&quot;http://localhost:6698&quot;" />
-      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
-      <option name="SCRIPT_PATH" value="" />
-      <option name="SCRIPT_OPTIONS" value="" />
-      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
-      <option name="INTERPRETER_PATH" value="powershell.exe" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="EXECUTE_IN_TERMINAL" value="true" />
-      <option name="EXECUTE_SCRIPT_FILE" value="false" />
-      <envs />
-      <method v="2" />
-    </configuration>
     <list>
       <item itemvalue="Go Build.Go Build" />
       <item itemvalue="Shell Script.Templ Watch" />
@@ -194,6 +170,7 @@
       <workItem from="1770821451079" duration="4797000" />
       <workItem from="1770833459789" duration="17000" />
       <workItem from="1770870311061" duration="18000" />
+      <workItem from="1770870817538" duration="260000" />
     </task>
     <task id="LOCAL-00021" summary="WIP: api improvements">
       <option name="closed" value="true" />
