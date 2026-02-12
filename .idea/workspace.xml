@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="22ed8a89-c522-4630-b646-04c6dccb0d26" name="Changes" comment="Initial setup" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" url="file://$USER_HOME$/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.0.windows-amd64" />
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {}
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/bmarian/conexiuni-cluj.git&quot;,
+    &quot;accountId&quot;: &quot;2bf1e6ea-ac5c-496f-b1ad-0454cf22df98&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;bmarian&quot;,
+    &quot;repository&quot;: &quot;conexiuni-cluj&quot;
+  }
+}</component>
+  <component name="HttpClientOnboardingState">{
+  &quot;isOnboardingCommentShown&quot;: true
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="39ExA6g1giCg8jklA5VoCFh0lMT" />
+  <component name="ProjectLevelVcsManager">
+    <OptionsSetting value="false" id="Update" />
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
+    &quot;Go Build.Go Build.executor&quot;: &quot;Debug&quot;,
+    &quot;Go Build.go build conexiuni-cluj.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginOnboardingV2&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginStorageMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.analysis.ui.options.defaults&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Shell Script.Templ Watch.executor&quot;: &quot;Run&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;v0.3&quot;,
+    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;js.debugger.nextJs.config.created.client&quot;: &quot;true&quot;,
+    &quot;js.debugger.nextJs.config.created.server&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/maria/Documents/Projects/conexiuni-cluj&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.standard&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.standard&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.Next.js: server-side.executor&quot;: &quot;Run&quot;,
+    &quot;npm.dev.executor&quot;: &quot;Debug&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.fileTypes&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\maria\\Documents\\Projects\\conexiuni-cluj\\frontend\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;sqlite&quot;
+    ]
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\backend\data" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\backend" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\client" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\server" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\cluj" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Go Build.Go Build">
+    <configuration name="Go Build" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true">
+      <module name="conexiuni-cluj" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="conexiuni-cluj" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/main.go" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Templ Watch" type="ShConfigurationType">
+      <option name="SCRIPT_TEXT" value="templ generate --watch --proxy=&quot;http://localhost:6698&quot;" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="powershell.exe" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="false" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Go Build.Go Build" />
+      <item itemvalue="Shell Script.Templ Watch" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Build.Go Build" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-gosdk-72a9cf600ed8-dfa3e7267ae0-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-253.30387.193" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-GO-253.30387.193" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="22ed8a89-c522-4630-b646-04c6dccb0d26" name="Changes" comment="" />
+      <created>1770274885631</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1770274885631</updated>
+      <workItem from="1770274887555" duration="21967000" />
+      <workItem from="1770308664513" duration="491000" />
+      <workItem from="1770317510759" duration="634000" />
+      <workItem from="1770357340725" duration="21422000" />
+      <workItem from="1770406443761" duration="718000" />
+      <workItem from="1770408964008" duration="1146000" />
+      <workItem from="1770410571064" duration="331000" />
+      <workItem from="1770410920936" duration="14000" />
+      <workItem from="1770439695476" duration="25057000" />
+      <workItem from="1770476036670" duration="399000" />
+      <workItem from="1770476477802" duration="60000" />
+      <workItem from="1770477746840" duration="96000" />
+      <workItem from="1770485495058" duration="5058000" />
+      <workItem from="1770490710794" duration="689000" />
+      <workItem from="1770530155343" duration="5267000" />
+      <workItem from="1770641314537" duration="141000" />
+      <workItem from="1770641465042" duration="1000" />
+      <workItem from="1770641543575" duration="1348000" />
+      <workItem from="1770642916418" duration="2964000" />
+      <workItem from="1770815762088" duration="755000" />
+      <workItem from="1770818842231" duration="2109000" />
+      <workItem from="1770821451079" duration="4797000" />
+      <workItem from="1770833459789" duration="17000" />
+      <workItem from="1770870311061" duration="18000" />
+    </task>
+    <task id="LOCAL-00021" summary="WIP: api improvements">
+      <option name="closed" value="true" />
+      <created>1770388251486</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1770388251486</updated>
+    </task>
+    <task id="LOCAL-00022" summary="WIP: UI">
+      <option name="closed" value="true" />
+      <created>1770410586528</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1770410586528</updated>
+    </task>
+    <task id="LOCAL-00023" summary="WIP: UI">
+      <option name="closed" value="true" />
+      <created>1770440571497</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1770440571497</updated>
+    </task>
+    <task id="LOCAL-00024" summary="WIP: UI">
+      <option name="closed" value="true" />
+      <created>1770441364921</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1770441364921</updated>
+    </task>
+    <task id="LOCAL-00025" summary="Added navbar">
+      <option name="closed" value="true" />
+      <created>1770445584233</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1770445584233</updated>
+    </task>
+    <task id="LOCAL-00026" summary="Stops page">
+      <option name="closed" value="true" />
+      <created>1770446441182</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1770446441182</updated>
+    </task>
+    <task id="LOCAL-00027" summary="Diacritics">
+      <option name="closed" value="true" />
+      <created>1770446656349</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1770446656349</updated>
+    </task>
+    <task id="LOCAL-00028" summary="Stations tab">
+      <option name="closed" value="true" />
+      <created>1770447812187</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1770447812187</updated>
+    </task>
+    <task id="LOCAL-00029" summary="Bus line page">
+      <option name="closed" value="true" />
+      <created>1770448436602</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1770448436602</updated>
+    </task>
+    <task id="LOCAL-00030" summary="Timetable display">
+      <option name="closed" value="true" />
+      <created>1770449811095</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1770449811096</updated>
+    </task>
+    <task id="LOCAL-00031" summary="WIP: Home page">
+      <option name="closed" value="true" />
+      <created>1770450632780</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1770450632780</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Linear map">
+      <option name="closed" value="true" />
+      <created>1770457871289</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1770457871289</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Back button">
+      <option name="closed" value="true" />
+      <created>1770458592064</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1770458592064</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Back button">
+      <option name="closed" value="true" />
+      <created>1770458760319</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1770458760319</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Route Map">
+      <option name="closed" value="true" />
+      <created>1770459312805</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1770459312805</updated>
+    </task>
+    <task id="LOCAL-00036" summary="Route Map">
+      <option name="closed" value="true" />
+      <created>1770459909319</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1770459909319</updated>
+    </task>
+    <task id="LOCAL-00037" summary="nerby map on homescreen">
+      <option name="closed" value="true" />
+      <created>1770460174767</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1770460174767</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Readme">
+      <option name="closed" value="true" />
+      <created>1770460365495</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1770460365495</updated>
+    </task>
+    <task id="LOCAL-00039" summary="WIP: Homepage">
+      <option name="closed" value="true" />
+      <created>1770460821139</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1770460821139</updated>
+    </task>
+    <task id="LOCAL-00040" summary="WIP: Map">
+      <option name="closed" value="true" />
+      <created>1770461333368</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1770461333368</updated>
+    </task>
+    <task id="LOCAL-00041" summary="WIP: Map">
+      <option name="closed" value="true" />
+      <created>1770461500286</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1770461500286</updated>
+    </task>
+    <task id="LOCAL-00042" summary="In memory cache">
+      <option name="closed" value="true" />
+      <created>1770461782660</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1770461782660</updated>
+    </task>
+    <task id="LOCAL-00043" summary="Cache shapes for 1 week">
+      <option name="closed" value="true" />
+      <created>1770462453823</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1770462453823</updated>
+    </task>
+    <task id="LOCAL-00044" summary="Usability">
+      <option name="closed" value="true" />
+      <created>1770469540383</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1770469540383</updated>
+    </task>
+    <task id="LOCAL-00045" summary="Usability">
+      <option name="closed" value="true" />
+      <created>1770470368112</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1770470368112</updated>
+    </task>
+    <task id="LOCAL-00046" summary="WIP: vehicle display">
+      <option name="closed" value="true" />
+      <created>1770472919108</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1770472919108</updated>
+    </task>
+    <task id="LOCAL-00047" summary="Vehicle display">
+      <option name="closed" value="true" />
+      <created>1770473116110</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1770473116110</updated>
+    </task>
+    <task id="LOCAL-00048" summary="Favorites">
+      <option name="closed" value="true" />
+      <created>1770473405029</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1770473405029</updated>
+    </task>
+    <task id="LOCAL-00049" summary="Aprox time for buses">
+      <option name="closed" value="true" />
+      <created>1770474570213</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1770474570213</updated>
+    </task>
+    <task id="LOCAL-00050" summary="Cleanup">
+      <option name="closed" value="true" />
+      <created>1770474824288</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1770474824290</updated>
+    </task>
+    <task id="LOCAL-00051" summary="Time aprox for stations">
+      <option name="closed" value="true" />
+      <created>1770475141037</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1770475141037</updated>
+    </task>
+    <task id="LOCAL-00052" summary="Center back on user button">
+      <option name="closed" value="true" />
+      <created>1770476298742</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1770476298742</updated>
+    </task>
+    <task id="LOCAL-00053" summary="Loading state">
+      <option name="closed" value="true" />
+      <created>1770476428042</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1770476428042</updated>
+    </task>
+    <task id="LOCAL-00054" summary="Commented out the plan tab WIP">
+      <option name="closed" value="true" />
+      <created>1770477804295</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1770477804295</updated>
+    </task>
+    <task id="LOCAL-00055" summary="Lower poll rate time">
+      <option name="closed" value="true" />
+      <created>1770486553755</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1770486553756</updated>
+    </task>
+    <task id="LOCAL-00056" summary="Filter in depo vehicles">
+      <option name="closed" value="true" />
+      <created>1770487165101</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1770487165101</updated>
+    </task>
+    <task id="LOCAL-00057" summary="Next bus station">
+      <option name="closed" value="true" />
+      <created>1770488977404</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1770488977404</updated>
+    </task>
+    <task id="LOCAL-00058" summary="Warning handling">
+      <option name="closed" value="true" />
+      <created>1770490282068</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1770490282068</updated>
+    </task>
+    <task id="LOCAL-00059" summary="Warning handling">
+      <option name="closed" value="true" />
+      <created>1770490412565</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1770490412565</updated>
+    </task>
+    <task id="LOCAL-00060" summary="Fixed consistent user location">
+      <option name="closed" value="true" />
+      <created>1770491377070</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1770491377070</updated>
+    </task>
+    <task id="LOCAL-00061" summary="WIP: Planner">
+      <option name="closed" value="true" />
+      <created>1770530552534</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1770530552534</updated>
+    </task>
+    <task id="LOCAL-00062" summary="WIP: Planner">
+      <option name="closed" value="true" />
+      <created>1770533846138</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1770533846138</updated>
+    </task>
+    <task id="LOCAL-00063" summary="WIP: Planner">
+      <option name="closed" value="true" />
+      <created>1770534697398</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1770534697398</updated>
+    </task>
+    <task id="LOCAL-00064" summary="WIP: Planner">
+      <option name="closed" value="true" />
+      <created>1770536699490</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1770536699490</updated>
+    </task>
+    <task id="LOCAL-00065" summary="WIP: Planner">
+      <option name="closed" value="true" />
+      <created>1770536826203</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1770536826204</updated>
+    </task>
+    <task id="LOCAL-00066" summary="Initial setup refactor">
+      <option name="closed" value="true" />
+      <created>1770642961830</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1770642961831</updated>
+    </task>
+    <task id="LOCAL-00067" summary="Initial setup refactor">
+      <option name="closed" value="true" />
+      <created>1770646089089</created>
+      <option name="number" value="00067" />
+      <option name="presentableId" value="LOCAL-00067" />
+      <option name="project" value="LOCAL" />
+      <updated>1770646089089</updated>
+    </task>
+    <task id="LOCAL-00068" summary="Setup go templ + fiber v3">
+      <option name="closed" value="true" />
+      <created>1770822124788</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1770822124789</updated>
+    </task>
+    <task id="LOCAL-00069" summary="Initial setup">
+      <option name="closed" value="true" />
+      <created>1770833382214</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1770833382214</updated>
+    </task>
+    <option name="localTasksCounter" value="70" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="nerby map on homescreen" />
+    <MESSAGE value="Readme" />
+    <MESSAGE value="WIP: Homepage" />
+    <MESSAGE value="WIP: Map" />
+    <MESSAGE value="In memory cache" />
+    <MESSAGE value="Cache shapes for 1 week" />
+    <MESSAGE value="Usability" />
+    <MESSAGE value="WIP: vehicle display" />
+    <MESSAGE value="Vehicle display" />
+    <MESSAGE value="Favorites" />
+    <MESSAGE value="Aprox time for buses" />
+    <MESSAGE value="Cleanup" />
+    <MESSAGE value="Time aprox for stations" />
+    <MESSAGE value="Center back on user button" />
+    <MESSAGE value="Loading state" />
+    <MESSAGE value="Commented out the plan tab WIP" />
+    <MESSAGE value="Lower poll rate time" />
+    <MESSAGE value="Filter in depo vehicles" />
+    <MESSAGE value="Next bus station" />
+    <MESSAGE value="Warning handling" />
+    <MESSAGE value="Fixed consistent user location" />
+    <MESSAGE value="WIP: Planner" />
+    <MESSAGE value="Initial setup refactor" />
+    <MESSAGE value="Setup go templ + fiber v3" />
+    <MESSAGE value="Initial setup" />
+    <option name="LAST_COMMIT_MESSAGE" value="Initial setup" />
+  </component>
+  <component name="VgoModernizerVersionTracker">
+    <upgrades>
+      <map>
+        <entry key="$PROJECT_DIR$/go.mod">
+          <value>
+            <VersionUpgradeInfo>
+              <version>1.26.0</version>
+              <timestamp>1770819954222</timestamp>
+            </VersionUpgradeInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/go.mod">
+          <value>
+            <VersionUpgradeInfo>
+              <version>1.26.0</version>
+              <timestamp>1770819954222</timestamp>
+            </VersionUpgradeInfo>
+          </value>
+        </entry>
+      </map>
+    </upgrades>
+  </component>
+</project>
