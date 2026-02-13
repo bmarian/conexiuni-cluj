@@ -1,4 +1,5 @@
 .claude
-data/conexiuni-cluj.db
+.idea
+.vscode
 keys.env
-**/*_templ.go
+conexiuni-cluj.db

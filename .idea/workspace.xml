@@ -4,7 +4,45 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="22ed8a89-c522-4630-b646-04c6dccb0d26" name="Changes" comment="Initial setup" />
+    <list default="true" id="22ed8a89-c522-4630-b646-04c6dccb0d26" name="Changes" comment="Build config">
+      <change afterPath="$PROJECT_DIR$/backend/database/database.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/handlers/vehicle.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/main.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/models/vehicle.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.editorconfig" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.gitattributes" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.oxfmtrc.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.oxlintrc.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/env.d.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/eslint.config.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/main.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/router/index.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/stores/counter.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/tsconfig.app.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/tsconfig.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/tsconfig.node.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Go_Build.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Templ_Watch.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/backend/config.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/db.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.templ" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/not_found.templ" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -113,23 +151,12 @@
 }</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\backend\data" />
       <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\backend" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj" />
+      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\backend\data" />
       <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\client" />
       <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\server" />
-      <recent name="C:\Users\maria\Documents\Projects\conexiuni-cluj\lib\cluj" />
     </key>
-  </component>
-  <component name="RunManager" selected="Go Build.Go Build">
-    <list>
-      <item itemvalue="Go Build.Go Build" />
-      <item itemvalue="Shell Script.Templ Watch" />
-    </list>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Go Build.Go Build" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -170,15 +197,8 @@
       <workItem from="1770821451079" duration="4797000" />
       <workItem from="1770833459789" duration="17000" />
       <workItem from="1770870311061" duration="18000" />
-      <workItem from="1770870817538" duration="260000" />
-    </task>
-    <task id="LOCAL-00021" summary="WIP: api improvements">
-      <option name="closed" value="true" />
-      <created>1770388251486</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1770388251486</updated>
+      <workItem from="1770870817538" duration="901000" />
+      <workItem from="1770954978791" duration="2636000" />
     </task>
     <task id="LOCAL-00022" summary="WIP: UI">
       <option name="closed" value="true" />
@@ -564,14 +584,21 @@
       <option name="project" value="LOCAL" />
       <updated>1770833382214</updated>
     </task>
-    <option name="localTasksCounter" value="70" />
+    <task id="LOCAL-00070" summary="Build config">
+      <option name="closed" value="true" />
+      <created>1770871094750</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1770871094750</updated>
+    </task>
+    <option name="localTasksCounter" value="71" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="nerby map on homescreen" />
     <MESSAGE value="Readme" />
     <MESSAGE value="WIP: Homepage" />
     <MESSAGE value="WIP: Map" />
@@ -596,7 +623,8 @@
     <MESSAGE value="Initial setup refactor" />
     <MESSAGE value="Setup go templ + fiber v3" />
     <MESSAGE value="Initial setup" />
-    <option name="LAST_COMMIT_MESSAGE" value="Initial setup" />
+    <MESSAGE value="Build config" />
+    <option name="LAST_COMMIT_MESSAGE" value="Build config" />
   </component>
   <component name="VgoModernizerVersionTracker">
     <upgrades>
