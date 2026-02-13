@@ -50,7 +50,6 @@ func main() {
 
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
-		// Serve static files
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
 		}))

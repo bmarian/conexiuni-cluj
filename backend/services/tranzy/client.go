@@ -14,7 +14,7 @@ type Client struct {
 	client   *client.Client
 }
 
-func (c *Client) DoRequest(endpoint string) ([]byte, error) {
+func (c *Client) DoRequest(endpoint string, params map[string]string) ([]byte, error) {
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
 
 	resp, err := c.client.Get(url, client.Config{
@@ -22,6 +22,7 @@ func (c *Client) DoRequest(endpoint string) ([]byte, error) {
 			"X-API-KEY":   c.APIKey,
 			"X-AGENCY-ID": c.AgencyId,
 		},
+		Param: params,
 	})
 
 	if err != nil {
