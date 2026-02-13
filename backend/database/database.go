@@ -44,7 +44,7 @@ func Connect(dbPath string) error {
 		}
 	}
 
-	log.Println("Database connected successfully with optimizations")
+	log.Println("Database connected")
 	return nil
 }
 
