@@ -25,7 +25,7 @@ func main() {
 	}
 
 	app := fiber.New(fiber.Config{
-		AppName: "Conexiuni Cluj API",
+		AppName: "Conexiuni Cluj",
 	})
 
 	vehicleHandler := handlers.NewVehicleHandler(database.DB)
