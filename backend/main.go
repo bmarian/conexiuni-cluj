@@ -2,6 +2,7 @@ package main
 
 import (
 	"conexiuni-cluj/handlers"
+	"database/sql"
 	"log"
 	"os"
 
@@ -20,7 +21,9 @@ func main() {
 	if err := database.Connect(config.DatabasePath); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer database.DB.Close()
+	defer func(DB *sql.DB) {
+		_ = DB.Close()
+	}(database.DB)
 
 	if err := database.InitSchemas(); err != nil {
 		log.Fatalf("Failed to initialize database schemas: %v", err)

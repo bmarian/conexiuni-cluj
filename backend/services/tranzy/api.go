@@ -7,7 +7,7 @@ import (
 )
 
 func (c *Client) GetRoutes() ([]models.Route, error) {
-	data, err := c.doRequest("/routes")
+	data, err := c.DoRequest("/routes")
 	if err != nil {
 		return nil, err
 	}

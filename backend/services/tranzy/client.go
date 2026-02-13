@@ -14,7 +14,7 @@ type Client struct {
 	client   *client.Client
 }
 
-func (c *Client) doRequest(endpoint string) ([]byte, error) {
+func (c *Client) DoRequest(endpoint string) ([]byte, error) {
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
 
 	resp, err := c.client.Get(url, client.Config{
