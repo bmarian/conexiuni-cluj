@@ -14,6 +14,7 @@ type Config struct {
 	CtpCsvBaseUrl string
 	Port          string
 	DatabasePath  string
+	TranzyApiKey  string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -37,5 +38,6 @@ func Load() *Config {
 		CtpCsvBaseUrl: getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
 		Port:          getEnv("PORT", "6698"),
 		DatabasePath:  getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
+		TranzyApiKey:  getEnv("TRANZY_API_KEY", ""),
 	}
 }

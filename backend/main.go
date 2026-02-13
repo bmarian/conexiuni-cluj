@@ -1,13 +1,15 @@
 package main
 
 import (
+	"conexiuni-cluj/handlers"
 	"log"
 	"os"
 
 	"conexiuni-cluj/database"
-	"conexiuni-cluj/handlers"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
@@ -24,15 +26,24 @@ func main() {
 		log.Fatalf("Failed to initialize database schemas: %v", err)
 	}
 
+	tranzyAPIKey := config.TranzyApiKey
+	if tranzyAPIKey == "" {
+		log.Fatal("TRANZY_API_KEY not set in environment")
+	}
+	handlers.InitTranzyClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId)
+
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
 	})
-
-	vehicleHandler := handlers.NewVehicleHandler(database.DB)
+	app.Use(logger.New())
+	app.Use(cors.New(cors.Config{
+		//AllowOrigins: []string{"http://localhost:5173"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+	}))
 
 	// API routes
 	api := app.Group("/api")
-	api.Get("/vehicles", vehicleHandler.GetAllVehicles)
+	api.Get("/routes", handlers.GetRoutes)
 
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
