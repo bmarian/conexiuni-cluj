@@ -25,7 +25,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func Load() *Config {
-	err := godotenv.Load(".env", "keys.env")
+	err := godotenv.Load("../.env", "../keys.env")
 	if err != nil {
 		log.Fatal("No .env files found, using environment variables")
 	}
@@ -36,6 +36,6 @@ func Load() *Config {
 		ClujAgencyId:  getEnv("CLUJ_AGENCY_ID", "2"),
 		CtpCsvBaseUrl: getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
 		Port:          getEnv("PORT", "6698"),
-		DatabasePath:  getEnv("DATABASE_PATH", "./data/conexiuni-cluj.db"),
+		DatabasePath:  getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
 	}
 }

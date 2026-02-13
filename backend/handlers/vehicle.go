@@ -17,7 +17,6 @@ func NewVehicleHandler(db *sql.DB) *VehicleHandler {
 	return &VehicleHandler{db: db}
 }
 
-// GetAllVehicles returns all vehicles
 func (h *VehicleHandler) GetAllVehicles(c fiber.Ctx) error {
 	query := `SELECT * FROM vehicles`
 

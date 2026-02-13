@@ -2,7 +2,6 @@ package models
 
 import (
 	"database/sql"
-	"time"
 )
 
 type Vehicle struct {
@@ -10,7 +9,7 @@ type Vehicle struct {
 	Label                string          `json:"label" db:"label"`
 	Latitude             sql.NullFloat64 `json:"latitude,omitempty" db:"latitude"`
 	Longitude            sql.NullFloat64 `json:"longitude,omitempty" db:"longitude"`
-	Timestamp            time.Time       `json:"timestamp" db:"timestamp"`
+	Timestamp            string          `json:"timestamp" db:"timestamp"`
 	VehicleType          int             `json:"vehicleType" db:"vehicle_type"`
 	BikeAccessible       sql.NullString  `json:"bikeAccessible,omitempty" db:"bike_accessible"`
 	WheelchairAccessible sql.NullString  `json:"wheelchairAccessible,omitempty" db:"wheelchair_accessible"`
