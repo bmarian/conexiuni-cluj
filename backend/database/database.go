@@ -132,6 +132,13 @@ func InitSchemas() error {
             saturday         TEXT,
             sunday           TEXT
         );
+
+		CREATE TABLE IF NOT EXISTS cache_times
+        (
+            id        TEXT PRIMARY KEY,
+            timestamp INTEGER NOT NULL,
+            lifespan  INTEGER NOT NULL
+        );
     `
 
 	_, err := DB.Exec(schema)
