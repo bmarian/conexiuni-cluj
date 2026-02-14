@@ -36,8 +36,10 @@ func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client) error {
 		})
 	}
 
-	_ = storeRoutesInDB(routes)
-	_ = database.UpdateCache(RoutesCacheId, RouteCacheShelfLife.Milliseconds())
+	go func() {
+		_ = storeRoutesInDB(routes)
+		_ = database.UpdateCache(RoutesCacheId, RouteCacheShelfLife.Milliseconds())
+	}()
 	return c.JSON(routes)
 }
 
