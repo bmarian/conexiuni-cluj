@@ -2,6 +2,7 @@ package main
 
 import (
 	"conexiuni-cluj/handlers"
+	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"log"
 	"os"
@@ -33,7 +34,8 @@ func main() {
 	if tranzyAPIKey == "" {
 		log.Fatal("TRANZY_API_KEY not set in environment")
 	}
-	handlers.InitTranzyClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId)
+
+	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId)
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
@@ -46,7 +48,9 @@ func main() {
 
 	// API routes
 	api := app.Group("/api")
-	api.Get("/routes", handlers.GetRoutes)
+	api.Get("/routes", func(c fiber.Ctx) error {
+		return handlers.GetRoutes(c, tranzyClient)
+	})
 
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
