@@ -34,14 +34,9 @@ func requestShapes(tranzyClient *tranzy.Client) ([]models.Shape, error) {
 		return nil, err
 	}
 
-	var shapesDB []models.ShapeDB
-	if err := json.Unmarshal(data, &shapesDB); err != nil {
+	var shapes []models.Shape
+	if err := json.Unmarshal(data, &shapes); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal shapes: %w", err)
-	}
-
-	shapes := make([]models.Shape, len(shapesDB))
-	for i, shapeDB := range shapesDB {
-		shapes[i] = shapeDB.Normalize()
 	}
 
 	return shapes, nil
@@ -59,18 +54,18 @@ func getShapesFromDB() ([]models.Shape, error) {
 
 	var shapes []models.Shape
 	for rows.Next() {
-		var shapeDB models.ShapeDB
+		var shape models.Shape
 		err := rows.Scan(
-			&shapeDB.ShapeID,
-			&shapeDB.ShapePtLat,
-			&shapeDB.ShapePtLon,
-			&shapeDB.ShapePtSequence,
-			&shapeDB.ShapeDistTraveled,
+			&shape.ShapeID,
+			&shape.ShapePtLat,
+			&shape.ShapePtLon,
+			&shape.ShapePtSequence,
+			&shape.ShapeDistTraveled,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning shape: %w", err)
 		}
-		shapes = append(shapes, shapeDB.Normalize())
+		shapes = append(shapes, shape)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -95,17 +90,12 @@ func storeShapesInDB(shapes []models.Shape) error {
 	}(stmt)
 
 	for _, shape := range shapes {
-		distTraveled := sql.NullFloat64{Valid: false}
-		if shape.ShapeDistTraveled != -1 {
-			distTraveled = sql.NullFloat64{Float64: shape.ShapeDistTraveled, Valid: true}
-		}
-
 		if _, err := stmt.Exec(
 			shape.ShapeID,
 			shape.ShapePtLat,
 			shape.ShapePtLon,
 			shape.ShapePtSequence,
-			distTraveled,
+			shape.ShapeDistTraveled,
 		); err != nil {
 			return fmt.Errorf("error inserting shape: %w", err)
 		}
