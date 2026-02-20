@@ -18,29 +18,14 @@ const (
 )
 
 func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client) error {
-	isCacheValid := database.IsCacheValid(RoutesCacheId)
-	if isCacheValid {
-		routes, err := getRoutesFromDB()
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(routes)
-	}
-
-	routes, err := requestRoutes(tranzyClient)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	go func() {
-		_ = storeRoutesInDB(routes)
-		_ = database.UpdateCache(RoutesCacheId, RouteCacheShelfLife.Milliseconds())
-	}()
-	return c.JSON(routes)
+	return HandleCachedData(
+		c,
+		RoutesCacheId,
+		RouteCacheShelfLife,
+		getRoutesFromDB,
+		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
+		storeRoutesInDB,
+	)
 }
 
 func requestRoutes(tranzyClient *tranzy.Client) ([]models.Route, error) {

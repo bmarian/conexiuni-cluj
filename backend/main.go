@@ -51,6 +51,9 @@ func main() {
 	api.Get("/routes", func(c fiber.Ctx) error {
 		return handlers.GetRoutes(c, tranzyClient)
 	})
+	api.Get("/shapes", func(c fiber.Ctx) error {
+		return handlers.GetShapes(c, tranzyClient)
+	})
 
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
