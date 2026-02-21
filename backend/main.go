@@ -29,6 +29,7 @@ func main() {
 	if err := database.InitSchemas(); err != nil {
 		log.Fatalf("Failed to initialize database schemas: %v", err)
 	}
+	database.StartVacuumScheduler()
 
 	tranzyAPIKey := config.TranzyApiKey
 	if tranzyAPIKey == "" {

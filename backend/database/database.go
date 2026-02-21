@@ -208,3 +208,25 @@ func Vacuum() error {
 	log.Println("Database vacuumed")
 	return nil
 }
+
+func StartVacuumScheduler() {
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		log.Printf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
+		loc = time.UTC
+	}
+	go func() {
+		for {
+			now := time.Now().In(loc)
+			next := time.Date(now.Year(), now.Month(), now.Day(), 2, 0, 0, 0, loc)
+			if !next.After(now) {
+				next = next.Add(24 * time.Hour)
+			}
+			log.Printf("Next scheduled vacuum at %s (Romanian time)", next.Format("2006-01-02 15:04:05"))
+			time.Sleep(time.Until(next))
+			if err := Vacuum(); err != nil {
+				log.Printf("Scheduled vacuum failed: %v", err)
+			}
+		}
+	}()
+}

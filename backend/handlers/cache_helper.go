@@ -36,6 +36,7 @@ func HandleCachedData[T any](
 	go func() {
 		_ = dbStorer(data)
 		_ = database.UpdateCache(cacheID, cacheShelfLife.Milliseconds())
+		_ = database.Optimize()
 	}()
 	return c.JSON(data)
 }

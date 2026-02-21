@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -16,17 +17,18 @@ type dailyQuota struct {
 	count   int
 	limit   int
 	resetAt time.Time
+	loc     *time.Location
 }
 
 func (quota *dailyQuota) check() error {
 	quota.mutex.Lock()
 	defer quota.mutex.Unlock()
 
-	now := time.Now().UTC()
+	now := time.Now().In(quota.loc)
 	if now.After(quota.resetAt) {
 		quota.count = 0
 		y, m, d := now.Date()
-		quota.resetAt = time.Date(y, m, d+1, 0, 0, 0, 0, time.UTC)
+		quota.resetAt = time.Date(y, m, d+1, 0, 0, 0, 0, quota.loc)
 	}
 
 	if quota.count >= quota.limit {
@@ -83,13 +85,19 @@ func NewClient(baseUrl string, apiKey string, agencyId string) *Client {
 	c := client.New()
 	c.SetTimeout(30 * time.Second)
 
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		log.Printf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
+		loc = time.UTC
+	}
+
 	return &Client{
 		BaseURL:       baseUrl,
 		APIKey:        apiKey,
 		AgencyId:      agencyId,
 		client:        c,
 		limiter:       rate.NewLimiter(rate.Limit(5), 5),
-		vehiclesQuota: &dailyQuota{limit: 4500},
-		defaultQuota:  &dailyQuota{limit: 500},
+		vehiclesQuota: &dailyQuota{limit: 4500, loc: loc},
+		defaultQuota:  &dailyQuota{limit: 500, loc: loc},
 	}
 }
