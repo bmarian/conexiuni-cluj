@@ -24,6 +24,7 @@ func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Dur
 		getRoutesFromDB,
 		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
 		storeRoutesInDB,
+		true,
 	)
 }
 

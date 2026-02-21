@@ -24,6 +24,7 @@ func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.D
 		getVehiclesFromDB,
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,
+		false,
 	)
 }
 

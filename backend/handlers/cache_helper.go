@@ -14,6 +14,7 @@ func HandleCachedData[T any](
 	dbFetcher func() (T, error),
 	apiFetcher func() (T, error),
 	dbStorer func(T) error,
+	optimize bool,
 ) error {
 	isCacheValid := database.IsCacheValid(cacheID)
 	if isCacheValid {
@@ -36,7 +37,9 @@ func HandleCachedData[T any](
 	go func() {
 		_ = dbStorer(data)
 		_ = database.UpdateCache(cacheID, cacheShelfLife.Milliseconds())
-		_ = database.Optimize()
+		if optimize {
+			_ = database.Optimize()
+		}
 	}()
 	return c.JSON(data)
 }

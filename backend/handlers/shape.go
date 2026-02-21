@@ -24,6 +24,7 @@ func GetShapes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Dur
 		getShapesFromDB,
 		func() ([]models.Shape, error) { return requestShapes(tranzyClient) },
 		storeShapesInDB,
+		true,
 	)
 }
 

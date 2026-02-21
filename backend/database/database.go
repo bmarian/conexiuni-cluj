@@ -222,7 +222,7 @@ func StartVacuumScheduler() {
 			if !next.After(now) {
 				next = next.Add(24 * time.Hour)
 			}
-			log.Printf("Next scheduled vacuum at %s (Romanian time)", next.Format("2006-01-02 15:04:05"))
+			log.Printf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
 			time.Sleep(time.Until(next))
 			if err := Vacuum(); err != nil {
 				log.Printf("Scheduled vacuum failed: %v", err)
