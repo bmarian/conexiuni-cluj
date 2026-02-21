@@ -1,13 +1,13 @@
 package main
 
 import (
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/handlers"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"log"
 	"os"
-
-	"conexiuni-cluj/database"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -58,7 +58,13 @@ func main() {
 	api.Get("/vehicles", func(c fiber.Ctx) error {
 		return handlers.GetVehicles(c, tranzyClient, config.VehicleCacheShelfLife)
 	})
-
+	api.Get("/vehicles/:routeID", func(c fiber.Ctx) error {
+		routeID, err := strconv.Atoi(c.Params("routeID"))
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
+		}
+		return handlers.GetVehiclesByRouteID(c, tranzyClient, config.VehicleCacheShelfLife, routeID)
+	})
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
 		app.Use("/", static.New("./dist", static.Config{

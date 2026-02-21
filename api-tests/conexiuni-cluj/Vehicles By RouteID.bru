@@ -1,0 +1,16 @@
+meta {
+  name: Vehicles By RouteID
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{BASE_URL}}/vehicles/25
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
