@@ -12,7 +12,7 @@ type Shape struct {
 
 func (s *Shape) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		ShapeID           string   `json:"shape_id"`
+		ShapeID           *string  `json:"shape_id"`
 		ShapePtLat        float64  `json:"shape_pt_lat"`
 		ShapePtLon        float64  `json:"shape_pt_lon"`
 		ShapePtSequence   int      `json:"shape_pt_sequence"`
@@ -23,7 +23,11 @@ func (s *Shape) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	s.ShapeID = raw.ShapeID
+	if raw.ShapeID != nil {
+		s.ShapeID = *raw.ShapeID
+	} else {
+		s.ShapeID = "-1.0"
+	}
 	s.ShapePtLat = raw.ShapePtLat
 	s.ShapePtLon = raw.ShapePtLon
 	s.ShapePtSequence = raw.ShapePtSequence

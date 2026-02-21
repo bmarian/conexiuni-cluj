@@ -54,15 +54,15 @@ func InitSchemas() error {
         (
             id                    TEXT PRIMARY KEY,
             label                 TEXT    NOT NULL,
-            latitude              REAL,
-            longitude             REAL,
+            latitude              REAL    NOT NULL,
+            longitude             REAL    NOT NULL,
             timestamp             TEXT    NOT NULL,
             vehicle_type          INTEGER NOT NULL,
-            bike_accessible       TEXT,
-            wheelchair_accessible TEXT,
-            speed                 REAL,
-            route_id              INTEGER,
-            trip_id               TEXT
+            bike_accessible       TEXT    NOT NULL,
+            wheelchair_accessible TEXT    NOT NULL,
+            speed                 REAL    NOT NULL,
+            route_id              INTEGER NOT NULL,
+            trip_id               TEXT    NOT NULL
         );
 
 		CREATE TABLE IF NOT EXISTS routes
@@ -84,8 +84,8 @@ func InitSchemas() error {
             trip_headsign         TEXT    NOT NULL,
             block_id              INTEGER NOT NULL,
             shape_id              INTEGER NOT NULL,
-            wheelchair_accessible INTEGER,
-            bikes_allowed         INTEGER
+            wheelchair_accessible INTEGER NOT NULL,
+            bikes_allowed         INTEGER NOT NULL
         );
 
 		CREATE TABLE IF NOT EXISTS shapes
@@ -94,7 +94,7 @@ func InitSchemas() error {
             shape_pt_lat        REAL    NOT NULL,
             shape_pt_lon        REAL    NOT NULL,
             shape_pt_sequence   INTEGER NOT NULL,
-            shape_dist_traveled REAL,
+            shape_dist_traveled REAL    NOT NULL,
             PRIMARY KEY (shape_id, shape_pt_sequence)
         );
 

@@ -13,15 +13,14 @@ import (
 )
 
 const (
-	ShapesCacheId       = "SHAPES"
-	ShapeCacheShelfLife = 24 * time.Hour
+	ShapesCacheId = "SHAPES"
 )
 
-func GetShapes(c fiber.Ctx, tranzyClient *tranzy.Client) error {
+func GetShapes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
 	return HandleCachedData(
 		c,
 		ShapesCacheId,
-		ShapeCacheShelfLife,
+		cacheShelfLife,
 		getShapesFromDB,
 		func() ([]models.Shape, error) { return requestShapes(tranzyClient) },
 		storeShapesInDB,

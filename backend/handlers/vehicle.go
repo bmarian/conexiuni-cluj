@@ -1,57 +1,116 @@
 package handlers
 
 import (
-	"database/sql"
-	"log"
-
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/services/tranzy"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-type VehicleHandler struct {
-	db *sql.DB
+const (
+	VehicleCacheId = "VEHICLES"
+)
+
+func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
+	return HandleCachedData(
+		c,
+		VehicleCacheId,
+		cacheShelfLife,
+		getVehiclesFromDB,
+		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
+		storeVehiclesInDB,
+	)
 }
 
-func NewVehicleHandler(db *sql.DB) *VehicleHandler {
-	return &VehicleHandler{db: db}
-}
-
-func (h *VehicleHandler) GetAllVehicles(c fiber.Ctx) error {
-	query := `SELECT * FROM vehicles`
-
-	rows, err := h.db.Query(query)
+func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
+	data, err := tranzyClient.DoRequest("/vehicles", nil)
 	if err != nil {
-		log.Printf("Error querying vehicles: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch vehicles",
-		})
+		return nil, err
 	}
-	defer rows.Close()
 
 	var vehicles []models.Vehicle
-
-	for rows.Next() {
-		var v models.Vehicle
-		err := rows.Scan(
-			&v.ID,
-			&v.Label,
-			&v.Latitude,
-			&v.Longitude,
-			&v.Timestamp,
-			&v.VehicleType,
-			&v.BikeAccessible,
-			&v.WheelchairAccessible,
-			&v.Speed,
-			&v.RouteID,
-			&v.TripID,
-		)
-		if err != nil {
-			log.Printf("Error scanning vehicle: %v", err)
-			continue
-		}
-		vehicles = append(vehicles, v)
+	if err := json.Unmarshal(data, &vehicles); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal vehicles: %w", err)
 	}
 
-	return c.JSON(vehicles)
+	return vehicles, nil
+}
+
+func getVehiclesFromDB() ([]models.Vehicle, error) {
+	rows, err := database.DB.Query(`SELECT * FROM vehicles`)
+	if err != nil {
+		return nil, fmt.Errorf("error querying vehicles: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		_ = rows.Close()
+	}(rows)
+
+	var vehicles []models.Vehicle
+	for rows.Next() {
+		var vehicle models.Vehicle
+		err := rows.Scan(
+			&vehicle.ID,
+			&vehicle.Label,
+			&vehicle.Latitude,
+			&vehicle.Longitude,
+			&vehicle.Timestamp,
+			&vehicle.VehicleType,
+			&vehicle.BikeAccessible,
+			&vehicle.WheelchairAccessible,
+			&vehicle.Speed,
+			&vehicle.RouteID,
+			&vehicle.TripID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning vehicles: %w", err)
+		}
+		vehicles = append(vehicles, vehicle)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error reading vehicles: %w", err)
+	}
+
+	return vehicles, nil
+}
+
+func storeVehiclesInDB(vehicles []models.Vehicle) error {
+	stmt, err := database.DB.Prepare(`
+		INSERT OR REPLACE INTO vehicles
+		(id, label, latitude, longitude, timestamp, vehicle_type, bike_accessible, wheelchair_accessible, speed, route_id, trip_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("error preparing statement: %w", err)
+	}
+
+	defer func(stmt *sql.Stmt) {
+		_ = stmt.Close()
+	}(stmt)
+
+	for _, vehicle := range vehicles {
+		if _, err := stmt.Exec(
+			vehicle.ID,
+			vehicle.Label,
+			vehicle.Latitude,
+			vehicle.Longitude,
+			vehicle.Timestamp,
+			vehicle.VehicleType,
+			vehicle.BikeAccessible,
+			vehicle.WheelchairAccessible,
+			vehicle.Speed,
+			vehicle.RouteID,
+			vehicle.TripID,
+		); err != nil {
+			return fmt.Errorf("error inserting vehicle: %w", err)
+		}
+	}
+
+	return nil
 }

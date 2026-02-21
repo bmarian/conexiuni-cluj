@@ -49,10 +49,13 @@ func main() {
 	// API routes
 	api := app.Group("/api")
 	api.Get("/routes", func(c fiber.Ctx) error {
-		return handlers.GetRoutes(c, tranzyClient)
+		return handlers.GetRoutes(c, tranzyClient, config.RouteCacheShelfLife)
 	})
 	api.Get("/shapes", func(c fiber.Ctx) error {
-		return handlers.GetShapes(c, tranzyClient)
+		return handlers.GetShapes(c, tranzyClient, config.ShapeCacheShelfLife)
+	})
+	api.Get("/vehicles", func(c fiber.Ctx) error {
+		return handlers.GetVehicles(c, tranzyClient, config.VehicleCacheShelfLife)
 	})
 
 	// Serve static files

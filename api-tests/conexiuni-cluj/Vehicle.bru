@@ -1,0 +1,16 @@
+meta {
+  name: Vehicle
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{BASE_URL}}/vehicles
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

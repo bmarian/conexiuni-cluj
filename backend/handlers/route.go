@@ -13,15 +13,14 @@ import (
 )
 
 const (
-	RoutesCacheId       = "ROUTES"
-	RouteCacheShelfLife = 24 * time.Hour
+	RoutesCacheId = "ROUTES"
 )
 
-func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client) error {
+func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
 	return HandleCachedData(
 		c,
 		RoutesCacheId,
-		RouteCacheShelfLife,
+		cacheShelfLife,
 		getRoutesFromDB,
 		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
 		storeRoutesInDB,
