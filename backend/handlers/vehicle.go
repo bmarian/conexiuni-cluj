@@ -21,7 +21,7 @@ func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.D
 		c,
 		VehicleCacheId,
 		cacheShelfLife,
-		getVehiclesFromDB,
+		func() ([]models.Vehicle, error) { return getVehiclesFromDB() },
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,
 		false,
@@ -31,7 +31,7 @@ func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.D
 func GetVehiclesByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) error {
 	isCacheValid := database.IsCacheValid(VehicleCacheId)
 	if isCacheValid {
-		vehicles, err := getVehiclesByRouteIDFromDB(routeID)
+		vehicles, err := getVehiclesFromDB(routeID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -61,40 +61,6 @@ func GetVehiclesByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLi
 	return c.JSON(filteredVehicles)
 }
 
-func getVehiclesByRouteIDFromDB(routeID int) ([]models.Vehicle, error) {
-	rows, err := database.DB.Query(`SELECT * FROM vehicles where route_id = ?`, routeID)
-	if err != nil {
-		return nil, fmt.Errorf("error querying vehicles: %w", err)
-	}
-
-	defer func(rows *sql.Rows) {
-		_ = rows.Close()
-	}(rows)
-
-	var vehicles []models.Vehicle
-	for rows.Next() {
-		var vehicle models.Vehicle
-		err := rows.Scan(
-			&vehicle.ID,
-			&vehicle.Label,
-			&vehicle.Latitude,
-			&vehicle.Longitude,
-			&vehicle.Timestamp,
-			&vehicle.VehicleType,
-			&vehicle.BikeAccessible,
-			&vehicle.WheelchairAccessible,
-			&vehicle.Speed,
-			&vehicle.RouteID,
-			&vehicle.TripID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error scanning vehicles: %w", err)
-		}
-		vehicles = append(vehicles, vehicle)
-	}
-	return vehicles, nil
-}
-
 func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
 	data, err := tranzyClient.DoRequest("/vehicles", nil)
 	if err != nil {
@@ -109,8 +75,16 @@ func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
 	return vehicles, nil
 }
 
-func getVehiclesFromDB() ([]models.Vehicle, error) {
-	rows, err := database.DB.Query(`SELECT * FROM vehicles`)
+func getVehiclesFromDB(options ...int) ([]models.Vehicle, error) {
+	var rows *sql.Rows
+	var err error
+
+	if len(options) > 0 {
+		routeID := options[0]
+		rows, err = database.DB.Query(`SELECT * FROM vehicles where route_id = ?`, routeID)
+	} else {
+		rows, err = database.DB.Query(`SELECT * FROM vehicles`)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error querying vehicles: %w", err)
 	}
