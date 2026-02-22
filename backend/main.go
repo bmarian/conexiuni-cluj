@@ -65,6 +65,16 @@ func main() {
 		}
 		return handlers.GetVehiclesByRouteID(c, tranzyClient, config.VehicleCacheShelfLife, routeID)
 	})
+	api.Get("/trips", func(c fiber.Ctx) error {
+		return handlers.GetTrips(c, tranzyClient, config.TripCacheShelfLife)
+	})
+	api.Get("/trips/:routeID", func(c fiber.Ctx) error {
+		routeID, err := strconv.Atoi(c.Params("routeID"))
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
+		}
+		return handlers.GetTripsByRouteID(c, tranzyClient, config.TripCacheShelfLife, routeID)
+	})
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
 		app.Use("/", static.New("./dist", static.Config{

@@ -19,6 +19,7 @@ type Config struct {
 	VehicleCacheShelfLife time.Duration
 	ShapeCacheShelfLife   time.Duration
 	RouteCacheShelfLife   time.Duration
+	TripCacheShelfLife    time.Duration
 }
 
 func getEnv(key, defaultValue string) string {
@@ -59,5 +60,6 @@ func Load() *Config {
 		VehicleCacheShelfLife: getDuration("VEHICLE_CACHE_SHELF_LIFE", 30*time.Second),
 		ShapeCacheShelfLife:   getDuration("SHAPE_CACHE_SHELF_LIFE", 24*time.Hour),
 		RouteCacheShelfLife:   getDuration("ROUTE_CACHE_SHELF_LIFE", 24*time.Hour),
+		TripCacheShelfLife:    getDuration("TRIP_CACHE_SHELF_LIFE", 24*time.Hour),
 	}
 }
