@@ -59,7 +59,17 @@ func main() {
 		return c.JSON(data)
 	})
 	api.Get("/stops", func(c fiber.Ctx) error {
-		data, err := handlers.GetStops(tranzyClient, config.StopCacheShelfLife)
+		filter := handlers.StopFilter{}
+
+		if stopIDStr := c.Query("stop_id"); stopIDStr != "" {
+			stopID, err := strconv.Atoi(stopIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid stop_id"})
+			}
+			filter.StopID = &stopID
+		}
+
+		data, err := handlers.GetStops(tranzyClient, config.StopCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

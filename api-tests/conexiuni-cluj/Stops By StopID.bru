@@ -1,13 +1,17 @@
 meta {
-  name: StopTimes
+  name: Stops By StopID
   type: http
-  seq: 12
+  seq: 11
 }
 
 get {
-  url: {{BASE_URL}}/stop_times
+  url: {{BASE_URL}}/stops?stop_id=1
   body: none
   auth: inherit
+}
+
+params:query {
+  stop_id: 1
 }
 
 settings {

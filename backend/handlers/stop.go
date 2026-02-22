@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,12 +15,34 @@ const (
 	StopsCacheId = "STOPS"
 )
 
-func GetStops(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Stop, error) {
+type StopFilter struct {
+	StopID *int
+}
+
+func GetStops(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter StopFilter) ([]models.Stop, error) {
+	opts := CacheOpts[[]models.Stop]{}
+
+	if filter.StopID != nil {
+		f := filter
+		opts.PostProcess = func(ss []models.Stop) []models.Stop {
+			var out []models.Stop
+			for _, s := range ss {
+				if f.StopID != nil && s.StopID != *f.StopID {
+					continue
+				}
+				out = append(out, s)
+			}
+			return out
+		}
+	} else {
+		opts.Optimize = true
+	}
+
 	return HandleCached(StopsCacheId, cacheShelfLife,
-		getStopsFromDB,
+		func() ([]models.Stop, error) { return getStopsFromDB(filter) },
 		func() ([]models.Stop, error) { return requestStops(tranzyClient) },
 		storeStopsInDB,
-		CacheOpts[[]models.Stop]{Optimize: true},
+		opts,
 	)
 }
 
@@ -37,8 +60,20 @@ func requestStops(tranzyClient *tranzy.Client) ([]models.Stop, error) {
 	return stops, nil
 }
 
-func getStopsFromDB() ([]models.Stop, error) {
-	rows, err := database.DB.Query(`SELECT * FROM stops`)
+func getStopsFromDB(filter StopFilter) ([]models.Stop, error) {
+	query := `SELECT * FROM stops`
+	var args []any
+	var conditions []string
+
+	if filter.StopID != nil {
+		conditions = append(conditions, "stop_id = ?")
+		args = append(args, *filter.StopID)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying stops: %w", err)
 	}
