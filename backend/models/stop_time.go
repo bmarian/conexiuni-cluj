@@ -2,6 +2,12 @@ package models
 
 import "database/sql"
 
+type RequestStopTime struct {
+	TripID       string `json:"trip_id"`
+	StopID       int    `json:"stop_id"`
+	StopSequence int    `json:"stop_sequence"`
+}
+
 type StopTime struct {
 	TripID            string          `json:"trip_id" db:"trip_id"`
 	ArrivalTime       sql.NullString  `json:"arrival_time,omitempty" db:"arrival_time"`

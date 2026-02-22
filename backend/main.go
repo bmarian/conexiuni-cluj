@@ -109,6 +109,14 @@ func main() {
 		return c.JSON(data)
 	})
 
+	api.Get("/stop_times", func(c fiber.Ctx) error {
+		data, err := handlers.GetStopTimes(tranzyClient, config.StopTimeCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
+	})
+
 	// CTP Cj API routes
 	api.Get("/timetable/:routeShortName", func(c fiber.Ctx) error {
 		routeShortName := c.Params("routeShortName")
