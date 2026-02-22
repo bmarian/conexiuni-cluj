@@ -121,8 +121,7 @@ func InitSchemas() error {
 		CREATE TABLE IF NOT EXISTS stop_times
         (
             trip_id             TEXT    NOT NULL,
-            arrival_time        TEXT    NOT NULL,
-            departure_time      TEXT    NOT NULL,
+            offset_arrival_time TEXT    NOT NULL,
             stop_id             INTEGER NOT NULL,
             stop_sequence       INTEGER NOT NULL,
             stop_headsign       TEXT    NOT NULL,
@@ -180,8 +179,6 @@ func InitSchemas() error {
 		-- StopTimes indexes
 		CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
 		CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
-		CREATE INDEX IF NOT EXISTS idx_stop_times_arrival ON stop_times(arrival_time);
-		CREATE INDEX IF NOT EXISTS idx_stop_times_departure ON stop_times(departure_time);
 	`
 
 	_, err = DB.Exec(indexes)

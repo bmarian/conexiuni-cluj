@@ -3,7 +3,6 @@ package handlers
 import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
-	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"encoding/json"
@@ -19,12 +18,10 @@ const (
 )
 
 type CacheTimes struct {
-	VehicleCacheShelfLife     time.Duration
 	ShapeCacheShelfLife       time.Duration
 	RouteCacheShelfLife       time.Duration
 	TripCacheShelfLife        time.Duration
 	StopCacheShelfLife        time.Duration
-	TimetableCacheShelfLife   time.Duration
 	StopTimeCacheShelfLife    time.Duration
 	APIStopTimeCacheShelfLife time.Duration
 }
@@ -33,11 +30,11 @@ type StopTimeFilter struct {
 	RouteShortName *string
 }
 
-func GetStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
-	return requestStopTimes(tranzyClient, ctpCjClient, filter, cacheTimes)
+func GetStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
+	return requestStopTimes(tranzyClient, filter, cacheTimes)
 }
 
-func requestStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
+func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
 	routes, errRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
 	if errRoutes != nil || len(routes) == 0 {
 		return nil, errRoutes
@@ -55,11 +52,13 @@ func requestStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, fi
 	}
 
 	groupedRaw := make(map[string][]models.RequestStopTime)
+	count := 0
 	for _, t := range trips {
 		tripID := t.TripID
 		for _, ast := range apiStopTimes {
 			if ast.TripID == tripID {
 				groupedRaw[tripID] = append(groupedRaw[tripID], ast)
+				count++
 			}
 		}
 		sort.Slice(groupedRaw[tripID], func(i, j int) bool {
@@ -67,7 +66,27 @@ func requestStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, fi
 		})
 	}
 
-	return nil, nil
+	out := make([]models.StopTime, 0, count)
+	for _, gr := range groupedRaw {
+		for _, st := range gr {
+
+			stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &st.StopID})
+			stopHeadsign := ""
+			if errStops == nil && len(stops) != 0 {
+				stop := stops[0]
+				stopHeadsign = stop.StopName
+			}
+
+			out = append(out, models.StopTime{
+				TripID:       st.TripID,
+				StopID:       st.StopID,
+				StopSequence: st.StopSequence,
+				StopHeadsign: stopHeadsign,
+			})
+		}
+	}
+
+	return out, nil
 }
 
 type APIStopTimeFilter struct {

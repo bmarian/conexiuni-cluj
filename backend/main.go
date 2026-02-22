@@ -144,12 +144,11 @@ func main() {
 			filter.RouteShortName = &routeShortName
 		}
 
-		data, err := handlers.GetStopTimes(tranzyClient, ctpCjClient, filter, handlers.CacheTimes{
+		data, err := handlers.GetStopTimes(tranzyClient, filter, handlers.CacheTimes{
 			ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
 			RouteCacheShelfLife:       config.RouteCacheShelfLife,
 			TripCacheShelfLife:        config.TripCacheShelfLife,
 			StopCacheShelfLife:        config.StopCacheShelfLife,
-			TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
 			StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
 			APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
 		})
