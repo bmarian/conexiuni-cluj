@@ -3,6 +3,7 @@ package ctp_cj
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v3/client"
 )
@@ -60,4 +61,14 @@ func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sund
 		*pair.dst = parsed
 	}
 	return
+}
+
+func NewClient(baseUrl string) *Client {
+	c := client.New()
+	c.SetTimeout(30 * time.Second)
+
+	return &Client{
+		BaseURL: baseUrl,
+		client:  c,
+	}
 }

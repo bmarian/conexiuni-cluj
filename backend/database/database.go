@@ -128,10 +128,10 @@ func InitSchemas() error {
 		CREATE TABLE IF NOT EXISTS timetable
         (
             route_short_name TEXT PRIMARY KEY,
-            route_long_name  TEXT,
-            weekdays         TEXT,
-            saturday         TEXT,
-            sunday           TEXT
+            route_long_name  TEXT NOT NULL,
+            weekdays         TEXT NOT NULL,
+            saturday         TEXT NOT NULL,
+            sunday           TEXT NOT NULL
         );
 
 		CREATE TABLE IF NOT EXISTS cache_times

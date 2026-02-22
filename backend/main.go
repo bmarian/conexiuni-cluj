@@ -3,6 +3,7 @@ package main
 import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/handlers"
+	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"log"
@@ -37,6 +38,7 @@ func main() {
 	}
 
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId)
+	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl)
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
@@ -47,7 +49,7 @@ func main() {
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
 
-	// API routes
+	// Tranzy API routes
 	api := app.Group("/api")
 	api.Get("/routes", func(c fiber.Ctx) error {
 		return handlers.GetRoutes(c, tranzyClient, config.RouteCacheShelfLife)
@@ -75,6 +77,13 @@ func main() {
 		}
 		return handlers.GetTripsByRouteID(c, tranzyClient, config.TripCacheShelfLife, routeID)
 	})
+
+	// CTP Cj API routes
+	api.Get("/timetable/:routeShortName", func(c fiber.Ctx) error {
+		routeShortName := c.Params("routeShortName")
+		return handlers.GetTimetable(c, ctpCjClient, config.TimetableCacheShelfLife, routeShortName)
+	})
+
 	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
 		app.Use("/", static.New("./dist", static.Config{
