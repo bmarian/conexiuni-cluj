@@ -8,16 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 const (
 	VehicleCacheId = "VEHICLES"
 )
 
-func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCached(c, VehicleCacheId, cacheShelfLife,
+func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Vehicle, error) {
+	return HandleCached(VehicleCacheId, cacheShelfLife,
 		func() ([]models.Vehicle, error) { return getVehiclesFromDB() },
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,
@@ -25,8 +23,8 @@ func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.D
 	)
 }
 
-func GetVehiclesByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) error {
-	return HandleCached(c, VehicleCacheId, cacheShelfLife,
+func GetVehiclesByRouteID(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) ([]models.Vehicle, error) {
+	return HandleCached(VehicleCacheId, cacheShelfLife,
 		func() ([]models.Vehicle, error) { return getVehiclesFromDB(routeID) },
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,

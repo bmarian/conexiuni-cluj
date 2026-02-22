@@ -8,16 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 const (
 	RoutesCacheId = "ROUTES"
 )
 
-func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCached(c, RoutesCacheId, cacheShelfLife,
+func GetRoutes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Route, error) {
+	return HandleCached(RoutesCacheId, cacheShelfLife,
 		getRoutesFromDB,
 		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
 		storeRoutesInDB,

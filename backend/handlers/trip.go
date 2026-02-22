@@ -8,16 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 const (
 	TripCacheId = "TRIPS"
 )
 
-func GetTrips(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCached(c, TripCacheId, cacheShelfLife,
+func GetTrips(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Trip, error) {
+	return HandleCached(TripCacheId, cacheShelfLife,
 		func() ([]models.Trip, error) { return getTripsFromDB() },
 		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
 		storeTripsInDB,
@@ -25,8 +23,8 @@ func GetTrips(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Dura
 	)
 }
 
-func GetTripsByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) error {
-	return HandleCached(c, TripCacheId, cacheShelfLife,
+func GetTripsByRouteID(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) ([]models.Trip, error) {
+	return HandleCached(TripCacheId, cacheShelfLife,
 		func() ([]models.Trip, error) { return getTripsFromDB(routeID) },
 		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
 		storeTripsInDB,

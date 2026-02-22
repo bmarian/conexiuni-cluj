@@ -4,8 +4,6 @@ import (
 	"conexiuni-cluj/database"
 	"log"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 type CacheOpts[T any] struct {
@@ -14,28 +12,25 @@ type CacheOpts[T any] struct {
 }
 
 func HandleCached[T any](
-	c fiber.Ctx,
 	cacheID string,
 	shelfLife time.Duration,
 	dbFetcher func() (T, error),
 	apiFetcher func() (T, error),
 	dbStorer func(T) error,
 	opts CacheOpts[T],
-) error {
+) (T, error) {
 	if data, hit, err := readFromCache(cacheID, dbFetcher); hit {
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			var zero T
+			return zero, err
 		}
-		return c.JSON(data)
+		return data, nil
 	}
 
 	data, err := apiFetcher()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		var zero T
+		return zero, err
 	}
 
 	go func() {
@@ -70,9 +65,9 @@ func HandleCached[T any](
 	}()
 
 	if opts.PostProcess != nil {
-		return c.JSON(opts.PostProcess(data))
+		return opts.PostProcess(data), nil
 	}
-	return c.JSON(data)
+	return data, nil
 }
 
 func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, bool, error) {

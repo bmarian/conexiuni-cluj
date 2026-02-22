@@ -7,13 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
-func GetTimetable(c fiber.Ctx, ctpCjClient *ctp_cj.Client, shelfLife time.Duration, routeShortName string) error {
+func GetTimetable(ctpCjClient *ctp_cj.Client, shelfLife time.Duration, routeShortName string) (*models.Timetable, error) {
 	cacheID := "TIMETABLE_" + routeShortName
-	return HandleCached(c, cacheID, shelfLife,
+	return HandleCached(cacheID, shelfLife,
 		func() (*models.Timetable, error) { return getTimetableFromDB(routeShortName) },
 		func() (*models.Timetable, error) { return fetchTimetable(ctpCjClient, routeShortName) },
 		storeTimetableInDB,

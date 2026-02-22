@@ -52,39 +52,71 @@ func main() {
 	// Tranzy API routes
 	api := app.Group("/api")
 	api.Get("/routes", func(c fiber.Ctx) error {
-		return handlers.GetRoutes(c, tranzyClient, config.RouteCacheShelfLife)
+		data, err := handlers.GetRoutes(tranzyClient, config.RouteCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/stops", func(c fiber.Ctx) error {
-		return handlers.GetStops(c, tranzyClient, config.StopCacheShelfLife)
+		data, err := handlers.GetStops(tranzyClient, config.StopCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/shapes", func(c fiber.Ctx) error {
-		return handlers.GetShapes(c, tranzyClient, config.ShapeCacheShelfLife)
+		data, err := handlers.GetShapes(tranzyClient, config.ShapeCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/vehicles", func(c fiber.Ctx) error {
-		return handlers.GetVehicles(c, tranzyClient, config.VehicleCacheShelfLife)
+		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/vehicles/:routeID", func(c fiber.Ctx) error {
 		routeID, err := strconv.Atoi(c.Params("routeID"))
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
 		}
-		return handlers.GetVehiclesByRouteID(c, tranzyClient, config.VehicleCacheShelfLife, routeID)
+		data, err := handlers.GetVehiclesByRouteID(tranzyClient, config.VehicleCacheShelfLife, routeID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/trips", func(c fiber.Ctx) error {
-		return handlers.GetTrips(c, tranzyClient, config.TripCacheShelfLife)
+		data, err := handlers.GetTrips(tranzyClient, config.TripCacheShelfLife)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 	api.Get("/trips/:routeID", func(c fiber.Ctx) error {
 		routeID, err := strconv.Atoi(c.Params("routeID"))
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
 		}
-		return handlers.GetTripsByRouteID(c, tranzyClient, config.TripCacheShelfLife, routeID)
+		data, err := handlers.GetTripsByRouteID(tranzyClient, config.TripCacheShelfLife, routeID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 
 	// CTP Cj API routes
 	api.Get("/timetable/:routeShortName", func(c fiber.Ctx) error {
 		routeShortName := c.Params("routeShortName")
-		return handlers.GetTimetable(c, ctpCjClient, config.TimetableCacheShelfLife, routeShortName)
+		data, err := handlers.GetTimetable(ctpCjClient, config.TimetableCacheShelfLife, routeShortName)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
 	})
 
 	// Serve static files

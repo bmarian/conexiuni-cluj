@@ -8,16 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 const (
 	ShapesCacheId = "SHAPES"
 )
 
-func GetShapes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCached(c, ShapesCacheId, cacheShelfLife,
+func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Shape, error) {
+	return HandleCached(ShapesCacheId, cacheShelfLife,
 		getShapesFromDB,
 		func() ([]models.Shape, error) { return requestShapes(tranzyClient) },
 		storeShapesInDB,

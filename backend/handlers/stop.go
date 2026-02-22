@@ -8,16 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 const (
 	StopsCacheId = "STOPS"
 )
 
-func GetStops(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCached(c, StopsCacheId, cacheShelfLife,
+func GetStops(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Stop, error) {
+	return HandleCached(StopsCacheId, cacheShelfLife,
 		getStopsFromDB,
 		func() ([]models.Stop, error) { return requestStops(tranzyClient) },
 		storeStopsInDB,
