@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,31 +15,32 @@ const (
 	VehicleCacheId = "VEHICLES"
 )
 
-func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Vehicle, error) {
-	return HandleCached(VehicleCacheId, cacheShelfLife,
-		func() ([]models.Vehicle, error) { return getVehiclesFromDB() },
-		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
-		storeVehiclesInDB,
-		CacheOpts[[]models.Vehicle]{},
-	)
+type VehicleFilter struct {
+	RouteID *int
 }
 
-func GetVehiclesByRouteID(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) ([]models.Vehicle, error) {
+func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter VehicleFilter) ([]models.Vehicle, error) {
+	opts := CacheOpts[[]models.Vehicle]{}
+
+	if filter.RouteID != nil {
+		f := filter
+		opts.PostProcess = func(vs []models.Vehicle) []models.Vehicle {
+			var out []models.Vehicle
+			for _, v := range vs {
+				if f.RouteID != nil && v.RouteID != *f.RouteID {
+					continue
+				}
+				out = append(out, v)
+			}
+			return out
+		}
+	}
+
 	return HandleCached(VehicleCacheId, cacheShelfLife,
-		func() ([]models.Vehicle, error) { return getVehiclesFromDB(routeID) },
+		func() ([]models.Vehicle, error) { return getVehiclesFromDB(filter) },
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,
-		CacheOpts[[]models.Vehicle]{
-			PostProcess: func(vs []models.Vehicle) []models.Vehicle {
-				var out []models.Vehicle
-				for _, v := range vs {
-					if v.RouteID == routeID {
-						out = append(out, v)
-					}
-				}
-				return out
-			},
-		},
+		opts,
 	)
 }
 
@@ -56,16 +58,20 @@ func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
 	return vehicles, nil
 }
 
-func getVehiclesFromDB(options ...int) ([]models.Vehicle, error) {
-	var rows *sql.Rows
-	var err error
+func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
+	query := `SELECT * FROM vehicles`
+	var args []any
+	var conditions []string
 
-	if len(options) > 0 {
-		routeID := options[0]
-		rows, err = database.DB.Query(`SELECT * FROM vehicles where route_id = ?`, routeID)
-	} else {
-		rows, err = database.DB.Query(`SELECT * FROM vehicles`)
+	if filter.RouteID != nil {
+		conditions = append(conditions, "route_id = ?")
+		args = append(args, *filter.RouteID)
 	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying vehicles: %w", err)
 	}

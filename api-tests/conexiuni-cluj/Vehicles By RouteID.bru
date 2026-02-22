@@ -5,9 +5,13 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/vehicles/25
+  url: {{BASE_URL}}/vehicles?route_id=25
   body: none
   auth: inherit
+}
+
+params:query {
+  route_id: 25
 }
 
 settings {

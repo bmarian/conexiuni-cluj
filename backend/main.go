@@ -73,18 +73,17 @@ func main() {
 		return c.JSON(data)
 	})
 	api.Get("/vehicles", func(c fiber.Ctx) error {
-		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		filter := handlers.VehicleFilter{}
+
+		if routeIDStr := c.Query("route_id"); routeIDStr != "" {
+			routeID, err := strconv.Atoi(routeIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
+			}
+			filter.RouteID = &routeID
 		}
-		return c.JSON(data)
-	})
-	api.Get("/vehicles/:routeID", func(c fiber.Ctx) error {
-		routeID, err := strconv.Atoi(c.Params("routeID"))
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
-		}
-		data, err := handlers.GetVehiclesByRouteID(tranzyClient, config.VehicleCacheShelfLife, routeID)
+
+		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
