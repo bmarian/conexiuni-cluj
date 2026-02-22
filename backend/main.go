@@ -109,7 +109,6 @@ func main() {
 		}
 		return c.JSON(data)
 	})
-
 	api.Get("/stop_times", func(c fiber.Ctx) error {
 		data, err := handlers.GetStopTimes(tranzyClient, config.StopTimeCacheShelfLife)
 		if err != nil {
