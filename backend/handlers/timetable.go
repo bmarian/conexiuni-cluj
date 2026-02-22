@@ -17,7 +17,7 @@ func GetTimetable(c fiber.Ctx, ctpCjClient *ctp_cj.Client, shelfLife time.Durati
 		func() (*models.Timetable, error) { return getTimetableFromDB(routeShortName) },
 		func() (*models.Timetable, error) { return fetchTimetable(ctpCjClient, routeShortName) },
 		storeTimetableInDB,
-		CacheOpts[*models.Timetable]{},
+		CacheOpts[*models.Timetable]{Optimize: true},
 	)
 }
 

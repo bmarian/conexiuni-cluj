@@ -54,6 +54,9 @@ func main() {
 	api.Get("/routes", func(c fiber.Ctx) error {
 		return handlers.GetRoutes(c, tranzyClient, config.RouteCacheShelfLife)
 	})
+	api.Get("/stops", func(c fiber.Ctx) error {
+		return handlers.GetStops(c, tranzyClient, config.StopCacheShelfLife)
+	})
 	api.Get("/shapes", func(c fiber.Ctx) error {
 		return handlers.GetShapes(c, tranzyClient, config.ShapeCacheShelfLife)
 	})

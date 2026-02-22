@@ -21,6 +21,7 @@ type Config struct {
 	ShapeCacheShelfLife      time.Duration
 	RouteCacheShelfLife      time.Duration
 	TripCacheShelfLife       time.Duration
+	StopCacheShelfLife       time.Duration
 	TimetableCacheShelfLife  time.Duration
 	CtpCjRateLimit           time.Duration
 	TranzyRateLimit          time.Duration
@@ -80,6 +81,7 @@ func Load() *Config {
 		ShapeCacheShelfLife:      getDuration("SHAPE_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		RouteCacheShelfLife:      getDuration("ROUTE_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		TripCacheShelfLife:       getDuration("TRIP_CACHE_SHELF_LIFE", 7*24*time.Hour),
+		StopCacheShelfLife:       getDuration("STOP_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		TimetableCacheShelfLife:  getDuration("TIMETABLE_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		CtpCjRateLimit:           getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),

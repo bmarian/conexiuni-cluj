@@ -102,12 +102,12 @@ func InitSchemas() error {
 		CREATE TABLE IF NOT EXISTS stops
         (
             stop_id       INTEGER PRIMARY KEY,
-            stop_name     TEXT NOT NULL,
-            stop_desc     TEXT,
-            stop_lat      REAL NOT NULL,
-            stop_lon      REAL NOT NULL,
-            location_type INTEGER,
-            stop_code     TEXT
+            stop_name     TEXT    NOT NULL,
+            stop_desc     TEXT    NOT NULL,
+            stop_lat      REAL    NOT NULL,
+            stop_lon      REAL    NOT NULL,
+            location_type INTEGER NOT NULL,
+            stop_code     TEXT    NOT NULL
         );
 
 		CREATE TABLE IF NOT EXISTS stop_times
