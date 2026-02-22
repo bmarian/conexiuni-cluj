@@ -1,6 +1,16 @@
 package database
 
-import "time"
+import (
+	"sync"
+	"time"
+)
+
+var cacheMutexes sync.Map
+
+func GetCacheRWMutex(cacheId string) *sync.RWMutex {
+	v, _ := cacheMutexes.LoadOrStore(cacheId, &sync.RWMutex{})
+	return v.(*sync.RWMutex)
+}
 
 func IsCacheValid(cacheId string) bool {
 	var timestamp int64
