@@ -1,11 +1,16 @@
 package models
 
-import "database/sql"
+type TimetableEntry struct {
+	DepartureIn  string `json:"departure_in"`
+	DepartureOut string `json:"departure_out"`
+}
 
 type Timetable struct {
-	RouteShortName string         `json:"route_short_name" db:"route_short_name"`
-	RouteLongName  sql.NullString `json:"route_long_name" db:"route_long_name"`
-	Weekdays       sql.NullString `json:"weekdays" db:"weekdays"`
-	Saturday       sql.NullString `json:"saturday" db:"saturday"`
-	Sunday         sql.NullString `json:"sunday" db:"sunday"`
+	RouteShortName string           `json:"route_short_name"`
+	RouteLongName  string           `json:"route_long_name"`
+	InStopName     string           `json:"in_stop_name"`
+	OutStopName    string           `json:"out_stop_name"`
+	Weekdays       []TimetableEntry `json:"weekdays"`
+	Saturday       []TimetableEntry `json:"saturday"`
+	Sunday         []TimetableEntry `json:"sunday"`
 }

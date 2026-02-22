@@ -129,6 +129,8 @@ func InitSchemas() error {
         (
             route_short_name TEXT PRIMARY KEY,
             route_long_name  TEXT NOT NULL,
+            in_stop_name     TEXT NOT NULL,
+            out_stop_name    TEXT NOT NULL,
             weekdays         TEXT NOT NULL,
             saturday         TEXT NOT NULL,
             sunday           TEXT NOT NULL

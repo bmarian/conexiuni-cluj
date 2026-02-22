@@ -23,7 +23,7 @@ type Client struct {
 
 var ErrNotFound = errors.New("timetable not found")
 
-func (c *Client) DoRequest(routeShortName string, day DayOfTheWeek) ([]byte, error) {
+func (c *Client) doRequest(routeShortName string, day DayOfTheWeek) ([]byte, error) {
 	url := fmt.Sprintf("%s/orar_%s_%s.csv", c.BaseURL, routeShortName, day)
 	resp, err := c.client.Get(url)
 	if err != nil {
@@ -47,7 +47,7 @@ func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sund
 		{DayS, &saturday},
 		{DayD, &sunday},
 	} {
-		data, err := c.DoRequest(routeShortName, pair.day)
+		data, err := c.doRequest(routeShortName, pair.day)
 		if errors.Is(err, ErrNotFound) {
 			continue
 		}
