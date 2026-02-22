@@ -37,8 +37,8 @@ func main() {
 		log.Fatal("TRANZY_API_KEY not set in environment")
 	}
 
-	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId)
-	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl)
+	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota)
+	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",

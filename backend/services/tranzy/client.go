@@ -81,7 +81,7 @@ func (c *Client) DoRequest(endpoint string, params map[string]string) ([]byte, e
 	return resp.Body(), nil
 }
 
-func NewClient(baseUrl string, apiKey string, agencyId string) *Client {
+func NewClient(baseUrl string, apiKey string, agencyId string, rateLimit time.Duration, vehiclesDailyQuota int, defaultDailyQuota int) *Client {
 	c := client.New()
 	c.SetTimeout(30 * time.Second)
 
@@ -91,13 +91,15 @@ func NewClient(baseUrl string, apiKey string, agencyId string) *Client {
 		loc = time.UTC
 	}
 
+	burst := int(time.Second / rateLimit)
+
 	return &Client{
 		BaseURL:       baseUrl,
 		APIKey:        apiKey,
 		AgencyId:      agencyId,
 		client:        c,
-		limiter:       rate.NewLimiter(rate.Limit(5), 5),
-		vehiclesQuota: &dailyQuota{limit: 4500, loc: loc},
-		defaultQuota:  &dailyQuota{limit: 500, loc: loc},
+		limiter:       rate.NewLimiter(rate.Every(rateLimit), burst),
+		vehiclesQuota: &dailyQuota{limit: vehiclesDailyQuota, loc: loc},
+		defaultQuota:  &dailyQuota{limit: defaultDailyQuota, loc: loc},
 	}
 }

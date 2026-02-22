@@ -1,11 +1,13 @@
 package ctp_cj
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v3/client"
+	"golang.org/x/time/rate"
 )
 
 type DayOfTheWeek string
@@ -19,6 +21,7 @@ const (
 type Client struct {
 	BaseURL string
 	client  *client.Client
+	limiter *rate.Limiter
 }
 
 var ErrNotFound = errors.New("timetable not found")
@@ -39,6 +42,10 @@ func (c *Client) doRequest(routeShortName string, day DayOfTheWeek) ([]byte, err
 }
 
 func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sunday *ParsedTimetable, err error) {
+	if err = c.limiter.Wait(context.Background()); err != nil {
+		return nil, nil, nil, fmt.Errorf("ctpcj: rate limiter: %w", err)
+	}
+
 	for _, pair := range []struct {
 		day DayOfTheWeek
 		dst **ParsedTimetable
@@ -63,12 +70,13 @@ func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sund
 	return
 }
 
-func NewClient(baseUrl string) *Client {
+func NewClient(baseUrl string, rateLimit time.Duration) *Client {
 	c := client.New()
 	c.SetTimeout(30 * time.Second)
 
 	return &Client{
 		BaseURL: baseUrl,
 		client:  c,
+		limiter: rate.NewLimiter(rate.Every(rateLimit), 1),
 	}
 }
