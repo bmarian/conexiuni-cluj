@@ -68,21 +68,31 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 
 	out := make([]models.StopTime, 0, count)
 	for _, gr := range groupedRaw {
+		var previousStop *models.Stop
 		for _, st := range gr {
+			stopHeadsign := ""
+			offsetArrivalTime := 0.0
+			var currentStop models.Stop
 
 			stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &st.StopID})
-			stopHeadsign := ""
 			if errStops == nil && len(stops) != 0 {
-				stop := stops[0]
-				stopHeadsign = stop.StopName
+				currentStop = stops[0]
+				stopHeadsign = currentStop.StopName
+			}
+
+			if previousStop != nil && st.StopSequence != 0 {
+				// TODO: Calculate offset between previous stop and current stop
 			}
 
 			out = append(out, models.StopTime{
-				TripID:       st.TripID,
-				StopID:       st.StopID,
-				StopSequence: st.StopSequence,
-				StopHeadsign: stopHeadsign,
+				TripID:            st.TripID,
+				StopID:            st.StopID,
+				OffsetArrivalTime: offsetArrivalTime,
+				StopSequence:      st.StopSequence,
+				StopHeadsign:      stopHeadsign,
 			})
+
+			previousStop = &currentStop
 		}
 	}
 

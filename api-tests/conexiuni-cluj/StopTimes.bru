@@ -5,9 +5,13 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/stop_times
+  url: {{BASE_URL}}/stop_times?route_short_name=32
   body: none
   auth: inherit
+}
+
+params:query {
+  route_short_name: 32
 }
 
 settings {
