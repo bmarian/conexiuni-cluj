@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,12 +15,34 @@ const (
 	ShapesCacheId = "SHAPES"
 )
 
-func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Shape, error) {
+type ShapeFilter struct {
+	ShapeID *string
+}
+
+func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter ShapeFilter) ([]models.Shape, error) {
+	opts := CacheOpts[[]models.Shape]{}
+
+	if filter.ShapeID != nil {
+		f := filter
+		opts.PostProcess = func(ss []models.Shape) []models.Shape {
+			var out []models.Shape
+			for _, s := range ss {
+				if f.ShapeID != nil && s.ShapeID != *f.ShapeID {
+					continue
+				}
+				out = append(out, s)
+			}
+			return out
+		}
+	} else {
+		opts.Optimize = true
+	}
+
 	return HandleCached(ShapesCacheId, cacheShelfLife,
-		getShapesFromDB,
+		func() ([]models.Shape, error) { return getShapesFromDB(filter) },
 		func() ([]models.Shape, error) { return requestShapes(tranzyClient) },
 		storeShapesInDB,
-		CacheOpts[[]models.Shape]{Optimize: true},
+		opts,
 	)
 }
 
@@ -37,8 +60,20 @@ func requestShapes(tranzyClient *tranzy.Client) ([]models.Shape, error) {
 	return shapes, nil
 }
 
-func getShapesFromDB() ([]models.Shape, error) {
-	rows, err := database.DB.Query(`SELECT * FROM shapes`)
+func getShapesFromDB(filter ShapeFilter) ([]models.Shape, error) {
+	query := `SELECT * FROM shapes`
+	var args []any
+	var conditions []string
+
+	if filter.ShapeID != nil {
+		conditions = append(conditions, "shape_id = ?")
+		args = append(args, *filter.ShapeID)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying shapes: %w", err)
 	}

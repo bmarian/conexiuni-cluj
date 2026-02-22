@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,12 +15,38 @@ const (
 	RoutesCacheId = "ROUTES"
 )
 
-func GetRoutes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Route, error) {
+type RouteFilter struct {
+	RouteID        *int
+	RouteShortName *string
+}
+
+func GetRoutes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter RouteFilter) ([]models.Route, error) {
+	opts := CacheOpts[[]models.Route]{}
+
+	if filter.RouteID != nil || filter.RouteShortName != nil {
+		f := filter
+		opts.PostProcess = func(rs []models.Route) []models.Route {
+			var out []models.Route
+			for _, r := range rs {
+				if f.RouteID != nil && r.RouteID != *f.RouteID {
+					continue
+				}
+				if f.RouteShortName != nil && r.RouteShortName != *f.RouteShortName {
+					continue
+				}
+				out = append(out, r)
+			}
+			return out
+		}
+	} else {
+		opts.Optimize = true
+	}
+
 	return HandleCached(RoutesCacheId, cacheShelfLife,
-		getRoutesFromDB,
+		func() ([]models.Route, error) { return getRoutesFromDB(filter) },
 		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
 		storeRoutesInDB,
-		CacheOpts[[]models.Route]{Optimize: true},
+		opts,
 	)
 }
 
@@ -37,8 +64,24 @@ func requestRoutes(tranzyClient *tranzy.Client) ([]models.Route, error) {
 	return routes, nil
 }
 
-func getRoutesFromDB() ([]models.Route, error) {
-	rows, err := database.DB.Query(`SELECT * FROM routes`)
+func getRoutesFromDB(filter RouteFilter) ([]models.Route, error) {
+	query := `SELECT * FROM routes`
+	var args []any
+	var conditions []string
+
+	if filter.RouteID != nil {
+		conditions = append(conditions, "route_id = ?")
+		args = append(args, *filter.RouteID)
+	}
+	if filter.RouteShortName != nil {
+		conditions = append(conditions, "route_short_name = ?")
+		args = append(args, *filter.RouteShortName)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying routes: %w", err)
 	}

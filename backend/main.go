@@ -52,7 +52,20 @@ func main() {
 	// Tranzy API routes
 	api := app.Group("/api")
 	api.Get("/routes", func(c fiber.Ctx) error {
-		data, err := handlers.GetRoutes(tranzyClient, config.RouteCacheShelfLife)
+		filter := handlers.RouteFilter{}
+
+		if routeIDStr := c.Query("route_id"); routeIDStr != "" {
+			routeID, err := strconv.Atoi(routeIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
+			}
+			filter.RouteID = &routeID
+		}
+		if routeShortName := c.Query("route_short_name"); routeShortName != "" {
+			filter.RouteShortName = &routeShortName
+		}
+
+		data, err := handlers.GetRoutes(tranzyClient, config.RouteCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -76,7 +89,13 @@ func main() {
 		return c.JSON(data)
 	})
 	api.Get("/shapes", func(c fiber.Ctx) error {
-		data, err := handlers.GetShapes(tranzyClient, config.ShapeCacheShelfLife)
+		filter := handlers.ShapeFilter{}
+
+		if shapeIDStr := c.Query("shape_id"); shapeIDStr != "" {
+			filter.ShapeID = &shapeIDStr
+		}
+
+		data, err := handlers.GetShapes(tranzyClient, config.ShapeCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

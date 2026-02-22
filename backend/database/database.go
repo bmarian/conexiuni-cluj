@@ -113,15 +113,11 @@ func InitSchemas() error {
 		CREATE TABLE IF NOT EXISTS stop_times
         (
             trip_id             TEXT    NOT NULL,
-            arrival_time        TEXT,
-            departure_time      TEXT,
+            arrival_time        TEXT    NOT NULL,
+            departure_time      TEXT    NOT NULL,
             stop_id             INTEGER NOT NULL,
             stop_sequence       INTEGER NOT NULL,
-            stop_headsign       TEXT,
-            pickup_type         INTEGER,
-            drop_off_type       INTEGER,
-            shape_dist_traveled REAL,
-            timepoint           INTEGER,
+            stop_headsign       TEXT    NOT NULL,
             PRIMARY KEY (trip_id, stop_sequence)
         );
 
