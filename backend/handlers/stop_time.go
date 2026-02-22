@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -36,68 +38,66 @@ func GetStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, filter
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
-	raw, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife)
+	routes, errRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
+	if errRoutes != nil || len(routes) == 0 {
+		return nil, errRoutes
+	}
+	route := routes[0]
+
+	trips, errTrips := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{RouteID: &route.RouteID})
+	if errTrips != nil || len(trips) == 0 {
+		return nil, errTrips
+	}
+
+	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
 	if err != nil {
 		return nil, err
 	}
 
 	groupedRaw := make(map[string][]models.RequestStopTime)
-	for _, r := range raw {
-		groupedRaw[r.TripID] = append(groupedRaw[r.TripID], r)
-	}
-
-	count := 0
-	out := make([]models.StopTime, len(raw))
-	for _, group := range groupedRaw {
-		for _, r := range group {
-			trips, errTrip := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{TripID: &r.TripID})
-			if errTrip != nil || len(trips) == 0 {
-				continue
+	for _, t := range trips {
+		tripID := t.TripID
+		for _, ast := range apiStopTimes {
+			if ast.TripID == tripID {
+				groupedRaw[tripID] = append(groupedRaw[tripID], ast)
 			}
-			trip := trips[0]
-
-			stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &r.StopID})
-			if errStops != nil || len(stops) == 0 {
-				continue
-			}
-			stop := stops[0]
-			stopHeadsign := stop.StopName
-
-			routes, errRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteID: &trip.RouteID})
-			if errRoutes != nil || len(routes) == 0 {
-				continue
-			}
-			route := routes[0]
-
-			shapes, errShapes := GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{ShapeID: &trip.ShapeID})
-			if errShapes != nil || len(shapes) == 0 {
-				continue
-			}
-
-			_, errTimetable := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, route.RouteShortName)
-
-			if errTimetable != nil {
-				continue
-			}
-
-			out[count] = models.StopTime{
-				TripID:       r.TripID,
-				StopID:       r.StopID,
-				StopSequence: r.StopSequence,
-				StopHeadsign: stopHeadsign,
-			}
-			count++
 		}
+		sort.Slice(groupedRaw[tripID], func(i, j int) bool {
+			return groupedRaw[tripID][i].StopSequence < groupedRaw[tripID][j].StopSequence
+		})
 	}
-	return out, nil
+
+	return nil, nil
 }
 
-func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.RequestStopTime, error) {
+type APIStopTimeFilter struct {
+	TripID *string
+}
+
+func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
+	opts := CacheOpts[[]models.RequestStopTime]{}
+
+	if filter.TripID != nil {
+		f := filter
+		opts.PostProcess = func(ts []models.RequestStopTime) []models.RequestStopTime {
+			var out []models.RequestStopTime
+			for _, t := range ts {
+				if f.TripID != nil && t.TripID != *f.TripID {
+					continue
+				}
+				out = append(out, t)
+			}
+			return out
+		}
+	} else {
+		opts.Optimize = true
+	}
+
 	return HandleCached(APIStopTimesCacheId, cacheShelfLife,
-		getAPIStopTimesFromDB,
+		func() ([]models.RequestStopTime, error) { return getAPIStopTimesFromDB(filter) },
 		func() ([]models.RequestStopTime, error) { return requestAPIStopTimes(tranzyClient) },
 		storeAPIStopTimesInDB,
-		CacheOpts[[]models.RequestStopTime]{Optimize: true},
+		opts,
 	)
 }
 
@@ -115,8 +115,20 @@ func requestAPIStopTimes(tranzyClient *tranzy.Client) ([]models.RequestStopTime,
 	return raw, nil
 }
 
-func getAPIStopTimesFromDB() ([]models.RequestStopTime, error) {
-	rows, err := database.DB.Query(`SELECT * FROM api_stop_times`)
+func getAPIStopTimesFromDB(filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
+	query := `SELECT * FROM api_stop_times`
+	var args []any
+	var conditions []string
+
+	if filter.TripID != nil {
+		conditions = append(conditions, "trip_id = ?")
+		args = append(args, *filter.TripID)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying api stop times: %w", err)
 	}
