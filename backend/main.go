@@ -139,7 +139,20 @@ func main() {
 		return c.JSON(data)
 	})
 	api.Get("/stop_times", func(c fiber.Ctx) error {
-		data, err := handlers.GetStopTimes(tranzyClient, config.StopTimeCacheShelfLife)
+		filter := handlers.StopTimeFilter{}
+		if routeShortName := c.Query("route_short_name"); routeShortName != "" {
+			filter.RouteShortName = &routeShortName
+		}
+
+		data, err := handlers.GetStopTimes(tranzyClient, ctpCjClient, filter, handlers.CacheTimes{
+			ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
+			RouteCacheShelfLife:       config.RouteCacheShelfLife,
+			TripCacheShelfLife:        config.TripCacheShelfLife,
+			StopCacheShelfLife:        config.StopCacheShelfLife,
+			TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
+			StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
+			APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
+		})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

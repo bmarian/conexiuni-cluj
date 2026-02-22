@@ -1,7 +1,5 @@
 package models
 
-import "database/sql"
-
 type RequestStopTime struct {
 	TripID       string `json:"trip_id"`
 	StopID       int    `json:"stop_id"`
@@ -9,14 +7,10 @@ type RequestStopTime struct {
 }
 
 type StopTime struct {
-	TripID            string          `json:"trip_id" db:"trip_id"`
-	ArrivalTime       sql.NullString  `json:"arrival_time,omitempty" db:"arrival_time"`
-	DepartureTime     sql.NullString  `json:"departure_time,omitempty" db:"departure_time"`
-	StopID            int             `json:"stop_id" db:"stop_id"`
-	StopSequence      int             `json:"stop_sequence" db:"stop_sequence"`
-	StopHeadsign      sql.NullString  `json:"stop_headsign,omitempty" db:"stop_headsign"`
-	PickupType        sql.NullInt64   `json:"pickup_type,omitempty" db:"pickup_type"`
-	DropOffType       sql.NullInt64   `json:"drop_off_type,omitempty" db:"drop_off_type"`
-	ShapeDistTraveled sql.NullFloat64 `json:"shape_dist_traveled,omitempty" db:"shape_dist_traveled"`
-	Timepoint         sql.NullInt64   `json:"timepoint,omitempty" db:"timepoint"`
+	TripID        string  `json:"trip_id" db:"trip_id"`
+	ArrivalTime   float64 `json:"arrival_time" db:"arrival_time"`
+	DepartureTime float64 `json:"departure_time" db:"departure_time"`
+	StopID        int     `json:"stop_id" db:"stop_id"`
+	StopSequence  int     `json:"stop_sequence" db:"stop_sequence"`
+	StopHeadsign  string  `json:"stop_headsign" db:"stop_headsign"`
 }

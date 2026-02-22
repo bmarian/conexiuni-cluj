@@ -110,6 +110,14 @@ func InitSchemas() error {
             stop_code     TEXT    NOT NULL
         );
 
+		CREATE TABLE IF NOT EXISTS api_stop_times
+        (
+            trip_id             TEXT    NOT NULL,
+            stop_id             INTEGER NOT NULL,
+            stop_sequence       INTEGER NOT NULL,
+            PRIMARY KEY (trip_id, stop_sequence)
+        );
+
 		CREATE TABLE IF NOT EXISTS stop_times
         (
             trip_id             TEXT    NOT NULL,
