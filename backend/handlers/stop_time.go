@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 )
@@ -61,9 +60,6 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 				count++
 			}
 		}
-		sort.Slice(groupedRaw[tripID], func(i, j int) bool {
-			return groupedRaw[tripID][i].StopSequence < groupedRaw[tripID][j].StopSequence
-		})
 	}
 
 	out := make([]models.StopTime, 0, count)
@@ -79,9 +75,6 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		var shapes []models.Shape
 		if shapeID != "" {
 			shapes, _ = GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{ShapeID: &shapeID})
-			sort.Slice(shapes, func(i, j int) bool {
-				return shapes[i].ShapePtSequence < shapes[j].ShapePtSequence
-			})
 		}
 
 		var previousStop *models.Stop
