@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,31 +15,38 @@ const (
 	TripCacheId = "TRIPS"
 )
 
-func GetTrips(tranzyClient *tranzy.Client, cacheShelfLife time.Duration) ([]models.Trip, error) {
-	return HandleCached(TripCacheId, cacheShelfLife,
-		func() ([]models.Trip, error) { return getTripsFromDB() },
-		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
-		storeTripsInDB,
-		CacheOpts[[]models.Trip]{Optimize: true},
-	)
+type TripFilter struct {
+	RouteID *int
+	TripID  *string
 }
 
-func GetTripsByRouteID(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) ([]models.Trip, error) {
+func GetTrips(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter TripFilter) ([]models.Trip, error) {
+	opts := CacheOpts[[]models.Trip]{}
+
+	if filter.RouteID != nil || filter.TripID != nil {
+		f := filter
+		opts.PostProcess = func(ts []models.Trip) []models.Trip {
+			var out []models.Trip
+			for _, t := range ts {
+				if f.RouteID != nil && t.RouteID != *f.RouteID {
+					continue
+				}
+				if f.TripID != nil && t.TripID != *f.TripID {
+					continue
+				}
+				out = append(out, t)
+			}
+			return out
+		}
+	} else {
+		opts.Optimize = true
+	}
+
 	return HandleCached(TripCacheId, cacheShelfLife,
-		func() ([]models.Trip, error) { return getTripsFromDB(routeID) },
+		func() ([]models.Trip, error) { return getTripsFromDB(filter) },
 		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
 		storeTripsInDB,
-		CacheOpts[[]models.Trip]{
-			PostProcess: func(ts []models.Trip) []models.Trip {
-				var out []models.Trip
-				for _, t := range ts {
-					if t.RouteID == routeID {
-						out = append(out, t)
-					}
-				}
-				return out
-			},
-		},
+		opts,
 	)
 }
 
@@ -56,16 +64,24 @@ func requestTrips(tranzyClient *tranzy.Client) ([]models.Trip, error) {
 	return trips, nil
 }
 
-func getTripsFromDB(options ...int) ([]models.Trip, error) {
-	var rows *sql.Rows
-	var err error
+func getTripsFromDB(filter TripFilter) ([]models.Trip, error) {
+	query := `SELECT * FROM trips`
+	var args []any
+	var conditions []string
 
-	if len(options) > 0 {
-		routeID := options[0]
-		rows, err = database.DB.Query(`SELECT * FROM trips WHERE route_id = ?`, routeID)
-	} else {
-		rows, err = database.DB.Query(`SELECT * FROM trips`)
+	if filter.RouteID != nil {
+		conditions = append(conditions, "route_id = ?")
+		args = append(args, *filter.RouteID)
 	}
+	if filter.TripID != nil {
+		conditions = append(conditions, "trip_id = ?")
+		args = append(args, *filter.TripID)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying trips: %w", err)
 	}

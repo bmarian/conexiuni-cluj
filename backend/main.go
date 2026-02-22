@@ -91,18 +91,20 @@ func main() {
 		return c.JSON(data)
 	})
 	api.Get("/trips", func(c fiber.Ctx) error {
-		data, err := handlers.GetTrips(tranzyClient, config.TripCacheShelfLife)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		filter := handlers.TripFilter{}
+
+		if routeIDStr := c.Query("route_id"); routeIDStr != "" {
+			routeID, err := strconv.Atoi(routeIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
+			}
+			filter.RouteID = &routeID
 		}
-		return c.JSON(data)
-	})
-	api.Get("/trips/:routeID", func(c fiber.Ctx) error {
-		routeID, err := strconv.Atoi(c.Params("routeID"))
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid route ID")
+		if tripIDStr := c.Query("trip_id"); tripIDStr != "" {
+			filter.TripID = &tripIDStr
 		}
-		data, err := handlers.GetTripsByRouteID(tranzyClient, config.TripCacheShelfLife, routeID)
+
+		data, err := handlers.GetTrips(tranzyClient, config.TripCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

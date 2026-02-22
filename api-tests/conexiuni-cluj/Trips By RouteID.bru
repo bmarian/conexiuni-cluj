@@ -5,9 +5,14 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/trips/22
+  url: {{BASE_URL}}/trips?route_id=22
   body: none
   auth: inherit
+}
+
+params:query {
+  route_id: 22
+  ~trip_id: 22_0
 }
 
 settings {
