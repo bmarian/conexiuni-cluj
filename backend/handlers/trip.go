@@ -17,48 +17,31 @@ const (
 )
 
 func GetTrips(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCachedData(
-		c,
-		TripCacheId,
-		cacheShelfLife,
+	return HandleCached(c, TripCacheId, cacheShelfLife,
 		func() ([]models.Trip, error) { return getTripsFromDB() },
 		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
 		storeTripsInDB,
-		true,
+		CacheOpts[[]models.Trip]{Optimize: true},
 	)
 }
 
 func GetTripsByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) error {
-	isCacheValid := database.IsCacheValid(TripCacheId)
-	if isCacheValid {
-		trips, err := getTripsFromDB(routeID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(trips)
-	}
-
-	trips, err := requestTrips(tranzyClient)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	go func() {
-		_ = storeTripsInDB(trips)
-		_ = database.UpdateCache(TripCacheId, cacheShelfLife.Milliseconds())
-	}()
-
-	var filteredTrips []models.Trip
-	for _, trip := range trips {
-		if trip.RouteID == routeID {
-			filteredTrips = append(filteredTrips, trip)
-		}
-	}
-	return c.JSON(filteredTrips)
+	return HandleCached(c, TripCacheId, cacheShelfLife,
+		func() ([]models.Trip, error) { return getTripsFromDB(routeID) },
+		func() ([]models.Trip, error) { return requestTrips(tranzyClient) },
+		storeTripsInDB,
+		CacheOpts[[]models.Trip]{
+			PostProcess: func(ts []models.Trip) []models.Trip {
+				var out []models.Trip
+				for _, t := range ts {
+					if t.RouteID == routeID {
+						out = append(out, t)
+					}
+				}
+				return out
+			},
+		},
+	)
 }
 
 func requestTrips(tranzyClient *tranzy.Client) ([]models.Trip, error) {

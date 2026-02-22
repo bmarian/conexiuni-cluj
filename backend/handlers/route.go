@@ -17,14 +17,11 @@ const (
 )
 
 func GetRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCachedData(
-		c,
-		RoutesCacheId,
-		cacheShelfLife,
+	return HandleCached(c, RoutesCacheId, cacheShelfLife,
 		getRoutesFromDB,
 		func() ([]models.Route, error) { return requestRoutes(tranzyClient) },
 		storeRoutesInDB,
-		true,
+		CacheOpts[[]models.Route]{Optimize: true},
 	)
 }
 

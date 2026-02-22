@@ -17,48 +17,31 @@ const (
 )
 
 func GetVehicles(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCachedData(
-		c,
-		VehicleCacheId,
-		cacheShelfLife,
+	return HandleCached(c, VehicleCacheId, cacheShelfLife,
 		func() ([]models.Vehicle, error) { return getVehiclesFromDB() },
 		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
 		storeVehiclesInDB,
-		false,
+		CacheOpts[[]models.Vehicle]{},
 	)
 }
 
 func GetVehiclesByRouteID(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration, routeID int) error {
-	isCacheValid := database.IsCacheValid(VehicleCacheId)
-	if isCacheValid {
-		vehicles, err := getVehiclesFromDB(routeID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(vehicles)
-	}
-
-	vehicles, err := requestVehicles(tranzyClient)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	go func() {
-		_ = storeVehiclesInDB(vehicles)
-		_ = database.UpdateCache(VehicleCacheId, cacheShelfLife.Milliseconds())
-	}()
-
-	var filteredVehicles []models.Vehicle
-	for _, vehicle := range vehicles {
-		if vehicle.RouteID == routeID {
-			filteredVehicles = append(filteredVehicles, vehicle)
-		}
-	}
-	return c.JSON(filteredVehicles)
+	return HandleCached(c, VehicleCacheId, cacheShelfLife,
+		func() ([]models.Vehicle, error) { return getVehiclesFromDB(routeID) },
+		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
+		storeVehiclesInDB,
+		CacheOpts[[]models.Vehicle]{
+			PostProcess: func(vs []models.Vehicle) []models.Vehicle {
+				var out []models.Vehicle
+				for _, v := range vs {
+					if v.RouteID == routeID {
+						out = append(out, v)
+					}
+				}
+				return out
+			},
+		},
+	)
 }
 
 func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {

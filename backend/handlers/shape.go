@@ -17,14 +17,11 @@ const (
 )
 
 func GetShapes(c fiber.Ctx, tranzyClient *tranzy.Client, cacheShelfLife time.Duration) error {
-	return HandleCachedData(
-		c,
-		ShapesCacheId,
-		cacheShelfLife,
+	return HandleCached(c, ShapesCacheId, cacheShelfLife,
 		getShapesFromDB,
 		func() ([]models.Shape, error) { return requestShapes(tranzyClient) },
 		storeShapesInDB,
-		true,
+		CacheOpts[[]models.Shape]{Optimize: true},
 	)
 }
 

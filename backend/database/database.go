@@ -78,14 +78,15 @@ func InitSchemas() error {
 
 		CREATE TABLE IF NOT EXISTS trips
         (
-            trip_id               INTEGER PRIMARY KEY,
+            trip_id               TEXT    NOT NULL,
             route_id              INTEGER NOT NULL,
             direction_id          INTEGER NOT NULL,
             trip_headsign         TEXT    NOT NULL,
             block_id              INTEGER NOT NULL,
             shape_id              TEXT    NOT NULL,
             wheelchair_accessible INTEGER NOT NULL,
-            bikes_allowed         INTEGER NOT NULL
+            bikes_allowed         INTEGER NOT NULL,
+       		PRIMARY KEY (trip_id, route_id)
         );
 
 		CREATE TABLE IF NOT EXISTS shapes
