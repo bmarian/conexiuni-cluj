@@ -29,11 +29,12 @@ func fetchTimetable(ctpCjClient *ctp_cj.Client, routeShortName string) (*models.
 
 	t := &models.Timetable{
 		RouteShortName: routeShortName,
-		Weekdays:       []models.TimetableEntry{},
-		Saturday:       []models.TimetableEntry{},
-		Sunday:         []models.TimetableEntry{},
+		Weekdays:       models.DaySchedule{Entries: []models.TimetableEntry{}},
+		Saturday:       models.DaySchedule{Entries: []models.TimetableEntry{}},
+		Sunday:         models.DaySchedule{Entries: []models.TimetableEntry{}},
 	}
 
+	// Take shared metadata from the first day that has data
 	for _, parsed := range []*ctp_cj.ParsedTimetable{weekdays, saturday, sunday} {
 		if parsed != nil {
 			t.RouteLongName = parsed.RouteLongName
@@ -44,27 +45,31 @@ func fetchTimetable(ctpCjClient *ctp_cj.Client, routeShortName string) (*models.
 	}
 
 	if weekdays != nil {
-		t.Weekdays = toModelEntries(weekdays.Entries)
+		t.Weekdays = toDaySchedule(weekdays)
 	}
 	if saturday != nil {
-		t.Saturday = toModelEntries(saturday.Entries)
+		t.Saturday = toDaySchedule(saturday)
 	}
 	if sunday != nil {
-		t.Sunday = toModelEntries(sunday.Entries)
+		t.Sunday = toDaySchedule(sunday)
 	}
 
 	return t, nil
 }
 
-func toModelEntries(entries []ctp_cj.TimetableEntry) []models.TimetableEntry {
-	out := make([]models.TimetableEntry, len(entries))
-	for i, e := range entries {
-		out[i] = models.TimetableEntry{
+func toDaySchedule(p *ctp_cj.ParsedTimetable) models.DaySchedule {
+	entries := make([]models.TimetableEntry, len(p.Entries))
+	for i, e := range p.Entries {
+		entries[i] = models.TimetableEntry{
 			DepartureIn:  e.DepartureIn,
 			DepartureOut: e.DepartureOut,
 		}
 	}
-	return out
+	return models.DaySchedule{
+		ServiceName:  p.ServiceName,
+		ServiceStart: p.ServiceStart,
+		Entries:      entries,
+	}
 }
 
 func getTimetableFromDB(routeShortName string) (*models.Timetable, error) {
