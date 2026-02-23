@@ -20,7 +20,10 @@ func Connect(dbPath string) error {
 	}
 
 	// Ping to force sqlite to actually open the database
-	_ = DB.Ping()
+	errPing := DB.Ping()
+	if errPing != nil {
+		return errPing
+	}
 
 	if err = DB.Ping(); err != nil {
 		return err
