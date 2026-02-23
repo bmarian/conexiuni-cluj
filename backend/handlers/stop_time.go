@@ -27,10 +27,36 @@ type CacheTimes struct {
 
 type StopTimeFilter struct {
 	RouteShortName *string
+	TripID         *string
 }
 
 func GetStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
-	return requestStopTimes(tranzyClient, filter, cacheTimes)
+	opts := CacheOpts[[]models.StopTime]{}
+
+	if filter.TripID != nil || filter.RouteShortName != nil {
+		f := filter
+		opts.PostProcess = func(ts []models.StopTime) []models.StopTime {
+			var out []models.StopTime
+			for _, t := range ts {
+				if f.TripID != nil && t.TripID != *f.TripID {
+					continue
+				}
+				if f.RouteShortName != nil && t.RouteShortName != *f.RouteShortName {
+					continue
+				}
+				out = append(out, t)
+			}
+			return out
+		}
+	}
+
+	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
+	return HandleCached(cacheID, cacheTimes.StopTimeCacheShelfLife,
+		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
+		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
+		storeStopTimesInDB,
+		opts,
+	)
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
@@ -99,6 +125,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 				OffsetArrivalTime: offsetArrivalTime,
 				StopSequence:      st.StopSequence,
 				StopHeadsign:      stopHeadsign,
+				RouteShortName:    *filter.RouteShortName,
 			})
 
 			previousStop = &currentStop
@@ -106,6 +133,70 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 	}
 
 	return out, nil
+}
+
+func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
+	query := `SELECT * FROM stop_times`
+	var args []any
+	var conditions []string
+
+	if filter.RouteShortName != nil {
+		conditions = append(conditions, "route_short_name = ?")
+		args = append(args, *filter.RouteShortName)
+	}
+	if filter.TripID != nil {
+		conditions = append(conditions, "trip_id = ?")
+		args = append(args, *filter.TripID)
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	rows, err := database.DB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stop times: %w", err)
+	}
+
+	defer func(rows *sql.Rows) {
+		_ = rows.Close()
+	}(rows)
+
+	var stopTimes []models.StopTime
+	for rows.Next() {
+		var st models.StopTime
+		if err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName); err != nil {
+			return nil, fmt.Errorf("error scanning stop time: %w", err)
+		}
+		stopTimes = append(stopTimes, st)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error reading stop times: %w", err)
+	}
+
+	return stopTimes, nil
+}
+
+func storeStopTimesInDB(stopTimes []models.StopTime) error {
+	stmt, err := database.DB.Prepare(`
+		INSERT OR REPLACE INTO stop_times (trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("error preparing statement: %w", err)
+	}
+
+	defer func(stmt *sql.Stmt) {
+		_ = stmt.Close()
+	}(stmt)
+
+	for _, st := range stopTimes {
+		if _, err := stmt.Exec(st.TripID, st.StopID, st.OffsetArrivalTime, st.StopSequence, st.StopHeadsign, st.RouteShortName); err != nil {
+			return fmt.Errorf("error inserting stop time: %w", err)
+		}
+	}
+
+	return nil
 }
 
 type APIStopTimeFilter struct {
@@ -127,8 +218,6 @@ func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, 
 			}
 			return out
 		}
-	} else {
-		opts.Optimize = true
 	}
 
 	return HandleCached(APIStopTimesCacheId, cacheShelfLife,

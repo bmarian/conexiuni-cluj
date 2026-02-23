@@ -12,4 +12,5 @@ type StopTime struct {
 	OffsetArrivalTime float64 `json:"offset_arrival_time" db:"arrival_time"`
 	StopSequence      int     `json:"stop_sequence" db:"stop_sequence"`
 	StopHeadsign      string  `json:"stop_headsign" db:"stop_headsign"`
+	RouteShortName    string  `json:"route_short_name" db:"route_short_name"`
 }

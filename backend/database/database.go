@@ -49,6 +49,7 @@ func Connect(dbPath string) error {
 }
 
 func InitSchemas() error {
+
 	schema := `
 		CREATE TABLE IF NOT EXISTS vehicles
         (
@@ -121,10 +122,11 @@ func InitSchemas() error {
 		CREATE TABLE IF NOT EXISTS stop_times
         (
             trip_id             TEXT    NOT NULL,
-            offset_arrival_time TEXT    NOT NULL,
             stop_id             INTEGER NOT NULL,
+            offset_arrival_time REAL    NOT NULL,
             stop_sequence       INTEGER NOT NULL,
             stop_headsign       TEXT    NOT NULL,
+            route_short_name    TEXT    NOT NULL,
             PRIMARY KEY (trip_id, stop_sequence)
         );
 
@@ -146,7 +148,6 @@ func InitSchemas() error {
             lifespan  INTEGER NOT NULL
         );
     `
-
 	_, err := DB.Exec(schema)
 	if err != nil {
 		return err
