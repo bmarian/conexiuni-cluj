@@ -175,8 +175,8 @@ func main() {
 	})
 
 	// CTP Cj API routes
-	api.Get("/timetable/:routeShortName", func(c fiber.Ctx) error {
-		routeShortName := c.Params("routeShortName")
+	api.Get("/timetable", func(c fiber.Ctx) error {
+		routeShortName := c.Query("route_short_name")
 		data, err := handlers.GetTimetable(ctpCjClient, config.TimetableCacheShelfLife, routeShortName)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
