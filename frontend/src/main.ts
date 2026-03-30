@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import './main.scss'
 
 const i18n = createI18n({
   legacy: false,
