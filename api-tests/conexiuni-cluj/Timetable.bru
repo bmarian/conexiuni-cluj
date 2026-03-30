@@ -5,9 +5,13 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/timetable/32B
+  url: {{BASE_URL}}/timetable?route_short_name=32B
   body: none
   auth: inherit
+}
+
+params:query {
+  route_short_name: 32B
 }
 
 settings {

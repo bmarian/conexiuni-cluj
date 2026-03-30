@@ -57,6 +57,7 @@ func main() {
 	})
 	app.Use(logger.New(logger.Config{
 		Stream:     logOutput,
+		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${queryParams} | ${body}\n",
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Local",
 	}))
