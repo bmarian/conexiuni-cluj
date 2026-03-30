@@ -18,6 +18,17 @@ import (
 
 func main() {
 	config := Load()
+
+	logOutput, closeLogFile, err := setupLogging(config.LogFilePath)
+	if err != nil {
+		log.Fatalf("Failed to initialize logging: %v", err)
+	}
+	defer func() {
+		if err := closeLogFile(); err != nil {
+			log.Printf("Warning: failed to close log file: %v", err)
+		}
+	}()
+
 	log.Printf("Starting Conexiuni Cluj server in %s mode on port %s", config.Environment, config.Port)
 
 	if err := database.Connect(config.DatabasePath); err != nil {
@@ -44,7 +55,11 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
 	})
-	app.Use(logger.New())
+	app.Use(logger.New(logger.Config{
+		Stream:     logOutput,
+		TimeFormat: StandardLogTimestampLayout,
+		TimeZone:   "Local",
+	}))
 	app.Use(cors.New(cors.Config{
 		//AllowOrigins: []string{"http://localhost:5173"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
