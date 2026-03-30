@@ -133,6 +133,8 @@ func InitSchemas() error {
             stop_sequence       INTEGER NOT NULL,
             stop_headsign       TEXT    NOT NULL,
             route_short_name    TEXT    NOT NULL,
+            stop_lat            REAL    NOT NULL,
+            stop_lon            REAL    NOT NULL,
             PRIMARY KEY (trip_id, stop_sequence)
         );
 

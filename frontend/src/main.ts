@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { useUserStore } from './stores/user'
 import './main.scss'
 
 const i18n = createI18n({
@@ -17,5 +18,7 @@ const pinia = createPinia()
 app.use(i18n)
 app.use(pinia)
 app.use(router)
+
+useUserStore(pinia).startLocationTracking()
 
 app.mount('#app')

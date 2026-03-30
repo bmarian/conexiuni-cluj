@@ -13,4 +13,6 @@ type StopTime struct {
 	StopSequence      int     `json:"stop_sequence" db:"stop_sequence"`
 	StopHeadsign      string  `json:"stop_headsign" db:"stop_headsign"`
 	RouteShortName    string  `json:"route_short_name" db:"route_short_name"`
+	StopLat           float64 `json:"stop_lat" db:"stop_lat"`
+	StopLon           float64 `json:"stop_lon" db:"stop_lon"`
 }

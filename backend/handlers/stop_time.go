@@ -107,12 +107,16 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		for _, st := range gr {
 			stopHeadsign := ""
 			offsetArrivalTime := 0.0
+			stopLat := 0.0
+			stopLon := 0.0
 			var currentStop models.Stop
 
 			stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &st.StopID})
 			if errStops == nil && len(stops) != 0 {
 				currentStop = stops[0]
 				stopHeadsign = currentStop.StopName
+				stopLat = currentStop.StopLat
+				stopLon = currentStop.StopLon
 			}
 
 			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
@@ -126,6 +130,8 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 				StopSequence:      st.StopSequence,
 				StopHeadsign:      stopHeadsign,
 				RouteShortName:    *filter.RouteShortName,
+				StopLat:           stopLat,
+				StopLon:           stopLon,
 			})
 
 			previousStop = &currentStop
@@ -179,8 +185,8 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 
 func storeStopTimesInDB(stopTimes []models.StopTime) error {
 	stmt, err := database.DB.Prepare(`
-		INSERT OR REPLACE INTO stop_times (trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO stop_times (trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("error preparing statement: %w", err)

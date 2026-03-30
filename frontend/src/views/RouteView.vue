@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
+import {computed, onMounted, ref} from "vue";
 import type {Timetable} from "@/types/ctp.ts";
 import type {StopTime} from "@/types/tranzy.ts";
+import {useUserStore} from "@/stores/user.ts";
+import {storeToRefs} from "pinia";
+import {closestStop} from "@/utils/geo.ts";
 
 const props = defineProps<{
   routeShortName: string
 }>()
 
+const userStore = useUserStore();
+const {currentLocation: userLocation} = storeToRefs(userStore);
 const timetable = ref<Timetable>();
 const stopTimes = ref<StopTime[]>();
+const errorState = ref(false);
 const loading = ref(true);
 
 onMounted(async () => {
@@ -23,7 +29,19 @@ onMounted(async () => {
       stopTimes.value = await stopTimesResponse.json();
     }
 
+    // TODO:
+    const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_0"))
+    const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_1"))
+    const closestStopToUserOutgoing = closestStop(userLocation.value!, outgoingStops!);
+    const closestStopToUserIncoming = closestStop(userLocation.value!, incomingStops!);
+    console.log(
+      "Closest stop to user:",
+      closestStopToUserOutgoing,
+      closestStopToUserIncoming
+    )
+
   } catch (err) {
+    errorState.value = true;
     console.log(err);
   } finally {
     loading.value = false;

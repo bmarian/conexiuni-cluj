@@ -1,20 +1,20 @@
 export type TimetableEntry = {
-  DepartureIn: string,
-  DepartureOut: string,
-}
+  departure_in: string;
+  departure_out: string;
+};
 
 export type DaySchedule = {
-  ServiceName: string,
-  ServiceStart: string,
-  Entries: TimetableEntry[],
+  service_name: string;
+  service_start: string;
+  entries: TimetableEntry[];
 };
 
 export type Timetable = {
-  RouteShortName: string,
-  RouteLongName: string,
-  InStopName: string,
-  OutStopName: string,
-  Weekdays: DaySchedule,
-  Saturday: DaySchedule,
-  Sunday: DaySchedule,
+  route_short_name: string;
+  route_long_name: string;
+  in_stop_name: string;
+  out_stop_name: string;
+  weekdays: DaySchedule;
+  saturday: DaySchedule;
+  sunday: DaySchedule;
 };
