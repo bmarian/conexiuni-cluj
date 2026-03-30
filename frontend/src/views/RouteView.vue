@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from "vue";
+import {onMounted, ref} from "vue";
 import type {Timetable} from "@/types/ctp.ts";
 import type {StopTime} from "@/types/tranzy.ts";
 import {useUserStore} from "@/stores/user.ts";
