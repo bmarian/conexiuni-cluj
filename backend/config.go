@@ -84,6 +84,7 @@ func Load() *Config {
 		RouteCacheShelfLife:       getDuration("ROUTE_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		TripCacheShelfLife:        getDuration("TRIP_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		StopCacheShelfLife:        getDuration("STOP_CACHE_SHELF_LIFE", 7*24*time.Hour),
+		TimetableCacheShelfLife:   getDuration("TIMETABLE_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		StopTimeCacheShelfLife:    getDuration("STOP_TIME_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		APIStopTimeCacheShelfLife: getDuration("API_STOP_TIME_CACHE_SHELF_LIFE", 7*24*time.Hour),
 		CtpCjRateLimit:            getDuration("CTP_CJ_RATE_LIMIT", time.Second),

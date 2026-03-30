@@ -31,6 +31,7 @@ func main() {
 		log.Fatalf("Failed to initialize database schemas: %v", err)
 	}
 	database.StartVacuumScheduler()
+	database.StartDSTCacheInvalidationScheduler()
 
 	tranzyAPIKey := config.TranzyApiKey
 	if tranzyAPIKey == "" {

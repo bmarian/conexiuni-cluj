@@ -235,3 +235,43 @@ func StartVacuumScheduler() {
 		}
 	}()
 }
+
+func StartDSTCacheInvalidationScheduler() {
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		log.Printf("Warning: could not load Europe/Bucharest timezone; DST cache invalidation scheduler disabled: %v", err)
+		return
+	}
+
+	go func() {
+		for {
+			now := time.Now().In(loc)
+			nextCheck := time.Date(now.Year(), now.Month(), now.Day(), 4, 0, 0, 0, loc)
+			if !nextCheck.After(now) {
+				nextCheck = nextCheck.Add(24 * time.Hour)
+			}
+
+			log.Printf("Next DST offset check at %s", nextCheck.Format("2006-01-02 15:04:05 MST"))
+
+			if wait := time.Until(nextCheck); wait > 0 {
+				time.Sleep(wait)
+			}
+
+			checkTime := time.Now().In(loc)
+			yesterday := checkTime.AddDate(0, 0, -1)
+
+			_, currentOffset := checkTime.Zone()
+			_, previousOffset := yesterday.Zone()
+
+			if currentOffset != previousOffset {
+				if err := InvalidateAllCaches(); err != nil {
+					log.Printf("DST offset change detected but cache invalidation failed: %v", err)
+				} else {
+					log.Printf("DST offset change detected (%d -> %d); all cache entries invalidated", previousOffset, currentOffset)
+				}
+			} else {
+				log.Printf("No DST offset change detected at daily check")
+			}
+		}
+	}()
+}

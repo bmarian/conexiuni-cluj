@@ -39,3 +39,8 @@ func InvalidateCache(cacheId string) error {
 	_, err := DB.Exec(`DELETE FROM cache_times WHERE id = ?`, cacheId)
 	return err
 }
+
+func InvalidateAllCaches() error {
+	_, err := DB.Exec(`DELETE FROM cache_times`)
+	return err
+}
