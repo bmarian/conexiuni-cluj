@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from "vue"
 import type {Timetable} from "@/types/ctp.ts"
-import type {Route, StopTime} from "@/types/tranzy.ts"
+import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type StopTime} from "@/types/tranzy.ts"
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
 import {closestStop} from "@/utils/geo.ts"
+import RouteHeaderComponent from "@/components/RouteHeaderComponent.vue";
 
 const props = defineProps<{
   routeShortName: string
@@ -46,13 +47,13 @@ onMounted(async () => {
 
 const closestStopToUserOutgoing = computed(() => {
   if (!userLocation.value || !stopTimes.value) return {}
-  const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_0"))
+  const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes(OUTGOING_SUFFIX))
   return closestStop(userLocation.value, outgoingStops)
 })
 
 const closestStopToUserIncoming = computed(() => {
   if (!userLocation.value || !stopTimes.value) return {}
-  const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_1"))
+  const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes(INCOMING_SUFFIX))
   return closestStop(userLocation.value, incomingStops)
 })
 
@@ -66,6 +67,7 @@ watch([closestStopToUserIncoming, closestStopToUserOutgoing], ([newIncoming, new
   <div>
     <div v-if="loading">Loading...</div>
     <div v-else>
+      <route-header-component :route-properties="routeProperties!"/>
       <h1>Timetable {{ props.routeShortName }}:</h1>
       <pre>{{ timetable }}</pre>
 

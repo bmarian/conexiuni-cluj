@@ -35,3 +35,6 @@ export type Route = {
   route_desc: string
   route_color: string
 }
+
+export const OUTGOING_SUFFIX = "_0"
+export const INCOMING_SUFFIX = "_1"

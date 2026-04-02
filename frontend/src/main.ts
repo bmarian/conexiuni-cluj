@@ -5,7 +5,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useUserStore } from './stores/user'
-import './main.scss'
+import './main.css'
 
 const i18n = createI18n({
   legacy: false,
