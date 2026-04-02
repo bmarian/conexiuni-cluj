@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import type {UserLocation} from "@/types/tranzy.ts";
+import type {UserLocation} from "@/types/tranzy.ts"
 
 export const useUserStore = defineStore('user', () => {
   const currentLocation = ref<UserLocation | null>(null)
@@ -28,15 +28,6 @@ export const useUserStore = defineStore('user', () => {
     )
   }
 
-  const startLocationTracking = () => {
-    if (locationInterval || isLocationPermissionDenied.value) {
-      return
-    }
-
-    updateCurrentLocation()
-    locationInterval = setInterval(updateCurrentLocation, 1000)
-  }
-
   const stopLocationTracking = () => {
     if (!locationInterval) {
       return
@@ -46,10 +37,28 @@ export const useUserStore = defineStore('user', () => {
     locationInterval = null
   }
 
+  const getUserLocationConsent = () => {
+    if (!navigator.geolocation || isLocationPermissionDenied.value) {
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        updateCurrentLocation()
+        locationInterval = setInterval(updateCurrentLocation, 1000)
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          isLocationPermissionDenied.value = true
+          stopLocationTracking()
+        }
+      },
+    )
+  }
+
   return {
     currentLocation,
     isLocationPermissionDenied,
-    startLocationTracking,
-    stopLocationTracking,
+    getUserLocationConsent,
   }
 })

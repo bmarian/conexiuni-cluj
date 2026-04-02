@@ -19,6 +19,6 @@ app.use(i18n)
 app.use(pinia)
 app.use(router)
 
-useUserStore(pinia).startLocationTracking()
+useUserStore(pinia).getUserLocationConsent()
 
 app.mount('#app')

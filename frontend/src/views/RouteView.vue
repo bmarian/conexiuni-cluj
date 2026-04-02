@@ -1,52 +1,57 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import type {Timetable} from "@/types/ctp.ts";
-import type {StopTime} from "@/types/tranzy.ts";
-import {useUserStore} from "@/stores/user.ts";
-import {storeToRefs} from "pinia";
-import {closestStop} from "@/utils/geo.ts";
+import {computed, onMounted, ref, watch} from "vue"
+import type {Timetable} from "@/types/ctp.ts"
+import type {StopTime} from "@/types/tranzy.ts"
+import {useUserStore} from "@/stores/user.ts"
+import {storeToRefs} from "pinia"
+import {closestStop} from "@/utils/geo.ts"
 
 const props = defineProps<{
   routeShortName: string
 }>()
 
-const userStore = useUserStore();
-const {currentLocation: userLocation} = storeToRefs(userStore);
-const timetable = ref<Timetable>();
-const stopTimes = ref<StopTime[]>();
-const errorState = ref(false);
-const loading = ref(true);
+const userStore = useUserStore()
+const {currentLocation: userLocation} = storeToRefs(userStore)
+const timetable = ref<Timetable>()
+const stopTimes = ref<StopTime[]>()
+const errorState = ref(false)
+const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const timetableResponse = await fetch(`/api/timetable?route_short_name=${props.routeShortName}`);
+    const timetableResponse = await fetch(`/api/timetable?route_short_name=${props.routeShortName}`)
     if (timetableResponse.ok) {
-      timetable.value = await timetableResponse.json();
+      timetable.value = await timetableResponse.json()
     }
 
-    const stopTimesResponse = await fetch(`/api/stop_times?route_short_name=${props.routeShortName}`);
+    const stopTimesResponse = await fetch(`/api/stop_times?route_short_name=${props.routeShortName}`)
     if (stopTimesResponse.ok) {
-      stopTimes.value = await stopTimesResponse.json();
+      stopTimes.value = await stopTimesResponse.json()
     }
-
-    // TODO:
-    const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_0"))
-    const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_1"))
-    const closestStopToUserOutgoing = closestStop(userLocation.value!, outgoingStops!);
-    const closestStopToUserIncoming = closestStop(userLocation.value!, incomingStops!);
-    console.log(
-      "Closest stop to user:",
-      closestStopToUserOutgoing,
-      closestStopToUserIncoming
-    )
 
   } catch (err) {
-    errorState.value = true;
-    console.log(err);
+    errorState.value = true
+    console.log(err)
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-});
+})
+
+const closestStopToUserOutgoing = computed(() => {
+  if (!userLocation.value || !stopTimes.value) return []
+  const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_0"))
+  return closestStop(userLocation.value, outgoingStops)
+})
+
+const closestStopToUserIncoming = computed(() => {
+  if (!userLocation.value || !stopTimes.value) return []
+  const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_1"))
+  return closestStop(userLocation.value, incomingStops)
+})
+
+watch([closestStopToUserIncoming, closestStopToUserOutgoing], ([newIncoming, newOutgoing]) => {
+  console.log(newIncoming, newOutgoing);
+}, {immediate: true})
 
 </script>
 
