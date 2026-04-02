@@ -5,9 +5,8 @@ import type {UserLocation} from "@/types/tranzy.ts"
 export const useUserStore = defineStore('user', () => {
   const currentLocation = ref<UserLocation | null>(null)
   const isLocationPermissionDenied = ref(false)
-  let locationInterval: ReturnType<typeof setInterval> | null = null
 
-  const updateCurrentLocation = () => {
+  const updateUserCurrentLocation = () => {
     if (!navigator.geolocation || isLocationPermissionDenied.value) {
       return
     }
@@ -18,39 +17,11 @@ export const useUserStore = defineStore('user', () => {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         }
+        updateUserCurrentLocation()
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
           isLocationPermissionDenied.value = true
-          stopLocationTracking()
-        }
-      },
-    )
-  }
-
-  const stopLocationTracking = () => {
-    if (!locationInterval) {
-      return
-    }
-
-    clearInterval(locationInterval)
-    locationInterval = null
-  }
-
-  const getUserLocationConsent = () => {
-    if (!navigator.geolocation || isLocationPermissionDenied.value) {
-      return
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        updateCurrentLocation()
-        locationInterval = setInterval(updateCurrentLocation, 1000)
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          isLocationPermissionDenied.value = true
-          stopLocationTracking()
         }
       },
     )
@@ -59,6 +30,6 @@ export const useUserStore = defineStore('user', () => {
   return {
     currentLocation,
     isLocationPermissionDenied,
-    getUserLocationConsent,
+    updateUserCurrentLocation,
   }
 })

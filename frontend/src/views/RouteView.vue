@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from "vue"
 import type {Timetable} from "@/types/ctp.ts"
-import type {StopTime} from "@/types/tranzy.ts"
+import type {Route, StopTime} from "@/types/tranzy.ts"
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
 import {closestStop} from "@/utils/geo.ts"
@@ -14,6 +14,7 @@ const userStore = useUserStore()
 const {currentLocation: userLocation} = storeToRefs(userStore)
 const timetable = ref<Timetable>()
 const stopTimes = ref<StopTime[]>()
+const routeProperties = ref<Route>()
 const errorState = ref(false)
 const loading = ref(true)
 
@@ -29,6 +30,12 @@ onMounted(async () => {
       stopTimes.value = await stopTimesResponse.json()
     }
 
+    const routePropertiesResponse = await fetch(`/api/routes?route_short_name=${props.routeShortName}`)
+    if (routePropertiesResponse.ok) {
+      const props = await routePropertiesResponse.json()
+      routeProperties.value = props?.[0];
+    }
+
   } catch (err) {
     errorState.value = true
     console.log(err)
@@ -38,13 +45,13 @@ onMounted(async () => {
 })
 
 const closestStopToUserOutgoing = computed(() => {
-  if (!userLocation.value || !stopTimes.value) return []
+  if (!userLocation.value || !stopTimes.value) return {}
   const outgoingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_0"))
   return closestStop(userLocation.value, outgoingStops)
 })
 
 const closestStopToUserIncoming = computed(() => {
-  if (!userLocation.value || !stopTimes.value) return []
+  if (!userLocation.value || !stopTimes.value) return {}
   const incomingStops = stopTimes.value?.filter(stop => stop.trip_id.includes("_1"))
   return closestStop(userLocation.value, incomingStops)
 })
