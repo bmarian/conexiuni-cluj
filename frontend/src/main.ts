@@ -6,11 +6,17 @@ import App from './App.vue'
 import router from './router'
 import { useUserStore } from './stores/user'
 import './main.css'
+import ro from './locales/ro.json'
+import en from './locales/en.json'
 
 const i18n = createI18n({
   legacy: false,
   locale: 'ro',
   fallbackLocale: 'en',
+  messages: {
+    ro,
+    en
+  }
 })
 const app = createApp(App)
 const pinia = createPinia()

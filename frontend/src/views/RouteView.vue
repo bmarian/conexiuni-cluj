@@ -67,11 +67,8 @@ watch([closestStopToUserIncoming, closestStopToUserOutgoing], ([newIncoming, new
   <div>
     <div v-if="loading">Loading...</div>
     <div v-else>
-      <route-header-component :route-properties="routeProperties!"/>
-      <h1>Timetable {{ props.routeShortName }}:</h1>
+      <route-header-component v-if="routeProperties" :route-properties="routeProperties"/>
       <pre>{{ timetable }}</pre>
-
-      <h1>Stop Times {{ props.routeShortName }}:</h1>
       <pre>{{ stopTimes }}</pre>
     </div>
   </div>

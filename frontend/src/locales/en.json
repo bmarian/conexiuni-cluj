@@ -1,0 +1,10 @@
+{
+  "header": {
+    "home": "Home",
+    "lines": "Lines",
+    "stations": "Stations"
+  },
+  "route": {
+    "line": "Line {name}"
+  }
+}

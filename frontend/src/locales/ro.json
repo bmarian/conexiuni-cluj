@@ -1,0 +1,10 @@
+{
+  "header": {
+    "home": "Acasă",
+    "lines": "Linii",
+    "stations": "Stații"
+  },
+  "route": {
+    "line": "Linia {name}"
+  }
+}
