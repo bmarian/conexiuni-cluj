@@ -10,4 +10,5 @@ type CacheTimes struct {
 	StopTimeCacheShelfLife    time.Duration
 	APIStopTimeCacheShelfLife time.Duration
 	StopInfoCacheShelfLife    time.Duration
+	TimetableCacheShelfLife   time.Duration
 }

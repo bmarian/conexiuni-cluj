@@ -185,7 +185,7 @@ func main() {
 			filter.StopID = &stopID
 		}
 
-		data, err := handlers.GetStopInfo(tranzyClient, models.CacheTimes{
+		data, err := handlers.GetStopInfo(tranzyClient, ctpCjClient, models.CacheTimes{
 			ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
 			RouteCacheShelfLife:       config.RouteCacheShelfLife,
 			TripCacheShelfLife:        config.TripCacheShelfLife,
@@ -193,6 +193,7 @@ func main() {
 			StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
 			APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
 			StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
+			TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
 		}, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

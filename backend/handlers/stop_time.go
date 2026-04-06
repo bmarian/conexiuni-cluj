@@ -18,20 +18,16 @@ const (
 
 type StopTimeFilter struct {
 	RouteShortName *string
-	TripID         *string
 }
 
 func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, error) {
 	opts := CacheOpts[[]models.StopTime]{}
 
-	if filter.TripID != nil || filter.RouteShortName != nil {
+	if filter.RouteShortName != nil {
 		f := filter
 		opts.PostProcess = func(ts []models.StopTime) []models.StopTime {
 			var out []models.StopTime
 			for _, t := range ts {
-				if f.TripID != nil && t.TripID != *f.TripID {
-					continue
-				}
 				if f.RouteShortName != nil && t.RouteShortName != *f.RouteShortName {
 					continue
 				}
@@ -140,10 +136,6 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 	if filter.RouteShortName != nil {
 		conditions = append(conditions, "route_short_name = ?")
 		args = append(args, *filter.RouteShortName)
-	}
-	if filter.TripID != nil {
-		conditions = append(conditions, "trip_id = ?")
-		args = append(args, *filter.TripID)
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")

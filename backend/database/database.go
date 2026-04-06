@@ -155,6 +155,13 @@ func InitSchemas() error {
             timestamp INTEGER NOT NULL,
             lifespan  INTEGER NOT NULL
         );
+		
+		CREATE TABLE IF NOT EXISTS stop_info
+        (
+            stop_id           TEXT PRIMARY KEY,
+            trip_ids          TEXT NOT NULL,
+            shapes_short_name TEXT NOT NULL
+        )
     `
 	_, err := DB.Exec(schema)
 	if err != nil {
