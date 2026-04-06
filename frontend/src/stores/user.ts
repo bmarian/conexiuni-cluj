@@ -3,33 +3,49 @@ import { defineStore } from 'pinia'
 import type {UserLocation} from "@/types/tranzy.ts"
 
 export const useUserStore = defineStore('user', () => {
-  const currentLocation = ref<UserLocation | null>(null)
-  const isLocationPermissionDenied = ref(false)
+  const userLocation = ref<UserLocation | null>(null)
+  const userTime = ref<Date | null>(null)
+  const hasLocationPermission = ref(true)
 
-  const updateUserCurrentLocation = () => {
-    if (!navigator.geolocation || isLocationPermissionDenied.value) {
+  const positionWatchId = ref<number | null>(null)
+  const timerIntervalId = ref<number | null>(null)
+
+  const startLocationTracker = () => {
+    if (!navigator.geolocation) {
+      hasLocationPermission.value = false
+    }
+    if (!hasLocationPermission.value) {
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        currentLocation.value = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }
-        updateUserCurrentLocation()
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          isLocationPermissionDenied.value = true
-        }
-      },
-    )
+    const success = (position: GeolocationPosition) => {
+      userLocation.value = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      }
+    }
+    const error = (error: GeolocationPositionError) => {
+      hasLocationPermission.value = false
+    }
+    navigator.geolocation.getCurrentPosition(success, error)
+    positionWatchId.value = navigator.geolocation.watchPosition(success, error)
+  }
+
+  const startTimeTracker = () => {
+    userTime.value = new Date()
+    timerIntervalId.value = setInterval(() => {
+      userTime.value = new Date()
+    }, 10000)
   }
 
   return {
-    currentLocation,
-    isLocationPermissionDenied,
-    updateUserCurrentLocation,
+    userLocation,
+    userTime,
+    
+    startLocationTracker,
+    startTimeTracker,
+
+    positionWatchId,
+    timerIntervalId,
   }
 })

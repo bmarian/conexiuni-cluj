@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import RouteView from '@/views/RouteView.vue'
+import StationView from "@/views/StationView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,6 +11,12 @@ const router = createRouter({
       component: RouteView,
       props: true,
     },
+    {
+      path: '/station/:stationId',
+      name: 'station',
+      component: StationView,
+      props: true,
+    }
   ],
 })
 

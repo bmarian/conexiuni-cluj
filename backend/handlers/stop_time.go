@@ -71,9 +71,9 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		return nil, errTrips
 	}
 
-	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
-	if err != nil {
-		return nil, err
+	apiStopTimes, errApiStopTimes := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	if errApiStopTimes != nil {
+		return nil, errApiStopTimes
 	}
 
 	groupedRaw := make(map[string][]models.RequestStopTime)
@@ -170,7 +170,7 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 	var stopTimes []models.StopTime
 	for rows.Next() {
 		var st models.StopTime
-		if err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName); err != nil {
+		if err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon); err != nil {
 			return nil, fmt.Errorf("error scanning stop time: %w", err)
 		}
 		stopTimes = append(stopTimes, st)
@@ -197,7 +197,7 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 	}(stmt)
 
 	for _, st := range stopTimes {
-		if _, err := stmt.Exec(st.TripID, st.StopID, st.OffsetArrivalTime, st.StopSequence, st.StopHeadsign, st.RouteShortName); err != nil {
+		if _, err := stmt.Exec(st.TripID, st.StopID, st.OffsetArrivalTime, st.StopSequence, st.StopHeadsign, st.RouteShortName, st.StopLat, st.StopLon); err != nil {
 			return fmt.Errorf("error inserting stop time: %w", err)
 		}
 	}

@@ -25,6 +25,8 @@ app.use(i18n)
 app.use(pinia)
 app.use(router)
 
-useUserStore(pinia).updateUserCurrentLocation()
+const userStore = useUserStore(pinia)
+userStore.startLocationTracker()
+userStore.startTimeTracker()
 
 app.mount('#app')
