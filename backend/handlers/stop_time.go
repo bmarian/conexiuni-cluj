@@ -16,21 +16,12 @@ const (
 	APIStopTimesCacheId = "API_STOP_TIMES"
 )
 
-type CacheTimes struct {
-	ShapeCacheShelfLife       time.Duration
-	RouteCacheShelfLife       time.Duration
-	TripCacheShelfLife        time.Duration
-	StopCacheShelfLife        time.Duration
-	StopTimeCacheShelfLife    time.Duration
-	APIStopTimeCacheShelfLife time.Duration
-}
-
 type StopTimeFilter struct {
 	RouteShortName *string
 	TripID         *string
 }
 
-func GetStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
+func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, error) {
 	opts := CacheOpts[[]models.StopTime]{}
 
 	if filter.TripID != nil || filter.RouteShortName != nil {
@@ -59,7 +50,7 @@ func GetStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes
 	)
 }
 
-func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes CacheTimes) ([]models.StopTime, error) {
+func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
 	routes, errRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
 	if errRoutes != nil || len(routes) == 0 {
 		return nil, errRoutes

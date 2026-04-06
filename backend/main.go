@@ -3,6 +3,7 @@ package main
 import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/handlers"
+	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
@@ -161,14 +162,38 @@ func main() {
 			filter.RouteShortName = &routeShortName
 		}
 
-		data, err := handlers.GetStopTimes(tranzyClient, filter, handlers.CacheTimes{
+		data, err := handlers.GetStopTimes(tranzyClient, models.CacheTimes{
 			ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
 			RouteCacheShelfLife:       config.RouteCacheShelfLife,
 			TripCacheShelfLife:        config.TripCacheShelfLife,
 			StopCacheShelfLife:        config.StopCacheShelfLife,
 			StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
 			APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
-		})
+		}, filter)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(data)
+	})
+	api.Get("/stop_info", func(c fiber.Ctx) error {
+		filter := handlers.StopFilter{}
+		if stopIDStr := c.Query("stop_id"); stopIDStr != "" {
+			stopID, err := strconv.Atoi(stopIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid stop_id"})
+			}
+			filter.StopID = &stopID
+		}
+
+		data, err := handlers.GetStopInfo(tranzyClient, models.CacheTimes{
+			ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
+			RouteCacheShelfLife:       config.RouteCacheShelfLife,
+			TripCacheShelfLife:        config.TripCacheShelfLife,
+			StopCacheShelfLife:        config.StopCacheShelfLife,
+			StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
+			APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
+			StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
+		}, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
