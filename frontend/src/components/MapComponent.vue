@@ -16,28 +16,60 @@ import {useI18n} from "vue-i18n";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
+const router = useRouter()
+const {t, locale} = useI18n()
 const mapContainer = ref()
+
 const map = shallowRef<L.Map>()
 const stopGroup = shallowRef<L.MarkerClusterGroup>()
 const currentTileLayer = shallowRef<L.TileLayer>()
-const router = useRouter()
-const { t, locale } = useI18n()
+const userDot = shallowRef<L.Marker>()
+const accuracyCircle = shallowRef<L.Circle>()
+let isFirstLocationHandle = true
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
+  map.value.on('locationfound', updateLiveLocation)
+  map.value.on('locationerror', (e) => {
+    console.warn("GPS Error:", e.message)
+    userStore.setHasLocationPermission(false)
+  })
 
   currentTileLayer.value = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20
   }).addTo(map.value)
 
-  // TODO: i18n, limit search to Cluj
-  const provider = new OpenStreetMapProvider()
+  const CLUJ_VIEWBOX = '23.50,46.81,23.70,46.71'
+  const provider = new OpenStreetMapProvider({
+    params: {
+      countrycodes: 'ro',
+      viewbox: CLUJ_VIEWBOX,
+      bounded: 0
+    }
+  })
+  const customSearchIcon = L.divIcon({
+    className: 'bg-transparent! border-none!',
+
+    html: `
+    <div class="text-rose-500 w-8 h-8 drop-shadow-lg -mt-2 text-fuchsia-900 dark:text-orange-500">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+      </svg>
+    </div>
+  `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 24]
+  })
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   const searchControl = new GeoSearchControl({
     provider,
     showMarker: true,
+    marker: {
+      icon: customSearchIcon,
+      draggable: false,
+    },
     retainZoomLevel: false,
     animateZoom: true,
     autoClose: true,
@@ -47,6 +79,11 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value.addControl(searchControl)
 
   stopGroup.value = L.markerClusterGroup().addTo(map.value)
+  map.value.locate({
+    watch: true,
+    enableHighAccuracy: false,
+    maximumAge: 2000
+  })
 }
 
 const stopsInit = async () => {
@@ -83,6 +120,50 @@ const stopsInit = async () => {
   stopGroup.value.addLayers(markers)
 }
 
+const blueDotIcon = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: `
+    <div class="relative flex items-center justify-center w-4 h-4">
+      <div class="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-md z-10"></div>
+      <div class="absolute w-full h-full bg-blue-400 rounded-full animate-ping opacity-75"></div>
+    </div>
+  `,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8]
+})
+
+const updateLiveLocation = (e: L.LocationEvent) => {
+  if (!map.value) return
+
+  userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
+  // Move map to user location once
+  if (isFirstLocationHandle) {
+    map.value.flyTo(e.latlng, 16, { duration: 1 })
+    isFirstLocationHandle = false
+  }
+
+  if (userDot.value && accuracyCircle.value) {
+    userDot.value.setLatLng(e.latlng)
+
+    accuracyCircle.value.setLatLng(e.latlng)
+    accuracyCircle.value.setRadius(e.accuracy)
+  } else {
+    accuracyCircle.value = L.circle(e.latlng, {
+      radius: e.accuracy,
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.15,
+      weight: 1,
+      interactive: false
+    }).addTo(map.value)
+
+    userDot.value = L.marker(e.latlng, {
+      icon: blueDotIcon,
+      interactive: false
+    }).addTo(map.value)
+  }
+}
+
 onMounted(() => {
   mapInit(46.7712, 23.6236, 13)
   void stopsInit()
@@ -105,6 +186,9 @@ watch(locale, () => {
 
 onUnmounted(() => {
   if (map.value) {
+    map.value.stopLocate()
+    map.value.off('locationfound', updateLiveLocation)
+
     map.value.remove()
   }
 })

@@ -48,6 +48,11 @@
   .leaflet-popup-content {
     @apply leading-relaxed! pr-2!;
   }
+
+  .leaflet-control-attribution {
+    @apply text-slate-900! dark:text-slate-100!;
+    background: none !important;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

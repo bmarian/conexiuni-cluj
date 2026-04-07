@@ -4,37 +4,20 @@ import type {UserLocation} from "@/types/tranzy.ts"
 
 export const useUserStore = defineStore('user', () => {
   const userLocation = ref<UserLocation | null>(null)
-  const userTime = ref<Date | null>(null)
   const hasLocationPermission = ref(true)
-
   const positionWatchId = ref<number | null>(null)
-  const timerIntervalId = ref<number | null>(null)
-
-  const startLocationTracker = () => {
-    if (!navigator.geolocation) {
-      hasLocationPermission.value = false
-      return
+  const setUserLocation = (lat: number, lon: number) => {
+    userLocation.value = {
+      latitude: lat,
+      longitude: lon,
     }
-    if (!hasLocationPermission.value) {
-      return
-    }
-
-    const success = (position: GeolocationPosition) => {
-      userLocation.value = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      }
-    }
-    const error = (error: GeolocationPositionError) => {
-      hasLocationPermission.value = false
-      console.error('Error getting location:', error.message)
-    }
-
-    const options = {enableHighAccuracy: false, timeout: 5000, maximumAge: Infinity}
-    navigator.geolocation.getCurrentPosition(success, error, options)
-    positionWatchId.value = navigator.geolocation.watchPosition(success, error, options)
+  }
+  const setHasLocationPermission = (permission: boolean) => {
+    hasLocationPermission.value = permission
   }
 
+  const userTime = ref<Date | null>(null)
+  const timerIntervalId = ref<number | null>(null)
   const startTimeTracker = () => {
     userTime.value = new Date()
     timerIntervalId.value = setInterval(() => {
@@ -52,10 +35,12 @@ export const useUserStore = defineStore('user', () => {
   }
   return {
     userLocation,
+    hasLocationPermission,
     userTime,
     isDarkMode,
 
-    startLocationTracker,
+    setUserLocation,
+    setHasLocationPermission,
     startTimeTracker,
     startSchemeWatcher,
 
