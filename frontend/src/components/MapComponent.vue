@@ -15,11 +15,12 @@ const {isDarkMode} = storeToRefs(userStore)
 const mapContainer = ref()
 const map = shallowRef<L.Map>()
 const stopGroup = shallowRef<L.LayerGroup>()
+const currentTileLayer = shallowRef<L.TileLayer>()
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
 
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+  currentTileLayer.value = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20
   }).addTo(map.value)
@@ -75,19 +76,11 @@ onMounted(() => {
   void stopsInit()
 })
 
-watch(isDarkMode, () => {
-  if (!map.value) return
-
-  const mapCenter = map.value.getCenter()
-  const lat = mapCenter.lat
-  const lon = mapCenter.lng
-  const zoom = map.value.getZoom()
-
-  map.value.remove()
-  stopGroup.value?.clearLayers()
-
-  mapInit(lat, lon, zoom)
-  void stopsInit()
+watch(isDarkMode, (newValue) => {
+  if (!currentTileLayer.value) return
+  
+  const newUrl = `https://{s}.basemaps.cartocdn.com/${newValue ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`
+  currentTileLayer.value.setUrl(newUrl)
 })
 
 onUnmounted(() => {
