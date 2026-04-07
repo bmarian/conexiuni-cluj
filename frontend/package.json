@@ -17,6 +17,7 @@
   "dependencies": {
     "leaflet": "^1.9.4",
     "leaflet-geosearch": "^4.4.0",
+    "leaflet.markercluster": "^1.5.3",
     "pinia": "^3.0.4",
     "vue": "beta",
     "vue-i18n": "^11.2.8",
@@ -26,6 +27,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tsconfig/node24": "^24.0.4",
     "@types/leaflet": "^1.9.21",
+    "@types/leaflet.markercluster": "^1.5.6",
     "@types/node": "^24.10.9",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/eslint-config-typescript": "^14.6.0",

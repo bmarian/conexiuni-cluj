@@ -2,20 +2,26 @@
 import {onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-
-import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch'
+import {GeoSearchControl, OpenStreetMapProvider} from 'leaflet-geosearch'
 import 'leaflet-geosearch/dist/geosearch.css'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop} from "@/types/tranzy.ts";
+import {useRouter} from "vue-router";
+import {useI18n} from "vue-i18n";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
 const mapContainer = ref()
 const map = shallowRef<L.Map>()
-const stopGroup = shallowRef<L.LayerGroup>()
+const stopGroup = shallowRef<L.MarkerClusterGroup>()
 const currentTileLayer = shallowRef<L.TileLayer>()
+const router = useRouter()
+const { t, locale } = useI18n()
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
@@ -25,6 +31,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     maxZoom: 20
   }).addTo(map.value)
 
+  // TODO: i18n, limit search to Cluj
   const provider = new OpenStreetMapProvider()
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
@@ -34,12 +41,12 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     retainZoomLevel: false,
     animateZoom: true,
     autoClose: true,
-    searchLabel: 'Enter address...',
+    searchLabel: t('Search location...'),
     keepResult: true
   })
   map.value.addControl(searchControl)
 
-  stopGroup.value = L.layerGroup().addTo(map.value)
+  stopGroup.value = L.markerClusterGroup().addTo(map.value)
 }
 
 const stopsInit = async () => {
@@ -60,15 +67,20 @@ const stopsInit = async () => {
 
   const markers = []
   for (let i = 0; i < stops.length; i++) {
-    const { stop_lat, stop_lon, stop_name } = stops[i]!
-    const marker = L.marker([stop_lat, stop_lon], { icon: stopIcon }).bindPopup(stop_name)
-    marker.on('click', function (e) {
+    const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
+
+    const marker = L.marker([stop_lat, stop_lon], {icon: stopIcon})
+    marker.once('click', (e) => {
       const popupContent = `<span>${stop_name}</span>`
       e.target.bindPopup(popupContent).openPopup()
     })
+    marker.on('click', () => {
+      router.push({name: 'stop', params: {stopId: stop_id}, replace: true})
+    })
+
     markers.push(marker)
   }
-  stopGroup.value.addLayer(L.layerGroup(markers))
+  stopGroup.value.addLayers(markers)
 }
 
 onMounted(() => {
@@ -78,13 +90,23 @@ onMounted(() => {
 
 watch(isDarkMode, (newValue) => {
   if (!currentTileLayer.value) return
-  
+
   const newUrl = `https://{s}.basemaps.cartocdn.com/${newValue ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`
   currentTileLayer.value.setUrl(newUrl)
 })
 
+watch(locale, () => {
+  const searchInput = document.querySelector('.leaflet-control-geosearch input.glass') as HTMLInputElement
+
+  if (searchInput) {
+    searchInput.placeholder = t('Search location...')
+  }
+})
+
 onUnmounted(() => {
-  if (map.value) { map.value.remove() }
+  if (map.value) {
+    map.value.remove()
+  }
 })
 </script>
 

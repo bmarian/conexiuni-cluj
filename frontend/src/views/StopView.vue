@@ -22,7 +22,7 @@ onMounted(async () => {
 <template>
   <div>{{ userTime }}</div>
   <div>{{ userLocation?.latitude }} -- {{ userLocation?.longitude }}</div>
-  <pre>{{ stopInfo }}</pre>
+<!--  <pre>{{ stopInfo }}</pre>-->
 </template>
 
 <style scoped lang="scss">
