@@ -26,6 +26,7 @@ const currentTileLayer = shallowRef<L.TileLayer>()
 const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
 let isFirstLocationHandle = true
+const DEFAULT_ZOOM = 16
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
@@ -70,7 +71,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
       icon: customSearchIcon,
       draggable: false,
     },
-    retainZoomLevel: false,
+    retainZoomLevel: true,
     animateZoom: true,
     autoClose: true,
     searchLabel: t('Search location...'),
@@ -138,7 +139,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   // Move map to user location once
   if (isFirstLocationHandle) {
-    map.value.flyTo(e.latlng, 16, { duration: 1 })
+    map.value.flyTo(e.latlng, DEFAULT_ZOOM, { duration: 1 })
     isFirstLocationHandle = false
   }
 
@@ -165,7 +166,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 }
 
 onMounted(() => {
-  mapInit(46.7712, 23.6236, 13)
+  mapInit(46.7712, 23.6236, DEFAULT_ZOOM)
   void stopsInit()
 })
 
