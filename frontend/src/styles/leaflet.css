@@ -33,3 +33,9 @@
     @apply border-b! border-slate-300! dark:border-slate-700!;
   }
 }
+
+@media (prefers-color-scheme: dark) {
+  .map-container {
+    background-color: #090909; // Hardcoded color for the dark map theme
+  }
+}

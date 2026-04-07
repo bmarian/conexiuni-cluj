@@ -70,7 +70,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="mapContainer" class="map-wrap"></div>
+  <div ref="mapContainer" class="map-container"></div>
 </template>
 
 <style scoped lang="scss">
