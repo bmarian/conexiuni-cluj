@@ -15,6 +15,8 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
+    "leaflet-geosearch": "^4.4.0",
     "pinia": "^3.0.4",
     "vue": "beta",
     "vue-i18n": "^11.2.8",
@@ -23,10 +25,12 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@tsconfig/node24": "^24.0.4",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^24.10.9",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/tsconfig": "^0.8.1",
+    "autoprefixer": "^10.4.27",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.42.0",
@@ -35,6 +39,7 @@
     "npm-run-all2": "^8.0.4",
     "oxfmt": "^0.27.0",
     "oxlint": "~1.42.0",
+    "postcss": "^8.5.8",
     "sass-embedded": "^1.98.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",

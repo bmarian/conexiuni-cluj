@@ -1,3 +1,5 @@
+import type {Timetable} from "@/types/ctp.ts";
+
 export type UserLocation = {
   latitude: number
   longitude: number
@@ -38,3 +40,29 @@ export type Route = {
 
 export const OUTGOING_SUFFIX = "_0"
 export const INCOMING_SUFFIX = "_1"
+
+export type LocationType =
+  | 0 // StopOrPlatform
+  | 1 // Station
+  | 2 // EntranceExit
+  | 3 // GenericNode
+  | 4 // BoardingArea
+
+export type ShapeInfo = {
+  route_short_name: string
+  stop_times: StopTime[]
+  timetable: Timetable
+}
+
+export type StopInfo = {
+  stop_id: number
+  stop_name: string
+  stop_desc: string
+  stop_lat: number
+  stop_lon: number
+  location_type: LocationType
+  stop_code: string
+  outgoing_trip_ids: string[]
+  incoming_trip_ids: string[]
+  shapes_info: ShapeInfo
+}
