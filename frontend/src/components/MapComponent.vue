@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import {onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
 import L, { Map } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch'
 import 'leaflet-geosearch/dist/geosearch.css'
+import {useUserStore} from "@/stores/user.ts";
+import {storeToRefs} from "pinia";
 
+const userStore = useUserStore()
+const {isDarkMode} = storeToRefs(userStore)
 const mapContainer = ref()
 const map = shallowRef<Map>()
 
-onMounted(() => {
-  map.value = L.map(mapContainer.value).setView([46.7712, 23.6236], 13)
+const mapInit = (lat: number, lon: number, zoom: number) => {
+  map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20
   }).addTo(map.value)
 
@@ -42,6 +46,22 @@ onMounted(() => {
   L.marker([46.7704, 23.5914], { icon: myCustomIcon })
     .addTo(map.value)
     .bindPopup('This is my custom icon!')
+}
+
+onMounted(() => {
+mapInit(46.7712, 23.6236, 13)
+})
+
+watch(isDarkMode, () => {
+  if (map.value) {
+    const mapCenter = map.value.getCenter()
+    const lat = mapCenter.lat
+    const lon = mapCenter.lng
+    const zoom = map.value.getZoom()
+
+    map.value.remove()
+    mapInit(lat, lon, zoom)
+  }
 })
 
 onUnmounted(() => {

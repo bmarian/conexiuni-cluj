@@ -28,5 +28,6 @@ app.use(router)
 const userStore = useUserStore(pinia)
 userStore.startLocationTracker()
 userStore.startTimeTracker()
+userStore.startSchemeWatcher()
 
 app.mount('#app')

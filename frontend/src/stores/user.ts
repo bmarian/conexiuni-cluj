@@ -38,12 +38,22 @@ export const useUserStore = defineStore('user', () => {
     }, 10000)
   }
 
+  const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  const isDarkMode = ref(darkModeMediaQuery.matches)
+
+  const startSchemeWatcher = () => {
+    darkModeMediaQuery.addEventListener('change', (event) => {
+      isDarkMode.value = event.matches
+    })
+  }
   return {
     userLocation,
     userTime,
-    
+    isDarkMode,
+
     startLocationTracker,
     startTimeTracker,
+    startSchemeWatcher,
 
     positionWatchId,
     timerIntervalId,
