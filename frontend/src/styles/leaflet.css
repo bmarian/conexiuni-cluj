@@ -40,3 +40,7 @@
     background-color: #090909;
   }
 }
+
+.stop-icon {
+  @apply text-fuchsia-900 dark:text-fuchsia-500;
+}

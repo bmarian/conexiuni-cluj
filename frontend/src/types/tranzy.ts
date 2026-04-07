@@ -66,3 +66,13 @@ export type StopInfo = {
   incoming_trip_ids: string[]
   shapes_info: ShapeInfo
 }
+
+export type Stop = {
+  stop_id: number
+  stop_name: string
+  stop_desc: string
+  stop_lat: number
+  stop_lon: number
+  location_type: LocationType
+  stop_code: string
+}

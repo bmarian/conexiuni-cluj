@@ -1,5 +1,5 @@
-import { ref } from 'vue'
-import { defineStore } from 'pinia'
+import {ref} from 'vue'
+import {defineStore} from 'pinia'
 import type {UserLocation} from "@/types/tranzy.ts"
 
 export const useUserStore = defineStore('user', () => {
@@ -13,6 +13,7 @@ export const useUserStore = defineStore('user', () => {
   const startLocationTracker = () => {
     if (!navigator.geolocation) {
       hasLocationPermission.value = false
+      return
     }
     if (!hasLocationPermission.value) {
       return
@@ -26,9 +27,12 @@ export const useUserStore = defineStore('user', () => {
     }
     const error = (error: GeolocationPositionError) => {
       hasLocationPermission.value = false
+      console.error('Error getting location:', error.message)
     }
-    navigator.geolocation.getCurrentPosition(success, error)
-    positionWatchId.value = navigator.geolocation.watchPosition(success, error)
+
+    const options = {enableHighAccuracy: false, timeout: 5000, maximumAge: Infinity}
+    navigator.geolocation.getCurrentPosition(success, error, options)
+    positionWatchId.value = navigator.geolocation.watchPosition(success, error, options)
   }
 
   const startTimeTracker = () => {
