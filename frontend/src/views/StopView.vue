@@ -18,6 +18,7 @@ const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
+const startAvailableShapesWatcher = ref(false)
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6';
@@ -57,7 +58,7 @@ const busesWithAvailableTimetables = computed(() => {
   return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetable(shape.timetable))
 })
 
-const getTimeOffsetToStop = (stopTime:StopTime[], tripId: string): number => {
+const getTimeOffsetToStop = (stopTime: StopTime[], tripId: string): number => {
   const propStopId = Number(props.stopId)
 
   let timeOffset = 0
@@ -80,6 +81,10 @@ const reverseRouteLongName = (routeLongName: string) => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
+const showAvailableShapesOnTheMap = () => {
+  startAvailableShapesWatcher.value = !startAvailableShapesWatcher.value
+}
+
 const comingNext = computed(() => {
   if (!stopInfo.value) return []
 
@@ -89,7 +94,14 @@ const comingNext = computed(() => {
 
   const results = []
   for (let i = 0; i < shapes_info.length; i++) {
-    const {route_short_name, route_type, route_color, route_id, stop_time, timetable} = shapes_info[i]
+    const {
+      route_short_name,
+      route_type,
+      route_color,
+      route_id,
+      stop_time,
+      timetable
+    } = shapes_info[i]
     if (!hasTimetable(timetable) || !isAvailableToday(today, timetable)) continue
 
     const tripId = getTripId(outgoing_trip_ids, incoming_trip_ids, route_id)
@@ -131,8 +143,13 @@ watch(() => props.stopId, async (newValue) => {
   isLoading.value = false
 }, {immediate: true})
 
-watch(busesWithAvailableTimetables, (newVal) => {
+watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, watcherValue]) => {
   if (!stopInfo.value || !Array.isArray(newVal) || newVal.length === 0) return
+
+  if (!watcherValue) {
+    mapStore.setShapesToDisplay([])
+    return
+  }
 
   const routeIdsWithAvailableTimetables = newVal.map((shape: ShapeInfo) => shape.route_id)
 
@@ -260,10 +277,26 @@ watch(busesWithAvailableTimetables, (newVal) => {
     </section>
 
     <section>
-      <h2
-        class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-3 transition-colors">
-        All Routes at this Stop
-      </h2>
+      <div
+        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-3 transition-colors">
+        <h2
+          class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] m-0 border-none pb-0">
+          All Routes at this Stop
+        </h2>
+
+        <button
+          @click="showAvailableShapesOnTheMap"
+          class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-emerald-200/50 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all active:scale-95 group focus:outline-none w-full sm:w-auto"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="w-4 h-4 transition-transform group-hover:scale-110" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          <span class="text-xs font-bold uppercase tracking-wider">Toggle Map</span>
+        </button>
+      </div>
 
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
         <div v-for="shape in busesWithAvailableTimetables" :key="shape.timetable.route_short_name"

@@ -89,7 +89,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
       icon: customSearchIcon,
       draggable: false,
     },
-    retainZoomLevel: true,
+    retainZoomLevel: false,
     animateZoom: true,
     autoClose: true,
     searchLabel: t('Search location...'),
@@ -265,10 +265,9 @@ watch(shapesToDisplay, (newShapes) => {if (!shapeLayerGroup.value || !map.value)
     L.marker([data.lat, data.lng], { icon: startMarkerIcon }).addTo(shapeLayerGroup.value!)
   })
 
-  // Could focus all the routes, but this is very far away on mobile and too small to be useful
-  // if (shapeLayerGroup.value.getLayers().length > 0) {
-  //   map.value.fitBounds(shapeLayerGroup.value.getBounds(), { padding: [50, 50] })
-  // }
+  if (shapeLayerGroup.value.getLayers().length > 0) {
+    map.value.fitBounds(shapeLayerGroup.value.getBounds(), { padding: [50, 50] })
+  }
 }, {deep: true})
 
 onUnmounted(() => {
