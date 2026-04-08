@@ -139,6 +139,7 @@ const comingNext = computed(() => {
 
 watch(() => props.stopId, async (newValue) => {
   isLoading.value = true
+  startAvailableShapesWatcher.value = false
   await fetchStopData(newValue)
   isLoading.value = false
 }, {immediate: true})
