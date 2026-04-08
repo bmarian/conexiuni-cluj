@@ -211,7 +211,6 @@ watch(shapesToDisplay, (newShapes) => {
   shapeLayerGroup.value.clearLayers()
 
   if (!Array.isArray(newShapes) || newShapes.length === 0) return
-  const fallbackColor = '#3b82f6'
 
   const groupedStarts = new Map<string, {
     lat: number,
@@ -219,18 +218,43 @@ watch(shapesToDisplay, (newShapes) => {
     routes: { name: string, color: string }[]
   }>()
 
+  const fallbackColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
+  let fallbackIndex = 0
+  const assignedFallbacks = new Map<string, string>()
+
+  const getRouteColor = (color: string | undefined, routeName: string) => {
+    let finalColor = color
+
+    if (finalColor && !finalColor.startsWith('#')) {
+      finalColor = `#${finalColor}`
+    }
+
+    if (!finalColor || finalColor === '#000' || finalColor === '#000000') {
+      if (!assignedFallbacks.has(routeName)) {
+        assignedFallbacks.set(routeName, fallbackColors[fallbackIndex % fallbackColors.length]!)
+        fallbackIndex++
+      }
+      return assignedFallbacks.get(routeName)!
+    }
+
+    return finalColor
+  }
+
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
     const latLngs: L.LatLngTuple[] = shapeData.map(sd => [sd.shape_pt_lat, sd.shape_pt_lon])
-    const routeColor = displayShape.route_color === '#000' || !displayShape.route_color ? fallbackColor : displayShape.route_color
+    const routeName = displayShape.route_short_name || `unknown-${i}`
+    const routeColor = getRouteColor(displayShape.route_color, routeName)
 
     L.polyline(latLngs, {
       color: routeColor,
-      weight: 5,
-      opacity: 0.8,
-      smoothFactor: 1
+      weight: 6,
+      opacity: 0.9,
+      smoothFactor: 1.5,
+      lineJoin: 'round',
+      lineCap: 'round'
     }).addTo(shapeLayerGroup.value!)
 
     const startPoint = latLngs[0]
@@ -245,6 +269,25 @@ watch(shapesToDisplay, (newShapes) => {
       if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
         existing.routes.push({name: displayShape.route_short_name, color: routeColor})
       }
+    }
+
+    const endPoint = latLngs[latLngs.length - 1]
+    if (endPoint) {
+      const endMarkerIcon = L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `
+          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-20"
+               style="background-color: ${routeColor};">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      })
+
+      L.marker(endPoint, {icon: endMarkerIcon}).addTo(shapeLayerGroup.value!)
     }
   }
 
