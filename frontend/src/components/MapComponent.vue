@@ -206,13 +206,18 @@ watch(locale, () => {
   }
 })
 
-watch(shapesToDisplay, (newShapes) => {if (!shapeLayerGroup.value || !map.value) return
+watch(shapesToDisplay, (newShapes) => {
+  if (!shapeLayerGroup.value || !map.value) return
   shapeLayerGroup.value.clearLayers()
 
   if (!Array.isArray(newShapes) || newShapes.length === 0) return
   const fallbackColor = '#3b82f6'
 
-  const groupedStarts = new Map<string, { lat: number, lng: number, routes: { name: string, color: string }[] }>()
+  const groupedStarts = new Map<string, {
+    lat: number,
+    lng: number,
+    routes: { name: string, color: string }[]
+  }>()
 
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
@@ -233,12 +238,12 @@ watch(shapesToDisplay, (newShapes) => {if (!shapeLayerGroup.value || !map.value)
       const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
 
       if (!groupedStarts.has(key)) {
-        groupedStarts.set(key, { lat: startPoint[0], lng: startPoint[1], routes: [] })
+        groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
       }
 
       const existing = groupedStarts.get(key)!
       if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
-        existing.routes.push({ name: displayShape.route_short_name, color: routeColor })
+        existing.routes.push({name: displayShape.route_short_name, color: routeColor})
       }
     }
   }
@@ -262,11 +267,11 @@ watch(shapesToDisplay, (newShapes) => {if (!shapeLayerGroup.value || !map.value)
       iconAnchor: [0, 0]
     })
 
-    L.marker([data.lat, data.lng], { icon: startMarkerIcon }).addTo(shapeLayerGroup.value!)
+    L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
   })
 
   if (shapeLayerGroup.value.getLayers().length > 0) {
-    map.value.fitBounds(shapeLayerGroup.value.getBounds(), { padding: [50, 50] })
+    map.value.fitBounds(shapeLayerGroup.value.getBounds(), {padding: [50, 50]})
   }
 }, {deep: true})
 
