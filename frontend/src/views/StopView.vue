@@ -5,7 +5,7 @@ import {computed, ref, watch} from "vue"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "../../public/stop.svg"
 import type {Timetable} from "@/types/ctp.ts";
-import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type ShapeInfo} from "@/types/tranzy.ts";
+import {OUTGOING_SUFFIX, type ShapeInfo, type StopTime} from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 
 const props = defineProps<{
@@ -55,46 +55,58 @@ const busesWithAvailableTimetables = computed(() => {
   return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetable(shape.timetable))
 })
 
+const getTimeOffsetToStop = (stopTime:StopTime[], tripId: string): number => {
+  const propStopId = Number(props.stopId)
+
+  let timeOffset = 0
+  for (let j = 0; j < stopTime.length; j++) {
+    const {trip_id, stop_id, offset_arrival_time} = stopTime[j]!
+    if (trip_id !== tripId) continue
+    if (stop_id === propStopId) break
+
+    timeOffset += Math.ceil(offset_arrival_time / 60)
+  }
+
+  return timeOffset
+}
+
+const getTripId = (outgoingTripIds: string[], incomingTripIds: string[], routeId: string) => {
+  return [...(outgoingTripIds || []), ...(incomingTripIds || [])].find((id) => id.startsWith(routeId))
+}
+
+const reverseRouteLongName = (routeLongName: string) => {
+  return routeLongName.split(' - ').reverse().join(' - ')
+}
+
 const comingNext = computed(() => {
   if (!stopInfo.value) return []
 
   const today = userTime.value?.getDay() || new Date().getDay()
   const currentTimeInMinutes = getMinutesFromDate(userTime.value || new Date())
+  const {outgoing_trip_ids, incoming_trip_ids, shapes_info} = stopInfo.value
 
   const results = []
-  const {outgoing_trip_ids, incoming_trip_ids, shapes_info} = stopInfo.value
   for (let i = 0; i < shapes_info.length; i++) {
-    const {route_short_name, route_type, route_color, stop_time, timetable} = shapes_info[i]
+    const {route_short_name, route_type, route_color, route_id, stop_time, timetable} = shapes_info[i]
     if (!hasTimetable(timetable) || !isAvailableToday(today, timetable)) continue
 
-    // TODO: Possible issue to have the same bus in both directions in the same stop
-    // e.g 45 with the trip_ids 113_0 and 113_1
-    // if that happens, just ignore it or something 🤷‍♂️
-    const routeId = stop_time[0].trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, '')
-    const tripId = [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])].find((id) => id.startsWith(routeId))
+    const tripId = getTripId(outgoing_trip_ids, incoming_trip_ids, route_id)
     if (!tripId) continue
 
-    let timeOffsetToStop = 0
-    for (let j = 0; j < stop_time.length; j++) {
-      const {trip_id, stop_id, offset_arrival_time} = stop_time[j]
-      if (trip_id !== tripId) continue
-      if (stop_id === props.stopId) break
-
-      timeOffsetToStop += Math.ceil(offset_arrival_time / 60)
-    }
+    const timeOffsetToStop = getTimeOffsetToStop(stop_time, tripId)
+    const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
 
     const todayTimetable = (today === 0 ? timetable.sunday : today === 6 ? timetable.saturday : timetable.weekdays)
     const todayTimes = todayTimetable
       .entries
       .map((entry: { departure_in: string; departure_out: string }) => {
-        const timetableTime = timeStringToMinutes(tripId.endsWith(OUTGOING_SUFFIX) ? entry.departure_in : entry.departure_out)
+        const timetableTime = timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out)
         return timetableTime === null ? timetableTime : timetableTime + timeOffsetToStop
       }).reduce((acc: number[], curr: number) => {
         const minutesLeft = ((curr - currentTimeInMinutes) + 1440) % 1440
         if (minutesLeft <= 30) acc.push(minutesLeft)
         return acc
       }, [])
-
     if (!todayTimes.length) continue
 
     results.push({
@@ -102,8 +114,10 @@ const comingNext = computed(() => {
       route_short_name,
       route_type,
       route_color,
-      route_long_name: tripId.endsWith(OUTGOING_SUFFIX) ? `${timetable.in_stop_name} - ${timetable.out_stop_name}` : `${timetable.out_stop_name} - ${timetable.in_stop_name}`,
-      direction: tripId.endsWith(OUTGOING_SUFFIX) ? 'outgoing' : 'incoming',
+      route_long_name: isOutgoing
+        ? `${timetable.route_long_name}`
+        : `${reverseRouteLongName(timetable.route_long_name)}`,
+      direction: isOutgoing ? 'outgoing' : 'incoming',
     })
   }
   return results.sort((a, b) => a.minutes_left - b.minutes_left)

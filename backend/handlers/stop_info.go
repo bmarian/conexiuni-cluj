@@ -109,7 +109,7 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 			continue
 		}
 
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: routeShortName, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
+		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: routeShortName, RouteId: routeID, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
 	}
 	return &stopInfo, nil
 }
@@ -183,7 +183,7 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 			continue
 		}
 
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: shapeShortName, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
+		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: shapeShortName, RouteId: route.RouteID, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
 	}
 
 	return &stopInfo, nil

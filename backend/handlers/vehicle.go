@@ -67,6 +67,7 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 		conditions = append(conditions, "route_id = ?")
 		args = append(args, *filter.RouteID)
 	}
+	conditions = append(conditions, "trip_id != '-1'")
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
