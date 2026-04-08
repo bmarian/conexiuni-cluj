@@ -4,9 +4,6 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {GeoSearchControl, OpenStreetMapProvider} from 'leaflet-geosearch'
 import 'leaflet-geosearch/dist/geosearch.css'
-import 'leaflet.markercluster'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {apiRequest} from "@/utils/request_cache.ts";
@@ -25,7 +22,7 @@ const {t, locale} = useI18n()
 const mapContainer = ref()
 
 const map = shallowRef<L.Map>()
-const stopGroup = shallowRef<L.MarkerClusterGroup>()
+const stopGroup = shallowRef<L.FeatureGroup>()
 const currentTileLayer = shallowRef<L.TileLayer>()
 const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
@@ -33,6 +30,21 @@ const shapeLayerGroup = shallowRef<L.FeatureGroup>()
 
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
+const STOP_ZOOM_THRESHOLD = 16
+
+const handleZoomVisibility = () => {
+  if (!map.value || !stopGroup.value) return
+
+  if (map.value.getZoom() >= STOP_ZOOM_THRESHOLD) {
+    if (!map.value.hasLayer(stopGroup.value)) {
+      map.value.addLayer(stopGroup.value)
+    }
+  } else {
+    if (map.value.hasLayer(stopGroup.value)) {
+      map.value.removeLayer(stopGroup.value)
+    }
+  }
+}
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
@@ -85,14 +97,17 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   })
   map.value.addControl(searchControl)
 
-  stopGroup.value = L.markerClusterGroup().addTo(map.value)
   map.value.locate({
     watch: true,
     enableHighAccuracy: false,
     maximumAge: 2000
   })
-
   shapeLayerGroup.value = L.featureGroup().addTo(map.value)
+
+  stopGroup.value = L.featureGroup()
+  map.value.on('zoomend', handleZoomVisibility)
+  shapeLayerGroup.value = L.featureGroup().addTo(map.value)
+  handleZoomVisibility()
 }
 
 const stopsInit = async () => {
@@ -111,7 +126,6 @@ const stopsInit = async () => {
     popupAnchor: [0, -28]
   })
 
-  const markers = []
   for (let i = 0; i < stops.length; i++) {
     const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
 
@@ -124,9 +138,8 @@ const stopsInit = async () => {
       router.push({name: 'stop', params: {stopId: stop_id}, replace: true})
     })
 
-    markers.push(marker)
+    marker.addTo(stopGroup.value)
   }
-  stopGroup.value.addLayers(markers)
 }
 
 const blueDotIcon = L.divIcon({
@@ -193,12 +206,13 @@ watch(locale, () => {
   }
 })
 
-watch(shapesToDisplay, (newShapes) => {
-  if (!shapeLayerGroup.value || !map.value) return
+watch(shapesToDisplay, (newShapes) => {if (!shapeLayerGroup.value || !map.value) return
   shapeLayerGroup.value.clearLayers()
 
   if (!Array.isArray(newShapes) || newShapes.length === 0) return
   const fallbackColor = '#3b82f6'
+
+  const groupedStarts = new Map<string, { lat: number, lng: number, routes: { name: string, color: string }[] }>()
 
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
@@ -216,25 +230,45 @@ watch(shapesToDisplay, (newShapes) => {
 
     const startPoint = latLngs[0]
     if (startPoint && displayShape.route_short_name) {
-      const startMarkerIcon = L.divIcon({
-        className: 'bg-transparent border-none',
-        html: `
-          <div class="flex items-center justify-center rounded-full text-white font-bold text-xs shadow-md border-2 border-white"
-               style="background-color: ${routeColor}; width: 30px; height: 30px;">
-            ${displayShape.route_short_name}
-          </div>
-        `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15] // Center the icon over the coordinate
-      })
+      const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
 
-      L.marker(startPoint, {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
+      if (!groupedStarts.has(key)) {
+        groupedStarts.set(key, { lat: startPoint[0], lng: startPoint[1], routes: [] })
+      }
+
+      const existing = groupedStarts.get(key)!
+      if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
+        existing.routes.push({ name: displayShape.route_short_name, color: routeColor })
+      }
     }
   }
 
-  if (shapeLayerGroup.value.getLayers().length > 0) {
-    map.value.fitBounds(shapeLayerGroup.value.getBounds(), {padding: [50, 50]})
-  }
+  groupedStarts.forEach((data) => {
+    const routesHtml = data.routes.map(r =>
+      `<div style="background-color: ${r.color};"
+            class="flex items-center justify-center min-w-[30px] h-[30px] px-1.5 rounded-full text-white text-xs font-bold shadow-md border-2 border-white">
+        ${r.name}
+      </div>`
+    ).join('')
+
+    const startMarkerIcon = L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `
+        <div class="absolute flex flex-row items-center justify-center gap-1 whitespace-nowrap" style="transform: translate(-50%, -50%);">
+          ${routesHtml}
+        </div>
+      `,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
+    })
+
+    L.marker([data.lat, data.lng], { icon: startMarkerIcon }).addTo(shapeLayerGroup.value!)
+  })
+
+  // Could focus all the routes, but this is very far away on mobile and too small to be useful
+  // if (shapeLayerGroup.value.getLayers().length > 0) {
+  //   map.value.fitBounds(shapeLayerGroup.value.getBounds(), { padding: [50, 50] })
+  // }
 }, {deep: true})
 
 onUnmounted(() => {
