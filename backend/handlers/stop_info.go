@@ -96,7 +96,8 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 		if errorRoutes != nil {
 			continue
 		}
-		routeShortName := routes[0].RouteShortName
+		route := routes[0]
+		routeShortName := route.RouteShortName
 
 		stopTimes, errStopTimes := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &routeShortName})
 		if errStopTimes != nil {
@@ -108,7 +109,7 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 			continue
 		}
 
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: routeShortName, StopTimes: stopTimes, Timetable: *timetable})
+		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: routeShortName, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
 	}
 	return &stopInfo, nil
 }
@@ -166,6 +167,12 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	stopInfo.IncomingTripIds = incomingTripIds
 
 	for _, shapeShortName := range shapesShortNames {
+		routes, errorRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: &shapeShortName})
+		if errorRoutes != nil {
+			continue
+		}
+		route := routes[0]
+
 		stopTimes, errStopTimes := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &shapeShortName})
 		if errStopTimes != nil {
 			continue
@@ -176,7 +183,7 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 			continue
 		}
 
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: shapeShortName, StopTimes: stopTimes, Timetable: *timetable})
+		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: shapeShortName, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
 	}
 
 	return &stopInfo, nil

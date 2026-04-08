@@ -15,6 +15,8 @@ type StopInfo struct {
 
 type ShapeInfo struct {
 	RouteShortName string     `json:"route_short_name"`
+	RouteType      RouteType  `json:"route_type"`
+	RouteColor     string     `json:"route_color"`
 	StopTimes      []StopTime `json:"stop_time"`
 	Timetable      Timetable  `json:"timetable"`
 }

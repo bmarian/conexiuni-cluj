@@ -50,6 +50,8 @@ export type LocationType =
 
 export type ShapeInfo = {
   route_short_name: string
+  route_type: RouteType
+  route_color: string
   stop_times: StopTime[]
   timetable: Timetable
 }
