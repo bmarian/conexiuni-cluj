@@ -275,6 +275,7 @@ onUnmounted(() => {
   if (map.value) {
     map.value.stopLocate()
     map.value.off('locationfound', updateLiveLocation)
+    map.value.off('zoomend', handleZoomVisibility)
 
     map.value.remove()
   }
