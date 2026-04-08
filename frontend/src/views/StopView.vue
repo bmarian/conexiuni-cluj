@@ -5,13 +5,15 @@ import {computed, ref, watch} from "vue"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "../../public/stop.svg"
 import type {Timetable} from "@/types/ctp.ts";
-import {OUTGOING_SUFFIX, type ShapeInfo, type StopTime} from "@/types/tranzy.ts";
+import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type ShapeInfo, type StopTime} from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
+import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 
 const props = defineProps<{
   stopId: string
 }>()
 const userStore = useUserStore()
+const mapStore = useMapStore()
 const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
@@ -128,6 +130,31 @@ watch(() => props.stopId, async (newValue) => {
   await fetchStopData(newValue)
   isLoading.value = false
 }, {immediate: true})
+
+watch(busesWithAvailableTimetables, (newVal) => {
+  if (!stopInfo.value || !Array.isArray(newVal) || newVal.length === 0) return
+
+  const routeIdsWithAvailableTimetables = newVal.map((shape: ShapeInfo) => shape.route_id)
+
+  const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
+  const displayShapes: DisplayShape[] = [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
+    .filter((trip_id) => routeIdsWithAvailableTimetables.some((route_id: number) => trip_id.startsWith(route_id.toString())))
+    .reduce((acc: DisplayShape[], trip_id: string) => {
+      const routeId = Number(trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))
+      const shape = newVal.find((shape: ShapeInfo) => shape.route_id === routeId)
+      if (shape) {
+        acc.push({
+          trip_id,
+          route_short_name: shape.route_short_name,
+          route_long_name: shape.route_long_name,
+          route_color: shape.route_color,
+          route_type: shape.route_type,
+        })
+      }
+      return acc
+    }, [])
+  mapStore.setShapesToDisplay(displayShapes)
+})
 </script>
 
 <template>

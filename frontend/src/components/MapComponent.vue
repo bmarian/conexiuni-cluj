@@ -13,9 +13,13 @@ import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop} from "@/types/tranzy.ts";
 import {useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";
+import {type DisplayShape, useMapStore} from "@/stores/map.ts";
+import type {ShapePoint} from "@/types/map.ts";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
+const mapStore = useMapStore()
+const {shapesToDisplay} = storeToRefs(mapStore)
 const router = useRouter()
 const {t, locale} = useI18n()
 const mapContainer = ref()
@@ -25,6 +29,8 @@ const stopGroup = shallowRef<L.MarkerClusterGroup>()
 const currentTileLayer = shallowRef<L.TileLayer>()
 const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
+const shapeLayerGroup = shallowRef<L.FeatureGroup>()
+
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
 
@@ -85,6 +91,8 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     enableHighAccuracy: false,
     maximumAge: 2000
   })
+
+  shapeLayerGroup.value = L.featureGroup().addTo(map.value)
 }
 
 const stopsInit = async () => {
@@ -139,7 +147,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   // Move map to user location once
   if (isFirstLocationHandle) {
-    map.value.flyTo(e.latlng, DEFAULT_ZOOM, { duration: 1 })
+    map.value.flyTo(e.latlng, DEFAULT_ZOOM, {duration: 1})
     isFirstLocationHandle = false
   }
 
@@ -184,6 +192,50 @@ watch(locale, () => {
     searchInput.placeholder = t('Search location...')
   }
 })
+
+watch(shapesToDisplay, (newShapes) => {
+  if (!shapeLayerGroup.value || !map.value) return
+  shapeLayerGroup.value.clearLayers()
+
+  if (!Array.isArray(newShapes) || newShapes.length === 0) return
+  const fallbackColor = '#3b82f6'
+
+  for (let i = 0; i < newShapes.length; i++) {
+    const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
+    if (!Array.isArray(shapeData) || shapeData.length === 0) continue
+
+    const latLngs: L.LatLngTuple[] = shapeData.map(sd => [sd.shape_pt_lat, sd.shape_pt_lon])
+    const routeColor = displayShape.route_color === '#000' || !displayShape.route_color ? fallbackColor : displayShape.route_color
+
+    L.polyline(latLngs, {
+      color: routeColor,
+      weight: 5,
+      opacity: 0.8,
+      smoothFactor: 1
+    }).addTo(shapeLayerGroup.value!)
+
+    const startPoint = latLngs[0]
+    if (startPoint && displayShape.route_short_name) {
+      const startMarkerIcon = L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `
+          <div class="flex items-center justify-center rounded-full text-white font-bold text-xs shadow-md border-2 border-white"
+               style="background-color: ${routeColor}; width: 30px; height: 30px;">
+            ${displayShape.route_short_name}
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15] // Center the icon over the coordinate
+      })
+
+      L.marker(startPoint, {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
+    }
+  }
+
+  if (shapeLayerGroup.value.getLayers().length > 0) {
+    map.value.fitBounds(shapeLayerGroup.value.getBounds(), {padding: [50, 50]})
+  }
+}, {deep: true})
 
 onUnmounted(() => {
   if (map.value) {
