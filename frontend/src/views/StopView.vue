@@ -5,7 +5,13 @@ import {computed, ref, watch} from "vue"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "../../public/stop.svg"
 import type {Timetable} from "@/types/ctp.ts";
-import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type ShapeInfo, type StopTime} from "@/types/tranzy.ts";
+import {
+  INCOMING_SUFFIX,
+  OUTGOING_SUFFIX,
+  type ShapeInfo,
+  type StopTime,
+  type VehiclesInStop
+} from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 
@@ -20,6 +26,7 @@ const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const startAvailableShapesWatcher = ref(false)
+const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6';
@@ -88,7 +95,7 @@ const showAvailableShapesOnTheMap = () => {
   if (!startAvailableShapesWatcher.value) centerOnUser.value = true
 }
 
-const comingNext = computed(() => {
+const shapesComingToTheStopBasedOnTimetable = computed(() => {
   if (!stopInfo.value) return []
 
   const today = userTime.value?.getDay() || new Date().getDay()
@@ -131,11 +138,12 @@ const comingNext = computed(() => {
       route_short_name,
       route_type,
       route_color,
+      trip_id: tripId,
       route_long_name: isOutgoing
         ? `${timetable.route_long_name}`
         : `${reverseRouteLongName(timetable.route_long_name)}`,
-      direction: isOutgoing ? 'outgoing' : 'incoming',
-    })
+      static_time_approximation: true,
+    } as VehiclesInStop)
   }
   return results.sort((a, b) => a.minutes_left - b.minutes_left)
 })
@@ -176,6 +184,18 @@ watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, wat
     }, [])
   mapStore.setShapesToDisplay(displayShapes)
 })
+
+watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
+  if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
+    shapesComingToTheStopBasedOnVehiclePositions.value = []
+    return
+  }
+  for (let i = 0; i < shapesComingNext.length; i++) {
+    const shape = shapesComingNext[i]
+  }
+  shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
+})
+
 </script>
 
 <template>
@@ -240,7 +260,7 @@ watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, wat
       </h2>
 
       <div class="flex flex-col gap-4">
-        <div v-for="shape in comingNext" :key="shape.route_short_name"
+        <div v-for="shape in shapesComingToTheStopBasedOnVehiclePositions" :key="shape.route_short_name"
              class="bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 transition-all rounded-2xl p-4 pr-5 flex items-center gap-4 border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-md relative overflow-hidden group">
 
           <div

@@ -87,3 +87,28 @@ export type Shape = {
   shape_pt_sequence: number
   shape_dist_traveled: number
 }
+
+export type Vehicle = {
+  id: number
+  label: string
+  latitude: number
+  longitude: number
+  timestamp: string
+  vehicle_type: number
+  bike_accessible: string
+  wheelchair_accessible: string
+  speed: number
+  route_id: number
+  trip_id: string
+}
+
+export type VehiclesInStop = {
+  minutes_left: number
+  route_short_name: string
+  route_type: RouteType
+  route_color: string
+  trip_id: string
+  route_long_name: string
+  static_time_approximation: boolean,
+  vehicles?: Vehicle[]
+}

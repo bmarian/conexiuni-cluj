@@ -38,13 +38,13 @@ func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filt
 
 	return HandleCached(VehicleCacheId, cacheShelfLife,
 		func() ([]models.Vehicle, error) { return getVehiclesFromDB(filter) },
-		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient) },
+		func() ([]models.Vehicle, error) { return requestVehicles(tranzyClient, filter) },
 		storeVehiclesInDB,
 		opts,
 	)
 }
 
-func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
+func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]models.Vehicle, error) {
 	data, err := tranzyClient.DoRequest("/vehicles", nil)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,16 @@ func requestVehicles(tranzyClient *tranzy.Client) ([]models.Vehicle, error) {
 		return nil, fmt.Errorf("failed to unmarshal vehicles: %w", err)
 	}
 
-	return vehicles, nil
+	var filteredVehicles []models.Vehicle
+	for _, vehicle := range vehicles {
+		if filter.RouteID != nil && vehicle.RouteID == *filter.RouteID {
+			filteredVehicles = append(filteredVehicles, vehicle)
+		} else if vehicle.RouteID != -1 && vehicle.TripID != "-1" {
+			filteredVehicles = append(filteredVehicles, vehicle)
+		}
+	}
+
+	return filteredVehicles, nil
 }
 
 func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
@@ -66,8 +75,11 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 	if filter.RouteID != nil {
 		conditions = append(conditions, "route_id = ?")
 		args = append(args, *filter.RouteID)
+		conditions = append(conditions, "trip_id != -1")
+	} else {
+		conditions = append(conditions, "route_id != -1")
+		conditions = append(conditions, "trip_id != -1")
 	}
-	conditions = append(conditions, "trip_id != '-1'")
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}

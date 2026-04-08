@@ -376,6 +376,3 @@ onUnmounted(() => {
 <template>
   <div ref="mapContainer" class="map-container"></div>
 </template>
-
-<style scoped lang="scss">
-</style>
