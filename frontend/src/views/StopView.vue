@@ -14,6 +14,7 @@ const props = defineProps<{
 }>()
 const userStore = useUserStore()
 const mapStore = useMapStore()
+const {centerOnUser} = storeToRefs(mapStore)
 const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
@@ -83,6 +84,8 @@ const reverseRouteLongName = (routeLongName: string) => {
 
 const showAvailableShapesOnTheMap = () => {
   startAvailableShapesWatcher.value = !startAvailableShapesWatcher.value
+
+  if (!startAvailableShapesWatcher.value) centerOnUser.value = true
 }
 
 const comingNext = computed(() => {
@@ -185,7 +188,7 @@ watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, wat
     </header>
 
     <section>
-      <div class="h-3.5 w-36 bg-slate-200 dark:bg-slate-800 rounded mb-5"></div>
+      <div class="h-3.5 w-36 bg-slate-200 dark:bg-slate-800 rounded mb-5!"></div>
 
       <div class="flex flex-col gap-4">
         <div v-for="i in 3" :key="'skeleton-next-'+i"
@@ -203,7 +206,7 @@ watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, wat
     </section>
 
     <section>
-      <div class="h-3.5 w-48 bg-slate-200 dark:bg-slate-800 rounded mb-5"></div>
+      <div class="h-3.5 w-48 bg-slate-200 dark:bg-slate-800 rounded mb-5!"></div>
 
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
         <div v-for="i in 6" :key="'skeleton-all-'+i" class="flex items-center gap-3 p-2 -mx-2">

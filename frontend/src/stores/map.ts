@@ -13,6 +13,7 @@ export type DisplayShape = {
 
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])
+  const centerOnUser = ref(false)
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
     if (!displayShapes) {
@@ -30,6 +31,7 @@ export const useMapStore = defineStore('map', () => {
   }
 
   return {
+    centerOnUser,
     shapesToDisplay,
     setShapesToDisplay,
   }
