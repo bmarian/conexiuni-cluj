@@ -1,5 +1,5 @@
 export const LOW_ACCURACY_SHELF_LIFE = 1000 * 60 * 60 // 1 hour
-export const HIGH_ACCURACY_SHELF_LIFE = 1000 * 10 // 10 seconds
+export const HIGH_ACCURACY_SHELF_LIFE = 1000 * 5 // 5 seconds
 
 export const apiRequest = async (url: string, shelfLife: number = LOW_ACCURACY_SHELF_LIFE): Promise<unknown> => {
   const cachedData = getFromCache(url, shelfLife);
@@ -12,7 +12,7 @@ export const apiRequest = async (url: string, shelfLife: number = LOW_ACCURACY_S
   }
 
   const data = await response.json()
-  saveToCache(url, data, shelfLife)
+  saveToCache(url, data)
 
   return data
 };
@@ -31,7 +31,7 @@ const getFromCache = (key: string, shelfLife: number): unknown => {
   }
 }
 
-const saveToCache = (key: string, data: unknown, shelfLife: number) => {
+const saveToCache = (key: string, data: unknown) => {
   const cachedDataJson = {
     data,
     timestamp: Date.now()

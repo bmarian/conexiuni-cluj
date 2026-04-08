@@ -17,6 +17,7 @@ const (
 
 type VehicleFilter struct {
 	RouteID *int
+	TripID  *string
 }
 
 func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter VehicleFilter) ([]models.Vehicle, error) {
@@ -59,6 +60,8 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 	for _, vehicle := range vehicles {
 		if filter.RouteID != nil && vehicle.RouteID == *filter.RouteID {
 			filteredVehicles = append(filteredVehicles, vehicle)
+		} else if filter.TripID != nil && vehicle.TripID == *filter.TripID {
+			filteredVehicles = append(filteredVehicles, vehicle)
 		} else if vehicle.RouteID != -1 && vehicle.TripID != "-1" {
 			filteredVehicles = append(filteredVehicles, vehicle)
 		}
@@ -76,6 +79,10 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 		conditions = append(conditions, "route_id = ?")
 		args = append(args, *filter.RouteID)
 		conditions = append(conditions, "trip_id != -1")
+	} else if filter.TripID != nil {
+		conditions = append(conditions, "trip_id = ?")
+		args = append(args, *filter.TripID)
+		conditions = append(conditions, "route_id != -1")
 	} else {
 		conditions = append(conditions, "route_id != -1")
 		conditions = append(conditions, "trip_id != -1")

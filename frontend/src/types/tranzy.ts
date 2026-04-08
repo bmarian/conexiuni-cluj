@@ -108,6 +108,7 @@ export type VehiclesInStop = {
   route_type: RouteType
   route_color: string
   trip_id: string
+  route_id: number
   route_long_name: string
   static_time_approximation: boolean,
   vehicles?: Vehicle[]

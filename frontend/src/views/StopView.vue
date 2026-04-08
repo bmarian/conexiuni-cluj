@@ -14,6 +14,7 @@ import {
 } from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
+import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
 
 const props = defineProps<{
   stopId: string
@@ -139,6 +140,7 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
       route_type,
       route_color,
       trip_id: tripId,
+      route_id,
       route_long_name: isOutgoing
         ? `${timetable.route_long_name}`
         : `${reverseRouteLongName(timetable.route_long_name)}`,
@@ -191,7 +193,9 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     return
   }
   for (let i = 0; i < shapesComingNext.length; i++) {
-    const shape = shapesComingNext[i]
+    const shape = shapesComingNext[i]!
+    const vehiclesOnRoute = await apiRequest(`vehicles?route_id=${shape.route_id}`, HIGH_ACCURACY_SHELF_LIFE)
+    console.log('vehiclesOnRoute', vehiclesOnRoute) //TODO
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
 })

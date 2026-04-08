@@ -65,7 +65,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     const button = L.DomUtil.create('a', 'flex! items-center justify-center border-b-0!', container)
 
     button.href = '#'
-    button.title = t('Center on user')
+    button.title = t('Center')
     button.setAttribute('role', 'button')
 
     button.innerHTML = `
@@ -154,9 +154,9 @@ const stopsInit = async () => {
                 <svg fill="currentColor" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd"><path d="M10 23h-1c-.552 0-1-.448-1-1v-1c-.53 0-1.039-.211-1.414-.586s-.586-.884-.586-1.414v-6c-.552 0-1-.448-1-1v-3c0-.552.448-1 1-1v-2c0-1.657 1.343-3 3-3h11c1.657 0 3 1.343 3 3v2c.552 0 1 .448 1 1v3c0 .552-.448 1-1 1v6c0 .53-.211 1.039-.586 1.414s-.884.586-1.414.586v1c0 .552-.448 1-1 1h-1c-.552 0-1-.448-1-1v-1h-7v1c0 .552-.448 1-1 1zm-5 0h-5v-1h2v-15h-1c-.552 0-1-.448-1-1v-4c0-.552.448-1 1-1h3c.552 0 1 .448 1 1v4c0 .552-.448 1-1 1h-1v15h2v1zm4.25-6.75c.69 0 1.25.56 1.25 1.25s-.56 1.25-1.25 1.25-1.25-.56-1.25-1.25.56-1.25 1.25-1.25zm10.5 0c.69 0 1.25.56 1.25 1.25s-.56 1.25-1.25 1.25-1.25-.56-1.25-1.25.56-1.25 1.25-1.25zm-3.25.75h-4c-.276 0-.5.224-.5.5s.224.5.5.5h4c.276 0 .5-.224.5-.5s-.224-.5-.5-.5zm4.5-10.5c0-.276-.224-.5-.5-.5h-12c-.276 0-.5.224-.5.5v7s.626 1 6.528 1c5.903 0 6.472-1 6.472-1v-7z"/></svg>
           </div>
         `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -28]
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -24]
   })
 
   for (let i = 0; i < stops.length; i++) {
