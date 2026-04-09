@@ -31,9 +31,8 @@ const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const startAvailableShapesWatcher = ref(false)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
-const CLOSE_TO_STOP_THRESHOLD = 30
+const CLOSE_TO_STOP_THRESHOLD = 200
 const VEHICLE_GRACE_PERIOD = 10 // minutes
-const VEHICLE_AVG_SPEED = 30
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6';
@@ -138,7 +137,8 @@ const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: 
     const vehicle = vehiclesOnRoute[i]!
     const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, fistStop.shape_pt_lat, fistStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const isCloseToLastStop = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed <= 0) continue
+    // I've hardcoded a 12km/h minimum speed so that ETAs do not get so inaccurate so this is very hacky
+    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed <= 12) continue
 
     const vehicleTimestamp = new Date(vehicle.timestamp).getTime()
     if (isNaN(vehicleTimestamp)) continue
@@ -177,40 +177,57 @@ const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Sha
   closestNode: Shape | undefined
 } => {
   let closestDistance = Infinity
-  let closestVehicle: Vehicle | undefined
-  let closestNode: Shape | undefined
+  let bestVehicle: Vehicle | undefined
+  let bestNode: Shape | undefined
 
   for (let i = 0; i < vehicles.length; i++) {
     const vehicle = vehicles[i]!
-    closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
-    if (closestNode && closestNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
 
-    const distanceToStop = haversineMeters(closestNode!.shape_pt_lat, closestNode!.shape_pt_lon, closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon)
+    const currentNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
+    if (!currentNode || currentNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
+
+    const distanceToStop = haversineMeters(
+      currentNode.shape_pt_lat, currentNode.shape_pt_lon,
+      closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon
+    )
+
     if (distanceToStop < closestDistance) {
       closestDistance = distanceToStop
-      closestVehicle = vehicle
+      bestVehicle = vehicle
+      bestNode = currentNode
     }
   }
 
-  return {closestVehicle, closestNode}
+  return { closestVehicle: bestVehicle, closestNode: bestNode }
 }
 
-const computeETA = (stopShape: Shape, busShape: Shape, busSpeed: number, trip: Shape[]): number => {
-  if (busShape.shape_pt_sequence === stopShape.shape_pt_sequence) return 0
-  if (busShape.shape_pt_sequence + 1 === stopShape.shape_pt_sequence) {
-    const distance = haversineMeters(stopShape.shape_pt_lat, stopShape.shape_pt_lon, busShape.shape_pt_lat, busShape.shape_pt_lon)
-    const time = ((distance / 1000) / (busSpeed || VEHICLE_AVG_SPEED)) * 60
-    return Math.ceil(time)
-  }
+const computeETA = (stopShape: Shape, busShape: Shape, vehicle: Vehicle, trip: Shape[]): number => {
+  const busIndex = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
+  const stopIndex = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)
+
+  if (busIndex === -1 || stopIndex === -1) return -1
+  if (busIndex > stopIndex) return -2
 
   let totalDistance = 0
-  for (let i = busShape.shape_pt_sequence; i < stopShape.shape_pt_sequence; i++) {
-    const cur = trip[i]!
-    const next = trip[i + 1]!
-    totalDistance += haversineMeters(cur.shape_pt_lat, cur.shape_pt_lon, next.shape_pt_lat, next.shape_pt_lon)
+
+  if (busIndex === stopIndex) {
+    totalDistance = haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
+  } else {
+    for (let i = busIndex; i < stopIndex; i++) {
+      const cur = trip[i]
+      const next = trip[i + 1]
+      if (cur && next) {
+        totalDistance += haversineMeters(
+          cur.shape_pt_lat, cur.shape_pt_lon,
+          next.shape_pt_lat, next.shape_pt_lon
+        )
+      }
+    }
   }
 
-  const time = ((totalDistance / 1000) / (busSpeed || VEHICLE_AVG_SPEED)) * 60
+  const speedKmh = vehicle.speed
+  const time = ((totalDistance / 1000) / speedKmh) * 60
+
   return Math.ceil(time)
 }
 
@@ -332,7 +349,17 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
       continue
     }
 
-    const vehicleETA = computeETA(closestNodeToStop, closestNodeToVehicle, closestVehicleBeforeStop.speed, trip)
+    const vehicleETA = computeETA(closestNodeToStop, closestNodeToVehicle, closestVehicleBeforeStop, trip)
+    if (vehicleETA === -1) {
+      resultsWithImprovedAccuracy.push(shape)
+      continue
+    }
+
+    // If the bus already passed the stop in the second round of calculations
+    if (vehicleETA === -2) {
+      continue
+    }
+
     resultsWithImprovedAccuracy.push({
       ...shape,
       minutes_left: vehicleETA,

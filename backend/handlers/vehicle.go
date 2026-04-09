@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	VehicleCacheId = "VEHICLES"
+	VehicleCacheId  = "VEHICLES"
+	EMA_ALPHA       = 0.3
+	MIN_SPEED_FLOOR = 12.0
 )
 
 type VehicleFilter struct {
@@ -77,15 +79,40 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]models.Vehicle, error) {
 	dbVehicles, err := getVehiclesFromDB(filter)
 	if err != nil {
+		for i := range apiVehicles {
+			if float64(apiVehicles[i].Speed) < MIN_SPEED_FLOOR {
+				apiVehicles[i].Speed = MIN_SPEED_FLOOR
+			}
+		}
 		return apiVehicles, nil
 	}
 
-	apiMap := make(map[int]bool)
-	for _, v := range apiVehicles {
-		apiMap[v.ID] = true
+	dbMap := make(map[int]models.Vehicle)
+	for _, dbV := range dbVehicles {
+		dbMap[dbV.ID] = dbV
 	}
 
-	// Keep the ghost vehicles alive for a grace period (1 min apx 3 requests)
+	apiMap := make(map[int]bool)
+
+	for i, v := range apiVehicles {
+		apiMap[v.ID] = true
+
+		newSpeed := v.Speed
+		if previousV, exists := dbMap[v.ID]; exists {
+			if v.Timestamp != previousV.Timestamp {
+				newSpeed = (float64(v.Speed) * EMA_ALPHA) + (float64(previousV.Speed) * (1 - EMA_ALPHA))
+			} else {
+				newSpeed = previousV.Speed
+			}
+		}
+
+		if newSpeed < MIN_SPEED_FLOOR {
+			newSpeed = MIN_SPEED_FLOOR
+		}
+
+		apiVehicles[i].Speed = newSpeed
+	}
+
 	gracePeriod := 1 * time.Minute
 	now := time.Now()
 
