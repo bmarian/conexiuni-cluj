@@ -7,7 +7,7 @@ import (
 
 const (
 	earthRadiusMeters  = 6_371_000.0
-	averageBusSpeedMps = 30.0 / 3.6 // 30 km/h in m/s
+	averageBusSpeedMps = 25.0 / 3.6 // 25 km/h in m/s
 )
 
 func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {

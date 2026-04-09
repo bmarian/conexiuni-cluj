@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	VehicleCacheId  = "VEHICLES"
-	EMA_ALPHA       = 0.3
-	MIN_SPEED_FLOOR = 12.0
+	VehicleCacheId = "VEHICLES"
+	EmaAlpha       = 0.3
+	MinSpeedFloor  = 12.0
 )
 
 type VehicleFilter struct {
@@ -80,8 +80,8 @@ func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]model
 	dbVehicles, err := getVehiclesFromDB(filter)
 	if err != nil {
 		for i := range apiVehicles {
-			if float64(apiVehicles[i].Speed) < MIN_SPEED_FLOOR {
-				apiVehicles[i].Speed = MIN_SPEED_FLOOR
+			if float64(apiVehicles[i].Speed) < MinSpeedFloor {
+				apiVehicles[i].Speed = MinSpeedFloor
 			}
 		}
 		return apiVehicles, nil
@@ -100,14 +100,14 @@ func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]model
 		newSpeed := v.Speed
 		if previousV, exists := dbMap[v.ID]; exists {
 			if v.Timestamp != previousV.Timestamp {
-				newSpeed = (float64(v.Speed) * EMA_ALPHA) + (float64(previousV.Speed) * (1 - EMA_ALPHA))
+				newSpeed = (float64(v.Speed) * EmaAlpha) + (float64(previousV.Speed) * (1 - EmaAlpha))
 			} else {
 				newSpeed = previousV.Speed
 			}
 		}
 
-		if newSpeed < MIN_SPEED_FLOOR {
-			newSpeed = MIN_SPEED_FLOOR
+		if newSpeed < MinSpeedFloor {
+			newSpeed = MinSpeedFloor
 		}
 
 		apiVehicles[i].Speed = newSpeed
