@@ -130,6 +130,10 @@ func main() {
 			filter.RouteID = &routeID
 		}
 
+		if tripIDStr := c.Query("trip_id"); tripIDStr != "" {
+			filter.TripID = &tripIDStr
+		}
+
 		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

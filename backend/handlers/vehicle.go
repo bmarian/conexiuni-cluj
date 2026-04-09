@@ -58,13 +58,17 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 
 	var filteredVehicles []models.Vehicle
 	for _, vehicle := range vehicles {
-		if filter.RouteID != nil && vehicle.RouteID == *filter.RouteID {
-			filteredVehicles = append(filteredVehicles, vehicle)
-		} else if filter.TripID != nil && vehicle.TripID == *filter.TripID {
-			filteredVehicles = append(filteredVehicles, vehicle)
-		} else if vehicle.RouteID != -1 && vehicle.TripID != "-1" {
-			filteredVehicles = append(filteredVehicles, vehicle)
+		if filter.RouteID != nil && vehicle.RouteID != *filter.RouteID {
+			continue
 		}
+		if filter.TripID != nil && vehicle.TripID != *filter.TripID {
+			continue
+		}
+		if vehicle.RouteID == -1 && vehicle.TripID == "-1" {
+			continue
+		}
+
+		filteredVehicles = append(filteredVehicles, vehicle)
 	}
 
 	return smoothVehicles(filteredVehicles, filter)

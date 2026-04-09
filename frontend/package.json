@@ -15,6 +15,7 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
+    "idb-keyval": "^6.2.2",
     "leaflet": "^1.9.4",
     "leaflet-geosearch": "^4.4.0",
     "leaflet.markercluster": "^1.5.3",

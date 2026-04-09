@@ -127,9 +127,9 @@ const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
     }, [])
 }
 
-const getVehiclesOnRoute = async (routeId: number, trip: Shape[]): Promise<Vehicle[]> => {
+const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: Shape[]): Promise<Vehicle[]> => {
   if (!trip || !Array.isArray(trip) || trip.length === 0) return []
-  const vehiclesOnRoute = await apiRequest(`vehicles?route_id=${routeId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[] || []
+  const vehiclesOnRoute = await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[] || []
   const fistStop = trip[0]!
   const lastStop = trip[trip.length - 1]!
 
@@ -147,7 +147,7 @@ const getVehiclesOnRoute = async (routeId: number, trip: Shape[]): Promise<Vehic
     const isReadingFresh = ut - vehicleTimestamp <= VEHICLE_GRACE_PERIOD * 60 * 1000
     if (!isReadingFresh) continue
 
-    returnVehicles.push(vehicle)
+    returnVehicles.push({...vehicle, route_short_name: routeShortName})
   }
 
   return returnVehicles
@@ -305,7 +305,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   for (let i = 0; i < shapesComingNext.length; i++) {
     const shape = shapesComingNext[i]!
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.route_id, trip)
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip)
     vehiclesToDisplay.push(...vehiclesOnRoute)
 
     // If there is no bus on the route, we just use static approximation `static_time_approximation: true`
@@ -342,8 +342,8 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   shapesComingToTheStopBasedOnVehiclePositions.value = resultsWithImprovedAccuracy.sort((a, b) => a.minutes_left - b.minutes_left)
 
   if (!startAvailableShapesWatcher.value) {
+    await mapStore.setShapesToDisplay(displayShapes)
     mapStore.setVehiclesToDisplay(vehiclesToDisplay)
-    void mapStore.setShapesToDisplay(displayShapes)
   }
 })
 
