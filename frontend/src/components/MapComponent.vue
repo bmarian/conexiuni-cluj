@@ -8,7 +8,7 @@ import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, Vehicle} from "@/types/tranzy.ts";
-import {useRouter} from "vue-router";
+import {useRoute, useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
@@ -18,6 +18,9 @@ const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
 const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay} = storeToRefs(mapStore)
 const router = useRouter()
+const route = useRoute()
+const stopMarkers = new Map<string, L.Marker>()
+let currentlyHighlightedStopId: string | null = null
 const {t, locale} = useI18n()
 const mapContainer = ref()
 
@@ -62,6 +65,50 @@ const getSharedRouteColor = (color: string | undefined, identifier: string | num
   // Cache the valid color so vehicles can find it later
   routeColorsCache.set(identifier, finalColor)
   return finalColor
+}
+
+
+const stopIcon = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: `
+      <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-sm z-20 bg-slate-500 dark:bg-slate-600 text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
+          <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
+        </svg>
+      </div>
+    `,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12]
+})
+
+const selectedStopIcon = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: `
+    <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 bg-emerald-500 text-white animate-bounce">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+        <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16]
+})
+
+const highlightSelectedStop = (stopId?: string) => {
+  if (currentlyHighlightedStopId && stopMarkers.has(currentlyHighlightedStopId)) {
+    const oldMarker = stopMarkers.get(currentlyHighlightedStopId)!
+    oldMarker.setIcon(stopIcon)
+    oldMarker.setZIndexOffset(0)
+    if (stopGroup.value && !stopGroup.value.hasLayer(oldMarker)) stopGroup.value.addLayer(oldMarker)
+  }
+  if (stopId && stopMarkers.has(stopId)) {
+    const newMarker = stopMarkers.get(stopId)!
+    newMarker.setIcon(selectedStopIcon)
+    newMarker.setZIndexOffset(1000)
+    if (stopGroup.value && stopGroup.value.hasLayer(newMarker)) stopGroup.value.removeLayer(newMarker)
+    if (map.value && !map.value.hasLayer(newMarker)) newMarker.addTo(map.value)
+    currentlyHighlightedStopId = stopId
+  }
 }
 
 const handleZoomVisibility = () => {
@@ -179,20 +226,6 @@ const stopsInit = async () => {
   const stops = await apiRequest('stops') as Stop[]
   if (!Array.isArray(stops) || !stops.length || !stopGroup.value) return
 
-  const stopIcon = L.divIcon({
-    className: 'bg-transparent border-none',
-    html: `
-      <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-sm z-20 bg-slate-500 dark:bg-slate-600 text-white">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
-          <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
-        </svg>
-      </div>
-    `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12]
-  })
-
   for (let i = 0; i < stops.length; i++) {
     const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
 
@@ -206,7 +239,9 @@ const stopsInit = async () => {
     })
 
     marker.addTo(stopGroup.value)
+    stopMarkers.set(stop_id.toString(), marker)
   }
+  highlightSelectedStop(route.params.stopId as string)
 }
 
 const blueDotIcon = L.divIcon({
@@ -258,6 +293,10 @@ onMounted(() => {
   void stopsInit()
 })
 
+watch(() => route.params.stopId, (newId) => {
+  highlightSelectedStop(newId as string)
+})
+
 watch(isDarkMode, (newValue) => {
   if (!currentTileLayer.value) return
 
@@ -276,6 +315,7 @@ watch(locale, () => {
 watch(shapesToDisplay, (newShapes) => {
   if (!shapeLayerGroup.value || !map.value) return
   shapeLayerGroup.value.clearLayers()
+  const drawnPaths = new Set<string>()
 
   const groupedStarts = new Map<string, {
     lat: number,
@@ -293,10 +333,14 @@ watch(shapesToDisplay, (newShapes) => {
     const routeColor = getSharedRouteColor(displayShape.route_color, routeIdentifier)
     routeColorsCache.set(displayShape.trip_id, routeColor)
 
+    const pathSignature = latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')
+    if (drawnPaths.has(pathSignature)) continue
+    drawnPaths.add(pathSignature)
+
     L.polyline(latLngs, {
-      color: routeColor,
-      weight: 6,
-      opacity: 0.9,
+      color: '#94a3b8',
+      weight: 5,
+      opacity: 0.7,
       smoothFactor: 1.5,
       lineJoin: 'round',
       lineCap: 'round'
@@ -305,10 +349,11 @@ watch(shapesToDisplay, (newShapes) => {
     const startPoint = latLngs[0]
     if (startPoint && displayShape.route_short_name) {
       const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
-
-      if (!groupedStarts.has(key)) {
-        groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
-      }
+      if (!groupedStarts.has(key)) groupedStarts.set(key, {
+        lat: startPoint[0],
+        lng: startPoint[1],
+        routes: []
+      })
 
       const existing = groupedStarts.get(key)!
       if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
@@ -319,19 +364,15 @@ watch(shapesToDisplay, (newShapes) => {
     const endPoint = latLngs[latLngs.length - 1]
     if (endPoint) {
       const endMarkerIcon = L.divIcon({
-        className: 'bg-transparent border-none',
+        className: 'bg-transparent border-none !overflow-visible',
         html: `
-          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-20"
+          <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
                style="background-color: ${routeColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
+            <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [24, 24], iconAnchor: [12, 12]
       })
-
       L.marker(endPoint, {icon: endMarkerIcon}).addTo(shapeLayerGroup.value!)
     }
   }
@@ -339,7 +380,7 @@ watch(shapesToDisplay, (newShapes) => {
   groupedStarts.forEach((data) => {
     const routesHtml = data.routes.map(r =>
       `<div style="background-color: ${r.color};"
-            class="flex items-center justify-center min-w-[30px] h-[30px] px-1.5 rounded-full text-white text-xs font-bold shadow-md border-2 border-white">
+            class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
         ${r.name}
       </div>`
     ).join('')
@@ -347,12 +388,11 @@ watch(shapesToDisplay, (newShapes) => {
     const startMarkerIcon = L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `
-        <div class="absolute flex flex-row items-center justify-center gap-1 whitespace-nowrap" style="transform: translate(-50%, -50%);">
+        <div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">
           ${routesHtml}
         </div>
       `,
-      iconSize: [0, 0],
-      iconAnchor: [0, 0]
+      iconSize: [0, 0], iconAnchor: [0, 0]
     })
 
     L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)

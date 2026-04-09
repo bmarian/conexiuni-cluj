@@ -29,8 +29,9 @@ const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
-const startAvailableShapesWatcher = ref(false)
+const selectedTripId = ref<string | null>(null)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
+const allFetchedVehicles = ref<Vehicle[]>([])
 const CLOSE_TO_STOP_THRESHOLD = 200
 const VEHICLE_GRACE_PERIOD = 10 // minutes
 
@@ -95,11 +96,25 @@ const reverseRouteLongName = (routeLongName: string) => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
-const showAvailableShapesOnTheMap = () => {
-  startAvailableShapesWatcher.value = !startAvailableShapesWatcher.value
+const toggleAllRoutesOnMap = () => {
+  if (selectedTripId.value === 'ALL') {
+    selectedTripId.value = null
+    centerOnUser.value = true
+  } else {
+    selectedTripId.value = 'ALL'
+    zoomOut.value = true
+  }
+}
 
-  if (startAvailableShapesWatcher.value) zoomOut.value = true
-  else centerOnUser.value = true
+const toggleRouteOnMap = (tripId: string) => {
+  if (!tripId) return
+  if (selectedTripId.value === tripId) {
+    selectedTripId.value = null
+    centerOnUser.value = true
+  } else {
+    selectedTripId.value = tripId
+    zoomOut.value = true
+  }
 }
 
 const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
@@ -137,8 +152,8 @@ const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: 
     const vehicle = vehiclesOnRoute[i]!
     const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, fistStop.shape_pt_lat, fistStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const isCloseToLastStop = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    // I've hardcoded a 12km/h minimum speed so that ETAs do not get so inaccurate so this is very hacky
-    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed <= 12) continue
+
+    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed < 1) continue
 
     const vehicleTimestamp = new Date(vehicle.timestamp).getTime()
     if (isNaN(vehicleTimestamp)) continue
@@ -234,7 +249,7 @@ const computeETA = (stopShape: Shape, busShape: Shape, vehicle: Vehicle, trip: S
     }
   }
 
-  const speedKmh = vehicle.speed
+  const speedKmh = Math.max(vehicle.speed, 12)
   const time = ((totalDistance / 1000) / speedKmh) * 60
 
   return Math.ceil(time)
@@ -296,21 +311,28 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
 
 watch(() => props.stopId, async (newValue) => {
   isLoading.value = true
-  startAvailableShapesWatcher.value = false
+  mapStore.setVehiclesToDisplay([])
+  await mapStore.setShapesToDisplay([])
+  shapesComingToTheStopBasedOnVehiclePositions.value = []
+  selectedTripId.value = null
   await fetchStopData(newValue)
   isLoading.value = false
 }, {immediate: true})
 
-watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, watcherValue]) => {
-  if (!stopInfo.value || !Array.isArray(newVal) || newVal.length === 0) return
-
-  if (!watcherValue) {
+watch([busesWithAvailableTimetables, selectedTripId], ([newVal, selectedId]) => {
+  if (!selectedId || !stopInfo.value || !Array.isArray(newVal) || newVal.length === 0) {
     mapStore.setShapesToDisplay([])
     return
   }
 
-  const displayShapes: DisplayShape[] = getShapesDisplay(newVal)
-  mapStore.setShapesToDisplay(displayShapes)
+  const allShapes = getShapesDisplay(newVal)
+
+  if (selectedId === 'ALL') {
+    mapStore.setShapesToDisplay(allShapes)
+  } else {
+    const filteredShapes = allShapes.filter(s => s.trip_id === selectedId)
+    mapStore.setShapesToDisplay(filteredShapes)
+  }
 })
 
 watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
@@ -377,9 +399,26 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = resultsWithImprovedAccuracy.sort((a, b) => a.minutes_left - b.minutes_left)
 
-  if (!startAvailableShapesWatcher.value) {
-    await mapStore.setShapesToDisplay(displayShapes)
+// Cache all fetched vehicles locally so we can filter them dynamically
+  allFetchedVehicles.value = vehiclesToDisplay
+
+  if (selectedTripId.value === 'ALL') {
     mapStore.setVehiclesToDisplay(vehiclesToDisplay)
+  } else if (selectedTripId.value) {
+    mapStore.setVehiclesToDisplay(vehiclesToDisplay.filter(v => v.trip_id === selectedTripId.value))
+  } else {
+    mapStore.setVehiclesToDisplay([])
+  }
+})
+
+// Listen for clicks to immediately update the drawn buses
+watch(selectedTripId, (newId) => {
+  if (newId === 'ALL') {
+    mapStore.setVehiclesToDisplay(allFetchedVehicles.value)
+  } else if (newId) {
+    mapStore.setVehiclesToDisplay(allFetchedVehicles.value.filter(v => v.trip_id === newId))
+  } else {
+    mapStore.setVehiclesToDisplay([])
   }
 })
 
@@ -449,7 +488,9 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
       <div class="flex flex-col gap-4">
         <div v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
              :key="shape.route_short_name"
-             class="bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 transition-all rounded-2xl p-4 pr-5 flex items-center gap-4 border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-md relative overflow-hidden group">
+             @click="toggleRouteOnMap(shape.trip_id)"
+             :class="['transition-all rounded-2xl p-4 pr-5 flex items-center gap-4 border shadow-sm dark:shadow-md relative overflow-hidden group cursor-pointer',
+                      selectedTripId === shape.trip_id ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/50 scale-[1.02]' : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-700/50']">
 
           <div
             class="flex items-center justify-center shrink-0 w-14 h-12 rounded-xl font-black text-lg text-white shadow-sm z-10"
@@ -489,30 +530,20 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     </section>
 
     <section>
-      <div
-        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-3 transition-colors">
+      <div @click="toggleAllRoutesOnMap"
+           class="mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-3 transition-colors cursor-pointer group flex items-center justify-between">
         <h2
-          class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] m-0 border-none pb-0">
+          class="text-sm font-bold uppercase tracking-[0.2em] m-0 border-none pb-0 transition-colors"
+          :class="selectedTripId === 'ALL' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'">
           All Routes at this Stop
         </h2>
-
-        <button
-          @click="showAvailableShapesOnTheMap"
-          class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-emerald-200/50 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all active:scale-95 group focus:outline-none w-full sm:w-auto"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg"
-               class="w-4 h-4 transition-transform group-hover:scale-110" fill="none"
-               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-          </svg>
-          <span class="text-xs font-bold uppercase tracking-wider">Toggle Map</span>
-        </button>
       </div>
 
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
         <div v-for="shape in busesWithAvailableTimetables" :key="shape.timetable.route_short_name"
-             class="flex items-center gap-3 group cursor-default p-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
+             @click="toggleRouteOnMap(getTripId(stopInfo?.outgoing_trip_ids || [], stopInfo?.incoming_trip_ids || [], shape.route_id.toString()) || '')"
+             :class="['flex items-center gap-3 group cursor-pointer p-2 -mx-2 rounded-lg transition-colors border',
+                      selectedTripId === getTripId(stopInfo?.outgoing_trip_ids || [], stopInfo?.incoming_trip_ids || [], shape.route_id.toString()) ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 border-transparent hover:border-slate-200 dark:hover:border-slate-700/50']">
 
           <div
             class="flex items-center justify-center shrink-0 w-10 h-8 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
