@@ -67,7 +67,37 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		}
 	}
 
-	return filteredVehicles, nil
+	return smoothVehicles(filteredVehicles, filter)
+}
+
+func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]models.Vehicle, error) {
+	dbVehicles, err := getVehiclesFromDB(filter)
+	if err != nil {
+		return apiVehicles, nil
+	}
+
+	apiMap := make(map[int]bool)
+	for _, v := range apiVehicles {
+		apiMap[v.ID] = true
+	}
+
+	// Keep the ghost vehicles alive for a grace period (1 min apx 3 requests)
+	gracePeriod := 1 * time.Minute
+	now := time.Now()
+
+	for _, dbV := range dbVehicles {
+		// Vehicle is in DB but missing from this API response
+		if !apiMap[dbV.ID] {
+			t, err := time.Parse(time.RFC3339, dbV.Timestamp)
+
+			// If the timestamp is valid and within grace period, keep it
+			if err == nil && now.Sub(t) <= gracePeriod {
+				apiVehicles = append(apiVehicles, dbV)
+			}
+		}
+	}
+
+	return apiVehicles, nil
 }
 
 func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {

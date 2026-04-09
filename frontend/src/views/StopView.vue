@@ -8,13 +8,16 @@ import type {Timetable} from "@/types/ctp.ts";
 import {
   INCOMING_SUFFIX,
   OUTGOING_SUFFIX,
+  type Shape,
   type ShapeInfo,
   type StopTime,
+  type Vehicle,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
+import {haversineMeters} from "@/utils/geo.ts";
 
 const props = defineProps<{
   stopId: string
@@ -28,6 +31,9 @@ const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const startAvailableShapesWatcher = ref(false)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
+const CLOSE_TO_STOP_THRESHOLD = 30
+const VEHICLE_GRACE_PERIOD = 10 // minutes
+const VEHICLE_AVG_SPEED = 30
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6';
@@ -94,6 +100,117 @@ const showAvailableShapesOnTheMap = () => {
   startAvailableShapesWatcher.value = !startAvailableShapesWatcher.value
 
   if (!startAvailableShapesWatcher.value) centerOnUser.value = true
+}
+
+const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
+  if (!Array.isArray(availableShapes) || availableShapes.length === 0) return []
+
+  const routeIdsWithAvailableTimetables = availableShapes.map((shape: ShapeInfo) => shape.route_id)
+  const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
+
+  return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
+    .filter((trip_id) => routeIdsWithAvailableTimetables.some((route_id: number) => trip_id.startsWith(route_id.toString())))
+    .reduce((acc: DisplayShape[], trip_id: string) => {
+      const routeId = Number(trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))
+      const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
+      if (shape) {
+        acc.push({
+          trip_id,
+          route_short_name: shape.route_short_name,
+          route_long_name: shape.route_long_name,
+          route_color: shape.route_color,
+          route_type: shape.route_type,
+        })
+      }
+      return acc
+    }, [])
+}
+
+const getVehiclesOnRoute = async (routeId: number, trip: Shape[]): Promise<Vehicle[]> => {
+  if (!trip || !Array.isArray(trip) || trip.length === 0) return []
+  const vehiclesOnRoute = await apiRequest(`vehicles?route_id=${routeId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[] || []
+  const fistStop = trip[0]!
+  const lastStop = trip[trip.length - 1]!
+
+  const returnVehicles = []
+  for (let i = 0; i < vehiclesOnRoute.length; i++) {
+    const vehicle = vehiclesOnRoute[i]!
+    const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, fistStop.shape_pt_lat, fistStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
+    const isCloseToLastStop = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
+    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed <= 0) continue
+
+    const vehicleTimestamp = new Date(vehicle.timestamp).getTime()
+    if (isNaN(vehicleTimestamp)) continue
+
+    const ut = userTime.value?.getTime() || new Date().getTime()
+    const isReadingFresh = ut - vehicleTimestamp <= VEHICLE_GRACE_PERIOD * 60 * 1000
+    if (!isReadingFresh) continue
+
+    returnVehicles.push(vehicle)
+  }
+
+  return returnVehicles
+}
+
+const getClosestNodeToPoint = ({lat, lon}: {
+  lat: number,
+  lon: number
+}, trip: Shape[]): Shape | undefined => {
+  let closestDistance = Infinity
+  let closestTrip: Shape | undefined
+
+  for (let i = 0; i < trip.length; i++) {
+    const {shape_pt_lat, shape_pt_lon} = trip[i]!
+    const distance = haversineMeters(shape_pt_lat, shape_pt_lon, lat, lon)
+    if (distance < closestDistance) {
+      closestDistance = distance
+      closestTrip = trip[i]
+    }
+  }
+
+  return closestTrip
+}
+
+const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Shape, trip: Shape[]): {
+  closestVehicle: Vehicle | undefined,
+  closestNode: Shape | undefined
+} => {
+  let closestDistance = Infinity
+  let closestVehicle: Vehicle | undefined
+  let closestNode: Shape | undefined
+
+  for (let i = 0; i < vehicles.length; i++) {
+    const vehicle = vehicles[i]!
+    closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
+    if (closestNode && closestNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
+
+    const distanceToStop = haversineMeters(closestNode!.shape_pt_lat, closestNode!.shape_pt_lon, closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon)
+    if (distanceToStop < closestDistance) {
+      closestDistance = distanceToStop
+      closestVehicle = vehicle
+    }
+  }
+
+  return {closestVehicle, closestNode}
+}
+
+const computeETA = (stopShape: Shape, busShape: Shape, busSpeed: number, trip: Shape[]): number => {
+  if (busShape.shape_pt_sequence === stopShape.shape_pt_sequence) return 0
+  if (busShape.shape_pt_sequence + 1 === stopShape.shape_pt_sequence) {
+    const distance = haversineMeters(stopShape.shape_pt_lat, stopShape.shape_pt_lon, busShape.shape_pt_lat, busShape.shape_pt_lon)
+    const time = ((distance / 1000) / (busSpeed || VEHICLE_AVG_SPEED)) * 60
+    return Math.ceil(time)
+  }
+
+  let totalDistance = 0
+  for (let i = busShape.shape_pt_sequence; i < stopShape.shape_pt_sequence; i++) {
+    const cur = trip[i]!
+    const next = trip[i + 1]!
+    totalDistance += haversineMeters(cur.shape_pt_lat, cur.shape_pt_lon, next.shape_pt_lat, next.shape_pt_lon)
+  }
+
+  const time = ((totalDistance / 1000) / (busSpeed || VEHICLE_AVG_SPEED)) * 60
+  return Math.ceil(time)
 }
 
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
@@ -165,25 +282,7 @@ watch([busesWithAvailableTimetables, startAvailableShapesWatcher], ([newVal, wat
     return
   }
 
-  const routeIdsWithAvailableTimetables = newVal.map((shape: ShapeInfo) => shape.route_id)
-
-  const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
-  const displayShapes: DisplayShape[] = [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
-    .filter((trip_id) => routeIdsWithAvailableTimetables.some((route_id: number) => trip_id.startsWith(route_id.toString())))
-    .reduce((acc: DisplayShape[], trip_id: string) => {
-      const routeId = Number(trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))
-      const shape = newVal.find((shape: ShapeInfo) => shape.route_id === routeId)
-      if (shape) {
-        acc.push({
-          trip_id,
-          route_short_name: shape.route_short_name,
-          route_long_name: shape.route_long_name,
-          route_color: shape.route_color,
-          route_type: shape.route_type,
-        })
-      }
-      return acc
-    }, [])
+  const displayShapes: DisplayShape[] = getShapesDisplay(newVal)
   mapStore.setShapesToDisplay(displayShapes)
 })
 
@@ -192,12 +291,51 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     shapesComingToTheStopBasedOnVehiclePositions.value = []
     return
   }
+
+  const displayShapes = await mapStore.requestShapes(getShapesDisplay(busesWithAvailableTimetables.value))
+  if (!Array.isArray(displayShapes) || displayShapes.length === 0) {
+    shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
+    return
+  }
+
+  const resultsWithImprovedAccuracy: VehiclesInStop[] = []
   for (let i = 0; i < shapesComingNext.length; i++) {
     const shape = shapesComingNext[i]!
-    const vehiclesOnRoute = await apiRequest(`vehicles?route_id=${shape.route_id}`, HIGH_ACCURACY_SHELF_LIFE)
-    console.log('vehiclesOnRoute', vehiclesOnRoute) //TODO
+    const trip = displayShapes.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.route_id, trip)
+
+    // If there is no bus on the route, we just use static approximation `static_time_approximation: true`
+    if (!Array.isArray(vehiclesOnRoute) || vehiclesOnRoute.length === 0) {
+      resultsWithImprovedAccuracy.push(shape)
+      continue
+    }
+
+    const closestNodeToStop = getClosestNodeToPoint({
+      lat: stopInfo.value!.stop_lat,
+      lon: stopInfo.value!.stop_lon
+    }, trip)
+    if (!closestNodeToStop) {
+      resultsWithImprovedAccuracy.push(shape)
+      continue
+    }
+
+    const {
+      closestVehicle: closestVehicleBeforeStop,
+      closestNode: closestNodeToVehicle
+    } = getClosestVehicleBeforeStop(vehiclesOnRoute, closestNodeToStop, trip)
+    if (!closestVehicleBeforeStop || !closestNodeToVehicle) {
+      resultsWithImprovedAccuracy.push(shape)
+      continue
+    }
+
+    const vehicleETA = computeETA(closestNodeToStop, closestNodeToVehicle, closestVehicleBeforeStop.speed, trip)
+    resultsWithImprovedAccuracy.push({
+      ...shape,
+      minutes_left: vehicleETA,
+      static_time_approximation: false
+    })
   }
-  shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
+  shapesComingToTheStopBasedOnVehiclePositions.value = resultsWithImprovedAccuracy.sort((a, b) => a.minutes_left - b.minutes_left)
 })
 
 </script>
@@ -264,7 +402,8 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
       </h2>
 
       <div class="flex flex-col gap-4">
-        <div v-for="shape in shapesComingToTheStopBasedOnVehiclePositions" :key="shape.route_short_name"
+        <div v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
+             :key="shape.route_short_name"
              class="bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 transition-all rounded-2xl p-4 pr-5 flex items-center gap-4 border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-md relative overflow-hidden group">
 
           <div
@@ -286,7 +425,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
 
           <div class="flex flex-col items-end justify-center shrink-0 min-w-16 z-10 mr-3!">
             <div class="flex items-baseline gap-1">
-              <span v-if="shape.minutes_left > 0"
+              <span v-if="shape.static_time_approximation && shape.minutes_left > 0"
                     class="text-slate-400 dark:text-slate-500 font-semibold text-xl transition-colors">~</span>
               <span
                 class="text-3xl font-black tracking-tighter transition-colors"

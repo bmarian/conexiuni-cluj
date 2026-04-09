@@ -16,9 +16,12 @@ export const useMapStore = defineStore('map', () => {
   const centerOnUser = ref(false)
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
-    if (!displayShapes) {
-      return
-    }
+    if (!displayShapes) return
+    shapesToDisplay.value = await requestShapes(displayShapes)
+  }
+
+  const requestShapes = async (displayShapes: DisplayShape[]) => {
+    if (!displayShapes) return []
 
     const results: Array<[DisplayShape, Shape[]]> = []
     for (let i = 0; i < displayShapes.length; i++) {
@@ -27,12 +30,14 @@ export const useMapStore = defineStore('map', () => {
       results.push([displayShape, response])
     }
 
-    shapesToDisplay.value = results
+    return results
   }
 
   return {
     centerOnUser,
     shapesToDisplay,
+
     setShapesToDisplay,
+    requestShapes,
   }
 })
