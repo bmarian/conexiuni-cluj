@@ -24,7 +24,7 @@ const props = defineProps<{
 }>()
 const userStore = useUserStore()
 const mapStore = useMapStore()
-const {centerOnUser} = storeToRefs(mapStore)
+const {centerOnUser, zoomOut} = storeToRefs(mapStore)
 const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
@@ -99,7 +99,8 @@ const reverseRouteLongName = (routeLongName: string) => {
 const showAvailableShapesOnTheMap = () => {
   startAvailableShapesWatcher.value = !startAvailableShapesWatcher.value
 
-  if (!startAvailableShapesWatcher.value) centerOnUser.value = true
+  if (startAvailableShapesWatcher.value) zoomOut.value = true
+  else centerOnUser.value = true
 }
 
 const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
@@ -292,17 +293,20 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     return
   }
 
-  const displayShapes = await mapStore.requestShapes(getShapesDisplay(busesWithAvailableTimetables.value))
-  if (!Array.isArray(displayShapes) || displayShapes.length === 0) {
+  const displayShapes = getShapesDisplay(busesWithAvailableTimetables.value)
+  const displayShapesWithTrip = await mapStore.requestShapes(displayShapes)
+  if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
     return
   }
 
   const resultsWithImprovedAccuracy: VehiclesInStop[] = []
+  const vehiclesToDisplay: Vehicle[] = []
   for (let i = 0; i < shapesComingNext.length; i++) {
     const shape = shapesComingNext[i]!
-    const trip = displayShapes.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
+    const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
     const vehiclesOnRoute = await getVehiclesOnRoute(shape.route_id, trip)
+    vehiclesToDisplay.push(...vehiclesOnRoute)
 
     // If there is no bus on the route, we just use static approximation `static_time_approximation: true`
     if (!Array.isArray(vehiclesOnRoute) || vehiclesOnRoute.length === 0) {
@@ -336,6 +340,11 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     })
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = resultsWithImprovedAccuracy.sort((a, b) => a.minutes_left - b.minutes_left)
+
+  if (!startAvailableShapesWatcher.value) {
+    mapStore.setVehiclesToDisplay(vehiclesToDisplay)
+    void mapStore.setShapesToDisplay(displayShapes)
+  }
 })
 
 </script>
@@ -425,7 +434,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
 
           <div class="flex flex-col items-end justify-center shrink-0 min-w-16 z-10 mr-3!">
             <div class="flex items-baseline gap-1">
-              <span v-if="shape.static_time_approximation && shape.minutes_left > 0"
+              <span v-if="shape.static_time_approximation"
                     class="text-slate-400 dark:text-slate-500 font-semibold text-xl transition-colors">~</span>
               <span
                 class="text-3xl font-black tracking-tighter transition-colors"

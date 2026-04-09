@@ -1,4 +1,4 @@
-import type {Shape} from "@/types/tranzy";
+import type {Shape, Vehicle} from "@/types/tranzy";
 import {defineStore} from 'pinia'
 import {ref} from "vue";
 import {apiRequest} from "@/utils/request_cache.ts";
@@ -13,6 +13,8 @@ export type DisplayShape = {
 
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])
+  const vehiclesToDisplay = ref<Vehicle[]>([])
+  const zoomOut = ref(false)
   const centerOnUser = ref(false)
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
@@ -33,11 +35,20 @@ export const useMapStore = defineStore('map', () => {
     return results
   }
 
+  const setVehiclesToDisplay = (vehicles: Vehicle[]) => {
+    if (!vehicles) return
+    vehiclesToDisplay.value = vehicles
+  }
+
   return {
     centerOnUser,
     shapesToDisplay,
+    zoomOut,
+    vehiclesToDisplay,
 
     setShapesToDisplay,
+    setVehiclesToDisplay,
+
     requestShapes,
   }
 })

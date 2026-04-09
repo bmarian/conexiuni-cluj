@@ -16,7 +16,7 @@ import type {ShapePoint} from "@/types/map.ts";
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
-const {shapesToDisplay, centerOnUser} = storeToRefs(mapStore)
+const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay} = storeToRefs(mapStore)
 const router = useRouter()
 const {t, locale} = useI18n()
 const mapContainer = ref()
@@ -344,8 +344,9 @@ watch(shapesToDisplay, (newShapes) => {
     L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
   })
 
-  if (shapeLayerGroup.value.getLayers().length > 0) {
+  if (zoomOut.value && shapeLayerGroup.value.getLayers().length > 0) {
     map.value.fitBounds(shapeLayerGroup.value.getBounds(), {padding: [50, 50]})
+    zoomOut.value = false
   }
 }, {deep: true})
 
