@@ -17,7 +17,7 @@ import {
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
-import {haversineMeters} from "@/utils/geo.ts";
+import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
 
 const props = defineProps<{
   stopId: string
@@ -147,7 +147,16 @@ const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: 
     const isReadingFresh = ut - vehicleTimestamp <= VEHICLE_GRACE_PERIOD * 60 * 1000
     if (!isReadingFresh) continue
 
-    returnVehicles.push({...vehicle, route_short_name: routeShortName})
+    let heading = 0
+    const closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
+    if (closestNode) {
+      const closestIdx = trip.findIndex(t => t.shape_pt_sequence === closestNode.shape_pt_sequence)
+      const lookAheadIdx = Math.min(closestIdx + 3, trip.length - 1)
+      const targetPt = trip[lookAheadIdx]!
+      heading = calculateBearing(vehicle.latitude, vehicle.longitude, targetPt.shape_pt_lat, targetPt.shape_pt_lon)
+    }
+
+    returnVehicles.push({...vehicle, route_short_name: routeShortName, heading})
   }
 
   return returnVehicles
@@ -198,7 +207,7 @@ const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Sha
     }
   }
 
-  return { closestVehicle: bestVehicle, closestNode: bestNode }
+  return {closestVehicle: bestVehicle, closestNode: bestNode}
 }
 
 const computeETA = (stopShape: Shape, busShape: Shape, vehicle: Vehicle, trip: Shape[]): number => {
@@ -465,7 +474,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
                     class="text-slate-400 dark:text-slate-500 font-semibold text-xl transition-colors">~</span>
               <span
                 class="text-3xl font-black tracking-tighter transition-colors"
-                :class="shape.minutes_left <= 5 ? 'text-rose-500 dark:text-rose-400 animate-pulse' : 'text-emerald-600 dark:text-emerald-400'">
+                :class="shape.minutes_left <= 5 ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-rose-500 dark:text-rose-400'">
                 {{ shape.minutes_left === 0 ? 'NOW' : shape.minutes_left }}
               </span>
             </div>

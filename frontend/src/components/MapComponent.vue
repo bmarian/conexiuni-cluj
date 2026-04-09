@@ -369,11 +369,11 @@ watch(vehiclesToDisplay, (vehicles) => {
   vehicleLayerGroup.value.clearLayers()
 
   for (let i = 0; i < vehicles.length; i++) {
-    const vehicle = vehicles[i]!
+    const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, heading: number }
 
     const vehicleColor = routeColorsCache.get(vehicle.trip_id) || '#64748b'
 
-    const routeName = (vehicle as Vehicle & { route_short_name: string })?.route_short_name || ''
+    const routeName = vehicle.route_short_name || ''
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
 
     const busIcon = L.divIcon({
@@ -382,13 +382,14 @@ watch(vehiclesToDisplay, (vehicles) => {
         <div class="relative flex items-center">
           <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
                style="background-color: ${vehicleColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4">
-              <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4 drop-shadow-sm transition-transform duration-500"
+                 style="transform: rotate(${vehicle.heading || 0}deg);">
+              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
             <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            <span class="text-xs text-slate-400">${vehicle.speed} km/h</span>
+            <span class="text-xs text-slate-400">${Math.round(vehicle.speed)} km/h</span>
           </div>
         </div>
       `,
