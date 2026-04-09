@@ -27,10 +27,35 @@ const currentTileLayer = shallowRef<L.TileLayer>()
 const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
 const shapeLayerGroup = shallowRef<L.FeatureGroup>()
+const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
+const fallbackColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
+let fallbackIndex = 0
+const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
+
+const getSharedRouteColor = (color: string | undefined, identifier: string | number) => {
+  let finalColor = color
+
+  if (finalColor && !finalColor.startsWith('#')) {
+    finalColor = `#${finalColor}`
+  }
+
+  // If no valid color is provided, grab one from the fallback list
+  if (!finalColor || finalColor === '#000' || finalColor === '#000000') {
+    if (!routeColorsCache.has(identifier)) {
+      routeColorsCache.set(identifier, fallbackColors[fallbackIndex % fallbackColors.length]!)
+      fallbackIndex++
+    }
+    return routeColorsCache.get(identifier)!
+  }
+
+  // Cache the valid color so vehicles can find it later
+  routeColorsCache.set(identifier, finalColor)
+  return finalColor
+}
 
 const handleZoomVisibility = () => {
   if (!map.value || !stopGroup.value) return
@@ -140,6 +165,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   stopGroup.value = L.featureGroup()
   map.value.on('zoomend', handleZoomVisibility)
   shapeLayerGroup.value = L.featureGroup().addTo(map.value)
+  vehicleLayerGroup.value = L.featureGroup().addTo(map.value)
   handleZoomVisibility()
 }
 
@@ -249,35 +275,16 @@ watch(shapesToDisplay, (newShapes) => {
     routes: { name: string, color: string }[]
   }>()
 
-  const fallbackColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
-  let fallbackIndex = 0
-  const assignedFallbacks = new Map<string, string>()
-
-  const getRouteColor = (color: string | undefined, routeName: string) => {
-    let finalColor = color
-
-    if (finalColor && !finalColor.startsWith('#')) {
-      finalColor = `#${finalColor}`
-    }
-
-    if (!finalColor || finalColor === '#000' || finalColor === '#000000') {
-      if (!assignedFallbacks.has(routeName)) {
-        assignedFallbacks.set(routeName, fallbackColors[fallbackIndex % fallbackColors.length]!)
-        fallbackIndex++
-      }
-      return assignedFallbacks.get(routeName)!
-    }
-
-    return finalColor
-  }
-
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
     const latLngs: L.LatLngTuple[] = shapeData.map(sd => [sd.shape_pt_lat, sd.shape_pt_lon])
-    const routeName = displayShape.route_short_name || `unknown-${i}`
-    const routeColor = getRouteColor(displayShape.route_color, routeName)
+    const routeIdentifier = displayShape.trip_id
+
+    const routeColor = getSharedRouteColor(displayShape.route_color, routeIdentifier)
+    routeColorsCache.set(displayShape.trip_id, routeColor)
+
 
     L.polyline(latLngs, {
       color: routeColor,
@@ -349,6 +356,46 @@ watch(shapesToDisplay, (newShapes) => {
     zoomOut.value = false
   }
 }, {deep: true})
+
+watch(vehiclesToDisplay, (vehicles) => {
+  if (!vehicleLayerGroup.value || !map.value) return
+  vehicleLayerGroup.value.clearLayers()
+
+  for (let i = 0; i < vehicles.length; i++) {
+    const vehicle = vehicles[i]!
+
+    const vehicleColor = routeColorsCache.get(vehicle.trip_id) || '#64748b'
+
+    const busIcon = L.divIcon({
+      className: 'bg-transparent border-none',
+      html: `
+        <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30"
+             style="background-color: ${vehicleColor};">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4">
+            <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    })
+
+    const marker = L.marker([vehicle.latitude, vehicle.longitude], {
+      icon: busIcon,
+      zIndexOffset: 1000
+    })
+
+    const popupContent = `
+      <div class="text-center">
+        <strong class="block text-lg">${vehicle.label}</strong>
+        <span class="text-sm text-gray-500">Speed: ${vehicle.speed} km/h</span>
+      </div>
+    `
+    marker.bindPopup(popupContent)
+    marker.addTo(vehicleLayerGroup.value!)
+  }
+}, { deep: true })
 
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
