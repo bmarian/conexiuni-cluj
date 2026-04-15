@@ -10,7 +10,7 @@ import {
   OUTGOING_SUFFIX,
   type Shape,
   type ShapeInfo,
-  type StopTime,
+  type TimeEntry,
   type Vehicle,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
@@ -18,73 +18,63 @@ import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
 import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
+import {useRouteStore} from "@/stores/route.ts";
+import {useRouter} from "vue-router";
 
-const props = defineProps<{
-  stopId: string
-}>()
+const props = defineProps<{ stopId: string }>()
+
 const userStore = useUserStore()
 const mapStore = useMapStore()
-const {centerOnUser, zoomOut} = storeToRefs(mapStore)
+const routeStore = useRouteStore()
+const router = useRouter()
 const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
-const selectedTripId = ref<string | null>(null)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
-const allFetchedVehicles = ref<Vehicle[]>([])
 const CLOSE_TO_STOP_THRESHOLD = 200
-const VEHICLE_GRACE_PERIOD = 10 // minutes
+const VEHICLE_GRACE_PERIOD = 10
 
 function formatGtfsColor(colorString?: string) {
-  if (!colorString) return '#3b82f6';
-  return colorString.startsWith('#') ? colorString : `#${colorString}`;
+  if (!colorString) return '#3b82f6'
+  return colorString.startsWith('#') ? colorString : `#${colorString}`
 }
 
-function getRouteTypeLabel(type: number) {
-  switch (type) {
-    case 0:
-      return '🚋';
-    case 2:
-      return '🚆';
-    case 3:
-      return '🚌';
-    case 11:
-      return '🚎';
-    default:
-      return '🚌';
-  }
+function formatMinutes(minutes: number): string {
+  if (minutes === 0) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  const now = userTime.value || new Date()
+  const future = new Date(now.getTime() + minutes * 60_000)
+  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
 }
 
 const hasTimetable = (timetable: Timetable): boolean => {
-  const hasWeekday = timetable?.weekdays?.entries?.length
-  const hasSaturday = timetable?.saturday?.entries?.length
-  const hasSunday = timetable?.sunday?.entries?.length
-  return !!(hasWeekday || hasSaturday || hasSunday)
+  return !!(timetable?.weekdays?.entries?.length || timetable?.saturday?.entries?.length || timetable?.sunday?.entries?.length)
 }
 
 const isAvailableToday = (today: number, timetable: Timetable): boolean => {
-  const hasWeekday = timetable?.weekdays?.entries?.length
-  const hasSaturday = timetable?.saturday?.entries?.length
-  const hasSunday = timetable?.sunday?.entries?.length
-  return !!(today === 0 ? hasSunday : today === 6 ? hasSaturday : hasWeekday)
+  return !!(today === 0 ? timetable?.sunday?.entries?.length : today === 6 ? timetable?.saturday?.entries?.length : timetable?.weekdays?.entries?.length)
 }
 
 const busesWithAvailableTimetables = computed(() => {
   return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetable(shape.timetable))
 })
 
-const getTimeOffsetToStop = (stopTime: StopTime[], tripId: string): number => {
-  const propStopId = Number(props.stopId)
+const busesWithAvailableTimetablesSorted = computed(() => {
+  return [...(busesWithAvailableTimetables.value || [])].sort((a: ShapeInfo, b: ShapeInfo) =>
+    a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
+  )
+})
 
+const getTimeOffsetToStop = (stopTime: any[], tripId: string): number => {
+  const propStopId = Number(props.stopId)
   let timeOffset = 0
   for (let j = 0; j < stopTime.length; j++) {
     const {trip_id, stop_id, offset_arrival_time} = stopTime[j]!
     if (trip_id !== tripId) continue
     if (stop_id === propStopId) break
-
     timeOffset += Math.ceil(offset_arrival_time / 60)
   }
-
   return timeOffset
 }
 
@@ -96,47 +86,16 @@ const reverseRouteLongName = (routeLongName: string) => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
-const toggleAllRoutesOnMap = () => {
-  if (selectedTripId.value === 'ALL') {
-    selectedTripId.value = null
-    centerOnUser.value = true
-  } else {
-    selectedTripId.value = 'ALL'
-    zoomOut.value = true
-  }
-}
-
-const toggleRouteOnMap = (tripId: string) => {
-  if (!tripId) return
-  if (selectedTripId.value === tripId) {
-    selectedTripId.value = null
-    centerOnUser.value = true
-  } else {
-    selectedTripId.value = tripId
-    zoomOut.value = true
-  }
-}
-
 const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
   if (!Array.isArray(availableShapes) || availableShapes.length === 0) return []
-
   const routeIdsWithAvailableTimetables = availableShapes.map((shape: ShapeInfo) => shape.route_id)
   const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
-
   return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
     .filter((trip_id) => routeIdsWithAvailableTimetables.some((route_id: number) => trip_id.startsWith(route_id.toString())))
     .reduce((acc: DisplayShape[], trip_id: string) => {
       const routeId = Number(trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))
       const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
-      if (shape) {
-        acc.push({
-          trip_id,
-          route_short_name: shape.route_short_name,
-          route_long_name: shape.route_long_name,
-          route_color: shape.route_color,
-          route_type: shape.route_type,
-        })
-      }
+      if (shape) acc.push({trip_id, route_short_name: shape.route_short_name, route_long_name: shape.timetable?.route_long_name || '', route_color: shape.route_color, route_type: shape.route_type})
       return acc
     }, [])
 }
@@ -144,134 +103,87 @@ const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
 const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: Shape[]): Promise<Vehicle[]> => {
   if (!trip || !Array.isArray(trip) || trip.length === 0) return []
   const vehiclesOnRoute = await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[] || []
-  const fistStop = trip[0]!
+  const firstStop = trip[0]!
   const lastStop = trip[trip.length - 1]!
-
   const returnVehicles = []
   for (let i = 0; i < vehiclesOnRoute.length; i++) {
     const vehicle = vehiclesOnRoute[i]!
-    const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, fistStop.shape_pt_lat, fistStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
+    const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const isCloseToLastStop = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-
     if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed < 1) continue
-
     const vehicleTimestamp = new Date(vehicle.timestamp).getTime()
     if (isNaN(vehicleTimestamp)) continue
-
     const ut = userTime.value?.getTime() || new Date().getTime()
-    const isReadingFresh = ut - vehicleTimestamp <= VEHICLE_GRACE_PERIOD * 60 * 1000
-    if (!isReadingFresh) continue
-
+    if (ut - vehicleTimestamp > VEHICLE_GRACE_PERIOD * 60 * 1000) continue
     let heading = 0
     const closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
     if (closestNode) {
       const closestIdx = trip.findIndex(t => t.shape_pt_sequence === closestNode.shape_pt_sequence)
-      const lookAheadIdx = Math.min(closestIdx + 3, trip.length - 1)
-      const targetPt = trip[lookAheadIdx]!
+      const targetPt = trip[Math.min(closestIdx + 3, trip.length - 1)]!
       heading = calculateBearing(vehicle.latitude, vehicle.longitude, targetPt.shape_pt_lat, targetPt.shape_pt_lon)
     }
-
     returnVehicles.push({...vehicle, route_short_name: routeShortName, heading})
   }
-
   return returnVehicles
 }
 
-const getClosestNodeToPoint = ({lat, lon}: {
-  lat: number,
-  lon: number
-}, trip: Shape[]): Shape | undefined => {
+const getClosestNodeToPoint = ({lat, lon}: { lat: number; lon: number }, trip: Shape[]): Shape | undefined => {
   let closestDistance = Infinity
   let closestTrip: Shape | undefined
-
-  for (let i = 0; i < trip.length; i++) {
-    const {shape_pt_lat, shape_pt_lon} = trip[i]!
-    const distance = haversineMeters(shape_pt_lat, shape_pt_lon, lat, lon)
+  for (const point of trip) {
+    const distance = haversineMeters(point.shape_pt_lat, point.shape_pt_lon, lat, lon)
     if (distance < closestDistance) {
       closestDistance = distance
-      closestTrip = trip[i]
+      closestTrip = point
     }
   }
-
   return closestTrip
 }
 
-const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Shape, trip: Shape[]): {
-  closestVehicle: Vehicle | undefined,
-  closestNode: Shape | undefined
-} => {
+const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Shape, trip: Shape[]) => {
   let closestDistance = Infinity
   let bestVehicle: Vehicle | undefined
   let bestNode: Shape | undefined
-
-  for (let i = 0; i < vehicles.length; i++) {
-    const vehicle = vehicles[i]!
-
+  for (const vehicle of vehicles) {
     const currentNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
     if (!currentNode || currentNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
-
-    const distanceToStop = haversineMeters(
-      currentNode.shape_pt_lat, currentNode.shape_pt_lon,
-      closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon
-    )
-
+    const distanceToStop = haversineMeters(currentNode.shape_pt_lat, currentNode.shape_pt_lon, closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon)
     if (distanceToStop < closestDistance) {
       closestDistance = distanceToStop
       bestVehicle = vehicle
       bestNode = currentNode
     }
   }
-
   return {closestVehicle: bestVehicle, closestNode: bestNode}
 }
 
 const computeETA = (stopShape: Shape, busShape: Shape, vehicle: Vehicle, trip: Shape[]): number => {
   const busIndex = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
   const stopIndex = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)
-
   if (busIndex === -1 || stopIndex === -1) return -1
   if (busIndex > stopIndex) return -2
-
   let totalDistance = 0
-
   if (busIndex === stopIndex) {
     totalDistance = haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
   } else {
     for (let i = busIndex; i < stopIndex; i++) {
-      const cur = trip[i]
-      const next = trip[i + 1]
-      if (cur && next) {
-        totalDistance += haversineMeters(
-          cur.shape_pt_lat, cur.shape_pt_lon,
-          next.shape_pt_lat, next.shape_pt_lon
-        )
-      }
+      const cur = trip[i], next = trip[i + 1]
+      if (cur && next) totalDistance += haversineMeters(cur.shape_pt_lat, cur.shape_pt_lon, next.shape_pt_lat, next.shape_pt_lon)
     }
   }
-
-  const speedKmh = Math.max(vehicle.speed, 12)
-  const time = ((totalDistance / 1000) / speedKmh) * 60
-
-  return Math.ceil(time)
+  return Math.ceil(((totalDistance / 1000) / Math.max(vehicle.speed, 12)) * 60)
 }
 
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
   if (!stopInfo.value) return []
-
-  const today = userTime.value?.getDay() || new Date().getDay()
+  const today = userTime.value?.getDay() ?? new Date().getDay()
   const currentTimeInMinutes = getMinutesFromDate(userTime.value || new Date())
   const {outgoing_trip_ids, incoming_trip_ids, shapes_info} = stopInfo.value
 
-  const results = []
-  for (let i = 0; i < shapes_info.length; i++) {
-    const {
-      route_short_name,
-      route_type,
-      route_color,
-      route_id,
-      stop_time,
-      timetable
-    } = shapes_info[i]
+  const results: VehiclesInStop[] = []
+  for (const shapeInfo of shapes_info) {
+    const {route_short_name, route_type, route_color, route_id, timetable} = shapeInfo
+    const stop_time = (shapeInfo as any).stop_time ?? (shapeInfo as any).stop_times ?? []
     if (!hasTimetable(timetable) || !isAvailableToday(today, timetable)) continue
 
     const tripId = getTripId(outgoing_trip_ids, incoming_trip_ids, route_id)
@@ -279,61 +191,42 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
 
     const timeOffsetToStop = getTimeOffsetToStop(stop_time, tripId)
     const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
+    const todayTimetable = today === 0 ? timetable.sunday : today === 6 ? timetable.saturday : timetable.weekdays
 
-    const todayTimetable = (today === 0 ? timetable.sunday : today === 6 ? timetable.saturday : timetable.weekdays)
-    const todayTimes = todayTimetable
-      .entries
+    const upcomingMinutes: number[] = todayTimetable.entries
       .map((entry: { departure_in: string; departure_out: string }) => {
-        const timetableTime = timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out)
-        return timetableTime === null ? timetableTime : timetableTime + timeOffsetToStop
-      }).reduce((acc: number[], curr: number) => {
-        const minutesLeft = ((curr - currentTimeInMinutes) + 1440) % 1440
-        if (minutesLeft <= 30) acc.push(minutesLeft)
-        return acc
-      }, [])
-    if (!todayTimes.length) continue
+        const t = timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out)
+        return t === null ? null : t + timeOffsetToStop
+      })
+      .filter((t: number | null): t is number => t !== null)
+      .map((t: number) => ((t - currentTimeInMinutes) + 1440) % 1440)
+      .filter((m: number) => m < 480)
+      .sort((a: number, b: number) => a - b)
+      .slice(0, 3)
+
+    if (!upcomingMinutes.length) continue
 
     results.push({
-      minutes_left: Math.min(...todayTimes),
+      minutes_left: upcomingMinutes[0]!,
+      next_times: upcomingMinutes.map((m) => ({minutes: m, is_live: false} as TimeEntry)),
       route_short_name,
       route_type,
       route_color,
       trip_id: tripId,
       route_id,
-      route_long_name: isOutgoing
-        ? `${timetable.route_long_name}`
-        : `${reverseRouteLongName(timetable.route_long_name)}`,
+      route_long_name: isOutgoing ? timetable.route_long_name : reverseRouteLongName(timetable.route_long_name),
       static_time_approximation: true,
-    } as VehiclesInStop)
+    })
   }
   return results.sort((a, b) => a.minutes_left - b.minutes_left)
 })
 
 watch(() => props.stopId, async (newValue) => {
   isLoading.value = true
-  mapStore.setVehiclesToDisplay([])
-  await mapStore.setShapesToDisplay([])
   shapesComingToTheStopBasedOnVehiclePositions.value = []
-  selectedTripId.value = null
   await fetchStopData(newValue)
   isLoading.value = false
 }, {immediate: true})
-
-watch([busesWithAvailableTimetables, selectedTripId], ([newVal, selectedId]) => {
-  if (!selectedId || !stopInfo.value || !Array.isArray(newVal) || newVal.length === 0) {
-    mapStore.setShapesToDisplay([])
-    return
-  }
-
-  const allShapes = getShapesDisplay(newVal)
-
-  if (selectedId === 'ALL') {
-    mapStore.setShapesToDisplay(allShapes)
-  } else {
-    const filteredShapes = allShapes.filter(s => s.trip_id === selectedId)
-    mapStore.setShapesToDisplay(filteredShapes)
-  }
-})
 
 watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
@@ -348,213 +241,196 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     return
   }
 
-  const resultsWithImprovedAccuracy: VehiclesInStop[] = []
-  const vehiclesToDisplay: Vehicle[] = []
-  for (let i = 0; i < shapesComingNext.length; i++) {
-    const shape = shapesComingNext[i]!
+  const results: VehiclesInStop[] = []
+  for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
     const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip)
-    vehiclesToDisplay.push(...vehiclesOnRoute)
 
-    // If there is no bus on the route, we just use static approximation `static_time_approximation: true`
-    if (!Array.isArray(vehiclesOnRoute) || vehiclesOnRoute.length === 0) {
-      resultsWithImprovedAccuracy.push(shape)
+    if (!vehiclesOnRoute.length) {
+      results.push(shape)
       continue
     }
 
-    const closestNodeToStop = getClosestNodeToPoint({
-      lat: stopInfo.value!.stop_lat,
-      lon: stopInfo.value!.stop_lon
-    }, trip)
+    const closestNodeToStop = getClosestNodeToPoint({lat: stopInfo.value!.stop_lat, lon: stopInfo.value!.stop_lon}, trip)
     if (!closestNodeToStop) {
-      resultsWithImprovedAccuracy.push(shape)
+      results.push(shape)
       continue
     }
 
-    const {
-      closestVehicle: closestVehicleBeforeStop,
-      closestNode: closestNodeToVehicle
-    } = getClosestVehicleBeforeStop(vehiclesOnRoute, closestNodeToStop, trip)
-    if (!closestVehicleBeforeStop || !closestNodeToVehicle) {
-      resultsWithImprovedAccuracy.push(shape)
+    const {closestVehicle, closestNode} = getClosestVehicleBeforeStop(vehiclesOnRoute, closestNodeToStop, trip)
+    if (!closestVehicle || !closestNode) {
+      results.push(shape)
       continue
     }
 
-    const vehicleETA = computeETA(closestNodeToStop, closestNodeToVehicle, closestVehicleBeforeStop, trip)
-    if (vehicleETA === -1) {
-      resultsWithImprovedAccuracy.push(shape)
-      continue
-    }
+    const eta = computeETA(closestNodeToStop, closestNode, closestVehicle, trip)
+    if (eta === -1) { results.push(shape); continue }
+    if (eta === -2) continue
 
-    // If the bus already passed the stop in the second round of calculations
-    if (vehicleETA === -2) {
-      continue
-    }
-
-    resultsWithImprovedAccuracy.push({
+    results.push({
       ...shape,
-      minutes_left: vehicleETA,
-      static_time_approximation: false
+      minutes_left: eta,
+      next_times: [
+        {minutes: eta, is_live: true},
+        ...(shape.next_times || []).slice(1),
+      ],
+      static_time_approximation: false,
     })
   }
-  shapesComingToTheStopBasedOnVehiclePositions.value = resultsWithImprovedAccuracy.sort((a, b) => a.minutes_left - b.minutes_left)
-
-// Cache all fetched vehicles locally so we can filter them dynamically
-  allFetchedVehicles.value = vehiclesToDisplay
-
-  if (selectedTripId.value === 'ALL') {
-    mapStore.setVehiclesToDisplay(vehiclesToDisplay)
-  } else if (selectedTripId.value) {
-    mapStore.setVehiclesToDisplay(vehiclesToDisplay.filter(v => v.trip_id === selectedTripId.value))
-  } else {
-    mapStore.setVehiclesToDisplay([])
-  }
+  shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
 })
 
-// Listen for clicks to immediately update the drawn buses
-watch(selectedTripId, (newId) => {
-  if (newId === 'ALL') {
-    mapStore.setVehiclesToDisplay(allFetchedVehicles.value)
-  } else if (newId) {
-    mapStore.setVehiclesToDisplay(allFetchedVehicles.value.filter(v => v.trip_id === newId))
-  } else {
-    mapStore.setVehiclesToDisplay([])
-  }
-})
+const navigateToRoute = (shape: VehiclesInStop) => {
+  const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
+  if (!si) return
+  routeStore.setSelectedRoute(si, shape.trip_id, props.stopId, stopName.value || '')
+  router.push({name: 'route', params: {routeId: shape.route_id, direction: shape.trip_id.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}})
+}
 
+const navigateToAllRoute = (shape: ShapeInfo) => {
+  const tripId = getTripId(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id.toString()) || `${shape.route_id}${OUTGOING_SUFFIX}`
+  routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
+  router.push({name: 'route', params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}})
+}
 </script>
 
 <template>
-  <div v-if="isLoading"
-       class="stop-view-container bg-white dark:bg-[#0f172a] p-5 h-full flex flex-col gap-10 animate-pulse">
-
+  <!-- ─── Loading skeleton ─── -->
+  <div v-if="isLoading" class="stop-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-8">
     <header class="flex items-center gap-4">
-      <div class="w-12 h-12 shrink-0 rounded-full bg-slate-200 dark:bg-slate-800"></div>
-      <div class="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+      <div class="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+      <div class="h-7 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
     </header>
-
-    <section>
-      <div class="h-3.5 w-36 bg-slate-200 dark:bg-slate-800 rounded mb-5!"></div>
-
-      <div class="flex flex-col gap-4">
-        <div v-for="i in 3" :key="'skeleton-next-'+i"
-             class="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 pr-5 flex items-center gap-4 border border-slate-100 dark:border-slate-800/50">
-          <div class="shrink-0 w-14 h-12 rounded-xl bg-slate-200 dark:bg-slate-700/50"></div>
-
-          <div class="flex-1 flex flex-col gap-2 justify-center py-1">
-            <div class="h-2.5 w-24 bg-slate-200 dark:bg-slate-700/50 rounded"></div>
-            <div class="h-4 w-40 bg-slate-200 dark:bg-slate-700/50 rounded"></div>
-          </div>
-
-          <div class="shrink-0 w-10 h-8 bg-slate-200 dark:bg-slate-700/50 rounded-lg mr-1"></div>
+    <section class="flex flex-col gap-3">
+      <div class="h-3 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
+      <div v-for="i in 4" :key="i" class="flex items-center gap-3 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
+        <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
+        <div class="flex-1 flex flex-col gap-1.5">
+          <div class="h-2.5 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
+          <div class="h-4 w-36 bg-slate-200 dark:bg-slate-700 rounded"></div>
+        </div>
+        <div class="flex gap-1.5">
+          <div v-for="j in 3" :key="j" class="w-9 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
         </div>
       </div>
     </section>
-
-    <section>
-      <div class="h-3.5 w-48 bg-slate-200 dark:bg-slate-800 rounded mb-5!"></div>
-
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
-        <div v-for="i in 6" :key="'skeleton-all-'+i" class="flex items-center gap-3 p-2 -mx-2">
-          <div class="shrink-0 w-10 h-8 rounded-md bg-slate-200 dark:bg-slate-800"></div>
-          <div class="h-3.5 w-32 bg-slate-200 dark:bg-slate-800 rounded"></div>
-        </div>
+    <section class="flex flex-col gap-2">
+      <div class="h-3 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
+      <div v-for="i in 5" :key="i" class="flex items-center gap-3 py-2">
+        <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+        <div class="h-3.5 w-40 bg-slate-200 dark:bg-slate-800 rounded"></div>
       </div>
     </section>
-
   </div>
-  <div v-else
-       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 h-full overflow-y-auto flex flex-col gap-10 font-sans shadow-2xl transition-colors duration-300 relative">
 
-    <header class="flex items-center gap-4">
-      <div
-        class="w-12 h-12 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200 dark:border-emerald-500/30 transition-colors">
-        <StopIcon class="w-6 h-6"/>
+  <!-- ─── Loaded ─── -->
+  <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
+
+    <!-- Header -->
+    <header class="flex items-start gap-4">
+      <div class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
+        <StopIcon class="w-7 h-7 text-white"/>
       </div>
-      <h1
-        class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight transition-colors">
-        {{ stopName }}
-      </h1>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-0.5">
+          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.18em]">Bus Stop</span>
+          <span v-if="stopInfo?.stop_code" class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{ stopInfo.stop_code }}</span>
+        </div>
+        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+          {{ stopName }}
+        </h1>
+      </div>
     </header>
 
+    <!-- ─── Next Departures ─── -->
     <section>
-      <h2
-        class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-5 flex items-center gap-3 transition-colors">
-        <span
-          class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+      <h2 class="section-label">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
         Next Departures
       </h2>
 
-      <div class="flex flex-col gap-4">
-        <div v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
-             :key="shape.route_short_name"
-             @click="toggleRouteOnMap(shape.trip_id)"
-             :class="['transition-all rounded-2xl p-4 pr-5 flex items-center gap-4 border shadow-sm dark:shadow-md relative overflow-hidden group cursor-pointer',
-                      selectedTripId === shape.trip_id ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/50 scale-[1.02]' : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-700/50']">
+      <div class="flex flex-col gap-2.5">
+        <div
+          v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
+          :key="shape.route_short_name"
+          @click="navigateToRoute(shape)"
+          class="departure-card group"
+        >
+          <!-- Left accent bar: live = green, scheduled = transparent -->
+          <div :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
 
+          <!-- Bus badge -->
           <div
-            class="flex items-center justify-center shrink-0 w-14 h-12 rounded-xl font-black text-lg text-white shadow-sm z-10"
-            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }">
-            {{ shape.route_short_name }}
-          </div>
+            class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
+            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
+          >{{ shape.route_short_name }}</div>
 
-          <div class="flex-1 min-w-0 flex flex-col justify-center z-10">
-            <span
-              class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5 transition-colors">
-              {{ getRouteTypeLabel(shape.route_type) }} Scheduled
-            </span>
-            <span
-              class="text-base font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+          <!-- Direction + data-quality label -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span v-if="!shape.static_time_approximation" class="live-badge">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                LIVE
+              </span>
+              <span v-else class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                ~ Timetable
+              </span>
+            </div>
+            <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate leading-tight">
               {{ shape.route_long_name }}
             </span>
           </div>
 
-          <div class="flex flex-col items-end justify-center shrink-0 min-w-16 z-10 mr-3!">
-            <div class="flex items-baseline gap-1">
-              <span v-if="shape.static_time_approximation"
-                    class="text-slate-400 dark:text-slate-500 font-semibold text-xl transition-colors">~</span>
-              <span
-                class="text-3xl font-black tracking-tighter transition-colors"
-                :class="shape.minutes_left <= 5 ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-rose-500 dark:text-rose-400'">
-                {{ shape.minutes_left === 0 ? 'NOW' : shape.minutes_left }}
-              </span>
-            </div>
-            <span v-if="shape.minutes_left > 0"
-                  class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5 transition-colors">
-              min
-            </span>
+          <!-- Time pills (next 3) -->
+          <div class="flex items-center gap-1 shrink-0">
+            <span
+              v-for="(t, i) in shape.next_times"
+              :key="i"
+              :class="[
+                'time-pill',
+                i === 0 && !shape.static_time_approximation
+                  ? 'time-pill-live'
+                  : 'time-pill-sched'
+              ]"
+            >{{ i === 0 && shape.static_time_approximation ? '~\u202f' : '' }}{{ formatMinutes(t.minutes) }}</span>
           </div>
 
+          <!-- Chevron -->
+          <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
         </div>
       </div>
     </section>
 
-    <section>
-      <div @click="toggleAllRoutesOnMap"
-           class="mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-3 transition-colors cursor-pointer group flex items-center justify-between">
-        <h2
-          class="text-sm font-bold uppercase tracking-[0.2em] m-0 border-none pb-0 transition-colors"
-          :class="selectedTripId === 'ALL' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'">
-          All Routes at this Stop
-        </h2>
-      </div>
+    <!-- ─── All Routes ─── -->
+    <section class="pb-6">
+      <h2 class="section-label">
+        <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        All Routes at this Stop
+      </h2>
 
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
-        <div v-for="shape in busesWithAvailableTimetables" :key="shape.timetable.route_short_name"
-             @click="toggleRouteOnMap(getTripId(stopInfo?.outgoing_trip_ids || [], stopInfo?.incoming_trip_ids || [], shape.route_id.toString()) || '')"
-             :class="['flex items-center gap-3 group cursor-pointer p-2 -mx-2 rounded-lg transition-colors border',
-                      selectedTripId === getTripId(stopInfo?.outgoing_trip_ids || [], stopInfo?.incoming_trip_ids || [], shape.route_id.toString()) ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 border-transparent hover:border-slate-200 dark:hover:border-slate-700/50']">
-
+      <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+        <div
+          v-for="shape in busesWithAvailableTimetablesSorted"
+          :key="shape.route_short_name"
+          @click="navigateToAllRoute(shape)"
+          class="all-route-row group"
+        >
           <div
-            class="flex items-center justify-center shrink-0 w-10 h-8 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }">
-            {{ shape.timetable.route_short_name }}
-          </div>
+            class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
+            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
+          >{{ shape.route_short_name }}</div>
 
-          <span
-            class="text-sm font-semibold text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-              {{ shape.timetable.route_long_name }}
-            </span>
+          <span class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+            {{ shape.timetable.route_long_name }}
+          </span>
+
+          <svg class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
         </div>
       </div>
     </section>
@@ -564,8 +440,120 @@ watch(selectedTripId, (newId) => {
 
 <style scoped>
 .stop-view-container {
-  padding-left: 2rem;
-  padding-right: 2rem;
-  padding-top: 0.5rem;
+  padding: 1.25rem 1.5rem 0;
+  height: 100%;
+  overflow-y: auto;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #64748b;
+  margin-bottom: 0.875rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .section-label { color: #94a3b8; }
+}
+
+.departure-card {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 0.625rem 0.75rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.departure-card:hover {
+  background: white;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  .departure-card {
+    border-color: rgb(51 65 85 / 0.5);
+    background: rgb(30 41 59 / 0.6);
+  }
+  .departure-card:hover {
+    background: rgb(30 41 59 / 0.9);
+    border-color: rgb(51 65 85 / 0.8);
+  }
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .live-badge {
+    color: #34d399;
+    background: rgb(16 185 129 / 0.1);
+    border-color: rgb(16 185 129 / 0.3);
+  }
+}
+
+.time-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.time-pill-live {
+  background: #10b981;
+  color: white;
+}
+
+.time-pill-sched {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+@media (prefers-color-scheme: dark) {
+  .time-pill-sched {
+    background: rgb(51 65 85 / 0.7);
+    color: #cbd5e1;
+  }
+}
+
+.all-route-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.25rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-radius: 0.5rem;
+  margin: 0 -0.25rem;
+}
+
+.all-route-row:hover { background: #f8fafc; }
+
+@media (prefers-color-scheme: dark) {
+  .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
 }
 </style>

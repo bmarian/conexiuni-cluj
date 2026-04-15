@@ -102,14 +102,20 @@ export type Vehicle = {
   trip_id: string
 }
 
+export type TimeEntry = {
+  minutes: number
+  is_live: boolean
+}
+
 export type VehiclesInStop = {
   minutes_left: number
+  next_times: TimeEntry[]
   route_short_name: string
   route_type: RouteType
   route_color: string
   trip_id: string
   route_id: number
   route_long_name: string
-  static_time_approximation: boolean,
+  static_time_approximation: boolean
   vehicles?: Vehicle[]
 }
