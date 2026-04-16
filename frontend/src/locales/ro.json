@@ -1,3 +1,21 @@
 {
-  "Search location...": "Caută locația..."
+  "Search location...": "Caută locația...",
+  "Center": "Centrare pe locația mea",
+  "now": "acum",
+  "back": "Înapoi",
+  "noRouteData": "Fără date de rută.",
+  "goBack": "Înapoi",
+  "route": "Rută",
+  "from": "Din {name}",
+  "stops": "Stații",
+  "noSchedule": "Fără date pentru această direcție.",
+  "timetable": "Orar",
+  "weekdays": "Luni-Vineri",
+  "saturday": "Sâmbătă",
+  "sunday": "Duminică",
+  "busStop": "Stație",
+  "nextDepartures": "Plecări",
+  "allRoutes": "Toate rutele",
+  "live": "LIVE",
+  "scheduledApprox": "~ Orar"
 }

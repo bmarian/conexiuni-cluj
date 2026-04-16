@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
@@ -19,6 +20,7 @@ import {
 const props = defineProps<{ routeId: string; direction: string }>()
 
 const router = useRouter()
+const {t} = useI18n()
 const routeStore = useRouteStore()
 const userStore = useUserStore()
 const mapStore = useMapStore()
@@ -91,10 +93,10 @@ const hasIncoming = computed(() => {
 // ─── Time helpers ────────────────────────────────────────────────────────────
 const currentMinutes = computed(() => getMinutesFromDate(userTime.value || new Date()))
 
-/** Format minutes-from-now: "now" / "Xm" / "HH:MM" (same logic as StopView) */
+/** Format minutes-from-now: "now" / "Xm" / "HH:MM" */
 function formatMinutes(minutes: number): string {
-  if (minutes === 0) return 'now'
-  if (minutes < 30) return `${minutes}m`
+  if (minutes === 0) return t('now')
+  if (minutes < 60) return `${minutes}m`
   const base = userTime.value || new Date()
   const future = new Date(base.getTime() + minutes * 60_000)
   return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
@@ -177,22 +179,22 @@ const todayTab = computed((): TimetableTab => {
 const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
 
 const availableTabs = computed(() => {
-  const t = timetable.value
-  if (!t) return []
+  const tt = timetable.value
+  if (!tt) return []
   const tabs: Array<{key: TimetableTab; label: string}> = []
-  if (t.weekdays?.entries?.length) tabs.push({key: 'weekdays', label: 'Weekdays'})
-  if (t.saturday?.entries?.length) tabs.push({key: 'saturday', label: 'Saturday'})
-  if (t.sunday?.entries?.length)   tabs.push({key: 'sunday',   label: 'Sunday'})
+  if (tt.weekdays?.entries?.length) tabs.push({key: 'weekdays', label: t('weekdays')})
+  if (tt.saturday?.entries?.length) tabs.push({key: 'saturday', label: t('saturday')})
+  if (tt.sunday?.entries?.length)   tabs.push({key: 'sunday',   label: t('sunday')})
   return tabs
 })
 
 const timetableEntries = computed(() => {
-  const t = timetable.value
-  if (!t) return []
+  const tt = timetable.value
+  if (!tt) return []
   const sched =
-    selectedTimetableTab.value === 'sunday'   ? t.sunday :
-    selectedTimetableTab.value === 'saturday' ? t.saturday :
-    t.weekdays
+    selectedTimetableTab.value === 'sunday'   ? tt.sunday :
+    selectedTimetableTab.value === 'saturday' ? tt.saturday :
+    tt.weekdays
   if (!sched?.entries?.length) return []
 
   // Only grey out past times when viewing today's actual schedule
@@ -311,26 +313,26 @@ onUnmounted(() => {
 
 <template>
   <div v-if="!shapeInfo" class="route-view-container flex items-center justify-center">
-    <p class="text-slate-500 dark:text-slate-400 text-sm">No route data. <button @click="router.back()" class="underline">Go back</button></p>
+    <p class="text-slate-500 dark:text-slate-400 text-sm">{{ t('noRouteData') }} <button @click="router.back()" class="underline">{{ t('goBack') }}</button></p>
   </div>
 
   <div v-else class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
     <!-- ─── Back button ─── -->
-    <div class="flex items-center pt-2 pb-1 -mx-1">
+    <div class="flex items-center mb-3">
       <button
         @click="router.back()"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
-        Back
+        {{ t('back') }}
       </button>
     </div>
 
     <!-- ─── Route identity header ─── -->
-    <header class="flex items-start gap-4 pt-1 pb-5">
+    <header class="flex items-start gap-4 pb-5">
       <div
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
         :style="{ backgroundColor: formatGtfsColor(shapeInfo.route_color), boxShadow: `0 8px 24px -4px ${formatGtfsColor(shapeInfo.route_color)}66` }"
@@ -338,13 +340,13 @@ onUnmounted(() => {
         <span class="text-2xl font-black text-white leading-none">{{ shapeInfo.route_short_name }}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] mb-0.5">Route</div>
+        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] mb-0.5">{{ t('route') }}</div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
           {{ timetable?.route_long_name || shapeInfo.route_short_name }}
         </h1>
         <p v-if="fromStopName" class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-          From {{ fromStopName }}
+          {{ t('from', { name: fromStopName }) }}
         </p>
       </div>
     </header>
@@ -375,14 +377,14 @@ onUnmounted(() => {
 
     <!-- ─── No trips message ─── -->
     <div v-if="!stopsForDirection.length" class="mt-8 text-center text-slate-400 dark:text-slate-500 text-sm">
-      No schedule data for this direction.
+      {{ t('noSchedule') }}
     </div>
 
     <div v-else>
 
       <!-- ─── Stops section header ─── -->
       <div class="stops-header">
-        <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Stops</span>
+        <span class="section-label-text">{{ t('stops') }}</span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
         <div class="times-cols">
           <span v-for="(t, i) in getHeaderTimes()" :key="i" class="time-cell text-slate-400 dark:text-slate-500">{{ t }}</span>
@@ -392,7 +394,7 @@ onUnmounted(() => {
       <!-- ─── Transit timeline ─── -->
       <div class="relative">
         <!-- Vertical track line -->
-        <div class="absolute left-[9px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
+        <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
         <div
           v-for="(stop, idx) in stopsForDirection"
@@ -465,7 +467,7 @@ onUnmounted(() => {
       <!-- ─── Full Timetable ─── -->
       <div v-if="availableTabs.length" class="mt-8">
         <div class="flex items-center gap-2 mb-3">
-          <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Timetable</span>
+          <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
         </div>
 
@@ -497,17 +499,30 @@ onUnmounted(() => {
 
 <style scoped>
 .route-view-container {
-  padding: 0.5rem 1.25rem 2rem;
+  padding: 1.25rem 1.5rem 2rem;
   height: 100%;
   overflow-y: auto;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Section label (matches StopView's .section-label) ─── */
+.section-label-text {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #64748b;
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .section-label-text { color: #94a3b8; }
 }
 
 /* ─── Direction toggle ─── */
 .direction-toggle-wrap {
   display: flex;
   gap: 0.5rem;
-  margin: 1rem 0 1.25rem;
+  margin: 1rem 0 1.5rem;
 }
 
 .dir-btn {
@@ -527,23 +542,24 @@ onUnmounted(() => {
 }
 .dir-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.dir-btn-active  { background: #0f172a; color: white; border-color: #0f172a; }
+.dir-btn-active   { background: #0f172a; color: white; border-color: #0f172a; }
 .dir-btn-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
 .dir-btn-inactive:hover:not(:disabled) { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
 
 @media (prefers-color-scheme: dark) {
-  .dir-btn-active  { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+  .dir-btn-active   { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
   .dir-btn-inactive { color: #94a3b8; border-color: #334155; }
   .dir-btn-inactive:hover:not(:disabled) { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
 }
 
-/* ─── Shared time columns ─── */
+/* ─── Stops section header ─── */
 .stops-header {
   display: flex;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.875rem;
 }
 
+/* ─── Time columns ─── */
 .times-cols { display: flex; gap: 0; }
 
 .time-cell {
@@ -555,9 +571,7 @@ onUnmounted(() => {
   letter-spacing: -0.01em;
 }
 
-.time-cell-live {
-  color: #10b981;
-}
+.time-cell-live { color: #10b981; }
 
 @media (prefers-color-scheme: dark) {
   .time-cell-live { color: #34d399; }
@@ -567,22 +581,23 @@ onUnmounted(() => {
 .stop-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.25rem;
+  gap: 0.625rem;
+  padding: 0.55rem 0.5rem;
   border-radius: 0.75rem;
-  margin: 0 -0.25rem;
-  transition: background 0.1s;
+  margin: 0 -0.5rem;
+  transition: background 0.15s;
 }
+
 .stop-row-selected {
   background: #ecfdf5;
-  margin: 0.125rem -0.25rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.625rem 0.5rem;
 }
+
 .stop-row-nearest {
   background: #faf5ff;
-  margin: 0.125rem -0.25rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.625rem 0.5rem;
 }
+
 @media (prefers-color-scheme: dark) {
   .stop-row-selected { background: rgb(16 185 129 / 0.08); }
   .stop-row-nearest  { background: rgb(168 85 247 / 0.08); }
@@ -594,7 +609,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.3rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 0.625rem;
   font-size: 0.72rem;
   font-weight: 700;
@@ -603,23 +618,9 @@ onUnmounted(() => {
   transition: all 0.15s;
 }
 
-.tt-tab-active {
-  background: #0f172a;
-  color: white;
-  border-color: #0f172a;
-}
-
-.tt-tab-inactive {
-  background: transparent;
-  color: #64748b;
-  border-color: #e2e8f0;
-}
-
-.tt-tab-inactive:hover {
-  background: #f8fafc;
-  color: #334155;
-  border-color: #cbd5e1;
-}
+.tt-tab-active   { background: #0f172a; color: white; border-color: #0f172a; }
+.tt-tab-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
+.tt-tab-inactive:hover { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
 
 .tt-today-dot {
   display: inline-block;
@@ -629,13 +630,10 @@ onUnmounted(() => {
   background: #10b981;
   flex-shrink: 0;
 }
-
-.tt-tab-active .tt-today-dot {
-  background: #6ee7b7;
-}
+.tt-tab-active .tt-today-dot { background: #6ee7b7; }
 
 @media (prefers-color-scheme: dark) {
-  .tt-tab-active  { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+  .tt-tab-active   { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
   .tt-tab-inactive { color: #94a3b8; border-color: #334155; }
   .tt-tab-inactive:hover { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
   .tt-tab-active .tt-today-dot { background: #065f46; }

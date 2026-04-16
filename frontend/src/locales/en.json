@@ -1,3 +1,21 @@
 {
-  "Search location...": "Search location..."
+  "Search location...": "Search location...",
+  "Center": "Center on my location",
+  "now": "now",
+  "back": "Back",
+  "noRouteData": "No route data.",
+  "goBack": "Go back",
+  "route": "Route",
+  "from": "From {name}",
+  "stops": "Stops",
+  "noSchedule": "No schedule data for this direction.",
+  "timetable": "Timetable",
+  "weekdays": "Weekdays",
+  "saturday": "Saturday",
+  "sunday": "Sunday",
+  "busStop": "Bus Stop",
+  "nextDepartures": "Next Departures",
+  "allRoutes": "All Routes at this Stop",
+  "live": "LIVE",
+  "scheduledApprox": "~ Timetable"
 }

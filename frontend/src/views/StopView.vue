@@ -2,6 +2,7 @@
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
 import {computed, ref, watch} from "vue"
+import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "../../public/stop.svg"
 import type {Timetable} from "@/types/ctp.ts";
@@ -23,6 +24,7 @@ import {useRouter} from "vue-router";
 
 const props = defineProps<{ stopId: string }>()
 
+const {t} = useI18n()
 const userStore = useUserStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
@@ -39,7 +41,7 @@ function formatGtfsColor(colorString?: string) {
 }
 
 function formatMinutes(minutes: number): string {
-  if (minutes === 0) return 'now'
+  if (minutes === 0) return t('now')
   if (minutes < 60) return `${minutes}m`
   const now = userTime.value || new Date()
   const future = new Date(now.getTime() + minutes * 60_000)
@@ -257,7 +259,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
-          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.18em]">Bus Stop</span>
+          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.18em]">{{ t('busStop') }}</span>
           <span v-if="stopInfo?.stop_code" class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{ stopInfo.stop_code }}</span>
         </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
@@ -270,9 +272,12 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     <section>
       <h2 class="section-label">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
-        Next Departures
+        {{ t('nextDepartures') }}
       </h2>
 
+      <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length" class="text-sm text-slate-400 dark:text-slate-500 py-2">
+        {{ t('noSchedule') }}
+      </p>
       <div class="flex flex-col gap-2.5">
         <div
           v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
@@ -294,10 +299,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             <div class="flex items-center gap-1.5 mb-0.5">
               <span v-if="!shape.static_time_approximation" class="live-badge">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                LIVE
+                {{ t('live') }}
               </span>
               <span v-else class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                ~ Timetable
+                {{ t('scheduledApprox') }}
               </span>
             </div>
             <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate leading-tight">
@@ -333,7 +338,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
-        All Routes at this Stop
+        {{ t('allRoutes') }}
       </h2>
 
       <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -470,7 +475,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   gap: 0.75rem;
   padding: 0.625rem 0.25rem;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s;
   border-radius: 0.5rem;
   margin: 0 -0.25rem;
 }
