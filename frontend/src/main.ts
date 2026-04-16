@@ -31,6 +31,6 @@ userStore.startTimeTracker()
 userStore.startSchemeWatcher()
 
 const favoritesStore = useFavoritesStore(pinia)
-void favoritesStore.hydrate()
+void favoritesStore.hydrate().then(() => favoritesStore.preloadFavorites())
 
 app.mount('#app')

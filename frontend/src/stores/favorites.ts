@@ -1,6 +1,9 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 import {get, set} from 'idb-keyval'
+import {useRoutesApi} from '@/composables/useRoutesApi.ts'
+import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 
 const ROUTES_KEY = 'favorites:routes'
 const STOPS_KEY = 'favorites:stops'
@@ -63,6 +66,43 @@ export const useFavoritesStore = defineStore('favorites', () => {
     void persistStops()
   }
 
+  /**
+   * Warm the apiRequest IndexedDB cache for everything the user has starred,
+   * so opening a favorite is instant. Fire-and-forget; per-request failures
+   * are swallowed (e.g. routes whose CTP CSV is missing). Safe to call
+   * concurrently with user navigation — the underlying composables dedupe
+   * in-flight requests by route_id / stop_id.
+   */
+  async function preloadFavorites() {
+    const jobs: Promise<unknown>[] = []
+
+    if (favoriteRouteIds.value.length) {
+      jobs.push(preloadFavoriteRoutes())
+    }
+    if (favoriteStopIds.value.length) {
+      const {fetchStopData} = useStopInfoApi()
+      jobs.push(
+        Promise.allSettled(favoriteStopIds.value.map((id) => fetchStopData(String(id)))),
+      )
+    }
+
+    await Promise.all(jobs)
+  }
+
+  async function preloadFavoriteRoutes() {
+    const {routes, fetchRoutes} = useRoutesApi()
+    const {fetchShapeInfo} = useRouteShapeInfoApi()
+    try {
+      await fetchRoutes()
+    } catch (err) {
+      console.warn('Could not fetch routes list for favorite preload:', err)
+      return
+    }
+    const wanted = new Set(favoriteRouteIds.value)
+    const targets = routes.value.filter((r) => wanted.has(r.route_id))
+    await Promise.allSettled(targets.map((r) => fetchShapeInfo(r)))
+  }
+
   return {
     favoriteRouteIds,
     favoriteStopIds,
@@ -72,5 +112,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
     isStopFavorite,
     toggleRouteFavorite,
     toggleStopFavorite,
+    preloadFavorites,
   }
 })
