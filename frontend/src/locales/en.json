@@ -17,5 +17,14 @@
   "nextDepartures": "Next Departures",
   "allRoutes": "All Routes at this Stop",
   "live": "LIVE",
-  "scheduledApprox": "~ Timetable"
+  "scheduledApprox": "~ Timetable",
+  "home": "Home",
+  "favorites": "Favorites",
+  "favoriteRoutes": "Favorite routes",
+  "favoriteStops": "Favorite stops",
+  "noFavorites": "No favorites yet. Tap the heart on a route or stop to add it here.",
+  "searchRoutes": "Search routes...",
+  "noResults": "No results",
+  "addToFavorites": "Add to favorites",
+  "removeFromFavorites": "Remove from favorites"
 }

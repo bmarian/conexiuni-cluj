@@ -17,5 +17,14 @@
   "nextDepartures": "Plecări",
   "allRoutes": "Toate rutele",
   "live": "LIVE",
-  "scheduledApprox": "~ Orar"
+  "scheduledApprox": "~ Orar",
+  "home": "Acasă",
+  "favorites": "Favorite",
+  "favoriteRoutes": "Rute favorite",
+  "favoriteStops": "Stații favorite",
+  "noFavorites": "Fără favorite. Apasă inima pe o rută sau stație ca să o adaugi aici.",
+  "searchRoutes": "Caută rute...",
+  "noResults": "Fără rezultate",
+  "addToFavorites": "Adaugă la favorite",
+  "removeFromFavorites": "Elimină din favorite"
 }

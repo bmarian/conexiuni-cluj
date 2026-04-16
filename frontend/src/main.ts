@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useUserStore } from './stores/user'
+import { useFavoritesStore } from './stores/favorites'
 import './main.css'
 import ro from './locales/ro.json'
 import en from './locales/en.json'
@@ -28,5 +29,8 @@ app.use(router)
 const userStore = useUserStore(pinia)
 userStore.startTimeTracker()
 userStore.startSchemeWatcher()
+
+const favoritesStore = useFavoritesStore(pinia)
+void favoritesStore.hydrate()
 
 app.mount('#app')

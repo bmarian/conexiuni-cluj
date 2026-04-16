@@ -6,6 +6,7 @@ import {storeToRefs} from 'pinia'
 import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
+import {useFavoritesStore} from '@/stores/favorites.ts'
 import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
 import {getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
@@ -16,6 +17,8 @@ import {
   computeETA,
   type TrackedVehicle,
 } from '@/composables/useVehicleTracking.ts'
+import {useRoutesApi} from '@/composables/useRoutesApi.ts'
+import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -24,8 +27,12 @@ const {t} = useI18n()
 const routeStore = useRouteStore()
 const userStore = useUserStore()
 const mapStore = useMapStore()
+const favoritesStore = useFavoritesStore()
 const {userTime, userLocation} = storeToRefs(userStore)
 const {zoomOut, centerOnUser} = storeToRefs(mapStore)
+
+const routeIdNum = computed(() => Number(props.routeId))
+const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value))
 
 const shapeInfo = computed(() => routeStore.selectedShapeInfo)
 const fromStopId = computed(() => routeStore.fromStopId)
@@ -291,10 +298,38 @@ async function scrollToFromStop() {
   fromStopEl.value?.scrollIntoView({behavior: 'smooth', block: 'center'})
 }
 
-onMounted(() => {
-  if (!shapeInfo.value) {
+const isInitialLoading = ref(false)
+
+const goBack = () => {
+  if (window.history.state && window.history.state.back) {
     router.back()
-    return
+  } else {
+    router.push({name: 'home'})
+  }
+}
+
+async function loadShapeInfoFromApi(): Promise<boolean> {
+  const {routes, fetchRoutes} = useRoutesApi()
+  const {fetchShapeInfo} = useRouteShapeInfoApi()
+  await fetchRoutes()
+  const route = routes.value.find((r) => r.route_id === Number(props.routeId))
+  if (!route) return false
+  try {
+    const loaded = await fetchShapeInfo(route)
+    routeStore.setSelectedRoute(loaded, currentTripId.value, '', '')
+    return true
+  } catch (e) {
+    console.error('Failed to load route shape info:', e)
+    return false
+  }
+}
+
+onMounted(async () => {
+  if (!shapeInfo.value) {
+    isInitialLoading.value = true
+    const ok = await loadShapeInfoFromApi()
+    isInitialLoading.value = false
+    if (!ok) return
   }
   updateMap()
   scrollToFromStop()
@@ -312,16 +347,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="!shapeInfo" class="route-view-container flex items-center justify-center">
-    <p class="text-slate-500 dark:text-slate-400 text-sm">{{ t('noRouteData') }} <button @click="router.back()" class="underline">{{ t('goBack') }}</button></p>
+  <div v-if="isInitialLoading" class="route-view-container flex items-center justify-center">
+    <svg class="w-6 h-6 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+    </svg>
+  </div>
+
+  <div v-else-if="!shapeInfo" class="route-view-container flex items-center justify-center">
+    <p class="text-slate-500 dark:text-slate-400 text-sm">{{ t('noRouteData') }} <button @click="goBack" class="underline">{{ t('goBack') }}</button></p>
   </div>
 
   <div v-else class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
     <!-- ─── Back button ─── -->
-    <div class="flex items-center mb-3">
+    <div class="flex items-center mb-4!">
       <button
-        @click="router.back()"
+        @click="goBack"
         class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -349,6 +391,22 @@ onUnmounted(() => {
           {{ t('from', { name: fromStopName }) }}
         </p>
       </div>
+      <button
+        type="button"
+        class="fav-btn mt-1 shrink-0"
+        :class="{ 'is-fav': isFavorite }"
+        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-pressed="isFavorite"
+        @click="favoritesStore.toggleRouteFavorite(routeIdNum)"
+      >
+        <svg v-if="isFavorite" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+        </svg>
+      </button>
     </header>
 
     <!-- ─── Direction toggle ─── -->
@@ -656,5 +714,36 @@ onUnmounted(() => {
 @media (prefers-color-scheme: dark) {
   .timetable-chip-future { background: #1e293b; color: #e2e8f0; }
   .timetable-chip-past   { background: transparent; color: #475569; }
+}
+
+/* ─── Favorite toggle button ─── */
+.fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.fav-btn:hover {
+  background: #fef2f2;
+  color: #f43f5e;
+}
+.fav-btn:active { transform: scale(0.92); }
+.fav-btn.is-fav { color: #f43f5e; }
+.fav-btn.is-fav:hover { background: #fee2e2; }
+
+@media (prefers-color-scheme: dark) {
+  .fav-btn { color: #64748b; }
+  .fav-btn:hover {
+    background: rgb(244 63 94 / 0.12);
+    color: #fb7185;
+  }
+  .fav-btn.is-fav { color: #fb7185; }
+  .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
 }
 </style>

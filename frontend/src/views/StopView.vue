@@ -20,6 +20,7 @@ import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {haversineMeters} from "@/utils/geo.ts";
 import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA} from "@/composables/useVehicleTracking.ts";
 import {useRouteStore} from "@/stores/route.ts";
+import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
 
 const props = defineProps<{ stopId: string }>()
@@ -28,7 +29,10 @@ const {t} = useI18n()
 const userStore = useUserStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
+const favoritesStore = useFavoritesStore()
 const router = useRouter()
+const stopIdNum = computed(() => Number(props.stopId))
+const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
 const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
@@ -206,6 +210,14 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
 })
 
+const goBack = () => {
+  if (window.history.state && window.history.state.back) {
+    router.back()
+  } else {
+    router.push({name: 'home'})
+  }
+}
+
 const navigateToRoute = (shape: VehiclesInStop) => {
   const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
@@ -252,6 +264,19 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   <!-- ─── Loaded ─── -->
   <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
+    <!-- ─── Back button ─── -->
+    <div class="flex items-center -mb-4">
+      <button
+        @click="goBack"
+        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        {{ t('back') }}
+      </button>
+    </div>
+
     <!-- Header -->
     <header class="flex items-start gap-4">
       <div class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
@@ -266,6 +291,22 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           {{ stopName }}
         </h1>
       </div>
+      <button
+        type="button"
+        class="fav-btn mt-1 shrink-0"
+        :class="{ 'is-fav': isFavorite }"
+        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-pressed="isFavorite"
+        @click="favoritesStore.toggleStopFavorite(stopIdNum)"
+      >
+        <svg v-if="isFavorite" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+        </svg>
+      </button>
     </header>
 
     <!-- ─── Next Departures ─── -->
@@ -484,5 +525,36 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
 @media (prefers-color-scheme: dark) {
   .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
+}
+
+/* ─── Favorite toggle button ─── */
+.fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.fav-btn:hover {
+  background: #fef2f2;
+  color: #f43f5e;
+}
+.fav-btn:active { transform: scale(0.92); }
+.fav-btn.is-fav { color: #f43f5e; }
+.fav-btn.is-fav:hover { background: #fee2e2; }
+
+@media (prefers-color-scheme: dark) {
+  .fav-btn { color: #64748b; }
+  .fav-btn:hover {
+    background: rgb(244 63 94 / 0.12);
+    color: #fb7185;
+  }
+  .fav-btn.is-fav { color: #fb7185; }
+  .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
 }
 </style>
