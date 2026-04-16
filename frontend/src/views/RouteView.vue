@@ -5,9 +5,16 @@ import {storeToRefs} from 'pinia'
 import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
-import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type StopTime} from '@/types/tranzy.ts'
+import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
 import {getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
+import {
+  getVehiclesOnRoute,
+  getClosestNodeToPoint,
+  getClosestVehicleBeforeStop,
+  computeETA,
+  type TrackedVehicle,
+} from '@/composables/useVehicleTracking.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -81,9 +88,23 @@ const hasIncoming = computed(() => {
   return raw.some((st) => st.trip_id === `${props.routeId}${INCOMING_SUFFIX}`)
 })
 
-// ─── Next 3 base departure times from first stop ─────────────────────────────
+// ─── Time helpers ────────────────────────────────────────────────────────────
 const currentMinutes = computed(() => getMinutesFromDate(userTime.value || new Date()))
 
+/** Format minutes-from-now: "now" / "Xm" / "HH:MM" (same logic as StopView) */
+function formatMinutes(minutes: number): string {
+  if (minutes === 0) return 'now'
+  if (minutes < 30) return `${minutes}m`
+  const base = userTime.value || new Date()
+  const future = new Date(base.getTime() + minutes * 60_000)
+  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
+}
+
+function minutesLeft(absMinutes: number): number {
+  return ((absMinutes - currentMinutes.value) + 1440) % 1440
+}
+
+// ─── Next 3 base departure times (abs minutes) from first stop ───────────────
 const baseDepartureTimes = computed((): number[] => {
   const t = timetable.value
   if (!t) return []
@@ -101,30 +122,81 @@ const baseDepartureTimes = computed((): number[] => {
     .map((v) => v.absMin)
 })
 
-function formatAbsMinutes(absMinutes: number): string {
-  const h = Math.floor(absMinutes / 60) % 24
-  const m = absMinutes % 60
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+// ─── Vehicle-aware arrival times per stop ────────────────────────────────────
+const trackedVehicles = ref<TrackedVehicle[]>([])
+const tripShapePoints = ref<Shape[]>([])
+
+interface StopTimeDisplay { label: string; isLive: boolean }
+
+function getStopTimesDisplay(
+  offsetFromStart: number,
+  stopLat?: number,
+  stopLon?: number,
+): StopTimeDisplay[] {
+  const timetableTimes = baseDepartureTimes.value.map(base => base + offsetFromStart)
+  if (!timetableTimes.length) return []
+
+  // Try to find a live vehicle ETA for the first slot
+  let liveMinutes: number | null = null
+  if (stopLat && stopLon && trackedVehicles.value.length && tripShapePoints.value.length) {
+    const nodeAtStop = getClosestNodeToPoint({lat: stopLat, lon: stopLon}, tripShapePoints.value)
+    if (nodeAtStop) {
+      const {closestVehicle, closestNode} = getClosestVehicleBeforeStop(
+        trackedVehicles.value, nodeAtStop, tripShapePoints.value,
+      )
+      if (closestVehicle && closestNode) {
+        const eta = computeETA(nodeAtStop, closestNode, closestVehicle, tripShapePoints.value)
+        if (eta > 0) liveMinutes = eta
+      }
+    }
+  }
+
+  return timetableTimes.map((absMin, i) => {
+    if (i === 0 && liveMinutes !== null) {
+      return {label: formatMinutes(liveMinutes), isLive: true}
+    }
+    return {label: formatMinutes(minutesLeft(absMin)), isLive: false}
+  })
 }
 
-function getArrivalTimesAtStop(offsetFromStart: number): string[] {
-  return baseDepartureTimes.value.map((base) => formatAbsMinutes(base + offsetFromStart))
+// Header uses timetable-only times (no live override, shows departure schedule)
+function getHeaderTimes(): string[] {
+  return baseDepartureTimes.value.map(base => formatMinutes(minutesLeft(base)))
 }
 
 // ─── Full timetable ──────────────────────────────────────────────────────────
-const dayLabel = computed(() => {
+type TimetableTab = 'weekdays' | 'saturday' | 'sunday'
+
+const todayTab = computed((): TimetableTab => {
   const day = (userTime.value || new Date()).getDay()
-  if (day === 0) return 'Sunday'
-  if (day === 6) return 'Saturday'
-  return 'Weekdays'
+  if (day === 0) return 'sunday'
+  if (day === 6) return 'saturday'
+  return 'weekdays'
+})
+
+const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
+
+const availableTabs = computed(() => {
+  const t = timetable.value
+  if (!t) return []
+  const tabs: Array<{key: TimetableTab; label: string}> = []
+  if (t.weekdays?.entries?.length) tabs.push({key: 'weekdays', label: 'Weekdays'})
+  if (t.saturday?.entries?.length) tabs.push({key: 'saturday', label: 'Saturday'})
+  if (t.sunday?.entries?.length)   tabs.push({key: 'sunday',   label: 'Sunday'})
+  return tabs
 })
 
 const timetableEntries = computed(() => {
   const t = timetable.value
   if (!t) return []
-  const day = (userTime.value || new Date()).getDay()
-  const sched = day === 0 ? t.sunday : day === 6 ? t.saturday : t.weekdays
+  const sched =
+    selectedTimetableTab.value === 'sunday'   ? t.sunday :
+    selectedTimetableTab.value === 'saturday' ? t.saturday :
+    t.weekdays
   if (!sched?.entries?.length) return []
+
+  // Only grey out past times when viewing today's actual schedule
+  const isToday = selectedTimetableTab.value === todayTab.value
   const now = currentMinutes.value
 
   return sched.entries
@@ -133,7 +205,7 @@ const timetableEntries = computed(() => {
       if (!timeStr) return null
       const absMin = timeStringToMinutes(timeStr)
       if (absMin === null) return null
-      return {time: timeStr, isPast: absMin < now}
+      return {time: timeStr, isPast: isToday && absMin < now}
     })
     .filter((e): e is {time: string; isPast: boolean} => e !== null)
 })
@@ -151,7 +223,63 @@ function updateMap() {
   zoomOut.value = true
 }
 
-watch(currentDirection, () => updateMap())
+// ─── Highlighted stops on map: all gray, selected green, nearest purple ───────
+watch(
+  [fromStopId, nearestStopIdx, stopsForDirection, userLocation],
+  () => {
+    const highlights: Array<{stopId: string; color: 'green' | 'purple' | 'gray'}> = []
+    stopsForDirection.value.forEach((stop, idx) => {
+      const stopId = String(stop.stop_id)
+      if (stopId === fromStopId.value) {
+        highlights.push({stopId, color: 'green'})
+      } else if (idx === nearestStopIdx.value) {
+        highlights.push({stopId, color: 'purple'})
+      } else {
+        highlights.push({stopId, color: 'gray'})
+      }
+    })
+    mapStore.setHighlightedStops(highlights)
+  },
+  {immediate: true, deep: false},
+)
+
+// ─── Vehicles ────────────────────────────────────────────────────────────────
+let vehicleInterval: ReturnType<typeof setInterval> | null = null
+
+async function fetchVehicles() {
+  if (!shapeInfo.value) return
+  try {
+    const shapeData = await mapStore.requestShapes([{
+      trip_id: currentTripId.value,
+      route_short_name: shapeInfo.value.route_short_name,
+      route_long_name: routeDisplayName.value,
+      route_color: shapeInfo.value.route_color,
+      route_type: shapeInfo.value.route_type,
+    }])
+    const trip = shapeData[0]?.[1]
+    if (!trip?.length) return
+
+    tripShapePoints.value = trip
+
+    const vehicles = await getVehiclesOnRoute(
+      currentTripId.value,
+      shapeInfo.value.route_short_name,
+      trip,
+      userTime.value,
+    )
+    trackedVehicles.value = vehicles
+    mapStore.setVehiclesToDisplay(vehicles)
+  } catch (e) {
+    console.warn('Failed to fetch vehicles:', e)
+  }
+}
+
+watch(currentDirection, () => {
+  trackedVehicles.value = []
+  tripShapePoints.value = []
+  updateMap()
+  void fetchVehicles()
+})
 
 // ─── Scroll to from-stop ─────────────────────────────────────────────────────
 const fromStopEl = ref<HTMLElement | null>(null)
@@ -168,9 +296,13 @@ onMounted(() => {
   }
   updateMap()
   scrollToFromStop()
+  void fetchVehicles()
+  vehicleInterval = setInterval(() => void fetchVehicles(), 10_000)
 })
 
 onUnmounted(() => {
+  if (vehicleInterval !== null) clearInterval(vehicleInterval)
+  mapStore.setHighlightedStops([])
   mapStore.setShapesToDisplay([])
   mapStore.setVehiclesToDisplay([])
   centerOnUser.value = true
@@ -253,7 +385,7 @@ onUnmounted(() => {
         <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Stops</span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
         <div class="times-cols">
-          <span v-for="(time, i) in getArrivalTimesAtStop(0)" :key="i" class="time-cell">{{ time }}</span>
+          <span v-for="(t, i) in getHeaderTimes()" :key="i" class="time-cell text-slate-400 dark:text-slate-500">{{ t }}</span>
         </div>
       </div>
 
@@ -268,7 +400,7 @@ onUnmounted(() => {
           :ref="(el) => { if (String(stop.stop_id) === fromStopId) fromStopEl = el as HTMLElement }"
           :class="['stop-row', String(stop.stop_id) === fromStopId ? 'stop-row-selected' : idx === nearestStopIdx ? 'stop-row-nearest' : '']"
         >
-          <!-- Track dot (left) — simple, uniform size, just colored -->
+          <!-- Track dot -->
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
             <div v-if="String(stop.stop_id) === fromStopId"
                  class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
@@ -281,7 +413,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Stop label + status icon -->
-          <div class="flex-1 min-w-0 flex items-center gap-1.5 min-w-0">
+          <div class="flex-1 min-w-0 flex items-center gap-1.5">
             <span :class="[
               'text-sm leading-tight truncate',
               String(stop.stop_id) === fromStopId
@@ -313,29 +445,41 @@ onUnmounted(() => {
           <!-- Arrival times -->
           <div class="times-cols shrink-0">
             <span
-              v-for="(time, i) in getArrivalTimesAtStop(stop.timeOffsetFromStart)"
+              v-for="(t, i) in getStopTimesDisplay(stop.timeOffsetFromStart, stop.stop_lat, stop.stop_lon)"
               :key="i"
               :class="[
                 'time-cell',
-                String(stop.stop_id) === fromStopId
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : idx === nearestStopIdx
-                    ? 'text-purple-600 dark:text-purple-400'
-                    : 'text-slate-500 dark:text-slate-400'
+                t.isLive
+                  ? 'time-cell-live'
+                  : String(stop.stop_id) === fromStopId
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : idx === nearestStopIdx
+                      ? 'text-purple-600 dark:text-purple-400'
+                      : 'text-slate-500 dark:text-slate-400'
               ]"
-            >{{ time }}</span>
+            >{{ t.label }}</span>
           </div>
         </div>
       </div>
 
       <!-- ─── Full Timetable ─── -->
-      <div v-if="timetableEntries.length" class="mt-8">
-        <div class="flex items-center gap-2 mb-4">
+      <div v-if="availableTabs.length" class="mt-8">
+        <div class="flex items-center gap-2 mb-3">
           <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Timetable</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-            {{ dayLabel }}
-          </span>
+        </div>
+
+        <!-- Day selector tabs -->
+        <div class="flex gap-1.5 mb-4">
+          <button
+            v-for="tab in availableTabs"
+            :key="tab.key"
+            @click="selectedTimetableTab = tab.key"
+            :class="['tt-tab', selectedTimetableTab === tab.key ? 'tt-tab-active' : 'tt-tab-inactive']"
+          >
+            {{ tab.label }}
+            <span v-if="tab.key === todayTab" class="tt-today-dot"></span>
+          </button>
         </div>
 
         <div class="timetable-grid">
@@ -348,7 +492,6 @@ onUnmounted(() => {
       </div>
 
     </div>
-
   </div>
 </template>
 
@@ -382,68 +525,42 @@ onUnmounted(() => {
   overflow: hidden;
   cursor: pointer;
 }
+.dir-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.dir-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.dir-btn-active {
-  background: #0f172a;
-  color: white;
-  border-color: #0f172a;
-}
-
-.dir-btn-inactive {
-  background: transparent;
-  color: #64748b;
-  border-color: #e2e8f0;
-}
-
-.dir-btn-inactive:hover:not(:disabled) {
-  background: #f8fafc;
-  color: #334155;
-  border-color: #cbd5e1;
-}
+.dir-btn-active  { background: #0f172a; color: white; border-color: #0f172a; }
+.dir-btn-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
+.dir-btn-inactive:hover:not(:disabled) { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
 
 @media (prefers-color-scheme: dark) {
-  .dir-btn-active {
-    background: #f1f5f9;
-    color: #0f172a;
-    border-color: #f1f5f9;
-  }
-  .dir-btn-inactive {
-    color: #94a3b8;
-    border-color: #334155;
-  }
-  .dir-btn-inactive:hover:not(:disabled) {
-    background: rgb(30 41 59 / 0.6);
-    color: #e2e8f0;
-    border-color: #475569;
-  }
+  .dir-btn-active  { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+  .dir-btn-inactive { color: #94a3b8; border-color: #334155; }
+  .dir-btn-inactive:hover:not(:disabled) { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
 }
 
 /* ─── Shared time columns ─── */
-/* Header row and every stop row share the same times-cols / time-cell classes
-   so the columns are guaranteed to line up. */
 .stops-header {
   display: flex;
   align-items: center;
   margin-bottom: 0.75rem;
 }
 
-.times-cols {
-  display: flex;
-  gap: 0;
-}
+.times-cols { display: flex; gap: 0; }
 
 .time-cell {
   font-size: 0.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  width: 2.75rem;       /* 44px — fixed for every column */
+  width: 2.75rem;
   text-align: right;
   letter-spacing: -0.01em;
+}
+
+.time-cell-live {
+  color: #10b981;
+}
+
+@media (prefers-color-scheme: dark) {
+  .time-cell-live { color: #34d399; }
 }
 
 /* ─── Stop rows ─── */
@@ -456,34 +573,76 @@ onUnmounted(() => {
   margin: 0 -0.25rem;
   transition: background 0.1s;
 }
-
 .stop-row-selected {
   background: #ecfdf5;
   margin: 0.125rem -0.25rem;
   padding: 0.5rem 0.25rem;
 }
-
 .stop-row-nearest {
   background: #faf5ff;
   margin: 0.125rem -0.25rem;
   padding: 0.5rem 0.25rem;
 }
+@media (prefers-color-scheme: dark) {
+  .stop-row-selected { background: rgb(16 185 129 / 0.08); }
+  .stop-row-nearest  { background: rgb(168 85 247 / 0.08); }
+}
+
+/* ─── Timetable day tabs ─── */
+.tt-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.625rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tt-tab-active {
+  background: #0f172a;
+  color: white;
+  border-color: #0f172a;
+}
+
+.tt-tab-inactive {
+  background: transparent;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.tt-tab-inactive:hover {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.tt-today-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+}
+
+.tt-tab-active .tt-today-dot {
+  background: #6ee7b7;
+}
 
 @media (prefers-color-scheme: dark) {
-  .stop-row-selected {
-    background: rgb(16 185 129 / 0.08);
-  }
-  .stop-row-nearest {
-    background: rgb(168 85 247 / 0.08);
-  }
+  .tt-tab-active  { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+  .tt-tab-inactive { color: #94a3b8; border-color: #334155; }
+  .tt-tab-inactive:hover { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
+  .tt-tab-active .tt-today-dot { background: #065f46; }
 }
 
 /* ─── Timetable grid ─── */
-.timetable-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-}
+.timetable-grid { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 
 .timetable-chip {
   font-size: 0.7rem;
@@ -493,25 +652,11 @@ onUnmounted(() => {
   border-radius: 0.5rem;
   letter-spacing: 0.01em;
 }
-
-.timetable-chip-future {
-  background: #f1f5f9;
-  color: #334155;
-}
-
-.timetable-chip-past {
-  background: transparent;
-  color: #94a3b8;
-}
+.timetable-chip-future { background: #f1f5f9; color: #334155; }
+.timetable-chip-past   { background: transparent; color: #94a3b8; }
 
 @media (prefers-color-scheme: dark) {
-  .timetable-chip-future {
-    background: #1e293b;
-    color: #e2e8f0;
-  }
-  .timetable-chip-past {
-    background: transparent;
-    color: #475569;
-  }
+  .timetable-chip-future { background: #1e293b; color: #e2e8f0; }
+  .timetable-chip-past   { background: transparent; color: #475569; }
 }
 </style>

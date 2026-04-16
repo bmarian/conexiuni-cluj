@@ -10,13 +10,13 @@ import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, Vehicle} from "@/types/tranzy.ts";
 import {useRoute, useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";
-import {type DisplayShape, useMapStore} from "@/stores/map.ts";
+import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
-const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay} = storeToRefs(mapStore)
+const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedStops} = storeToRefs(mapStore)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -31,6 +31,7 @@ const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
 const shapeLayerGroup = shallowRef<L.FeatureGroup>()
 const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
+const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
 const fallbackColors = [
   '#3b82f6',
   '#10b981',
@@ -219,6 +220,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value.on('zoomend', handleZoomVisibility)
   shapeLayerGroup.value = L.featureGroup().addTo(map.value)
   vehicleLayerGroup.value = L.featureGroup().addTo(map.value)
+  highlightedStopLayerGroup.value = L.featureGroup().addTo(map.value)
   handleZoomVisibility()
 }
 
@@ -323,6 +325,9 @@ watch(shapesToDisplay, (newShapes) => {
     routes: { name: string, color: string }[]
   }>()
 
+  // Only draw terminal markers when NOT in route-highlight mode (they cover the stop dots)
+  const hasHighlights = highlightedStops.value.length > 0
+
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
@@ -346,61 +351,83 @@ watch(shapesToDisplay, (newShapes) => {
       lineCap: 'round'
     }).addTo(shapeLayerGroup.value!)
 
-    const startPoint = latLngs[0]
-    if (startPoint && displayShape.route_short_name) {
-      const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
-      if (!groupedStarts.has(key)) groupedStarts.set(key, {
-        lat: startPoint[0],
-        lng: startPoint[1],
-        routes: []
-      })
-
-      const existing = groupedStarts.get(key)!
-      if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
-        existing.routes.push({name: displayShape.route_short_name, color: routeColor})
+    if (!hasHighlights) {
+      const startPoint = latLngs[0]
+      if (startPoint && displayShape.route_short_name) {
+        const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
+        if (!groupedStarts.has(key)) groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
+        const existing = groupedStarts.get(key)!
+        if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
+          existing.routes.push({name: displayShape.route_short_name, color: routeColor})
+        }
       }
-    }
 
-    const endPoint = latLngs[latLngs.length - 1]
-    if (endPoint) {
-      const endMarkerIcon = L.divIcon({
-        className: 'bg-transparent border-none !overflow-visible',
-        html: `
-          <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
-               style="background-color: ${routeColor};">
-            <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
-          </div>
-        `,
-        iconSize: [24, 24], iconAnchor: [12, 12]
-      })
-      L.marker(endPoint, {icon: endMarkerIcon}).addTo(shapeLayerGroup.value!)
+      const endPoint = latLngs[latLngs.length - 1]
+      if (endPoint) {
+        const endMarkerIcon = L.divIcon({
+          className: 'bg-transparent border-none !overflow-visible',
+          html: `
+            <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
+                 style="background-color: ${routeColor};">
+              <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
+            </div>
+          `,
+          iconSize: [24, 24], iconAnchor: [12, 12]
+        })
+        L.marker(endPoint, {icon: endMarkerIcon}).addTo(shapeLayerGroup.value!)
+      }
     }
   }
 
-  groupedStarts.forEach((data) => {
-    const routesHtml = data.routes.map(r =>
-      `<div style="background-color: ${r.color};"
-            class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
-        ${r.name}
-      </div>`
-    ).join('')
-
-    const startMarkerIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
-      html: `
-        <div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">
-          ${routesHtml}
-        </div>
-      `,
-      iconSize: [0, 0], iconAnchor: [0, 0]
+  if (!hasHighlights) {
+    groupedStarts.forEach((data) => {
+      const routesHtml = data.routes.map(r =>
+        `<div style="background-color: ${r.color};"
+              class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
+          ${r.name}
+        </div>`
+      ).join('')
+      const startMarkerIcon = L.divIcon({
+        className: 'bg-transparent border-none !overflow-visible',
+        html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
+        iconSize: [0, 0], iconAnchor: [0, 0]
+      })
+      L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
     })
-
-    L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
-  })
+  }
 
   if (zoomOut.value && shapeLayerGroup.value.getLayers().length > 0) {
     map.value.fitBounds(shapeLayerGroup.value.getBounds(), {padding: [50, 50]})
     zoomOut.value = false
+  }
+}, {deep: true})
+
+const BUS_STOP_PATH = 'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
+
+const makeHighlightIcon = (color: 'green' | 'purple' | 'gray') => {
+  const bg = color === 'green' ? '#10b981' : color === 'purple' ? '#a855f7' : '#64748b'
+  return L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="${BUS_STOP_PATH}"/></svg>
+    </div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  })
+}
+
+watch(highlightedStops, (stops: HighlightedStop[]) => {
+  if (!highlightedStopLayerGroup.value) return
+  highlightedStopLayerGroup.value.clearLayers()
+  for (const {stopId, color} of stops) {
+    const marker = stopMarkers.get(stopId)
+    if (!marker) continue
+    const latlng = marker.getLatLng()
+    L.marker(latlng, {
+      icon: makeHighlightIcon(color),
+      zIndexOffset: color === 'green' ? 1200 : color === 'purple' ? 1100 : 800,
+      interactive: false,
+    }).addTo(highlightedStopLayerGroup.value!)
   }
 }, {deep: true})
 
@@ -411,18 +438,18 @@ watch(vehiclesToDisplay, (vehicles) => {
   for (let i = 0; i < vehicles.length; i++) {
     const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, heading: number }
 
-    const vehicleColor = routeColorsCache.get(vehicle.trip_id) || '#64748b'
+    if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
+    const resolvedColor = routeColorsCache.get(vehicle.trip_id) || '#64748b'
     const routeName = vehicle.route_short_name || ''
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
-
     const busIcon = L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `
         <div class="relative flex items-center">
           <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
-               style="background-color: ${vehicleColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4 drop-shadow-sm transition-transform duration-500"
+               style="background-color: ${resolvedColor};">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
                  style="transform: rotate(${vehicle.heading || 0}deg);">
               <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
             </svg>

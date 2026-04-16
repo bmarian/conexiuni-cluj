@@ -11,9 +11,13 @@ export type DisplayShape = {
   route_type: number,
 }
 
+export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'gray' }
+
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])
   const vehiclesToDisplay = ref<Vehicle[]>([])
+  const highlightedStops = ref<HighlightedStop[]>([])
+  const vehicleColor = ref<string | null>(null)
   const zoomOut = ref(false)
   const centerOnUser = ref(false)
 
@@ -40,14 +44,26 @@ export const useMapStore = defineStore('map', () => {
     vehiclesToDisplay.value = vehicles
   }
 
+  const setHighlightedStops = (stops: HighlightedStop[]) => {
+    highlightedStops.value = stops
+  }
+
+  const setVehicleColor = (color: string | null) => {
+    vehicleColor.value = color
+  }
+
   return {
     centerOnUser,
     shapesToDisplay,
     zoomOut,
     vehiclesToDisplay,
+    highlightedStops,
+    vehicleColor,
 
     setShapesToDisplay,
     setVehiclesToDisplay,
+    setHighlightedStops,
+    setVehicleColor,
 
     requestShapes,
   }

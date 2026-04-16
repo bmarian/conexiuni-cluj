@@ -16,8 +16,8 @@ import {
 } from "@/types/tranzy.ts";
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
-import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
-import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
+import {haversineMeters} from "@/utils/geo.ts";
+import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA} from "@/composables/useVehicleTracking.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useRouter} from "vue-router";
 
@@ -32,8 +32,6 @@ const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
-const CLOSE_TO_STOP_THRESHOLD = 200
-const VEHICLE_GRACE_PERIOD = 10
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6'
@@ -98,80 +96,6 @@ const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
       if (shape) acc.push({trip_id, route_short_name: shape.route_short_name, route_long_name: shape.timetable?.route_long_name || '', route_color: shape.route_color, route_type: shape.route_type})
       return acc
     }, [])
-}
-
-const getVehiclesOnRoute = async (tripId: string, routeShortName: string, trip: Shape[]): Promise<Vehicle[]> => {
-  if (!trip || !Array.isArray(trip) || trip.length === 0) return []
-  const vehiclesOnRoute = await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[] || []
-  const firstStop = trip[0]!
-  const lastStop = trip[trip.length - 1]!
-  const returnVehicles = []
-  for (let i = 0; i < vehiclesOnRoute.length; i++) {
-    const vehicle = vehiclesOnRoute[i]!
-    const isCloseToFirstStop = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    const isCloseToLastStop = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    if ((isCloseToFirstStop || isCloseToLastStop) && vehicle.speed < 1) continue
-    const vehicleTimestamp = new Date(vehicle.timestamp).getTime()
-    if (isNaN(vehicleTimestamp)) continue
-    const ut = userTime.value?.getTime() || new Date().getTime()
-    if (ut - vehicleTimestamp > VEHICLE_GRACE_PERIOD * 60 * 1000) continue
-    let heading = 0
-    const closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
-    if (closestNode) {
-      const closestIdx = trip.findIndex(t => t.shape_pt_sequence === closestNode.shape_pt_sequence)
-      const targetPt = trip[Math.min(closestIdx + 3, trip.length - 1)]!
-      heading = calculateBearing(vehicle.latitude, vehicle.longitude, targetPt.shape_pt_lat, targetPt.shape_pt_lon)
-    }
-    returnVehicles.push({...vehicle, route_short_name: routeShortName, heading})
-  }
-  return returnVehicles
-}
-
-const getClosestNodeToPoint = ({lat, lon}: { lat: number; lon: number }, trip: Shape[]): Shape | undefined => {
-  let closestDistance = Infinity
-  let closestTrip: Shape | undefined
-  for (const point of trip) {
-    const distance = haversineMeters(point.shape_pt_lat, point.shape_pt_lon, lat, lon)
-    if (distance < closestDistance) {
-      closestDistance = distance
-      closestTrip = point
-    }
-  }
-  return closestTrip
-}
-
-const getClosestVehicleBeforeStop = (vehicles: Vehicle[], closestNodeToStop: Shape, trip: Shape[]) => {
-  let closestDistance = Infinity
-  let bestVehicle: Vehicle | undefined
-  let bestNode: Shape | undefined
-  for (const vehicle of vehicles) {
-    const currentNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
-    if (!currentNode || currentNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
-    const distanceToStop = haversineMeters(currentNode.shape_pt_lat, currentNode.shape_pt_lon, closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon)
-    if (distanceToStop < closestDistance) {
-      closestDistance = distanceToStop
-      bestVehicle = vehicle
-      bestNode = currentNode
-    }
-  }
-  return {closestVehicle: bestVehicle, closestNode: bestNode}
-}
-
-const computeETA = (stopShape: Shape, busShape: Shape, vehicle: Vehicle, trip: Shape[]): number => {
-  const busIndex = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
-  const stopIndex = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)
-  if (busIndex === -1 || stopIndex === -1) return -1
-  if (busIndex > stopIndex) return -2
-  let totalDistance = 0
-  if (busIndex === stopIndex) {
-    totalDistance = haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
-  } else {
-    for (let i = busIndex; i < stopIndex; i++) {
-      const cur = trip[i], next = trip[i + 1]
-      if (cur && next) totalDistance += haversineMeters(cur.shape_pt_lat, cur.shape_pt_lon, next.shape_pt_lat, next.shape_pt_lon)
-    }
-  }
-  return Math.ceil(((totalDistance / 1000) / Math.max(vehicle.speed, 12)) * 60)
 }
 
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
@@ -244,7 +168,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip)
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value)
 
     if (!vehiclesOnRoute.length) {
       results.push(shape)
