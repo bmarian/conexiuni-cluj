@@ -10,6 +10,8 @@ import (
 
 var DB *sql.DB
 
+var lastOptimize time.Time
+
 func Connect(dbPath string) error {
 	var err error
 	connString := dbPath + "?cache=shared&mode=rwc&_journal_mode=WAL&_busy_timeout=5000"
@@ -206,9 +208,14 @@ func InitSchemas() error {
 	return nil
 }
 
-// Optimize runs ANALYZE to update query planner statistics
-// Call this periodically (e.g., after bulk inserts) to maintain read performance
+// Optimize runs ANALYZE to update query planner statistics.
+// It is rate-limited to at most once every 10 minutes to avoid spam
+// when multiple goroutines finish cache writes concurrently.
 func Optimize() error {
+	if time.Since(lastOptimize) < 10*time.Minute {
+		return nil
+	}
+	lastOptimize = time.Now()
 	if _, err := DB.Exec("PRAGMA optimize"); err != nil {
 		return err
 	}

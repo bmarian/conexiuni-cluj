@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"slices"
 )
@@ -61,57 +62,124 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 
 	var outgoingTripIds []string
 	var incomingTripIds []string
-	var routeIds []string
+	routeIDSet := make(map[int]struct{})
 	for _, ast := range apiStopTimes {
-		if ast.StopID == stopInfo.StopID {
-			if strings.HasSuffix(ast.TripID, OUTGOING_SUFFIX) {
-				outgoingTripIds = append(outgoingTripIds, ast.TripID)
-			} else if strings.HasSuffix(ast.TripID, INCOMING_SUFFIX) {
-				incomingTripIds = append(incomingTripIds, ast.TripID)
-			}
-			routeIds = append(routeIds, strings.TrimSuffix(strings.TrimSuffix(ast.TripID, OUTGOING_SUFFIX), INCOMING_SUFFIX))
+		if ast.StopID != stopInfo.StopID {
+			continue
+		}
+		if strings.HasSuffix(ast.TripID, OUTGOING_SUFFIX) {
+			outgoingTripIds = append(outgoingTripIds, ast.TripID)
+		} else if strings.HasSuffix(ast.TripID, INCOMING_SUFFIX) {
+			incomingTripIds = append(incomingTripIds, ast.TripID)
+		}
+		idStr := strings.TrimSuffix(strings.TrimSuffix(ast.TripID, OUTGOING_SUFFIX), INCOMING_SUFFIX)
+		if id, err := strconv.Atoi(idStr); err == nil {
+			routeIDSet[id] = struct{}{}
 		}
 	}
 
 	// This might not be necessary, but I am not sure if there are no stations with duplicates like 1_0 3 times...
 	slices.Sort(outgoingTripIds)
-	outgoingTripIds = slices.Compact(outgoingTripIds)
-	stopInfo.OutgoingTripIds = outgoingTripIds
-
+	stopInfo.OutgoingTripIds = slices.Compact(outgoingTripIds)
 	slices.Sort(incomingTripIds)
-	incomingTripIds = slices.Compact(incomingTripIds)
-	stopInfo.IncomingTripIds = incomingTripIds
+	stopInfo.IncomingTripIds = slices.Compact(incomingTripIds)
 
-	slices.Sort(routeIds)
-	routeIds = slices.Compact(routeIds)
-	stopInfo.ShapesInfo = []models.ShapeInfo{}
-
-	for _, shape := range routeIds {
-		routeID, err := strconv.Atoi(shape)
-		if err != nil {
-			continue
-		}
-
-		routes, errorRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteID: &routeID})
-		if errorRoutes != nil {
-			continue
-		}
-		route := routes[0]
-		routeShortName := route.RouteShortName
-
-		stopTimes, errStopTimes := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &routeShortName})
-		if errStopTimes != nil {
-			continue
-		}
-
-		timetable, errTimetable := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, routeShortName)
-		if errTimetable != nil {
-			continue
-		}
-
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: routeShortName, RouteId: routeID, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
+	// Pre-fetch all routes once and look up by ID, instead of one GetRoutes
+	// call per route — each call hits the cache mutex sequentially.
+	allRoutes, errAll := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+	if errAll != nil {
+		return nil, errAll
 	}
+	routeByID := make(map[int]models.Route, len(allRoutes))
+	for _, r := range allRoutes {
+		routeByID[r.RouteID] = r
+	}
+
+	routeIDs := make([]int, 0, len(routeIDSet))
+	for id := range routeIDSet {
+		routeIDs = append(routeIDs, id)
+	}
+	slices.Sort(routeIDs)
+
+	stopInfo.ShapesInfo = buildShapesInfoParallel(tranzyClient, ctpCjClient, cacheTimes, routeIDs, routeByID)
 	return &stopInfo, nil
+}
+
+// buildShapesInfoParallel resolves per-route stop_times + timetable concurrently
+// for every route_id in `routeIDs`, looking up route metadata from the
+// pre-built `routeByID` map. Returns shapes in the same order as the input.
+// Routes whose stop_times or timetable lookup fails are silently skipped —
+// matching the original sequential code's behaviour.
+func buildShapesInfoParallel(
+	tranzyClient *tranzy.Client,
+	ctpCjClient *ctpcj.Client,
+	cacheTimes models.CacheTimes,
+	routeIDs []int,
+	routeByID map[int]models.Route,
+) []models.ShapeInfo {
+	type slot struct {
+		ok   bool
+		info models.ShapeInfo
+	}
+	slots := make([]slot, len(routeIDs))
+
+	var wg sync.WaitGroup
+	for i, rid := range routeIDs {
+		route, exists := routeByID[rid]
+		if !exists {
+			continue
+		}
+		wg.Add(1)
+		go func(i int, route models.Route) {
+			defer wg.Done()
+			rsn := route.RouteShortName
+
+			// Fetch stop_times and timetable concurrently within this route too —
+			// the slow one (timetable, with its CTP rate-limited CSV fetches) no
+			// longer blocks the fast one.
+			var (
+				stopTimes []models.StopTime
+				timetable *models.Timetable
+				stErr     error
+				ttErr     error
+				inner     sync.WaitGroup
+			)
+			inner.Add(2)
+			go func() {
+				defer inner.Done()
+				stopTimes, stErr = GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn})
+			}()
+			go func() {
+				defer inner.Done()
+				timetable, ttErr = GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn)
+			}()
+			inner.Wait()
+
+			if stErr != nil || ttErr != nil || timetable == nil {
+				return
+			}
+			slots[i] = slot{
+				ok: true,
+				info: models.ShapeInfo{
+					RouteShortName: rsn,
+					RouteId:        route.RouteID,
+					RouteType:      route.RouteType,
+					RouteColor:     route.RouteColor,
+					StopTimes:      stopTimes,
+					Timetable:      *timetable,
+				},
+			}
+		}(i, route)
+	}
+	wg.Wait()
+
+	out := make([]models.ShapeInfo, 0, len(slots))
+	for _, s := range slots {
+		if s.ok {
+			out = append(out, s.info)
+		}
+	}
+	return out
 }
 
 func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, filter StopFilter) (*models.StopInfo, error) {
@@ -140,11 +208,43 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 		return nil, fmt.Errorf("error unmarshalling shapes short names: %w", err)
 	}
 
-	stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &stopInfo.StopID})
-	if errStops != nil || len(stops) == 0 {
-		return nil, errStops
+	// Run all the independent lookups concurrently. With 8+ routes per stop,
+	// this turns the previous ~8 sequential DB reads (each with its own cache
+	// mutex acquisition) into a single fan-out.
+	var (
+		stop         models.Stop
+		stopErr      error
+		allRoutes    []models.Route
+		allRoutesErr error
+		header       sync.WaitGroup
+	)
+	header.Add(2)
+	go func() {
+		defer header.Done()
+		stops, e := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &stopInfo.StopID})
+		if e != nil {
+			stopErr = e
+			return
+		}
+		if len(stops) == 0 {
+			stopErr = fmt.Errorf("stop %d not found", stopInfo.StopID)
+			return
+		}
+		stop = stops[0]
+	}()
+	go func() {
+		defer header.Done()
+		// One bulk fetch instead of one GetRoutes per shape short name.
+		allRoutes, allRoutesErr = GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+	}()
+	header.Wait()
+
+	if stopErr != nil {
+		return nil, stopErr
 	}
-	stop := stops[0]
+	if allRoutesErr != nil {
+		return nil, allRoutesErr
+	}
 
 	stopInfo.StopName = stop.StopName
 	stopInfo.StopDesc = stop.StopDesc
@@ -152,7 +252,6 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	stopInfo.StopLon = stop.StopLon
 	stopInfo.LocationType = stop.LocationType
 	stopInfo.StopCode = stop.StopCode
-	stopInfo.ShapesInfo = []models.ShapeInfo{}
 
 	var outgoingTripIds []string
 	var incomingTripIds []string
@@ -166,26 +265,23 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	stopInfo.OutgoingTripIds = outgoingTripIds
 	stopInfo.IncomingTripIds = incomingTripIds
 
-	for _, shapeShortName := range shapesShortNames {
-		routes, errorRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: &shapeShortName})
-		if errorRoutes != nil {
-			continue
-		}
-		route := routes[0]
-
-		stopTimes, errStopTimes := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &shapeShortName})
-		if errStopTimes != nil {
-			continue
-		}
-
-		timetable, errTimetable := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, shapeShortName)
-		if errTimetable != nil {
-			continue
-		}
-
-		stopInfo.ShapesInfo = append(stopInfo.ShapesInfo, models.ShapeInfo{RouteShortName: shapeShortName, RouteId: route.RouteID, RouteType: route.RouteType, RouteColor: route.RouteColor, StopTimes: stopTimes, Timetable: *timetable})
+	// Map both ways so the helper (keyed by id) can be reused for the
+	// short-name-keyed warm path.
+	routeByID := make(map[int]models.Route, len(allRoutes))
+	routeByShortName := make(map[string]models.Route, len(allRoutes))
+	for _, r := range allRoutes {
+		routeByID[r.RouteID] = r
+		routeByShortName[r.RouteShortName] = r
 	}
 
+	routeIDs := make([]int, 0, len(shapesShortNames))
+	for _, sn := range shapesShortNames {
+		if r, ok := routeByShortName[sn]; ok {
+			routeIDs = append(routeIDs, r.RouteID)
+		}
+	}
+
+	stopInfo.ShapesInfo = buildShapesInfoParallel(tranzyClient, ctpCjClient, cacheTimes, routeIDs, routeByID)
 	return &stopInfo, nil
 }
 
