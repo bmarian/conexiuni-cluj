@@ -561,7 +561,11 @@ onUnmounted(() => {
           v-for="(stop, idx) in stopsForDirection"
           :key="stop.stop_id + '-' + idx"
           :ref="(el) => { if (String(stop.stop_id) === fromStopId) fromStopEl = el as HTMLElement }"
-          :class="['stop-row', String(stop.stop_id) === fromStopId ? 'stop-row-selected' : idx === nearestStopIdx ? 'stop-row-nearest' : '']"
+          :class="['stop-row',
+            String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
+            idx === nearestStopIdx ? 'stop-row-nearest' :
+            favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
+          ]"
         >
           <!-- Track dot -->
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
@@ -602,6 +606,11 @@ onUnmounted(() => {
             <svg v-else-if="idx === nearestStopIdx"
                  class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            <!-- Favorite stop: heart -->
+            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                 class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </div>
 
@@ -768,9 +777,15 @@ onUnmounted(() => {
   padding: 0.625rem 0.5rem;
 }
 
+.stop-row-fav {
+  background: #fff1f2;
+  padding: 0.625rem 0.5rem;
+}
+
 @media (prefers-color-scheme: dark) {
   .stop-row-selected { background: rgb(16 185 129 / 0.08); }
   .stop-row-nearest  { background: rgb(168 85 247 / 0.08); }
+  .stop-row-fav      { background: rgb(244 63 94 / 0.06); }
 }
 
 /* ─── Timetable day tabs ─── */

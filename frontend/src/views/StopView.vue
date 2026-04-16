@@ -65,9 +65,21 @@ const busesWithAvailableTimetables = computed(() => {
 })
 
 const busesWithAvailableTimetablesSorted = computed(() => {
-  return [...(busesWithAvailableTimetables.value || [])].sort((a: ShapeInfo, b: ShapeInfo) =>
-    a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
-  )
+  return [...(busesWithAvailableTimetables.value || [])].sort((a: ShapeInfo, b: ShapeInfo) => {
+    const aFav = favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1
+    const bFav = favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1
+    if (aFav !== bFav) return aFav - bFav
+    return a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
+  })
+})
+
+const departuresSorted = computed(() => {
+  return [...shapesComingToTheStopBasedOnVehiclePositions.value].sort((a, b) => {
+    const aFav = favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1
+    const bFav = favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1
+    if (aFav !== bFav) return aFav - bFav
+    return a.minutes_left - b.minutes_left
+  })
 })
 
 const getTimeOffsetToStop = (stopTime: any[], tripId: string): number => {
@@ -321,10 +333,11 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
       </p>
       <div class="flex flex-col gap-2.5">
         <div
-          v-for="shape in shapesComingToTheStopBasedOnVehiclePositions"
+          v-for="shape in departuresSorted"
           :key="shape.route_short_name"
           @click="navigateToRoute(shape)"
           class="departure-card group"
+          :class="{ 'departure-card-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
         >
           <!-- Left accent bar: live = green, scheduled = transparent -->
           <div :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
@@ -388,6 +401,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           :key="shape.route_short_name"
           @click="navigateToAllRoute(shape)"
           class="all-route-row group"
+          :class="{ 'all-route-row-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
         >
           <div
             class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
@@ -525,6 +539,32 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
 @media (prefers-color-scheme: dark) {
   .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
+}
+
+/* ─── Favorite route highlighting ─── */
+.departure-card-fav {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+.departure-card-fav:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.all-route-row-fav { background: #fff1f2; }
+.all-route-row-fav:hover { background: #ffe4e6 !important; }
+
+@media (prefers-color-scheme: dark) {
+  .departure-card-fav {
+    background: rgb(244 63 94 / 0.08);
+    border-color: rgb(244 63 94 / 0.25);
+  }
+  .departure-card-fav:hover {
+    background: rgb(244 63 94 / 0.14);
+    border-color: rgb(244 63 94 / 0.35);
+  }
+  .all-route-row-fav { background: rgb(244 63 94 / 0.06); }
+  .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important; }
 }
 
 /* ─── Favorite toggle button ─── */
