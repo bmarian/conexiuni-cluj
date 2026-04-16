@@ -26,5 +26,6 @@
   "searchRoutes": "Caută rute...",
   "noResults": "Fără rezultate",
   "addToFavorites": "Adaugă la favorite",
-  "removeFromFavorites": "Elimină din favorite"
+  "removeFromFavorites": "Elimină din favorite",
+  "serviceSuspended": "Serviciu suspendat"
 }

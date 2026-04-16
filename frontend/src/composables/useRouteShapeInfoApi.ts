@@ -1,4 +1,4 @@
-import type {Route, ShapeInfo, StopTime} from '@/types/tranzy.ts'
+import {OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {apiRequest, LOW_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
 
@@ -15,6 +15,16 @@ const emptyTimetable = (route: Route): Timetable => ({
   saturday: emptyDay(),
   sunday: emptyDay(),
 })
+
+/** Best-effort stop-name lookup from stop_times when CTP metadata is missing. */
+function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): string {
+  const outbound = stopTimes
+    .filter((st) => st.trip_id.endsWith(OUTGOING_SUFFIX))
+    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  if (!outbound.length) return ''
+  const target = position === 'first' ? outbound[0] : outbound[outbound.length - 1]
+  return target?.stop_headsign?.trim() ?? ''
+}
 
 export function useRouteShapeInfoApi() {
   async function fetchShapeInfo(route: Route): Promise<ShapeInfo> {
@@ -48,6 +58,15 @@ export function useRouteShapeInfoApi() {
       if (stopTimesResult.status === 'rejected') {
         console.warn(`No stop_times for route ${route.route_short_name}:`, stopTimesResult.reason)
       }
+
+      // Backend returns the timetable shell even when CTP has no CSV — its meta
+      // strings come back empty. Backfill from the canonical Route + stop_times
+      // so RouteView's header / direction toggle / first+last stop labels still
+      // render something meaningful.
+      if (!timetable.route_short_name) timetable.route_short_name = route.route_short_name
+      if (!timetable.route_long_name) timetable.route_long_name = route.route_long_name
+      if (!timetable.in_stop_name) timetable.in_stop_name = deriveTerminalName(stopTimes, 'first')
+      if (!timetable.out_stop_name) timetable.out_stop_name = deriveTerminalName(stopTimes, 'last')
 
       return {
         route_short_name: route.route_short_name,

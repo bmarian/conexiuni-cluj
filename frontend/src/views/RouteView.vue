@@ -195,7 +195,9 @@ const availableTabs = computed(() => {
   return tabs
 })
 
-const timetableEntries = computed(() => {
+type TimetableChip = {time: string; isPast: boolean; isSuspended: boolean}
+
+const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
   if (!tt) return []
   const sched =
@@ -209,15 +211,22 @@ const timetableEntries = computed(() => {
   const now = currentMinutes.value
 
   return sched.entries
-    .map((entry) => {
-      const timeStr = isOutgoing.value ? entry.departure_in : entry.departure_out
+    .map((entry): TimetableChip | null => {
+      const raw = isOutgoing.value ? entry.departure_in : entry.departure_out
+      const timeStr = raw?.trim()
       if (!timeStr) return null
       const absMin = timeStringToMinutes(timeStr)
-      if (absMin === null) return null
-      return {time: timeStr, isPast: isToday && absMin < now}
+      // Non-time strings (e.g. "Suspendat") are kept and rendered with a
+      // distinct chip — dropping them silently leaves the day looking empty.
+      if (absMin === null) return {time: timeStr, isPast: false, isSuspended: true}
+      return {time: timeStr, isPast: isToday && absMin < now, isSuspended: false}
     })
-    .filter((e): e is {time: string; isPast: boolean} => e !== null)
+    .filter((e): e is TimetableChip => e !== null)
 })
+
+const allEntriesSuspended = computed(
+  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended),
+)
 
 // ─── Map integration ─────────────────────────────────────────────────────────
 function updateMap() {
@@ -524,13 +533,13 @@ onUnmounted(() => {
 
       <!-- ─── Full Timetable ─── -->
       <div v-if="availableTabs.length" class="mt-8">
-        <div class="flex items-center gap-2 mb-3">
+        <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
         </div>
 
         <!-- Day selector tabs -->
-        <div class="flex gap-1.5 mb-4">
+        <div class="flex gap-1.5 mb-4!">
           <button
             v-for="tab in availableTabs"
             :key="tab.key"
@@ -542,11 +551,20 @@ onUnmounted(() => {
           </button>
         </div>
 
+        <div v-if="allEntriesSuspended" class="suspended-banner">
+          {{ t('serviceSuspended') }}
+        </div>
+
         <div class="timetable-grid">
           <span
             v-for="(entry, i) in timetableEntries"
             :key="i"
-            :class="['timetable-chip', entry.isPast ? 'timetable-chip-past' : 'timetable-chip-future']"
+            :class="[
+              'timetable-chip',
+              entry.isSuspended ? 'timetable-chip-suspended'
+                : entry.isPast    ? 'timetable-chip-past'
+                                  : 'timetable-chip-future',
+            ]"
           >{{ entry.time }}</span>
         </div>
       </div>
@@ -708,12 +726,38 @@ onUnmounted(() => {
   border-radius: 0.5rem;
   letter-spacing: 0.01em;
 }
-.timetable-chip-future { background: #f1f5f9; color: #334155; }
-.timetable-chip-past   { background: transparent; color: #94a3b8; }
+.timetable-chip-future    { background: #f1f5f9; color: #334155; }
+.timetable-chip-past      { background: transparent; color: #94a3b8; }
+.timetable-chip-suspended {
+  background: #fef2f2;
+  color: #b91c1c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 @media (prefers-color-scheme: dark) {
-  .timetable-chip-future { background: #1e293b; color: #e2e8f0; }
-  .timetable-chip-past   { background: transparent; color: #475569; }
+  .timetable-chip-future    { background: #1e293b; color: #e2e8f0; }
+  .timetable-chip-past      { background: transparent; color: #475569; }
+  .timetable-chip-suspended { background: rgb(244 63 94 / 0.12); color: #fda4af; }
+}
+
+/* ─── Suspended-day banner ─── */
+.suspended-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.625rem;
+  border-radius: 0.625rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+@media (prefers-color-scheme: dark) {
+  .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }
 }
 
 /* ─── Favorite toggle button ─── */
