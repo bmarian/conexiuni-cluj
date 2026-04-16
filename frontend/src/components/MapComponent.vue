@@ -404,8 +404,8 @@ watch(shapesToDisplay, (newShapes) => {
 
 const BUS_STOP_PATH = 'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
 
-const makeHighlightIcon = (color: 'green' | 'purple' | 'gray') => {
-  const bg = color === 'green' ? '#10b981' : color === 'purple' ? '#a855f7' : '#64748b'
+const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
+  const bg = color === 'green' ? '#10b981' : color === 'purple' ? '#a855f7' : color === 'red' ? '#f43f5e' : '#64748b'
   return L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
     html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
@@ -425,7 +425,7 @@ watch(highlightedStops, (stops: HighlightedStop[]) => {
     const latlng = marker.getLatLng()
     L.marker(latlng, {
       icon: makeHighlightIcon(color),
-      zIndexOffset: color === 'green' ? 1200 : color === 'purple' ? 1100 : 800,
+      zIndexOffset: color === 'green' ? 1200 : color === 'purple' ? 1100 : color === 'red' ? 1000 : 800,
       interactive: false,
     }).addTo(highlightedStopLayerGroup.value!)
   }

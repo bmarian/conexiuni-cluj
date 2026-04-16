@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect} from 'vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -272,25 +272,28 @@ function updateMap() {
   zoomOut.value = true
 }
 
-// ─── Highlighted stops on map: all gray, selected green, nearest purple ───────
-watch(
-  [fromStopId, nearestStopIdx, stopsForDirection, userLocation],
-  () => {
-    const highlights: Array<{stopId: string; color: 'green' | 'purple' | 'gray'}> = []
-    stopsForDirection.value.forEach((stop, idx) => {
-      const stopId = String(stop.stop_id)
-      if (stopId === fromStopId.value) {
-        highlights.push({stopId, color: 'green'})
-      } else if (idx === nearestStopIdx.value) {
-        highlights.push({stopId, color: 'purple'})
-      } else {
-        highlights.push({stopId, color: 'gray'})
-      }
-    })
-    mapStore.setHighlightedStops(highlights)
-  },
-  {immediate: true, deep: false},
-)
+// ─── Highlighted stops on map: selected green, nearest purple, fav red, rest gray ───
+// watchEffect auto-tracks every reactive value it reads, including
+// favoriteStopIds array contents (via .includes), fromStopId, nearestStopIdx,
+// and stopsForDirection — so any of those changing re-runs this automatically.
+const {favoriteStopIds} = storeToRefs(favoritesStore)
+
+watchEffect(() => {
+  const highlights: Array<{stopId: string; color: 'green' | 'purple' | 'red' | 'gray'}> = []
+  stopsForDirection.value.forEach((stop, idx) => {
+    const stopId = String(stop.stop_id)
+    if (stopId === fromStopId.value) {
+      highlights.push({stopId, color: 'green'})
+    } else if (idx === nearestStopIdx.value) {
+      highlights.push({stopId, color: 'purple'})
+    } else if (favoriteStopIds.value.includes(stop.stop_id)) {
+      highlights.push({stopId, color: 'red'})
+    } else {
+      highlights.push({stopId, color: 'gray'})
+    }
+  })
+  mapStore.setHighlightedStops(highlights)
+})
 
 // ─── Direction loading + vehicle refresh ─────────────────────────────────────
 let vehicleInterval: ReturnType<typeof setInterval> | null = null
