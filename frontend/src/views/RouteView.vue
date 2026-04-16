@@ -11,11 +11,12 @@ import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/typ
 import {getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {
-  getVehiclesOnRoute,
-  getClosestNodeToPoint,
-  getClosestVehicleBeforeStop,
-  computeETA,
-  type TrackedVehicle,
+  buildShapeIndex,
+  etaForStop,
+  findClosestShapeIdx,
+  getIndexedVehicles,
+  type IndexedVehicle,
+  type ShapeIndex,
 } from '@/composables/useVehicleTracking.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
@@ -58,8 +59,33 @@ function formatGtfsColor(c?: string) {
   return c.startsWith('#') ? c : `#${c}`
 }
 
+// ─── Per-direction state (preloaded for both `_0` and `_1`) ─────────────────
+type DirectionShape = {
+  shape: Shape[]
+  shapeIndex: ShapeIndex
+  /** stop_id → index into shape; missing stops have no live ETA. */
+  stopShapeIdxByStopId: Map<number, number>
+}
+
+const direction0Shape = ref<DirectionShape | null>(null)
+const direction1Shape = ref<DirectionShape | null>(null)
+const direction0Vehicles = ref<IndexedVehicle[]>([])
+const direction1Vehicles = ref<IndexedVehicle[]>([])
+
+const currentDirectionShape = computed(() =>
+  currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value,
+)
+const currentDirectionVehicles = computed(() =>
+  currentDirection.value === '0' ? direction0Vehicles.value : direction1Vehicles.value,
+)
+
+type IndexedStop = StopTime & {timeOffsetFromStart: number}
+
 // ─── Stops for current direction ────────────────────────────────────────────
-const stopsForDirection = computed(() => {
+// Derived synchronously from shapeInfo so the timeline renders immediately,
+// before the shape polyline finishes loading. Live ETAs join later via the
+// per-direction `stopShapeIdxByStopId` map.
+const stopsForDirection = computed((): IndexedStop[] => {
   if (!shapeInfo.value) return []
   const rawStops: StopTime[] = (shapeInfo.value as any).stop_time ?? (shapeInfo.value as any).stop_times ?? []
   const filtered = rawStops
@@ -132,31 +158,21 @@ const baseDepartureTimes = computed((): number[] => {
 })
 
 // ─── Vehicle-aware arrival times per stop ────────────────────────────────────
-const trackedVehicles = ref<TrackedVehicle[]>([])
-const tripShapePoints = ref<Shape[]>([])
-
 interface StopTimeDisplay { label: string; isLive: boolean }
 
-function getStopTimesDisplay(
-  offsetFromStart: number,
-  stopLat?: number,
-  stopLon?: number,
-): StopTimeDisplay[] {
-  const timetableTimes = baseDepartureTimes.value.map(base => base + offsetFromStart)
+function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
+  const timetableTimes = baseDepartureTimes.value.map(base => base + stop.timeOffsetFromStart)
   if (!timetableTimes.length) return []
 
-  // Try to find a live vehicle ETA for the first slot
+  // Live ETA: O(vehicles) — uses the per-direction precomputed shape index.
   let liveMinutes: number | null = null
-  if (stopLat && stopLon && trackedVehicles.value.length && tripShapePoints.value.length) {
-    const nodeAtStop = getClosestNodeToPoint({lat: stopLat, lon: stopLon}, tripShapePoints.value)
-    if (nodeAtStop) {
-      const {closestVehicle, closestNode} = getClosestVehicleBeforeStop(
-        trackedVehicles.value, nodeAtStop, tripShapePoints.value,
-      )
-      if (closestVehicle && closestNode) {
-        const eta = computeETA(nodeAtStop, closestNode, closestVehicle, tripShapePoints.value)
-        if (eta > 0) liveMinutes = eta
-      }
+  const dirShape = currentDirectionShape.value
+  const vehicles = currentDirectionVehicles.value
+  if (dirShape && vehicles.length) {
+    const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
+    if (stopIdx !== undefined && stopIdx >= 0) {
+      const eta = etaForStop(stopIdx, vehicles, dirShape.shapeIndex)
+      if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
     }
   }
 
@@ -229,15 +245,30 @@ const allEntriesSuspended = computed(
 )
 
 // ─── Map integration ─────────────────────────────────────────────────────────
+function buildDisplayShape() {
+  return {
+    trip_id: currentTripId.value,
+    route_short_name: shapeInfo.value!.route_short_name,
+    route_long_name: routeDisplayName.value,
+    route_color: shapeInfo.value!.route_color,
+    route_type: shapeInfo.value!.route_type,
+  }
+}
+
+/** Updates shape + vehicles on the map for the current direction.
+ *  Synchronous when the direction's shape is already loaded — avoids the
+ *  network/clear/redraw flicker that an async `setShapesToDisplay` causes. */
 function updateMap() {
   if (!shapeInfo.value) return
-  mapStore.setShapesToDisplay([{
-    trip_id: currentTripId.value,
-    route_short_name: shapeInfo.value.route_short_name,
-    route_long_name: routeDisplayName.value,
-    route_color: shapeInfo.value.route_color,
-    route_type: shapeInfo.value.route_type,
-  }])
+  const dirShape = currentDirectionShape.value
+  const meta = buildDisplayShape()
+  if (dirShape) {
+    mapStore.setLoadedShapes([[meta, dirShape.shape]])
+  } else {
+    // First paint, before loadAllDirections finishes — fall back to network.
+    void mapStore.setShapesToDisplay([meta])
+  }
+  mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
   zoomOut.value = true
 }
 
@@ -261,42 +292,95 @@ watch(
   {immediate: true, deep: false},
 )
 
-// ─── Vehicles ────────────────────────────────────────────────────────────────
+// ─── Direction loading + vehicle refresh ─────────────────────────────────────
 let vehicleInterval: ReturnType<typeof setInterval> | null = null
 
-async function fetchVehicles() {
-  if (!shapeInfo.value) return
+/**
+ * Fetches one direction's shape, builds its index, and computes the
+ * stop_id → shapeIdx lookup table once. Returns null if there's no shape
+ * (route doesn't run that direction).
+ */
+async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null> {
+  if (!shapeInfo.value) return null
+  const tripId = `${props.routeId}${dir === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
   try {
     const shapeData = await mapStore.requestShapes([{
-      trip_id: currentTripId.value,
+      trip_id: tripId,
       route_short_name: shapeInfo.value.route_short_name,
       route_long_name: routeDisplayName.value,
       route_color: shapeInfo.value.route_color,
       route_type: shapeInfo.value.route_type,
     }])
-    const trip = shapeData[0]?.[1]
-    if (!trip?.length) return
+    const shape = shapeData[0]?.[1] ?? []
+    if (!shape.length) return null
 
-    tripShapePoints.value = trip
+    const shapeIndex = buildShapeIndex(shape)
+    const rawStops: StopTime[] = (shapeInfo.value as any).stop_time ?? (shapeInfo.value as any).stop_times ?? []
+    const tripStops = rawStops.filter((st) => st.trip_id === tripId)
 
-    const vehicles = await getVehiclesOnRoute(
-      currentTripId.value,
-      shapeInfo.value.route_short_name,
-      trip,
-      userTime.value,
-    )
-    trackedVehicles.value = vehicles
-    mapStore.setVehiclesToDisplay(vehicles)
+    const stopShapeIdxByStopId = new Map<number, number>()
+    for (const st of tripStops) {
+      if (!st.stop_lat || !st.stop_lon) continue
+      stopShapeIdxByStopId.set(st.stop_id, findClosestShapeIdx(st.stop_lat, st.stop_lon, shape))
+    }
+
+    return {shape, shapeIndex, stopShapeIdxByStopId}
   } catch (e) {
-    console.warn('Failed to fetch vehicles:', e)
+    console.warn(`Failed to load direction ${dir} shape:`, e)
+    return null
   }
 }
 
+async function loadAllDirections() {
+  // Both directions in parallel — switching after this is purely visual.
+  const [d0, d1] = await Promise.all([loadDirectionShape('0'), loadDirectionShape('1')])
+  direction0Shape.value = d0
+  direction1Shape.value = d1
+}
+
+async function refreshVehicles() {
+  if (!shapeInfo.value) return
+  const routeShortName = shapeInfo.value.route_short_name
+  const tasks: Promise<void>[] = []
+
+  if (direction0Shape.value) {
+    tasks.push((async () => {
+      try {
+        direction0Vehicles.value = await getIndexedVehicles(
+          `${props.routeId}${OUTGOING_SUFFIX}`,
+          routeShortName,
+          direction0Shape.value!.shapeIndex,
+          userTime.value,
+        )
+      } catch (e) {
+        console.warn('Failed to fetch outgoing vehicles:', e)
+      }
+    })())
+  }
+  if (direction1Shape.value) {
+    tasks.push((async () => {
+      try {
+        direction1Vehicles.value = await getIndexedVehicles(
+          `${props.routeId}${INCOMING_SUFFIX}`,
+          routeShortName,
+          direction1Shape.value!.shapeIndex,
+          userTime.value,
+        )
+      } catch (e) {
+        console.warn('Failed to fetch incoming vehicles:', e)
+      }
+    })())
+  }
+
+  await Promise.all(tasks)
+  mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
+}
+
+// Direction switch is now ~free: data for both directions is already in
+// memory, so we only need to repaint the map and re-show the matching
+// vehicles. No fetches, no recomputation.
 watch(currentDirection, () => {
-  trackedVehicles.value = []
-  tripShapePoints.value = []
   updateMap()
-  void fetchVehicles()
 })
 
 // ─── Scroll to from-stop ─────────────────────────────────────────────────────
@@ -340,10 +424,20 @@ onMounted(async () => {
     isInitialLoading.value = false
     if (!ok) return
   }
+  // First paint: shapes not loaded yet — `updateMap` will fall back to a
+  // network fetch via `setShapesToDisplay`. The in-flight dedupe in
+  // `apiRequest` ensures this fetch is shared with `loadAllDirections`'s
+  // request for the same direction (no duplicate hit).
   updateMap()
   scrollToFromStop()
-  void fetchVehicles()
-  vehicleInterval = setInterval(() => void fetchVehicles(), 10_000)
+  // Load both directions' shapes in parallel; once they land, re-paint the
+  // map from the cached data (synchronous, no flicker) and start polling
+  // vehicles for both directions so direction switches are instant.
+  void loadAllDirections().then(() => {
+    updateMap()
+    void refreshVehicles()
+  })
+  vehicleInterval = setInterval(() => void refreshVehicles(), 10_000)
 })
 
 onUnmounted(() => {
@@ -514,7 +608,7 @@ onUnmounted(() => {
           <!-- Arrival times -->
           <div class="times-cols shrink-0">
             <span
-              v-for="(t, i) in getStopTimesDisplay(stop.timeOffsetFromStart, stop.stop_lat, stop.stop_lon)"
+              v-for="(t, i) in getStopTimesDisplay(stop)"
               :key="i"
               :class="[
                 'time-cell',

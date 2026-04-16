@@ -28,7 +28,7 @@ func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filt
 	if filter.RouteID != nil {
 		f := filter
 		opts.PostProcess = func(vs []models.Vehicle) []models.Vehicle {
-			var out []models.Vehicle
+			out := make([]models.Vehicle, 0)
 			for _, v := range vs {
 				if f.RouteID != nil && v.RouteID != *f.RouteID {
 					continue
@@ -57,8 +57,11 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 	if err := json.Unmarshal(data, &vehicles); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal vehicles: %w", err)
 	}
+	if vehicles == nil {
+		vehicles = make([]models.Vehicle, 0)
+	}
 
-	var filteredVehicles []models.Vehicle
+	filteredVehicles := make([]models.Vehicle, 0)
 	for _, vehicle := range vehicles {
 		if filter.RouteID != nil && vehicle.RouteID != *filter.RouteID {
 			continue
@@ -161,7 +164,7 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 		_ = rows.Close()
 	}(rows)
 
-	var vehicles []models.Vehicle
+	vehicles := make([]models.Vehicle, 0)
 	for rows.Next() {
 		var vehicle models.Vehicle
 		err := rows.Scan(

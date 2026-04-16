@@ -25,7 +25,7 @@ func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter
 	if filter.ShapeID != nil {
 		f := filter
 		opts.PostProcess = func(ss []models.Shape) []models.Shape {
-			var out []models.Shape
+			out := make([]models.Shape, 0)
 			for _, s := range ss {
 				if f.ShapeID != nil && s.ShapeID != *f.ShapeID {
 					continue
@@ -56,6 +56,9 @@ func requestShapes(tranzyClient *tranzy.Client) ([]models.Shape, error) {
 	if err := json.Unmarshal(data, &shapes); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal shapes: %w", err)
 	}
+	if shapes == nil {
+		shapes = make([]models.Shape, 0)
+	}
 
 	return shapes, nil
 }
@@ -82,7 +85,7 @@ func getShapesFromDB(filter ShapeFilter) ([]models.Shape, error) {
 		_ = rows.Close()
 	}(rows)
 
-	var shapes []models.Shape
+	shapes := make([]models.Shape, 0)
 	for rows.Next() {
 		var shape models.Shape
 		err := rows.Scan(

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v3/client"
@@ -41,6 +42,12 @@ func (c *Client) doRequest(routeShortName string, day DayOfTheWeek) ([]byte, err
 	return resp.Body(), nil
 }
 
+// FetchTimetable returns whatever per-day timetables can be parsed.
+// Per-day failures (404, malformed CSV, transport errors) are logged and skipped
+// rather than failing the whole request — many routes only publish a subset of
+// days, and CTP occasionally returns HTML error pages that fail CSV parsing.
+// The caller is responsible for handling the all-nil case (e.g. by returning an
+// empty timetable so the frontend can backfill metadata from canonical sources).
 func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sunday *ParsedTimetable, err error) {
 	if err = c.limiter.Wait(context.Background()); err != nil {
 		return nil, nil, nil, fmt.Errorf("ctpcj: rate limiter: %w", err)
@@ -54,20 +61,22 @@ func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sund
 		{DayS, &saturday},
 		{DayD, &sunday},
 	} {
-		data, err := c.doRequest(routeShortName, pair.day)
-		if errors.Is(err, ErrNotFound) {
+		data, reqErr := c.doRequest(routeShortName, pair.day)
+		if errors.Is(reqErr, ErrNotFound) {
 			continue
 		}
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s/%s: %w", routeShortName, pair.day, err)
+		if reqErr != nil {
+			log.Printf("ctpcj: skip %s/%s: %v", routeShortName, pair.day, reqErr)
+			continue
 		}
-		parsed, err := ParseTimetableCSV(data)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("parse %s/%s: %w", routeShortName, pair.day, err)
+		parsed, parseErr := ParseTimetableCSV(data)
+		if parseErr != nil {
+			log.Printf("ctpcj: skip %s/%s: parse error: %v", routeShortName, pair.day, parseErr)
+			continue
 		}
 		*pair.dst = parsed
 	}
-	return
+	return weekdays, saturday, sunday, nil
 }
 
 func NewClient(baseUrl string, rateLimit time.Duration) *Client {

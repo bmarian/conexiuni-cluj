@@ -26,17 +26,22 @@ export const useMapStore = defineStore('map', () => {
     shapesToDisplay.value = await requestShapes(displayShapes)
   }
 
+  /** Synchronous setter for callers that already have shape data in memory
+   *  (e.g. RouteView preloading both directions). Avoids the network round-trip
+   *  through `setShapesToDisplay` and the brief flicker that comes with it. */
+  const setLoadedShapes = (entries: Array<[DisplayShape, Shape[]]>) => {
+    shapesToDisplay.value = entries
+  }
+
   const requestShapes = async (displayShapes: DisplayShape[]) => {
     if (!displayShapes) return []
 
-    const results: Array<[DisplayShape, Shape[]]> = []
-    for (let i = 0; i < displayShapes.length; i++) {
-      const displayShape = displayShapes[i]!
-      const response = await apiRequest(`shapes?shape_id=${displayShape.trip_id}`) as Shape[]
-      results.push([displayShape, response])
-    }
-
-    return results
+    return Promise.all(
+      displayShapes.map(async (displayShape): Promise<[DisplayShape, Shape[]]> => {
+        const response = (await apiRequest(`shapes?shape_id=${displayShape.trip_id}`) as Shape[]) ?? []
+        return [displayShape, response]
+      }),
+    )
   }
 
   const setVehiclesToDisplay = (vehicles: Vehicle[]) => {
@@ -61,6 +66,7 @@ export const useMapStore = defineStore('map', () => {
     vehicleColor,
 
     setShapesToDisplay,
+    setLoadedShapes,
     setVehiclesToDisplay,
     setHighlightedStops,
     setVehicleColor,
