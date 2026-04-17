@@ -13,5 +13,7 @@
 
 body {
   margin: 0;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Safe-area insets are applied inside the app shell (drawer handles bottom,
+     map handles top) so the map can extend edge-to-edge on mobile. */
+  padding: 0;
 }
