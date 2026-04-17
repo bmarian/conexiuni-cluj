@@ -32,27 +32,25 @@ const mapStore = useMapStore()
 const favoritesStore = useFavoritesStore()
 const {userTime, userLocation} = storeToRefs(userStore)
 const {zoomOut, centerOnUser} = storeToRefs(mapStore)
+const {favoriteStopIds} = storeToRefs(favoritesStore)
 
 const routeIdNum = computed(() => Number(props.routeId))
 const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value))
-
 const shapeInfo = computed(() => routeStore.selectedShapeInfo)
 const fromStopId = computed(() => routeStore.fromStopId)
 const fromStopName = computed(() => routeStore.fromStopName)
 
 const currentDirection = ref<'0' | '1'>(props.direction === '1' ? '1' : '0')
 const isOutgoing = computed(() => currentDirection.value === '0')
-
 const currentTripId = computed(() =>
   `${props.routeId}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
 )
 
 const timetable = computed(() => shapeInfo.value?.timetable)
-
 const routeDisplayName = computed(() => {
-  const t = timetable.value
-  if (!t) return shapeInfo.value?.route_short_name || ''
-  return isOutgoing.value ? t.route_long_name : `${t.out_stop_name} - ${t.in_stop_name}`
+  const tt = timetable.value
+  if (!tt) return shapeInfo.value?.route_short_name || ''
+  return isOutgoing.value ? tt.route_long_name : `${tt.out_stop_name} - ${tt.in_stop_name}`
 })
 
 function formatGtfsColor(c?: string) {
@@ -60,7 +58,6 @@ function formatGtfsColor(c?: string) {
   return c.startsWith('#') ? c : `#${c}`
 }
 
-// ─── Per-direction state (preloaded for both `_0` and `_1`) ─────────────────
 type DirectionShape = {
   shape: Shape[]
   shapeIndex: ShapeIndex
@@ -73,21 +70,22 @@ const direction0Vehicles = ref<IndexedVehicle[]>([])
 const direction1Vehicles = ref<IndexedVehicle[]>([])
 
 const currentDirectionShape = computed(() =>
-  currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value,
+  currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value
 )
 const currentDirectionVehicles = computed(() =>
-  currentDirection.value === '0' ? direction0Vehicles.value : direction1Vehicles.value,
+  currentDirection.value === '0' ? direction0Vehicles.value : direction1Vehicles.value
 )
 
-type IndexedStop = StopTime & {timeOffsetFromStart: number}
+type IndexedStop = StopTime & { timeOffsetFromStart: number }
+
+const rawStops = computed((): StopTime[] =>
+  (shapeInfo.value as any)?.stop_time ?? (shapeInfo.value as any)?.stop_times ?? []
+)
 
 const stopsForDirection = computed((): IndexedStop[] => {
-  if (!shapeInfo.value) return []
-  const rawStops: StopTime[] = (shapeInfo.value as any).stop_time ?? (shapeInfo.value as any).stop_times ?? []
-  const filtered = rawStops
+  const filtered = rawStops.value
     .filter((st) => st.trip_id === currentTripId.value)
     .sort((a, b) => a.stop_sequence - b.stop_sequence)
-
   let cumulative = 0
   return filtered.map((st) => {
     const offset = cumulative
@@ -96,11 +94,17 @@ const stopsForDirection = computed((): IndexedStop[] => {
   })
 })
 
+const hasOutgoing = computed(() =>
+  rawStops.value.some((st) => st.trip_id === `${props.routeId}${OUTGOING_SUFFIX}`)
+)
+const hasIncoming = computed(() =>
+  rawStops.value.some((st) => st.trip_id === `${props.routeId}${INCOMING_SUFFIX}`)
+)
+
 const nearestStopIdx = computed(() => {
   const loc = userLocation.value
   if (!loc || !stopsForDirection.value.length) return -1
-  let best = -1
-  let bestDist = Infinity
+  let best = -1, bestDist = Infinity
   stopsForDirection.value.forEach((stop, idx) => {
     if (!stop.stop_lat || !stop.stop_lon) return
     const d = haversineMeters(loc.latitude, loc.longitude, stop.stop_lat, stop.stop_lon)
@@ -109,24 +113,12 @@ const nearestStopIdx = computed(() => {
   return best
 })
 
-const hasOutgoing = computed(() => {
-  const raw: StopTime[] = (shapeInfo.value as any)?.stop_time ?? (shapeInfo.value as any)?.stop_times ?? []
-  return raw.some((st) => st.trip_id === `${props.routeId}${OUTGOING_SUFFIX}`)
-})
-
-const hasIncoming = computed(() => {
-  const raw: StopTime[] = (shapeInfo.value as any)?.stop_time ?? (shapeInfo.value as any)?.stop_times ?? []
-  return raw.some((st) => st.trip_id === `${props.routeId}${INCOMING_SUFFIX}`)
-})
-
-// ─── Time helpers ────────────────────────────────────────────────────────────
 const currentMinutes = computed(() => getMinutesFromDate(userTime.value || new Date()))
 
 function formatMinutes(minutes: number): string {
   if (minutes === 0) return t('now')
   if (minutes < 60) return `${minutes}m`
-  const base = userTime.value || new Date()
-  const future = new Date(base.getTime() + minutes * 60_000)
+  const future = new Date((userTime.value || new Date()).getTime() + minutes * 60_000)
   return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
 }
 
@@ -140,16 +132,14 @@ function formatAbsoluteMinutes(absMin: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
-// ─── Next 3 base departure times (abs minutes) from first stop ───────────────
 const baseDepartureTimes = computed((): number[] => {
   const tt = timetable.value
   if (!tt) return []
   const today = (userTime.value || new Date()).getDay()
-  const todaySchedule = today === 0 ? tt.sunday : today === 6 ? tt.saturday : tt.weekdays
-  if (!todaySchedule?.entries?.length) return []
-
-  return todaySchedule.entries
-    .map((entry) => timeStringToMinutes(isOutgoing.value ? entry.departure_in : entry.departure_out))
+  const sched = today === 0 ? tt.sunday : today === 6 ? tt.saturday : tt.weekdays
+  if (!sched?.entries?.length) return []
+  return sched.entries
+    .map((e) => timeStringToMinutes(isOutgoing.value ? e.departure_in : e.departure_out))
     .filter((v): v is number => v !== null)
     .map((absMin) => ({absMin, delta: ((absMin - currentMinutes.value) + 1440) % 1440}))
     .filter((v) => v.delta < 480)
@@ -158,37 +148,37 @@ const baseDepartureTimes = computed((): number[] => {
     .map((v) => v.absMin)
 })
 
-// ─── Vehicle-aware arrival times per stop ────────────────────────────────────
 interface StopTimeDisplay { label: string; isLive: boolean }
 
 function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
-  const timetableTimes = baseDepartureTimes.value.map(base => base + stop.timeOffsetFromStart)
-  if (!timetableTimes.length) return []
-
+  const times = baseDepartureTimes.value.map((base) => base + stop.timeOffsetFromStart)
+  if (!times.length) return []
   let liveMinutes: number | null = null
   const dirShape = currentDirectionShape.value
-  const vehicles = currentDirectionVehicles.value
-  if (dirShape && vehicles.length) {
+  if (dirShape && currentDirectionVehicles.value.length) {
     const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
     if (stopIdx !== undefined && stopIdx >= 0) {
-      const eta = etaForStop(stopIdx, vehicles, dirShape.shapeIndex)
+      const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex)
       if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
     }
   }
-
-  return timetableTimes.map((absMin, i) => {
-    if (i === 0 && liveMinutes !== null) {
-      return {label: formatMinutes(liveMinutes), isLive: true}
-    }
+  return times.map((absMin, i) => {
+    if (i === 0 && liveMinutes !== null) return {label: formatMinutes(liveMinutes), isLive: true}
     return {label: formatMinutes(minutesLeft(absMin)), isLive: false}
   })
 }
 
 function getHeaderTimes(): string[] {
-  return baseDepartureTimes.value.map(base => formatMinutes(minutesLeft(base)))
+  return baseDepartureTimes.value.map((base) => formatMinutes(minutesLeft(base)))
 }
 
-// ─── Full timetable ──────────────────────────────────────────────────────────
+function getStopLabel(idx: number, stop: IndexedStop): string {
+  const last = stopsForDirection.value.length - 1
+  if (idx === 0) return isOutgoing.value ? (timetable.value?.in_stop_name ?? '') : (timetable.value?.out_stop_name ?? '')
+  if (idx === last) return isOutgoing.value ? (timetable.value?.out_stop_name ?? '') : (timetable.value?.in_stop_name ?? '')
+  return stop.stop_headsign || `Stop ${idx + 1}`
+}
+
 type TimetableTab = 'weekdays' | 'saturday' | 'sunday'
 
 const todayTab = computed((): TimetableTab => {
@@ -210,7 +200,7 @@ const availableTabs = computed(() => {
   return tabs
 })
 
-type TimetableChip = {time: string; isPast: boolean; isSuspended: boolean}
+type TimetableChip = { time: string; isPast: boolean; isSuspended: boolean }
 
 const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
@@ -220,58 +210,65 @@ const timetableEntries = computed((): TimetableChip[] => {
     selectedTimetableTab.value === 'saturday' ? tt.saturday :
     tt.weekdays
   if (!sched?.entries?.length) return []
-
   const isToday = selectedTimetableTab.value === todayTab.value
   const now = currentMinutes.value
-
   return sched.entries
     .map((entry): TimetableChip | null => {
-      const raw = isOutgoing.value ? entry.departure_in : entry.departure_out
-      const timeStr = raw?.trim()
-      if (!timeStr) return null
-      const absMin = timeStringToMinutes(timeStr)
-      if (absMin === null) return {time: timeStr, isPast: false, isSuspended: true}
-      return {time: timeStr, isPast: isToday && absMin < now, isSuspended: false}
+      const raw = (isOutgoing.value ? entry.departure_in : entry.departure_out)?.trim()
+      if (!raw) return null
+      const absMin = timeStringToMinutes(raw)
+      if (absMin === null) return {time: raw, isPast: false, isSuspended: true}
+      return {time: raw, isPast: isToday && absMin < now, isSuspended: false}
     })
     .filter((e): e is TimetableChip => e !== null)
 })
 
 const allEntriesSuspended = computed(
-  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended),
+  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended)
 )
 
-// ─── Timetable click → trip view ─────────────────────────────────────────────
+type HourGroup = { hour: string; chips: TimetableChip[] }
+
+const timetableByHour = computed((): HourGroup[] => {
+  const groups = new Map<string, TimetableChip[]>()
+  for (const entry of timetableEntries.value) {
+    if (entry.isSuspended) continue
+    const hour = entry.time.slice(0, 2)
+    if (!groups.has(hour)) groups.set(hour, [])
+    groups.get(hour)!.push(entry)
+  }
+  return Array.from(groups.entries()).map(([hour, chips]) => ({hour, chips}))
+})
+
 const selectedDepartureTime = ref<string | null>(null)
+const tripViewRef = ref<HTMLElement | null>(null)
 
 function selectDeparture(entry: TimetableChip) {
   if (entry.isSuspended) return
   selectedDepartureTime.value = selectedDepartureTime.value === entry.time ? null : entry.time
 }
 
-// Reset trip view when switching direction or day tab
+watch(selectedDepartureTime, async (val) => {
+  if (!val) return
+  await nextTick()
+  tripViewRef.value?.scrollIntoView({behavior: 'smooth', block: 'nearest'})
+})
+
 watch(currentDirection, () => { selectedDepartureTime.value = null })
 watch(selectedTimetableTab, () => { selectedDepartureTime.value = null })
 
-type TripStop = IndexedStop & {arrivalTimeStr: string}
+type TripStop = IndexedStop & { arrivalTimeStr: string }
 
 const selectedDepartureStops = computed((): TripStop[] => {
   if (!selectedDepartureTime.value) return []
   const depMin = timeStringToMinutes(selectedDepartureTime.value)
   if (depMin === null) return []
-  return stopsForDirection.value.map(stop => ({
+  return stopsForDirection.value.map((stop) => ({
     ...stop,
     arrivalTimeStr: formatAbsoluteMinutes(depMin + stop.timeOffsetFromStart),
   }))
 })
 
-function getStopLabel(idx: number, stop: IndexedStop): string {
-  const last = stopsForDirection.value.length - 1
-  if (idx === 0) return isOutgoing.value ? (timetable.value?.in_stop_name ?? '') : (timetable.value?.out_stop_name ?? '')
-  if (idx === last) return isOutgoing.value ? (timetable.value?.out_stop_name ?? '') : (timetable.value?.in_stop_name ?? '')
-  return stop.stop_headsign || `Stop ${idx + 1}`
-}
-
-// ─── Map integration ─────────────────────────────────────────────────────────
 function buildDisplayShape() {
   return {
     trip_id: currentTripId.value,
@@ -295,26 +292,18 @@ function updateMap() {
   zoomOut.value = true
 }
 
-const {favoriteStopIds} = storeToRefs(favoritesStore)
-
 watchEffect(() => {
   const highlights: Array<{stopId: string; color: 'green' | 'purple' | 'red' | 'gray'}> = []
   stopsForDirection.value.forEach((stop, idx) => {
     const stopId = String(stop.stop_id)
-    if (stopId === fromStopId.value) {
-      highlights.push({stopId, color: 'green'})
-    } else if (idx === nearestStopIdx.value) {
-      highlights.push({stopId, color: 'purple'})
-    } else if (favoriteStopIds.value.includes(stop.stop_id)) {
-      highlights.push({stopId, color: 'red'})
-    } else {
-      highlights.push({stopId, color: 'gray'})
-    }
+    if (stopId === fromStopId.value) highlights.push({stopId, color: 'green'})
+    else if (idx === nearestStopIdx.value) highlights.push({stopId, color: 'purple'})
+    else if (favoriteStopIds.value.includes(stop.stop_id)) highlights.push({stopId, color: 'red'})
+    else highlights.push({stopId, color: 'gray'})
   })
   mapStore.setHighlightedStops(highlights)
 })
 
-// ─── Direction loading + vehicle refresh ─────────────────────────────────────
 const streamTripIds = computed<string[]>(() => {
   const ids: string[] = []
   if (direction0Shape.value) ids.push(`${props.routeId}${OUTGOING_SUFFIX}`)
@@ -336,17 +325,13 @@ async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null
     }])
     const shape = shapeData[0]?.[1] ?? []
     if (!shape.length) return null
-
     const shapeIndex = buildShapeIndex(shape)
-    const rawStops: StopTime[] = (shapeInfo.value as any).stop_time ?? (shapeInfo.value as any).stop_times ?? []
-    const tripStops = rawStops.filter((st) => st.trip_id === tripId)
-
+    const tripStops = rawStops.value.filter((st) => st.trip_id === tripId)
     const stopShapeIdxByStopId = new Map<number, number>()
     for (const st of tripStops) {
       if (!st.stop_lat || !st.stop_lon) continue
       stopShapeIdxByStopId.set(st.stop_id, findClosestShapeIdx(st.stop_lat, st.stop_lon, shape))
     }
-
     return {shape, shapeIndex, stopShapeIdxByStopId}
   } catch (e) {
     console.warn(`Failed to load direction ${dir} shape:`, e)
@@ -362,55 +347,32 @@ async function loadAllDirections() {
 
 async function refreshVehiclesFromStream() {
   if (!shapeInfo.value) return
-  const routeShortName = shapeInfo.value.route_short_name
-  const outgoingTripId = `${props.routeId}${OUTGOING_SUFFIX}`
-  const incomingTripId = `${props.routeId}${INCOMING_SUFFIX}`
+  const name = shapeInfo.value.route_short_name
   const byTrip = vehiclesByTrip.value
-
   const tasks: Promise<void>[] = []
-
   if (direction0Shape.value) {
+    const tid = `${props.routeId}${OUTGOING_SUFFIX}`
     tasks.push((async () => {
       try {
-        direction0Vehicles.value = await getIndexedVehicles(
-          outgoingTripId,
-          routeShortName,
-          direction0Shape.value!.shapeIndex,
-          userTime.value,
-          byTrip.get(outgoingTripId) ?? [],
-        )
-      } catch (e) {
-        console.warn('Failed to index outgoing vehicles:', e)
-      }
+        direction0Vehicles.value = await getIndexedVehicles(tid, name, direction0Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
+      } catch (e) { console.warn('Failed to index outgoing vehicles:', e) }
     })())
   }
   if (direction1Shape.value) {
+    const tid = `${props.routeId}${INCOMING_SUFFIX}`
     tasks.push((async () => {
       try {
-        direction1Vehicles.value = await getIndexedVehicles(
-          incomingTripId,
-          routeShortName,
-          direction1Shape.value!.shapeIndex,
-          userTime.value,
-          byTrip.get(incomingTripId) ?? [],
-        )
-      } catch (e) {
-        console.warn('Failed to index incoming vehicles:', e)
-      }
+        direction1Vehicles.value = await getIndexedVehicles(tid, name, direction1Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
+      } catch (e) { console.warn('Failed to index incoming vehicles:', e) }
     })())
   }
-
   await Promise.all(tasks)
   mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
 }
 
 watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
+watch(currentDirection, () => { updateMap() })
 
-watch(currentDirection, () => {
-  updateMap()
-})
-
-// ─── Scroll to from-stop ─────────────────────────────────────────────────────
 const fromStopEl = ref<HTMLElement | null>(null)
 
 async function scrollToFromStop() {
@@ -420,7 +382,7 @@ async function scrollToFromStop() {
 
 const isInitialLoading = ref(false)
 
-const goBack = () => {
+function goBack() {
   if (fromStopId.value) {
     router.push({name: 'stop', params: {stopId: fromStopId.value}})
   } else {
@@ -454,9 +416,7 @@ onMounted(async () => {
   }
   updateMap()
   scrollToFromStop()
-  void loadAllDirections().then(() => {
-    updateMap()
-  })
+  void loadAllDirections().then(() => { updateMap() })
 })
 
 onUnmounted(() => {
@@ -485,10 +445,7 @@ onUnmounted(() => {
       <h1 class="text-lg font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>
       <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{{ t('notFoundDesc') }}</p>
     </div>
-    <button
-      @click="goBack"
-      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity"
-    >
+    <button @click="goBack" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
       </svg>
@@ -498,12 +455,8 @@ onUnmounted(() => {
 
   <div v-else class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
-    <!-- ─── Back button ─── -->
     <div class="flex items-center mb-4!">
-      <button
-        @click="goBack"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
-      >
+      <button @click="goBack" class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -511,7 +464,6 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- ─── Route identity header ─── -->
     <header class="flex items-start gap-4 pb-5">
       <div
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
@@ -547,23 +499,14 @@ onUnmounted(() => {
       </button>
     </header>
 
-    <!-- ─── Direction toggle ─── -->
     <div class="direction-toggle-wrap">
-      <button
-        :disabled="!hasOutgoing"
-        @click="currentDirection = '0'"
-        :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']"
-      >
+      <button :disabled="!hasOutgoing" @click="currentDirection = '0'" :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
         <span class="truncate">{{ timetable?.out_stop_name }}</span>
       </button>
-      <button
-        :disabled="!hasIncoming"
-        @click="currentDirection = '1'"
-        :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']"
-      >
+      <button :disabled="!hasIncoming" @click="currentDirection = '1'" :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
@@ -571,14 +514,12 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- ─── No trips message ─── -->
     <div v-if="!stopsForDirection.length" class="mt-8 text-center text-slate-400 dark:text-slate-500 text-sm">
       {{ t('noSchedule') }}
     </div>
 
     <div v-else>
 
-      <!-- ─── Stops section header ─── -->
       <div class="stops-header">
         <span class="section-label-text">{{ t('stops') }}</span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
@@ -590,7 +531,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ─── Transit timeline ─── -->
       <div class="relative">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
@@ -604,75 +544,55 @@ onUnmounted(() => {
             favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
           ]"
         >
-          <!-- Track dot -->
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-            <div v-if="String(stop.stop_id) === fromStopId"
-                 class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === nearestStopIdx"
-                 class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
-                 class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-            <div v-else
-                 class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+            <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+            <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
           </div>
 
-          <!-- Stop label + status icon -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
             <span :class="[
               'text-sm leading-tight truncate',
-              String(stop.stop_id) === fromStopId
-                ? 'font-bold text-emerald-500 dark:text-emerald-400'
-                : idx === nearestStopIdx
-                  ? 'font-semibold text-purple-500 dark:text-purple-400'
-                  : idx === 0 || idx === stopsForDirection.length - 1
-                    ? 'font-semibold text-slate-700 dark:text-slate-200'
-                    : 'font-medium text-slate-500 dark:text-slate-400'
-            ]">
-              {{ getStopLabel(idx, stop) }}
-            </span>
-            <svg v-if="String(stop.stop_id) === fromStopId"
-                 class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              String(stop.stop_id) === fromStopId ? 'font-bold text-emerald-500 dark:text-emerald-400' :
+              idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
+              idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
+              'font-medium text-slate-500 dark:text-slate-400'
+            ]">{{ getStopLabel(idx, stop) }}</span>
+            <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
             </svg>
-            <svg v-else-if="idx === nearestStopIdx"
-                 class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
             </svg>
-            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                 class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </div>
 
-          <!-- Arrival times -->
           <div class="times-cols shrink-0">
             <span
               v-for="(stopTime, i) in getStopTimesDisplay(stop)"
               :key="i"
               :class="[
                 'time-cell',
-                stopTime.isLive
-                  ? 'time-cell-live'
-                  : String(stop.stop_id) === fromStopId
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : idx === nearestStopIdx
-                      ? 'text-purple-600 dark:text-purple-400'
-                      : 'text-slate-500 dark:text-slate-400'
+                stopTime.isLive ? 'time-cell-live' :
+                String(stop.stop_id) === fromStopId ? 'text-emerald-600 dark:text-emerald-400' :
+                idx === nearestStopIdx ? 'text-purple-600 dark:text-purple-400' :
+                'text-slate-500 dark:text-slate-400'
               ]"
             >{{ stopTime.label }}</span>
           </div>
         </div>
       </div>
 
-      <!-- ─── Full Timetable ─── -->
       <div v-if="availableTabs.length" class="mt-8">
         <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{{ t('timetableClickHint') }}</span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{ t('timetableClickHint') }}</span>
         </div>
 
-        <!-- Day selector tabs -->
         <div class="flex gap-1.5 mb-4!">
           <button
             v-for="tab in availableTabs"
@@ -685,31 +605,30 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div v-if="allEntriesSuspended" class="suspended-banner">
-          {{ t('serviceSuspended') }}
+        <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
+
+        <div class="tt-table">
+          <div v-for="group in timetableByHour" :key="group.hour" class="tt-row">
+            <span class="tt-hour">{{ group.hour }}</span>
+            <div class="tt-mins">
+              <span
+                v-for="chip in group.chips"
+                :key="chip.time"
+                @click="selectDeparture(chip)"
+                :class="[
+                  'tt-min',
+                  selectedDepartureTime === chip.time ? 'tt-min-selected' :
+                  chip.isPast ? 'tt-min-past' : 'tt-min-future'
+                ]"
+              >{{ chip.time.slice(3) }}</span>
+            </div>
+          </div>
         </div>
 
-        <div class="timetable-grid">
-          <span
-            v-for="(entry, i) in timetableEntries"
-            :key="i"
-            @click="selectDeparture(entry)"
-            :class="[
-              'timetable-chip',
-              entry.isSuspended ? 'timetable-chip-suspended'
-                : selectedDepartureTime === entry.time ? 'timetable-chip-selected'
-                : entry.isPast    ? 'timetable-chip-past'
-                                  : 'timetable-chip-future',
-              !entry.isSuspended ? 'cursor-pointer' : '',
-            ]"
-          >{{ entry.time }}</span>
-        </div>
-
-        <!-- ─── Trip view (shown when a departure time is selected) ─── -->
-        <div v-if="selectedDepartureTime && selectedDepartureStops.length" class="trip-view">
+        <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef" class="trip-view">
           <div class="flex items-center gap-2 mb-3">
             <span class="section-label-text">{{ t('tripAt', { time: selectedDepartureTime }) }}</span>
-            <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+            <div class="flex-1"></div>
             <button
               @click="selectedDepartureTime = null"
               class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold"
@@ -722,27 +641,42 @@ onUnmounted(() => {
             <div
               v-for="(stop, idx) in selectedDepartureStops"
               :key="stop.stop_id + '-trip'"
-              class="trip-stop-row"
+              :class="['trip-stop-row',
+                String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
+                idx === nearestStopIdx ? 'stop-row-nearest' :
+                favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
+              ]"
             >
-              <!-- Track dot -->
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-                <div v-if="idx === 0 || idx === selectedDepartureStops.length - 1"
-                     class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-                <div v-else
-                     class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+                <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+                <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
               </div>
 
-              <!-- Stop name -->
-              <span :class="[
-                'flex-1 text-sm leading-tight truncate',
-                idx === 0 || idx === selectedDepartureStops.length - 1
-                  ? 'font-semibold text-slate-700 dark:text-slate-200'
-                  : 'font-medium text-slate-500 dark:text-slate-400'
-              ]">{{ getStopLabel(idx, stop) }}</span>
+              <div class="flex-1 min-w-0 flex items-center gap-1.5">
+                <span :class="[
+                  'text-sm leading-tight truncate',
+                  String(stop.stop_id) === fromStopId ? 'font-bold text-emerald-500 dark:text-emerald-400' :
+                  idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
+                  idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
+                  'font-medium text-slate-500 dark:text-slate-400'
+                ]">{{ getStopLabel(idx, stop) }}</span>
+                <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
 
-              <!-- Arrival time -->
               <span :class="[
                 'text-sm font-bold tabular-nums shrink-0',
+                String(stop.stop_id) === fromStopId ? 'text-emerald-600 dark:text-emerald-400' :
+                idx === nearestStopIdx ? 'text-purple-600 dark:text-purple-400' :
                 idx === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
               ]">{{ stop.arrivalTimeStr }}</span>
             </div>
@@ -770,16 +704,9 @@ onUnmounted(() => {
   color: #64748b;
   white-space: nowrap;
 }
-@media (prefers-color-scheme: dark) {
-  .section-label-text { color: #94a3b8; }
-}
+@media (prefers-color-scheme: dark) { .section-label-text { color: #94a3b8; } }
 
-/* ─── Direction toggle ─── */
-.direction-toggle-wrap {
-  display: flex;
-  gap: 0.5rem;
-  margin: 1rem 0 1.5rem;
-}
+.direction-toggle-wrap { display: flex; gap: 0.5rem; margin: 1rem 0 1.5rem; }
 
 .dir-btn {
   flex: 1;
@@ -797,7 +724,6 @@ onUnmounted(() => {
   cursor: pointer;
 }
 .dir-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
 .dir-btn-active   { background: #0f172a; color: white; border-color: #0f172a; }
 .dir-btn-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
 .dir-btn-inactive:hover:not(:disabled) { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
@@ -808,16 +734,9 @@ onUnmounted(() => {
   .dir-btn-inactive:hover:not(:disabled) { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
 }
 
-/* ─── Stops section header ─── */
-.stops-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.875rem;
-}
+.stops-header { display: flex; align-items: center; margin-bottom: 0.875rem; }
 
-/* ─── Time columns ─── */
 .times-cols { display: flex; gap: 0; }
-
 .time-cell {
   font-size: 0.7rem;
   font-weight: 700;
@@ -826,14 +745,9 @@ onUnmounted(() => {
   text-align: right;
   letter-spacing: -0.01em;
 }
-
 .time-cell-live { color: #10b981; }
+@media (prefers-color-scheme: dark) { .time-cell-live { color: #34d399; } }
 
-@media (prefers-color-scheme: dark) {
-  .time-cell-live { color: #34d399; }
-}
-
-/* ─── Stop rows ─── */
 .stop-row {
   display: flex;
   align-items: center;
@@ -843,21 +757,9 @@ onUnmounted(() => {
   margin: 0 -0.5rem;
   transition: background 0.15s;
 }
-
-.stop-row-selected {
-  background: #ecfdf5;
-  padding: 0.625rem 0.5rem;
-}
-
-.stop-row-nearest {
-  background: #faf5ff;
-  padding: 0.625rem 0.5rem;
-}
-
-.stop-row-fav {
-  background: #fff1f2;
-  padding: 0.625rem 0.5rem;
-}
+.stop-row-selected { background: #ecfdf5; padding: 0.625rem 0.5rem; }
+.stop-row-nearest  { background: #faf5ff; padding: 0.625rem 0.5rem; }
+.stop-row-fav      { background: #fff1f2; padding: 0.625rem 0.5rem; }
 
 @media (prefers-color-scheme: dark) {
   .stop-row-selected { background: rgb(16 185 129 / 0.08); }
@@ -865,7 +767,6 @@ onUnmounted(() => {
   .stop-row-fav      { background: rgb(244 63 94 / 0.06); }
 }
 
-/* ─── Timetable day tabs ─── */
 .tt-tab {
   position: relative;
   display: flex;
@@ -879,19 +780,10 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.15s;
 }
-
 .tt-tab-active   { background: #0f172a; color: white; border-color: #0f172a; }
 .tt-tab-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
 .tt-tab-inactive:hover { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
-
-.tt-today-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #10b981;
-  flex-shrink: 0;
-}
+.tt-today-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
 .tt-tab-active .tt-today-dot { background: #6ee7b7; }
 
 @media (prefers-color-scheme: dark) {
@@ -901,46 +793,74 @@ onUnmounted(() => {
   .tt-tab-active .tt-today-dot { background: #065f46; }
 }
 
-/* ─── Timetable grid ─── */
-.timetable-grid { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.tt-table { width: 100%; }
 
-.timetable-chip {
-  font-size: 0.7rem;
-  font-weight: 700;
+.tt-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+.tt-row:last-child { border-bottom: none; }
+@media (prefers-color-scheme: dark) { .tt-row { border-bottom-color: rgb(51 65 85 / 0.4); } }
+
+.tt-hour {
+  width: 2.5rem;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
-  padding: 0.3rem 0.55rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+  border-right: 2px solid #e2e8f0;
+  line-height: 1;
+}
+@media (prefers-color-scheme: dark) {
+  .tt-hour { color: #475569; border-right-color: #334155; }
+}
+
+.tt-mins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.25rem 0 0.25rem 0.375rem;
+  flex: 1;
+}
+
+.tt-min {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 0.5rem;
-  letter-spacing: 0.01em;
-  transition: background 0.12s, transform 0.1s;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
 }
-.timetable-chip:not(.timetable-chip-suspended):hover {
-  opacity: 0.8;
-  transform: scale(1.05);
-}
-.timetable-chip-future   { background: #f1f5f9; color: #334155; }
-.timetable-chip-past     { background: transparent; color: #94a3b8; }
-.timetable-chip-selected { background: #1e40af; color: white; }
-.timetable-chip-suspended {
-  background: #fef2f2;
-  color: #b91c1c;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+.tt-min-future   { color: #1e293b; }
+.tt-min-future:hover { background: #f1f5f9; }
+.tt-min-past     { color: #cbd5e1; cursor: default; }
+.tt-min-selected { background: #1e40af; color: white !important; }
 
 @media (prefers-color-scheme: dark) {
-  .timetable-chip-future   { background: #1e293b; color: #e2e8f0; }
-  .timetable-chip-past     { background: transparent; color: #475569; }
-  .timetable-chip-selected { background: #1d4ed8; color: white; }
-  .timetable-chip-suspended { background: rgb(244 63 94 / 0.12); color: #fda4af; }
+  .tt-min-future   { color: #e2e8f0; }
+  .tt-min-future:hover { background: #1e293b; }
+  .tt-min-past     { color: #334155; }
+  .tt-min-selected { background: #1d4ed8; }
 }
 
-/* ─── Suspended-day banner ─── */
 .suspended-banner {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   padding: 0.55rem 0.75rem;
-  margin-bottom: 0.625rem;
+  margin-bottom: 0.75rem;
   border-radius: 0.625rem;
   background: #fef2f2;
   color: #b91c1c;
@@ -949,14 +869,9 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-@media (prefers-color-scheme: dark) {
-  .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }
-}
+@media (prefers-color-scheme: dark) { .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; } }
 
-/* ─── Trip view ─── */
-.trip-view {
-  margin-top: 1.25rem;
-}
+.trip-view { margin-top: 1.25rem; }
 
 .trip-stop-row {
   display: flex;
@@ -967,7 +882,6 @@ onUnmounted(() => {
   margin: 0 -0.5rem;
 }
 
-/* ─── Favorite toggle button ─── */
 .fav-btn {
   display: flex;
   align-items: center;
@@ -980,20 +894,14 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.fav-btn:hover {
-  background: #fef2f2;
-  color: #f43f5e;
-}
+.fav-btn:hover { background: #fef2f2; color: #f43f5e; }
 .fav-btn:active { transform: scale(0.92); }
 .fav-btn.is-fav { color: #f43f5e; }
 .fav-btn.is-fav:hover { background: #fee2e2; }
 
 @media (prefers-color-scheme: dark) {
   .fav-btn { color: #64748b; }
-  .fav-btn:hover {
-    background: rgb(244 63 94 / 0.12);
-    color: #fb7185;
-  }
+  .fav-btn:hover { background: rgb(244 63 94 / 0.12); color: #fb7185; }
   .fav-btn.is-fav { color: #fb7185; }
   .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
 }

@@ -39,11 +39,9 @@ const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const loadError = ref(false)
+const isComputingDepartures = ref(true)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 
-// Trip IDs we want live vehicles for — every route coming to this stop with
-// a usable timetable. Changes automatically with the stop; the SSE composable
-// reconnects with the new filter.
 const streamTripIds = computed<string[]>(() => {
   const info = stopInfo.value
   if (!info) return []
@@ -181,18 +179,17 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
 watch(() => props.stopId, async (newValue) => {
   isLoading.value = true
   loadError.value = false
+  isComputingDepartures.value = true
   shapesComingToTheStopBasedOnVehiclePositions.value = []
   await fetchStopData(newValue)
   if (!stopInfo.value) loadError.value = true
   isLoading.value = false
 }, {immediate: true})
 
-// Re-runs whenever the timetable-derived next departures change (stop switch,
-// userTime tick) AND whenever the SSE stream delivers a new vehicle batch.
-// No more setInterval/fetch in this view.
 watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesComingNext]) => {
   if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = []
+    isComputingDepartures.value = false
     return
   }
 
@@ -200,14 +197,11 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   const displayShapesWithTrip = await mapStore.requestShapes(displayShapes)
   if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
+    isComputingDepartures.value = false
     return
   }
 
   const vehiclesByTripMap = vehiclesByTrip.value
-
-  // Collect live vehicles for favorited routes serving this stop so we can
-  // show them on the map. `getVehiclesOnRoute` already filters stale/parked
-  // vehicles and computes headings, so the map draw path doesn't have to.
   const favoriteVehicles: TrackedVehicle[] = []
 
   const results: VehiclesInStop[] = []
@@ -251,14 +245,10 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     })
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
-  // Push to the map after the ETA loop finishes. The map's vehicle watcher
-  // already reads `routeColorsCache` populated when the shape polylines were
-  // drawn, so colors resolve even though we don't pass them here.
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
+  isComputingDepartures.value = false
 })
 
-// Clear the map when we navigate away so favorited vehicles from the previous
-// stop don't linger on top of a RouteView or the HomeView.
 onUnmounted(() => {
   mapStore.setVehiclesToDisplay([])
   mapStore.setShapesToDisplay([])
@@ -287,7 +277,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 </script>
 
 <template>
-  <!-- ─── Loading skeleton ─── -->
   <div v-if="isLoading" class="stop-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-8">
     <header class="flex items-center gap-4">
       <div class="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
@@ -315,7 +304,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
   </div>
 
-  <!-- ─── Error / not found ─── -->
   <div v-else-if="loadError" class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center gap-5">
     <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
       <svg class="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -337,10 +325,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </button>
   </div>
 
-  <!-- ─── Loaded ─── -->
   <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
-    <!-- ─── Back button ─── -->
     <div class="flex items-center -mb-4">
       <button
         @click="goBack"
@@ -353,7 +339,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
       </button>
     </div>
 
-    <!-- Header -->
     <header class="flex items-start gap-4">
       <div class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
         <StopIcon class="w-7 h-7 text-white"/>
@@ -385,72 +370,81 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
       </button>
     </header>
 
-    <!-- ─── Next Departures ─── -->
     <section>
       <h2 class="section-label">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
         {{ t('nextDepartures') }}
       </h2>
 
-      <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length" class="text-sm text-slate-400 dark:text-slate-500 py-2">
-        {{ t('noSchedule') }}
-      </p>
-      <div class="flex flex-col gap-2.5">
-        <div
-          v-for="shape in departuresSorted"
-          :key="shape.route_short_name"
-          @click="navigateToRoute(shape)"
-          class="departure-card group"
-          :class="{ 'departure-card-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
-        >
-          <!-- Left accent bar: live = green, scheduled = transparent -->
-          <div :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
-
-          <!-- Bus badge -->
-          <div
-            class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
-            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
-          >{{ shape.route_short_name }}</div>
-
-          <!-- Direction + data-quality label -->
-          <div class="flex-1 min-w-0 flex flex-col justify-center">
-            <div class="flex items-center gap-1.5 mb-0.5">
-              <span v-if="!shape.static_time_approximation" class="live-badge">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                {{ t('live') }}
-              </span>
-              <span v-else class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                {{ t('scheduledApprox') }}
-              </span>
-            </div>
-            <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate leading-tight">
-              {{ shape.route_long_name }}
-            </span>
+      <div v-if="isComputingDepartures" class="flex flex-col gap-2.5 animate-pulse">
+        <div v-for="i in 3" :key="i" class="flex items-center gap-2.5 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
+          <div class="w-1 self-stretch rounded-full bg-slate-200 dark:bg-slate-700 shrink-0"></div>
+          <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
+          <div class="flex-1 flex flex-col gap-1.5">
+            <div class="h-2.5 w-12 bg-slate-200 dark:bg-slate-700 rounded"></div>
+            <div class="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div>
           </div>
-
-          <!-- Time pills (next 3) -->
-          <div class="flex items-center gap-1 shrink-0">
-            <span
-              v-for="(t, i) in shape.next_times"
-              :key="i"
-              :class="[
-                'time-pill',
-                i === 0 && !shape.static_time_approximation
-                  ? 'time-pill-live'
-                  : 'time-pill-sched'
-              ]"
-            >{{ i === 0 && shape.static_time_approximation ? '~\u202f' : '' }}{{ formatMinutes(t.minutes) }}</span>
+          <div class="flex gap-1">
+            <div v-for="j in 3" :key="j" class="w-10 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
           </div>
-
-          <!-- Chevron -->
-          <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-          </svg>
+          <div class="w-4 h-4 rounded bg-slate-100 dark:bg-slate-800 shrink-0"></div>
         </div>
       </div>
+      <template v-else>
+        <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length" class="text-sm text-slate-400 dark:text-slate-500 py-2">
+          {{ t('noSchedule') }}
+        </p>
+        <div class="flex flex-col gap-2.5">
+          <div
+            v-for="shape in departuresSorted"
+            :key="shape.route_short_name"
+            @click="navigateToRoute(shape)"
+            class="departure-card group"
+            :class="{ 'departure-card-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
+          >
+            <div :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
+
+            <div
+              class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
+              :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
+            >{{ shape.route_short_name }}</div>
+
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span v-if="!shape.static_time_approximation" class="live-badge">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {{ t('live') }}
+                </span>
+                <span v-else class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {{ t('scheduledApprox') }}
+                </span>
+              </div>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                {{ shape.route_long_name }}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <span
+                v-for="(t, i) in shape.next_times"
+                :key="i"
+                :class="[
+                  'time-pill',
+                  i === 0 && !shape.static_time_approximation
+                    ? 'time-pill-live'
+                    : 'time-pill-sched'
+                ]"
+              >{{ i === 0 && shape.static_time_approximation ? '~\u202f' : '' }}{{ formatMinutes(t.minutes) }}</span>
+            </div>
+
+            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      </template>
     </section>
 
-    <!-- ─── All Routes ─── -->
     <section class="pb-6">
       <h2 class="section-label">
         <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -605,7 +599,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
 }
 
-/* ─── Favorite route highlighting ─── */
 .departure-card-fav {
   background: #fff1f2;
   border-color: #fecdd3;
@@ -631,7 +624,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important; }
 }
 
-/* ─── Favorite toggle button ─── */
 .fav-btn {
   display: flex;
   align-items: center;

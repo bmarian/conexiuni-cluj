@@ -104,7 +104,6 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   favoritesStore.toggleStopFavorite(stop.stop_id)
 }
 
-// ─── Drag-and-drop: favorite routes ──────────────────────────────────────────
 const dragRouteIdx = ref<number | null>(null)
 const dragRouteOverIdx = ref<number | null>(null)
 
@@ -133,7 +132,6 @@ function onDragRouteEnd() {
   dragRouteOverIdx.value = null
 }
 
-// ─── Drag-and-drop: favorite stops ───────────────────────────────────────────
 const dragStopIdx = ref<number | null>(null)
 const dragStopOverIdx = ref<number | null>(null)
 
@@ -166,7 +164,6 @@ function onDragStopEnd() {
 <template>
   <div class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
 
-    <!-- ─── Favorites ─── -->
     <section v-if="hasFavorites" class="flex flex-col gap-5">
       <h2 class="section-label">
         <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -175,7 +172,6 @@ function onDragStopEnd() {
         {{ t('favorites') }}
       </h2>
 
-      <!-- Favorite routes -->
       <div v-if="favoriteRoutes.length" class="flex flex-col gap-2">
         <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
         <div class="flex flex-wrap gap-2">
@@ -218,7 +214,6 @@ function onDragStopEnd() {
         </div>
       </div>
 
-      <!-- Favorite stops -->
       <div v-if="favoriteStops.length" class="flex flex-col gap-2">
         <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
         <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -270,7 +265,6 @@ function onDragStopEnd() {
       </div>
     </section>
 
-    <!-- ─── All routes ─── -->
     <section class="flex flex-col gap-3 pb-6">
       <h2 class="section-label">
         <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -279,7 +273,6 @@ function onDragStopEnd() {
         {{ t('allRoutes') }}
       </h2>
 
-      <!-- Search -->
       <div class="search-wrap">
         <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
@@ -292,12 +285,10 @@ function onDragStopEnd() {
         />
       </div>
 
-      <!-- Empty hint when no favorites and search empty -->
       <p v-if="!hasFavorites && !search" class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
         {{ t('noFavorites') }}
       </p>
 
-      <!-- Loading -->
       <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
         <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
           <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
@@ -305,7 +296,6 @@ function onDragStopEnd() {
         </div>
       </div>
 
-      <!-- Results -->
       <div v-else-if="filteredRoutes.length" class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
         <div
           v-for="route in filteredRoutes"
@@ -381,7 +371,6 @@ function onDragStopEnd() {
   .sub-label { color: #64748b; }
 }
 
-/* ─── Favorite route chips ─── */
 .fav-route-chip {
   display: inline-flex;
   align-items: center;
@@ -446,7 +435,6 @@ function onDragStopEnd() {
   }
 }
 
-/* ─── Favorite stop rows ─── */
 .fav-stop-row {
   display: flex;
   align-items: center;
@@ -503,7 +491,6 @@ function onDragStopEnd() {
   .fav-stop-remove { opacity: 1; }
 }
 
-/* ─── Search input ─── */
 .search-wrap {
   display: flex;
   align-items: center;
@@ -549,7 +536,6 @@ function onDragStopEnd() {
   .search-input::placeholder { color: #64748b; }
 }
 
-/* ─── All-routes row ─── */
 .all-route-row {
   display: flex;
   align-items: center;
