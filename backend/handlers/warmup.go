@@ -5,7 +5,9 @@ import (
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"log"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -54,7 +56,17 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	// parallel goroutines — both clients serialize internally via their
 	// limiters, so there's no risk of overrun, and the two streams run
 	// concurrently.
-	var wg sync.WaitGroup
+	var (
+		wg           sync.WaitGroup
+		stopTimesOK  atomic.Int32
+		timetablesOK atomic.Int32
+	)
+	total := int32(len(routes))
+	progressDone := make(chan struct{})
+	go logProgress(progressDone, 5*time.Second, func() string {
+		return progressLine("routes", stopTimesOK.Load(), timetablesOK.Load(), total)
+	})
+
 	for _, r := range routes {
 		rsn := r.RouteShortName
 		wg.Add(2)
@@ -63,15 +75,18 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 			if _, err := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}); err != nil {
 				log.Printf("warmup: stop_times %s: %v", rsn, err)
 			}
+			stopTimesOK.Add(1)
 		}()
 		go func() {
 			defer wg.Done()
 			if _, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn); err != nil {
 				log.Printf("warmup: timetable %s: %v", rsn, err)
 			}
+			timetablesOK.Add(1)
 		}()
 	}
 	wg.Wait()
+	close(progressDone)
 	log.Printf("warmup: routes/timetables done in %s (%d routes)", time.Since(start), len(routes))
 
 	// Per-stop stop_info warmup. At this point every route-scoped dependency
@@ -79,15 +94,61 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	// sequentially — the DB reads are fast and we avoid hammering the cache
 	// mutex / sqlite writer.
 	stopStart := time.Now()
-	warmed := 0
+	totalStops := int32(len(stops))
+	var processed, warmed atomic.Int32
+
+	stopsDone := make(chan struct{})
+	go logProgress(stopsDone, 5*time.Second, func() string {
+		p, w := processed.Load(), warmed.Load()
+		return formatProgress("stops", p, totalStops) + formatWarmed(w)
+	})
+
 	for _, s := range stops {
 		stopID := s.StopID
 		if _, err := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &stopID}); err != nil {
 			log.Printf("warmup: stop_info %d: %v", stopID, err)
-			continue
+		} else {
+			warmed.Add(1)
 		}
-		warmed++
+		processed.Add(1)
 	}
-	log.Printf("warmup: stop_info done in %s (%d/%d stops, total %s)",
-		time.Since(stopStart), warmed, len(stops), time.Since(start))
+	close(stopsDone)
+	log.Printf("warmup: stop_info done in %s (%d/%d stops warmed, total %s)",
+		time.Since(stopStart), warmed.Load(), totalStops, time.Since(start))
+}
+
+// logProgress prints `line()` every `interval` until `done` is closed. Runs in
+// its own goroutine and exits promptly on close.
+func logProgress(done <-chan struct{}, interval time.Duration, line func() string) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			log.Printf("warmup: %s", line())
+		}
+	}
+}
+
+func formatProgress(label string, done, total int32) string {
+	pct := 0
+	if total > 0 {
+		pct = int(float64(done) / float64(total) * 100)
+	}
+	return label + ": " + itoa(done) + "/" + itoa(total) + " (" + itoa(int32(pct)) + "%)"
+}
+
+func formatWarmed(n int32) string {
+	return " warmed=" + itoa(n)
+}
+
+func progressLine(label string, stopTimes, timetables, total int32) string {
+	return label + ": stop_times=" + itoa(stopTimes) + "/" + itoa(total) +
+		" timetables=" + itoa(timetables) + "/" + itoa(total)
+}
+
+func itoa(n int32) string {
+	return strconv.Itoa(int(n))
 }

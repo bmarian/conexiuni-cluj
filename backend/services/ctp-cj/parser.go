@@ -3,7 +3,7 @@ package ctp_cj
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -21,54 +21,62 @@ type ParsedTimetable struct {
 	Entries       []TimetableEntry
 }
 
+// timeCell matches a single HH:MM cell, optionally followed by annotations
+// like "*" that CTP uses to flag conditional trips. Either side of the pair
+// may be empty (one-way trips), which we preserve as "".
+var timeCell = regexp.MustCompile(`^\s*\d{1,2}:\d{2}\S*\s*$`)
+
+func isTimeCell(s string) bool {
+	return s == "" || timeCell.MatchString(s)
+}
+
 func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 	// Some CTP CSVs (e.g. 27, M27) are served with a UTF-8 BOM, which turns
 	// the first key into "\ufeffroute_long_name" and trips the meta check.
 	data = bytes.TrimPrefix(data, []byte("\ufeff"))
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 
-	meta := func(key string) (string, error) {
-		if !scanner.Scan() {
-			return "", fmt.Errorf("unexpected EOF, expected %q row", key)
-		}
-		parts := strings.SplitN(scanner.Text(), ",", 2)
-		if len(parts) != 2 || parts[0] != key {
-			return "", fmt.Errorf("expected key %q, got line %q", key, scanner.Text())
-		}
-		return parts[1], nil
-	}
-
 	t := &ParsedTimetable{}
-	var err error
-
-	if t.RouteLongName, err = meta("route_long_name"); err != nil {
-		return nil, err
-	}
-	if t.ServiceName, err = meta("service_name"); err != nil {
-		return nil, err
-	}
-	if t.ServiceStart, err = meta("service_start"); err != nil {
-		return nil, err
-	}
-	if t.InStopName, err = meta("in_stop_name"); err != nil {
-		return nil, err
-	}
-	if t.OutStopName, err = meta("out_stop_name"); err != nil {
-		return nil, err
-	}
 
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
 		parts := strings.SplitN(line, ",", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("malformed time row: %q", line)
+			// Single-column rows like a bare "Nu circula" — treat the day as empty.
+			continue
+		}
+		left, right := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+
+		switch left {
+		case "route_long_name":
+			t.RouteLongName = right
+			continue
+		case "service_name":
+			t.ServiceName = right
+			continue
+		case "service_start":
+			t.ServiceStart = right
+			continue
+		case "in_stop_name":
+			t.InStopName = right
+			continue
+		case "out_stop_name":
+			t.OutStopName = right
+			continue
+		}
+
+		// Anything else is expected to be a departure pair. Either cell may be
+		// empty (one-way trips) and CTP sometimes annotates times (e.g. "07:20*").
+		// Rows like "Nu circula,Nu circula" signal "no service that day" — skip.
+		if !isTimeCell(left) || !isTimeCell(right) {
+			continue
 		}
 		t.Entries = append(t.Entries, TimetableEntry{
-			DepartureIn:  parts[0],
-			DepartureOut: parts[1],
+			DepartureIn:  left,
+			DepartureOut: right,
 		})
 	}
 
