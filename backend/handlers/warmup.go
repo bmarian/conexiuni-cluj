@@ -74,6 +74,11 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	start := time.Now()
 	log.Println("warmup: starting")
 
+	// Rebuild the availability registry from scratch each pass so routes that
+	// lose their CTP CSV (or stops that lose all routes) get hidden from the
+	// API on the next refresh rather than sticking around forever.
+	Availability.ResetForNewPass()
+
 	phase := time.Now()
 	routes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
 	if err != nil {
@@ -132,9 +137,15 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 		}()
 		go func() {
 			defer wg.Done()
-			if _, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn); err != nil {
+			tt, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn)
+			if err != nil {
 				log.Printf("warmup: timetable %s: %v", rsn, err)
 				timetablesFail.Add(1)
+			} else if tt != nil && (len(tt.Weekdays.Entries) > 0 || len(tt.Saturday.Entries) > 0 || len(tt.Sunday.Entries) > 0) {
+				// Route is considered "running" only if CTP returned at least
+				// one entry somewhere. Empty timetables are what we're filtering
+				// out of /api/routes, so they must not be marked here.
+				Availability.MarkRouteHasTimetable(rsn)
 			}
 			timetablesOK.Add(1)
 		}()
@@ -163,17 +174,28 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 
 	for _, s := range stops {
 		stopID := s.StopID
-		if _, err := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &stopID}); err != nil {
+		info, err := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &stopID})
+		if err != nil {
 			log.Printf("warmup: stop_info %d: %v", stopID, err)
 			failed.Add(1)
 		} else {
 			warmed.Add(1)
+			// After availability filtering we want stops where at least one
+			// route actually has live data — ShapesInfo already drops routes
+			// with failed stop_times/timetable lookups, so its length is the
+			// right signal.
+			if info != nil && len(info.ShapesInfo) > 0 {
+				Availability.MarkStopHasBuses(stopID)
+			}
 		}
 		processed.Add(1)
 	}
 	close(stopsDone)
 	log.Printf("warmup: stop_info done in %s (%d/%d warmed, %d failed)",
 		time.Since(stopStart).Round(time.Millisecond), warmed.Load(), totalStops, failed.Load())
+
+	Availability.MarkReady()
+	log.Printf("warmup: availability registry ready (routes-with-timetable + stops-with-buses now filter /api/routes and /api/stops)")
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }
 

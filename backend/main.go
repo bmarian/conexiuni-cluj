@@ -88,6 +88,18 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		// Once warmup has populated the registry, hide routes whose CTP CSV
+		// is missing or empty. Skip when a specific route is requested —
+		// deep-links should still resolve even for discontinued routes.
+		if filter.RouteID == nil && filter.RouteShortName == nil && handlers.Availability.IsReady() {
+			filtered := make([]models.Route, 0, len(data))
+			for _, r := range data {
+				if handlers.Availability.RouteHasTimetable(r.RouteShortName) {
+					filtered = append(filtered, r)
+				}
+			}
+			data = filtered
+		}
 		return c.JSON(data)
 	})
 	api.Get("/stops", func(c fiber.Ctx) error {
@@ -104,6 +116,17 @@ func main() {
 		data, err := handlers.GetStops(tranzyClient, config.StopCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		// Same filter for stops: drop ones where stop_info returned zero
+		// routes with live data. Single-stop lookups pass through untouched.
+		if filter.StopID == nil && handlers.Availability.IsReady() {
+			filtered := make([]models.Stop, 0, len(data))
+			for _, s := range data {
+				if handlers.Availability.StopHasBuses(s.StopID) {
+					filtered = append(filtered, s)
+				}
+			}
+			data = filtered
 		}
 		return c.JSON(data)
 	})

@@ -158,6 +158,16 @@ func buildShapesInfoParallel(
 			if stErr != nil || ttErr != nil || timetable == nil {
 				return
 			}
+			// A non-nil timetable with zero entries in every day (e.g. CTP
+			// returned metadata-only or the route is discontinued) is useless
+			// to the UI — the frontend hides it via `hasTimetable()`. Drop it
+			// here too so `len(ShapesInfo)` actually reflects usable routes
+			// and the availability registry filters the stop correctly.
+			if len(timetable.Weekdays.Entries) == 0 &&
+				len(timetable.Saturday.Entries) == 0 &&
+				len(timetable.Sunday.Entries) == 0 {
+				return
+			}
 			slots[i] = slot{
 				ok: true,
 				info: models.ShapeInfo{

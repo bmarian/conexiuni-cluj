@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
-import {computed, ref, watch} from "vue"
+import {computed, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
@@ -18,7 +18,7 @@ import {
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {haversineMeters} from "@/utils/geo.ts";
-import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, fetchVehiclesForTrips} from "@/composables/useVehicleTracking.ts";
+import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, fetchVehiclesForTrips, type TrackedVehicle} from "@/composables/useVehicleTracking.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
@@ -185,10 +185,19 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
 
   const vehiclesByTrip = await fetchVehiclesForTrips(shapesComingNext.map(s => s.trip_id))
 
+  // Collect live vehicles for favorited routes serving this stop so we can
+  // show them on the map. `getVehiclesOnRoute` already filters stale/parked
+  // vehicles and computes headings, so the map draw path doesn't have to.
+  const favoriteVehicles: TrackedVehicle[] = []
+
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
     const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value, vehiclesByTrip.get(shape.trip_id) ?? [])
+
+    if (favoritesStore.isRouteFavorite(shape.route_id)) {
+      favoriteVehicles.push(...vehiclesOnRoute)
+    }
 
     if (!vehiclesOnRoute.length) {
       results.push(shape)
@@ -222,6 +231,17 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     })
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
+  // Push to the map after the ETA loop finishes. The map's vehicle watcher
+  // already reads `routeColorsCache` populated when the shape polylines were
+  // drawn, so colors resolve even though we don't pass them here.
+  mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
+})
+
+// Clear the map when we navigate away so favorited vehicles from the previous
+// stop don't linger on top of a RouteView or the HomeView.
+onUnmounted(() => {
+  mapStore.setVehiclesToDisplay([])
+  mapStore.setShapesToDisplay([])
 })
 
 const goBack = () => {
