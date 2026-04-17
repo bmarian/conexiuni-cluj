@@ -78,14 +78,11 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 		}
 	}
 
-	// This might not be necessary, but I am not sure if there are no stations with duplicates like 1_0 3 times...
 	slices.Sort(outgoingTripIds)
 	stopInfo.OutgoingTripIds = slices.Compact(outgoingTripIds)
 	slices.Sort(incomingTripIds)
 	stopInfo.IncomingTripIds = slices.Compact(incomingTripIds)
 
-	// Pre-fetch all routes once and look up by ID, instead of one GetRoutes
-	// call per route — each call hits the cache mutex sequentially.
 	allRoutes, errAll := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
 	if errAll != nil {
 		return nil, errAll
@@ -105,11 +102,6 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 	return &stopInfo, nil
 }
 
-// buildShapesInfoParallel resolves per-route stop_times + timetable concurrently
-// for every route_id in `routeIDs`, looking up route metadata from the
-// pre-built `routeByID` map. Returns shapes in the same order as the input.
-// Routes whose stop_times or timetable lookup fails are silently skipped —
-// matching the original sequential code's behaviour.
 func buildShapesInfoParallel(
 	tranzyClient *tranzy.Client,
 	ctpCjClient *ctpcj.Client,
@@ -134,9 +126,6 @@ func buildShapesInfoParallel(
 			defer wg.Done()
 			rsn := route.RouteShortName
 
-			// Fetch stop_times and timetable concurrently within this route too —
-			// the slow one (timetable, with its CTP rate-limited CSV fetches) no
-			// longer blocks the fast one.
 			var (
 				stopTimes []models.StopTime
 				timetable *models.Timetable
@@ -158,11 +147,7 @@ func buildShapesInfoParallel(
 			if stErr != nil || ttErr != nil || timetable == nil {
 				return
 			}
-			// A non-nil timetable with zero entries in every day (e.g. CTP
-			// returned metadata-only or the route is discontinued) is useless
-			// to the UI — the frontend hides it via `hasTimetable()`. Drop it
-			// here too so `len(ShapesInfo)` actually reflects usable routes
-			// and the availability registry filters the stop correctly.
+			// Ignore metadata-only timetables with no departures.
 			if len(timetable.Weekdays.Entries) == 0 &&
 				len(timetable.Saturday.Entries) == 0 &&
 				len(timetable.Sunday.Entries) == 0 {
@@ -218,9 +203,6 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 		return nil, fmt.Errorf("error unmarshalling shapes short names: %w", err)
 	}
 
-	// Run all the independent lookups concurrently. With 8+ routes per stop,
-	// this turns the previous ~8 sequential DB reads (each with its own cache
-	// mutex acquisition) into a single fan-out.
 	var (
 		stop         models.Stop
 		stopErr      error
@@ -244,7 +226,6 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	}()
 	go func() {
 		defer header.Done()
-		// One bulk fetch instead of one GetRoutes per shape short name.
 		allRoutes, allRoutesErr = GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
 	}()
 	header.Wait()
@@ -275,8 +256,6 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	stopInfo.OutgoingTripIds = outgoingTripIds
 	stopInfo.IncomingTripIds = incomingTripIds
 
-	// Map both ways so the helper (keyed by id) can be reused for the
-	// short-name-keyed warm path.
 	routeByID := make(map[int]models.Route, len(allRoutes))
 	routeByShortName := make(map[string]models.Route, len(allRoutes))
 	for _, r := range allRoutes {

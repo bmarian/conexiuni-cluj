@@ -21,9 +21,7 @@ type ParsedTimetable struct {
 	Entries       []TimetableEntry
 }
 
-// timeCell matches a single HH:MM cell, optionally followed by annotations
-// like "*" that CTP uses to flag conditional trips. Either side of the pair
-// may be empty (one-way trips), which we preserve as "".
+// Accept HH:MM and annotated values like 07:20*.
 var timeCell = regexp.MustCompile(`^\s*\d{1,2}:\d{2}\S*\s*$`)
 
 func isTimeCell(s string) bool {
@@ -31,8 +29,6 @@ func isTimeCell(s string) bool {
 }
 
 func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
-	// Some CTP CSVs (e.g. 27, M27) are served with a UTF-8 BOM, which turns
-	// the first key into "\ufeffroute_long_name" and trips the meta check.
 	data = bytes.TrimPrefix(data, []byte("\ufeff"))
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 
@@ -45,7 +41,6 @@ func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 		}
 		parts := strings.SplitN(line, ",", 2)
 		if len(parts) != 2 {
-			// Single-column rows like a bare "Nu circula" — treat the day as empty.
 			continue
 		}
 		left, right := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
@@ -68,9 +63,6 @@ func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 			continue
 		}
 
-		// Anything else is expected to be a departure pair. Either cell may be
-		// empty (one-way trips) and CTP sometimes annotates times (e.g. "07:20*").
-		// Rows like "Nu circula,Nu circula" signal "no service that day" — skip.
 		if !isTimeCell(left) || !isTimeCell(right) {
 			continue
 		}

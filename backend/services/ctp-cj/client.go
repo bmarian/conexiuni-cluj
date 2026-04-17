@@ -42,12 +42,7 @@ func (c *Client) doRequest(routeShortName string, day DayOfTheWeek) ([]byte, err
 	return resp.Body(), nil
 }
 
-// FetchTimetable returns whatever per-day timetables can be parsed.
-// Per-day failures (404, malformed CSV, transport errors) are logged and skipped
-// rather than failing the whole request — many routes only publish a subset of
-// days, and CTP occasionally returns HTML error pages that fail CSV parsing.
-// The caller is responsible for handling the all-nil case (e.g. by returning an
-// empty timetable so the frontend can backfill metadata from canonical sources).
+// FetchTimetable best-effort loads available day files and skips failed days.
 func (c *Client) FetchTimetable(routeShortName string) (weekdays, saturday, sunday *ParsedTimetable, err error) {
 	if err = c.limiter.Wait(context.Background()); err != nil {
 		return nil, nil, nil, fmt.Errorf("ctpcj: rate limiter: %w", err)

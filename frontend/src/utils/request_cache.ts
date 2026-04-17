@@ -1,13 +1,10 @@
 import { get, set, del } from 'idb-keyval'
 
-export const LOW_ACCURACY_SHELF_LIFE = 1000 * 60 * 60 // 1 hour
-export const HIGH_ACCURACY_SHELF_LIFE = 1000 * 5 // 5 seconds
+export const LOW_ACCURACY_SHELF_LIFE = 1000 * 60 * 60
+export const HIGH_ACCURACY_SHELF_LIFE = 1000 * 5
 
 type CachedEnvelope = { timestamp: number; data: unknown }
 
-// In-flight request deduplication: if two callers ask for the same URL
-// before the first one resolves, both await the same promise instead of
-// firing two network requests. Cleared as soon as the promise settles.
 const inFlight = new Map<string, Promise<unknown>>()
 
 export const apiRequest = async (url: string, shelfLife: number = LOW_ACCURACY_SHELF_LIFE): Promise<unknown> => {
@@ -42,7 +39,6 @@ const getFromCache = async (key: string, shelfLife: number): Promise<{hit: true;
     if (!envelope) return {hit: false}
 
     if (Date.now() - envelope.timestamp < shelfLife) {
-      // Note: data may be null/undefined/[] — those are still valid cache hits.
       return {hit: true, data: envelope.data}
     }
     await del(key)

@@ -21,7 +21,6 @@ func Connect(dbPath string) error {
 		return err
 	}
 
-	// Ping to force sqlite to actually open the database
 	errPing := DB.Ping()
 	if errPing != nil {
 		return errPing
@@ -36,7 +35,6 @@ func Connect(dbPath string) error {
 	DB.SetConnMaxLifetime(0)
 	DB.SetConnMaxIdleTime(5 * time.Minute)
 
-	// PRAGMA settings for performance
 	pragmas := []string{
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA cache_size = -64000",
@@ -170,7 +168,6 @@ func InitSchemas() error {
 		return err
 	}
 
-	// Create indexes for common read queries
 	indexes := `
 		-- Vehicles indexes
 		CREATE INDEX IF NOT EXISTS idx_vehicles_route_id ON vehicles(route_id);
@@ -208,9 +205,7 @@ func InitSchemas() error {
 	return nil
 }
 
-// Optimize runs ANALYZE to update query planner statistics.
-// It is rate-limited to at most once every 10 minutes to avoid spam
-// when multiple goroutines finish cache writes concurrently.
+// Rate-limit ANALYZE/optimize calls under concurrent cache writes.
 func Optimize() error {
 	if time.Since(lastOptimize) < 10*time.Minute {
 		return nil
@@ -226,8 +221,6 @@ func Optimize() error {
 	return nil
 }
 
-// Vacuum reclaims unused space and defragments the database
-// Call this occasionally during low-traffic periods
 func Vacuum() error {
 	if _, err := DB.Exec("VACUUM"); err != nil {
 		return err

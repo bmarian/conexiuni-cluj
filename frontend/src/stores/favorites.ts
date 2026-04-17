@@ -76,13 +76,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
     void persistStops()
   }
 
-  /**
-   * Warm the apiRequest IndexedDB cache for everything the user has starred,
-   * so opening a favorite is instant. Fire-and-forget; per-request failures
-   * are swallowed (e.g. routes whose CTP CSV is missing). Safe to call
-   * concurrently with user navigation — the underlying composables dedupe
-   * in-flight requests by route_id / stop_id.
-   */
   async function preloadFavorites() {
     const jobs: Promise<unknown>[] = []
 

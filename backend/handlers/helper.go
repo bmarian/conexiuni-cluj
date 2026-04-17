@@ -43,8 +43,7 @@ func HandleCached[T any](
 			mu.Unlock()
 		}()
 
-		// If 2 goroutines are writing to the same cache,
-		// the first one to finish will update the cache
+		// Another goroutine already refreshed this cache.
 		if database.IsCacheValid(cacheID) {
 			return
 		}

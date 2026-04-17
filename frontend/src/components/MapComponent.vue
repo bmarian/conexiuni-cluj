@@ -54,7 +54,6 @@ const getSharedRouteColor = (color: string | undefined, identifier: string | num
     finalColor = `#${finalColor}`
   }
 
-  // If no valid color is provided, grab one from the fallback list
   if (!finalColor || finalColor === '#000' || finalColor === '#000000') {
     if (!routeColorsCache.has(identifier)) {
       routeColorsCache.set(identifier, fallbackColors[fallbackIndex % fallbackColors.length]!)
@@ -63,7 +62,6 @@ const getSharedRouteColor = (color: string | undefined, identifier: string | num
     return routeColorsCache.get(identifier)!
   }
 
-  // Cache the valid color so vehicles can find it later
   routeColorsCache.set(identifier, finalColor)
   return finalColor
 }
@@ -262,7 +260,6 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   if (!map.value) return
 
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
-  // Move map to user location once
   if (isFirstLocationHandle) {
     map.value.flyTo(e.latlng, DEFAULT_ZOOM, {duration: 1})
     isFirstLocationHandle = false
@@ -325,7 +322,6 @@ watch(shapesToDisplay, (newShapes) => {
     routes: { name: string, color: string }[]
   }>()
 
-  // Only draw terminal markers when NOT in route-highlight mode (they cover the stop dots)
   const hasHighlights = highlightedStops.value.length > 0
 
   for (let i = 0; i < newShapes.length; i++) {

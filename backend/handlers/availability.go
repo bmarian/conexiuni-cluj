@@ -2,14 +2,7 @@ package handlers
 
 import "sync"
 
-// Tracks which routes have a functional CTP timetable and which stops have at
-// least one route with live data. Populated by the warmup goroutine after each
-// full pass; consumed by the /api/routes and /api/stops endpoints to hide
-// discontinued routes and empty stops from the UI.
-//
-// Before the first warmup pass completes, IsReady() returns false and callers
-// must skip the filter — returning an empty list on a cold server would be
-// worse than returning a few unusable entries.
+// Warmup-populated availability index used to filter routes/stops in list endpoints.
 type availabilityRegistry struct {
 	mu                  sync.RWMutex
 	ready               bool
@@ -22,10 +15,6 @@ var Availability = &availabilityRegistry{
 	stopsWithBuses:      make(map[int]struct{}),
 }
 
-// ResetForNewPass clears the previous pass's entries. Callers should populate
-// via Mark* and then call MarkReady() when the pass finishes. Resetting on
-// every pass means routes that lose their CTP CSV mid-week disappear from
-// /api/routes after the next warmup.
 func (a *availabilityRegistry) ResetForNewPass() {
 	a.mu.Lock()
 	defer a.mu.Unlock()

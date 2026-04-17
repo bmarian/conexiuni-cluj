@@ -4,7 +4,6 @@ import MapComponent from "@/components/MapComponent.vue"
 
 type DrawerState = 'collapsed' | 'half' | 'expanded'
 
-// Snap heights expressed as fractions of the dynamic viewport (dvh).
 const SNAP_FRAC: Record<DrawerState, number> = {
   collapsed: 0.22,
   half: 0.60,
@@ -14,8 +13,6 @@ const cycleOrder: DrawerState[] = ['collapsed', 'half', 'expanded']
 
 const drawerState = ref<DrawerState>('half')
 
-// When the user is actively dragging we bypass the snap table and use the raw
-// pixel height, with CSS transitions disabled so the drawer sticks to the finger.
 const isDragging = ref(false)
 const dragHeightPx = ref<number | null>(null)
 
@@ -24,17 +21,11 @@ const drawerStyle = computed(() => {
   return { height: `${SNAP_FRAC[drawerState.value] * 100}dvh` }
 })
 
-// Let Leaflet know its container resized after the drawer snap animation.
 watch([drawerState, isDragging], async ([, dragging]) => {
   if (dragging) return
   await nextTick()
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
-
-// --- Drag handling ---------------------------------------------------------
-// PointerEvents unify mouse + touch. We track the starting pointer Y and the
-// starting drawer height; every move updates dragHeightPx. On release we snap
-// to the closest of the three states.
 
 let pointerId = -1
 let startY = 0
@@ -42,7 +33,6 @@ let startHeight = 0
 let moved = false
 
 function viewportPx() {
-  // 1dvh in pixels — falls back to innerHeight if dvh isn't supported.
   return window.visualViewport?.height ?? window.innerHeight
 }
 
@@ -51,7 +41,6 @@ function currentHeightPx(el: HTMLElement) {
 }
 
 function onPointerDown(e: PointerEvent) {
-  // Only left button / primary touch.
   if (e.button !== 0 && e.pointerType === 'mouse') return
   const el = (e.currentTarget as HTMLElement).closest('.app-drawer') as HTMLElement | null
   if (!el) return
@@ -68,7 +57,6 @@ function onPointerMove(e: PointerEvent) {
   if (!isDragging.value || e.pointerId !== pointerId) return
   const dy = e.clientY - startY
   if (Math.abs(dy) > 3) moved = true
-  // Drag up → bigger drawer (dy negative), drag down → smaller.
   const vh = viewportPx()
   const min = SNAP_FRAC.collapsed * vh
   const max = SNAP_FRAC.expanded * vh
@@ -79,7 +67,6 @@ function endDrag() {
   if (!isDragging.value) return
   const vh = viewportPx()
   const height = dragHeightPx.value ?? startHeight
-  // Snap to the nearest state by fraction of the viewport.
   const frac = height / vh
   let best: DrawerState = 'half'
   let bestDist = Infinity
@@ -87,7 +74,6 @@ function endDrag() {
     const d = Math.abs(SNAP_FRAC[s] - frac)
     if (d < bestDist) { bestDist = d; best = s }
   }
-  // If the user barely moved, treat it as a tap and cycle instead.
   if (!moved) {
     const i = cycleOrder.indexOf(drawerState.value)
     best = cycleOrder[(i + 1) % cycleOrder.length]!
@@ -137,7 +123,6 @@ function onPointerUp(e: PointerEvent) {
 .app-shell {
   display: flex;
   flex-direction: column;
-  /* dvh follows the URL bar, so we never overflow under Firefox/Safari chrome. */
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
@@ -158,13 +143,9 @@ function onPointerUp(e: PointerEvent) {
   display: flex;
   flex-direction: column;
   transition: height 250ms cubic-bezier(0.32, 0.72, 0, 1);
-  /* Safe area inset lives INSIDE the drawer so the bottom of the scroll region
-     never slides under the Firefox URL bar or iOS home indicator. */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* While the finger/mouse is holding the grip, height must follow the pointer
-   without easing. */
 .app-drawer.is-dragging {
   transition: none;
 }
@@ -179,7 +160,6 @@ function onPointerUp(e: PointerEvent) {
   background: transparent;
   border: 0;
   cursor: grab;
-  /* Prevent the browser from claiming vertical swipes for page scroll. */
   touch-action: none;
   user-select: none;
 }
@@ -202,7 +182,6 @@ function onPointerUp(e: PointerEvent) {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Desktop: side-by-side, ignore drawer state entirely. */
 @media (min-width: 1024px) {
   .app-shell {
     flex-direction: row;

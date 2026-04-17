@@ -32,7 +32,6 @@ func fetchTimetable(ctpCjClient *ctp_cj.Client, routeShortName string) (*models.
 		Sunday:         models.DaySchedule{Entries: []models.TimetableEntry{}},
 	}
 
-	// Take shared metadata from the first day that has data
 	for _, parsed := range []*ctp_cj.ParsedTimetable{weekdays, saturday, sunday} {
 		if parsed != nil {
 			t.RouteLongName = parsed.RouteLongName

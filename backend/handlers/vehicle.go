@@ -144,11 +144,9 @@ func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]model
 	now := time.Now()
 
 	for _, dbV := range dbVehicles {
-		// Vehicle is in DB but missing from this API response
 		if !apiMap[dbV.ID] {
 			t, err := time.Parse(time.RFC3339, dbV.Timestamp)
 
-			// If the timestamp is valid and within grace period, keep it
 			if err == nil && now.Sub(t) <= gracePeriod {
 				apiVehicles = append(apiVehicles, dbV)
 			}

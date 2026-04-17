@@ -11,18 +11,6 @@ import (
 	"time"
 )
 
-// StartWarmup runs a background goroutine that pre-fetches the caches that
-// make cold `/api/stop_info` requests slow. The CTP timetable rate limiter
-// (1 req/s) means a heavy stop with ~12 routes pays ~10s of serialized waits
-// on first request; warming up-front eats that cost during startup instead.
-//
-// The goroutine runs warmup once immediately, then re-runs it on an interval
-// sized to the shortest relevant cache TTL so entries get refreshed just
-// before they expire. Everything delegates to the normal Get* handlers, which
-// are no-ops when their cache is still valid — so the recurring passes only
-// pay cost for entries that are actually near expiry.
-//
-// The warmup never fails the server — errors are logged and skipped.
 func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
 	go func() {
 		defer func() {
@@ -41,9 +29,7 @@ func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 	}()
 }
 
-// nextWarmupAt schedules the next warmup at 03:00 local time on the morning
-// before the shortest cache TTL would expire, relative to when the current
-// warmup started. Minimum 1h ahead so misconfigured short TTLs don't spin.
+// Schedule warmup near cache expiry, never sooner than 1 hour.
 func nextWarmupAt(runStart time.Time, cacheTimes models.CacheTimes) time.Time {
 	candidates := []time.Duration{
 		cacheTimes.TimetableCacheShelfLife,
@@ -74,9 +60,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	start := time.Now()
 	log.Println("warmup: starting")
 
-	// Rebuild the availability registry from scratch each pass so routes that
-	// lose their CTP CSV (or stops that lose all routes) get hidden from the
-	// API on the next refresh rather than sticking around forever.
 	Availability.ResetForNewPass()
 
 	phase := time.Now()
@@ -105,11 +88,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 
 	log.Printf("warmup: fanning out stop_times + timetables for %d routes (CTP limiter ~1/s)", len(routes))
 
-	// Per-route warmup: stop_times is Tranzy-backed (rate-limited by the Tranzy
-	// client), timetable is CTP-backed (rate-limited at 1/s). Kick them off in
-	// parallel goroutines — both clients serialize internally via their
-	// limiters, so there's no risk of overrun, and the two streams run
-	// concurrently.
 	phase = time.Now()
 	var (
 		wg             sync.WaitGroup
@@ -142,9 +120,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 				log.Printf("warmup: timetable %s: %v", rsn, err)
 				timetablesFail.Add(1)
 			} else if tt != nil && (len(tt.Weekdays.Entries) > 0 || len(tt.Saturday.Entries) > 0 || len(tt.Sunday.Entries) > 0) {
-				// Route is considered "running" only if CTP returned at least
-				// one entry somewhere. Empty timetables are what we're filtering
-				// out of /api/routes, so they must not be marked here.
+				// Only mark routes with at least one departure.
 				Availability.MarkRouteHasTimetable(rsn)
 			}
 			timetablesOK.Add(1)
@@ -157,10 +133,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 		stopTimesOK.Load()-stopTimesFail.Load(), stopTimesFail.Load(),
 		timetablesOK.Load()-timetablesFail.Load(), timetablesFail.Load())
 
-	// Per-stop stop_info warmup. At this point every route-scoped dependency
-	// is in DB cache, so each GetStopInfo follows the warm path (DB only). Run
-	// sequentially — the DB reads are fast and we avoid hammering the cache
-	// mutex / sqlite writer.
 	log.Printf("warmup: priming stop_info for %d stops", len(stops))
 	stopStart := time.Now()
 	totalStops := int32(len(stops))
@@ -180,10 +152,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 			failed.Add(1)
 		} else {
 			warmed.Add(1)
-			// After availability filtering we want stops where at least one
-			// route actually has live data — ShapesInfo already drops routes
-			// with failed stop_times/timetable lookups, so its length is the
-			// right signal.
 			if info != nil && len(info.ShapesInfo) > 0 {
 				Availability.MarkStopHasBuses(stopID)
 			}
@@ -199,8 +167,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }
 
-// logProgress prints `line()` every `interval` until `done` is closed. Runs in
-// its own goroutine and exits promptly on close.
 func logProgress(done <-chan struct{}, interval time.Duration, line func() string) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

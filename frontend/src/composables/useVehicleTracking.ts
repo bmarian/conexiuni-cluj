@@ -2,25 +2,18 @@ import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
 import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
 import type {Shape, Vehicle} from '@/types/tranzy.ts'
 
-
-export const CLOSE_TO_STOP_THRESHOLD = 200  // metres
-export const VEHICLE_GRACE_PERIOD = 10       // minutes
-export const MIN_SPEED_KMH = 12              // floor for ETA divisor (km/h)
+export const CLOSE_TO_STOP_THRESHOLD = 200
+export const VEHICLE_GRACE_PERIOD = 10
+export const MIN_SPEED_KMH = 12
 
 export type TrackedVehicle = Vehicle & { route_short_name: string; heading: number }
 
-/**
- * Precomputed index over a shape polyline for O(1) lookups during rendering.
- * Build once per direction; reuse for every stop / vehicle / ETA computation.
- */
 export type ShapeIndex = {
   shape: Shape[]
-  /** Cumulative haversine distance (m) from shape[0] to shape[i]. */
   cumulativeDist: number[]
 }
 
 export type IndexedVehicle = TrackedVehicle & {
-  /** Index into ShapeIndex.shape; -1 if no shape match. */
   shapeIdx: number
 }
 
@@ -37,7 +30,6 @@ export function buildShapeIndex(shape: Shape[]): ShapeIndex {
   return {shape, cumulativeDist}
 }
 
-/** Linear scan returning the index of the shape point closest to lat/lon. -1 if shape is empty. */
 export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): number {
   let best = -1
   let bestDist = Infinity
@@ -49,16 +41,10 @@ export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): n
   return best
 }
 
-/**
- * One bulk request for many trip_ids. The server filters by trip_ids server-side
- * and still hits the upstream Tranzy API exactly once per cache window, so this
- * collapses N per-trip HTTP round-trips into one. Returns a map keyed by trip_id.
- */
 export async function fetchVehiclesForTrips(tripIds: string[]): Promise<Map<string, Vehicle[]>> {
   const grouped = new Map<string, Vehicle[]>()
   if (!tripIds.length) return grouped
 
-  // Stable key so concurrent requests with the same trip set dedupe in apiRequest.
   const key = [...new Set(tripIds)].sort().join(',')
   const raw = (await apiRequest(`vehicles?trip_ids=${key}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
 
@@ -70,14 +56,6 @@ export async function fetchVehiclesForTrips(tripIds: string[]): Promise<Map<stri
   return grouped
 }
 
-/**
- * Same logic as getVehiclesOnRoute but uses a precomputed ShapeIndex and stamps
- * each vehicle with its `shapeIdx` so the render path doesn't have to scan the
- * polyline for every (stop × vehicle) combination.
- *
- * If `prefetched` is supplied, no HTTP request is made — the caller is expected
- * to have already bulk-fetched vehicles via `fetchVehiclesForTrips`.
- */
 export async function getIndexedVehicles(
   tripId: string,
   routeShortName: string,
@@ -117,12 +95,6 @@ export async function getIndexedVehicles(
   return result
 }
 
-/**
- * O(vehicles) ETA: find the vehicle that is BEFORE the given stop along the
- * polyline and closest to it (highest shapeIdx <= stopIdx), then derive ETA
- * from the precomputed cumulative distance array. Returns null if no valid
- * vehicle is found.
- */
 export function etaForStop(
   stopShapeIdx: number,
   vehicles: IndexedVehicle[],
@@ -144,7 +116,6 @@ export function etaForStop(
   return {vehicle: bestVehicle, etaMinutes}
 }
 
-/** Returns the shape-point on `trip` that is closest to the given lat/lon. */
 export function getClosestNodeToPoint(
   {lat, lon}: {lat: number; lon: number},
   trip: Shape[],
@@ -161,15 +132,6 @@ export function getClosestNodeToPoint(
   return closest
 }
 
-/**
- * Fetches live vehicles for `tripId`, filters out:
- *  - vehicles parked at terminals (near first/last stop AND speed < 1)
- *  - vehicles with stale timestamps (> VEHICLE_GRACE_PERIOD minutes old)
- *  - vehicles with missing/invalid coordinates
- *
- * Enriches each vehicle with `route_short_name` and a computed `heading`
- * derived from the shape geometry.
- */
 export async function getVehiclesOnRoute(
   tripId: string,
   routeShortName: string,
@@ -187,19 +149,15 @@ export async function getVehiclesOnRoute(
   const result: TrackedVehicle[] = []
 
   for (const vehicle of raw) {
-    // Skip vehicles with missing/invalid coordinates
     if (!vehicle.latitude || !vehicle.longitude || vehicle.latitude < 0 || vehicle.longitude < 0) continue
 
-    // Skip stationary vehicles sitting at terminals
     const nearFirst = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const nearLast  = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat,  lastStop.shape_pt_lon)  <= CLOSE_TO_STOP_THRESHOLD
     if ((nearFirst || nearLast) && vehicle.speed < 1) continue
 
-    // Skip stale data
     const ts = new Date(vehicle.timestamp).getTime()
     if (isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000) continue
 
-    // Compute heading from shape geometry
     let heading = 0
     const closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
     if (closestNode) {
@@ -214,10 +172,6 @@ export async function getVehiclesOnRoute(
   return result
 }
 
-/**
- * Among `vehicles`, finds the one that is closest to `closestNodeToStop`
- * along the shape while still being BEFORE the stop (lower shape_pt_sequence).
- */
 export function getClosestVehicleBeforeStop(
   vehicles: TrackedVehicle[],
   closestNodeToStop: Shape,
@@ -240,11 +194,6 @@ export function getClosestVehicleBeforeStop(
   return {closestVehicle: bestVehicle, closestNode: bestNode}
 }
 
-/**
- * Computes minutes for a vehicle to travel from its current position to a stop,
- * using the shape polyline for distance and the vehicle's speed.
- * Returns -1 if shapes can't be matched, -2 if the vehicle has already passed the stop.
- */
 export function computeETA(stopShape: Shape, busShape: Shape, vehicle: TrackedVehicle, trip: Shape[]): number {
   const busIdx  = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
   const stopIdx = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)

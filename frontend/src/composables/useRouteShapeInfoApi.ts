@@ -16,7 +16,6 @@ const emptyTimetable = (route: Route): Timetable => ({
   sunday: emptyDay(),
 })
 
-/** Best-effort stop-name lookup from stop_times when CTP metadata is missing. */
 function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): string {
   const outbound = stopTimes
     .filter((st) => st.trip_id.endsWith(OUTGOING_SUFFIX))
@@ -34,9 +33,6 @@ export function useRouteShapeInfoApi() {
 
     const promise = (async () => {
       const encoded = encodeURIComponent(route.route_short_name)
-      // Tolerate either fetch failing — backend returns 500 for routes without
-      // a ctpcj.ro CSV (e.g. M24L, M32, 52B). RouteView degrades gracefully
-      // when timetable entries / stop_times are empty.
       const [timetableResult, stopTimesResult] = await Promise.allSettled([
         apiRequest(`timetable?route_short_name=${encoded}`, LOW_ACCURACY_SHELF_LIFE) as Promise<Timetable>,
         apiRequest(`stop_times?route_short_name=${encoded}`, LOW_ACCURACY_SHELF_LIFE) as Promise<StopTime[]>,
@@ -59,10 +55,7 @@ export function useRouteShapeInfoApi() {
         console.warn(`No stop_times for route ${route.route_short_name}:`, stopTimesResult.reason)
       }
 
-      // Backend returns the timetable shell even when CTP has no CSV — its meta
-      // strings come back empty. Backfill from the canonical Route + stop_times
-      // so RouteView's header / direction toggle / first+last stop labels still
-      // render something meaningful.
+      // Backfill missing metadata from canonical route/stop data.
       if (!timetable.route_short_name) timetable.route_short_name = route.route_short_name
       if (!timetable.route_long_name) timetable.route_long_name = route.route_long_name
       if (!timetable.in_stop_name) timetable.in_stop_name = deriveTerminalName(stopTimes, 'first')

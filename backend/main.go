@@ -58,8 +58,6 @@ func main() {
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota)
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
-	// Single shared poller that fans vehicle data out to all SSE subscribers.
-	// Only runs while tabs are connected — idle server = zero Tranzy traffic.
 	handlers.InitVehicleHub(tranzyClient, 20*time.Second)
 
 	app := fiber.New(fiber.Config{
@@ -72,11 +70,9 @@ func main() {
 		TimeZone:   "Local",
 	}))
 	app.Use(cors.New(cors.Config{
-		//AllowOrigins: []string{"http://localhost:5173"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
 
-	// Tranzy API routes
 	api := app.Group("/api")
 	api.Get("/routes", func(c fiber.Ctx) error {
 		filter := handlers.RouteFilter{}
@@ -96,9 +92,6 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		// Once warmup has populated the registry, hide routes whose CTP CSV
-		// is missing or empty. Skip when a specific route is requested —
-		// deep-links should still resolve even for discontinued routes.
 		if filter.RouteID == nil && filter.RouteShortName == nil && handlers.Availability.IsReady() {
 			filtered := make([]models.Route, 0, len(data))
 			for _, r := range data {
@@ -125,8 +118,6 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		// Same filter for stops: drop ones where stop_info returned zero
-		// routes with live data. Single-stop lookups pass through untouched.
 		if filter.StopID == nil && handlers.Availability.IsReady() {
 			filtered := make([]models.Stop, 0, len(data))
 			for _, s := range data {
@@ -188,11 +179,6 @@ func main() {
 		}
 		return c.JSON(data)
 	})
-	// Server-Sent Events stream for live vehicle updates. Clients open one of
-	// these per view (RouteView, StopView) with a `trip_ids` query param; the
-	// shared hub ticks every 20s and pushes each client its filtered batch.
-	// On disconnect the writer fails, we exit the goroutine, and the hub's
-	// subscriber count drops — when it hits zero the poll loop stops.
 	api.Get("/vehicles/stream", func(c fiber.Ctx) error {
 		var tripIDs []string
 		if s := c.Query("trip_ids"); s != "" {
@@ -209,8 +195,7 @@ func main() {
 		c.Set("Content-Type", "text/event-stream")
 		c.Set("Cache-Control", "no-cache")
 		c.Set("Connection", "keep-alive")
-		// Tell nginx (if proxying) not to buffer this response — SSE is
-		// useless behind a proxy that holds bytes until the connection closes.
+		// Required for SSE behind nginx.
 		c.Set("X-Accel-Buffering", "no")
 
 		sub, id := handlers.VehicleHub.Subscribe(tripIDs)
@@ -218,10 +203,6 @@ func main() {
 		return c.SendStreamWriter(func(w *bufio.Writer) {
 			defer handlers.VehicleHub.Unsubscribe(id)
 
-			// Keepalive ticks between data pushes keep intermediaries from
-			// killing the connection and — more importantly — give us a way
-			// to detect client disconnect when the hub isn't broadcasting
-			// for this subscriber (e.g. no matching trips in a poll).
 			keep := time.NewTicker(25 * time.Second)
 			defer keep.Stop()
 
@@ -317,7 +298,6 @@ func main() {
 		return c.JSON(data)
 	})
 
-	// CTP Cj API routes
 	api.Get("/timetable", func(c fiber.Ctx) error {
 		routeShortName := c.Query("route_short_name")
 		data, err := handlers.GetTimetable(ctpCjClient, config.TimetableCacheShelfLife, routeShortName)
@@ -327,13 +307,11 @@ func main() {
 		return c.JSON(data)
 	})
 
-	// Serve static files
 	if _, err := os.Stat("./dist"); err == nil {
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
 		}))
 
-		// SPA fallback
 		app.Use("*", func(c fiber.Ctx) error {
 			return c.SendFile("./dist/index.html")
 		})

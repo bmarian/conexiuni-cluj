@@ -26,9 +26,6 @@ export const useMapStore = defineStore('map', () => {
     shapesToDisplay.value = await requestShapes(displayShapes)
   }
 
-  /** Synchronous setter for callers that already have shape data in memory
-   *  (e.g. RouteView preloading both directions). Avoids the network round-trip
-   *  through `setShapesToDisplay` and the brief flicker that comes with it. */
   const setLoadedShapes = (entries: Array<[DisplayShape, Shape[]]>) => {
     shapesToDisplay.value = entries
   }
@@ -36,8 +33,6 @@ export const useMapStore = defineStore('map', () => {
   const requestShapes = async (displayShapes: DisplayShape[]): Promise<Array<[DisplayShape, Shape[]]>> => {
     if (!displayShapes?.length) return []
 
-    // One bulk request for every requested shape_id. The server filters by
-    // shape_ids and returns a flat array; we group by shape_id client-side.
     const shapeIds = [...new Set(displayShapes.map(d => d.trip_id))].sort()
     const raw = (await apiRequest(`shapes?shape_ids=${shapeIds.join(',')}`) as Shape[]) ?? []
 
@@ -47,7 +42,6 @@ export const useMapStore = defineStore('map', () => {
       const bucket = grouped.get(pt.shape_id)
       if (bucket) bucket.push(pt)
     }
-    // Preserve the caller's shape ordering in the returned pairs.
     return displayShapes.map((d): [DisplayShape, Shape[]] => [d, grouped.get(d.trip_id) ?? []])
   }
 

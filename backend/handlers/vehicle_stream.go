@@ -9,14 +9,6 @@ import (
 	"time"
 )
 
-// vehicleHub coordinates one upstream vehicle poll for every connected
-// subscriber. Instead of each browser tab firing its own `/api/vehicles`
-// request on a timer, they all subscribe here and a single goroutine hits
-// Tranzy every `pollInterval`, broadcasting each subscriber's filtered slice.
-//
-// Key property: the poller goroutine only exists while at least one subscriber
-// is connected. When the last tab closes (or the user hides the tab), the
-// goroutine exits and Tranzy stops receiving traffic entirely.
 type vehicleHub struct {
 	mu           sync.Mutex
 	subscribers  map[int64]*vehicleSubscriber
@@ -28,15 +20,12 @@ type vehicleHub struct {
 
 type vehicleSubscriber struct {
 	tripIDs map[string]struct{}
-	// Buffer=4: room for a few batches if the SSE writer briefly stalls, but
-	// not unbounded so slow clients can't grow memory forever. If full we
-	// drop the batch and they get the next tick.
+	// Small buffer prevents slow SSE writers from blocking the hub.
 	ch chan []models.Vehicle
 }
 
 var VehicleHub *vehicleHub
 
-// InitVehicleHub must be called once at startup, before any SSE handler runs.
 func InitVehicleHub(tranzyClient *tranzy.Client, pollInterval time.Duration) {
 	VehicleHub = &vehicleHub{
 		subscribers:  make(map[int64]*vehicleSubscriber),
@@ -45,13 +34,6 @@ func InitVehicleHub(tranzyClient *tranzy.Client, pollInterval time.Duration) {
 	}
 }
 
-// Subscribe registers interest in live updates for the given trip IDs. The
-// returned channel receives a fresh `[]Vehicle` (filtered to tripIDs) on
-// every broadcast. Call Unsubscribe with the returned id when done.
-//
-// The first batch is delivered immediately — it comes from the existing
-// `GetVehicles` cache, so an early-arriving subscriber doesn't wait a full
-// poll interval for data.
 func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
 	set := make(map[string]struct{}, len(tripIDs))
 	for _, id := range tripIDs {
@@ -74,8 +56,6 @@ func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
 
 	log.Printf("vehicle hub: +subscriber %d (total=%d, trips=%d)", id, total, len(tripIDs))
 
-	// Fire an immediate send. Reuses the upstream cache so it's free if
-	// another tab already fetched recently.
 	go h.sendTo(sub)
 
 	if shouldStart {
@@ -115,8 +95,6 @@ func (h *vehicleHub) run() {
 		}
 		h.mu.Unlock()
 
-		// One upstream fetch per tick, via the existing cached path. TTL is
-		// the poll interval so every tick actually refreshes.
 		vehicles, err := GetVehicles(h.tranzy, h.pollInterval, VehicleFilter{})
 		if err != nil {
 			log.Printf("vehicle hub: GetVehicles: %v", err)
@@ -128,8 +106,6 @@ func (h *vehicleHub) run() {
 	}
 }
 
-// sendTo delivers the currently-cached vehicle snapshot to one subscriber
-// out-of-band. Used on join so new subscribers don't wait a full tick.
 func (h *vehicleHub) sendTo(sub *vehicleSubscriber) {
 	vehicles, err := GetVehicles(h.tranzy, h.pollInterval, VehicleFilter{})
 	if err != nil {
@@ -139,9 +115,6 @@ func (h *vehicleHub) sendTo(sub *vehicleSubscriber) {
 	broadcast(sub, vehicles)
 }
 
-// broadcast filters `vehicles` down to the subscriber's trip set and does a
-// non-blocking send. If the channel is full (slow reader), the batch is
-// dropped — the subscriber picks up fresh data on the next tick.
 func broadcast(sub *vehicleSubscriber, vehicles []models.Vehicle) {
 	filtered := make([]models.Vehicle, 0, len(vehicles))
 	for _, v := range vehicles {
@@ -155,5 +128,4 @@ func broadcast(sub *vehicleSubscriber, vehicles []models.Vehicle) {
 	}
 }
 
-// Ch exposes the subscriber channel to the SSE handler.
 func (s *vehicleSubscriber) Ch() <-chan []models.Vehicle { return s.ch }
