@@ -29,11 +29,6 @@ onMounted(() => {
   void fetchStops()
 })
 
-function formatGtfsColor(c?: string) {
-  if (!c) return '#3b82f6'
-  return c.startsWith('#') ? c : `#${c}`
-}
-
 const routesById = computed(() => {
   const map = new Map<number, Route>()
   for (const r of routes.value) map.set(r.route_id, r)
@@ -156,7 +151,7 @@ const stopFavoritesModel = computed<number[]>({
               </svg>
               <span
                 class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm"
-                :style="{ backgroundColor: formatGtfsColor(routesById.get(routeId)?.route_color) }"
+                :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
                 :title="routesById.get(routeId)?.route_long_name"
               >{{ routesById.get(routeId)?.route_short_name }}</span>
               <button
@@ -267,7 +262,7 @@ const stopFavoritesModel = computed<number[]>({
         >
           <div
             class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-            :style="{ backgroundColor: formatGtfsColor(route.route_color) }"
+            :style="{ backgroundColor: route.route_color }"
           >{{ route.route_short_name }}</div>
 
           <span class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">

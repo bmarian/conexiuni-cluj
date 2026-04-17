@@ -137,7 +137,7 @@ func storeRoutesInDB(routes []models.Route) error {
 			route.RouteLongName,
 			route.RouteType,
 			route.RouteDesc,
-			route.RouteColor,
+			models.ResolveRouteDisplayColor(route.RouteShortName),
 		); err != nil {
 			return fmt.Errorf("error inserting route: %w", err)
 		}

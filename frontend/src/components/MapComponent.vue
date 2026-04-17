@@ -32,39 +32,11 @@ const accuracyCircle = shallowRef<L.Circle>()
 const shapeLayerGroup = shallowRef<L.FeatureGroup>()
 const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
 const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
-const fallbackColors = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#14b8a6',
-  '#6366f1'
-]
-let fallbackIndex = 0
 const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
-
-const getSharedRouteColor = (color: string | undefined, identifier: string | number) => {
-  let finalColor = color
-
-  if (finalColor && !finalColor.startsWith('#')) {
-    finalColor = `#${finalColor}`
-  }
-
-  if (!finalColor || finalColor === '#000' || finalColor === '#000000') {
-    if (!routeColorsCache.has(identifier)) {
-      routeColorsCache.set(identifier, fallbackColors[fallbackIndex % fallbackColors.length]!)
-      fallbackIndex++
-    }
-    return routeColorsCache.get(identifier)!
-  }
-
-  routeColorsCache.set(identifier, finalColor)
-  return finalColor
-}
 
 
 const stopIcon = L.divIcon({
@@ -315,6 +287,7 @@ watch(shapesToDisplay, (newShapes) => {
   if (!shapeLayerGroup.value || !map.value) return
   shapeLayerGroup.value.clearLayers()
   const drawnPaths = new Set<string>()
+  const duplicateDashPatterns = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 
   const groupedStarts = new Map<string, {
     lat: number,
@@ -323,25 +296,41 @@ watch(shapesToDisplay, (newShapes) => {
   }>()
 
   const hasHighlights = highlightedStops.value.length > 0
+  const colorCounts = new Map<string, number>()
+
+  for (let i = 0; i < newShapes.length; i++) {
+    const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
+    if (!Array.isArray(shapeData) || shapeData.length === 0) continue
+    const routeColor = displayShape.route_color
+    colorCounts.set(routeColor, (colorCounts.get(routeColor) ?? 0) + 1)
+  }
+  const colorSeen = new Map<string, number>()
 
   for (let i = 0; i < newShapes.length; i++) {
     const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
     const latLngs: L.LatLngTuple[] = shapeData.map(sd => [sd.shape_pt_lat, sd.shape_pt_lon])
-    const routeIdentifier = displayShape.trip_id
-
-    const routeColor = getSharedRouteColor(displayShape.route_color, routeIdentifier)
+    const routeColor = displayShape.route_color
     routeColorsCache.set(displayShape.trip_id, routeColor)
 
+    const colorVariantIdx = colorSeen.get(routeColor) ?? 0
+    colorSeen.set(routeColor, colorVariantIdx + 1)
+    const hasDuplicateColor = (colorCounts.get(routeColor) ?? 0) > 1
+    const dashArray = hasDuplicateColor
+      ? duplicateDashPatterns[colorVariantIdx % duplicateDashPatterns.length]
+      : ''
+
     const pathSignature = latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')
-    if (drawnPaths.has(pathSignature)) continue
-    drawnPaths.add(pathSignature)
+    const signature = `${dashArray}|${pathSignature}`
+    if (drawnPaths.has(signature)) continue
+    drawnPaths.add(signature)
 
     L.polyline(latLngs, {
       color: '#94a3b8',
       weight: 5,
       opacity: 0.7,
+      dashArray: dashArray || undefined,
       smoothFactor: 1.5,
       lineJoin: 'round',
       lineCap: 'round'
@@ -432,11 +421,12 @@ watch(vehiclesToDisplay, (vehicles) => {
   vehicleLayerGroup.value.clearLayers()
 
   for (let i = 0; i < vehicles.length; i++) {
-    const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, heading: number }
+    const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, route_color?: string, heading: number }
 
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
-    const resolvedColor = routeColorsCache.get(vehicle.trip_id) || '#64748b'
+    const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
+    if (!resolvedColor) continue
     const routeName = vehicle.route_short_name || ''
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
     const busIcon = L.divIcon({

@@ -57,11 +57,6 @@ const routeDisplayName = computed(() => {
   return isOutgoing.value ? tt.route_long_name : `${tt.out_stop_name} - ${tt.in_stop_name}`
 })
 
-function formatGtfsColor(c?: string) {
-  if (!c) return '#3b82f6'
-  return c.startsWith('#') ? c : `#${c}`
-}
-
 type DirectionShape = {
   shape: Shape[]
   shapeIndex: ShapeIndex
@@ -352,13 +347,14 @@ async function loadAllDirections() {
 async function refreshVehiclesFromStream() {
   if (!shapeInfo.value) return
   const name = shapeInfo.value.route_short_name
+  const color = shapeInfo.value.route_color
   const byTrip = vehiclesByTrip.value
   const tasks: Promise<void>[] = []
   if (direction0Shape.value) {
     const tid = `${props.routeId}${OUTGOING_SUFFIX}`
     tasks.push((async () => {
       try {
-        direction0Vehicles.value = await getIndexedVehicles(tid, name, direction0Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
+        direction0Vehicles.value = await getIndexedVehicles(tid, name, color, direction0Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
       } catch (e) { console.warn('Failed to index outgoing vehicles:', e) }
     })())
   }
@@ -366,7 +362,7 @@ async function refreshVehiclesFromStream() {
     const tid = `${props.routeId}${INCOMING_SUFFIX}`
     tasks.push((async () => {
       try {
-        direction1Vehicles.value = await getIndexedVehicles(tid, name, direction1Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
+        direction1Vehicles.value = await getIndexedVehicles(tid, name, color, direction1Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
       } catch (e) { console.warn('Failed to index incoming vehicles:', e) }
     })())
   }
@@ -469,7 +465,7 @@ onUnmounted(() => {
     <header class="flex items-start gap-4 pb-5">
       <div
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
-        :style="{ backgroundColor: formatGtfsColor(shapeInfo.route_color), boxShadow: `0 8px 24px -4px ${formatGtfsColor(shapeInfo.route_color)}66` }"
+        :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
       >
         <span class="text-2xl font-black text-white leading-none">{{ shapeInfo.route_short_name }}</span>
       </div>

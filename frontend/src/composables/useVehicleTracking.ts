@@ -6,7 +6,7 @@ export const CLOSE_TO_STOP_THRESHOLD = 200
 export const VEHICLE_GRACE_PERIOD = 10
 export const MIN_SPEED_KMH = 12
 
-export type TrackedVehicle = Vehicle & { route_short_name: string; heading: number }
+export type TrackedVehicle = Vehicle & { route_short_name: string; route_color: string; heading: number }
 
 export type ShapeIndex = {
   shape: Shape[]
@@ -59,6 +59,7 @@ export async function fetchVehiclesForTrips(tripIds: string[]): Promise<Map<stri
 export async function getIndexedVehicles(
   tripId: string,
   routeShortName: string,
+  routeColor: string,
   index: ShapeIndex,
   userTime?: Date | null,
   prefetched?: Vehicle[],
@@ -89,7 +90,7 @@ export async function getIndexedVehicles(
       heading = calculateBearing(vehicle.latitude, vehicle.longitude, target.shape_pt_lat, target.shape_pt_lon)
     }
 
-    result.push({...vehicle, route_short_name: routeShortName, heading, shapeIdx})
+    result.push({...vehicle, route_short_name: routeShortName, route_color: routeColor, heading, shapeIdx})
   }
 
   return result
@@ -135,6 +136,7 @@ export function getClosestNodeToPoint(
 export async function getVehiclesOnRoute(
   tripId: string,
   routeShortName: string,
+  routeColor: string,
   trip: Shape[],
   userTime?: Date | null,
   prefetched?: Vehicle[],
@@ -166,7 +168,7 @@ export async function getVehiclesOnRoute(
       heading = calculateBearing(vehicle.latitude, vehicle.longitude, target.shape_pt_lat, target.shape_pt_lon)
     }
 
-    result.push({...vehicle, route_short_name: routeShortName, heading})
+    result.push({...vehicle, route_short_name: routeShortName, route_color: routeColor, heading})
   }
 
   return result

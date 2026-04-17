@@ -56,11 +56,6 @@ const streamTripIds = computed<string[]>(() => {
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
-function formatGtfsColor(colorString?: string) {
-  if (!colorString) return '#3b82f6'
-  return colorString.startsWith('#') ? colorString : `#${colorString}`
-}
-
 function formatMinutes(minutes: number): string {
   if (minutes === 0) return t('now')
   if (minutes < 60) return `${minutes}m`
@@ -193,6 +188,8 @@ watch(() => props.stopId, async (newValue) => {
 watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesComingNext]) => {
   if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = []
+    mapStore.setVehiclesToDisplay([])
+    mapStore.setLoadedShapes([])
     isComputingDepartures.value = false
     return
   }
@@ -201,20 +198,24 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   const displayShapesWithTrip = await mapStore.requestShapes(displayShapes)
   if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
+    mapStore.setVehiclesToDisplay([])
+    mapStore.setLoadedShapes([])
     isComputingDepartures.value = false
     return
   }
 
   const vehiclesByTripMap = vehiclesByTrip.value
   const favoriteVehicles: TrackedVehicle[] = []
+  const favoriteTripIds = new Set<string>()
 
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value, vehiclesByTripMap.get(shape.trip_id) ?? [])
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, shape.route_color, trip, userTime.value, vehiclesByTripMap.get(shape.trip_id) ?? [])
 
     if (favoritesStore.isRouteFavorite(shape.route_id)) {
       favoriteVehicles.push(...vehiclesOnRoute)
+      if (vehiclesOnRoute.length) favoriteTripIds.add(shape.trip_id)
     }
 
     if (!vehiclesOnRoute.length) {
@@ -249,6 +250,11 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     })
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
+  mapStore.setLoadedShapes(
+    displayShapesWithTrip.filter(([displayShape, shapePoints]) =>
+      favoriteTripIds.has(displayShape.trip_id) && Array.isArray(shapePoints) && shapePoints.length > 0,
+    ),
+  )
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false
 })
@@ -400,7 +406,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
             <div
               class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
-              :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
+              :style="{ backgroundColor: shape.route_color }"
             >{{ shape.route_short_name }}</div>
 
             <div class="flex-1 min-w-0 flex flex-col justify-center">
@@ -457,7 +463,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         >
           <div
             class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-            :style="{ backgroundColor: formatGtfsColor(shape.route_color) }"
+            :style="{ backgroundColor: shape.route_color }"
           >{{ shape.route_short_name }}</div>
 
           <span class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
