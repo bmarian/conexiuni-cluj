@@ -35,7 +35,7 @@ const userStore = useUserStore()
 const mapStore = useMapStore()
 const favoritesStore = useFavoritesStore()
 const {userTime, userLocation} = storeToRefs(userStore)
-const {zoomOut, centerOnUser} = storeToRefs(mapStore)
+const {zoomOut} = storeToRefs(mapStore)
 const {favoriteStopIds} = storeToRefs(favoritesStore)
 
 const routeIdNum = computed(() => Number(props.routeId))
@@ -373,13 +373,6 @@ async function refreshVehiclesFromStream() {
 watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
 watch(currentDirection, () => { updateMap() })
 
-const fromStopEl = ref<HTMLElement | null>(null)
-
-async function scrollToFromStop() {
-  await nextTick()
-  fromStopEl.value?.scrollIntoView({behavior: 'smooth', block: 'center'})
-}
-
 const isInitialLoading = ref(false)
 
 function goBack() {
@@ -419,7 +412,6 @@ onMounted(async () => {
     if (!ok) return
   }
   updateMap()
-  scrollToFromStop()
   void loadAllDirections().then(() => { updateMap() })
 })
 
@@ -427,7 +419,6 @@ onUnmounted(() => {
   mapStore.setHighlightedStops([])
   mapStore.setShapesToDisplay([])
   mapStore.setVehiclesToDisplay([])
-  centerOnUser.value = true
 })
 </script>
 
@@ -531,7 +522,6 @@ onUnmounted(() => {
         <div
           v-for="(stop, idx) in stopsForDirection"
           :key="stop.stop_id + '-' + idx"
-          :ref="(el) => { if (String(stop.stop_id) === fromStopId) fromStopEl = el as HTMLElement }"
           :class="['stop-row',
             String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
             idx === nearestStopIdx ? 'stop-row-nearest' :
@@ -541,6 +531,7 @@ onUnmounted(() => {
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
             <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
             <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
             <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
             <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
           </div>
@@ -571,8 +562,6 @@ onUnmounted(() => {
               :class="[
                 'time-cell',
                 stopTime.isLive ? 'time-cell-live' :
-                String(stop.stop_id) === fromStopId ? 'text-emerald-600 dark:text-emerald-400' :
-                idx === nearestStopIdx ? 'text-purple-600 dark:text-purple-400' :
                 'text-slate-500 dark:text-slate-400'
               ]"
             >{{ stopTime.label }}</span>
@@ -644,6 +633,7 @@ onUnmounted(() => {
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
                 <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
                 <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
                 <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
                 <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
               </div>
@@ -669,8 +659,6 @@ onUnmounted(() => {
 
               <span :class="[
                 'text-sm font-bold tabular-nums shrink-0',
-                String(stop.stop_id) === fromStopId ? 'text-emerald-600 dark:text-emerald-400' :
-                idx === nearestStopIdx ? 'text-purple-600 dark:text-purple-400' :
                 idx === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
               ]">{{ stop.arrivalTimeStr }}</span>
             </div>

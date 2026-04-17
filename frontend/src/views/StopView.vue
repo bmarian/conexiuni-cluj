@@ -26,7 +26,7 @@ import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, 
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {useRouter} from "vue-router";
+import {onBeforeRouteLeave, useRouter} from "vue-router";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -39,6 +39,7 @@ const router = useRouter()
 const stopIdNum = computed(() => Number(props.stopId))
 const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
 const {userTime} = storeToRefs(userStore)
+const {zoomOut, centerOnUser} = storeToRefs(mapStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
@@ -190,6 +191,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     shapesComingToTheStopBasedOnVehiclePositions.value = []
     mapStore.setVehiclesToDisplay([])
     mapStore.setLoadedShapes([])
+    zoomOut.value = false
     isComputingDepartures.value = false
     return
   }
@@ -200,6 +202,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
     mapStore.setVehiclesToDisplay([])
     mapStore.setLoadedShapes([])
+    zoomOut.value = false
     isComputingDepartures.value = false
     return
   }
@@ -250,13 +253,21 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     })
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
-  mapStore.setLoadedShapes(
-    displayShapesWithTrip.filter(([displayShape, shapePoints]) =>
-      favoriteTripIds.has(displayShape.trip_id) && Array.isArray(shapePoints) && shapePoints.length > 0,
-    ),
+  const highlightedShapes = displayShapesWithTrip.filter(([displayShape, shapePoints]) =>
+    favoriteTripIds.has(displayShape.trip_id) && Array.isArray(shapePoints) && shapePoints.length > 0,
   )
+  mapStore.setLoadedShapes(
+    highlightedShapes,
+  )
+  zoomOut.value = highlightedShapes.length > 0
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false
+})
+
+onBeforeRouteLeave((to) => {
+  if (to.name === 'home') {
+    centerOnUser.value = true
+  }
 })
 
 onUnmounted(() => {
