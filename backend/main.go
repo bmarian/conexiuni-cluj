@@ -114,6 +114,14 @@ func main() {
 			filter.ShapeID = &shapeIDStr
 		}
 
+		if shapeIDsStr := c.Query("shape_ids"); shapeIDsStr != "" {
+			for _, id := range strings.Split(shapeIDsStr, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					filter.ShapeIDs = append(filter.ShapeIDs, id)
+				}
+			}
+		}
+
 		data, err := handlers.GetShapes(tranzyClient, config.ShapeCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

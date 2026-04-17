@@ -33,15 +33,22 @@ export const useMapStore = defineStore('map', () => {
     shapesToDisplay.value = entries
   }
 
-  const requestShapes = async (displayShapes: DisplayShape[]) => {
-    if (!displayShapes) return []
+  const requestShapes = async (displayShapes: DisplayShape[]): Promise<Array<[DisplayShape, Shape[]]>> => {
+    if (!displayShapes?.length) return []
 
-    return Promise.all(
-      displayShapes.map(async (displayShape): Promise<[DisplayShape, Shape[]]> => {
-        const response = (await apiRequest(`shapes?shape_id=${displayShape.trip_id}`) as Shape[]) ?? []
-        return [displayShape, response]
-      }),
-    )
+    // One bulk request for every requested shape_id. The server filters by
+    // shape_ids and returns a flat array; we group by shape_id client-side.
+    const shapeIds = [...new Set(displayShapes.map(d => d.trip_id))].sort()
+    const raw = (await apiRequest(`shapes?shape_ids=${shapeIds.join(',')}`) as Shape[]) ?? []
+
+    const grouped = new Map<string, Shape[]>()
+    for (const id of shapeIds) grouped.set(id, [])
+    for (const pt of raw) {
+      const bucket = grouped.get(pt.shape_id)
+      if (bucket) bucket.push(pt)
+    }
+    // Preserve the caller's shape ordering in the returned pairs.
+    return displayShapes.map((d): [DisplayShape, Shape[]] => [d, grouped.get(d.trip_id) ?? []])
   }
 
   const setVehiclesToDisplay = (vehicles: Vehicle[]) => {

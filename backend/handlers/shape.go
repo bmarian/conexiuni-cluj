@@ -16,19 +16,26 @@ const (
 )
 
 type ShapeFilter struct {
-	ShapeID *string
+	ShapeID  *string
+	ShapeIDs []string
 }
 
 func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter ShapeFilter) ([]models.Shape, error) {
 	opts := CacheOpts[[]models.Shape]{}
 
-	if filter.ShapeID != nil {
+	if filter.ShapeID != nil || len(filter.ShapeIDs) > 0 {
 		f := filter
+		idSet := shapeIDSet(f.ShapeIDs)
 		opts.PostProcess = func(ss []models.Shape) []models.Shape {
 			out := make([]models.Shape, 0)
 			for _, s := range ss {
 				if f.ShapeID != nil && s.ShapeID != *f.ShapeID {
 					continue
+				}
+				if idSet != nil {
+					if _, ok := idSet[s.ShapeID]; !ok {
+						continue
+					}
 				}
 				out = append(out, s)
 			}
@@ -63,6 +70,17 @@ func requestShapes(tranzyClient *tranzy.Client) ([]models.Shape, error) {
 	return shapes, nil
 }
 
+func shapeIDSet(ids []string) map[string]struct{} {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		out[id] = struct{}{}
+	}
+	return out
+}
+
 func getShapesFromDB(filter ShapeFilter) ([]models.Shape, error) {
 	query := `SELECT * FROM shapes`
 	var args []any
@@ -71,6 +89,13 @@ func getShapesFromDB(filter ShapeFilter) ([]models.Shape, error) {
 	if filter.ShapeID != nil {
 		conditions = append(conditions, "shape_id = ?")
 		args = append(args, *filter.ShapeID)
+	} else if len(filter.ShapeIDs) > 0 {
+		placeholders := strings.Repeat("?,", len(filter.ShapeIDs))
+		placeholders = placeholders[:len(placeholders)-1]
+		conditions = append(conditions, "shape_id IN ("+placeholders+")")
+		for _, id := range filter.ShapeIDs {
+			args = append(args, id)
+		}
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
