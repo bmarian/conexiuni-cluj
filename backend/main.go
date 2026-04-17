@@ -88,6 +88,10 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		data, err = handlers.FilterServiceableRoutes(data)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.JSON(data)
 	})
 	api.Get("/stops", func(c fiber.Ctx) error {
@@ -102,6 +106,10 @@ func main() {
 		}
 
 		data, err := handlers.GetStops(tranzyClient, config.StopCacheShelfLife, filter)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		data, err = handlers.FilterServiceableStops(data)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
