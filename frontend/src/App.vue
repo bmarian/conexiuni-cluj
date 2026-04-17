@@ -219,5 +219,8 @@ function onPointerUp(e: PointerEvent) {
     padding-bottom: 0;
     transition: none;
   }
+  .drawer-handle {
+    display: none;
+  }
 }
 </style>
