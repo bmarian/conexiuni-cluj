@@ -421,8 +421,8 @@ async function scrollToFromStop() {
 const isInitialLoading = ref(false)
 
 const goBack = () => {
-  if (window.history.state && window.history.state.back) {
-    router.back()
+  if (fromStopId.value) {
+    router.push({name: 'stop', params: {stopId: fromStopId.value}})
   } else {
     router.push({name: 'home'})
   }
@@ -445,7 +445,8 @@ async function loadShapeInfoFromApi(): Promise<boolean> {
 }
 
 onMounted(async () => {
-  if (!shapeInfo.value) {
+  const storeRouteId = (shapeInfo.value as any)?.route_id
+  if (!shapeInfo.value || storeRouteId !== Number(props.routeId)) {
     isInitialLoading.value = true
     const ok = await loadShapeInfoFromApi()
     isInitialLoading.value = false
