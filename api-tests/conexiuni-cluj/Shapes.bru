@@ -1,0 +1,20 @@
+meta {
+  name: Shapes
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{BASE_URL}}/shapes?shape_id=26_0
+  body: none
+  auth: inherit
+}
+
+params:query {
+  shape_id: 26_0
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

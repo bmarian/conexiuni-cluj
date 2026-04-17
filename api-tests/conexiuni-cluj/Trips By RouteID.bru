@@ -1,0 +1,21 @@
+meta {
+  name: Trips By RouteID
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{BASE_URL}}/trips?route_id=22
+  body: none
+  auth: inherit
+}
+
+params:query {
+  route_id: 22
+  ~trip_id: 22_0
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

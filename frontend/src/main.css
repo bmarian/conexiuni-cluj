@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
+@import "./styles/leaflet.css";
+
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  /* Safe-area insets are applied inside the app shell (drawer handles bottom,
+     map handles top) so the map can extend edge-to-edge on mobile. */
+  padding: 0;
+}

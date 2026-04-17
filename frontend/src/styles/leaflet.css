@@ -1,0 +1,67 @@
+@layer components {
+  .leaflet-control-geosearch form,
+  .leaflet-control-geosearch .results.active {
+    @apply bg-slate-100! dark:bg-slate-900! border-none! shadow-md!;
+  }
+
+  .leaflet-control-geosearch form input {
+    @apply text-slate-900! dark:text-slate-100! placeholder-slate-500! dark:placeholder-slate-400! bg-transparent! focus:outline-none!;
+  }
+
+  .leaflet-control-geosearch .results > * {
+    @apply text-slate-900! dark:text-slate-100! bg-transparent! border-slate-200! dark:border-slate-800! border-b!;
+  }
+
+  .leaflet-control-geosearch .results > *:hover {
+    @apply bg-slate-200! dark:bg-slate-800!;
+  }
+
+  .leaflet-control-geosearch button.reset,
+  .leaflet-control-geosearch form .glass {
+    @apply text-slate-500! dark:text-slate-400! hover:text-slate-900! dark:hover:text-slate-100! bg-slate-200! dark:bg-slate-800!;
+  }
+
+  .leaflet-bar a {
+    @apply bg-slate-100! text-slate-900! dark:bg-slate-900! dark:text-slate-100! border-none! shadow-md!;
+  }
+
+  .leaflet-bar a:hover {
+    @apply bg-slate-200! dark:bg-slate-800!;
+  }
+
+  .leaflet-bar a:first-child {
+    @apply border-b! border-slate-300! dark:border-slate-700!;
+  }
+
+  .leaflet-popup-content-wrapper {
+    @apply bg-slate-100! dark:bg-slate-900! text-slate-900! dark:text-slate-100! rounded-xl! shadow-lg!;
+  }
+
+  .leaflet-popup-tip {
+    @apply bg-slate-100! dark:bg-slate-900! shadow-none!;
+  }
+
+  .leaflet-popup-close-button {
+    @apply text-slate-500! dark:text-slate-400! hover:text-slate-900! dark:hover:text-slate-100! mt-2! mr-2!;
+  }
+
+  .leaflet-popup-content {
+    @apply leading-relaxed! pr-2!;
+  }
+
+  .leaflet-control-attribution {
+    @apply text-slate-900! dark:text-slate-100!;
+    background: none !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-container {
+    /* Hardcoded color for the dark map theme */
+    background-color: #090909;
+  }
+}
+
+.stop-icon {
+  @apply text-fuchsia-900 dark:text-fuchsia-500;
+}

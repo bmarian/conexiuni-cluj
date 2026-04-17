@@ -1,0 +1,49 @@
+meta {
+  name: Rate Limit Test (5 req/s)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BASE_URL}}/routes
+  body: none
+  auth: inherit
+}
+
+script:pre-request {
+  // Fire 10 sequential requests and measure total elapsed time.
+  // At 5 req/s the server-side rate limiter should queue them so
+  // the round-trips take at least 2 seconds (10 / 5 = 2s minimum).
+  const BASE_URL = bru.getEnvVar("BASE_URL");
+  const COUNT = 10;
+  
+  const start = Date.now();
+  for (let i = 0; i < COUNT; i++) {
+    await axios.get(`${BASE_URL}/routes`);
+  }
+  const elapsed = Date.now() - start;
+  
+  bru.setVar("rl_elapsed_ms", elapsed);
+  bru.setVar("rl_count", COUNT);
+  
+  console.log(`Rate limit probe: ${COUNT} requests completed in ${elapsed}ms`);
+}
+
+tests {
+  const elapsed = bru.getVar("rl_elapsed_ms");
+  const count   = bru.getVar("rl_count");
+  const minMs   = (count / 5) * 1000; // 10 req / 5 req·s⁻¹ = 2000 ms
+  
+  test(`${count} sequential requests take at least ${minMs}ms (5 req/s limit)`, () => {
+    expect(elapsed).toBeGreaterThanOrEqual(minMs);
+  });
+  
+  test("final request succeeds (not quota-blocked)", () => {
+    expect(res.getStatus()).toBe(200);
+  });
+}
+
+settings {
+  encodeUrl: true
+  timeout: 30000
+}

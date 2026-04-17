@@ -1,0 +1,16 @@
+meta {
+  name: Stops
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{BASE_URL}}/stops
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

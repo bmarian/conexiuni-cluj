@@ -1,0 +1,20 @@
+meta {
+  name: Stops By StopID
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{BASE_URL}}/stops?stop_id=88
+  body: none
+  auth: inherit
+}
+
+params:query {
+  stop_id: 88
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
