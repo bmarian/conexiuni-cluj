@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
+import IconNotFoundFace from '@/components/icons/IconNotFoundFace.vue'
 
 const router = useRouter()
 const {t} = useI18n()
@@ -9,9 +10,7 @@ const {t} = useI18n()
 <template>
   <div class="not-found-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center gap-5">
     <div class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-      <svg class="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
+      <IconNotFoundFace class="w-8 h-8 text-slate-400 dark:text-slate-500"/>
     </div>
     <div class="text-center">
       <h1 class="text-xl font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>

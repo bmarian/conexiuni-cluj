@@ -21,6 +21,10 @@ import {
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import IconBack from '@/components/icons/IconBack.vue'
+import IconNotFoundFace from '@/components/icons/IconNotFoundFace.vue'
+import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
+import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -441,18 +445,14 @@ onUnmounted(() => {
 
   <div v-else-if="!shapeInfo" class="route-view-container flex flex-col items-center justify-center gap-5">
     <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-      <svg class="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
+      <IconNotFoundFace class="w-7 h-7 text-slate-400 dark:text-slate-500"/>
     </div>
     <div class="text-center">
       <h1 class="text-lg font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>
       <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{{ t('notFoundDesc') }}</p>
     </div>
     <button @click="goBack" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-      </svg>
+      <IconBack class="w-4 h-4"/>
       {{ t('back') }}
     </button>
   </div>
@@ -461,9 +461,7 @@ onUnmounted(() => {
 
     <div class="flex items-center mb-4!">
       <button @click="goBack" class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-        </svg>
+        <IconBack class="w-4 h-4"/>
         {{ t('back') }}
       </button>
     </div>
@@ -494,12 +492,8 @@ onUnmounted(() => {
         :aria-pressed="isFavorite"
         @click="favoritesStore.toggleRouteFavorite(routeIdNum)"
       >
-        <svg v-if="isFavorite" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-        </svg>
-        <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-        </svg>
+        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
+        <IconHeartOutline v-else class="w-5 h-5"/>
       </button>
     </header>
 
