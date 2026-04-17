@@ -64,7 +64,6 @@ function formatGtfsColor(c?: string) {
 type DirectionShape = {
   shape: Shape[]
   shapeIndex: ShapeIndex
-  /** stop_id → index into shape; missing stops have no live ETA. */
   stopShapeIdxByStopId: Map<number, number>
 }
 
@@ -82,10 +81,6 @@ const currentDirectionVehicles = computed(() =>
 
 type IndexedStop = StopTime & {timeOffsetFromStart: number}
 
-// ─── Stops for current direction ────────────────────────────────────────────
-// Derived synchronously from shapeInfo so the timeline renders immediately,
-// before the shape polyline finishes loading. Live ETAs join later via the
-// per-direction `stopShapeIdxByStopId` map.
 const stopsForDirection = computed((): IndexedStop[] => {
   if (!shapeInfo.value) return []
   const rawStops: StopTime[] = (shapeInfo.value as any).stop_time ?? (shapeInfo.value as any).stop_times ?? []
@@ -127,7 +122,6 @@ const hasIncoming = computed(() => {
 // ─── Time helpers ────────────────────────────────────────────────────────────
 const currentMinutes = computed(() => getMinutesFromDate(userTime.value || new Date()))
 
-/** Format minutes-from-now: "now" / "Xm" / "HH:MM" */
 function formatMinutes(minutes: number): string {
   if (minutes === 0) return t('now')
   if (minutes < 60) return `${minutes}m`
@@ -140,12 +134,18 @@ function minutesLeft(absMinutes: number): number {
   return ((absMinutes - currentMinutes.value) + 1440) % 1440
 }
 
+function formatAbsoluteMinutes(absMin: number): string {
+  const h = Math.floor(absMin / 60) % 24
+  const m = absMin % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+}
+
 // ─── Next 3 base departure times (abs minutes) from first stop ───────────────
 const baseDepartureTimes = computed((): number[] => {
-  const t = timetable.value
-  if (!t) return []
+  const tt = timetable.value
+  if (!tt) return []
   const today = (userTime.value || new Date()).getDay()
-  const todaySchedule = today === 0 ? t.sunday : today === 6 ? t.saturday : t.weekdays
+  const todaySchedule = today === 0 ? tt.sunday : today === 6 ? tt.saturday : tt.weekdays
   if (!todaySchedule?.entries?.length) return []
 
   return todaySchedule.entries
@@ -165,7 +165,6 @@ function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
   const timetableTimes = baseDepartureTimes.value.map(base => base + stop.timeOffsetFromStart)
   if (!timetableTimes.length) return []
 
-  // Live ETA: O(vehicles) — uses the per-direction precomputed shape index.
   let liveMinutes: number | null = null
   const dirShape = currentDirectionShape.value
   const vehicles = currentDirectionVehicles.value
@@ -185,7 +184,6 @@ function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
   })
 }
 
-// Header uses timetable-only times (no live override, shows departure schedule)
 function getHeaderTimes(): string[] {
   return baseDepartureTimes.value.map(base => formatMinutes(minutesLeft(base)))
 }
@@ -223,7 +221,6 @@ const timetableEntries = computed((): TimetableChip[] => {
     tt.weekdays
   if (!sched?.entries?.length) return []
 
-  // Only grey out past times when viewing today's actual schedule
   const isToday = selectedTimetableTab.value === todayTab.value
   const now = currentMinutes.value
 
@@ -233,8 +230,6 @@ const timetableEntries = computed((): TimetableChip[] => {
       const timeStr = raw?.trim()
       if (!timeStr) return null
       const absMin = timeStringToMinutes(timeStr)
-      // Non-time strings (e.g. "Suspendat") are kept and rendered with a
-      // distinct chip — dropping them silently leaves the day looking empty.
       if (absMin === null) return {time: timeStr, isPast: false, isSuspended: true}
       return {time: timeStr, isPast: isToday && absMin < now, isSuspended: false}
     })
@@ -244,6 +239,37 @@ const timetableEntries = computed((): TimetableChip[] => {
 const allEntriesSuspended = computed(
   () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended),
 )
+
+// ─── Timetable click → trip view ─────────────────────────────────────────────
+const selectedDepartureTime = ref<string | null>(null)
+
+function selectDeparture(entry: TimetableChip) {
+  if (entry.isSuspended) return
+  selectedDepartureTime.value = selectedDepartureTime.value === entry.time ? null : entry.time
+}
+
+// Reset trip view when switching direction or day tab
+watch(currentDirection, () => { selectedDepartureTime.value = null })
+watch(selectedTimetableTab, () => { selectedDepartureTime.value = null })
+
+type TripStop = IndexedStop & {arrivalTimeStr: string}
+
+const selectedDepartureStops = computed((): TripStop[] => {
+  if (!selectedDepartureTime.value) return []
+  const depMin = timeStringToMinutes(selectedDepartureTime.value)
+  if (depMin === null) return []
+  return stopsForDirection.value.map(stop => ({
+    ...stop,
+    arrivalTimeStr: formatAbsoluteMinutes(depMin + stop.timeOffsetFromStart),
+  }))
+})
+
+function getStopLabel(idx: number, stop: IndexedStop): string {
+  const last = stopsForDirection.value.length - 1
+  if (idx === 0) return isOutgoing.value ? (timetable.value?.in_stop_name ?? '') : (timetable.value?.out_stop_name ?? '')
+  if (idx === last) return isOutgoing.value ? (timetable.value?.out_stop_name ?? '') : (timetable.value?.in_stop_name ?? '')
+  return stop.stop_headsign || `Stop ${idx + 1}`
+}
 
 // ─── Map integration ─────────────────────────────────────────────────────────
 function buildDisplayShape() {
@@ -256,9 +282,6 @@ function buildDisplayShape() {
   }
 }
 
-/** Updates shape + vehicles on the map for the current direction.
- *  Synchronous when the direction's shape is already loaded — avoids the
- *  network/clear/redraw flicker that an async `setShapesToDisplay` causes. */
 function updateMap() {
   if (!shapeInfo.value) return
   const dirShape = currentDirectionShape.value
@@ -266,17 +289,12 @@ function updateMap() {
   if (dirShape) {
     mapStore.setLoadedShapes([[meta, dirShape.shape]])
   } else {
-    // First paint, before loadAllDirections finishes — fall back to network.
     void mapStore.setShapesToDisplay([meta])
   }
   mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
   zoomOut.value = true
 }
 
-// ─── Highlighted stops on map: selected green, nearest purple, fav red, rest gray ───
-// watchEffect auto-tracks every reactive value it reads, including
-// favoriteStopIds array contents (via .includes), fromStopId, nearestStopIdx,
-// and stopsForDirection — so any of those changing re-runs this automatically.
 const {favoriteStopIds} = storeToRefs(favoritesStore)
 
 watchEffect(() => {
@@ -297,9 +315,6 @@ watchEffect(() => {
 })
 
 // ─── Direction loading + vehicle refresh ─────────────────────────────────────
-// Live vehicles arrive via SSE (see useVehicleStream). The trip IDs change
-// only when the direction shapes finish loading — before that we don't know
-// which directions exist for this route.
 const streamTripIds = computed<string[]>(() => {
   const ids: string[] = []
   if (direction0Shape.value) ids.push(`${props.routeId}${OUTGOING_SUFFIX}`)
@@ -308,11 +323,6 @@ const streamTripIds = computed<string[]>(() => {
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
-/**
- * Fetches one direction's shape, builds its index, and computes the
- * stop_id → shapeIdx lookup table once. Returns null if there's no shape
- * (route doesn't run that direction).
- */
 async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null> {
   if (!shapeInfo.value) return null
   const tripId = `${props.routeId}${dir === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
@@ -345,16 +355,11 @@ async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null
 }
 
 async function loadAllDirections() {
-  // Both directions in parallel — switching after this is purely visual.
   const [d0, d1] = await Promise.all([loadDirectionShape('0'), loadDirectionShape('1')])
   direction0Shape.value = d0
   direction1Shape.value = d1
 }
 
-// Re-enrich vehicles whenever the SSE stream pushes a new batch. Previously
-// this was a 10s setInterval — now the server decides the cadence, and when
-// the tab is hidden or the route view unmounts, the stream closes and this
-// stops re-running on its own.
 async function refreshVehiclesFromStream() {
   if (!shapeInfo.value) return
   const routeShortName = shapeInfo.value.route_short_name
@@ -401,9 +406,6 @@ async function refreshVehiclesFromStream() {
 
 watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
 
-// Direction switch is now ~free: data for both directions is already in
-// memory, so we only need to repaint the map and re-show the matching
-// vehicles. No fetches, no recomputation.
 watch(currentDirection, () => {
   updateMap()
 })
@@ -449,16 +451,8 @@ onMounted(async () => {
     isInitialLoading.value = false
     if (!ok) return
   }
-  // First paint: shapes not loaded yet — `updateMap` will fall back to a
-  // network fetch via `setShapesToDisplay`. The in-flight dedupe in
-  // `apiRequest` ensures this fetch is shared with `loadAllDirections`'s
-  // request for the same direction (no duplicate hit).
   updateMap()
   scrollToFromStop()
-  // Load both directions' shapes in parallel; once they land, re-paint the
-  // map from the cached data (synchronous, no flicker). Vehicles arrive
-  // through the SSE stream — the `streamTripIds` computed activates as soon
-  // as the shapes land and the stream opens automatically.
   void loadAllDirections().then(() => {
     updateMap()
   })
@@ -480,8 +474,25 @@ onUnmounted(() => {
     </svg>
   </div>
 
-  <div v-else-if="!shapeInfo" class="route-view-container flex items-center justify-center">
-    <p class="text-slate-500 dark:text-slate-400 text-sm">{{ t('noRouteData') }} <button @click="goBack" class="underline">{{ t('goBack') }}</button></p>
+  <div v-else-if="!shapeInfo" class="route-view-container flex flex-col items-center justify-center gap-5">
+    <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+      <svg class="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="text-center">
+      <h1 class="text-lg font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{{ t('notFoundDesc') }}</p>
+    </div>
+    <button
+      @click="goBack"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      {{ t('back') }}
+    </button>
   </div>
 
   <div v-else class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
@@ -570,14 +581,16 @@ onUnmounted(() => {
       <div class="stops-header">
         <span class="section-label-text">{{ t('stops') }}</span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
-        <div class="times-cols">
-          <span v-for="(t, i) in getHeaderTimes()" :key="i" class="time-cell text-slate-400 dark:text-slate-500">{{ t }}</span>
+        <div class="flex flex-col items-end gap-0.5">
+          <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{ t('nextDepartures') }}</span>
+          <div class="times-cols">
+            <span v-for="(time, i) in getHeaderTimes()" :key="i" class="time-cell text-slate-400 dark:text-slate-500">{{ time }}</span>
+          </div>
         </div>
       </div>
 
       <!-- ─── Transit timeline ─── -->
       <div class="relative">
-        <!-- Vertical track line -->
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
         <div
@@ -614,23 +627,16 @@ onUnmounted(() => {
                     ? 'font-semibold text-slate-700 dark:text-slate-200'
                     : 'font-medium text-slate-500 dark:text-slate-400'
             ]">
-              {{
-                idx === 0 ? (isOutgoing ? timetable?.in_stop_name : timetable?.out_stop_name) :
-                idx === stopsForDirection.length - 1 ? (isOutgoing ? timetable?.out_stop_name : timetable?.in_stop_name) :
-                stop.stop_headsign || `Stop ${idx + 1}`
-              }}
+              {{ getStopLabel(idx, stop) }}
             </span>
-            <!-- Selected: location pin -->
             <svg v-if="String(stop.stop_id) === fromStopId"
                  class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
             </svg>
-            <!-- Nearest: person -->
             <svg v-else-if="idx === nearestStopIdx"
                  class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
             </svg>
-            <!-- Favorite stop: heart -->
             <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
                  class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -640,11 +646,11 @@ onUnmounted(() => {
           <!-- Arrival times -->
           <div class="times-cols shrink-0">
             <span
-              v-for="(t, i) in getStopTimesDisplay(stop)"
+              v-for="(stopTime, i) in getStopTimesDisplay(stop)"
               :key="i"
               :class="[
                 'time-cell',
-                t.isLive
+                stopTime.isLive
                   ? 'time-cell-live'
                   : String(stop.stop_id) === fromStopId
                     ? 'text-emerald-600 dark:text-emerald-400'
@@ -652,7 +658,7 @@ onUnmounted(() => {
                       ? 'text-purple-600 dark:text-purple-400'
                       : 'text-slate-500 dark:text-slate-400'
               ]"
-            >{{ t.label }}</span>
+            >{{ stopTime.label }}</span>
           </div>
         </div>
       </div>
@@ -662,6 +668,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{{ t('timetableClickHint') }}</span>
         </div>
 
         <!-- Day selector tabs -->
@@ -685,13 +692,60 @@ onUnmounted(() => {
           <span
             v-for="(entry, i) in timetableEntries"
             :key="i"
+            @click="selectDeparture(entry)"
             :class="[
               'timetable-chip',
               entry.isSuspended ? 'timetable-chip-suspended'
+                : selectedDepartureTime === entry.time ? 'timetable-chip-selected'
                 : entry.isPast    ? 'timetable-chip-past'
                                   : 'timetable-chip-future',
+              !entry.isSuspended ? 'cursor-pointer' : '',
             ]"
           >{{ entry.time }}</span>
+        </div>
+
+        <!-- ─── Trip view (shown when a departure time is selected) ─── -->
+        <div v-if="selectedDepartureTime && selectedDepartureStops.length" class="trip-view">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="section-label-text">{{ t('tripAt', { time: selectedDepartureTime }) }}</span>
+            <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+            <button
+              @click="selectedDepartureTime = null"
+              class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold"
+              :aria-label="t('closeTripView')"
+            >×</button>
+          </div>
+
+          <div class="relative">
+            <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
+            <div
+              v-for="(stop, idx) in selectedDepartureStops"
+              :key="stop.stop_id + '-trip'"
+              class="trip-stop-row"
+            >
+              <!-- Track dot -->
+              <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
+                <div v-if="idx === 0 || idx === selectedDepartureStops.length - 1"
+                     class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+                <div v-else
+                     class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+              </div>
+
+              <!-- Stop name -->
+              <span :class="[
+                'flex-1 text-sm leading-tight truncate',
+                idx === 0 || idx === selectedDepartureStops.length - 1
+                  ? 'font-semibold text-slate-700 dark:text-slate-200'
+                  : 'font-medium text-slate-500 dark:text-slate-400'
+              ]">{{ getStopLabel(idx, stop) }}</span>
+
+              <!-- Arrival time -->
+              <span :class="[
+                'text-sm font-bold tabular-nums shrink-0',
+                idx === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
+              ]">{{ stop.arrivalTimeStr }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -707,7 +761,6 @@ onUnmounted(() => {
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-/* ─── Section label (matches StopView's .section-label) ─── */
 .section-label-text {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -857,9 +910,15 @@ onUnmounted(() => {
   padding: 0.3rem 0.55rem;
   border-radius: 0.5rem;
   letter-spacing: 0.01em;
+  transition: background 0.12s, transform 0.1s;
 }
-.timetable-chip-future    { background: #f1f5f9; color: #334155; }
-.timetable-chip-past      { background: transparent; color: #94a3b8; }
+.timetable-chip:not(.timetable-chip-suspended):hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+.timetable-chip-future   { background: #f1f5f9; color: #334155; }
+.timetable-chip-past     { background: transparent; color: #94a3b8; }
+.timetable-chip-selected { background: #1e40af; color: white; }
 .timetable-chip-suspended {
   background: #fef2f2;
   color: #b91c1c;
@@ -868,8 +927,9 @@ onUnmounted(() => {
 }
 
 @media (prefers-color-scheme: dark) {
-  .timetable-chip-future    { background: #1e293b; color: #e2e8f0; }
-  .timetable-chip-past      { background: transparent; color: #475569; }
+  .timetable-chip-future   { background: #1e293b; color: #e2e8f0; }
+  .timetable-chip-past     { background: transparent; color: #475569; }
+  .timetable-chip-selected { background: #1d4ed8; color: white; }
   .timetable-chip-suspended { background: rgb(244 63 94 / 0.12); color: #fda4af; }
 }
 
@@ -890,6 +950,20 @@ onUnmounted(() => {
 }
 @media (prefers-color-scheme: dark) {
   .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }
+}
+
+/* ─── Trip view ─── */
+.trip-view {
+  margin-top: 1.25rem;
+}
+
+.trip-stop-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.625rem;
+  margin: 0 -0.5rem;
 }
 
 /* ─── Favorite toggle button ─── */

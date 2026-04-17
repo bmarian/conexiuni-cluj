@@ -66,6 +66,16 @@ export const useFavoritesStore = defineStore('favorites', () => {
     void persistStops()
   }
 
+  function reorderRouteIds(newIds: number[]) {
+    favoriteRouteIds.value = newIds
+    void persistRoutes()
+  }
+
+  function reorderStopIds(newIds: number[]) {
+    favoriteStopIds.value = newIds
+    void persistStops()
+  }
+
   /**
    * Warm the apiRequest IndexedDB cache for everything the user has starred,
    * so opening a favorite is instant. Fire-and-forget; per-request failures
@@ -112,6 +122,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     isStopFavorite,
     toggleRouteFavorite,
     toggleStopFavorite,
+    reorderRouteIds,
+    reorderStopIds,
     preloadFavorites,
   }
 })

@@ -38,6 +38,7 @@ const {userTime} = storeToRefs(userStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
+const loadError = ref(false)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 
 // Trip IDs we want live vehicles for — every route coming to this stop with
@@ -179,8 +180,10 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
 
 watch(() => props.stopId, async (newValue) => {
   isLoading.value = true
+  loadError.value = false
   shapesComingToTheStopBasedOnVehiclePositions.value = []
   await fetchStopData(newValue)
+  if (!stopInfo.value) loadError.value = true
   isLoading.value = false
 }, {immediate: true})
 
@@ -312,6 +315,28 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
   </div>
 
+  <!-- ─── Error / not found ─── -->
+  <div v-else-if="loadError" class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center gap-5">
+    <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+      <svg class="w-7 h-7 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="text-center">
+      <h1 class="text-lg font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{{ t('notFoundDesc') }}</p>
+    </div>
+    <button
+      @click="goBack"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      {{ t('back') }}
+    </button>
+  </div>
+
   <!-- ─── Loaded ─── -->
   <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
@@ -431,7 +456,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
-        {{ t('allRoutes') }}
+        {{ t('allRoutesAtStop') }}
       </h2>
 
       <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">

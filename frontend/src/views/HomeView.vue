@@ -103,6 +103,64 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   ev.stopPropagation()
   favoritesStore.toggleStopFavorite(stop.stop_id)
 }
+
+// ─── Drag-and-drop: favorite routes ──────────────────────────────────────────
+const dragRouteIdx = ref<number | null>(null)
+const dragRouteOverIdx = ref<number | null>(null)
+
+function onDragRouteStart(idx: number, ev: DragEvent) {
+  dragRouteIdx.value = idx
+  if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'
+}
+function onDragRouteOver(idx: number) {
+  if (dragRouteIdx.value === null) return
+  dragRouteOverIdx.value = idx
+}
+function onDragRouteDrop() {
+  const from = dragRouteIdx.value
+  const to = dragRouteOverIdx.value
+  if (from !== null && to !== null && from !== to) {
+    const newIds = [...favoriteRouteIds.value]
+    const [removed] = newIds.splice(from, 1)
+    newIds.splice(to, 0, removed!)
+    favoritesStore.reorderRouteIds(newIds)
+  }
+  dragRouteIdx.value = null
+  dragRouteOverIdx.value = null
+}
+function onDragRouteEnd() {
+  dragRouteIdx.value = null
+  dragRouteOverIdx.value = null
+}
+
+// ─── Drag-and-drop: favorite stops ───────────────────────────────────────────
+const dragStopIdx = ref<number | null>(null)
+const dragStopOverIdx = ref<number | null>(null)
+
+function onDragStopStart(idx: number, ev: DragEvent) {
+  dragStopIdx.value = idx
+  if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'
+}
+function onDragStopOver(idx: number) {
+  if (dragStopIdx.value === null) return
+  dragStopOverIdx.value = idx
+}
+function onDragStopDrop() {
+  const from = dragStopIdx.value
+  const to = dragStopOverIdx.value
+  if (from !== null && to !== null && from !== to) {
+    const newIds = [...favoriteStopIds.value]
+    const [removed] = newIds.splice(from, 1)
+    newIds.splice(to, 0, removed!)
+    favoritesStore.reorderStopIds(newIds)
+  }
+  dragStopIdx.value = null
+  dragStopOverIdx.value = null
+}
+function onDragStopEnd() {
+  dragStopIdx.value = null
+  dragStopOverIdx.value = null
+}
 </script>
 
 <template>
@@ -122,28 +180,35 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
         <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
         <div class="flex flex-wrap gap-2">
           <div
-            v-for="route in favoriteRoutes"
+            v-for="(route, idx) in favoriteRoutes"
             :key="route.route_id"
+            draggable="true"
+            @dragstart="onDragRouteStart(idx, $event)"
+            @dragover.prevent="onDragRouteOver(idx)"
+            @drop.prevent="onDragRouteDrop()"
+            @dragend="onDragRouteEnd()"
             @click="navigateToRoute(route)"
             @keydown.enter.space.prevent="navigateToRoute(route)"
             role="button"
             tabindex="0"
             class="fav-route-chip group"
-            :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
+            :class="{
+              'opacity-40': dragRouteIdx === idx,
+              'fav-route-chip-over': dragRouteOverIdx === idx && dragRouteIdx !== idx,
+              'opacity-60 pointer-events-none': navigatingRouteId === route.route_id
+            }"
           >
             <span
               class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm"
               :style="{ backgroundColor: formatGtfsColor(route.route_color) }"
+              :title="route.route_long_name"
             >{{ route.route_short_name }}</span>
-            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[10rem]">
-              {{ route.route_long_name }}
-            </span>
             <button
               type="button"
               class="fav-remove"
               :title="t('removeFromFavorites')"
               :aria-label="t('removeFromFavorites')"
-              @click="removeFavoriteRoute(route, $event)"
+              @click.stop="removeFavoriteRoute(route, $event)"
             >
               <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -158,11 +223,26 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
         <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
         <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
           <div
-            v-for="stop in favoriteStops"
+            v-for="(stop, idx) in favoriteStops"
             :key="stop.stop_id"
+            draggable="true"
+            @dragstart="onDragStopStart(idx, $event)"
+            @dragover.prevent="onDragStopOver(idx)"
+            @drop.prevent="onDragStopDrop()"
+            @dragend="onDragStopEnd()"
             @click="navigateToStop(stop)"
             class="fav-stop-row group"
+            :class="{
+              'opacity-40': dragStopIdx === idx,
+              'fav-stop-row-over': dragStopOverIdx === idx && dragStopIdx !== idx
+            }"
           >
+            <!-- Drag handle -->
+            <svg class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+              <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+              <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+            </svg>
             <div class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
               <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
@@ -176,7 +256,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
               class="fav-stop-remove"
               :title="t('removeFromFavorites')"
               :aria-label="t('removeFromFavorites')"
-              @click="removeFavoriteStop(stop, $event)"
+              @click.stop="removeFavoriteStop(stop, $event)"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -305,21 +385,27 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
 .fav-route-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem 0.375rem 0.375rem;
+  gap: 0.375rem;
+  padding: 0.3rem 0.375rem;
   border-radius: 0.75rem;
   border: 1px solid #f1f5f9;
   background: #f8fafc;
-  cursor: pointer;
+  cursor: grab;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   text-align: left;
+  user-select: none;
 }
+.fav-route-chip:active { cursor: grabbing; }
 .fav-route-chip:hover {
   background: white;
   border-color: #e2e8f0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.fav-route-chip:disabled { opacity: 0.5; cursor: wait; }
+
+.fav-route-chip-over {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px #bfdbfe !important;
+}
 
 @media (prefers-color-scheme: dark) {
   .fav-route-chip {
@@ -329,6 +415,10 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   .fav-route-chip:hover {
     background: rgb(30 41 59 / 0.9);
     border-color: rgb(51 65 85 / 0.8);
+  }
+  .fav-route-chip-over {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.3) !important;
   }
 }
 
@@ -341,6 +431,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   border-radius: 9999px;
   color: #94a3b8;
   background: transparent;
+  cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .fav-remove:hover {
@@ -365,10 +456,22 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   transition: background 0.15s;
   border-radius: 0.5rem;
   margin: 0 -0.25rem;
+  user-select: none;
 }
 .fav-stop-row:hover { background: #f8fafc; }
+
+.fav-stop-row-over {
+  background: #eff6ff !important;
+  border-radius: 0.5rem;
+  outline: 2px solid #bfdbfe;
+}
+
 @media (prefers-color-scheme: dark) {
   .fav-stop-row:hover { background: rgb(30 41 59 / 0.5); }
+  .fav-stop-row-over {
+    background: rgb(59 130 246 / 0.08) !important;
+    outline-color: rgb(59 130 246 / 0.3);
+  }
 }
 
 .fav-stop-remove {
@@ -382,6 +485,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   background: transparent;
   transition: background 0.15s, color 0.15s;
   opacity: 0;
+  cursor: pointer;
 }
 .fav-stop-row:hover .fav-stop-remove { opacity: 1; }
 .fav-stop-remove:hover {
@@ -395,7 +499,6 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
     color: #f87171;
   }
 }
-/* Always-visible remove button on touch devices */
 @media (hover: none) {
   .fav-stop-remove { opacity: 1; }
 }
@@ -446,7 +549,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   .search-input::placeholder { color: #64748b; }
 }
 
-/* ─── All-routes row (matches StopView's .all-route-row) ─── */
+/* ─── All-routes row ─── */
 .all-route-row {
   display: flex;
   align-items: center;
