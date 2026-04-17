@@ -13,12 +13,12 @@ import {haversineMeters} from '@/utils/geo.ts'
 import {
   buildShapeIndex,
   etaForStop,
-  fetchVehiclesForTrips,
   findClosestShapeIdx,
   getIndexedVehicles,
   type IndexedVehicle,
   type ShapeIndex,
 } from '@/composables/useVehicleTracking.ts'
+import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 
@@ -297,7 +297,16 @@ watchEffect(() => {
 })
 
 // ─── Direction loading + vehicle refresh ─────────────────────────────────────
-let vehicleInterval: ReturnType<typeof setInterval> | null = null
+// Live vehicles arrive via SSE (see useVehicleStream). The trip IDs change
+// only when the direction shapes finish loading — before that we don't know
+// which directions exist for this route.
+const streamTripIds = computed<string[]>(() => {
+  const ids: string[] = []
+  if (direction0Shape.value) ids.push(`${props.routeId}${OUTGOING_SUFFIX}`)
+  if (direction1Shape.value) ids.push(`${props.routeId}${INCOMING_SUFFIX}`)
+  return ids
+})
+const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
 /**
  * Fetches one direction's shape, builds its index, and computes the
@@ -342,22 +351,16 @@ async function loadAllDirections() {
   direction1Shape.value = d1
 }
 
-async function refreshVehicles() {
+// Re-enrich vehicles whenever the SSE stream pushes a new batch. Previously
+// this was a 10s setInterval — now the server decides the cadence, and when
+// the tab is hidden or the route view unmounts, the stream closes and this
+// stops re-running on its own.
+async function refreshVehiclesFromStream() {
   if (!shapeInfo.value) return
   const routeShortName = shapeInfo.value.route_short_name
   const outgoingTripId = `${props.routeId}${OUTGOING_SUFFIX}`
   const incomingTripId = `${props.routeId}${INCOMING_SUFFIX}`
-
-  const tripIds: string[] = []
-  if (direction0Shape.value) tripIds.push(outgoingTripId)
-  if (direction1Shape.value) tripIds.push(incomingTripId)
-
-  let vehiclesByTrip = new Map<string, import('@/types/tranzy.ts').Vehicle[]>()
-  try {
-    vehiclesByTrip = await fetchVehiclesForTrips(tripIds)
-  } catch (e) {
-    console.warn('Failed to bulk-fetch vehicles:', e)
-  }
+  const byTrip = vehiclesByTrip.value
 
   const tasks: Promise<void>[] = []
 
@@ -369,10 +372,10 @@ async function refreshVehicles() {
           routeShortName,
           direction0Shape.value!.shapeIndex,
           userTime.value,
-          vehiclesByTrip.get(outgoingTripId) ?? [],
+          byTrip.get(outgoingTripId) ?? [],
         )
       } catch (e) {
-        console.warn('Failed to fetch outgoing vehicles:', e)
+        console.warn('Failed to index outgoing vehicles:', e)
       }
     })())
   }
@@ -384,10 +387,10 @@ async function refreshVehicles() {
           routeShortName,
           direction1Shape.value!.shapeIndex,
           userTime.value,
-          vehiclesByTrip.get(incomingTripId) ?? [],
+          byTrip.get(incomingTripId) ?? [],
         )
       } catch (e) {
-        console.warn('Failed to fetch incoming vehicles:', e)
+        console.warn('Failed to index incoming vehicles:', e)
       }
     })())
   }
@@ -395,6 +398,8 @@ async function refreshVehicles() {
   await Promise.all(tasks)
   mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
 }
+
+watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
 
 // Direction switch is now ~free: data for both directions is already in
 // memory, so we only need to repaint the map and re-show the matching
@@ -451,17 +456,15 @@ onMounted(async () => {
   updateMap()
   scrollToFromStop()
   // Load both directions' shapes in parallel; once they land, re-paint the
-  // map from the cached data (synchronous, no flicker) and start polling
-  // vehicles for both directions so direction switches are instant.
+  // map from the cached data (synchronous, no flicker). Vehicles arrive
+  // through the SSE stream — the `streamTripIds` computed activates as soon
+  // as the shapes land and the stream opens automatically.
   void loadAllDirections().then(() => {
     updateMap()
-    void refreshVehicles()
   })
-  vehicleInterval = setInterval(() => void refreshVehicles(), 10_000)
 })
 
 onUnmounted(() => {
-  if (vehicleInterval !== null) clearInterval(vehicleInterval)
   mapStore.setHighlightedStops([])
   mapStore.setShapesToDisplay([])
   mapStore.setVehiclesToDisplay([])

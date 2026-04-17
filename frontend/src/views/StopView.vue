@@ -18,7 +18,8 @@ import {
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {haversineMeters} from "@/utils/geo.ts";
-import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, fetchVehiclesForTrips, type TrackedVehicle} from "@/composables/useVehicleTracking.ts";
+import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, type TrackedVehicle} from "@/composables/useVehicleTracking.ts";
+import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
@@ -38,6 +39,19 @@ const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
+
+// Trip IDs we want live vehicles for — every route coming to this stop with
+// a usable timetable. Changes automatically with the stop; the SSE composable
+// reconnects with the new filter.
+const streamTripIds = computed<string[]>(() => {
+  const info = stopInfo.value
+  if (!info) return []
+  const shapes = info.shapes_info.filter((s: ShapeInfo) => !!(s.timetable?.weekdays?.entries?.length || s.timetable?.saturday?.entries?.length || s.timetable?.sunday?.entries?.length))
+  const routeIds = new Set(shapes.map((s: ShapeInfo) => s.route_id))
+  return [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
+    .filter((tid) => routeIds.has(Number(tid.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))))
+})
+const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
 function formatGtfsColor(colorString?: string) {
   if (!colorString) return '#3b82f6'
@@ -170,7 +184,10 @@ watch(() => props.stopId, async (newValue) => {
   isLoading.value = false
 }, {immediate: true})
 
-watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
+// Re-runs whenever the timetable-derived next departures change (stop switch,
+// userTime tick) AND whenever the SSE stream delivers a new vehicle batch.
+// No more setInterval/fetch in this view.
+watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesComingNext]) => {
   if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = []
     return
@@ -183,7 +200,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     return
   }
 
-  const vehiclesByTrip = await fetchVehiclesForTrips(shapesComingNext.map(s => s.trip_id))
+  const vehiclesByTripMap = vehiclesByTrip.value
 
   // Collect live vehicles for favorited routes serving this stop so we can
   // show them on the map. `getVehiclesOnRoute` already filters stale/parked
@@ -193,7 +210,7 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value, vehiclesByTrip.get(shape.trip_id) ?? [])
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value, vehiclesByTripMap.get(shape.trip_id) ?? [])
 
     if (favoritesStore.isRouteFavorite(shape.route_id)) {
       favoriteVehicles.push(...vehiclesOnRoute)

@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/handlers"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -53,6 +57,10 @@ func main() {
 
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota)
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
+
+	// Single shared poller that fans vehicle data out to all SSE subscribers.
+	// Only runs while tabs are connected — idle server = zero Tranzy traffic.
+	handlers.InitVehicleHub(tranzyClient, 20*time.Second)
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
@@ -179,6 +187,70 @@ func main() {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		return c.JSON(data)
+	})
+	// Server-Sent Events stream for live vehicle updates. Clients open one of
+	// these per view (RouteView, StopView) with a `trip_ids` query param; the
+	// shared hub ticks every 20s and pushes each client its filtered batch.
+	// On disconnect the writer fails, we exit the goroutine, and the hub's
+	// subscriber count drops — when it hits zero the poll loop stops.
+	api.Get("/vehicles/stream", func(c fiber.Ctx) error {
+		var tripIDs []string
+		if s := c.Query("trip_ids"); s != "" {
+			for _, id := range strings.Split(s, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					tripIDs = append(tripIDs, id)
+				}
+			}
+		}
+		if len(tripIDs) == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "trip_ids required"})
+		}
+
+		c.Set("Content-Type", "text/event-stream")
+		c.Set("Cache-Control", "no-cache")
+		c.Set("Connection", "keep-alive")
+		// Tell nginx (if proxying) not to buffer this response — SSE is
+		// useless behind a proxy that holds bytes until the connection closes.
+		c.Set("X-Accel-Buffering", "no")
+
+		sub, id := handlers.VehicleHub.Subscribe(tripIDs)
+
+		return c.SendStreamWriter(func(w *bufio.Writer) {
+			defer handlers.VehicleHub.Unsubscribe(id)
+
+			// Keepalive ticks between data pushes keep intermediaries from
+			// killing the connection and — more importantly — give us a way
+			// to detect client disconnect when the hub isn't broadcasting
+			// for this subscriber (e.g. no matching trips in a poll).
+			keep := time.NewTicker(25 * time.Second)
+			defer keep.Stop()
+
+			for {
+				select {
+				case batch, ok := <-sub.Ch():
+					if !ok {
+						return
+					}
+					data, err := json.Marshal(batch)
+					if err != nil {
+						continue
+					}
+					if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+						return
+					}
+					if err := w.Flush(); err != nil {
+						return
+					}
+				case <-keep.C:
+					if _, err := w.WriteString(": ping\n\n"); err != nil {
+						return
+					}
+					if err := w.Flush(); err != nil {
+						return
+					}
+				}
+			}
+		})
 	})
 	api.Get("/trips", func(c fiber.Ctx) error {
 		filter := handlers.TripFilter{}
