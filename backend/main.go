@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -134,6 +135,14 @@ func main() {
 			filter.TripID = &tripIDStr
 		}
 
+		if tripIDsStr := c.Query("trip_ids"); tripIDsStr != "" {
+			for _, id := range strings.Split(tripIDsStr, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					filter.TripIDs = append(filter.TripIDs, id)
+				}
+			}
+		}
+
 		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -230,6 +239,17 @@ func main() {
 	} else {
 		log.Println("Frontend dist folder not found. Run 'npm run build' in frontend directory.")
 	}
+
+	handlers.StartWarmup(tranzyClient, ctpCjClient, models.CacheTimes{
+		ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
+		RouteCacheShelfLife:       config.RouteCacheShelfLife,
+		TripCacheShelfLife:        config.TripCacheShelfLife,
+		StopCacheShelfLife:        config.StopCacheShelfLife,
+		StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
+		APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
+		StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
+		TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
+	})
 
 	log.Printf("Server listening on http://localhost:%s", config.Port)
 	log.Fatal(app.Listen(":" + config.Port))

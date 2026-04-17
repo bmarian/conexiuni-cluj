@@ -22,6 +22,9 @@ type ParsedTimetable struct {
 }
 
 func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
+	// Some CTP CSVs (e.g. 27, M27) are served with a UTF-8 BOM, which turns
+	// the first key into "\ufeffroute_long_name" and trips the meta check.
+	data = bytes.TrimPrefix(data, []byte("\ufeff"))
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 
 	meta := func(key string) (string, error) {

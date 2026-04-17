@@ -50,20 +50,45 @@ export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): n
 }
 
 /**
+ * One bulk request for many trip_ids. The server filters by trip_ids server-side
+ * and still hits the upstream Tranzy API exactly once per cache window, so this
+ * collapses N per-trip HTTP round-trips into one. Returns a map keyed by trip_id.
+ */
+export async function fetchVehiclesForTrips(tripIds: string[]): Promise<Map<string, Vehicle[]>> {
+  const grouped = new Map<string, Vehicle[]>()
+  if (!tripIds.length) return grouped
+
+  // Stable key so concurrent requests with the same trip set dedupe in apiRequest.
+  const key = [...new Set(tripIds)].sort().join(',')
+  const raw = (await apiRequest(`vehicles?trip_ids=${key}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
+
+  for (const id of tripIds) grouped.set(id, [])
+  for (const v of raw) {
+    const bucket = grouped.get(v.trip_id)
+    if (bucket) bucket.push(v)
+  }
+  return grouped
+}
+
+/**
  * Same logic as getVehiclesOnRoute but uses a precomputed ShapeIndex and stamps
  * each vehicle with its `shapeIdx` so the render path doesn't have to scan the
  * polyline for every (stop × vehicle) combination.
+ *
+ * If `prefetched` is supplied, no HTTP request is made — the caller is expected
+ * to have already bulk-fetched vehicles via `fetchVehiclesForTrips`.
  */
 export async function getIndexedVehicles(
   tripId: string,
   routeShortName: string,
   index: ShapeIndex,
   userTime?: Date | null,
+  prefetched?: Vehicle[],
 ): Promise<IndexedVehicle[]> {
   const {shape} = index
   if (!shape.length) return []
 
-  const raw = (await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
+  const raw = prefetched ?? ((await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? [])
   const firstStop = shape[0]!
   const lastStop = shape[shape.length - 1]!
   const now = userTime?.getTime() ?? Date.now()
@@ -150,10 +175,11 @@ export async function getVehiclesOnRoute(
   routeShortName: string,
   trip: Shape[],
   userTime?: Date | null,
+  prefetched?: Vehicle[],
 ): Promise<TrackedVehicle[]> {
   if (!trip?.length) return []
 
-  const raw = (await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
+  const raw = prefetched ?? ((await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? [])
   const firstStop = trip[0]!
   const lastStop = trip[trip.length - 1]!
   const now = userTime?.getTime() ?? Date.now()

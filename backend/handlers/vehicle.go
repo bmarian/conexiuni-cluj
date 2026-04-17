@@ -20,18 +20,25 @@ const (
 type VehicleFilter struct {
 	RouteID *int
 	TripID  *string
+	TripIDs []string
 }
 
 func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter VehicleFilter) ([]models.Vehicle, error) {
 	opts := CacheOpts[[]models.Vehicle]{}
 
-	if filter.RouteID != nil {
+	if filter.RouteID != nil || len(filter.TripIDs) > 0 {
 		f := filter
+		tripIDSet := tripIDSet(f.TripIDs)
 		opts.PostProcess = func(vs []models.Vehicle) []models.Vehicle {
 			out := make([]models.Vehicle, 0)
 			for _, v := range vs {
 				if f.RouteID != nil && v.RouteID != *f.RouteID {
 					continue
+				}
+				if tripIDSet != nil {
+					if _, ok := tripIDSet[v.TripID]; !ok {
+						continue
+					}
 				}
 				out = append(out, v)
 			}
@@ -61,6 +68,7 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		vehicles = make([]models.Vehicle, 0)
 	}
 
+	tripIDSet := tripIDSet(filter.TripIDs)
 	filteredVehicles := make([]models.Vehicle, 0)
 	for _, vehicle := range vehicles {
 		if filter.RouteID != nil && vehicle.RouteID != *filter.RouteID {
@@ -68,6 +76,11 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		}
 		if filter.TripID != nil && vehicle.TripID != *filter.TripID {
 			continue
+		}
+		if tripIDSet != nil {
+			if _, ok := tripIDSet[vehicle.TripID]; !ok {
+				continue
+			}
 		}
 		if vehicle.RouteID == -1 && vehicle.TripID == "-1" {
 			continue
@@ -77,6 +90,17 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 	}
 
 	return smoothVehicles(filteredVehicles, filter)
+}
+
+func tripIDSet(ids []string) map[string]struct{} {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		out[id] = struct{}{}
+	}
+	return out
 }
 
 func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]models.Vehicle, error) {
@@ -146,6 +170,14 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 	} else if filter.TripID != nil {
 		conditions = append(conditions, "trip_id = ?")
 		args = append(args, *filter.TripID)
+		conditions = append(conditions, "route_id != -1")
+	} else if len(filter.TripIDs) > 0 {
+		placeholders := strings.Repeat("?,", len(filter.TripIDs))
+		placeholders = placeholders[:len(placeholders)-1]
+		conditions = append(conditions, "trip_id IN ("+placeholders+")")
+		for _, id := range filter.TripIDs {
+			args = append(args, id)
+		}
 		conditions = append(conditions, "route_id != -1")
 	} else {
 		conditions = append(conditions, "route_id != -1")

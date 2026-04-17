@@ -13,6 +13,7 @@ import {haversineMeters} from '@/utils/geo.ts'
 import {
   buildShapeIndex,
   etaForStop,
+  fetchVehiclesForTrips,
   findClosestShapeIdx,
   getIndexedVehicles,
   type IndexedVehicle,
@@ -344,16 +345,31 @@ async function loadAllDirections() {
 async function refreshVehicles() {
   if (!shapeInfo.value) return
   const routeShortName = shapeInfo.value.route_short_name
+  const outgoingTripId = `${props.routeId}${OUTGOING_SUFFIX}`
+  const incomingTripId = `${props.routeId}${INCOMING_SUFFIX}`
+
+  const tripIds: string[] = []
+  if (direction0Shape.value) tripIds.push(outgoingTripId)
+  if (direction1Shape.value) tripIds.push(incomingTripId)
+
+  let vehiclesByTrip = new Map<string, import('@/types/tranzy.ts').Vehicle[]>()
+  try {
+    vehiclesByTrip = await fetchVehiclesForTrips(tripIds)
+  } catch (e) {
+    console.warn('Failed to bulk-fetch vehicles:', e)
+  }
+
   const tasks: Promise<void>[] = []
 
   if (direction0Shape.value) {
     tasks.push((async () => {
       try {
         direction0Vehicles.value = await getIndexedVehicles(
-          `${props.routeId}${OUTGOING_SUFFIX}`,
+          outgoingTripId,
           routeShortName,
           direction0Shape.value!.shapeIndex,
           userTime.value,
+          vehiclesByTrip.get(outgoingTripId) ?? [],
         )
       } catch (e) {
         console.warn('Failed to fetch outgoing vehicles:', e)
@@ -364,10 +380,11 @@ async function refreshVehicles() {
     tasks.push((async () => {
       try {
         direction1Vehicles.value = await getIndexedVehicles(
-          `${props.routeId}${INCOMING_SUFFIX}`,
+          incomingTripId,
           routeShortName,
           direction1Shape.value!.shapeIndex,
           userTime.value,
+          vehiclesByTrip.get(incomingTripId) ?? [],
         )
       } catch (e) {
         console.warn('Failed to fetch incoming vehicles:', e)

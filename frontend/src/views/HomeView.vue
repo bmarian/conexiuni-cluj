@@ -121,12 +121,15 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
       <div v-if="favoriteRoutes.length" class="flex flex-col gap-2">
         <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
         <div class="flex flex-wrap gap-2">
-          <button
+          <div
             v-for="route in favoriteRoutes"
             :key="route.route_id"
             @click="navigateToRoute(route)"
+            @keydown.enter.space.prevent="navigateToRoute(route)"
+            role="button"
+            tabindex="0"
             class="fav-route-chip group"
-            :disabled="navigatingRouteId === route.route_id"
+            :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
           >
             <span
               class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm"
@@ -146,7 +149,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
-          </button>
+          </div>
         </div>
       </div>
 

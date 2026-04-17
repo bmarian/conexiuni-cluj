@@ -4,7 +4,7 @@ import {storeToRefs} from "pinia"
 import {computed, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
-import StopIcon from "../../public/stop.svg"
+import StopIcon from "@/assets/stop.svg"
 import type {Timetable} from "@/types/ctp.ts";
 import {
   INCOMING_SUFFIX,
@@ -18,7 +18,7 @@ import {
 import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {haversineMeters} from "@/utils/geo.ts";
-import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA} from "@/composables/useVehicleTracking.ts";
+import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, fetchVehiclesForTrips} from "@/composables/useVehicleTracking.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
@@ -183,10 +183,12 @@ watch(shapesComingToTheStopBasedOnTimetable, async (shapesComingNext) => {
     return
   }
 
+  const vehiclesByTrip = await fetchVehiclesForTrips(shapesComingNext.map(s => s.trip_id))
+
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value)
+    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, trip, userTime.value, vehiclesByTrip.get(shape.trip_id) ?? [])
 
     if (!vehiclesOnRoute.length) {
       results.push(shape)
