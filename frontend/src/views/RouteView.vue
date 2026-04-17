@@ -383,10 +383,14 @@ async function scrollToFromStop() {
 const isInitialLoading = ref(false)
 
 function goBack() {
+  if (window.history.state && window.history.state.back) {
+    router.back()
+    return
+  }
   if (fromStopId.value) {
-    router.push({name: 'stop', params: {stopId: fromStopId.value}})
+    router.replace({name: 'stop', params: {stopId: fromStopId.value}})
   } else {
-    router.push({name: 'home'})
+    router.replace({name: 'home'})
   }
 }
 
