@@ -35,6 +35,79 @@ const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
 const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
 const routeColorsCache = new Map<string | number, string>()
 
+const vehicleMarkers = new Map<number, L.Marker>()
+const vehicleCurrentHeadings = new Map<number, number>()
+
+type VehicleAnim = {
+  startLat: number
+  startLng: number
+  targetLat: number
+  targetLng: number
+  startHeading: number
+  targetHeading: number
+  startTime: number
+  duration: number
+}
+const vehicleAnimations = new Map<number, VehicleAnim>()
+let animationFrameId: number | null = null
+// Matches the backend poll interval so the bus arrives just as the next update lands
+const ANIM_DURATION = 20000
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t
+}
+
+function lerpAngle(a: number, b: number, t: number) {
+  const diff = ((b - a + 540) % 360) - 180
+  return (a + diff * t + 360) % 360
+}
+
+function createBusIcon(titleText: string, speed: number, color: string, heading: number): L.DivIcon {
+  return L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `
+      <div class="relative flex items-center">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
+             style="background-color: ${color};">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
+               style="transform: rotate(${heading}deg);">
+            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
+          <span class="font-bold text-sm tracking-wide">${titleText}</span>
+          <span class="text-xs text-slate-400">${Math.round(speed)} km/h</span>
+        </div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  })
+}
+
+function runVehicleAnimations() {
+  if (vehicleAnimations.size === 0) {
+    animationFrameId = null
+    return
+  }
+  const now = performance.now()
+  for (const [id, anim] of vehicleAnimations) {
+    const marker = vehicleMarkers.get(id)
+    if (!marker) { vehicleAnimations.delete(id); continue }
+
+    const t = Math.min((now - anim.startTime) / anim.duration, 1)
+    marker.setLatLng([lerp(anim.startLat, anim.targetLat, t), lerp(anim.startLng, anim.targetLng, t)])
+
+    const heading = lerpAngle(anim.startHeading, anim.targetHeading, t)
+    vehicleCurrentHeadings.set(id, heading)
+    const svg = marker.getElement()?.querySelector<HTMLElement>('svg')
+    if (svg) svg.style.transform = `rotate(${heading}deg)`
+
+    if (t >= 1) vehicleAnimations.delete(id)
+  }
+  animationFrameId = requestAnimationFrame(runVehicleAnimations)
+}
+
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
@@ -435,44 +508,59 @@ watch([highlightedStops, currentlyHighlightedStopId], ([stops]) => {
 
 watch(vehiclesToDisplay, (vehicles) => {
   if (!vehicleLayerGroup.value || !map.value) return
-  vehicleLayerGroup.value.clearLayers()
+
+  const incomingIds = new Set<number>()
 
   for (let i = 0; i < vehicles.length; i++) {
     const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, route_color?: string, heading: number }
-
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
     const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
     if (!resolvedColor) continue
+
+    incomingIds.add(vehicle.id)
+
     const routeName = vehicle.route_short_name || ''
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
-    const busIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
-      html: `
-        <div class="relative flex items-center">
-          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
-               style="background-color: ${resolvedColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
-                 style="transform: rotate(${vehicle.heading || 0}deg);">
-              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-            <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            <span class="text-xs text-slate-400">${Math.round(vehicle.speed)} km/h</span>
-          </div>
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-    })
+    const targetHeading = vehicle.heading || 0
 
-    const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-      icon: busIcon,
-      zIndexOffset: 1000
-    })
+    const existingMarker = vehicleMarkers.get(vehicle.id)
+    if (existingMarker) {
+      const currentLatLng = existingMarker.getLatLng()
+      const currentHeading = vehicleCurrentHeadings.get(vehicle.id) ?? targetHeading
+      existingMarker.setIcon(createBusIcon(titleText, vehicle.speed, resolvedColor, currentHeading))
+      vehicleAnimations.set(vehicle.id, {
+        startLat: currentLatLng.lat,
+        startLng: currentLatLng.lng,
+        targetLat: vehicle.latitude,
+        targetLng: vehicle.longitude,
+        startHeading: currentHeading,
+        targetHeading,
+        startTime: performance.now(),
+        duration: ANIM_DURATION,
+      })
+    } else {
+      const marker = L.marker([vehicle.latitude, vehicle.longitude], {
+        icon: createBusIcon(titleText, vehicle.speed, resolvedColor, targetHeading),
+        zIndexOffset: 1000,
+      })
+      marker.addTo(vehicleLayerGroup.value!)
+      vehicleMarkers.set(vehicle.id, marker)
+      vehicleCurrentHeadings.set(vehicle.id, targetHeading)
+    }
+  }
 
-    marker.addTo(vehicleLayerGroup.value!)
+  for (const [id, marker] of vehicleMarkers) {
+    if (!incomingIds.has(id)) {
+      vehicleLayerGroup.value!.removeLayer(marker)
+      vehicleMarkers.delete(id)
+      vehicleAnimations.delete(id)
+      vehicleCurrentHeadings.delete(id)
+    }
+  }
+
+  if (vehicleAnimations.size > 0 && !animationFrameId) {
+    animationFrameId = requestAnimationFrame(runVehicleAnimations)
   }
 }, {deep: true})
 
@@ -490,11 +578,18 @@ watch(centerOnUser, (shouldCenter) => {
 })
 
 onUnmounted(() => {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  vehicleAnimations.clear()
+  vehicleMarkers.clear()
+  vehicleCurrentHeadings.clear()
+
   if (map.value) {
     map.value.stopLocate()
     map.value.off('locationfound', updateLiveLocation)
     map.value.off('zoomend', handleZoomVisibility)
-
     map.value.remove()
   }
 })
