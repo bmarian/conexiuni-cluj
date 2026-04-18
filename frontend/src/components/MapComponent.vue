@@ -20,6 +20,7 @@ const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedSto
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
+const stopNames = new Map<string, string>()
 let currentlyHighlightedStopId: string | null = null
 const {t, locale} = useI18n()
 const mapContainer = ref()
@@ -214,6 +215,7 @@ const stopsInit = async () => {
 
     marker.addTo(stopGroup.value)
     stopMarkers.set(stop_id.toString(), marker)
+    stopNames.set(stop_id.toString(), stop_name)
   }
   highlightSelectedStop(route.params.stopId as string)
 }
@@ -410,11 +412,21 @@ watch(highlightedStops, (stops: HighlightedStop[]) => {
     const marker = stopMarkers.get(stopId)
     if (!marker) continue
     const latlng = marker.getLatLng()
-    L.marker(latlng, {
+    const name = stopNames.get(stopId)
+    const m = L.marker(latlng, {
       icon: makeHighlightIcon(color),
       zIndexOffset: color === 'green' ? 1200 : color === 'purple' ? 1100 : color === 'red' ? 1000 : 800,
-      interactive: false,
-    }).addTo(highlightedStopLayerGroup.value!)
+      interactive: true,
+    })
+    if (name) {
+      m.bindTooltip(name, {
+        direction: 'top',
+        offset: [0, -14],
+        className: 'stop-name-tooltip',
+      })
+    }
+    m.on('click', () => router.push({name: 'stop', params: {stopId}}))
+    m.addTo(highlightedStopLayerGroup.value!)
   }
 }, {deep: true})
 

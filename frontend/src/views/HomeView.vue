@@ -26,6 +26,18 @@ const {fetchShapeInfo} = useRouteShapeInfoApi()
 const search = ref('')
 const navigatingRouteId = ref<number | null>(null)
 
+const routesById = computed(() => {
+  const map = new Map<number, Route>()
+  for (const r of routes.value) map.set(r.route_id, r)
+  return map
+})
+
+const stopsById = computed(() => {
+  const map = new Map<number, Stop>()
+  for (const s of stops.value) map.set(s.stop_id, s)
+  return map
+})
+
 watchEffect(() => {
   mapStore.setHighlightedStops(
     favoriteStopIds.value.map(id => ({stopId: String(id), color: 'red' as const}))
@@ -39,18 +51,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   mapStore.setHighlightedStops([])
-})
-
-const routesById = computed(() => {
-  const map = new Map<number, Route>()
-  for (const r of routes.value) map.set(r.route_id, r)
-  return map
-})
-
-const stopsById = computed(() => {
-  const map = new Map<number, Stop>()
-  for (const s of stops.value) map.set(s.stop_id, s)
-  return map
 })
 
 const favoriteRoutes = computed<Route[]>(() => {

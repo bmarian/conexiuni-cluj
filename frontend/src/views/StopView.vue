@@ -39,7 +39,7 @@ const router = useRouter()
 const stopIdNum = computed(() => Number(props.stopId))
 const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
 const {userTime} = storeToRefs(userStore)
-const {zoomOut, centerOnUser} = storeToRefs(mapStore)
+const {zoomOut} = storeToRefs(mapStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 const isLoading = ref(false)
@@ -262,12 +262,6 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   zoomOut.value = highlightedShapes.length > 0
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false
-})
-
-onBeforeRouteLeave((to) => {
-  if (to.name === 'home') {
-    centerOnUser.value = true
-  }
 })
 
 onUnmounted(() => {

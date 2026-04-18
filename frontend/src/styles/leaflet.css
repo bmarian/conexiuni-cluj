@@ -3,6 +3,33 @@
    library CSS. Light theme by default, dark via media query.
    ────────────────────────────────────────────────────────────────── */
 
+/* ── Stop name tooltip ──────────────────────────────────────────── */
+.stop-name-tooltip {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 12px -2px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.10) !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+.stop-name-tooltip::before {
+  border-top-color: #ffffff !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .stop-name-tooltip {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 4px 12px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
+  }
+  .stop-name-tooltip::before {
+    border-top-color: #1e293b !important;
+  }
+}
+
 /* ── Container bar ─────────────────────────────────────────────── */
 .leaflet-bar {
   border: none !important;
