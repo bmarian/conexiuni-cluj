@@ -70,8 +70,10 @@ const highlightSelectedStop = (stopId?: string) => {
     const oldMarker = stopMarkers.get(currentlyHighlightedStopId)!
     oldMarker.setIcon(stopIcon)
     oldMarker.setZIndexOffset(0)
+    if (map.value && map.value.hasLayer(oldMarker)) map.value.removeLayer(oldMarker)
     if (stopGroup.value && !stopGroup.value.hasLayer(oldMarker)) stopGroup.value.addLayer(oldMarker)
   }
+  currentlyHighlightedStopId = null
   if (stopId && stopMarkers.has(stopId)) {
     const newMarker = stopMarkers.get(stopId)!
     newMarker.setIcon(selectedStopIcon)

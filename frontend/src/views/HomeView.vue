@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref, watchEffect} from 'vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
+import {useMapStore} from '@/stores/map.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
@@ -15,6 +16,7 @@ const {t} = useI18n()
 const router = useRouter()
 const favoritesStore = useFavoritesStore()
 const routeStore = useRouteStore()
+const mapStore = useMapStore()
 const {favoriteRouteIds, favoriteStopIds} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
@@ -24,9 +26,19 @@ const {fetchShapeInfo} = useRouteShapeInfoApi()
 const search = ref('')
 const navigatingRouteId = ref<number | null>(null)
 
+watchEffect(() => {
+  mapStore.setHighlightedStops(
+    favoriteStopIds.value.map(id => ({stopId: String(id), color: 'red' as const}))
+  )
+})
+
 onMounted(() => {
   void fetchRoutes()
   void fetchStops()
+})
+
+onUnmounted(() => {
+  mapStore.setHighlightedStops([])
 })
 
 const routesById = computed(() => {

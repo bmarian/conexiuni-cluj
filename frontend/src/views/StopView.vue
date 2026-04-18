@@ -276,11 +276,7 @@ onUnmounted(() => {
 })
 
 const goBack = () => {
-  if (window.history.state && window.history.state.back) {
-    router.back()
-  } else {
-    router.push({name: 'home'})
-  }
+  router.replace({name: 'home'})
 }
 
 const navigateToRoute = (shape: VehiclesInStop) => {
