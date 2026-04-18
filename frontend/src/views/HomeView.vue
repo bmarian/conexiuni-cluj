@@ -17,7 +17,7 @@ const router = useRouter()
 const favoritesStore = useFavoritesStore()
 const routeStore = useRouteStore()
 const mapStore = useMapStore()
-const {favoriteRouteIds, favoriteStopIds} = storeToRefs(favoritesStore)
+const {favoriteRouteIds, favoriteStopIds, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -126,7 +126,7 @@ const stopFavoritesModel = computed<number[]>({
 <template>
   <div class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
 
-    <section v-if="hasFavorites" class="flex flex-col gap-5">
+    <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
       <h2 class="section-label">
         <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -253,7 +253,7 @@ const stopFavoritesModel = computed<number[]>({
         />
       </div>
 
-      <p v-if="!hasFavorites && !search" class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
+      <p v-if="isHydrated && !hasFavorites && !search" class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
         {{ t('noFavorites') }}
       </p>
 

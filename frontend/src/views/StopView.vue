@@ -46,6 +46,17 @@ const isLoading = ref(false)
 const loadError = ref(false)
 const isComputingDepartures = ref(true)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
+const initialZoomAppliedStopId = ref<string | null>(null)
+
+const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
+  const loadedStopId = stopInfo.value?.stop_id?.toString()
+  if (!loadedStopId || loadedStopId !== props.stopId) return
+  if (initialZoomAppliedStopId.value === props.stopId) return
+  if (!shouldZoomOut) return
+
+  zoomOut.value = true
+  initialZoomAppliedStopId.value = props.stopId
+}
 
 const streamTripIds = computed<string[]>(() => {
   const info = stopInfo.value
@@ -191,7 +202,6 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     shapesComingToTheStopBasedOnVehiclePositions.value = []
     mapStore.setVehiclesToDisplay([])
     mapStore.setLoadedShapes([])
-    zoomOut.value = false
     isComputingDepartures.value = false
     return
   }
@@ -202,7 +212,6 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
     mapStore.setVehiclesToDisplay([])
     mapStore.setLoadedShapes([])
-    zoomOut.value = false
     isComputingDepartures.value = false
     return
   }
@@ -259,7 +268,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   mapStore.setLoadedShapes(
     highlightedShapes,
   )
-  zoomOut.value = highlightedShapes.length > 0
+  applyInitialZoomOutForCurrentStop(highlightedShapes.length > 0)
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false
 })

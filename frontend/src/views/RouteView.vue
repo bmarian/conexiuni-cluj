@@ -419,11 +419,27 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="isInitialLoading" class="route-view-container flex items-center justify-center">
-    <svg class="w-6 h-6 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-    </svg>
+  <div v-if="isInitialLoading" class="route-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-6">
+    <div class="h-6 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+    <header class="flex items-start gap-4 pb-1">
+      <div class="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+      <div class="flex-1 flex flex-col gap-2">
+        <div class="h-3 w-14 bg-slate-200 dark:bg-slate-800 rounded"></div>
+        <div class="h-6 w-56 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+      </div>
+      <div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+    </header>
+    <div class="flex gap-2">
+      <div class="flex-1 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+      <div class="flex-1 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+    </div>
+    <section class="flex flex-col gap-2.5">
+      <div v-for="i in 7" :key="i" class="flex items-center gap-3 py-1.5">
+        <div class="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+        <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
+        <div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
+      </div>
+    </section>
   </div>
 
   <div v-else-if="!shapeInfo" class="route-view-container flex flex-col items-center justify-center gap-5">

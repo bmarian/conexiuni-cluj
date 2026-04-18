@@ -187,7 +187,6 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     enableHighAccuracy: false,
     maximumAge: 2000
   })
-  shapeLayerGroup.value = L.featureGroup().addTo(map.value)
 
   stopGroup.value = L.featureGroup()
   map.value.on('zoomend', handleZoomVisibility)
@@ -430,46 +429,75 @@ watch(highlightedStops, (stops: HighlightedStop[]) => {
   }
 }, {deep: true})
 
+type VehicleMarkerEntry = { marker: L.Marker; iconKey: string }
+const vehicleMarkers = new Map<number, VehicleMarkerEntry>()
+
+const buildVehicleIcon = (color: string, titleText: string, heading: number, speed: number) =>
+  L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `
+      <div class="relative flex items-center">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
+             style="background-color: ${color};">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
+               style="transform: rotate(${heading}deg);">
+            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
+          <span class="font-bold text-sm tracking-wide">${titleText}</span>
+          <span class="text-xs text-slate-400">${speed} km/h</span>
+        </div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  })
+
 watch(vehiclesToDisplay, (vehicles) => {
-  if (!vehicleLayerGroup.value || !map.value) return
-  vehicleLayerGroup.value.clearLayers()
+  const group = vehicleLayerGroup.value
+  if (!group || !map.value) return
+
+  const seen = new Set<number>()
 
   for (let i = 0; i < vehicles.length; i++) {
     const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, route_color?: string, heading: number }
-
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
     const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
     if (!resolvedColor) continue
+
     const routeName = vehicle.route_short_name || ''
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
-    const busIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
-      html: `
-        <div class="relative flex items-center">
-          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
-               style="background-color: ${resolvedColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
-                 style="transform: rotate(${vehicle.heading || 0}deg);">
-              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-            <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            <span class="text-xs text-slate-400">${Math.round(vehicle.speed)} km/h</span>
-          </div>
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-    })
+    const heading = vehicle.heading || 0
+    const speed = Math.round(vehicle.speed)
+    const iconKey = `${resolvedColor}|${titleText}|${heading}|${speed}`
 
-    const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-      icon: busIcon,
-      zIndexOffset: 1000
-    })
+    seen.add(vehicle.id)
+    const latLng: L.LatLngTuple = [vehicle.latitude, vehicle.longitude]
+    const existing = vehicleMarkers.get(vehicle.id)
 
-    marker.addTo(vehicleLayerGroup.value!)
+    if (existing) {
+      existing.marker.setLatLng(latLng)
+      if (existing.iconKey !== iconKey) {
+        existing.marker.setIcon(buildVehicleIcon(resolvedColor, titleText, heading, speed))
+        existing.iconKey = iconKey
+      }
+    } else {
+      const marker = L.marker(latLng, {
+        icon: buildVehicleIcon(resolvedColor, titleText, heading, speed),
+        zIndexOffset: 1000,
+      })
+      marker.addTo(group)
+      vehicleMarkers.set(vehicle.id, {marker, iconKey})
+    }
+  }
+
+  for (const [id, entry] of vehicleMarkers) {
+    if (!seen.has(id)) {
+      group.removeLayer(entry.marker)
+      vehicleMarkers.delete(id)
+    }
   }
 }, {deep: true})
 
