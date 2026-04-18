@@ -114,7 +114,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   const centerControl = new L.Control({position: 'topleft'})
   centerControl.onAdd = () => {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
-    const button = L.DomUtil.create('a', 'flex! items-center justify-center border-b-0!', container)
+    const button = L.DomUtil.create('a', 'flex! items-center justify-center', container)
 
     button.href = '#'
     button.title = t('Center')
