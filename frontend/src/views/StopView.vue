@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
-import {computed, onUnmounted, ref, watch} from "vue"
+import {computed, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
@@ -271,6 +271,10 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   applyInitialZoomOutForCurrentStop(highlightedShapes.length > 0)
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false
+})
+
+onMounted(() => {
+  mapStore.setHighlightedStops([])
 })
 
 onUnmounted(() => {

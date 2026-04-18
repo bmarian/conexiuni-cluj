@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, watchEffect} from 'vue'
+import {computed, onMounted, ref, watchPostEffect} from 'vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -38,7 +38,7 @@ const stopsById = computed(() => {
   return map
 })
 
-watchEffect(() => {
+watchPostEffect(() => {
   mapStore.setHighlightedStops(
     favoriteStopIds.value.map(id => ({stopId: String(id), color: 'red' as const}))
   )
@@ -47,10 +47,6 @@ watchEffect(() => {
 onMounted(() => {
   void fetchRoutes()
   void fetchStops()
-})
-
-onUnmounted(() => {
-  mapStore.setHighlightedStops([])
 })
 
 const favoriteRoutes = computed<Route[]>(() => {

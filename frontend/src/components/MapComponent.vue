@@ -21,7 +21,7 @@ const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
 const stopNames = new Map<string, string>()
-let currentlyHighlightedStopId: string | null = null
+const currentlyHighlightedStopId = ref<string | null>(null)
 const {t, locale} = useI18n()
 const mapContainer = ref()
 
@@ -67,21 +67,21 @@ const selectedStopIcon = L.divIcon({
 })
 
 const highlightSelectedStop = (stopId?: string) => {
-  if (currentlyHighlightedStopId && stopMarkers.has(currentlyHighlightedStopId)) {
-    const oldMarker = stopMarkers.get(currentlyHighlightedStopId)!
+  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
+    const oldMarker = stopMarkers.get(currentlyHighlightedStopId.value)!
     oldMarker.setIcon(stopIcon)
     oldMarker.setZIndexOffset(0)
     if (map.value && map.value.hasLayer(oldMarker)) map.value.removeLayer(oldMarker)
     if (stopGroup.value && !stopGroup.value.hasLayer(oldMarker)) stopGroup.value.addLayer(oldMarker)
   }
-  currentlyHighlightedStopId = null
+  currentlyHighlightedStopId.value = null
   if (stopId && stopMarkers.has(stopId)) {
     const newMarker = stopMarkers.get(stopId)!
     newMarker.setIcon(selectedStopIcon)
     newMarker.setZIndexOffset(1000)
     if (stopGroup.value && stopGroup.value.hasLayer(newMarker)) stopGroup.value.removeLayer(newMarker)
     if (map.value && !map.value.hasLayer(newMarker)) newMarker.addTo(map.value)
-    currentlyHighlightedStopId = stopId
+    currentlyHighlightedStopId.value = stopId
   }
 }
 
@@ -205,9 +205,10 @@ const stopsInit = async () => {
     const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
 
     const marker = L.marker([stop_lat, stop_lon], {icon: stopIcon})
-    marker.once('click', (e) => {
-      const popupContent = `<span>${stop_name}</span>`
-      e.target.bindPopup(popupContent).openPopup()
+    marker.bindTooltip(stop_name, {
+      direction: 'top',
+      offset: [0, -14],
+      className: 'stop-name-tooltip',
     })
     marker.on('click', () => {
       router.push({name: 'stop', params: {stopId: stop_id}, replace: true})
@@ -405,10 +406,12 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
   })
 }
 
-watch(highlightedStops, (stops: HighlightedStop[]) => {
+watch([highlightedStops, currentlyHighlightedStopId], ([stops]) => {
   if (!highlightedStopLayerGroup.value) return
   highlightedStopLayerGroup.value.clearLayers()
-  for (const {stopId, color} of stops) {
+  const selectedId = currentlyHighlightedStopId.value
+  for (const {stopId, color} of stops as HighlightedStop[]) {
+    if (stopId === selectedId) continue
     const marker = stopMarkers.get(stopId)
     if (!marker) continue
     const latlng = marker.getLatLng()
