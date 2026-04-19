@@ -4,7 +4,11 @@ import (
 	"conexiuni-cluj/database"
 	"log"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
+
+var cacheSingleflight singleflight.Group
 
 type CacheOpts[T any] struct {
 	Optimize    bool
@@ -27,41 +31,58 @@ func HandleCached[T any](
 		return data, nil
 	}
 
-	data, err := apiFetcher()
+	// Deduplicate concurrent cache-miss callers so only one API request goes out;
+	// everyone else waits for the shared result.
+	raw, err, _ := cacheSingleflight.Do(cacheID, func() (any, error) {
+		// Re-check the cache — an earlier flight may have just populated it.
+		if data, hit, err := readFromCache(cacheID, dbFetcher); hit {
+			if err != nil {
+				return nil, err
+			}
+			return data, nil
+		}
+
+		data, err := apiFetcher()
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			mu := database.GetCacheRWMutex(cacheID)
+			mu.Lock()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Warning: panic in cache write goroutine for %s: %v", cacheID, r)
+				}
+				mu.Unlock()
+			}()
+
+			if database.IsCacheValid(cacheID) {
+				return
+			}
+
+			if err := dbStorer(data); err != nil {
+				log.Printf("Warning: failed to store %s in database: %v", cacheID, err)
+				return
+			}
+			if err := database.UpdateCache(cacheID, shelfLife.Milliseconds()); err != nil {
+				log.Printf("Warning: failed to update cache for %s: %v", cacheID, err)
+				return
+			}
+			if opts.Optimize {
+				if err := database.Optimize(); err != nil {
+					log.Printf("Warning: failed to optimize database: %v", err)
+				}
+			}
+		}()
+
+		return data, nil
+	})
 	if err != nil {
 		var zero T
 		return zero, err
 	}
-
-	go func() {
-		mu := database.GetCacheRWMutex(cacheID)
-		mu.Lock()
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Warning: panic in cache write goroutine for %s: %v", cacheID, r)
-			}
-			mu.Unlock()
-		}()
-
-		// Another goroutine already refreshed this cache.
-		if database.IsCacheValid(cacheID) {
-			return
-		}
-
-		if err := dbStorer(data); err != nil {
-			log.Printf("Warning: failed to store %s in database: %v", cacheID, err)
-			return
-		}
-		if err := database.UpdateCache(cacheID, shelfLife.Milliseconds()); err != nil {
-			log.Printf("Warning: failed to update cache for %s: %v", cacheID, err)
-			return
-		}
-		if opts.Optimize {
-			if err := database.Optimize(); err != nil {
-				log.Printf("Warning: failed to optimize database: %v", err)
-			}
-		}
-	}()
+	data := raw.(T)
 
 	if opts.PostProcess != nil {
 		return opts.PostProcess(data), nil

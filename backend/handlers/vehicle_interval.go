@@ -193,6 +193,11 @@ func ComputeVehicleInterval(cfg VehicleIntervalConfig, subscribers, quotaRemaini
 	ratio := projected / float64(quotaRemaining)
 	interval := time.Duration(float64(target) * ratio)
 
+	// Cap speedup at target/2 so a large quota surplus early in the day
+	// can't pin the interval to MinInterval and drain the daily budget.
+	if half := target / 2; interval < half {
+		interval = half
+	}
 	if interval < cfg.MinInterval {
 		interval = cfg.MinInterval
 	}
