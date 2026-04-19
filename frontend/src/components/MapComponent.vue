@@ -37,6 +37,7 @@ const routeColorsCache = new Map<string | number, string>()
 
 const vehicleMarkers = new Map<number, L.Marker>()
 const vehicleCurrentHeadings = new Map<number, number>()
+const vehicleLastUpdateAt = new Map<number, number>()
 
 type VehicleAnim = {
   startLat: number
@@ -50,8 +51,12 @@ type VehicleAnim = {
 }
 const vehicleAnimations = new Map<number, VehicleAnim>()
 let animationFrameId: number | null = null
-// Matches the backend poll interval so the bus arrives just as the next update lands
-const ANIM_DURATION = 20000
+
+const ANIM_MIN_MS = 3000
+const ANIM_MAX_MS = 60000
+const ANIM_DEFAULT_MS = 20000
+const MIN_MOVE_METERS = 2
+const STATIONARY_METERS = 3
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
@@ -60,6 +65,17 @@ function lerp(a: number, b: number, t: number) {
 function lerpAngle(a: number, b: number, t: number) {
   const diff = ((b - a + 540) % 360) - 180
   return (a + diff * t + 360) % 360
+}
+
+function metersBetween(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371000
+  const dLat = (bLat - aLat) * Math.PI / 180
+  const dLng = (bLng - aLng) * Math.PI / 180
+  const s1 = Math.sin(dLat / 2)
+  const s2 = Math.sin(dLng / 2)
+  const la = Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180)
+  const h = s1 * s1 + la * s2 * s2
+  return 2 * R * Math.asin(Math.sqrt(h))
 }
 
 function createBusIcon(titleText: string, speed: number, color: string, heading: number): L.DivIcon {
@@ -525,20 +541,35 @@ watch(vehiclesToDisplay, (vehicles) => {
     const targetHeading = vehicle.heading || 0
 
     const existingMarker = vehicleMarkers.get(vehicle.id)
+    const nowMs = performance.now()
     if (existingMarker) {
       const currentLatLng = existingMarker.getLatLng()
       const currentHeading = vehicleCurrentHeadings.get(vehicle.id) ?? targetHeading
+      const prevAnim = vehicleAnimations.get(vehicle.id)
+      const prevTargetLat = prevAnim?.targetLat ?? currentLatLng.lat
+      const prevTargetLng = prevAnim?.targetLng ?? currentLatLng.lng
+      const targetMoved = metersBetween(prevTargetLat, prevTargetLng, vehicle.latitude, vehicle.longitude)
+
       existingMarker.setIcon(createBusIcon(titleText, vehicle.speed, resolvedColor, currentHeading))
-      vehicleAnimations.set(vehicle.id, {
-        startLat: currentLatLng.lat,
-        startLng: currentLatLng.lng,
-        targetLat: vehicle.latitude,
-        targetLng: vehicle.longitude,
-        startHeading: currentHeading,
-        targetHeading,
-        startTime: performance.now(),
-        duration: ANIM_DURATION,
-      })
+
+      if (targetMoved >= MIN_MOVE_METERS) {
+        const distanceToTarget = metersBetween(currentLatLng.lat, currentLatLng.lng, vehicle.latitude, vehicle.longitude)
+        const keepHeading = distanceToTarget < STATIONARY_METERS ? currentHeading : targetHeading
+        const lastUpdate = vehicleLastUpdateAt.get(vehicle.id)
+        const gap = lastUpdate ? nowMs - lastUpdate : ANIM_DEFAULT_MS
+        const duration = Math.max(ANIM_MIN_MS, Math.min(ANIM_MAX_MS, gap))
+        vehicleAnimations.set(vehicle.id, {
+          startLat: currentLatLng.lat,
+          startLng: currentLatLng.lng,
+          targetLat: vehicle.latitude,
+          targetLng: vehicle.longitude,
+          startHeading: currentHeading,
+          targetHeading: keepHeading,
+          startTime: nowMs,
+          duration,
+        })
+        vehicleLastUpdateAt.set(vehicle.id, nowMs)
+      }
     } else {
       const marker = L.marker([vehicle.latitude, vehicle.longitude], {
         icon: createBusIcon(titleText, vehicle.speed, resolvedColor, targetHeading),
@@ -547,6 +578,7 @@ watch(vehiclesToDisplay, (vehicles) => {
       marker.addTo(vehicleLayerGroup.value!)
       vehicleMarkers.set(vehicle.id, marker)
       vehicleCurrentHeadings.set(vehicle.id, targetHeading)
+      vehicleLastUpdateAt.set(vehicle.id, nowMs)
     }
   }
 
@@ -556,6 +588,7 @@ watch(vehiclesToDisplay, (vehicles) => {
       vehicleMarkers.delete(id)
       vehicleAnimations.delete(id)
       vehicleCurrentHeadings.delete(id)
+      vehicleLastUpdateAt.delete(id)
     }
   }
 
@@ -585,6 +618,7 @@ onUnmounted(() => {
   vehicleAnimations.clear()
   vehicleMarkers.clear()
   vehicleCurrentHeadings.clear()
+  vehicleLastUpdateAt.clear()
 
   if (map.value) {
     map.value.stopLocate()
