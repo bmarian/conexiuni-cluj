@@ -71,6 +71,9 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 	tripIDSet := tripIDSet(filter.TripIDs)
 	filteredVehicles := make([]models.Vehicle, 0)
 	for _, vehicle := range vehicles {
+		if vehicle.RouteID == -1 || vehicle.TripID == "-1" {
+			continue
+		}
 		if filter.RouteID != nil && vehicle.RouteID != *filter.RouteID {
 			continue
 		}
@@ -81,9 +84,6 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 			if _, ok := tripIDSet[vehicle.TripID]; !ok {
 				continue
 			}
-		}
-		if vehicle.RouteID == -1 && vehicle.TripID == "-1" {
-			continue
 		}
 
 		filteredVehicles = append(filteredVehicles, vehicle)
@@ -164,11 +164,9 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 	if filter.RouteID != nil {
 		conditions = append(conditions, "route_id = ?")
 		args = append(args, *filter.RouteID)
-		conditions = append(conditions, "trip_id != -1")
 	} else if filter.TripID != nil {
 		conditions = append(conditions, "trip_id = ?")
 		args = append(args, *filter.TripID)
-		conditions = append(conditions, "route_id != -1")
 	} else if len(filter.TripIDs) > 0 {
 		placeholders := strings.Repeat("?,", len(filter.TripIDs))
 		placeholders = placeholders[:len(placeholders)-1]
@@ -176,10 +174,6 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 		for _, id := range filter.TripIDs {
 			args = append(args, id)
 		}
-		conditions = append(conditions, "route_id != -1")
-	} else {
-		conditions = append(conditions, "route_id != -1")
-		conditions = append(conditions, "trip_id != -1")
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")

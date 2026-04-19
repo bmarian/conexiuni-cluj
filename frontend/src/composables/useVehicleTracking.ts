@@ -5,6 +5,25 @@ import type {Shape, Vehicle} from '@/types/tranzy.ts'
 export const CLOSE_TO_STOP_THRESHOLD = 200
 export const VEHICLE_GRACE_PERIOD = 10
 export const MIN_SPEED_KMH = 12
+const STALE_POSITION_METERS = 20
+const STALE_POSITION_MS = 3 * 60_000
+
+const lastMovement = new Map<number, {lat: number; lon: number; movedAt: number}>()
+
+function isStuckAtTerminus(vehicle: Vehicle, nearTerminus: boolean): boolean {
+  const now = Date.now()
+  const prev = lastMovement.get(vehicle.id)
+  if (!prev) {
+    lastMovement.set(vehicle.id, {lat: vehicle.latitude, lon: vehicle.longitude, movedAt: now})
+    return false
+  }
+  const moved = haversineMeters(prev.lat, prev.lon, vehicle.latitude, vehicle.longitude)
+  if (moved >= STALE_POSITION_METERS) {
+    lastMovement.set(vehicle.id, {lat: vehicle.latitude, lon: vehicle.longitude, movedAt: now})
+    return false
+  }
+  return nearTerminus && now - prev.movedAt >= STALE_POSITION_MS
+}
 
 export type TrackedVehicle = Vehicle & { route_short_name: string; route_color: string; heading: number }
 
@@ -78,7 +97,8 @@ export async function getIndexedVehicles(
 
     const nearFirst = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const nearLast  = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat,  lastStop.shape_pt_lon)  <= CLOSE_TO_STOP_THRESHOLD
-    if ((nearFirst || nearLast) && vehicle.speed < 1) continue
+    if ((nearFirst || nearLast) && vehicle.speed < MIN_SPEED_KMH + 1) continue
+    if (isStuckAtTerminus(vehicle, nearFirst || nearLast)) continue
 
     const ts = new Date(vehicle.timestamp).getTime()
     if (isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000) continue
@@ -155,7 +175,8 @@ export async function getVehiclesOnRoute(
 
     const nearFirst = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
     const nearLast  = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat,  lastStop.shape_pt_lon)  <= CLOSE_TO_STOP_THRESHOLD
-    if ((nearFirst || nearLast) && vehicle.speed < 1) continue
+    if ((nearFirst || nearLast) && vehicle.speed < MIN_SPEED_KMH + 1) continue
+    if (isStuckAtTerminus(vehicle, nearFirst || nearLast)) continue
 
     const ts = new Date(vehicle.timestamp).getTime()
     if (isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000) continue
