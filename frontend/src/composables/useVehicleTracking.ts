@@ -7,33 +7,53 @@ export const VEHICLE_GRACE_PERIOD = 10
 export const MIN_SPEED_KMH = 12
 const STALE_POSITION_METERS = 20
 const STALE_POSITION_MS = 3 * 60_000
+const HEADING_LOOKAHEAD = 3
 
-const lastMovement = new Map<number, {lat: number; lon: number; movedAt: number}>()
+export type TrackedVehicle = Vehicle & {
+  route_short_name: string;
+  route_color: string;
+  heading: number
+}
+export type IndexedVehicle = TrackedVehicle & { shapeIdx: number }
+export type ShapeIndex = { shape: Shape[]; cumulativeDist: number[] }
 
-function isStuckAtTerminus(vehicle: Vehicle, nearTerminus: boolean): boolean {
-  const now = Date.now()
-  const prev = lastMovement.get(vehicle.id)
+const lastMovement = new Map<number, { lat: number; lon: number; movedAt: number }>()
+
+function hasInvalidCoords(v: Vehicle): boolean {
+  return !v.latitude || !v.longitude || v.latitude < 0 || v.longitude < 0
+}
+
+function isStale(v: Vehicle, now: number): boolean {
+  const ts = new Date(v.timestamp).getTime()
+  return isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000
+}
+
+function isStuckAtTerminus(v: Vehicle, nearTerminus: boolean, now: number): boolean {
+  const prev = lastMovement.get(v.id)
   if (!prev) {
-    lastMovement.set(vehicle.id, {lat: vehicle.latitude, lon: vehicle.longitude, movedAt: now})
+    lastMovement.set(v.id, {lat: v.latitude, lon: v.longitude, movedAt: now})
     return false
   }
-  const moved = haversineMeters(prev.lat, prev.lon, vehicle.latitude, vehicle.longitude)
+  const moved = haversineMeters(prev.lat, prev.lon, v.latitude, v.longitude)
   if (moved >= STALE_POSITION_METERS) {
-    lastMovement.set(vehicle.id, {lat: vehicle.latitude, lon: vehicle.longitude, movedAt: now})
+    lastMovement.set(v.id, {lat: v.latitude, lon: v.longitude, movedAt: now})
     return false
   }
   return nearTerminus && now - prev.movedAt >= STALE_POSITION_MS
 }
 
-export type TrackedVehicle = Vehicle & { route_short_name: string; route_color: string; heading: number }
-
-export type ShapeIndex = {
-  shape: Shape[]
-  cumulativeDist: number[]
+function isVisibleAtTerminus(v: Vehicle, firstStop: Shape, lastStop: Shape, now: number): boolean {
+  const nearFirst = haversineMeters(v.latitude, v.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
+  const nearLast = haversineMeters(v.latitude, v.longitude, lastStop.shape_pt_lat, lastStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
+  const nearTerminus = nearFirst || nearLast
+  if (nearTerminus && v.speed < MIN_SPEED_KMH + 1) return false
+  return !isStuckAtTerminus(v, nearTerminus, now)
 }
 
-export type IndexedVehicle = TrackedVehicle & {
-  shapeIdx: number
+function computeHeading(lat: number, lon: number, shape: Shape[], shapeIdx: number): number {
+  if (shapeIdx < 0 || !shape.length) return 0
+  const target = shape[Math.min(shapeIdx + HEADING_LOOKAHEAD, shape.length - 1)]!
+  return calculateBearing(lat, lon, target.shape_pt_lat, target.shape_pt_lon)
 }
 
 export function buildShapeIndex(shape: Shape[]): ShapeIndex {
@@ -43,8 +63,7 @@ export function buildShapeIndex(shape: Shape[]): ShapeIndex {
   for (let i = 1; i < shape.length; i++) {
     const a = shape[i - 1]!
     const b = shape[i]!
-    const segment = haversineMeters(a.shape_pt_lat, a.shape_pt_lon, b.shape_pt_lat, b.shape_pt_lon)
-    cumulativeDist[i] = cumulativeDist[i - 1]! + segment
+    cumulativeDist[i] = cumulativeDist[i - 1]! + haversineMeters(a.shape_pt_lat, a.shape_pt_lon, b.shape_pt_lat, b.shape_pt_lon)
   }
   return {shape, cumulativeDist}
 }
@@ -55,24 +74,25 @@ export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): n
   for (let i = 0; i < shape.length; i++) {
     const p = shape[i]!
     const d = haversineMeters(p.shape_pt_lat, p.shape_pt_lon, lat, lon)
-    if (d < bestDist) { bestDist = d; best = i }
+    if (d < bestDist) {
+      bestDist = d;
+      best = i
+    }
   }
   return best
 }
 
-export async function fetchVehiclesForTrips(tripIds: string[]): Promise<Map<string, Vehicle[]>> {
-  const grouped = new Map<string, Vehicle[]>()
-  if (!tripIds.length) return grouped
+export function getClosestNodeToPoint(
+  {lat, lon}: { lat: number; lon: number },
+  trip: Shape[],
+): Shape | undefined {
+  const idx = findClosestShapeIdx(lat, lon, trip)
+  return idx < 0 ? undefined : trip[idx]
+}
 
-  const key = [...new Set(tripIds)].sort().join(',')
-  const raw = (await apiRequest(`vehicles?trip_ids=${key}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
-
-  for (const id of tripIds) grouped.set(id, [])
-  for (const v of raw) {
-    const bucket = grouped.get(v.trip_id)
-    if (bucket) bucket.push(v)
-  }
-  return grouped
+async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
+  if (prefetched) return prefetched
+  return (await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
 }
 
 export async function getIndexedVehicles(
@@ -86,71 +106,29 @@ export async function getIndexedVehicles(
   const {shape} = index
   if (!shape.length) return []
 
-  const raw = prefetched ?? ((await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? [])
+  const raw = await fetchRawVehicles(tripId, prefetched)
   const firstStop = shape[0]!
   const lastStop = shape[shape.length - 1]!
   const now = userTime?.getTime() ?? Date.now()
   const result: IndexedVehicle[] = []
 
-  for (const vehicle of raw) {
-    if (!vehicle.latitude || !vehicle.longitude || vehicle.latitude < 0 || vehicle.longitude < 0) continue
+  for (const v of raw) {
+    if (hasInvalidCoords(v)) continue
+    if (isStale(v, now)) continue
+    if (!isVisibleAtTerminus(v, firstStop, lastStop, now)) continue
 
-    const nearFirst = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    const nearLast  = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat,  lastStop.shape_pt_lon)  <= CLOSE_TO_STOP_THRESHOLD
-    if ((nearFirst || nearLast) && vehicle.speed < MIN_SPEED_KMH + 1) continue
-    if (isStuckAtTerminus(vehicle, nearFirst || nearLast)) continue
-
-    const ts = new Date(vehicle.timestamp).getTime()
-    if (isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000) continue
-
-    const shapeIdx = findClosestShapeIdx(vehicle.latitude, vehicle.longitude, shape)
-    let heading = 0
-    if (shapeIdx >= 0) {
-      const target = shape[Math.min(shapeIdx + 3, shape.length - 1)]!
-      heading = calculateBearing(vehicle.latitude, vehicle.longitude, target.shape_pt_lat, target.shape_pt_lon)
-    }
-
-    result.push({...vehicle, route_short_name: routeShortName, route_color: routeColor, heading, shapeIdx})
+    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, shape)
+    const heading = computeHeading(v.latitude, v.longitude, shape, shapeIdx)
+    result.push({
+      ...v,
+      route_short_name: routeShortName,
+      route_color: routeColor,
+      heading,
+      shapeIdx
+    })
   }
 
   return result
-}
-
-export function etaForStop(
-  stopShapeIdx: number,
-  vehicles: IndexedVehicle[],
-  index: ShapeIndex,
-): {vehicle: IndexedVehicle; etaMinutes: number} | null {
-  if (stopShapeIdx < 0) return null
-
-  let bestVehicle: IndexedVehicle | null = null
-  let bestIdx = -1
-  for (const v of vehicles) {
-    if (v.shapeIdx < 0 || v.shapeIdx > stopShapeIdx) continue
-    if (v.shapeIdx > bestIdx) { bestIdx = v.shapeIdx; bestVehicle = v }
-  }
-  if (!bestVehicle) return null
-
-  const distMeters = index.cumulativeDist[stopShapeIdx]! - index.cumulativeDist[bestVehicle.shapeIdx]!
-  const speed = Math.max(bestVehicle.speed, MIN_SPEED_KMH)
-  const etaMinutes = Math.ceil(((distMeters / 1000) / speed) * 60)
-  return {vehicle: bestVehicle, etaMinutes}
-}
-
-export function getClosestNodeToPoint(
-  {lat, lon}: {lat: number; lon: number},
-  trip: Shape[],
-): Shape | undefined {
-  let closestDistance = Infinity
-  let closest: Shape | undefined
-  for (const point of trip) {
-    const d = haversineMeters(point.shape_pt_lat, point.shape_pt_lon, lat, lon)
-    if (d < closestDistance) {
-      closestDistance = d
-      closest = point
-    }
-  }
-  return closest
 }
 
 export async function getVehiclesOnRoute(
@@ -163,43 +141,54 @@ export async function getVehiclesOnRoute(
 ): Promise<TrackedVehicle[]> {
   if (!trip?.length) return []
 
-  const raw = prefetched ?? ((await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? [])
+  const raw = await fetchRawVehicles(tripId, prefetched)
   const firstStop = trip[0]!
   const lastStop = trip[trip.length - 1]!
   const now = userTime?.getTime() ?? Date.now()
-
   const result: TrackedVehicle[] = []
 
-  for (const vehicle of raw) {
-    if (!vehicle.latitude || !vehicle.longitude || vehicle.latitude < 0 || vehicle.longitude < 0) continue
+  for (const v of raw) {
+    if (hasInvalidCoords(v)) continue
+    if (isStale(v, now)) continue
+    if (!isVisibleAtTerminus(v, firstStop, lastStop, now)) continue
 
-    const nearFirst = haversineMeters(vehicle.latitude, vehicle.longitude, firstStop.shape_pt_lat, firstStop.shape_pt_lon) <= CLOSE_TO_STOP_THRESHOLD
-    const nearLast  = haversineMeters(vehicle.latitude, vehicle.longitude, lastStop.shape_pt_lat,  lastStop.shape_pt_lon)  <= CLOSE_TO_STOP_THRESHOLD
-    if ((nearFirst || nearLast) && vehicle.speed < MIN_SPEED_KMH + 1) continue
-    if (isStuckAtTerminus(vehicle, nearFirst || nearLast)) continue
-
-    const ts = new Date(vehicle.timestamp).getTime()
-    if (isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000) continue
-
-    let heading = 0
-    const closestNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
-    if (closestNode) {
-      const idx = trip.findIndex(t => t.shape_pt_sequence === closestNode.shape_pt_sequence)
-      const target = trip[Math.min(idx + 3, trip.length - 1)]!
-      heading = calculateBearing(vehicle.latitude, vehicle.longitude, target.shape_pt_lat, target.shape_pt_lon)
-    }
-
-    result.push({...vehicle, route_short_name: routeShortName, route_color: routeColor, heading})
+    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, trip)
+    const heading = computeHeading(v.latitude, v.longitude, trip, shapeIdx)
+    result.push({...v, route_short_name: routeShortName, route_color: routeColor, heading})
   }
 
   return result
+}
+
+export function etaForStop(
+  stopShapeIdx: number,
+  vehicles: IndexedVehicle[],
+  index: ShapeIndex,
+): { vehicle: IndexedVehicle; etaMinutes: number } | null {
+  if (stopShapeIdx < 0) return null
+
+  let bestVehicle: IndexedVehicle | null = null
+  let bestIdx = -1
+  for (const v of vehicles) {
+    if (v.shapeIdx < 0 || v.shapeIdx > stopShapeIdx) continue
+    if (v.shapeIdx > bestIdx) {
+      bestIdx = v.shapeIdx;
+      bestVehicle = v
+    }
+  }
+  if (!bestVehicle) return null
+
+  const distMeters = index.cumulativeDist[stopShapeIdx]! - index.cumulativeDist[bestVehicle.shapeIdx]!
+  const speed = Math.max(bestVehicle.speed, MIN_SPEED_KMH)
+  const etaMinutes = Math.ceil(((distMeters / 1000) / speed) * 60)
+  return {vehicle: bestVehicle, etaMinutes}
 }
 
 export function getClosestVehicleBeforeStop(
   vehicles: TrackedVehicle[],
   closestNodeToStop: Shape,
   trip: Shape[],
-): {closestVehicle: TrackedVehicle | undefined; closestNode: Shape | undefined} {
+): { closestVehicle: TrackedVehicle | undefined; closestNode: Shape | undefined } {
   let closestDistance = Infinity
   let bestVehicle: TrackedVehicle | undefined
   let bestNode: Shape | undefined
@@ -211,14 +200,18 @@ export function getClosestVehicleBeforeStop(
       currentNode.shape_pt_lat, currentNode.shape_pt_lon,
       closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon,
     )
-    if (d < closestDistance) { closestDistance = d; bestVehicle = vehicle; bestNode = currentNode }
+    if (d < closestDistance) {
+      closestDistance = d;
+      bestVehicle = vehicle;
+      bestNode = currentNode
+    }
   }
 
   return {closestVehicle: bestVehicle, closestNode: bestNode}
 }
 
 export function computeETA(stopShape: Shape, busShape: Shape, vehicle: TrackedVehicle, trip: Shape[]): number {
-  const busIdx  = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
+  const busIdx = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
   const stopIdx = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)
   if (busIdx === -1 || stopIdx === -1) return -1
   if (busIdx > stopIdx) return -2
@@ -233,5 +226,5 @@ export function computeETA(stopShape: Shape, busShape: Shape, vehicle: TrackedVe
     }
   }
 
-  return Math.ceil(((totalDistance / 1000) / Math.max(vehicle.speed, 12)) * 60)
+  return Math.ceil(((totalDistance / 1000) / Math.max(vehicle.speed, MIN_SPEED_KMH)) * 60)
 }
