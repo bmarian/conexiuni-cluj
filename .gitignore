@@ -1,7 +1,7 @@
 .claude
 .idea
 .vscode
+logs
 keys.env
 conexiuni-cluj.db*
 api-tests/tranzy-api-docs.json
-conexiuni-cluj.log

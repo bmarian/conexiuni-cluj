@@ -25,12 +25,12 @@ import (
 func main() {
 	config := Load()
 
-	logOutput, closeLogFile, err := setupLogging(config.LogFilePath)
+	logs, err := setupLogging(config.LogDir, config.LogRetentionDays)
 	if err != nil {
 		log.Fatalf("Failed to initialize logging: %v", err)
 	}
 	defer func() {
-		if err := closeLogFile(); err != nil {
+		if err := logs.close(); err != nil {
 			log.Printf("Warning: failed to close log file: %v", err)
 		}
 	}()
@@ -75,7 +75,7 @@ func main() {
 		AppName: "Conexiuni Cluj",
 	})
 	app.Use(logger.New(logger.Config{
-		Stream:     logOutput,
+		Stream:     logs.accessOut,
 		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${queryParams} | ${body}\n",
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Local",
