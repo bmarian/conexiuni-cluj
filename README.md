@@ -28,32 +28,6 @@ Real-time public transit tracker for Cluj-Napoca. Shows live bus/tram positions,
 - Go ≥ 1.25
 - A Tranzy API key
 
-### Environment
-
-Copy `.env` and fill in your values:
-
-```
-ENV=development
-
-TRANZY_BASE_URL=https://api.tranzy.ai/v1/opendata
-CLUJ_AGENCY_ID=2
-TRANZY_RATE_LIMIT=200ms
-TRANZY_VEHICLES_DAILY_QUOTA=4500
-TRANZY_DEFAULT_DAILY_QUOTA=500
-
-CTP_CSV_BASE_URL=https://ctpcj.ro/orare/csv
-CTP_CJ_RATE_LIMIT=1s
-
-PORT=6698
-DATABASE_PATH=../conexiuni-cluj.db
-LOG_FILE_PATH=../conexiuni-cluj.log
-
-VEHICLE_CACHE_SHELF_LIFE=20s
-SHAPE_CACHE_SHELF_LIFE=168h
-ROUTE_CACHE_SHELF_LIFE=168h
-STOP_CACHE_SHELF_LIFE=168h
-```
-
 ### Development
 
 ```bash

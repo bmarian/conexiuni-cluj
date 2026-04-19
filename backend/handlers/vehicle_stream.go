@@ -10,28 +10,45 @@ import (
 )
 
 type vehicleHub struct {
-	mu           sync.Mutex
-	subscribers  map[int64]*vehicleSubscriber
-	nextID       int64
-	running      bool
-	tranzy       *tranzy.Client
-	pollInterval time.Duration
+	mu          sync.Mutex
+	subscribers map[int64]*vehicleSubscriber
+	nextID      int64
+	running     bool
+	tranzy      *tranzy.Client
+	intervalCfg VehicleIntervalConfig
 }
 
 type vehicleSubscriber struct {
 	tripIDs map[string]struct{}
-	// Small buffer prevents slow SSE writers from blocking the hub.
+	// Buffered so slow SSE writers don't block the hub.
 	ch chan []models.Vehicle
 }
 
 var VehicleHub *vehicleHub
 
-func InitVehicleHub(tranzyClient *tranzy.Client, pollInterval time.Duration) {
+func InitVehicleHub(tranzyClient *tranzy.Client, intervalCfg VehicleIntervalConfig) {
 	VehicleHub = &vehicleHub{
-		subscribers:  make(map[int64]*vehicleSubscriber),
-		tranzy:       tranzyClient,
-		pollInterval: pollInterval,
+		subscribers: make(map[int64]*vehicleSubscriber),
+		tranzy:      tranzyClient,
+		intervalCfg: intervalCfg,
 	}
+}
+
+func (h *vehicleHub) intervalFor(subscribers int) time.Duration {
+	return ComputeVehicleInterval(
+		h.intervalCfg,
+		subscribers,
+		h.tranzy.VehiclesQuotaRemaining(),
+		time.Now(),
+		h.tranzy.Location(),
+	)
+}
+
+func (h *vehicleHub) CurrentInterval() time.Duration {
+	h.mu.Lock()
+	n := len(h.subscribers)
+	h.mu.Unlock()
+	return h.intervalFor(n)
 }
 
 func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
@@ -59,7 +76,7 @@ func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
 	go h.sendTo(sub)
 
 	if shouldStart {
-		log.Printf("vehicle hub: starting poll loop (every %s)", h.pollInterval)
+		log.Printf("vehicle hub: starting poll loop")
 		go h.run()
 	}
 	return sub, id
@@ -79,9 +96,7 @@ func (h *vehicleHub) Unsubscribe(id int64) {
 }
 
 func (h *vehicleHub) run() {
-	ticker := time.NewTicker(h.pollInterval)
-	defer ticker.Stop()
-	for range ticker.C {
+	for {
 		h.mu.Lock()
 		if len(h.subscribers) == 0 {
 			h.running = false
@@ -93,21 +108,32 @@ func (h *vehicleHub) run() {
 		for _, s := range h.subscribers {
 			subs = append(subs, s)
 		}
+		n := len(h.subscribers)
 		h.mu.Unlock()
 
-		vehicles, err := GetVehicles(h.tranzy, h.pollInterval, VehicleFilter{})
+		interval := h.intervalFor(n)
+		quotaMax := h.tranzy.VehiclesQuotaLimit()
+		quotaUsed := quotaMax - h.tranzy.VehiclesQuotaRemaining()
+		rush := h.intervalCfg.isRushHour(time.Now().In(h.tranzy.Location()))
+		log.Printf("vehicle hub: poll interval=%s subs=%d rush=%t quota=%d/%d used",
+			interval, n, rush, quotaUsed, quotaMax)
+
+		vehicles, err := GetVehicles(h.tranzy, interval, VehicleFilter{})
 		if err != nil {
 			log.Printf("vehicle hub: GetVehicles: %v", err)
-			continue
+		} else {
+			for _, sub := range subs {
+				broadcast(sub, vehicles)
+			}
 		}
-		for _, sub := range subs {
-			broadcast(sub, vehicles)
-		}
+
+		time.Sleep(interval)
 	}
 }
 
 func (h *vehicleHub) sendTo(sub *vehicleSubscriber) {
-	vehicles, err := GetVehicles(h.tranzy, h.pollInterval, VehicleFilter{})
+	interval := h.CurrentInterval()
+	vehicles, err := GetVehicles(h.tranzy, interval, VehicleFilter{})
 	if err != nil {
 		log.Printf("vehicle hub: initial GetVehicles: %v", err)
 		return

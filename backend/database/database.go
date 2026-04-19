@@ -161,6 +161,13 @@ func InitSchemas() error {
             stop_id           TEXT PRIMARY KEY,
             trip_ids          TEXT NOT NULL,
             shapes_short_name TEXT NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS tranzy_quotas
+        (
+            name      TEXT PRIMARY KEY,
+            count     INTEGER NOT NULL,
+            reset_at  INTEGER NOT NULL
         )
     `
 	_, err := DB.Exec(schema)
