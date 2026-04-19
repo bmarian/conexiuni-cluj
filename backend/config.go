@@ -75,9 +75,15 @@ func getDuration(key string, defaultValue time.Duration) time.Duration {
 }
 
 func Load() *Config {
-	err := godotenv.Load("../.env", "../keys.env")
-	if err != nil {
-		log.Fatal("No .env files found, using environment variables")
+	loaded := false
+	if err := godotenv.Load(".env", "keys.env"); err == nil {
+		loaded = true
+	}
+	if err := godotenv.Load("../.env", "../keys.env"); err == nil {
+		loaded = true
+	}
+	if !loaded {
+		log.Fatal("No .env files found")
 	}
 
 	return &Config{
