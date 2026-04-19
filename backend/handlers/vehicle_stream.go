@@ -114,9 +114,15 @@ func (h *vehicleHub) run() {
 		interval := h.intervalFor(n)
 		quotaMax := h.tranzy.VehiclesQuotaLimit()
 		quotaUsed := quotaMax - h.tranzy.VehiclesQuotaRemaining()
-		rush := h.intervalCfg.isRushHour(time.Now().In(h.tranzy.Location()))
-		log.Printf("vehicle hub: poll interval=%s subs=%d rush=%t quota=%d/%d used",
-			interval, n, rush, quotaUsed, quotaMax)
+		localNow := time.Now().In(h.tranzy.Location())
+		slotLabel := "none"
+		targetLabel := "-"
+		if sl, ok := h.intervalCfg.SlotAt(localNow); ok {
+			slotLabel = sl.label()
+			targetLabel = sl.target(n).String()
+		}
+		log.Printf("vehicle hub: poll interval=%s target=%s slot=%s subs=%d quota=%d/%d used",
+			interval, targetLabel, slotLabel, n, quotaUsed, quotaMax)
 
 		vehicles, err := GetVehicles(h.tranzy, interval, VehicleFilter{})
 		if err != nil {

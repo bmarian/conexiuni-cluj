@@ -60,15 +60,19 @@ func main() {
 		tranzyClient.VehiclesQuotaLimit()-tranzyClient.VehiclesQuotaRemaining(), tranzyClient.VehiclesQuotaLimit())
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
+	weekdaySlots, err := handlers.ParseSchedule(config.VehicleSchedule)
+	if err != nil {
+		log.Fatalf("VEHICLE_SCHEDULE: %v", err)
+	}
+	weekendSlots, err := handlers.ParseSchedule(config.VehicleScheduleWeekend)
+	if err != nil {
+		log.Fatalf("VEHICLE_SCHEDULE_WEEKEND: %v", err)
+	}
 	handlers.InitVehicleHub(tranzyClient, handlers.VehicleIntervalConfig{
-		Baseline:             config.VehicleBaselineInterval,
-		Busy:                 config.VehicleBusyInterval,
-		Reserve:              config.VehicleReserveInterval,
-		SubscribersThreshold: config.VehicleSubscribersThreshold,
-		RushMorningStart:     config.VehicleRushMorningStart,
-		RushMorningEnd:       config.VehicleRushMorningEnd,
-		RushEveningStart:     config.VehicleRushEveningStart,
-		RushEveningEnd:       config.VehicleRushEveningEnd,
+		Weekday:     weekdaySlots,
+		Weekend:     weekendSlots,
+		MinInterval: config.VehicleMinInterval,
+		MaxInterval: config.VehicleMaxInterval,
 	})
 
 	app := fiber.New(fiber.Config{
