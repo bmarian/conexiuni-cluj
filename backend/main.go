@@ -55,10 +55,21 @@ func main() {
 		log.Fatal("TRANZY_API_KEY not set in environment")
 	}
 
-	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota)
+	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
+	log.Printf("Tranzy quota on startup: vehicles=%d/%d used",
+		tranzyClient.VehiclesQuotaLimit()-tranzyClient.VehiclesQuotaRemaining(), tranzyClient.VehiclesQuotaLimit())
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
-	handlers.InitVehicleHub(tranzyClient, 20*time.Second)
+	handlers.InitVehicleHub(tranzyClient, handlers.VehicleIntervalConfig{
+		Baseline:             config.VehicleBaselineInterval,
+		Busy:                 config.VehicleBusyInterval,
+		Reserve:              config.VehicleReserveInterval,
+		SubscribersThreshold: config.VehicleSubscribersThreshold,
+		RushMorningStart:     config.VehicleRushMorningStart,
+		RushMorningEnd:       config.VehicleRushMorningEnd,
+		RushEveningStart:     config.VehicleRushEveningStart,
+		RushEveningEnd:       config.VehicleRushEveningEnd,
+	})
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
@@ -173,7 +184,7 @@ func main() {
 			}
 		}
 
-		data, err := handlers.GetVehicles(tranzyClient, config.VehicleCacheShelfLife, filter)
+		data, err := handlers.GetVehicles(tranzyClient, handlers.VehicleHub.CurrentInterval(), filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

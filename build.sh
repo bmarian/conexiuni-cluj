@@ -1,22 +1,24 @@
 #!/bin/bash
 
-# Build script for Conexiuni Cluj
-
-set -e  # Exit on error
+set -e
 
 echo "Building Conexiuni Cluj..."
 
-# Build frontend
 echo "📦 Building Vue frontend..."
 cd frontend
 npm run build
 cd ..
 
-# Build backend
 echo "🔨 Building Go backend..."
 cd backend
 go build -o conexiuni-cluj
 cd ..
+
+echo "📄 Copying env files next to the binary..."
+cp .env backend/.env
+if [ -f keys.env ]; then
+  cp keys.env backend/keys.env
+fi
 
 echo "✅ Build complete!"
 echo ""
