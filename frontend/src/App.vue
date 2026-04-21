@@ -33,6 +33,11 @@ watch([drawerState, isDragging], async ([, dragging]) => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
 
+watch(isLandscapeDrawerOpen, () => {
+  window.dispatchEvent(new Event('resize'))
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
+})
+
 let pointerId = -1
 let startY = 0
 let startHeight = 0

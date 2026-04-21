@@ -36,6 +36,8 @@ const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
 const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
+let resizeRaf = 0
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
 const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
@@ -101,6 +103,24 @@ const handleZoomVisibility = () => {
       map.value.removeLayer(stopGroup.value)
     }
   }
+}
+
+const invalidateMapSize = () => {
+  if (!map.value) return
+  map.value.invalidateSize({pan: false, animate: false})
+}
+
+const scheduleInvalidateMapSize = () => {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf)
+  resizeRaf = requestAnimationFrame(() => {
+    invalidateMapSize()
+    resizeRaf = 0
+  })
+
+  if (resizeTimer) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    invalidateMapSize()
+  }, 280)
 }
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
@@ -296,6 +316,12 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 onMounted(() => {
   mapInit(46.7712, 23.6236, DEFAULT_ZOOM)
   void stopsInit()
+
+  window.addEventListener('resize', scheduleInvalidateMapSize, {passive: true})
+  window.addEventListener('orientationchange', scheduleInvalidateMapSize)
+  window.visualViewport?.addEventListener('resize', scheduleInvalidateMapSize)
+
+  scheduleInvalidateMapSize()
 })
 
 watch(() => route.params.stopId, (newId) => {
@@ -516,6 +542,13 @@ watch(centerOnUser, (shouldCenter) => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', scheduleInvalidateMapSize)
+  window.removeEventListener('orientationchange', scheduleInvalidateMapSize)
+  window.visualViewport?.removeEventListener('resize', scheduleInvalidateMapSize)
+
+  if (resizeRaf) cancelAnimationFrame(resizeRaf)
+  if (resizeTimer) clearTimeout(resizeTimer)
+
   if (map.value) {
     map.value.stopLocate()
     map.value.off('locationfound', updateLiveLocation)
