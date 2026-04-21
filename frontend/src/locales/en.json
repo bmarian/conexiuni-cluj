@@ -35,5 +35,6 @@
   "notFound": "Page not found",
   "notFoundDesc": "The route or stop you're looking for doesn't exist or is no longer available.",
   "offlineBanner": "You're offline — live data unavailable",
-  "offlineShort": "Offline"
+  "offlineShort": "Offline",
+  "toggleDrawer": "Toggle panel"
 }

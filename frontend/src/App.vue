@@ -91,7 +91,10 @@ function endDrag() {
 
 function onPointerUp(e: PointerEvent) {
   if (e.pointerId !== pointerId) return
-  ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
+  const el = e.currentTarget as HTMLElement
+  if (el.hasPointerCapture?.(e.pointerId)) {
+    try { el.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+  }
   endDrag()
 }
 </script>
@@ -222,6 +225,10 @@ function onPointerUp(e: PointerEvent) {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .app-drawer { display: none; }
 }
 
 @media (min-width: 1024px) {
