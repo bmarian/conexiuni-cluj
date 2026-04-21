@@ -13,17 +13,20 @@ export default defineConfig({
     svgLoader(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['bus.svg', 'favicon.ico', '404.png'],
+      includeAssets: ['bus.svg', 'favicon.ico', '404.png', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Conexiuni Cluj',
         short_name: 'Conexiuni',
         description: 'Transport public Cluj-Napoca în timp real',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: 'bus.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
