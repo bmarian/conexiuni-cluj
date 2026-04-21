@@ -1,9 +1,12 @@
 import { createApp } from 'vue'
 import { createI18n } from 'vue-i18n'
 import { createPinia } from 'pinia'
+import { registerSW } from 'virtual:pwa-register'
 
 import App from './App.vue'
 import router from './router'
+
+registerSW({ immediate: true })
 import { useUserStore } from './stores/user'
 import { useFavoritesStore } from './stores/favorites'
 import { apiRequest, LOW_ACCURACY_SHELF_LIFE } from './utils/request_cache'

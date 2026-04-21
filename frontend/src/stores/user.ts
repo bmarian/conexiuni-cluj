@@ -15,6 +15,9 @@ export const useUserStore = defineStore('user', () => {
   const setHasLocationPermission = (permission: boolean) => {
     hasLocationPermission.value = permission
   }
+  const clearUserLocation = () => {
+    userLocation.value = null
+  }
 
   const userTime = ref<Date | null>(null)
   const timerIntervalId = ref<number | null>(null)
@@ -40,6 +43,7 @@ export const useUserStore = defineStore('user', () => {
     isDarkMode,
 
     setUserLocation,
+    clearUserLocation,
     setHasLocationPermission,
     startTimeTracker,
     startSchemeWatcher,

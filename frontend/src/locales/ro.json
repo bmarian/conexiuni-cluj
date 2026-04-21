@@ -33,5 +33,7 @@
   "tripAt": "Plecare {time}",
   "closeTripView": "Închide parcursul",
   "notFound": "Pagina nu a fost găsită",
-  "notFoundDesc": "Ruta sau stația pe care o cauți nu există sau nu mai este disponibilă."
+  "notFoundDesc": "Ruta sau stația pe care o cauți nu există sau nu mai este disponibilă.",
+  "offlineBanner": "Ești offline — datele live nu sunt disponibile",
+  "offlineShort": "Offline"
 }

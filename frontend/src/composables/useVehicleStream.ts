@@ -22,6 +22,10 @@ export function useVehicleStream(tripIds: Ref<string[]>) {
       vehiclesByTrip.value = new Map()
       return
     }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      activeKey = buildKey(ids)
+      return
+    }
     const key = buildKey(ids)
     activeKey = key
     const url = `/api/vehicles/stream?trip_ids=${encodeURIComponent(key)}`
@@ -63,13 +67,29 @@ export function useVehicleStream(tripIds: Ref<string[]>) {
       start(tripIds.value)
     }
   }
+  function onOnline() {
+    if (tripIds.value?.length && !es && (typeof document === 'undefined' || !document.hidden)) {
+      start(tripIds.value)
+    }
+  }
+  function onOffline() {
+    stop()
+  }
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibility)
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
   }
 
   onUnmounted(() => {
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibility)
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
     }
     stop()
   })

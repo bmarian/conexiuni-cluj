@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -323,11 +324,33 @@ func main() {
 	})
 
 	if _, err := os.Stat("./dist"); err == nil {
+		app.Get("/sw.js", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Set("Service-Worker-Allowed", "/")
+			return c.SendFile("./dist/sw.js")
+		})
+		app.Get("/registerSW.js", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			return c.SendFile("./dist/registerSW.js")
+		})
+		app.Get("/manifest.webmanifest", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache")
+			c.Set("Content-Type", "application/manifest+json")
+			return c.SendFile("./dist/manifest.webmanifest")
+		})
+
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
 		}))
 
 		app.Use("*", func(c fiber.Ctx) error {
+			path := c.Path()
+			if strings.HasPrefix(path, "/api/") {
+				return c.SendStatus(fiber.StatusNotFound)
+			}
+			if ext := filepath.Ext(path); ext != "" && ext != ".html" {
+				return c.SendStatus(fiber.StatusNotFound)
+			}
 			return c.SendFile("./dist/index.html")
 		})
 

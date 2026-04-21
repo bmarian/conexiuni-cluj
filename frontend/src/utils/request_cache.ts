@@ -1,4 +1,4 @@
-import { get, set, del } from 'idb-keyval'
+import { get, set } from 'idb-keyval'
 
 export const LOW_ACCURACY_SHELF_LIFE = 1000 * 60 * 60
 export const HIGH_ACCURACY_SHELF_LIFE = 1000 * 5
@@ -8,21 +8,27 @@ type CachedEnvelope = { timestamp: number; data: unknown }
 const inFlight = new Map<string, Promise<unknown>>()
 
 export const apiRequest = async (url: string, shelfLife: number = LOW_ACCURACY_SHELF_LIFE): Promise<unknown> => {
-  const cached = await getFromCache(url, shelfLife)
-  if (cached.hit) return cached.data
+  const envelope = await readEnvelope(url)
+  if (envelope && Date.now() - envelope.timestamp < shelfLife) {
+    return envelope.data
+  }
 
   const pending = inFlight.get(url)
   if (pending) return pending
 
   const promise = (async () => {
-    const apiUrl = `/api/${url}`
-    const response = await fetch(apiUrl)
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`)
+    try {
+      const response = await fetch(`/api/${url}`)
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`)
+      }
+      const data = await response.json()
+      await saveToCache(url, data)
+      return data
+    } catch (err) {
+      if (envelope) return envelope.data
+      throw err
     }
-    const data = await response.json()
-    await saveToCache(url, data)
-    return data
   })()
 
   inFlight.set(url, promise)
@@ -33,19 +39,12 @@ export const apiRequest = async (url: string, shelfLife: number = LOW_ACCURACY_S
   }
 }
 
-const getFromCache = async (key: string, shelfLife: number): Promise<{hit: true; data: unknown} | {hit: false}> => {
+const readEnvelope = async (key: string): Promise<CachedEnvelope | undefined> => {
   try {
-    const envelope = await get(key) as CachedEnvelope | undefined
-    if (!envelope) return {hit: false}
-
-    if (Date.now() - envelope.timestamp < shelfLife) {
-      return {hit: true, data: envelope.data}
-    }
-    await del(key)
-    return {hit: false}
+    return (await get(key)) as CachedEnvelope | undefined
   } catch (err) {
     console.warn('Failed to read from cache:', err)
-    return {hit: false}
+    return undefined
   }
 }
 

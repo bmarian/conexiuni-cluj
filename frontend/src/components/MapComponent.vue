@@ -38,6 +38,10 @@ const routeColorsCache = new Map<string | number, string>()
 let isFirstLocationHandle = true
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
+const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
+const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
+const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
+const MIN_ZOOM = 9
 
 
 const stopIcon = L.divIcon({
@@ -100,7 +104,11 @@ const handleZoomVisibility = () => {
 }
 
 const mapInit = (lat: number, lon: number, zoom: number) => {
-  map.value = L.map(mapContainer.value).setView([lat, lon], zoom)
+  map.value = L.map(mapContainer.value, {
+    maxBounds: CLUJ_COUNTY_BOUNDS,
+    maxBoundsViscosity: 1.0,
+    minZoom: MIN_ZOOM,
+  }).setView([lat, lon], zoom)
   map.value.on('locationfound', updateLiveLocation)
   map.value.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
@@ -109,7 +117,9 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
 
   currentTileLayer.value = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>',
-    maxZoom: 20
+    maxZoom: 20,
+    minZoom: MIN_ZOOM,
+    bounds: CLUJ_COUNTY_BOUNDS,
   }).addTo(map.value)
 
   const centerControl = new L.Control({position: 'topleft'})
@@ -233,8 +243,27 @@ const blueDotIcon = L.divIcon({
   iconAnchor: [8, 8]
 })
 
+const isInClujCounty = (lat: number, lng: number) => {
+  return lat >= CLUJ_COUNTY_SW[0] && lat <= CLUJ_COUNTY_NE[0]
+    && lng >= CLUJ_COUNTY_SW[1] && lng <= CLUJ_COUNTY_NE[1]
+}
+
 const updateLiveLocation = (e: L.LocationEvent) => {
   if (!map.value) return
+
+  if (!isInClujCounty(e.latlng.lat, e.latlng.lng)) {
+    userStore.setHasLocationPermission(false)
+    userStore.clearUserLocation()
+    if (userDot.value) {
+      map.value.removeLayer(userDot.value)
+      userDot.value = undefined
+    }
+    if (accuracyCircle.value) {
+      map.value.removeLayer(accuracyCircle.value)
+      accuracyCircle.value = undefined
+    }
+    return
+  }
 
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   if (isFirstLocationHandle) {
