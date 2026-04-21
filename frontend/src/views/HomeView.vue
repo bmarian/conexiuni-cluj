@@ -135,7 +135,7 @@ const stopFavoritesModel = computed<number[]>({
         <Draggable
           v-model="routeFavoritesModel"
           :item-key="(id: number) => id"
-          class="flex flex-wrap gap-2"
+          class="favorite-routes-grid"
           tag="div"
           handle=".drag-handle"
           ghost-class="drag-ghost"
@@ -158,7 +158,7 @@ const stopFavoritesModel = computed<number[]>({
                 <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
               </svg>
               <span
-                class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm"
+                class="fav-route-badge"
                 :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
                 :title="routesById.get(routeId)?.route_long_name"
               >{{ routesById.get(routeId)?.route_short_name }}</span>
@@ -330,16 +330,24 @@ const stopFavoritesModel = computed<number[]>({
   color: #94a3b8;
 }
 
+.favorite-routes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+}
+
 @media (prefers-color-scheme: dark) {
   .section-label { color: #94a3b8; }
   .sub-label { color: #64748b; }
 }
 
 .fav-route-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.3rem 0.375rem;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.5rem;
   border-radius: 0.75rem;
   border: 1px solid #f1f5f9;
   background: #f8fafc;
@@ -353,6 +361,20 @@ const stopFavoritesModel = computed<number[]>({
   background: white;
   border-color: #e2e8f0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.fav-route-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 1.75rem;
+  margin-right: auto;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
 @media (prefers-color-scheme: dark) {

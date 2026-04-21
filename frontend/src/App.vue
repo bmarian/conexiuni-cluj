@@ -17,6 +17,7 @@ const SNAP_FRAC: Record<DrawerState, number> = {
 const cycleOrder: DrawerState[] = ['collapsed', 'half', 'expanded']
 
 const drawerState = ref<DrawerState>('half')
+const isLandscapeDrawerOpen = ref(false)
 
 const isDragging = ref(false)
 const dragHeightPx = ref<number | null>(null)
@@ -97,6 +98,10 @@ function onPointerUp(e: PointerEvent) {
   }
   endDrag()
 }
+
+function toggleLandscapeDrawer() {
+  isLandscapeDrawerOpen.value = !isLandscapeDrawerOpen.value
+}
 </script>
 
 <template>
@@ -114,10 +119,24 @@ function onPointerUp(e: PointerEvent) {
       <span>{{ t('offlineShort') }}</span>
     </div>
     <MapComponent class="app-map" />
+    <button
+      type="button"
+      class="landscape-drawer-toggle"
+      :class="{ 'is-open': isLandscapeDrawerOpen }"
+      :title="t('toggleDrawer')"
+      :aria-label="t('toggleDrawer')"
+      :aria-expanded="isLandscapeDrawerOpen"
+      @click="toggleLandscapeDrawer"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path v-if="isLandscapeDrawerOpen" d="M9 18l6-6-6-6"/>
+        <path v-else d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
 
     <aside
       class="app-drawer bg-slate-100 dark:bg-slate-900 shadow-xl/30"
-      :class="{ 'is-dragging': isDragging }"
+      :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
       :style="drawerStyle"
     >
       <div
@@ -141,6 +160,7 @@ function onPointerUp(e: PointerEvent) {
 
 <style scoped>
 .app-shell {
+  --landscape-drawer-width: min(26rem, 58vw);
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -177,6 +197,45 @@ function onPointerUp(e: PointerEvent) {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
+}
+
+.landscape-drawer-toggle {
+  position: fixed;
+  top: 50%;
+  right: calc(0.625rem + env(safe-area-inset-right));
+  transform: translateY(-50%);
+  z-index: 4500;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 2px 10px -1px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1), background 150ms ease, color 150ms ease;
+}
+.landscape-drawer-toggle:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.landscape-drawer-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .landscape-drawer-toggle {
+    background: #0f172a;
+    color: #f1f5f9;
+    box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.24);
+  }
+  .landscape-drawer-toggle:hover {
+    background: #1e293b;
+    color: #f8fafc;
+  }
 }
 
 .app-drawer {
@@ -228,10 +287,46 @@ function onPointerUp(e: PointerEvent) {
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
-  .app-drawer { display: none; }
+  .app-shell {
+    position: relative;
+  }
+
+  .landscape-drawer-toggle {
+    display: inline-flex;
+  }
+  .landscape-drawer-toggle.is-open {
+    right: calc(var(--landscape-drawer-width) + 0.625rem + env(safe-area-inset-right));
+  }
+
+  .app-drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--landscape-drawer-width);
+    height: 100dvh !important;
+    border-radius: 1.25rem 0 0 1.25rem;
+    padding-bottom: 0;
+    transform: translateX(calc(100% + env(safe-area-inset-right)));
+    opacity: 0;
+    pointer-events: none;
+    z-index: 4400;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24);
+    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease;
+  }
+  .app-drawer.is-landscape-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-handle {
+    display: none;
+  }
 }
 
 @media (min-width: 1024px) {
+  .landscape-drawer-toggle {
+    display: none !important;
+  }
   .app-shell {
     flex-direction: row;
     height: 100dvh;
