@@ -323,6 +323,21 @@ func main() {
 	})
 
 	if _, err := os.Stat("./dist"); err == nil {
+		app.Get("/sw.js", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Set("Service-Worker-Allowed", "/")
+			return c.SendFile("./dist/sw.js")
+		})
+		app.Get("/registerSW.js", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			return c.SendFile("./dist/registerSW.js")
+		})
+		app.Get("/manifest.webmanifest", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache")
+			c.Set("Content-Type", "application/manifest+json")
+			return c.SendFile("./dist/manifest.webmanifest")
+		})
+
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
 		}))
