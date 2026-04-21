@@ -31,27 +31,29 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
-            urlPattern: /\/api\/(routes|stops|stop-info|route-shape)/,
+            urlPattern: /\/api\/(routes|stops|stop_info|stop_times|shapes|timetable)(\?|$)/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-static',
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 },
             },
           },
           {
-            urlPattern: /^https:\/\/ctpcj\.ro\/orare\/csv\/.*\.csv$/,
+            urlPattern: /^https:\/\/[a-z0-9]+\.basemaps\.cartocdn\.com\/.*/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'ctp-timetables',
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheName: 'map-tiles',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
           {
-            urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*/,
+            urlPattern: /^https:\/\/unpkg\.com\/leaflet.*/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'osm-tiles',
-              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheName: 'leaflet-assets',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },
         ],

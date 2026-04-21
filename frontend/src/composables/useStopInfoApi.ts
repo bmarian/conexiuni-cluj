@@ -9,9 +9,15 @@ export function useStopInfoApi() {
   const error = ref()
 
   async function fetchStopData(stopId: string) {
+    stopInfo.value = undefined
+    error.value = undefined
+
     if (pendingRequests.has(stopId)) {
-      console.log(`[Cache Hit] Reusing promise for stop ${stopId}`)
-      stopInfo.value = await pendingRequests.get(stopId)
+      try {
+        stopInfo.value = await pendingRequests.get(stopId)
+      } catch (e) {
+        error.value = e
+      }
       return
     }
 

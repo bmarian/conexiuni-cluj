@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -343,6 +344,13 @@ func main() {
 		}))
 
 		app.Use("*", func(c fiber.Ctx) error {
+			path := c.Path()
+			if strings.HasPrefix(path, "/api/") {
+				return c.SendStatus(fiber.StatusNotFound)
+			}
+			if ext := filepath.Ext(path); ext != "" && ext != ".html" {
+				return c.SendStatus(fiber.StatusNotFound)
+			}
 			return c.SendFile("./dist/index.html")
 		})
 
