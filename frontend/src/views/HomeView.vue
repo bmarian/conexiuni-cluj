@@ -162,6 +162,10 @@ const stopFavoritesModel = computed<number[]>({
                 :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
                 :title="routesById.get(routeId)?.route_long_name"
               >{{ routesById.get(routeId)?.route_short_name }}</span>
+              <span
+                class="fav-route-name"
+                :title="routesById.get(routeId)?.route_long_name"
+              >{{ routesById.get(routeId)?.route_long_name }}</span>
               <button
                 type="button"
                 class="fav-remove"
@@ -342,6 +346,8 @@ const stopFavoritesModel = computed<number[]>({
 }
 
 .fav-route-chip {
+  container-type: inline-size;
+  container-name: fav-chip;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -369,12 +375,23 @@ const stopFavoritesModel = computed<number[]>({
   justify-content: center;
   width: 2.5rem;
   height: 1.75rem;
-  margin-right: auto;
+  flex-shrink: 0;
   border-radius: 0.5rem;
   font-size: 0.75rem;
   font-weight: 900;
   color: #fff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+.fav-route-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -386,6 +403,12 @@ const stopFavoritesModel = computed<number[]>({
     background: rgb(30 41 59 / 0.9);
     border-color: rgb(51 65 85 / 0.8);
   }
+  .fav-route-name { color: #cbd5e1; }
+}
+
+@container fav-chip (max-width: 9rem) {
+  .fav-route-name { display: none; }
+  .fav-route-badge { margin-right: auto; }
 }
 
 .fav-remove {
