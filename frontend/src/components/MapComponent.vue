@@ -215,7 +215,8 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   map.value.locate({
     watch: true,
     enableHighAccuracy: false,
-    maximumAge: 2000
+    maximumAge: 30000,
+    timeout: 10000
   })
   shapeLayerGroup.value = L.featureGroup().addTo(map.value)
 
@@ -308,7 +309,8 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 
     userDot.value = L.marker(e.latlng, {
       icon: blueDotIcon,
-      interactive: false
+      interactive: false,
+      zIndexOffset: 10000
     }).addTo(map.value)
   }
 }
@@ -521,7 +523,7 @@ watch(vehiclesToDisplay, (vehicles) => {
 
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: busIcon,
-      zIndexOffset: 1000
+      zIndexOffset: 5000
     })
 
     marker.addTo(vehicleLayerGroup.value!)
