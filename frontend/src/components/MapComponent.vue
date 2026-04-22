@@ -22,6 +22,7 @@ const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
 const stopNames = new Map<string, string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
+const selectedStopVehicleId = ref<number | null>(null)
 const {t, locale} = useI18n()
 const mapContainer = ref()
 
@@ -130,6 +131,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     minZoom: MIN_ZOOM,
   }).setView([lat, lon], zoom)
   map.value.on('locationfound', updateLiveLocation)
+  map.value.on('click', () => { selectedStopVehicleId.value = null })
   map.value.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
     userStore.setHasLocationPermission(false)
@@ -487,9 +489,10 @@ watch([highlightedStops, currentlyHighlightedStopId], ([stops]) => {
   }
 }, {deep: true})
 
-watch(vehiclesToDisplay, (vehicles) => {
+watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId], ([vehicles, routeName]) => {
   if (!vehicleLayerGroup.value || !map.value) return
   vehicleLayerGroup.value.clearLayers()
+  const isStopView = routeName === 'stop'
 
   for (let i = 0; i < vehicles.length; i++) {
     const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, route_color?: string, heading: number }
@@ -499,10 +502,33 @@ watch(vehiclesToDisplay, (vehicles) => {
     const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
     if (!resolvedColor) continue
     const routeName = vehicle.route_short_name || ''
+    const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
+    const roundedSpeed = Math.round(vehicle.speed)
     const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
-    const busIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
-      html: `
+    const showStopInfo = isStopView && selectedStopVehicleId.value === vehicle.id
+    const markerHtml = isStopView
+      ? `
+        <div class="relative flex items-center">
+          <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
+               style="background-color: ${resolvedColor};">
+            <span class="font-black leading-none text-white tracking-tight"
+                  style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
+          </div>
+          <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
+                 style="transform: rotate(${vehicle.heading || 0}deg);">
+              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          ${showStopInfo ? `
+            <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
+              <span class="font-bold text-sm tracking-wide">${titleText}</span>
+              <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
+            </div>
+          ` : ''}
+        </div>
+      `
+      : `
         <div class="relative flex items-center">
           <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
                style="background-color: ${resolvedColor};">
@@ -516,19 +542,32 @@ watch(vehiclesToDisplay, (vehicles) => {
             <span class="text-xs text-slate-400">${Math.round(vehicle.speed)} km/h</span>
           </div>
         </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      `
+    const busIcon = L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: markerHtml,
+      iconSize: isStopView ? [36, 36] : [32, 32],
+      iconAnchor: isStopView ? [18, 18] : [16, 16],
     })
 
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: busIcon,
-      zIndexOffset: 5000
+      zIndexOffset: showStopInfo ? 5600 : 5000
     })
+
+    if (isStopView) {
+      marker.on('click', () => {
+        selectedStopVehicleId.value = selectedStopVehicleId.value === vehicle.id ? null : vehicle.id
+      })
+    }
 
     marker.addTo(vehicleLayerGroup.value!)
   }
 }, {deep: true})
+
+watch(() => route.name, (name) => {
+  if (name !== 'stop') selectedStopVehicleId.value = null
+})
 
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
