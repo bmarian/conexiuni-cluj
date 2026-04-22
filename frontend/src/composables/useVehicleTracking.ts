@@ -167,21 +167,18 @@ export function etaForStop(
 ): { vehicle: IndexedVehicle; etaMinutes: number } | null {
   if (stopShapeIdx < 0) return null
 
-  let bestVehicle: IndexedVehicle | null = null
-  let bestIdx = -1
-  for (const v of vehicles) {
-    if (v.shapeIdx < 0 || v.shapeIdx > stopShapeIdx) continue
-    if (v.shapeIdx > bestIdx) {
-      bestIdx = v.shapeIdx;
-      bestVehicle = v
-    }
-  }
-  if (!bestVehicle) return null
+  const candidates = vehicles
+    .filter(v => v.shapeIdx >= 0 && v.shapeIdx <= stopShapeIdx)
+    .sort((a, b) => b.shapeIdx - a.shapeIdx)
 
-  const distMeters = index.cumulativeDist[stopShapeIdx]! - index.cumulativeDist[bestVehicle.shapeIdx]!
-  const speed = Math.max(bestVehicle.speed, MIN_SPEED_KMH)
-  const etaMinutes = Math.ceil(((distMeters / 1000) / speed) * 60)
-  return {vehicle: bestVehicle, etaMinutes}
+  for (const v of candidates) {
+    const distMeters = index.cumulativeDist[stopShapeIdx]! - index.cumulativeDist[v.shapeIdx]!
+    const speed = Math.max(v.speed, MIN_SPEED_KMH)
+    const etaMinutes = Math.ceil(((distMeters / 1000) / speed) * 60)
+    if (etaMinutes > 0) return {vehicle: v, etaMinutes}
+  }
+
+  return null
 }
 
 export function getClosestVehicleBeforeStop(
