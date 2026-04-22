@@ -48,6 +48,12 @@ const isComputingDepartures = ref(true)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 const initialZoomAppliedStopId = ref<string | null>(null)
 
+const getRouteIdFromTripId = (tripId: string): number | null => {
+  const [routeIdPart] = String(tripId).split('_')
+  const routeId = Number(routeIdPart)
+  return Number.isFinite(routeId) ? routeId : null
+}
+
 const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
   const loadedStopId = stopInfo.value?.stop_id?.toString()
   if (!loadedStopId || loadedStopId !== props.stopId) return
@@ -64,7 +70,10 @@ const streamTripIds = computed<string[]>(() => {
   const shapes = info.shapes_info.filter((s: ShapeInfo) => !!(s.timetable?.weekdays?.entries?.length || s.timetable?.saturday?.entries?.length || s.timetable?.sunday?.entries?.length))
   const routeIds = new Set(shapes.map((s: ShapeInfo) => s.route_id))
   return [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
-    .filter((tid) => routeIds.has(Number(tid.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))))
+    .filter((tid) => {
+      const tripRouteId = getRouteIdFromTripId(tid)
+      return tripRouteId !== null && routeIds.has(tripRouteId)
+    })
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
@@ -118,8 +127,11 @@ const getTimeOffsetToStop = (stopTime: any[], tripId: string): number => {
   return timeOffset
 }
 
-const getTripId = (outgoingTripIds: string[], incomingTripIds: string[], routeId: string) => {
-  return [...(outgoingTripIds || []), ...(incomingTripIds || [])].find((id) => id.startsWith(routeId))
+const getTripId = (outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string) => {
+  const wantedRouteId = Number(routeId)
+  if (!Number.isFinite(wantedRouteId)) return undefined
+  return [...(outgoingTripIds || []), ...(incomingTripIds || [])]
+    .find((id) => getRouteIdFromTripId(id) === wantedRouteId)
 }
 
 const reverseRouteLongName = (routeLongName: string) => {
@@ -128,12 +140,16 @@ const reverseRouteLongName = (routeLongName: string) => {
 
 const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
   if (!Array.isArray(availableShapes) || availableShapes.length === 0) return []
-  const routeIdsWithAvailableTimetables = availableShapes.map((shape: ShapeInfo) => shape.route_id)
+  const routeIdsWithAvailableTimetables = new Set(availableShapes.map((shape: ShapeInfo) => shape.route_id))
   const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
   return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
-    .filter((trip_id) => routeIdsWithAvailableTimetables.some((route_id: number) => trip_id.startsWith(route_id.toString())))
+    .filter((trip_id) => {
+      const tripRouteId = getRouteIdFromTripId(trip_id)
+      return tripRouteId !== null && routeIdsWithAvailableTimetables.has(tripRouteId)
+    })
     .reduce((acc: DisplayShape[], trip_id: string) => {
-      const routeId = Number(trip_id.replace(OUTGOING_SUFFIX, '').replace(INCOMING_SUFFIX, ''))
+      const routeId = getRouteIdFromTripId(trip_id)
+      if (routeId === null) return acc
       const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
       if (shape) acc.push({trip_id, route_short_name: shape.route_short_name, route_long_name: shape.timetable?.route_long_name || '', route_color: shape.route_color, route_type: shape.route_type})
       return acc
@@ -294,7 +310,7 @@ const navigateToRoute = (shape: VehiclesInStop) => {
 }
 
 const navigateToAllRoute = (shape: ShapeInfo) => {
-  const tripId = getTripId(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id.toString()) || `${shape.route_id}${OUTGOING_SUFFIX}`
+  const tripId = getTripId(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
   routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
   router.push({name: 'route', params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}})
 }
