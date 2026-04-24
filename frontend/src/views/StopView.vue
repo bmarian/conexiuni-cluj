@@ -9,22 +9,30 @@ import IconBack from "@/components/icons/IconBack.vue"
 import IconNotFoundFace from "@/components/icons/IconNotFoundFace.vue"
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import type {Timetable} from "@/types/ctp.ts";
 import {
   OUTGOING_SUFFIX,
   type Shape,
   type ShapeInfo,
+  type StopTime,
   type TimeEntry,
   type Vehicle,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
-import {formatMinutesFromNow, getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
+import {
+  formatMinutesFromNow,
+  getMinutesFromDate,
+  getTimetableForDay,
+  hasTimetableEntries,
+  isTimetableAvailableOnDay,
+  timeStringToMinutes
+} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {buildShapeIndex, etaForStop, findClosestShapeIdx, getIndexedVehicles, type IndexedVehicle} from "@/composables/useVehicleTracking.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
+import {getRouteIdFromTripId, getShapeStopTimes} from "@/utils/trips.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -46,12 +54,6 @@ const isComputingDepartures = ref(true)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 const initialZoomAppliedStopId = ref<string | null>(null)
 
-const getRouteIdFromTripId = (tripId: string): number | null => {
-  const [routeIdPart] = String(tripId).split('_')
-  const routeId = Number(routeIdPart)
-  return Number.isFinite(routeId) ? routeId : null
-}
-
 const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
   const loadedStopId = stopInfo.value?.stop_id?.toString()
   if (!loadedStopId || loadedStopId !== props.stopId) return
@@ -65,7 +67,7 @@ const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
 const streamTripIds = computed<string[]>(() => {
   const info = stopInfo.value
   if (!info) return []
-  const shapes = info.shapes_info.filter((s: ShapeInfo) => !!(s.timetable?.weekdays?.entries?.length || s.timetable?.saturday?.entries?.length || s.timetable?.sunday?.entries?.length))
+  const shapes = info.shapes_info.filter((s: ShapeInfo) => hasTimetableEntries(s.timetable))
   const routeIds = new Set(shapes.map((s: ShapeInfo) => s.route_id))
   return [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
     .filter((tid) => {
@@ -79,16 +81,8 @@ function formatMinutes(minutes: number): string {
   return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
-const hasTimetable = (timetable: Timetable): boolean => {
-  return !!(timetable?.weekdays?.entries?.length || timetable?.saturday?.entries?.length || timetable?.sunday?.entries?.length)
-}
-
-const isAvailableToday = (today: number, timetable: Timetable): boolean => {
-  return !!(today === 0 ? timetable?.sunday?.entries?.length : today === 6 ? timetable?.saturday?.entries?.length : timetable?.weekdays?.entries?.length)
-}
-
 const busesWithAvailableTimetables = computed(() => {
-  return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetable(shape.timetable))
+  return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable))
 })
 
 const busesWithAvailableTimetablesSorted = computed(() => {
@@ -109,7 +103,7 @@ const departuresSorted = computed(() => {
   })
 })
 
-const getTimeOffsetToStop = (stopTime: any[], tripId: string): number => {
+const getTimeOffsetToStop = (stopTime: StopTime[], tripId: string): number => {
   const propStopId = Number(props.stopId)
   let timeOffset = 0
   for (let j = 0; j < stopTime.length; j++) {
@@ -132,8 +126,8 @@ const reverseRouteLongName = (routeLongName: string) => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
-const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
-  if (!Array.isArray(availableShapes) || availableShapes.length === 0) return []
+const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShape[] => {
+  if (!availableShapes?.length) return []
   const routeIdsWithAvailableTimetables = new Set(availableShapes.map((shape: ShapeInfo) => shape.route_id))
   const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
   return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
@@ -152,25 +146,25 @@ const getShapesDisplay = (availableShapes: unknown): DisplayShape[] => {
 
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
   if (!stopInfo.value) return []
-  const today = userTime.value?.getDay() ?? new Date().getDay()
+  const referenceDate = userTime.value || new Date()
   const currentTimeInMinutes = getMinutesFromDate(userTime.value || new Date())
   const {outgoing_trip_ids, incoming_trip_ids, shapes_info} = stopInfo.value
 
   const results: VehiclesInStop[] = []
   for (const shapeInfo of shapes_info) {
     const {route_short_name, route_type, route_color, route_id, timetable} = shapeInfo
-    const stop_time = (shapeInfo as any).stop_time ?? (shapeInfo as any).stop_times ?? []
-    if (!hasTimetable(timetable) || !isAvailableToday(today, timetable)) continue
+    const stopTime = getShapeStopTimes(shapeInfo)
+    if (!hasTimetableEntries(timetable) || !isTimetableAvailableOnDay(referenceDate, timetable)) continue
 
     const tripId = getTripId(outgoing_trip_ids, incoming_trip_ids, route_id)
     if (!tripId) continue
 
-    const timeOffsetToStop = getTimeOffsetToStop(stop_time, tripId)
+    const timeOffsetToStop = getTimeOffsetToStop(stopTime, tripId)
     const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
-    const todayTimetable = today === 0 ? timetable.sunday : today === 6 ? timetable.saturday : timetable.weekdays
+    const todayTimetable = getTimetableForDay(timetable, referenceDate)
 
     const upcomingMinutes: number[] = todayTimetable.entries
-      .map((entry: { departure_in: string; departure_out: string }) => {
+      .map((entry) => {
         const t = timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out)
         return t === null ? null : t + timeOffsetToStop
       })

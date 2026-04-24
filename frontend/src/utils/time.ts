@@ -1,3 +1,5 @@
+import type {DaySchedule, Timetable} from '@/types/ctp.ts'
+
 export const timeStringToMinutes = (timeString: string): number | null => {
   if (!timeString || !timeString.includes(':')) {
     return null;
@@ -27,4 +29,29 @@ export const formatMinutesFromNow = (minutes: number, referenceDate: Date, nowLa
   if (minutes < 60) return `${minutes}m`;
   const future = new Date(referenceDate.getTime() + minutes * 60_000);
   return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`;
+}
+
+export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'
+
+export const getTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
+  const day = referenceDate.getDay()
+  if (day === 0) return 'sunday'
+  if (day === 6) return 'saturday'
+  return 'weekdays'
+}
+
+export const getTimetableForDay = (timetable: Timetable, referenceDate: Date): DaySchedule => {
+  return timetable[getTimetableDayKey(referenceDate)]
+}
+
+export const hasTimetableEntries = (timetable?: Timetable | null): boolean => {
+  return !!(
+    timetable?.weekdays?.entries?.length
+    || timetable?.saturday?.entries?.length
+    || timetable?.sunday?.entries?.length
+  )
+}
+
+export const isTimetableAvailableOnDay = (referenceDate: Date, timetable: Timetable): boolean => {
+  return !!getTimetableForDay(timetable, referenceDate)?.entries?.length
 }

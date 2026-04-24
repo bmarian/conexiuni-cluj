@@ -53,7 +53,8 @@ export type ShapeInfo = {
   route_id: number
   route_type: RouteType
   route_color: string
-  stop_times: StopTime[]
+  stop_times?: StopTime[]
+  stop_time?: StopTime[]
   timetable: Timetable
 }
 
@@ -67,7 +68,7 @@ export type StopInfo = {
   stop_code: string
   outgoing_trip_ids: string[]
   incoming_trip_ids: string[]
-  shapes_info: ShapeInfo
+  shapes_info: ShapeInfo[]
 }
 
 export type Stop = {

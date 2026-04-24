@@ -56,6 +56,36 @@ function computeHeading(lat: number, lon: number, shape: Shape[], shapeIdx: numb
   return calculateBearing(lat, lon, target.shape_pt_lat, target.shape_pt_lon)
 }
 
+function forEachVisibleVehicle(
+  raw: Vehicle[],
+  shape: Shape[],
+  now: number,
+  onVehicle: (vehicle: Vehicle, shapeIdx: number, heading: number) => void,
+): void {
+  const firstStop = shape[0]!
+  const lastStop = shape[shape.length - 1]!
+
+  for (const v of raw) {
+    if (hasInvalidCoords(v)) continue
+    if (isStale(v, now)) continue
+    if (!isVisibleAtTerminus(v, firstStop, lastStop, now)) continue
+
+    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, shape)
+    const heading = computeHeading(v.latitude, v.longitude, shape, shapeIdx)
+    onVehicle(v, shapeIdx, heading)
+  }
+}
+
+function distanceOnShape(index: ShapeIndex, fromShapeIdx: number, toShapeIdx: number): number {
+  if (fromShapeIdx < 0 || toShapeIdx < 0 || fromShapeIdx > toShapeIdx) return 0
+  return index.cumulativeDist[toShapeIdx]! - index.cumulativeDist[fromShapeIdx]!
+}
+
+function estimateEtaMinutes(distanceMeters: number, speedKmh: number): number {
+  const speed = Math.max(speedKmh, MIN_SPEED_KMH)
+  return Math.ceil(((distanceMeters / 1000) / speed) * 60)
+}
+
 export function buildShapeIndex(shape: Shape[]): ShapeIndex {
   const cumulativeDist = new Array<number>(shape.length)
   if (!shape.length) return {shape, cumulativeDist}
@@ -107,18 +137,10 @@ export async function getIndexedVehicles(
   if (!shape.length) return []
 
   const raw = await fetchRawVehicles(tripId, prefetched)
-  const firstStop = shape[0]!
-  const lastStop = shape[shape.length - 1]!
   const now = userTime?.getTime() ?? Date.now()
   const result: IndexedVehicle[] = []
 
-  for (const v of raw) {
-    if (hasInvalidCoords(v)) continue
-    if (isStale(v, now)) continue
-    if (!isVisibleAtTerminus(v, firstStop, lastStop, now)) continue
-
-    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, shape)
-    const heading = computeHeading(v.latitude, v.longitude, shape, shapeIdx)
+  forEachVisibleVehicle(raw, shape, now, (v, shapeIdx, heading) => {
     result.push({
       ...v,
       route_short_name: routeShortName,
@@ -126,7 +148,7 @@ export async function getIndexedVehicles(
       heading,
       shapeIdx
     })
-  }
+  })
 
   return result
 }
@@ -139,23 +161,15 @@ export async function getVehiclesOnRoute(
   userTime?: Date | null,
   prefetched?: Vehicle[],
 ): Promise<TrackedVehicle[]> {
-  if (!trip?.length) return []
+  if (!trip.length) return []
 
   const raw = await fetchRawVehicles(tripId, prefetched)
-  const firstStop = trip[0]!
-  const lastStop = trip[trip.length - 1]!
   const now = userTime?.getTime() ?? Date.now()
   const result: TrackedVehicle[] = []
 
-  for (const v of raw) {
-    if (hasInvalidCoords(v)) continue
-    if (isStale(v, now)) continue
-    if (!isVisibleAtTerminus(v, firstStop, lastStop, now)) continue
-
-    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, trip)
-    const heading = computeHeading(v.latitude, v.longitude, trip, shapeIdx)
+  forEachVisibleVehicle(raw, trip, now, (v, _, heading) => {
     result.push({...v, route_short_name: routeShortName, route_color: routeColor, heading})
-  }
+  })
 
   return result
 }
@@ -172,9 +186,8 @@ export function etaForStop(
     .sort((a, b) => b.shapeIdx - a.shapeIdx)
 
   for (const v of candidates) {
-    const distMeters = index.cumulativeDist[stopShapeIdx]! - index.cumulativeDist[v.shapeIdx]!
-    const speed = Math.max(v.speed, MIN_SPEED_KMH)
-    const etaMinutes = Math.ceil(((distMeters / 1000) / speed) * 60)
+    const distMeters = distanceOnShape(index, v.shapeIdx, stopShapeIdx)
+    const etaMinutes = estimateEtaMinutes(distMeters, v.speed)
     if (etaMinutes > 0) return {vehicle: v, etaMinutes}
   }
 
@@ -213,15 +226,9 @@ export function computeETA(stopShape: Shape, busShape: Shape, vehicle: TrackedVe
   if (busIdx === -1 || stopIdx === -1) return -1
   if (busIdx > stopIdx) return -2
 
-  let totalDistance = 0
-  if (busIdx === stopIdx) {
-    totalDistance = haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
-  } else {
-    for (let i = busIdx; i < stopIdx; i++) {
-      const cur = trip[i], next = trip[i + 1]
-      if (cur && next) totalDistance += haversineMeters(cur.shape_pt_lat, cur.shape_pt_lon, next.shape_pt_lat, next.shape_pt_lon)
-    }
-  }
+  const totalDistance = busIdx === stopIdx
+    ? haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
+    : distanceOnShape(buildShapeIndex(trip), busIdx, stopIdx)
 
-  return Math.ceil(((totalDistance / 1000) / Math.max(vehicle.speed, MIN_SPEED_KMH)) * 60)
+  return estimateEtaMinutes(totalDistance, vehicle.speed)
 }

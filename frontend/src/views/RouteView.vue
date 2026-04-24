@@ -8,8 +8,9 @@ import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
-import {formatMinutesFromNow, getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
+import {formatMinutesFromNow, getMinutesFromDate, getTimetableDayKey, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
+import {getShapeStopTimes} from '@/utils/trips.ts'
 import {
   buildShapeIndex,
   etaForStop,
@@ -77,9 +78,7 @@ const currentDirectionVehicles = computed(() =>
 
 type IndexedStop = StopTime & { timeOffsetFromStart: number }
 
-const rawStops = computed((): StopTime[] =>
-  (shapeInfo.value as any)?.stop_time ?? (shapeInfo.value as any)?.stop_times ?? []
-)
+const rawStops = computed((): StopTime[] => getShapeStopTimes(shapeInfo.value))
 
 const stopsForDirection = computed((): IndexedStop[] => {
   const filtered = rawStops.value
@@ -131,8 +130,7 @@ function formatAbsoluteMinutes(absMin: number): string {
 const baseDepartureTimes = computed((): number[] => {
   const tt = timetable.value
   if (!tt) return []
-  const today = (userTime.value || new Date()).getDay()
-  const sched = today === 0 ? tt.sunday : today === 6 ? tt.saturday : tt.weekdays
+  const sched = getTimetableForDay(tt, userTime.value || new Date())
   if (!sched?.entries?.length) return []
   return sched.entries
     .map((e) => timeStringToMinutes(isOutgoing.value ? e.departure_in : e.departure_out))
@@ -177,12 +175,7 @@ function getStopLabel(idx: number, stop: IndexedStop): string {
 
 type TimetableTab = 'weekdays' | 'saturday' | 'sunday'
 
-const todayTab = computed((): TimetableTab => {
-  const day = (userTime.value || new Date()).getDay()
-  if (day === 0) return 'sunday'
-  if (day === 6) return 'saturday'
-  return 'weekdays'
-})
+const todayTab = computed((): TimetableTab => getTimetableDayKey(userTime.value || new Date()))
 
 const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
 
@@ -346,24 +339,27 @@ async function refreshVehiclesFromStream() {
   const name = shapeInfo.value.route_short_name
   const color = shapeInfo.value.route_color
   const byTrip = vehiclesByTrip.value
-  const tasks: Promise<void>[] = []
-  if (direction0Shape.value) {
-    const tid = `${props.routeId}${OUTGOING_SUFFIX}`
-    tasks.push((async () => {
-      try {
-        direction0Vehicles.value = await getIndexedVehicles(tid, name, color, direction0Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
-      } catch (e) { console.warn('Failed to index outgoing vehicles:', e) }
-    })())
+
+  const refreshDirection = async (
+    direction: '0' | '1',
+    directionShape: DirectionShape | null,
+    setVehicles: (vehicles: IndexedVehicle[]) => void,
+    directionLabel: 'outgoing' | 'incoming',
+  ) => {
+    if (!directionShape) return
+    const tid = `${props.routeId}${direction === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
+    try {
+      setVehicles(await getIndexedVehicles(tid, name, color, directionShape.shapeIndex, userTime.value, byTrip.get(tid) ?? []))
+    } catch (e) {
+      console.warn(`Failed to index ${directionLabel} vehicles:`, e)
+    }
   }
-  if (direction1Shape.value) {
-    const tid = `${props.routeId}${INCOMING_SUFFIX}`
-    tasks.push((async () => {
-      try {
-        direction1Vehicles.value = await getIndexedVehicles(tid, name, color, direction1Shape.value!.shapeIndex, userTime.value, byTrip.get(tid) ?? [])
-      } catch (e) { console.warn('Failed to index incoming vehicles:', e) }
-    })())
-  }
-  await Promise.all(tasks)
+
+  await Promise.all([
+    refreshDirection('0', direction0Shape.value, (vehicles) => { direction0Vehicles.value = vehicles }, 'outgoing'),
+    refreshDirection('1', direction1Shape.value, (vehicles) => { direction1Vehicles.value = vehicles }, 'incoming'),
+  ])
+
   mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
 }
 
@@ -397,7 +393,7 @@ async function loadShapeInfoFromApi(): Promise<boolean> {
 }
 
 onMounted(async () => {
-  const storeRouteId = (shapeInfo.value as any)?.route_id
+  const storeRouteId = shapeInfo.value?.route_id
   if (!shapeInfo.value || storeRouteId !== Number(props.routeId)) {
     isInitialLoading.value = true
     const ok = await loadShapeInfoFromApi()
