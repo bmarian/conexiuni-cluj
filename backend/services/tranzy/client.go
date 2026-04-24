@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -105,12 +108,11 @@ func (c *Client) quota(endpoint string) *dailyQuota {
 func (c *Client) DoRequest(endpoint string, params map[string]string) ([]byte, error) {
 	q := c.quota(endpoint)
 	if err := q.check(); err != nil {
-		return nil, fmt.Errorf("%w: %s", err, endpoint)
+		return nil, fmt.Errorf("%w: endpoint=%s params=%s", err, endpoint, formatParams(params))
 	}
-	log.Printf("tranzy: request %s (quota %d/%d used)", endpoint, q.limit-q.remaining(), q.limit)
 
 	if err := c.limiter.Wait(context.Background()); err != nil {
-		return nil, fmt.Errorf("tranzy: rate limiter: %w", err)
+		return nil, fmt.Errorf("tranzy: rate limiter endpoint=%s params=%s: %w", endpoint, formatParams(params), err)
 	}
 
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
@@ -123,7 +125,16 @@ func (c *Client) DoRequest(endpoint string, params map[string]string) ([]byte, e
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tranzy: GET endpoint=%s params=%s: %w", endpoint, formatParams(params), err)
+	}
+
+	if resp.StatusCode() >= 400 {
+		return nil, fmt.Errorf("tranzy: GET endpoint=%s params=%s status=%d body=%q",
+			endpoint,
+			formatParams(params),
+			resp.StatusCode(),
+			truncateForLog(string(resp.Body()), 500),
+		)
 	}
 
 	return resp.Body(), nil
@@ -138,8 +149,6 @@ func newQuota(name string, limit int, loc *time.Location, persister QuotaPersist
 		} else if !resetAt.IsZero() {
 			q.count = count
 			q.resetAt = resetAt
-			log.Printf("tranzy: restored quota %q: %d/%d used, resets at %s",
-				name, count, limit, resetAt.In(loc).Format(time.RFC3339))
 		}
 	}
 	q.mutex.Lock()
@@ -169,4 +178,32 @@ func NewClient(baseUrl string, apiKey string, agencyId string, rateLimit time.Du
 		vehiclesQuota: newQuota("vehicles", vehiclesDailyQuota, loc, persister),
 		defaultQuota:  newQuota("default", defaultDailyQuota, loc, persister),
 	}
+}
+
+func formatParams(params map[string]string) string {
+	if len(params) == 0 {
+		return "-"
+	}
+
+	keys := slices.Sorted(maps.Keys(params))
+	pairs := make([]string, 0, len(keys))
+	for _, key := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, params[key]))
+	}
+
+	return strings.Join(pairs, "&")
+}
+
+func truncateForLog(value string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+
+	flat := strings.TrimSpace(strings.ReplaceAll(value, "\n", " "))
+	flat = strings.ReplaceAll(flat, "\r", "")
+	if len(flat) <= maxLen {
+		return flat
+	}
+
+	return flat[:maxLen] + "..."
 }

@@ -112,8 +112,6 @@ func (h *vehicleHub) run() {
 		h.mu.Unlock()
 
 		interval := h.intervalFor(n)
-		quotaMax := h.tranzy.VehiclesQuotaLimit()
-		quotaUsed := quotaMax - h.tranzy.VehiclesQuotaRemaining()
 		localNow := time.Now().In(h.tranzy.Location())
 		slotLabel := "none"
 		targetLabel := "-"
@@ -121,12 +119,12 @@ func (h *vehicleHub) run() {
 			slotLabel = sl.label()
 			targetLabel = sl.target(n).String()
 		}
-		log.Printf("vehicle hub: poll interval=%s target=%s slot=%s subs=%d quota=%d/%d used",
-			interval, targetLabel, slotLabel, n, quotaUsed, quotaMax)
+		log.Printf("vehicle hub: poll interval=%s target=%s slot=%s subs=%d",
+			interval, targetLabel, slotLabel, n)
 
 		vehicles, err := GetVehicles(h.tranzy, interval, VehicleFilter{})
 		if err != nil {
-			log.Printf("vehicle hub: GetVehicles: %v", err)
+			log.Printf("vehicle hub: poll fetch failed interval=%s subs=%d err=%v", interval, n, err)
 		} else {
 			for _, sub := range subs {
 				broadcast(sub, vehicles)
@@ -141,7 +139,7 @@ func (h *vehicleHub) sendTo(sub *vehicleSubscriber) {
 	interval := h.CurrentInterval()
 	vehicles, err := GetVehicles(h.tranzy, interval, VehicleFilter{})
 	if err != nil {
-		log.Printf("vehicle hub: initial GetVehicles: %v", err)
+		log.Printf("vehicle hub: initial fetch failed interval=%s err=%v", interval, err)
 		return
 	}
 	broadcast(sub, vehicles)

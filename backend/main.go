@@ -52,8 +52,6 @@ func main() {
 	}
 
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
-	log.Printf("Tranzy quota on startup: vehicles=%d/%d used",
-		tranzyClient.VehiclesQuotaLimit()-tranzyClient.VehiclesQuotaRemaining(), tranzyClient.VehiclesQuotaLimit())
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
 	weekdaySlots, err := handlers.ParseSchedule(config.VehicleSchedule)
@@ -76,7 +74,7 @@ func main() {
 	})
 	app.Use(logger.New(logger.Config{
 		Stream:     logs.accessOut,
-		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${queryParams} | ${body}\n",
+		Format:     "${time} | status=${status} | latency=${latency} | ip=${ip} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Local",
 	}))
