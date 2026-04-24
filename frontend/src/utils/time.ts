@@ -21,3 +21,10 @@ export const getMinutesFromDate = (dateObject: Date): number => {
 
   return (hours * 60) + minutes;
 }
+
+export const formatMinutesFromNow = (minutes: number, referenceDate: Date, nowLabel: string): string => {
+  if (minutes === 0) return nowLabel;
+  if (minutes < 60) return `${minutes}m`;
+  const future = new Date(referenceDate.getTime() + minutes * 60_000);
+  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`;
+}

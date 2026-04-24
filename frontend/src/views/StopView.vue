@@ -11,7 +11,6 @@ import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import type {Timetable} from "@/types/ctp.ts";
 import {
-  INCOMING_SUFFIX,
   OUTGOING_SUFFIX,
   type Shape,
   type ShapeInfo,
@@ -19,14 +18,13 @@ import {
   type Vehicle,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
-import {getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
+import {formatMinutesFromNow, getMinutesFromDate, timeStringToMinutes} from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
-import {haversineMeters} from "@/utils/geo.ts";
-import {getClosestNodeToPoint, getVehiclesOnRoute, getClosestVehicleBeforeStop, computeETA, type TrackedVehicle} from "@/composables/useVehicleTracking.ts";
+import {buildShapeIndex, etaForStop, findClosestShapeIdx, getIndexedVehicles, type IndexedVehicle} from "@/composables/useVehicleTracking.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {onBeforeRouteLeave, useRouter} from "vue-router";
+import {useRouter} from "vue-router";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -78,11 +76,7 @@ const streamTripIds = computed<string[]>(() => {
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
 function formatMinutes(minutes: number): string {
-  if (minutes === 0) return t('now')
-  if (minutes < 60) return `${minutes}m`
-  const now = userTime.value || new Date()
-  const future = new Date(now.getTime() + minutes * 60_000)
-  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
+  return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
 const hasTimetable = (timetable: Timetable): boolean => {
@@ -233,13 +227,26 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   }
 
   const vehiclesByTripMap = vehiclesByTrip.value
-  const favoriteVehicles: TrackedVehicle[] = []
+  const favoriteVehicles: IndexedVehicle[] = []
   const favoriteTripIds = new Set<string>()
 
   const results: VehiclesInStop[] = []
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
-    const vehiclesOnRoute = await getVehiclesOnRoute(shape.trip_id, shape.route_short_name, shape.route_color, trip, userTime.value, vehiclesByTripMap.get(shape.trip_id) ?? [])
+    if (!Array.isArray(trip) || !trip.length) {
+      results.push(shape)
+      continue
+    }
+
+    const shapeIndex = buildShapeIndex(trip)
+    const vehiclesOnRoute = await getIndexedVehicles(
+      shape.trip_id,
+      shape.route_short_name,
+      shape.route_color,
+      shapeIndex,
+      userTime.value,
+      vehiclesByTripMap.get(shape.trip_id) ?? [],
+    )
 
     if (favoritesStore.isRouteFavorite(shape.route_id)) {
       favoriteVehicles.push(...vehiclesOnRoute)
@@ -251,27 +258,23 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       continue
     }
 
-    const closestNodeToStop = getClosestNodeToPoint({lat: stopInfo.value!.stop_lat, lon: stopInfo.value!.stop_lon}, trip)
-    if (!closestNodeToStop) {
+    const stopShapeIdx = findClosestShapeIdx(stopInfo.value!.stop_lat, stopInfo.value!.stop_lon, trip)
+    if (stopShapeIdx < 0) {
       results.push(shape)
       continue
     }
 
-    const {closestVehicle, closestNode} = getClosestVehicleBeforeStop(vehiclesOnRoute, closestNodeToStop, trip)
-    if (!closestVehicle || !closestNode) {
+    const eta = etaForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex)
+    if (!eta) {
       results.push(shape)
       continue
     }
-
-    const eta = computeETA(closestNodeToStop, closestNode, closestVehicle, trip)
-    if (eta === -1) { results.push(shape); continue }
-    if (eta === -2) continue
 
     results.push({
       ...shape,
-      minutes_left: eta,
+      minutes_left: eta.etaMinutes,
       next_times: [
-        {minutes: eta, is_live: true},
+        {minutes: eta.etaMinutes, is_live: true},
         ...(shape.next_times || []).slice(1),
       ],
       static_time_approximation: false,

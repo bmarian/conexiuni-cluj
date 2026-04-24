@@ -8,7 +8,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
-import {getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
+import {formatMinutesFromNow, getMinutesFromDate, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {
   buildShapeIndex,
@@ -115,10 +115,7 @@ const nearestStopIdx = computed(() => {
 const currentMinutes = computed(() => getMinutesFromDate(userTime.value || new Date()))
 
 function formatMinutes(minutes: number): string {
-  if (minutes === 0) return t('now')
-  if (minutes < 60) return `${minutes}m`
-  const future = new Date((userTime.value || new Date()).getTime() + minutes * 60_000)
-  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`
+  return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
 function minutesLeft(absMinutes: number): number {
