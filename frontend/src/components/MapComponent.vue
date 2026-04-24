@@ -45,6 +45,21 @@ const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
 const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
 const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
 const MIN_ZOOM = 9
+const CLUJ_VIEWBOX = '23.50,46.81,23.70,46.71'
+const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
+const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
+
+type DisplayVehicle = Vehicle & { route_short_name: string, route_color?: string, heading: number }
+type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
+type GroupedStart = {
+  lat: number
+  lng: number
+  routes: { name: string, color: string }[]
+}
+
+const getTileLayerUrl = (useDarkMode: boolean) => {
+  return `https://{s}.basemaps.cartocdn.com/${useDarkMode ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`
+}
 
 
 const stopIcon = L.divIcon({
@@ -124,26 +139,7 @@ const scheduleInvalidateMapSize = () => {
   }, 280)
 }
 
-const mapInit = (lat: number, lon: number, zoom: number) => {
-  map.value = L.map(mapContainer.value, {
-    maxBounds: CLUJ_COUNTY_BOUNDS,
-    maxBoundsViscosity: 1.0,
-    minZoom: MIN_ZOOM,
-  }).setView([lat, lon], zoom)
-  map.value.on('locationfound', updateLiveLocation)
-  map.value.on('click', () => { selectedStopVehicleId.value = null })
-  map.value.on('locationerror', (e) => {
-    console.warn("GPS Error:", e.message)
-    userStore.setHasLocationPermission(false)
-  })
-
-  currentTileLayer.value = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDarkMode.value ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>',
-    maxZoom: 20,
-    minZoom: MIN_ZOOM,
-    bounds: CLUJ_COUNTY_BOUNDS,
-  }).addTo(map.value)
-
+const createCenterControl = (mapValue: L.Map) => {
   const centerControl = new L.Control({position: 'topleft'})
   centerControl.onAdd = () => {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
@@ -152,7 +148,6 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     button.href = '#'
     button.title = t('Center')
     button.setAttribute('role', 'button')
-
     button.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
         <circle cx="12" cy="12" r="4"/>
@@ -167,17 +162,18 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     L.DomEvent.on(button, 'click', (e) => {
       e.preventDefault()
       const location = userDot.value?.getLatLng()
-      if (!location || !map.value) return
+      if (!location) return
 
-      map.value.flyTo(location, DEFAULT_ZOOM, {duration: 1})
+      mapValue.flyTo(location, DEFAULT_ZOOM, {duration: 1})
     })
 
     return container
   }
 
-  map.value.addControl(centerControl)
+  return centerControl
+}
 
-  const CLUJ_VIEWBOX = '23.50,46.81,23.70,46.71'
+const createSearchControl = () => {
   const provider = new OpenStreetMapProvider({
     params: {
       countrycodes: 'ro',
@@ -197,9 +193,10 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     iconSize: [24, 24],
     iconAnchor: [12, 24]
   })
+
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
-  const searchControl = new GeoSearchControl({
+  return new GeoSearchControl({
     provider,
     showMarker: true,
     marker: {
@@ -212,22 +209,49 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     searchLabel: t('Search location...'),
     keepResult: true
   })
-  map.value.addControl(searchControl)
+}
 
-  map.value.locate({
+const initLayerGroups = (mapValue: L.Map) => {
+  stopGroup.value = L.featureGroup()
+  shapeLayerGroup.value = L.featureGroup().addTo(mapValue)
+  vehicleLayerGroup.value = L.featureGroup().addTo(mapValue)
+  highlightedStopLayerGroup.value = L.featureGroup().addTo(mapValue)
+  mapValue.on('zoomend', handleZoomVisibility)
+  handleZoomVisibility()
+}
+
+const mapInit = (lat: number, lon: number, zoom: number) => {
+  const mapValue = L.map(mapContainer.value, {
+    maxBounds: CLUJ_COUNTY_BOUNDS,
+    maxBoundsViscosity: 1.0,
+    minZoom: MIN_ZOOM,
+  }).setView([lat, lon], zoom)
+
+  map.value = mapValue
+  mapValue.on('locationfound', updateLiveLocation)
+  mapValue.on('click', () => { selectedStopVehicleId.value = null })
+  mapValue.on('locationerror', (e) => {
+    console.warn("GPS Error:", e.message)
+    userStore.setHasLocationPermission(false)
+  })
+
+  currentTileLayer.value = L.tileLayer(getTileLayerUrl(isDarkMode.value), {
+    attribution: TILE_LAYER_ATTRIBUTION,
+    maxZoom: 20,
+    minZoom: MIN_ZOOM,
+    bounds: CLUJ_COUNTY_BOUNDS,
+  }).addTo(mapValue)
+
+  mapValue.addControl(createCenterControl(mapValue))
+  mapValue.addControl(createSearchControl())
+  mapValue.locate({
     watch: true,
     enableHighAccuracy: false,
     maximumAge: 30000,
     timeout: 10000
   })
-  shapeLayerGroup.value = L.featureGroup().addTo(map.value)
 
-  stopGroup.value = L.featureGroup()
-  map.value.on('zoomend', handleZoomVisibility)
-  shapeLayerGroup.value = L.featureGroup().addTo(map.value)
-  vehicleLayerGroup.value = L.featureGroup().addTo(map.value)
-  highlightedStopLayerGroup.value = L.featureGroup().addTo(map.value)
-  handleZoomVisibility()
+  initLayerGroups(mapValue)
 }
 
 const stopsInit = async () => {
@@ -335,58 +359,100 @@ watch(() => route.params.stopId, (newId) => {
 watch(isDarkMode, (newValue) => {
   if (!currentTileLayer.value) return
 
-  const newUrl = `https://{s}.basemaps.cartocdn.com/${newValue ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`
-  currentTileLayer.value.setUrl(newUrl)
+  currentTileLayer.value.setUrl(getTileLayerUrl(newValue))
 })
 
-watch(locale, () => {
-  const searchInput = document.querySelector('.leaflet-control-geosearch input.glass') as HTMLInputElement
+const updateSearchPlaceholder = () => {
+  const searchInput = document.querySelector('.leaflet-control-geosearch input.glass') as HTMLInputElement | null
+  if (searchInput) searchInput.placeholder = t('Search location...')
+}
 
-  if (searchInput) {
-    searchInput.placeholder = t('Search location...')
-  }
-})
+watch(locale, updateSearchPlaceholder)
 
-watch(shapesToDisplay, (newShapes) => {
-  if (!shapeLayerGroup.value || !map.value) return
-  shapeLayerGroup.value.clearLayers()
-  const drawnPaths = new Set<string>()
-  const duplicateDashPatterns = ['', '8 7', '2 7', '10 4 2 4', '1 6']
-
-  const groupedStarts = new Map<string, {
-    lat: number,
-    lng: number,
-    routes: { name: string, color: string }[]
-  }>()
-
-  const hasHighlights = highlightedStops.value.length > 0
+const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
-
-  for (let i = 0; i < newShapes.length; i++) {
-    const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
+  for (const [displayShape, shapeData] of shapes) {
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
     const routeColor = displayShape.route_color
     colorCounts.set(routeColor, (colorCounts.get(routeColor) ?? 0) + 1)
   }
+  return colorCounts
+}
+
+const getShapeSignature = (latLngs: L.LatLngTuple[], dashArray: string) => {
+  return `${dashArray}|${latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')}`
+}
+
+const addGroupedStart = (
+  groupedStarts: Map<string, GroupedStart>,
+  startPoint: L.LatLngTuple,
+  routeName: string,
+  routeColor: string,
+) => {
+  const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
+  if (!groupedStarts.has(key)) groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
+  const existing = groupedStarts.get(key)!
+  if (!existing.routes.some((r) => r.name === routeName)) {
+    existing.routes.push({name: routeName, color: routeColor})
+  }
+}
+
+const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, routeColor: string) => {
+  const endMarkerIcon = L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `
+      <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
+           style="background-color: ${routeColor};">
+        <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
+      </div>
+    `,
+    iconSize: [24, 24], iconAnchor: [12, 12]
+  })
+  L.marker(endPoint, {icon: endMarkerIcon}).addTo(layerGroup)
+}
+
+const addGroupedStartMarkers = (layerGroup: L.FeatureGroup, groupedStarts: Map<string, GroupedStart>) => {
+  groupedStarts.forEach((data) => {
+    const routesHtml = data.routes.map((r) =>
+      `<div style="background-color: ${r.color};"
+            class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
+        ${r.name}
+      </div>`
+    ).join('')
+    const startMarkerIcon = L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
+      iconSize: [0, 0], iconAnchor: [0, 0]
+    })
+    L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(layerGroup)
+  })
+}
+
+const renderShapes = (newShapes: ShapeLayerEntry[]) => {
+  if (!shapeLayerGroup.value) return
+
+  const layerGroup = shapeLayerGroup.value
+  layerGroup.clearLayers()
+  const drawnPaths = new Set<string>()
+  const groupedStarts = new Map<string, GroupedStart>()
+  const hasHighlights = highlightedStops.value.length > 0
+  const colorCounts = getShapeColorCounts(newShapes)
   const colorSeen = new Map<string, number>()
 
-  for (let i = 0; i < newShapes.length; i++) {
-    const [displayShape, shapeData]: [DisplayShape, ShapePoint[]] = newShapes[i]!
+  for (const [displayShape, shapeData] of newShapes) {
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
-    const latLngs: L.LatLngTuple[] = shapeData.map(sd => [sd.shape_pt_lat, sd.shape_pt_lon])
+    const latLngs: L.LatLngTuple[] = shapeData.map((sd) => [sd.shape_pt_lat, sd.shape_pt_lon])
     const routeColor = displayShape.route_color
     routeColorsCache.set(displayShape.trip_id, routeColor)
 
     const colorVariantIdx = colorSeen.get(routeColor) ?? 0
     colorSeen.set(routeColor, colorVariantIdx + 1)
-    const hasDuplicateColor = (colorCounts.get(routeColor) ?? 0) > 1
-    const dashArray = hasDuplicateColor
-      ? duplicateDashPatterns[colorVariantIdx % duplicateDashPatterns.length]
+    const dashArray = (colorCounts.get(routeColor) ?? 0) > 1
+      ? (DUPLICATE_DASH_PATTERNS[colorVariantIdx % DUPLICATE_DASH_PATTERNS.length] ?? '')
       : ''
 
-    const pathSignature = latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')
-    const signature = `${dashArray}|${pathSignature}`
+    const signature = getShapeSignature(latLngs, dashArray)
     if (drawnPaths.has(signature)) continue
     drawnPaths.add(signature)
 
@@ -398,54 +464,25 @@ watch(shapesToDisplay, (newShapes) => {
       smoothFactor: 1.5,
       lineJoin: 'round',
       lineCap: 'round'
-    }).addTo(shapeLayerGroup.value!)
+    }).addTo(layerGroup)
 
-    if (!hasHighlights) {
-      const startPoint = latLngs[0]
-      if (startPoint && displayShape.route_short_name) {
-        const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
-        if (!groupedStarts.has(key)) groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
-        const existing = groupedStarts.get(key)!
-        if (!existing.routes.some(r => r.name === displayShape.route_short_name)) {
-          existing.routes.push({name: displayShape.route_short_name, color: routeColor})
-        }
-      }
+    if (hasHighlights) continue
 
-      const endPoint = latLngs[latLngs.length - 1]
-      if (endPoint) {
-        const endMarkerIcon = L.divIcon({
-          className: 'bg-transparent border-none !overflow-visible',
-          html: `
-            <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
-                 style="background-color: ${routeColor};">
-              <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
-            </div>
-          `,
-          iconSize: [24, 24], iconAnchor: [12, 12]
-        })
-        L.marker(endPoint, {icon: endMarkerIcon}).addTo(shapeLayerGroup.value!)
-      }
+    const startPoint = latLngs[0]
+    if (startPoint && displayShape.route_short_name) {
+      addGroupedStart(groupedStarts, startPoint, displayShape.route_short_name, routeColor)
     }
+
+    const endPoint = latLngs[latLngs.length - 1]
+    if (endPoint) addRouteEndMarker(layerGroup, endPoint, routeColor)
   }
 
-  if (!hasHighlights) {
-    groupedStarts.forEach((data) => {
-      const routesHtml = data.routes.map(r =>
-        `<div style="background-color: ${r.color};"
-              class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
-          ${r.name}
-        </div>`
-      ).join('')
-      const startMarkerIcon = L.divIcon({
-        className: 'bg-transparent border-none !overflow-visible',
-        html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
-        iconSize: [0, 0], iconAnchor: [0, 0]
-      })
-      L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(shapeLayerGroup.value!)
-    })
-  }
-
+  if (!hasHighlights) addGroupedStartMarkers(layerGroup, groupedStarts)
   if (zoomOut.value) zoomOut.value = false
+}
+
+watch(shapesToDisplay, (newShapes) => {
+  renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
 const BUS_STOP_PATH = 'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
@@ -489,69 +526,78 @@ watch([highlightedStops, currentlyHighlightedStopId], ([stops]) => {
   }
 }, {deep: true})
 
-watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId], ([vehicles, routeName]) => {
-  if (!vehicleLayerGroup.value || !map.value) return
-  vehicleLayerGroup.value.clearLayers()
-  const isStopView = routeName === 'stop'
+const getVehicleMarkerHtml = (
+  vehicle: DisplayVehicle,
+  resolvedColor: string,
+  isStopView: boolean,
+  showStopInfo: boolean,
+) => {
+  const routeName = vehicle.route_short_name || ''
+  const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
+  const roundedSpeed = Math.round(vehicle.speed)
+  const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
 
-  for (let i = 0; i < vehicles.length; i++) {
-    const vehicle = vehicles[i]! as Vehicle & { route_short_name: string, route_color?: string, heading: number }
+  return isStopView
+    ? `
+      <div class="relative flex items-center">
+        <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
+             style="background-color: ${resolvedColor};">
+          <span class="font-black leading-none text-white tracking-tight"
+                style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
+        </div>
+        <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
+               style="transform: rotate(${vehicle.heading || 0}deg);">
+            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        ${showStopInfo ? `
+          <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
+            <span class="font-bold text-sm tracking-wide">${titleText}</span>
+            <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
+          </div>
+        ` : ''}
+      </div>
+    `
+    : `
+      <div class="relative flex items-center">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
+             style="background-color: ${resolvedColor};">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
+               style="transform: rotate(${vehicle.heading || 0}deg);">
+            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
+          <span class="font-bold text-sm tracking-wide">${titleText}</span>
+          <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
+        </div>
+      </div>
+    `
+}
 
+const renderVehicles = (vehicles: DisplayVehicle[], currentRouteName: string | symbol | null | undefined) => {
+  if (!vehicleLayerGroup.value) return
+
+  const layerGroup = vehicleLayerGroup.value
+  layerGroup.clearLayers()
+  const isStopView = currentRouteName === 'stop'
+
+  for (const vehicle of vehicles) {
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
     const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
     if (!resolvedColor) continue
-    const routeName = vehicle.route_short_name || ''
-    const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
-    const roundedSpeed = Math.round(vehicle.speed)
-    const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
-    const showStopInfo = isStopView && selectedStopVehicleId.value === vehicle.id
-    const markerHtml = isStopView
-      ? `
-        <div class="relative flex items-center">
-          <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
-               style="background-color: ${resolvedColor};">
-            <span class="font-black leading-none text-white tracking-tight"
-                  style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
-          </div>
-          <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
-                 style="transform: rotate(${vehicle.heading || 0}deg);">
-              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          ${showStopInfo ? `
-            <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-              <span class="font-bold text-sm tracking-wide">${titleText}</span>
-              <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
-            </div>
-          ` : ''}
-        </div>
-      `
-      : `
-        <div class="relative flex items-center">
-          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
-               style="background-color: ${resolvedColor};">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
-                 style="transform: rotate(${vehicle.heading || 0}deg);">
-              <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-            <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            <span class="text-xs text-slate-400">${Math.round(vehicle.speed)} km/h</span>
-          </div>
-        </div>
-      `
-    const busIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
-      html: markerHtml,
-      iconSize: isStopView ? [36, 36] : [32, 32],
-      iconAnchor: isStopView ? [18, 18] : [16, 16],
-    })
 
+    const showStopInfo = isStopView && selectedStopVehicleId.value === vehicle.id
+    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, isStopView, showStopInfo)
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-      icon: busIcon,
+      icon: L.divIcon({
+        className: 'bg-transparent border-none !overflow-visible',
+        html: markerHtml,
+        iconSize: isStopView ? [36, 36] : [32, 32],
+        iconAnchor: isStopView ? [18, 18] : [16, 16],
+      }),
       zIndexOffset: showStopInfo ? 5600 : 5000
     })
 
@@ -561,8 +607,12 @@ watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId], ([vehicles, 
       })
     }
 
-    marker.addTo(vehicleLayerGroup.value!)
+    marker.addTo(layerGroup)
   }
+}
+
+watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId], ([vehicles, routeName]) => {
+  renderVehicles(vehicles as DisplayVehicle[], routeName)
 }, {deep: true})
 
 watch(() => route.name, (name) => {

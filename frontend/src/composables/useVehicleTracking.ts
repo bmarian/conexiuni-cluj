@@ -112,14 +112,6 @@ export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): n
   return best
 }
 
-export function getClosestNodeToPoint(
-  {lat, lon}: { lat: number; lon: number },
-  trip: Shape[],
-): Shape | undefined {
-  const idx = findClosestShapeIdx(lat, lon, trip)
-  return idx < 0 ? undefined : trip[idx]
-}
-
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
   if (prefetched) return prefetched
   return (await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
@@ -192,43 +184,4 @@ export function etaForStop(
   }
 
   return null
-}
-
-export function getClosestVehicleBeforeStop(
-  vehicles: TrackedVehicle[],
-  closestNodeToStop: Shape,
-  trip: Shape[],
-): { closestVehicle: TrackedVehicle | undefined; closestNode: Shape | undefined } {
-  let closestDistance = Infinity
-  let bestVehicle: TrackedVehicle | undefined
-  let bestNode: Shape | undefined
-
-  for (const vehicle of vehicles) {
-    const currentNode = getClosestNodeToPoint({lat: vehicle.latitude, lon: vehicle.longitude}, trip)
-    if (!currentNode || currentNode.shape_pt_sequence > closestNodeToStop.shape_pt_sequence) continue
-    const d = haversineMeters(
-      currentNode.shape_pt_lat, currentNode.shape_pt_lon,
-      closestNodeToStop.shape_pt_lat, closestNodeToStop.shape_pt_lon,
-    )
-    if (d < closestDistance) {
-      closestDistance = d;
-      bestVehicle = vehicle;
-      bestNode = currentNode
-    }
-  }
-
-  return {closestVehicle: bestVehicle, closestNode: bestNode}
-}
-
-export function computeETA(stopShape: Shape, busShape: Shape, vehicle: TrackedVehicle, trip: Shape[]): number {
-  const busIdx = trip.findIndex(t => t.shape_pt_sequence === busShape.shape_pt_sequence)
-  const stopIdx = trip.findIndex(t => t.shape_pt_sequence === stopShape.shape_pt_sequence)
-  if (busIdx === -1 || stopIdx === -1) return -1
-  if (busIdx > stopIdx) return -2
-
-  const totalDistance = busIdx === stopIdx
-    ? haversineMeters(vehicle.latitude, vehicle.longitude, stopShape.shape_pt_lat, stopShape.shape_pt_lon)
-    : distanceOnShape(buildShapeIndex(trip), busIdx, stopIdx)
-
-  return estimateEtaMinutes(totalDistance, vehicle.speed)
 }
