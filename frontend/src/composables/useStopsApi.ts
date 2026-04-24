@@ -1,6 +1,6 @@
 import {ref} from 'vue'
 import type {Stop} from '@/types/tranzy.ts'
-import {apiRequest, LOW_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/request_cache.ts'
 
 let pending: Promise<Stop[]> | null = null
 
@@ -13,7 +13,7 @@ export function useStopsApi() {
     isLoading.value = true
     try {
       if (!pending) {
-        pending = apiRequest('stops', LOW_ACCURACY_SHELF_LIFE) as Promise<Stop[]>
+        pending = apiRequest('stops') as Promise<Stop[]>
       }
       const data = await pending
       stops.value = Array.isArray(data) ? data : []

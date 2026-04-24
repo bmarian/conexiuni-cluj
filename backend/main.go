@@ -117,6 +117,7 @@ func main() {
 			}
 			data = filtered
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 	api.Get("/stops", func(c fiber.Ctx) error {
@@ -143,6 +144,7 @@ func main() {
 			}
 			data = filtered
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 	api.Get("/shapes", func(c fiber.Ctx) error {
@@ -164,6 +166,7 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 	api.Get("/vehicles", func(c fiber.Ctx) error {
@@ -193,6 +196,7 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", "no-store")
 		return c.JSON(data)
 	})
 	api.Get("/vehicles/stream", func(c fiber.Ctx) error {
@@ -286,6 +290,7 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 	api.Get("/stop_info", func(c fiber.Ctx) error {
@@ -311,6 +316,7 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 
@@ -320,6 +326,7 @@ func main() {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", "max-age=3600, stale-while-revalidate=86400")
 		return c.JSON(data)
 	})
 

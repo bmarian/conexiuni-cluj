@@ -1,6 +1,6 @@
 import type {StopInfo} from "@/types/tranzy.ts";
 import {ref} from "vue";
-import {apiRequest, LOW_ACCURACY_SHELF_LIFE} from "@/utils/request_cache.ts";
+import {apiRequest} from "@/utils/request_cache.ts";
 
 const pendingRequests = new Map<string, Promise<StopInfo>>()
 
@@ -21,7 +21,7 @@ export function useStopInfoApi() {
       return
     }
 
-    const requestPromise = apiRequest(`stop_info?stop_id=${stopId}`, LOW_ACCURACY_SHELF_LIFE) as Promise<StopInfo>
+    const requestPromise = apiRequest(`stop_info?stop_id=${stopId}`) as Promise<StopInfo>
     pendingRequests.set(stopId, requestPromise)
 
     try {

@@ -1,6 +1,6 @@
 import {OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
-import {apiRequest, LOW_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/request_cache.ts'
 
 const pending = new Map<number, Promise<ShapeInfo>>()
 
@@ -34,8 +34,8 @@ export function useRouteShapeInfoApi() {
     const promise = (async () => {
       const encoded = encodeURIComponent(route.route_short_name)
       const [timetableResult, stopTimesResult] = await Promise.allSettled([
-        apiRequest(`timetable?route_short_name=${encoded}`, LOW_ACCURACY_SHELF_LIFE) as Promise<Timetable>,
-        apiRequest(`stop_times?route_short_name=${encoded}`, LOW_ACCURACY_SHELF_LIFE) as Promise<StopTime[]>,
+        apiRequest(`timetable?route_short_name=${encoded}`) as Promise<Timetable>,
+        apiRequest(`stop_times?route_short_name=${encoded}`) as Promise<StopTime[]>,
       ])
 
       const timetable: Timetable =

@@ -35,10 +35,11 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /\/api\/(routes|stops|stop_info|stop_times|shapes|timetable)(\?|$)/,
-            handler: 'StaleWhileRevalidate',
+            handler: 'CacheFirst',
             options: {
               cacheName: 'api-static',
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 },
             },
           },
           {

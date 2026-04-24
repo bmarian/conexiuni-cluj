@@ -1,6 +1,6 @@
 import {ref} from 'vue'
 import type {Route} from '@/types/tranzy.ts'
-import {apiRequest, LOW_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/request_cache.ts'
 
 let pending: Promise<Route[]> | null = null
 
@@ -13,7 +13,7 @@ export function useRoutesApi() {
     isLoading.value = true
     try {
       if (!pending) {
-        pending = apiRequest('routes', LOW_ACCURACY_SHELF_LIFE) as Promise<Route[]>
+        pending = apiRequest('routes') as Promise<Route[]>
       }
       const data = await pending
       routes.value = Array.isArray(data) ? data : []

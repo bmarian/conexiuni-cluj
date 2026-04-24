@@ -1,4 +1,4 @@
-import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/request_cache.ts'
 import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
 import type {Shape, StopTime, Vehicle} from '@/types/tranzy.ts'
 
@@ -123,7 +123,7 @@ export function buildStopShapeIdxByStopId(tripStops: StopTime[], shape: Shape[])
 
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
   if (prefetched) return prefetched
-  return (await apiRequest(`vehicles?trip_id=${tripId}`, HIGH_ACCURACY_SHELF_LIFE) as Vehicle[]) ?? []
+  return (await apiRequest(`vehicles?trip_id=${tripId}`) as Vehicle[]) ?? []
 }
 
 export async function getIndexedVehicles(

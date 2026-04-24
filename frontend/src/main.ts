@@ -9,13 +9,13 @@ import router from './router'
 registerSW({ immediate: true })
 import { useUserStore } from './stores/user'
 import { useFavoritesStore } from './stores/favorites'
-import { apiRequest, LOW_ACCURACY_SHELF_LIFE } from './utils/request_cache'
+import { apiRequest } from './utils/request_cache'
 import './main.css'
 import ro from './locales/ro.json'
 import en from './locales/en.json'
 
-void apiRequest('routes', LOW_ACCURACY_SHELF_LIFE)
-void apiRequest('stops', LOW_ACCURACY_SHELF_LIFE)
+void apiRequest('routes')
+void apiRequest('stops')
 
 const i18n = createI18n({
   legacy: false,
