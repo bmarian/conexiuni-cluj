@@ -6,7 +6,10 @@ import (
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"log"
 	"os"
 	"path/filepath"
@@ -29,8 +32,24 @@ func clientIPForLog(c fiber.Ctx) string {
 	return c.IP()
 }
 
+func clientIDForLog(c fiber.Ctx, salt string) string {
+	ip := clientIPForLog(c)
+	if ip == "" {
+		return "-"
+	}
+
+	hasher := hmac.New(sha256.New, []byte(salt))
+	_, _ = hasher.Write([]byte(ip))
+	return hex.EncodeToString(hasher.Sum(nil)[:8])
+}
+
 func main() {
 	config := Load()
+	logHashSalt := config.LogIPHashSalt
+	if logHashSalt == "" {
+		logHashSalt = "conexiuni-cluj-default-salt"
+		log.Printf("Warning: LOG_IP_HASH_SALT not set, using default salt; set LOG_IP_HASH_SALT for stronger pseudonymization")
+	}
 
 	logs, err := setupLogging(config.LogDir, config.LogRetentionDays)
 	if err != nil {
@@ -85,9 +104,9 @@ func main() {
 	})
 	app.Use(logger.New(logger.Config{
 		Stream: logs.accessOut,
-		Format: "${time} | status=${status} | latency=${latency} | ip=${clientIp} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
-		CustomTags: map[string]logger.LogFunc{"clientIp": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
-			return output.WriteString(clientIPForLog(c))
+		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
+		CustomTags: map[string]logger.LogFunc{"clientId": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
+			return output.WriteString(clientIDForLog(c, logHashSalt))
 		}},
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Local",
