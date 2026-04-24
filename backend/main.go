@@ -18,6 +18,17 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
+func clientIPForLog(c fiber.Ctx) string {
+	for forwardedIP := range strings.SplitSeq(c.Get(fiber.HeaderXForwardedFor), ",") {
+		ip := strings.TrimSpace(forwardedIP)
+		if ip != "" {
+			return ip
+		}
+	}
+
+	return c.IP()
+}
+
 func main() {
 	config := Load()
 
@@ -73,8 +84,11 @@ func main() {
 		AppName: "Conexiuni Cluj",
 	})
 	app.Use(logger.New(logger.Config{
-		Stream:     logs.accessOut,
-		Format:     "${time} | status=${status} | latency=${latency} | ip=${ip} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
+		Stream: logs.accessOut,
+		Format: "${time} | status=${status} | latency=${latency} | ip=${clientIp} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
+		CustomTags: map[string]logger.LogFunc{"clientIp": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
+			return output.WriteString(clientIPForLog(c))
+		}},
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Local",
 	}))
