@@ -1,6 +1,6 @@
 import {apiRequest, HIGH_ACCURACY_SHELF_LIFE} from '@/utils/request_cache.ts'
 import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
-import type {Shape, Vehicle} from '@/types/tranzy.ts'
+import type {Shape, StopTime, Vehicle} from '@/types/tranzy.ts'
 
 export const CLOSE_TO_STOP_THRESHOLD = 200
 export const VEHICLE_GRACE_PERIOD = 10
@@ -110,6 +110,15 @@ export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): n
     }
   }
   return best
+}
+
+export function buildStopShapeIdxByStopId(tripStops: StopTime[], shape: Shape[]): Map<number, number> {
+  const stopShapeIdxByStopId = new Map<number, number>()
+  for (const st of tripStops) {
+    if (!st.stop_lat || !st.stop_lon) continue
+    stopShapeIdxByStopId.set(st.stop_id, findClosestShapeIdx(st.stop_lat, st.stop_lon, shape))
+  }
+  return stopShapeIdxByStopId
 }
 
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {

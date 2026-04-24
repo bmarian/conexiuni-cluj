@@ -12,9 +12,9 @@ import {formatMinutesFromNow, getMinutesFromDate, getTimetableDayKey, getTimetab
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
 import {
+  buildStopShapeIdxByStopId,
   buildShapeIndex,
   etaForStop,
-  findClosestShapeIdx,
   getIndexedVehicles,
   type IndexedVehicle,
   type ShapeIndex,
@@ -316,11 +316,7 @@ async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null
     if (!shape.length) return null
     const shapeIndex = buildShapeIndex(shape)
     const tripStops = rawStops.value.filter((st) => st.trip_id === tripId)
-    const stopShapeIdxByStopId = new Map<number, number>()
-    for (const st of tripStops) {
-      if (!st.stop_lat || !st.stop_lon) continue
-      stopShapeIdxByStopId.set(st.stop_id, findClosestShapeIdx(st.stop_lat, st.stop_lon, shape))
-    }
+    const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStops, shape)
     return {shape, shapeIndex, stopShapeIdxByStopId}
   } catch (e) {
     console.warn(`Failed to load direction ${dir} shape:`, e)

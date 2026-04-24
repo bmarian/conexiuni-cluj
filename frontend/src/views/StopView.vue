@@ -27,7 +27,13 @@ import {
   timeStringToMinutes
 } from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
-import {buildShapeIndex, etaForStop, findClosestShapeIdx, getIndexedVehicles, type IndexedVehicle} from "@/composables/useVehicleTracking.ts";
+import {
+  buildShapeIndex,
+  buildStopShapeIdxByStopId,
+  etaForStop,
+  getIndexedVehicles,
+  type IndexedVehicle
+} from "@/composables/useVehicleTracking.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
@@ -92,6 +98,12 @@ const busesWithAvailableTimetablesSorted = computed(() => {
     if (aFav !== bFav) return aFav - bFav
     return a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
   })
+})
+
+const shapeInfoByRouteId = computed(() => {
+  const info = stopInfo.value
+  if (!info) return new Map<number, ShapeInfo>()
+  return new Map<number, ShapeInfo>(info.shapes_info.map((shapeInfo: ShapeInfo) => [shapeInfo.route_id, shapeInfo]))
 })
 
 const departuresSorted = computed(() => {
@@ -252,7 +264,14 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       continue
     }
 
-    const stopShapeIdx = findClosestShapeIdx(stopInfo.value!.stop_lat, stopInfo.value!.stop_lon, trip)
+    const routeShapeInfo = shapeInfoByRouteId.value.get(shape.route_id)
+    if (!routeShapeInfo) {
+      results.push(shape)
+      continue
+    }
+
+    const tripStops = getShapeStopTimes(routeShapeInfo).filter((stopTime) => stopTime.trip_id === shape.trip_id)
+    const stopShapeIdx = buildStopShapeIdxByStopId(tripStops, trip).get(stopIdNum.value) ?? -1
     if (stopShapeIdx < 0) {
       results.push(shape)
       continue
