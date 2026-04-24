@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/services/tranzy"
+	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -102,4 +105,19 @@ func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, bool,
 
 	data, err := dbFetcher()
 	return data, true, err
+}
+
+// tranzyFetch fetches endpoint from the Tranzy API and unmarshals the response into T.
+func tranzyFetch[T any](client *tranzy.Client, endpoint string) (T, error) {
+	data, err := client.DoRequest(endpoint, nil)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	var result T
+	if err := json.Unmarshal(data, &result); err != nil {
+		var zero T
+		return zero, fmt.Errorf("failed to unmarshal %s response: %w", endpoint, err)
+	}
+	return result, nil
 }

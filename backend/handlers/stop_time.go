@@ -1,13 +1,10 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -21,171 +18,132 @@ type StopTimeFilter struct {
 }
 
 func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, error) {
-	opts := CacheOpts[[]models.StopTime]{}
-
-	if filter.RouteShortName != nil {
-		f := filter
-		opts.PostProcess = func(ts []models.StopTime) []models.StopTime {
-			var out []models.StopTime
-			for _, t := range ts {
-				if f.RouteShortName != nil && t.RouteShortName != *f.RouteShortName {
-					continue
-				}
-				out = append(out, t)
-			}
-			return out
-		}
+	if filter.RouteShortName == nil {
+		return nil, fmt.Errorf("route_short_name is required")
 	}
-
 	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
 	return HandleCached(cacheID, cacheTimes.StopTimeCacheShelfLife,
 		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
 		storeStopTimesInDB,
-		opts,
+		CacheOpts[[]models.StopTime]{},
 	)
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
-	routes, errRoutes := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
-	if errRoutes != nil || len(routes) == 0 {
-		return nil, errRoutes
-	}
-	route := routes[0]
-
-	trips, errTrips := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{RouteID: &route.RouteID})
-	if errTrips != nil || len(trips) == 0 {
-		return nil, errTrips
+	routes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
+	if err != nil || len(routes) == 0 {
+		return nil, err
 	}
 
-	apiStopTimes, errApiStopTimes := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
-	if errApiStopTimes != nil {
-		return nil, errApiStopTimes
+	trips, err := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{RouteID: &routes[0].RouteID})
+	if err != nil || len(trips) == 0 {
+		return nil, err
 	}
 
-	groupedRaw := make(map[string][]models.RequestStopTime)
-	count := 0
+	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Index: trip_id → []RequestStopTime
+	astByTrip := make(map[string][]models.RequestStopTime, len(trips))
+	for _, ast := range apiStopTimes {
+		astByTrip[ast.TripID] = append(astByTrip[ast.TripID], ast)
+	}
+
+	// Index: trip_id → shape_id, collect unique shape IDs
+	shapeByTrip := make(map[string]string, len(trips))
+	shapeIDsSeen := make(map[string]struct{})
 	for _, t := range trips {
-		tripID := t.TripID
-		for _, ast := range apiStopTimes {
-			if ast.TripID == tripID {
-				groupedRaw[tripID] = append(groupedRaw[tripID], ast)
-				count++
+		shapeByTrip[t.TripID] = t.ShapeID
+		if t.ShapeID != "" {
+			shapeIDsSeen[t.ShapeID] = struct{}{}
+		}
+	}
+
+	// Batch-fetch all shapes needed for this route
+	shapesByID := make(map[string][]models.Shape)
+	if len(shapeIDsSeen) > 0 {
+		shapeIDs := make([]string, 0, len(shapeIDsSeen))
+		for id := range shapeIDsSeen {
+			shapeIDs = append(shapeIDs, id)
+		}
+		if allShapes, err := GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{ShapeIDs: shapeIDs}); err == nil {
+			for _, s := range allShapes {
+				shapesByID[s.ShapeID] = append(shapesByID[s.ShapeID], s)
 			}
 		}
 	}
 
-	out := make([]models.StopTime, 0, count)
-	for tripID, gr := range groupedRaw {
-		var shapeID string
-		for _, t := range trips {
-			if t.TripID == tripID {
-				shapeID = t.ShapeID
-				break
-			}
-		}
+	// Fetch all stops once and index by ID — avoids N+1 queries
+	allStops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
+	if err != nil {
+		return nil, err
+	}
+	stopByID := make(map[int]models.Stop, len(allStops))
+	for _, s := range allStops {
+		stopByID[s.StopID] = s
+	}
 
-		var shapes []models.Shape
-		if shapeID != "" {
-			shapes, _ = GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{ShapeID: &shapeID})
+	var out []models.StopTime
+	for _, t := range trips {
+		gr := astByTrip[t.TripID]
+		if len(gr) == 0 {
+			continue
 		}
-
+		shapes := shapesByID[shapeByTrip[t.TripID]]
 		var previousStop *models.Stop
 		for _, st := range gr {
-			stopHeadsign := ""
+			currentStop := stopByID[st.StopID]
 			offsetArrivalTime := 0.0
-			stopLat := 0.0
-			stopLon := 0.0
-			var currentStop models.Stop
-
-			stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &st.StopID})
-			if errStops == nil && len(stops) != 0 {
-				currentStop = stops[0]
-				stopHeadsign = currentStop.StopName
-				stopLat = currentStop.StopLat
-				stopLon = currentStop.StopLon
-			}
-
 			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
 				offsetArrivalTime = calculateStopOffset(*previousStop, currentStop, shapes)
 			}
-
 			out = append(out, models.StopTime{
 				TripID:            st.TripID,
 				StopID:            st.StopID,
 				OffsetArrivalTime: offsetArrivalTime,
 				StopSequence:      st.StopSequence,
-				StopHeadsign:      stopHeadsign,
+				StopHeadsign:      currentStop.StopName,
 				RouteShortName:    *filter.RouteShortName,
-				StopLat:           stopLat,
-				StopLon:           stopLon,
+				StopLat:           currentStop.StopLat,
+				StopLon:           currentStop.StopLon,
 			})
-
 			previousStop = &currentStop
 		}
 	}
-
 	return out, nil
 }
 
 func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
-	query := `SELECT * FROM stop_times`
-	var args []any
 	var conditions []string
-
+	var args []any
 	if filter.RouteShortName != nil {
 		conditions = append(conditions, "route_short_name = ?")
 		args = append(args, *filter.RouteShortName)
 	}
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	rows, err := database.DB.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error querying stop times: %w", err)
-	}
-
-	defer func(rows *sql.Rows) {
-		_ = rows.Close()
-	}(rows)
-
-	var stopTimes []models.StopTime
-	for rows.Next() {
-		var st models.StopTime
-		if err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon); err != nil {
-			return nil, fmt.Errorf("error scanning stop time: %w", err)
-		}
-		stopTimes = append(stopTimes, st)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading stop times: %w", err)
-	}
-
-	return stopTimes, nil
+	return queryRows(`SELECT * FROM stop_times`+whereClause(conditions), args,
+		func(rows *sql.Rows) (models.StopTime, error) {
+			var st models.StopTime
+			err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon)
+			return st, err
+		})
 }
 
 func storeStopTimesInDB(stopTimes []models.StopTime) error {
-	stmt, err := database.DB.Prepare(`
-		INSERT OR REPLACE INTO stop_times (trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-
-	defer func(stmt *sql.Stmt) {
-		_ = stmt.Close()
-	}(stmt)
-
-	for _, st := range stopTimes {
-		if _, err := stmt.Exec(st.TripID, st.StopID, st.OffsetArrivalTime, st.StopSequence, st.StopHeadsign, st.RouteShortName, st.StopLat, st.StopLon); err != nil {
-			return fmt.Errorf("error inserting stop time: %w", err)
-		}
-	}
-
-	return nil
+	return batchExec(`
+		INSERT OR REPLACE INTO stop_times
+		(trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		func(stmt *sql.Stmt) error {
+			for _, st := range stopTimes {
+				if _, err := stmt.Exec(st.TripID, st.StopID, st.OffsetArrivalTime, st.StopSequence, st.StopHeadsign, st.RouteShortName, st.StopLat, st.StopLon); err != nil {
+					return fmt.Errorf("error inserting stop time: %w", err)
+				}
+			}
+			return nil
+		})
 }
 
 type APIStopTimeFilter struct {
@@ -194,11 +152,10 @@ type APIStopTimeFilter struct {
 
 func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
 	opts := CacheOpts[[]models.RequestStopTime]{}
-
 	if filter.TripID != nil {
 		f := filter
 		opts.PostProcess = func(ts []models.RequestStopTime) []models.RequestStopTime {
-			var out []models.RequestStopTime
+			out := make([]models.RequestStopTime, 0)
 			for _, t := range ts {
 				if f.TripID != nil && t.TripID != *f.TripID {
 					continue
@@ -208,85 +165,41 @@ func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, 
 			return out
 		}
 	}
-
 	return HandleCached(APIStopTimesCacheId, cacheShelfLife,
 		func() ([]models.RequestStopTime, error) { return getAPIStopTimesFromDB(filter) },
-		func() ([]models.RequestStopTime, error) { return requestAPIStopTimes(tranzyClient) },
+		func() ([]models.RequestStopTime, error) {
+			return tranzyFetch[[]models.RequestStopTime](tranzyClient, "/stop_times")
+		},
 		storeAPIStopTimesInDB,
 		opts,
 	)
 }
 
-func requestAPIStopTimes(tranzyClient *tranzy.Client) ([]models.RequestStopTime, error) {
-	data, err := tranzyClient.DoRequest("/stop_times", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var raw []models.RequestStopTime
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal api stop times: %w", err)
-	}
-
-	return raw, nil
-}
-
 func getAPIStopTimesFromDB(filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
-	query := `SELECT * FROM api_stop_times`
-	var args []any
 	var conditions []string
-
+	var args []any
 	if filter.TripID != nil {
 		conditions = append(conditions, "trip_id = ?")
 		args = append(args, *filter.TripID)
 	}
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	rows, err := database.DB.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error querying api stop times: %w", err)
-	}
-
-	defer func(rows *sql.Rows) {
-		_ = rows.Close()
-	}(rows)
-
-	var stopTimes []models.RequestStopTime
-	for rows.Next() {
-		var st models.RequestStopTime
-		if err := rows.Scan(&st.TripID, &st.StopID, &st.StopSequence); err != nil {
-			return nil, fmt.Errorf("error scanning api stop time: %w", err)
-		}
-		stopTimes = append(stopTimes, st)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading api stop times: %w", err)
-	}
-
-	return stopTimes, nil
+	return queryRows(`SELECT * FROM api_stop_times`+whereClause(conditions), args,
+		func(rows *sql.Rows) (models.RequestStopTime, error) {
+			var st models.RequestStopTime
+			err := rows.Scan(&st.TripID, &st.StopID, &st.StopSequence)
+			return st, err
+		})
 }
 
 func storeAPIStopTimesInDB(stopTimes []models.RequestStopTime) error {
-	stmt, err := database.DB.Prepare(`
+	return batchExec(`
 		INSERT OR REPLACE INTO api_stop_times (trip_id, stop_id, stop_sequence)
-		VALUES (?, ?, ?)
-	`)
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-
-	defer func(stmt *sql.Stmt) {
-		_ = stmt.Close()
-	}(stmt)
-
-	for _, st := range stopTimes {
-		if _, err := stmt.Exec(st.TripID, st.StopID, st.StopSequence); err != nil {
-			return fmt.Errorf("error inserting api stop time: %w", err)
-		}
-	}
-
-	return nil
+		VALUES (?, ?, ?)`,
+		func(stmt *sql.Stmt) error {
+			for _, st := range stopTimes {
+				if _, err := stmt.Exec(st.TripID, st.StopID, st.StopSequence); err != nil {
+					return fmt.Errorf("error inserting api stop time: %w", err)
+				}
+			}
+			return nil
+		})
 }
