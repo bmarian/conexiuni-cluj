@@ -69,6 +69,11 @@ html[data-hungry] .stop-row-selected { background: #fef9c3 !important; }
 html[data-hungry] .stop-row-nearest  { background: #fef3c7 !important; }
 html[data-hungry] .stop-row-fav      { background: #fef9c3 !important; }
 
+html[data-hungry] .fav-route-chip {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
 html[data-hungry] .all-route-row:hover,
 html[data-hungry] .fav-stop-row:hover,
 html[data-hungry] .fav-route-chip:hover {
@@ -154,12 +159,28 @@ html.dark[data-hungry] .departure-card:hover {
   border-color: #b45309 !important;
   color: #fde68a !important;
 }
+/* Must come AFTER .departure-card rules — same specificity, last wins */
+html.dark[data-hungry] .departure-card-fav {
+  background: #2a1205 !important;
+  border-color: #9a3412 !important;
+  color: #fde68a !important;
+}
+html.dark[data-hungry] .departure-card-fav:hover {
+  background: #3d1a06 !important;
+  border-color: #c2470a !important;
+  color: #fde68a !important;
+}
 
 html.dark[data-hungry] .stop-row-selected,
 html.dark[data-hungry] .stop-row-nearest,
 html.dark[data-hungry] .stop-row-fav {
   background: #2a2006 !important;
   color: #fde68a !important;
+}
+
+html.dark[data-hungry] .fav-route-chip {
+  background: #211a05 !important;
+  border-color: #78350f !important;
 }
 
 html.dark[data-hungry] .all-route-row:hover,

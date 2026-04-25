@@ -4,17 +4,19 @@ import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 import HungryGhostIcon from './HungryGhostIcon.vue'
 
+type Direction = 'ltr' | 'rtl' | 'ttb' | 'btt'
+
 const settings = useSettingsStore()
 const router = useRouter()
 
 const visible = ref(false)
-const ltr = ref(true)
+const direction = ref<Direction>('ltr')
 const hunted = ref(false)
 const drawerWidth = ref(300)
+const drawerHeight = ref(500)
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
-// Hunter mode: colored ghosts fleeing. Hunted mode: gray ghosts chasing.
 const HUNTER_GHOSTS = [
   { color: '#60a5fa', pupilColor: '#1e3a8a' },
   { color: '#818cf8', pupilColor: '#312e81' },
@@ -28,21 +30,39 @@ const HUNTED_GHOSTS = [
 
 const ghosts = computed(() => hunted.value ? HUNTED_GHOSTS : HUNTER_GHOSTS)
 
-// Chomper is first in the row when it's the trailing chaser (hunter+ltr or hunted+rtl)
-const chomperFirst = computed(() => hunted.value !== ltr.value)
+const isVertical = computed(() => direction.value === 'ttb' || direction.value === 'btt')
 
-// Ghosts look toward whoever is behind them (the pursuer)
-const ghostLookRight = computed(() => hunted.value === ltr.value)
+// Chomper is first when it's trailing (chasing from behind).
+// For RTL: first = right = trailing ✓. For all others: first = leading edge = trailing too.
+// Special: RTL reverses visual order, so hunter uses chomperFirst=false there.
+const chomperFirst = computed(() =>
+  direction.value === 'rtl' ? hunted.value : !hunted.value
+)
+
+// Ghost pupils look toward the pursuer (right for RTL-hunter, left for LTR-hunter, fixed for vertical)
+const ghostLookRight = computed(() => {
+  if (isVertical.value) return false
+  return hunted.value === (direction.value === 'ltr')
+})
+
+const chomperRotateClass = computed(() => ({
+  'chase-chomper-flip': direction.value === 'rtl',
+  'chase-chomper-down': direction.value === 'ttb',
+  'chase-chomper-up':  direction.value === 'btt',
+}))
 
 const removeGuard = router.beforeEach((to, from) => {
   if (from.matched.length === 0) return
   if (!settings.easterEggActive) return
 
-  ltr.value = Math.random() > 0.5
+  const dirs: Direction[] = ['ltr', 'rtl', 'ttb', 'btt']
+  direction.value = dirs[Math.floor(Math.random() * dirs.length)]!
   hunted.value = Math.random() < 0.2
 
   const drawerEl = document.querySelector('.app-drawer')
-  drawerWidth.value = drawerEl?.getBoundingClientRect().width ?? 300
+  const rect = drawerEl?.getBoundingClientRect()
+  drawerWidth.value  = rect?.width  ?? 300
+  drawerHeight.value = rect?.height ?? 500
 
   if (timer) clearTimeout(timer)
   visible.value = true
@@ -60,15 +80,12 @@ onUnmounted(() => {
     <div
       v-if="visible"
       class="chase-overlay"
-      :style="{ '--dw': drawerWidth + 'px' }"
+      :style="{ '--dw': drawerWidth + 'px', '--dh': drawerHeight + 'px' }"
       aria-hidden="true"
     >
-      <div class="chase-row" :class="ltr ? 'chase-ltr' : 'chase-rtl'">
+      <div class="chase-row" :class="`chase-${direction}`">
         <template v-if="chomperFirst">
-          <div
-            class="chase-chomper hungry-chomp"
-            :class="{ 'chase-chomper-flip': !ltr }"
-          ></div>
+          <div class="chase-chomper hungry-chomp" :class="chomperRotateClass"></div>
           <HungryGhostIcon
             v-for="(g, i) in ghosts"
             :key="i"
@@ -89,10 +106,7 @@ onUnmounted(() => {
             :pupil-color="g.pupilColor"
             :look-right="ghostLookRight"
           />
-          <div
-            class="chase-chomper hungry-chomp"
-            :class="{ 'chase-chomper-flip': !ltr }"
-          ></div>
+          <div class="chase-chomper hungry-chomp" :class="chomperRotateClass"></div>
         </template>
       </div>
     </div>
@@ -108,22 +122,41 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+/* ── Horizontal ──────────────────────────────────────────────── */
 .chase-row {
   position: absolute;
+  display: flex;
+}
+
+.chase-ltr,
+.chase-rtl {
   top: 42%;
   left: 0;
-  display: flex;
+  flex-direction: row;
   align-items: flex-end;
   gap: 10px;
 }
+.chase-ltr { animation: chase-run-ltr 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.chase-rtl { animation: chase-run-rtl 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
 
-.chase-ltr {
-  animation: chase-run-ltr 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+/* ── Vertical ────────────────────────────────────────────────── */
+.chase-ttb,
+.chase-btt {
+  top: 0;
+  left: calc(50% - 17px);
+  align-items: center;
+  gap: 8px;
 }
-.chase-rtl {
-  animation: chase-run-rtl 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+.chase-ttb {
+  flex-direction: column;
+  animation: chase-run-ttb 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+.chase-btt {
+  flex-direction: column-reverse;
+  animation: chase-run-btt 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
 }
 
+/* ── Characters ──────────────────────────────────────────────── */
 .chase-ghost {
   width: 28px;
   height: 37px;
@@ -141,10 +174,11 @@ onUnmounted(() => {
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
 }
 
-.chase-chomper-flip {
-  transform: scaleX(-1);
-}
+.chase-chomper-flip { transform: scaleX(-1); }
+.chase-chomper-down { transform: rotate(90deg); }
+.chase-chomper-up   { transform: rotate(-90deg); }
 
+/* ── Animations ──────────────────────────────────────────────── */
 @keyframes ghost-bob {
   from { transform: translateY(0); }
   to   { transform: translateY(-6px); }
@@ -154,9 +188,16 @@ onUnmounted(() => {
   from { transform: translateX(-260px); }
   to   { transform: translateX(calc(var(--dw, 300px) + 20px)); }
 }
-
 @keyframes chase-run-rtl {
   from { transform: translateX(calc(var(--dw, 300px) + 20px)); }
   to   { transform: translateX(-260px); }
+}
+@keyframes chase-run-ttb {
+  from { transform: translateY(-260px); }
+  to   { transform: translateY(calc(var(--dh, 500px) + 20px)); }
+}
+@keyframes chase-run-btt {
+  from { transform: translateY(calc(var(--dh, 500px) + 20px)); }
+  to   { transform: translateY(-260px); }
 }
 </style>

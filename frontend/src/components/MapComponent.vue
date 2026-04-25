@@ -160,15 +160,16 @@ const scheduleInvalidateMapSize = () => {
 }
 
 const createCenterControl = (mapValue: L.Map) => {
-  const centerControl = new L.Control({position: 'topleft'})
-  centerControl.onAdd = () => {
+  const control = new L.Control({position: 'topleft'})
+  control.onAdd = () => {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
-    const button = L.DomUtil.create('a', 'flex! items-center justify-center', container)
 
-    button.href = '#'
-    button.title = t('Center')
-    button.setAttribute('role', 'button')
-    button.innerHTML = `
+    // ── Center on user ──
+    const centerBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
+    centerBtn.href = '#'
+    centerBtn.title = t('Center')
+    centerBtn.setAttribute('role', 'button')
+    centerBtn.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
         <circle cx="12" cy="12" r="4"/>
         <path d="M12 2v2"/>
@@ -177,20 +178,38 @@ const createCenterControl = (mapValue: L.Map) => {
         <path d="M22 12h-3"/>
       </svg>
     `
-
-    L.DomEvent.disableClickPropagation(container)
-    L.DomEvent.on(button, 'click', (e) => {
+    L.DomEvent.on(centerBtn, 'click', (e) => {
       e.preventDefault()
       const location = userDot.value?.getLatLng()
       if (!location) return
-
       mapValue.flyTo(location, DEFAULT_ZOOM, {duration: 1})
     })
 
+    // ── Fit all visible routes ──
+    const fitBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
+    fitBtn.href = '#'
+    fitBtn.title = t('fitRoutes')
+    fitBtn.setAttribute('role', 'button')
+    fitBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+        <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+      </svg>
+    `
+    L.DomEvent.on(fitBtn, 'click', (e) => {
+      e.preventDefault()
+      const bounds = shapeLayerGroup.value?.getBounds()
+      if (!bounds || !bounds.isValid()) return
+      mapValue.fitBounds(bounds, {padding: [24, 24], maxZoom: 16, animate: true, duration: 0.8})
+    })
+
+    L.DomEvent.disableClickPropagation(container)
     return container
   }
 
-  return centerControl
+  return control
 }
 
 const createSearchControl = () => {
