@@ -121,6 +121,7 @@ const stopFavoritesModel = computed<number[]>({
 
 <template>
   <div class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
+    <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
     <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
       <h2 class="section-label">
@@ -309,10 +310,27 @@ const stopFavoritesModel = computed<number[]>({
 
 <style scoped>
 .home-view-container {
+  position: relative;
   padding: 1.25rem 1.5rem 0;
   height: 100%;
   overflow-y: auto;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.nav-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #10b981, #06b6d4, #10b981);
+  background-size: 200% 100%;
+  animation: nav-sweep 1.2s linear infinite;
+}
+
+@keyframes nav-sweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .section-label {

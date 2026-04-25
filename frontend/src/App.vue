@@ -9,14 +9,18 @@ import {useOnline} from "@/composables/useOnline"
 const {t} = useI18n()
 const {isOnline} = useOnline()
 
-type DrawerState = 'collapsed' | 'half' | 'expanded'
+type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
+
+const MINIMIZED_PX = 44
 
 const SNAP_FRAC: Record<DrawerState, number> = {
+  minimized: 0,
   collapsed: 0.22,
   half: 0.60,
   expanded: 0.92,
+  fullscreen: 1.0,
 }
-const cycleOrder: DrawerState[] = ['collapsed', 'half', 'expanded']
+const cycleOrder: DrawerState[] = ['minimized', 'half', 'fullscreen']
 
 const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(false)
@@ -26,6 +30,8 @@ const dragHeightPx = ref<number | null>(null)
 
 const drawerStyle = computed(() => {
   if (dragHeightPx.value != null) return { height: `${dragHeightPx.value}px` }
+  if (drawerState.value === 'minimized') return { height: `${MINIMIZED_PX}px` }
+  if (drawerState.value === 'fullscreen') return { height: '100dvh' }
   return { height: `${SNAP_FRAC[drawerState.value] * 100}dvh` }
 })
 
@@ -71,25 +77,36 @@ function onPointerMove(e: PointerEvent) {
   const dy = e.clientY - startY
   if (Math.abs(dy) > 3) moved = true
   const vh = viewportPx()
-  const min = SNAP_FRAC.collapsed * vh
-  const max = SNAP_FRAC.expanded * vh
-  dragHeightPx.value = Math.max(min, Math.min(max, startHeight - dy))
+  dragHeightPx.value = Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))
 }
 
 function endDrag() {
   if (!isDragging.value) return
   const vh = viewportPx()
   const height = dragHeightPx.value ?? startHeight
-  const frac = height / vh
+
+  const allStates: DrawerState[] = ['minimized', 'collapsed', 'half', 'expanded', 'fullscreen']
+  const snapHeights: Record<DrawerState, number> = {
+    minimized: MINIMIZED_PX,
+    collapsed: SNAP_FRAC.collapsed * vh,
+    half: SNAP_FRAC.half * vh,
+    expanded: SNAP_FRAC.expanded * vh,
+    fullscreen: vh,
+  }
+
   let best: DrawerState = 'half'
   let bestDist = Infinity
-  for (const s of cycleOrder) {
-    const d = Math.abs(SNAP_FRAC[s] - frac)
+  for (const s of allStates) {
+    const d = Math.abs(snapHeights[s] - height)
     if (d < bestDist) { bestDist = d; best = s }
   }
   if (!moved) {
-    const i = cycleOrder.indexOf(drawerState.value)
-    best = cycleOrder[(i + 1) % cycleOrder.length]!
+    if (cycleOrder.includes(drawerState.value)) {
+      const i = cycleOrder.indexOf(drawerState.value)
+      best = cycleOrder[(i + 1) % cycleOrder.length]!
+    } else {
+      best = drawerState.value === 'collapsed' ? 'half' : 'fullscreen'
+    }
   }
   drawerState.value = best
   isDragging.value = false
@@ -245,6 +262,7 @@ function toggleLandscapeDrawer() {
   border-top-right-radius: 1.25rem;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   transition: height 250ms cubic-bezier(0.32, 0.72, 0, 1);
   padding-bottom: env(safe-area-inset-bottom);
 }

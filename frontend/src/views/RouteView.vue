@@ -362,7 +362,7 @@ async function refreshVehiclesFromStream() {
 watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
 watch(currentDirection, () => { updateMap() })
 
-const isInitialLoading = ref(false)
+const isInitialLoading = ref(!shapeInfo.value || shapeInfo.value.route_id !== Number(props.routeId))
 
 function goBack() {
   if (fromStopId.value) {
