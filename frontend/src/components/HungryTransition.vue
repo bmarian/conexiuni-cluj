@@ -66,7 +66,7 @@ const removeGuard = router.beforeEach((to, from) => {
 
   if (timer) clearTimeout(timer)
   visible.value = true
-  timer = setTimeout(() => { visible.value = false }, 950)
+  timer = setTimeout(() => { visible.value = false }, 1850)
 })
 
 onUnmounted(() => {
@@ -136,8 +136,8 @@ onUnmounted(() => {
   align-items: flex-end;
   gap: 10px;
 }
-.chase-ltr { animation: chase-run-ltr 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
-.chase-rtl { animation: chase-run-rtl 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.chase-ltr { animation: chase-run-ltr 1.8s linear forwards; }
+.chase-rtl { animation: chase-run-rtl 1.8s linear forwards; }
 
 /* ── Vertical ────────────────────────────────────────────────── */
 .chase-ttb,
@@ -149,11 +149,11 @@ onUnmounted(() => {
 }
 .chase-ttb {
   flex-direction: column;
-  animation: chase-run-ttb 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+  animation: chase-run-ttb 1.8s linear forwards;
 }
 .chase-btt {
   flex-direction: column-reverse;
-  animation: chase-run-btt 0.9s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+  animation: chase-run-btt 1.8s linear forwards;
 }
 
 /* ── Characters ──────────────────────────────────────────────── */
@@ -162,7 +162,7 @@ onUnmounted(() => {
   height: 37px;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.22));
-  animation: ghost-bob 0.24s ease-in-out calc(var(--gi, 0) * 0.08s) infinite alternate;
+  animation: ghost-bob 0.4s ease-in-out calc(var(--gi, 0) * 0.13s) infinite alternate;
 }
 
 .chase-chomper {

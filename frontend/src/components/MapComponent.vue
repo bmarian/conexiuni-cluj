@@ -13,11 +13,13 @@ import {useI18n} from "vue-i18n";
 import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
+import {useFavoritesStore} from "@/stores/favorites.ts";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
 const settingsStore = useSettingsStore()
+const favoritesStore = useFavoritesStore()
 const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedStops} = storeToRefs(mapStore)
 const {easterEggActive} = storeToRefs(settingsStore)
 const router = useRouter()
@@ -79,6 +81,30 @@ const stopIcon = L.divIcon({
   popupAnchor: [0, -12]
 })
 
+const makeStopIcon = (stopId: string) => {
+  if (easterEggActive.value) {
+    const isFav = favoritesStore.isStopFavorite(parseInt(stopId))
+    const body = isFav ? '#f43f5e' : '#94a3b8'
+    const pupil = isFav ? '#881337' : '#334155'
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:20px;height:26px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 12 16" width="18" height="24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${body}"/>
+          <circle cx="3.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="7.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="4.2" cy="8.4" r="0.7" fill="${pupil}"/>
+          <circle cx="8.2" cy="8.4" r="0.7" fill="${pupil}"/>
+        </svg>
+      </div>`,
+      iconSize: [20, 26],
+      iconAnchor: [10, 24],
+      popupAnchor: [0, -24]
+    })
+  }
+  return stopIcon
+}
+
 const makeSelectedStopIcon = () => {
   if (easterEggActive.value) {
     return L.divIcon({
@@ -111,7 +137,7 @@ const makeSelectedStopIcon = () => {
 const highlightSelectedStop = (stopId?: string) => {
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
     const oldMarker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    oldMarker.setIcon(stopIcon)
+    oldMarker.setIcon(makeStopIcon(currentlyHighlightedStopId.value))
     oldMarker.setZIndexOffset(0)
     if (map.value && map.value.hasLayer(oldMarker)) map.value.removeLayer(oldMarker)
     if (stopGroup.value && !stopGroup.value.hasLayer(oldMarker)) stopGroup.value.addLayer(oldMarker)
@@ -301,7 +327,7 @@ const stopsInit = async () => {
   for (let i = 0; i < stops.length; i++) {
     const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
 
-    const marker = L.marker([stop_lat, stop_lon], {icon: stopIcon})
+    const marker = L.marker([stop_lat, stop_lon], {icon: makeStopIcon(stop_id.toString())})
     marker.bindTooltip(stop_name, {
       direction: 'top',
       offset: [0, -14],
@@ -398,6 +424,10 @@ watch(() => route.params.stopId, (newId) => {
 
 watch(easterEggActive, (active) => {
   mapContainer.value?.classList.toggle('hungry-theme', active)
+  stopMarkers.forEach((marker, id) => {
+    if (id === currentlyHighlightedStopId.value) return
+    marker.setIcon(makeStopIcon(id))
+  })
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
     const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
     marker.setIcon(makeSelectedStopIcon())
