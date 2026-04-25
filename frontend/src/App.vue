@@ -302,6 +302,7 @@ function toggleLandscapeDrawer() {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  touch-action: pan-y;
 }
 
 .drawer-view {
@@ -309,6 +310,7 @@ function toggleLandscapeDrawer() {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
