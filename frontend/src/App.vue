@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import {computed, nextTick, ref, watch} from "vue"
+import {computed, nextTick, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
+import {useRouter} from "vue-router"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import {useOnline} from "@/composables/useOnline"
+import {useSettingsStore} from "@/stores/settings"
 
 const {t} = useI18n()
 const {isOnline} = useOnline()
@@ -127,6 +129,25 @@ function onPointerUp(e: PointerEvent) {
 function toggleLandscapeDrawer() {
   isLandscapeDrawerOpen.value = !isLandscapeDrawerOpen.value
 }
+
+const settings = useSettingsStore()
+const router = useRouter()
+
+const isHungryTransitioning = ref(false)
+let transitionTimer: ReturnType<typeof setTimeout> | null = null
+
+const removeHungryGuard = router.beforeEach((to, from) => {
+  if (from.matched.length === 0) return
+  if (!settings.easterEggActive) return
+  if (transitionTimer) clearTimeout(transitionTimer)
+  isHungryTransitioning.value = true
+  transitionTimer = setTimeout(() => { isHungryTransitioning.value = false }, 1500)
+})
+
+onUnmounted(() => {
+  removeHungryGuard()
+  if (transitionTimer) clearTimeout(transitionTimer)
+})
 </script>
 
 <template>
@@ -186,6 +207,35 @@ function toggleLandscapeDrawer() {
       </div>
     </aside>
   </main>
+  <Teleport to="body">
+    <div v-if="isHungryTransitioning" class="hungry-chase-overlay" aria-hidden="true">
+      <div class="hungry-chase-row">
+        <div class="hungry-chase-chomper pacman-eat"></div>
+
+        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:0">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#60a5fa"/>
+          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="4.1" cy="7.5" r="0.65" fill="#1e3a8a"/>
+          <circle cx="9.1" cy="7.5" r="0.65" fill="#1e3a8a"/>
+        </svg>
+        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:1">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#818cf8"/>
+          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="4.1" cy="7.5" r="0.65" fill="#312e81"/>
+          <circle cx="9.1" cy="7.5" r="0.65" fill="#312e81"/>
+        </svg>
+        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:2">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#a78bfa"/>
+          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
+          <circle cx="4.1" cy="7.5" r="0.65" fill="#4c1d95"/>
+          <circle cx="9.1" cy="7.5" r="0.65" fill="#4c1d95"/>
+        </svg>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -607,4 +657,45 @@ html.dark[data-hungry] .landscape-drawer-toggle:hover {
 }
 
 /* Leaflet controls are themed in src/styles/leaflet.css (hungry-theme section) */
+
+/* ── Page transition chase ── */
+.hungry-chase-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hungry-chase-row {
+  position: absolute;
+  top: 44%;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  animation: hungry-chase-run 1.5s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+.hungry-chase-ghost {
+  width: 30px;
+  height: 40px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+  animation: ghost-wobble 0.22s ease-in-out calc(var(--d) * 0.07s) infinite alternate;
+}
+.hungry-chase-chomper {
+  width: 34px;
+  height: 34px;
+  background: #facc15;
+  border-radius: 50%;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
+  animation: pacman-eat 0.18s linear infinite;
+}
+@keyframes ghost-wobble {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-5px); }
+}
+@keyframes hungry-chase-run {
+  from { transform: translateX(-260px); }
+  to   { transform: translateX(100vw); }
+}
 </style>
