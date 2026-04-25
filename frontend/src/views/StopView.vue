@@ -318,6 +318,16 @@ const goBack = () => {
   router.replace({name: 'home'})
 }
 
+function routeDestination(name: string): string {
+  const i = name.lastIndexOf(' - ')
+  return i >= 0 ? name.slice(i + 3) : name
+}
+
+function routeOrigin(name: string): string {
+  const i = name.lastIndexOf(' - ')
+  return i >= 0 ? name.slice(0, i) : ''
+}
+
 const navigateToRoute = (shape: VehiclesInStop) => {
   const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
@@ -395,7 +405,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
-          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.18em]">{{ t('busStop') }}</span>
+          <span class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide">{{ t('busStop') }}</span>
           <span v-if="stopInfo?.stop_code" class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{ stopInfo.stop_code }}</span>
         </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
@@ -461,13 +471,9 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   {{ t('live') }}
                 </span>
-                <span v-else class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  {{ t('scheduledApprox') }}
-                </span>
+                <span class="card-dest">→ {{ routeDestination(shape.route_long_name) }}</span>
               </div>
-              <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate leading-tight">
-                {{ shape.route_long_name }}
-              </span>
+              <span class="card-origin">{{ routeOrigin(shape.route_long_name) }}</span>
             </div>
 
             <div class="flex items-center gap-1 shrink-0">
@@ -538,10 +544,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #64748b;
   margin-bottom: 0.875rem;
 }
@@ -622,6 +626,25 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
 .all-route-row-fav { background: #fff1f2; }
 .all-route-row-fav:hover { background: #ffe4e6 !important; }
+
+.card-dest {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.card-origin {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .fav-btn {
   display: flex;

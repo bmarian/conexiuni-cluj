@@ -10,7 +10,7 @@
   "stops": "Stops",
   "noSchedule": "No schedule data for this direction.",
   "timetable": "Timetable",
-  "timetableClickHint": "tap a time to see trip",
+  "timetableClickHint": "tap a time for details",
   "weekdays": "Mon–Fri",
   "saturday": "Saturday",
   "sunday": "Sunday",

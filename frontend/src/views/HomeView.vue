@@ -148,6 +148,7 @@ const stopFavoritesModel = computed<number[]>({
               v-if="routesById.get(routeId)"
               class="fav-route-chip group"
               :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === routeId }"
+              :style="{ '--chip-color': routesById.get(routeId)?.route_color }"
               @click="navigateToRoute(routesById.get(routeId)!)"
               @keydown.enter.space.prevent="navigateToRoute(routesById.get(routeId)!)"
               role="button"
@@ -337,18 +338,14 @@ const stopFavoritesModel = computed<number[]>({
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #64748b;
 }
 
 .sub-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
+  font-size: 0.7rem;
+  font-weight: 600;
   color: #94a3b8;
 }
 
@@ -361,6 +358,7 @@ const stopFavoritesModel = computed<number[]>({
 .fav-route-chip {
   container-type: inline-size;
   container-name: fav-chip;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -375,12 +373,23 @@ const stopFavoritesModel = computed<number[]>({
   text-align: left;
   user-select: none;
 }
+.fav-route-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0.75rem;
+  background: var(--chip-color, transparent);
+  opacity: 0.09;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
 .fav-route-chip:active { cursor: grabbing; }
 .fav-route-chip:hover {
   background: white;
   border-color: #e2e8f0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+.fav-route-chip:hover::before { opacity: 0.13; }
 
 .fav-route-badge {
   display: flex;

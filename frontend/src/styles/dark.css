@@ -57,6 +57,9 @@ html.dark .search-input { color: #f1f5f9; }
 html.dark .search-input::placeholder { color: #64748b; }
 
 /* ── StopView ─────────────────────────────────────────────────── */
+html.dark .card-dest  { color: #e2e8f0; }
+html.dark .card-origin { color: #475569; }
+
 html.dark .departure-card {
   border-color: rgb(51 65 85 / 0.5);
   background: rgb(30 41 59 / 0.6);
@@ -91,13 +94,10 @@ html.dark .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important
 /* ── RouteView ────────────────────────────────────────────────── */
 html.dark .section-label-text { color: #94a3b8; }
 
-html.dark .dir-btn-active   { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
-html.dark .dir-btn-inactive { color: #94a3b8; border-color: #334155; }
-html.dark .dir-btn-inactive:hover:not(:disabled) {
-  background: rgb(30 41 59 / 0.6);
-  color: #e2e8f0;
-  border-color: #475569;
-}
+html.dark .direction-toggle-wrap { background: #1e293b; }
+html.dark .dir-btn-active   { background: #334155; color: #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+html.dark .dir-btn-inactive { color: #64748b; }
+html.dark .dir-btn-inactive:hover:not(:disabled) { color: #94a3b8; }
 
 html.dark .time-cell-live { color: #34d399; }
 

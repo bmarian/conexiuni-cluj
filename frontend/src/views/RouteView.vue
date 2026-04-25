@@ -462,7 +462,7 @@ onUnmounted(() => {
         <span class="text-2xl font-black text-white leading-none">{{ shapeInfo.route_short_name }}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] mb-0.5">{{ t('route') }}</div>
+        <div class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">{{ t('route') }}</div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
           {{ timetable?.route_long_name || shapeInfo.route_short_name }}
         </h1>
@@ -680,14 +680,19 @@ onUnmounted(() => {
 }
 
 .section-label-text {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #64748b;
   white-space: nowrap;
 }
-.direction-toggle-wrap { display: flex; gap: 0.5rem; margin: 1rem 0 1.5rem; }
+.direction-toggle-wrap {
+  display: flex;
+  gap: 0;
+  margin: 1rem 0 1.5rem;
+  background: #f1f5f9;
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+}
 
 .dir-btn {
   flex: 1;
@@ -695,19 +700,23 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.625rem;
   font-size: 0.75rem;
   font-weight: 700;
-  border: 1.5px solid transparent;
-  transition: all 0.15s;
+  border: none;
   overflow: hidden;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.dir-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.dir-btn-active   { background: #0f172a; color: white; border-color: #0f172a; }
-.dir-btn-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
-.dir-btn-inactive:hover:not(:disabled) { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+.dir-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dir-btn-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+}
+.dir-btn-inactive { background: transparent; color: #64748b; }
+.dir-btn-inactive:hover:not(:disabled) { color: #334155; }
 
 .stops-header { display: flex; align-items: center; margin-bottom: 0.875rem; }
 
