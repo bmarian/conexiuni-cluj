@@ -19,15 +19,13 @@
   border-top-color: #ffffff !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  .stop-name-tooltip {
-    background-color: #1e293b !important;
-    color: #f1f5f9 !important;
-    box-shadow: 0 4px 12px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
-  }
-  .stop-name-tooltip::before {
-    border-top-color: #1e293b !important;
-  }
+:root.dark .stop-name-tooltip {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 4px 12px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
+}
+:root.dark .stop-name-tooltip::before {
+  border-top-color: #1e293b !important;
 }
 
 /* ── Container bar ─────────────────────────────────────────────── */
@@ -206,55 +204,53 @@
 .leaflet-control-attribution a { color: #64748b !important; }
 
 /* ════════════════════════════════════════════════════════════════════
-   Dark mode overrides
+   Dark mode overrides (.dark class on <html> controlled by settings store)
    ════════════════════════════════════════════════════════════════════ */
-@media (prefers-color-scheme: dark) {
-  .map-container { background-color: #090909; }
+:root.dark .map-container { background-color: #090909; }
 
-  .leaflet-bar {
-    box-shadow: 0 4px 16px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
-  }
-
-  .leaflet-bar a,
-  .leaflet-bar a:visited {
-    background-color: #0f172a !important;
-    color: #f1f5f9 !important;
-  }
-  .leaflet-bar a:hover { background-color: #1e293b !important; color: #f8fafc !important; }
-  .leaflet-bar a:not(:last-child) { border-bottom-color: rgba(255,255,255,0.08) !important; }
-  .leaflet-bar a.leaflet-disabled,
-  .leaflet-bar a.leaflet-disabled:hover { background-color: #0f172a !important; color: #475569 !important; }
-
-  .leaflet-control-geosearch a.leaflet-bar-part { background-color: #0f172a !important; }
-  .leaflet-control-geosearch a.leaflet-bar-part:hover { background-color: #1e293b !important; }
-  .leaflet-control-geosearch a.leaflet-bar-part::before { border-top-color: #f1f5f9 !important; }
-  .leaflet-control-geosearch a.leaflet-bar-part::after  { border-color: #f1f5f9 !important; }
-
-  .leaflet-control-geosearch form {
-    background-color: #0f172a !important;
-    box-shadow: 0 4px 16px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
-  }
-  .leaflet-control-geosearch form input { color: #f1f5f9 !important; }
-  .leaflet-control-geosearch form input::placeholder { color: #475569 !important; }
-  .leaflet-control-geosearch button.reset { color: #475569 !important; }
-  .leaflet-control-geosearch button.reset:hover { color: #f1f5f9 !important; }
-
-  .leaflet-control-geosearch .results.active {
-    background-color: #0f172a !important;
-    box-shadow: 0 8px 20px -4px rgba(0,0,0,0.50) !important;
-  }
-  .leaflet-control-geosearch .results > * {
-    color: #f1f5f9 !important;
-    border-bottom-color: rgba(255,255,255,0.06) !important;
-  }
-  .leaflet-control-geosearch .results > *:hover,
-  .leaflet-control-geosearch .results > .active { background-color: #1e293b !important; }
-
-  .leaflet-popup-content-wrapper { background-color: #0f172a !important; color: #f1f5f9 !important; box-shadow: 0 10px 30px -4px rgba(0,0,0,0.50) !important; }
-  .leaflet-popup-tip { background-color: #0f172a !important; }
-  .leaflet-popup-close-button { color: #64748b !important; }
-  .leaflet-popup-close-button:hover { color: #f1f5f9 !important; }
-
-  .leaflet-control-attribution { color: #475569 !important; }
-  .leaflet-control-attribution a { color: #64748b !important; }
+:root.dark .leaflet-bar {
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
 }
+
+:root.dark .leaflet-bar a,
+:root.dark .leaflet-bar a:visited {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+:root.dark .leaflet-bar a:hover { background-color: #1e293b !important; color: #f8fafc !important; }
+:root.dark .leaflet-bar a:not(:last-child) { border-bottom-color: rgba(255,255,255,0.08) !important; }
+:root.dark .leaflet-bar a.leaflet-disabled,
+:root.dark .leaflet-bar a.leaflet-disabled:hover { background-color: #0f172a !important; color: #475569 !important; }
+
+:root.dark .leaflet-control-geosearch a.leaflet-bar-part { background-color: #0f172a !important; }
+:root.dark .leaflet-control-geosearch a.leaflet-bar-part:hover { background-color: #1e293b !important; }
+:root.dark .leaflet-control-geosearch a.leaflet-bar-part::before { border-top-color: #f1f5f9 !important; }
+:root.dark .leaflet-control-geosearch a.leaflet-bar-part::after  { border-color: #f1f5f9 !important; }
+
+:root.dark .leaflet-control-geosearch form {
+  background-color: #0f172a !important;
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.24) !important;
+}
+:root.dark .leaflet-control-geosearch form input { color: #f1f5f9 !important; }
+:root.dark .leaflet-control-geosearch form input::placeholder { color: #475569 !important; }
+:root.dark .leaflet-control-geosearch button.reset { color: #475569 !important; }
+:root.dark .leaflet-control-geosearch button.reset:hover { color: #f1f5f9 !important; }
+
+:root.dark .leaflet-control-geosearch .results.active {
+  background-color: #0f172a !important;
+  box-shadow: 0 8px 20px -4px rgba(0,0,0,0.50) !important;
+}
+:root.dark .leaflet-control-geosearch .results > * {
+  color: #f1f5f9 !important;
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+}
+:root.dark .leaflet-control-geosearch .results > *:hover,
+:root.dark .leaflet-control-geosearch .results > .active { background-color: #1e293b !important; }
+
+:root.dark .leaflet-popup-content-wrapper { background-color: #0f172a !important; color: #f1f5f9 !important; box-shadow: 0 10px 30px -4px rgba(0,0,0,0.50) !important; }
+:root.dark .leaflet-popup-tip { background-color: #0f172a !important; }
+:root.dark .leaflet-popup-close-button { color: #64748b !important; }
+:root.dark .leaflet-popup-close-button:hover { color: #f1f5f9 !important; }
+
+:root.dark .leaflet-control-attribution { color: #475569 !important; }
+:root.dark .leaflet-control-attribution a { color: #64748b !important; }

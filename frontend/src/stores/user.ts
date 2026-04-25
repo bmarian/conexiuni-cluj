@@ -1,6 +1,7 @@
-import {ref} from 'vue'
+import {ref, computed} from 'vue'
 import {defineStore} from 'pinia'
 import type {UserLocation} from "@/types/tranzy.ts"
+import {useSettingsStore} from './settings'
 
 export const useUserStore = defineStore('user', () => {
   const userLocation = ref<UserLocation | null>(null)
@@ -28,14 +29,8 @@ export const useUserStore = defineStore('user', () => {
     }, 10000)
   }
 
-  const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  const isDarkMode = ref(darkModeMediaQuery.matches)
+  const isDarkMode = computed(() => useSettingsStore().isDark)
 
-  const startSchemeWatcher = () => {
-    darkModeMediaQuery.addEventListener('change', (event) => {
-      isDarkMode.value = event.matches
-    })
-  }
   return {
     userLocation,
     hasLocationPermission,
@@ -46,7 +41,6 @@ export const useUserStore = defineStore('user', () => {
     clearUserLocation,
     setHasLocationPermission,
     startTimeTracker,
-    startSchemeWatcher,
 
     positionWatchId,
     timerIntervalId,

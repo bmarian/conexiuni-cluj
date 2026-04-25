@@ -2,6 +2,7 @@
 import {computed, nextTick, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
+import SettingsButton from "@/components/SettingsButton.vue"
 import {useOnline} from "@/composables/useOnline"
 
 const {t} = useI18n()
@@ -124,6 +125,7 @@ function toggleLandscapeDrawer() {
       <span>{{ t('offlineShort') }}</span>
     </div>
     <MapComponent class="app-map" />
+    <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
     <button
       type="button"
       class="landscape-drawer-toggle"
@@ -231,18 +233,6 @@ function toggleLandscapeDrawer() {
   width: 1rem;
   height: 1rem;
 }
-@media (prefers-color-scheme: dark) {
-  .landscape-drawer-toggle {
-    background: #0f172a;
-    color: #f1f5f9;
-    box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.24);
-  }
-  .landscape-drawer-toggle:hover {
-    background: #1e293b;
-    color: #f8fafc;
-  }
-}
-
 .app-drawer {
   position: relative;
   flex-shrink: 0;
@@ -280,10 +270,6 @@ function toggleLandscapeDrawer() {
   border-radius: 9999px;
   background: #cbd5e1;
 }
-@media (prefers-color-scheme: dark) {
-  .drawer-grip { background: #475569; }
-}
-
 .drawer-scroll {
   flex: 1 1 auto;
   min-height: 0;

@@ -546,10 +546,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   margin-bottom: 0.875rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  .section-label { color: #94a3b8; }
-}
-
 .departure-card {
   display: flex;
   align-items: center;
@@ -568,17 +564,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
-@media (prefers-color-scheme: dark) {
-  .departure-card {
-    border-color: rgb(51 65 85 / 0.5);
-    background: rgb(30 41 59 / 0.6);
-  }
-  .departure-card:hover {
-    background: rgb(30 41 59 / 0.9);
-    border-color: rgb(51 65 85 / 0.8);
-  }
-}
-
 .live-badge {
   display: inline-flex;
   align-items: center;
@@ -592,14 +577,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   border: 1px solid #a7f3d0;
   padding: 0.125rem 0.375rem;
   border-radius: 9999px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .live-badge {
-    color: #34d399;
-    background: rgb(16 185 129 / 0.1);
-    border-color: rgb(16 185 129 / 0.3);
-  }
 }
 
 .time-pill {
@@ -621,13 +598,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   color: #475569;
 }
 
-@media (prefers-color-scheme: dark) {
-  .time-pill-sched {
-    background: rgb(51 65 85 / 0.7);
-    color: #cbd5e1;
-  }
-}
-
 .all-route-row {
   display: flex;
   align-items: center;
@@ -641,10 +611,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
 .all-route-row:hover { background: #f8fafc; }
 
-@media (prefers-color-scheme: dark) {
-  .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
-}
-
 .departure-card-fav {
   background: #fff1f2;
   border-color: #fecdd3;
@@ -656,19 +622,6 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
 .all-route-row-fav { background: #fff1f2; }
 .all-route-row-fav:hover { background: #ffe4e6 !important; }
-
-@media (prefers-color-scheme: dark) {
-  .departure-card-fav {
-    background: rgb(244 63 94 / 0.08);
-    border-color: rgb(244 63 94 / 0.25);
-  }
-  .departure-card-fav:hover {
-    background: rgb(244 63 94 / 0.14);
-    border-color: rgb(244 63 94 / 0.35);
-  }
-  .all-route-row-fav { background: rgb(244 63 94 / 0.06); }
-  .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important; }
-}
 
 .fav-btn {
   display: flex;
@@ -690,13 +643,4 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 .fav-btn.is-fav { color: #f43f5e; }
 .fav-btn.is-fav:hover { background: #fee2e2; }
 
-@media (prefers-color-scheme: dark) {
-  .fav-btn { color: #64748b; }
-  .fav-btn:hover {
-    background: rgb(244 63 94 / 0.12);
-    color: #fb7185;
-  }
-  .fav-btn.is-fav { color: #fb7185; }
-  .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
-}
 </style>

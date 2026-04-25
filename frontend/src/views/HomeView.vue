@@ -340,11 +340,6 @@ const stopFavoritesModel = computed<number[]>({
   gap: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  .section-label { color: #94a3b8; }
-  .sub-label { color: #64748b; }
-}
-
 .fav-route-chip {
   container-type: inline-size;
   container-name: fav-chip;
@@ -394,18 +389,6 @@ const stopFavoritesModel = computed<number[]>({
   text-overflow: ellipsis;
 }
 
-@media (prefers-color-scheme: dark) {
-  .fav-route-chip {
-    border-color: rgb(51 65 85 / 0.5);
-    background: rgb(30 41 59 / 0.6);
-  }
-  .fav-route-chip:hover {
-    background: rgb(30 41 59 / 0.9);
-    border-color: rgb(51 65 85 / 0.8);
-  }
-  .fav-route-name { color: #cbd5e1; }
-}
-
 @container fav-chip (max-width: 9rem) {
   .fav-route-name { display: none; }
   .fav-route-badge { margin-right: auto; }
@@ -427,14 +410,6 @@ const stopFavoritesModel = computed<number[]>({
   background: #fee2e2;
   color: #dc2626;
 }
-@media (prefers-color-scheme: dark) {
-  .fav-remove { color: #64748b; }
-  .fav-remove:hover {
-    background: rgb(220 38 38 / 0.15);
-    color: #f87171;
-  }
-}
-
 .fav-stop-row {
   display: flex;
   align-items: center;
@@ -447,10 +422,6 @@ const stopFavoritesModel = computed<number[]>({
   user-select: none;
 }
 .fav-stop-row:hover { background: #f8fafc; }
-
-@media (prefers-color-scheme: dark) {
-  .fav-stop-row:hover { background: rgb(30 41 59 / 0.5); }
-}
 
 .fav-stop-remove {
   display: flex;
@@ -469,13 +440,6 @@ const stopFavoritesModel = computed<number[]>({
 .fav-stop-remove:hover {
   background: #fee2e2;
   color: #dc2626;
-}
-@media (prefers-color-scheme: dark) {
-  .fav-stop-remove { color: #64748b; }
-  .fav-stop-remove:hover {
-    background: rgb(220 38 38 / 0.15);
-    color: #f87171;
-  }
 }
 @media (hover: none) {
   .fav-stop-remove { opacity: 1; }
@@ -521,19 +485,6 @@ const stopFavoritesModel = computed<number[]>({
   appearance: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .search-wrap {
-    background: rgb(30 41 59 / 0.6);
-    border-color: rgb(51 65 85 / 0.7);
-  }
-  .search-wrap:focus-within {
-    background: rgb(30 41 59 / 0.9);
-    border-color: #475569;
-  }
-  .search-input { color: #f1f5f9; }
-  .search-input::placeholder { color: #64748b; }
-}
-
 .all-route-row {
   display: flex;
   align-items: center;
@@ -545,7 +496,4 @@ const stopFavoritesModel = computed<number[]>({
   margin: 0 -0.25rem;
 }
 .all-route-row:hover { background: #f8fafc; }
-@media (prefers-color-scheme: dark) {
-  .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
-}
 </style>

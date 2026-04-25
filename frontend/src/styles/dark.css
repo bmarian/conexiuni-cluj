@@ -1,0 +1,120 @@
+/* ================================================================
+   App-wide dark mode overrides — driven by html.dark set by
+   settings store. All selectors use html.dark to get specificity
+   (0,2,1) which beats every scoped base rule (0,2,0).
+   ================================================================ */
+
+/* ── App shell ────────────────────────────────────────────────── */
+html.dark .landscape-drawer-toggle {
+  background: #0f172a;
+  color: #f1f5f9;
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.24);
+}
+html.dark .landscape-drawer-toggle:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+html.dark .drawer-grip { background: #475569; }
+
+/* ── Shared across views ──────────────────────────────────────── */
+html.dark .section-label { color: #94a3b8; }
+html.dark .sub-label { color: #64748b; }
+html.dark .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
+
+html.dark .fav-btn { color: #64748b; }
+html.dark .fav-btn:hover { background: rgb(244 63 94 / 0.12); color: #fb7185; }
+html.dark .fav-btn.is-fav { color: #fb7185; }
+html.dark .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
+
+/* ── HomeView ─────────────────────────────────────────────────── */
+html.dark .fav-route-chip {
+  border-color: rgb(51 65 85 / 0.5);
+  background: rgb(30 41 59 / 0.6);
+}
+html.dark .fav-route-chip:hover {
+  background: rgb(30 41 59 / 0.9);
+  border-color: rgb(51 65 85 / 0.8);
+}
+html.dark .fav-route-name { color: #cbd5e1; }
+
+html.dark .fav-remove { color: #64748b; }
+html.dark .fav-remove:hover { background: rgb(220 38 38 / 0.15); color: #f87171; }
+
+html.dark .fav-stop-row:hover { background: rgb(30 41 59 / 0.5); }
+
+html.dark .fav-stop-remove { color: #64748b; }
+html.dark .fav-stop-remove:hover { background: rgb(220 38 38 / 0.15); color: #f87171; }
+
+html.dark .search-wrap {
+  background: rgb(30 41 59 / 0.6);
+  border-color: rgb(51 65 85 / 0.7);
+}
+html.dark .search-wrap:focus-within {
+  background: rgb(30 41 59 / 0.9);
+  border-color: #475569;
+}
+html.dark .search-input { color: #f1f5f9; }
+html.dark .search-input::placeholder { color: #64748b; }
+
+/* ── StopView ─────────────────────────────────────────────────── */
+html.dark .departure-card {
+  border-color: rgb(51 65 85 / 0.5);
+  background: rgb(30 41 59 / 0.6);
+}
+html.dark .departure-card:hover {
+  background: rgb(30 41 59 / 0.9);
+  border-color: rgb(51 65 85 / 0.8);
+}
+
+html.dark .live-badge {
+  color: #34d399;
+  background: rgb(16 185 129 / 0.1);
+  border-color: rgb(16 185 129 / 0.3);
+}
+
+html.dark .time-pill-sched {
+  background: rgb(51 65 85 / 0.7);
+  color: #cbd5e1;
+}
+
+html.dark .departure-card-fav {
+  background: rgb(244 63 94 / 0.08);
+  border-color: rgb(244 63 94 / 0.25);
+}
+html.dark .departure-card-fav:hover {
+  background: rgb(244 63 94 / 0.14);
+  border-color: rgb(244 63 94 / 0.35);
+}
+html.dark .all-route-row-fav { background: rgb(244 63 94 / 0.06); }
+html.dark .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important; }
+
+/* ── RouteView ────────────────────────────────────────────────── */
+html.dark .section-label-text { color: #94a3b8; }
+
+html.dark .dir-btn-active   { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+html.dark .dir-btn-inactive { color: #94a3b8; border-color: #334155; }
+html.dark .dir-btn-inactive:hover:not(:disabled) {
+  background: rgb(30 41 59 / 0.6);
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+html.dark .time-cell-live { color: #34d399; }
+
+html.dark .stop-row-selected { background: rgb(16 185 129 / 0.08); }
+html.dark .stop-row-nearest  { background: rgb(168 85 247 / 0.08); }
+html.dark .stop-row-fav      { background: rgb(244 63 94 / 0.06); }
+
+html.dark .tt-tab-active   { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+html.dark .tt-tab-inactive { color: #94a3b8; border-color: #334155; }
+html.dark .tt-tab-inactive:hover { background: rgb(30 41 59 / 0.6); color: #e2e8f0; border-color: #475569; }
+html.dark .tt-tab-active .tt-today-dot { background: #065f46; }
+
+html.dark .tt-row { border-bottom-color: rgb(51 65 85 / 0.4); }
+html.dark .tt-hour { color: #475569; border-right-color: #334155; }
+html.dark .tt-min-future   { color: #e2e8f0; }
+html.dark .tt-min-future:hover { background: #1e293b; }
+html.dark .tt-min-past     { color: #334155; }
+html.dark .tt-min-selected { background: #1d4ed8; }
+
+html.dark .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }

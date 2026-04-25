@@ -8,6 +8,7 @@ import router from './router'
 
 registerSW({ immediate: true })
 import { useUserStore } from './stores/user'
+import { useSettingsStore } from './stores/settings'
 import { useFavoritesStore } from './stores/favorites'
 import { apiRequest } from './utils/request_cache'
 import './main.css'
@@ -33,9 +34,11 @@ app.use(i18n)
 app.use(pinia)
 app.use(router)
 
+const settingsStore = useSettingsStore(pinia)
+i18n.global.locale.value = settingsStore.locale
+
 const userStore = useUserStore(pinia)
 userStore.startTimeTracker()
-userStore.startSchemeWatcher()
 
 const favoritesStore = useFavoritesStore(pinia)
 void favoritesStore.hydrate().then(() => favoritesStore.preloadFavorites())

@@ -1,7 +1,9 @@
+@custom-variant dark (&:where(.dark, .dark *));
 @import "tailwindcss";
 @import "tailwindcss/preflight";
 @import "tailwindcss/utilities";
 @import "./styles/leaflet.css";
+@import "./styles/dark.css";
 
 :root {
   color-scheme: light dark;

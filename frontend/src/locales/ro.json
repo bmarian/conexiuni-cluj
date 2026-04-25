@@ -36,5 +36,11 @@
   "notFoundDesc": "Ruta sau stația pe care o cauți nu există sau nu mai este disponibilă.",
   "offlineBanner": "Ești offline — datele live nu sunt disponibile",
   "offlineShort": "Offline",
-  "toggleDrawer": "Deschide/închide panoul"
+  "toggleDrawer": "Deschide/închide panoul",
+  "settings": "Setări",
+  "theme": "Temă",
+  "themeLight": "Luminoasă",
+  "themeDark": "Întunecoasă",
+  "themeSystem": "Sistem",
+  "language": "Limbă"
 }
