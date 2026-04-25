@@ -489,7 +489,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       color: '#94a3b8',
       weight: 5,
       opacity: 0.7,
-      dashArray: dashArray || undefined,
+      dashArray: easterEggActive.value ? '0 14' : (dashArray || undefined),
       smoothFactor: 1.5,
       lineJoin: 'round',
       lineCap: 'round'
@@ -510,7 +510,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch(shapesToDisplay, (newShapes) => {
+watch([shapesToDisplay, easterEggActive], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
