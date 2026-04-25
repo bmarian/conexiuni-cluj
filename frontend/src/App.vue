@@ -3,6 +3,7 @@ import {computed, nextTick, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
+import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import {useOnline} from "@/composables/useOnline"
 
 const {t} = useI18n()
@@ -159,7 +160,10 @@ function toggleLandscapeDrawer() {
         <span class="drawer-grip"></span>
       </div>
       <div class="drawer-scroll">
-        <RouterView />
+        <GreenFridayBanner />
+        <div class="drawer-view">
+          <RouterView />
+        </div>
       </div>
     </aside>
   </main>
@@ -272,6 +276,13 @@ function toggleLandscapeDrawer() {
 }
 .drawer-scroll {
   flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-view {
+  flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

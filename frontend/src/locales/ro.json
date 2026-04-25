@@ -42,5 +42,8 @@
   "themeLight": "Luminoasă",
   "themeDark": "Întunecoasă",
   "themeSystem": "Sistem",
-  "language": "Limbă"
+  "language": "Limbă",
+  "greenFridayTitle": "Vineri Verde",
+  "greenFridayDesc": "Astăzi transportul public este gratuit!",
+  "dismiss": "Închide"
 }

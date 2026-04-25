@@ -118,3 +118,12 @@ html.dark .tt-min-past     { color: #334155; }
 html.dark .tt-min-selected { background: #1d4ed8; }
 
 html.dark .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }
+
+/* ── Green Friday banner ──────────────────────────────────────── */
+html.dark .green-friday-banner {
+  background: linear-gradient(135deg, rgb(6 78 59 / 0.4), rgb(4 120 87 / 0.3));
+  border-color: rgb(16 185 129 / 0.25);
+}
+html.dark .green-friday-icon { color: #34d399; }
+html.dark .green-friday-title { color: #6ee7b7; }
+html.dark .green-friday-desc { color: #34d399; }
