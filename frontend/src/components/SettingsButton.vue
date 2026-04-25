@@ -119,7 +119,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   position: fixed;
   top: calc(0.75rem + env(safe-area-inset-top));
   right: calc(0.75rem + env(safe-area-inset-right));
-  z-index: 4500;
+  z-index: 4600;
   transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
