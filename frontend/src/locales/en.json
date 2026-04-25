@@ -45,5 +45,8 @@
   "language": "Language",
   "greenFridayTitle": "Green Friday",
   "greenFridayDesc": "Public transport is free today!",
-  "dismiss": "Dismiss"
+  "dismiss": "Dismiss",
+  "funMode": "Hungry Mode",
+  "funModeOn": "On",
+  "funModeOff": "Off"
 }

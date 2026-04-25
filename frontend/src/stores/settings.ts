@@ -34,5 +34,47 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.locale', newLocale)
   }
 
-  return { theme, locale, isDark, setTheme, setLocale }
+  // Easter egg
+  const easterEggUnlocked = ref(localStorage.getItem('settings.easterEggUnlocked') === 'true')
+  const easterEggActive = ref(localStorage.getItem('settings.easterEggActive') === 'true')
+
+  watch(easterEggActive, (active) => {
+    if (active) {
+      document.documentElement.setAttribute('data-hungry', '')
+    } else {
+      document.documentElement.removeAttribute('data-hungry')
+    }
+  }, { immediate: true })
+
+  function unlockEasterEgg() {
+    easterEggUnlocked.value = true
+    localStorage.setItem('settings.easterEggUnlocked', 'true')
+  }
+
+  function activateEasterEgg() {
+    easterEggActive.value = true
+    localStorage.setItem('settings.easterEggActive', 'true')
+  }
+
+  function deactivateEasterEgg() {
+    easterEggActive.value = false
+    localStorage.setItem('settings.easterEggActive', 'false')
+  }
+
+  // Toast
+  const toastMessage = ref<string | null>(null)
+  let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+  function showToast(message: string) {
+    toastMessage.value = message
+    if (toastTimer) clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => { toastMessage.value = null }, 3000)
+  }
+
+  return {
+    theme, locale, isDark, setTheme, setLocale,
+    easterEggUnlocked, easterEggActive,
+    unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
+    toastMessage, showToast,
+  }
 })

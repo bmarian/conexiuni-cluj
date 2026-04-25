@@ -12,11 +12,14 @@ import {useRoute, useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";
 import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
+import {useSettingsStore} from "@/stores/settings.ts";
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
+const settingsStore = useSettingsStore()
 const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedStops} = storeToRefs(mapStore)
+const {easterEggActive} = storeToRefs(settingsStore)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -76,17 +79,34 @@ const stopIcon = L.divIcon({
   popupAnchor: [0, -12]
 })
 
-const selectedStopIcon = L.divIcon({
-  className: 'bg-transparent border-none',
-  html: `
-    <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 bg-emerald-500 text-white animate-bounce">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-        <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
-      </svg>
-    </div>
-  `,
-  iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16]
-})
+const makeSelectedStopIcon = () => {
+  if (easterEggActive.value) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 12 16" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#22c55e"/>
+          <circle cx="3.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="7.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="4.4" cy="8.5" r="0.6" fill="#15803d"/>
+          <circle cx="8.4" cy="8.5" r="0.6" fill="#15803d"/>
+        </svg>
+      </div>`,
+      iconSize: [28, 36], iconAnchor: [14, 34], popupAnchor: [0, -34]
+    })
+  }
+  return L.divIcon({
+    className: 'bg-transparent border-none',
+    html: `
+      <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 bg-emerald-500 text-white animate-bounce">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+          <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16]
+  })
+}
 
 const highlightSelectedStop = (stopId?: string) => {
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
@@ -99,7 +119,7 @@ const highlightSelectedStop = (stopId?: string) => {
   currentlyHighlightedStopId.value = null
   if (stopId && stopMarkers.has(stopId)) {
     const newMarker = stopMarkers.get(stopId)!
-    newMarker.setIcon(selectedStopIcon)
+    newMarker.setIcon(makeSelectedStopIcon())
     newMarker.setZIndexOffset(1000)
     if (stopGroup.value && stopGroup.value.hasLayer(newMarker)) stopGroup.value.removeLayer(newMarker)
     if (map.value && !map.value.hasLayer(newMarker)) newMarker.addTo(map.value)
@@ -252,6 +272,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   })
 
   initLayerGroups(mapValue)
+  mapContainer.value?.classList.toggle('hungry-theme', easterEggActive.value)
 }
 
 const stopsInit = async () => {
@@ -354,6 +375,14 @@ onMounted(() => {
 
 watch(() => route.params.stopId, (newId) => {
   highlightSelectedStop(newId as string)
+})
+
+watch(easterEggActive, (active) => {
+  mapContainer.value?.classList.toggle('hungry-theme', active)
+  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
+    const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
+    marker.setIcon(makeSelectedStopIcon())
+  }
 })
 
 watch(isDarkMode, (newValue) => {
@@ -489,6 +518,24 @@ const BUS_STOP_PATH = 'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.4
 
 const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
   const bg = color === 'green' ? '#10b981' : color === 'purple' ? '#a855f7' : color === 'red' ? '#f43f5e' : '#64748b'
+
+  if (easterEggActive.value) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:24px;height:30px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 12 16" width="22" height="28" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${bg}"/>
+          <circle cx="3.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="7.8" cy="8" r="1.3" fill="white"/>
+          <circle cx="4.2" cy="8.4" r="0.7" fill="rgba(0,0,0,0.65)"/>
+          <circle cx="8.2" cy="8.4" r="0.7" fill="rgba(0,0,0,0.65)"/>
+        </svg>
+      </div>`,
+      iconSize: [24, 30],
+      iconAnchor: [12, 28],
+    })
+  }
+
   return L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
     html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
@@ -499,7 +546,7 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
   })
 }
 
-watch([highlightedStops, currentlyHighlightedStopId], ([stops]) => {
+watch([highlightedStops, currentlyHighlightedStopId, easterEggActive], ([stops]) => {
   if (!highlightedStopLayerGroup.value) return
   highlightedStopLayerGroup.value.clearLayers()
   const selectedId = currentlyHighlightedStopId.value
@@ -536,6 +583,38 @@ const getVehicleMarkerHtml = (
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
   const roundedSpeed = Math.round(vehicle.speed)
   const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
+  const heading = vehicle.heading || 0
+
+  if (easterEggActive.value) {
+    // Pac-Man faces right at 0°; heading 0 = north, so subtract 90° to align
+    const rotation = heading - 90
+    const pacman = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
+      <div class="pacman-eat" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
+    </div>`
+
+    if (isStopView) {
+      return `
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
+          ${pacman}
+          <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
+          ${showStopInfo ? `
+            <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
+              <span style="font-weight:700;font-size:14px;">${titleText}</span>
+              <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
+            </div>
+          ` : ''}
+        </div>`
+    }
+
+    return `
+      <div style="position:relative;display:flex;align-items:center;">
+        ${pacman}
+        <div class="absolute" style="left:40px;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
+          <span style="font-weight:700;font-size:14px;">${titleText}</span>
+          <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
+        </div>
+      </div>`
+  }
 
   return isStopView
     ? `
@@ -547,7 +626,7 @@ const getVehicleMarkerHtml = (
         </div>
         <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
-               style="transform: rotate(${vehicle.heading || 0}deg);">
+               style="transform: rotate(${heading}deg);">
             <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -564,7 +643,7 @@ const getVehicleMarkerHtml = (
         <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
              style="background-color: ${resolvedColor};">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
-               style="transform: rotate(${vehicle.heading || 0}deg);">
+               style="transform: rotate(${heading}deg);">
             <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -611,7 +690,7 @@ const renderVehicles = (vehicles: DisplayVehicle[], currentRouteName: string | s
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId], ([vehicles, routeName]) => {
+watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, easterEggActive], ([vehicles, routeName]) => {
   renderVehicles(vehicles as DisplayVehicle[], routeName)
 }, {deep: true})
 

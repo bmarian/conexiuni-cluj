@@ -26,6 +26,7 @@ import IconBack from '@/components/icons/IconBack.vue'
 import IconNotFoundFace from '@/components/icons/IconNotFoundFace.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
+import {useSettingsStore} from '@/stores/settings.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -35,6 +36,7 @@ const routeStore = useRouteStore()
 const userStore = useUserStore()
 const mapStore = useMapStore()
 const favoritesStore = useFavoritesStore()
+const settings = useSettingsStore()
 const {userTime, userLocation} = storeToRefs(userStore)
 const {zoomOut} = storeToRefs(mapStore)
 const {favoriteStopIds} = storeToRefs(favoritesStore)
@@ -388,6 +390,33 @@ async function loadShapeInfoFromApi(): Promise<boolean> {
   }
 }
 
+// Easter egg: chomp animation for the route badge
+const mouthOpen = ref(true)
+let chompTimer: ReturnType<typeof setInterval> | null = null
+
+function startChomp() {
+  if (chompTimer) return
+  chompTimer = setInterval(() => { mouthOpen.value = !mouthOpen.value }, 320)
+}
+
+function stopChomp() {
+  if (chompTimer) { clearInterval(chompTimer); chompTimer = null }
+  mouthOpen.value = true
+}
+
+watch(() => settings.easterEggActive, (active) => {
+  if (active) startChomp()
+  else stopChomp()
+}, { immediate: true })
+
+function ghostFill(stop: IndexedStop, idx: number): string {
+  if (String(stop.stop_id) === fromStopId.value) return '#10b981'
+  if (idx === nearestStopIdx.value) return '#a855f7'
+  if (favoritesStore.isStopFavorite(stop.stop_id)) return '#f43f5e'
+  if (idx === 0 || idx === stopsForDirection.value.length - 1) return settings.isDark ? '#64748b' : '#94a3b8'
+  return settings.isDark ? '#334155' : '#b0b8c4'
+}
+
 onMounted(async () => {
   const storeRouteId = shapeInfo.value?.route_id
   if (!shapeInfo.value || storeRouteId !== Number(props.routeId)) {
@@ -404,6 +433,7 @@ onUnmounted(() => {
   mapStore.setHighlightedStops([])
   mapStore.setShapesToDisplay([])
   mapStore.setVehiclesToDisplay([])
+  stopChomp()
 })
 </script>
 
@@ -520,6 +550,10 @@ onUnmounted(() => {
       <div class="relative">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
+        <div v-if="settings.easterEggActive" class="pac-eater" aria-hidden="true">
+          <div class="pacman-eat" style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
+        </div>
+
         <div
           v-for="(stop, idx) in stopsForDirection"
           :key="stop.stop_id + '-' + idx"
@@ -530,11 +564,22 @@ onUnmounted(() => {
           ]"
         >
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-            <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-            <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+            <template v-if="settings.easterEggActive">
+              <svg viewBox="0 0 12 16" :width="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10" :height="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13" aria-hidden="true">
+                <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" :fill="ghostFill(stop, idx)"/>
+                <circle cx="4" cy="8" r="1.4" fill="white"/>
+                <circle cx="8" cy="8" r="1.4" fill="white"/>
+                <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
+                <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
+              </svg>
+            </template>
+            <template v-else>
+              <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+              <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+            </template>
           </div>
 
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
@@ -632,11 +677,22 @@ onUnmounted(() => {
               ]"
             >
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-                <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-                <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+                <template v-if="settings.easterEggActive">
+                  <svg viewBox="0 0 12 16" :width="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10" :height="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13" aria-hidden="true">
+                    <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" :fill="ghostFill(stop, idx)"/>
+                    <circle cx="4" cy="8" r="1.4" fill="white"/>
+                    <circle cx="8" cy="8" r="1.4" fill="white"/>
+                    <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
+                    <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
+                  </svg>
+                </template>
+                <template v-else>
+                  <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+                  <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+                </template>
               </div>
 
               <div class="flex-1 min-w-0 flex items-center gap-1.5">

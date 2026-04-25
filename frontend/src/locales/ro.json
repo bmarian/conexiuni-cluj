@@ -45,5 +45,8 @@
   "language": "Limbă",
   "greenFridayTitle": "Vineri Verde",
   "greenFridayDesc": "Astăzi transportul public este gratuit!",
-  "dismiss": "Închide"
+  "dismiss": "Închide",
+  "funMode": "Hungry Mode",
+  "funModeOn": "Activ",
+  "funModeOff": "Inactiv"
 }

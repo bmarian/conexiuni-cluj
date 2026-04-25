@@ -12,8 +12,22 @@ const isDark = computed(() => settings.isDark)
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 
+let eggClickCount = 0
+
 function toggle() {
   isOpen.value = !isOpen.value
+
+  if (!settings.easterEggUnlocked) {
+    eggClickCount++
+    if (eggClickCount === 5) {
+      settings.showToast('are you hungry?')
+    } else if (eggClickCount === 10) {
+      settings.showToast('me too')
+      settings.unlockEasterEgg()
+      settings.activateEasterEgg()
+      isOpen.value = false
+    }
+  }
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
@@ -110,6 +124,24 @@ function setLocale(newLocale: 'ro' | 'en') {
           English
         </button>
       </div>
+
+      <template v-if="settings.easterEggUnlocked">
+        <p class="section-label">{{ t('funMode') }}</p>
+        <div class="option-group" role="group" :aria-label="t('funMode')">
+          <button
+            type="button"
+            class="option-btn"
+            :class="{ active: !settings.easterEggActive }"
+            @click="settings.deactivateEasterEgg()"
+          >{{ t('funModeOff') }}</button>
+          <button
+            type="button"
+            class="option-btn fun-on-btn"
+            :class="{ active: settings.easterEggActive }"
+            @click="settings.activateEasterEgg()"
+          >{{ t('funModeOn') }}</button>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -242,5 +274,16 @@ function setLocale(newLocale: 'ro' | 'en') {
   background: #1e3a5f;
   color: #93c5fd;
   border-color: #1d4ed8;
+}
+
+.fun-on-btn.active {
+  background: #fef9c3;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+.settings-root.is-dark .fun-on-btn.active {
+  background: #422006;
+  color: #fde68a;
+  border-color: #d97706;
 }
 </style>

@@ -39,11 +39,13 @@ import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
 import {getRouteIdFromTripId, getShapeStopTimes} from "@/utils/trips.ts";
+import {useSettingsStore} from "@/stores/settings.ts";
 
 const props = defineProps<{ stopId: string }>()
 
 const {t} = useI18n()
 const userStore = useUserStore()
+const settings = useSettingsStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const favoritesStore = useFavoritesStore()
