@@ -586,16 +586,16 @@ const getVehicleMarkerHtml = (
   const heading = vehicle.heading || 0
 
   if (easterEggActive.value) {
-    // Pac-Man faces right at 0°; heading 0 = north, so subtract 90° to align
+    // chomper faces right at 0°; heading 0 = north, so subtract 90° to align
     const rotation = heading - 90
-    const pacman = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
-      <div class="pacman-eat" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
+    const chomper = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
+      <div class="hungry-chomp" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
     </div>`
 
     if (isStopView) {
       return `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
-          ${pacman}
+          ${chomper}
           <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
           ${showStopInfo ? `
             <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
@@ -608,7 +608,7 @@ const getVehicleMarkerHtml = (
 
     return `
       <div style="position:relative;display:flex;align-items:center;">
-        ${pacman}
+        ${chomper}
         <div class="absolute" style="left:40px;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
           <span style="font-weight:700;font-size:14px;">${titleText}</span>
           <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>

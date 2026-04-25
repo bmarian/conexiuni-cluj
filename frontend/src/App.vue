@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import {computed, nextTick, onUnmounted, ref, watch} from "vue"
+import {computed, nextTick, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
-import {useRouter} from "vue-router"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
+import HungryTransition from "@/components/HungryTransition.vue"
 import {useOnline} from "@/composables/useOnline"
-import {useSettingsStore} from "@/stores/settings"
 
 const {t} = useI18n()
 const {isOnline} = useOnline()
@@ -129,25 +128,6 @@ function onPointerUp(e: PointerEvent) {
 function toggleLandscapeDrawer() {
   isLandscapeDrawerOpen.value = !isLandscapeDrawerOpen.value
 }
-
-const settings = useSettingsStore()
-const router = useRouter()
-
-const isHungryTransitioning = ref(false)
-let transitionTimer: ReturnType<typeof setTimeout> | null = null
-
-const removeHungryGuard = router.beforeEach((to, from) => {
-  if (from.matched.length === 0) return
-  if (!settings.easterEggActive) return
-  if (transitionTimer) clearTimeout(transitionTimer)
-  isHungryTransitioning.value = true
-  transitionTimer = setTimeout(() => { isHungryTransitioning.value = false }, 1500)
-})
-
-onUnmounted(() => {
-  removeHungryGuard()
-  if (transitionTimer) clearTimeout(transitionTimer)
-})
 </script>
 
 <template>
@@ -207,35 +187,7 @@ onUnmounted(() => {
       </div>
     </aside>
   </main>
-  <Teleport to="body">
-    <div v-if="isHungryTransitioning" class="hungry-chase-overlay" aria-hidden="true">
-      <div class="hungry-chase-row">
-        <div class="hungry-chase-chomper pacman-eat"></div>
-
-        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:0">
-          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#60a5fa"/>
-          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="4.1" cy="7.5" r="0.65" fill="#1e3a8a"/>
-          <circle cx="9.1" cy="7.5" r="0.65" fill="#1e3a8a"/>
-        </svg>
-        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:1">
-          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#818cf8"/>
-          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="4.1" cy="7.5" r="0.65" fill="#312e81"/>
-          <circle cx="9.1" cy="7.5" r="0.65" fill="#312e81"/>
-        </svg>
-        <svg class="hungry-chase-ghost" viewBox="0 0 12 16" xmlns="http://www.w3.org/2000/svg" style="--d:2">
-          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#a78bfa"/>
-          <circle cx="3.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="8.5" cy="7" r="1.4" fill="white"/>
-          <circle cx="4.1" cy="7.5" r="0.65" fill="#4c1d95"/>
-          <circle cx="9.1" cy="7.5" r="0.65" fill="#4c1d95"/>
-        </svg>
-      </div>
-    </div>
-  </Teleport>
+  <HungryTransition />
 </template>
 
 <style scoped>
@@ -306,8 +258,9 @@ onUnmounted(() => {
   width: 1rem;
   height: 1rem;
 }
+
 .app-drawer {
-  position: relative;
+  position: relative; /* needed for HungryTransition overlay */
   flex-shrink: 0;
   width: 100%;
   border-top-left-radius: 1.25rem;
@@ -417,285 +370,5 @@ onUnmounted(() => {
   .drawer-handle {
     display: none;
   }
-}
-</style>
-
-<style>
-/* ── Easter egg animations ── */
-@keyframes pacman-eat {
-  0%, 100% {
-    clip-path: polygon(50% 50%, 100% 25%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 75%);
-  }
-  50% {
-    clip-path: polygon(50% 50%, 100% 47%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 53%);
-  }
-}
-.pacman-eat {
-  animation: pacman-eat 0.35s linear infinite;
-}
-
-@keyframes pac-route-travel {
-  0%      { top: 6px;  opacity: 1; }
-  86%     { top: calc(100% - 22px); opacity: 1; }
-  93%     { top: calc(100% - 22px); opacity: 0; }
-  93.01%  { top: 6px;  opacity: 0; }
-  100%    { top: 6px;  opacity: 1; }
-}
-.pac-eater {
-  position: absolute;
-  left: 2px;
-  z-index: 30;
-  width: 16px;
-  height: 16px;
-  animation: pac-route-travel 5s linear infinite;
-}
-
-/* ── Easter egg global theme ── */
-html[data-hungry] .app-shell {
-  background-color: #fef9c3 !important;
-}
-html[data-hungry] .app-drawer {
-  background-color: #fefce8 !important;
-}
-html[data-hungry] .drawer-grip {
-  background: #f59e0b !important;
-}
-
-html[data-hungry] .stop-view-container,
-html[data-hungry] .route-view-container,
-html[data-hungry] .home-view-container {
-  background-color: #fefce8 !important;
-}
-
-html[data-hungry] .departure-card {
-  background: #fffbeb !important;
-  border-color: #fde68a !important;
-}
-html[data-hungry] .departure-card:hover {
-  background: #fef9c3 !important;
-  border-color: #fbbf24 !important;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15) !important;
-}
-html[data-hungry] .departure-card-fav {
-  background: #fef3c7 !important;
-  border-color: #fcd34d !important;
-}
-html[data-hungry] .departure-card-fav:hover {
-  background: #fde68a !important;
-  border-color: #f59e0b !important;
-}
-
-html[data-hungry] .stop-row-selected { background: #fef9c3 !important; }
-html[data-hungry] .stop-row-nearest  { background: #fef3c7 !important; }
-html[data-hungry] .stop-row-fav      { background: #fef9c3 !important; }
-
-html[data-hungry] .all-route-row:hover,
-html[data-hungry] .fav-stop-row:hover,
-html[data-hungry] .fav-route-chip:hover {
-  background: #fef9c3 !important;
-  color: #78350f !important;
-}
-
-html[data-hungry] .search-wrap {
-  border-color: #fde68a !important;
-  background: #fffbeb !important;
-}
-html[data-hungry] .search-wrap:focus-within {
-  border-color: #f59e0b !important;
-  background: #fefce8 !important;
-}
-html[data-hungry] .search-input {
-  color: #78350f !important;
-}
-html[data-hungry] .search-input::placeholder {
-  color: #b45309 !important;
-}
-
-html.dark[data-hungry] .search-wrap {
-  border-color: #78350f !important;
-  background: #211a05 !important;
-}
-html.dark[data-hungry] .search-wrap:focus-within {
-  border-color: #d97706 !important;
-  background: #1c1608 !important;
-}
-html.dark[data-hungry] .search-input {
-  color: #fde68a !important;
-}
-html.dark[data-hungry] .search-input::placeholder {
-  color: #d97706 !important;
-}
-
-html[data-hungry] .direction-toggle-wrap {
-  background: #fde68a !important;
-}
-html[data-hungry] .dir-btn-active {
-  background: #ffffff !important;
-  color: #78350f !important;
-}
-html[data-hungry] .dir-btn-inactive {
-  color: #b45309 !important;
-}
-
-/* Settings button + popover yellow theme */
-html[data-hungry] .settings-btn {
-  background: #facc15 !important;
-  color: #78350f !important;
-  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
-}
-html[data-hungry] .settings-btn:hover {
-  background: #fde047 !important;
-  color: #451a03 !important;
-}
-html[data-hungry] .settings-popover {
-  background: #fffbeb !important;
-  box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0,0,0,0.08) !important;
-}
-html[data-hungry] .option-btn:hover {
-  background: #fef9c3 !important;
-  color: #78350f !important;
-}
-html[data-hungry] .option-btn.active {
-  background: #fef3c7 !important;
-  color: #92400e !important;
-  border-color: #fbbf24 !important;
-}
-
-/* Dark mode overrides */
-html.dark[data-hungry] .settings-btn {
-  background: #854d0e !important;
-  color: #fde68a !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(234,179,8,0.2) !important;
-}
-html.dark[data-hungry] .settings-btn:hover {
-  background: #a16207 !important;
-  color: #fef9c3 !important;
-}
-html.dark[data-hungry] .settings-popover {
-  background: #1c1608 !important;
-  box-shadow: 0 10px 30px -4px rgba(0,0,0,0.5), 0 1px 6px rgba(0,0,0,0.24) !important;
-}
-html.dark[data-hungry] .option-btn:hover {
-  background: #2a2006 !important;
-  color: #fde68a !important;
-}
-html.dark[data-hungry] .option-btn.active {
-  background: #422006 !important;
-  color: #fde68a !important;
-  border-color: #d97706 !important;
-}
-
-/* Dark mode main overrides */
-html.dark[data-hungry] .app-shell,
-html.dark[data-hungry] .app-drawer,
-html.dark[data-hungry] .stop-view-container,
-html.dark[data-hungry] .route-view-container,
-html.dark[data-hungry] .home-view-container {
-  background-color: #1c1608 !important;
-}
-html.dark[data-hungry] .departure-card {
-  background: #211a05 !important;
-  border-color: #78350f !important;
-}
-html.dark[data-hungry] .departure-card:hover {
-  background: #2a2006 !important;
-  border-color: #b45309 !important;
-}
-html.dark[data-hungry] .stop-row-selected,
-html.dark[data-hungry] .stop-row-nearest,
-html.dark[data-hungry] .stop-row-fav {
-  background: #2a2006 !important;
-}
-html.dark[data-hungry] .direction-toggle-wrap {
-  background: #451a03 !important;
-}
-html.dark[data-hungry] .dir-btn-active {
-  background: #1c1608 !important;
-  color: #fde68a !important;
-}
-html.dark[data-hungry] .dir-btn-inactive {
-  color: #d97706 !important;
-}
-
-/* Dark mode: hover rows need dark background so light-on-light doesn't happen */
-html.dark[data-hungry] .all-route-row:hover,
-html.dark[data-hungry] .fav-stop-row:hover,
-html.dark[data-hungry] .fav-route-chip:hover {
-  background: #2a2006 !important;
-  color: #fde68a !important;
-}
-
-/* Dark mode: explicit text color on highlighted stop rows */
-html.dark[data-hungry] .departure-card,
-html.dark[data-hungry] .departure-card:hover {
-  color: #fde68a !important;
-}
-html.dark[data-hungry] .stop-row-selected,
-html.dark[data-hungry] .stop-row-nearest,
-html.dark[data-hungry] .stop-row-fav {
-  color: #fde68a !important;
-}
-
-/* ── Landscape drawer toggle yellow theme ── */
-html[data-hungry] .landscape-drawer-toggle {
-  background: #facc15 !important;
-  color: #78350f !important;
-  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
-}
-html[data-hungry] .landscape-drawer-toggle:hover {
-  background: #fde047 !important;
-  color: #451a03 !important;
-}
-html.dark[data-hungry] .landscape-drawer-toggle {
-  background: #854d0e !important;
-  color: #fde68a !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(234,179,8,0.2) !important;
-}
-html.dark[data-hungry] .landscape-drawer-toggle:hover {
-  background: #a16207 !important;
-  color: #fef9c3 !important;
-}
-
-/* Leaflet controls are themed in src/styles/leaflet.css (hungry-theme section) */
-
-/* ── Page transition chase ── */
-.hungry-chase-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  pointer-events: none;
-  overflow: hidden;
-}
-.hungry-chase-row {
-  position: absolute;
-  top: 44%;
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  animation: hungry-chase-run 1.5s cubic-bezier(0.4, 0, 0.6, 1) forwards;
-}
-.hungry-chase-ghost {
-  width: 30px;
-  height: 40px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
-  animation: ghost-wobble 0.22s ease-in-out calc(var(--d) * 0.07s) infinite alternate;
-}
-.hungry-chase-chomper {
-  width: 34px;
-  height: 34px;
-  background: #facc15;
-  border-radius: 50%;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
-  animation: pacman-eat 0.18s linear infinite;
-}
-@keyframes ghost-wobble {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-5px); }
-}
-@keyframes hungry-chase-run {
-  from { transform: translateX(-260px); }
-  to   { transform: translateX(100vw); }
 }
 </style>

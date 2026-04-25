@@ -550,8 +550,8 @@ onUnmounted(() => {
       <div class="relative">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
-        <div v-if="settings.easterEggActive" class="pac-eater" aria-hidden="true">
-          <div class="pacman-eat" style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
+        <div v-if="settings.easterEggActive" class="hungry-eater" aria-hidden="true">
+          <div class="hungry-chomp" style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
         </div>
 
         <div

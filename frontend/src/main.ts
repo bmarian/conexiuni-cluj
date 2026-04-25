@@ -12,6 +12,7 @@ import { useSettingsStore } from './stores/settings'
 import { useFavoritesStore } from './stores/favorites'
 import { apiRequest } from './utils/request_cache'
 import './main.css'
+import './styles/hungry.css'
 import ro from './locales/ro.json'
 import en from './locales/en.json'
 
