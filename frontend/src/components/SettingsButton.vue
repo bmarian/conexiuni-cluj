@@ -305,9 +305,9 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #92400e;
 }
 .theme-select.is-traditional {
-  border-color: #E8C882;
-  background: #FDF5E6;
-  color: #8B1A1A;
+  border-color: #BB1C2A;
+  background: #FFF5F6;
+  color: #6B1212;
 }
 
 .settings-root.is-dark .theme-select {
@@ -323,9 +323,9 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #fde68a;
 }
 .settings-root.is-dark .theme-select.is-traditional {
-  border-color: #8B1A1A;
-  background: #3C1010;
-  color: #F0DFC0;
+  border-color: #8B1818;
+  background: #240E0E;
+  color: #F5F0EC;
 }
 
 .select-chevron {
