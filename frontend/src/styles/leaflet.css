@@ -28,6 +28,9 @@
   border-top-color: #1e293b !important;
 }
 
+/* Force SVGs inside bar buttons to inherit button color so theme overrides work */
+.leaflet-bar a svg { color: inherit !important; }
+
 /* ── Container bar ─────────────────────────────────────────────── */
 .leaflet-bar {
   border: none !important;

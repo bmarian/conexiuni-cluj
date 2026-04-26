@@ -72,6 +72,18 @@ export default defineConfig({
   build: {
     outDir: '../backend/dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('/node_modules/leaflet') || id.includes('/node_modules/leaflet-geosearch')) {
+            return 'leaflet-vendor'
+          }
+          if (id.includes('/utils/mapIcons')) {
+            return 'map-icons'
+          }
+        },
+      },
+    },
   },
   server: {
     proxy: {

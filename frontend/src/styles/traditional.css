@@ -87,6 +87,15 @@ html[data-traditional] .fav-route-chip:hover {
   color: #1A0808 !important;
 }
 
+/* ── Favorites section ─────────────────────────────────────────────────── */
+html[data-traditional] .section-label svg { color: #BB1C2A !important; }
+html[data-traditional] .sub-label { color: #7A3030 !important; }
+html[data-traditional] .fav-route-name { color: #3D1515 !important; }
+html[data-traditional] .fav-stop-row > div:nth-child(2) {
+  background-color: rgba(187,28,42,0.10) !important;
+}
+html[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: #BB1C2A !important; }
+
 /* ── Search ─────────────────────────────────────────────────────────────── */
 html[data-traditional] .search-wrap {
   border-color: rgba(187,28,42,0.3) !important;
@@ -244,6 +253,15 @@ html.dark[data-traditional] .fav-route-chip:hover {
   background: #2E1010 !important;
   color: #F5F0EC !important;
 }
+
+/* ── Dark favorites section ────────────────────────────────────────────── */
+html.dark[data-traditional] .section-label svg { color: #CC2020 !important; }
+html.dark[data-traditional] .sub-label { color: #C8A0A0 !important; }
+html.dark[data-traditional] .fav-route-name { color: #C8A0A0 !important; }
+html.dark[data-traditional] .fav-stop-row > div:nth-child(2) {
+  background-color: rgba(204,32,32,0.15) !important;
+}
+html.dark[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: #CC2020 !important; }
 
 /* ── Dark search ───────────────────────────────────────────────────────── */
 html.dark[data-traditional] .search-wrap {
