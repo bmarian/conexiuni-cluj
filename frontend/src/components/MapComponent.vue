@@ -354,6 +354,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
 
   initLayerGroups(mapValue)
   mapContainer.value?.classList.toggle('hungry-theme', easterEggActive.value)
+  mapContainer.value?.classList.toggle('traditional-theme', traditionalActive.value)
 }
 
 const stopsInit = async () => {
@@ -607,7 +608,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, easterEggActive], ([newShapes]) => {
+watch([shapesToDisplay, easterEggActive, traditionalActive], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
@@ -633,6 +634,24 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
     })
   }
 
+  if (traditionalActive.value) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 20 26" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="26" x2="10" y2="6" stroke="${bg}" stroke-width="1.8" stroke-linecap="round"/>
+          <ellipse cx="10" cy="4" rx="2.5" ry="4" fill="${bg}"/>
+          <ellipse cx="6.5" cy="9" rx="3" ry="1.5" fill="${bg}" transform="rotate(-40 6.5 9)"/>
+          <ellipse cx="5.5" cy="14" rx="3" ry="1.5" fill="${bg}" transform="rotate(-30 5.5 14)"/>
+          <ellipse cx="13.5" cy="9" rx="3" ry="1.5" fill="${bg}" transform="rotate(40 13.5 9)"/>
+          <ellipse cx="14.5" cy="14" rx="3" ry="1.5" fill="${bg}" transform="rotate(30 14.5 14)"/>
+        </svg>
+      </div>`,
+      iconSize: [28, 36],
+      iconAnchor: [14, 34],
+    })
+  }
+
   return L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
     html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
@@ -643,7 +662,7 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
   })
 }
 
-watch([highlightedStops, currentlyHighlightedStopId, easterEggActive], ([stops]) => {
+watch([highlightedStops, currentlyHighlightedStopId, easterEggActive, traditionalActive], ([stops]) => {
   if (!highlightedStopLayerGroup.value) return
   highlightedStopLayerGroup.value.clearLayers()
   const selectedId = currentlyHighlightedStopId.value
@@ -714,32 +733,29 @@ const getVehicleMarkerHtml = (
   }
 
   if (traditionalActive.value) {
-    // tractor faces right at 0°; same heading offset as chomper
+    // top-down view: symmetric around horizontal midline so any rotation looks correct
     const rotation = heading - 90
-    const sz = isStopView ? 36 : 32
-    const tractorH = Math.round(sz * 28 / 38)
+    const sz = isStopView ? 40 : 34
+    const tractorH = Math.round(sz * 22 / 36)
     const tractor = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
-      <svg viewBox="0 0 38 28" width="${sz}" height="${tractorH}" xmlns="http://www.w3.org/2000/svg">
-        <!-- Rear large wheel -->
-        <circle cx="8" cy="21" r="7" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
-        <circle cx="8" cy="21" r="2.5" fill="rgba(255,255,255,0.35)"/>
-        <line x1="8" y1="14" x2="8" y2="28" stroke="white" stroke-width="0.9" opacity="0.5"/>
-        <line x1="1" y1="21" x2="15" y2="21" stroke="white" stroke-width="0.9" opacity="0.5"/>
+      <svg viewBox="0 0 36 22" width="${sz}" height="${tractorH}" xmlns="http://www.w3.org/2000/svg">
+        <!-- Big rear wheels (left) — symmetric around y=11 -->
+        <rect x="0" y="1.5" width="8" height="8" rx="2" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
+        <line x1="4" y1="2" x2="4" y2="9" stroke="white" stroke-width="0.8" opacity="0.55"/>
+        <line x1="0.8" y1="5.5" x2="7.2" y2="5.5" stroke="white" stroke-width="0.8" opacity="0.55"/>
+        <rect x="0" y="12.5" width="8" height="8" rx="2" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
+        <line x1="4" y1="13" x2="4" y2="20" stroke="white" stroke-width="0.8" opacity="0.55"/>
+        <line x1="0.8" y1="16.5" x2="7.2" y2="16.5" stroke="white" stroke-width="0.8" opacity="0.55"/>
         <!-- Chassis -->
-        <rect x="7" y="13" width="22" height="8" rx="1.5" fill="${resolvedColor}"/>
-        <!-- Cab -->
-        <rect x="8" y="5" width="13" height="14" rx="2" fill="${resolvedColor}"/>
-        <!-- Window -->
-        <rect x="10" y="7" width="9" height="6" rx="1" fill="rgba(255,255,255,0.5)"/>
-        <!-- Exhaust stack -->
-        <rect x="17" y="1" width="2.5" height="5" rx="1" fill="${resolvedColor}"/>
-        <!-- Hood -->
-        <rect x="21" y="14" width="10" height="6" rx="1.5" fill="${resolvedColor}"/>
-        <!-- Front small wheel -->
-        <circle cx="30" cy="21" r="5" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
-        <circle cx="30" cy="21" r="2" fill="rgba(255,255,255,0.35)"/>
-        <line x1="30" y1="16" x2="30" y2="26" stroke="white" stroke-width="0.9" opacity="0.5"/>
-        <line x1="25" y1="21" x2="35" y2="21" stroke="white" stroke-width="0.9" opacity="0.5"/>
+        <rect x="5" y="4" width="24" height="14" rx="2" fill="${resolvedColor}"/>
+        <!-- Cab (rear/left portion) with window -->
+        <rect x="6" y="5" width="12" height="12" rx="1.5" fill="${resolvedColor}" stroke="rgba(255,255,255,0.45)" stroke-width="0.9"/>
+        <rect x="7.5" y="6.5" width="9" height="9" rx="1" fill="rgba(255,255,255,0.4)"/>
+        <!-- Hood (front/right portion) -->
+        <rect x="18" y="7" width="10" height="8" rx="1.5" fill="${resolvedColor}"/>
+        <!-- Small front wheels (right) — symmetric around y=11 -->
+        <rect x="27" y="3" width="7" height="7" rx="1.5" fill="${resolvedColor}" stroke="white" stroke-width="1.2"/>
+        <rect x="27" y="12" width="7" height="7" rx="1.5" fill="${resolvedColor}" stroke="white" stroke-width="1.2"/>
       </svg>
     </div>`
 

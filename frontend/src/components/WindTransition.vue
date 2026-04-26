@@ -90,20 +90,7 @@ onUnmounted(() => {
   </Teleport>
 </template>
 
-<style scoped>
-.wind-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.wind-paper {
-  position: absolute;
-  filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.2));
-}
-
+<style>
 @keyframes wind-blow-right {
   0% {
     transform: translateX(-80px) rotate(var(--r-start));
@@ -126,5 +113,20 @@ onUnmounted(() => {
     transform: translateX(-80px) rotate(var(--r-end));
     opacity: 0;
   }
+}
+</style>
+
+<style scoped>
+.wind-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.wind-paper {
+  position: absolute;
+  filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.2));
 }
 </style>
