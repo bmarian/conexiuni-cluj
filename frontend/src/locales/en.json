@@ -54,5 +54,7 @@
   "pongExit": "Exit",
   "funMode": "Hungry Mode",
   "funModeOn": "On",
-  "funModeOff": "Off"
+  "funModeOff": "Off",
+  "themeDefault": "Default",
+  "chomperTheme": "Chomper"
 }

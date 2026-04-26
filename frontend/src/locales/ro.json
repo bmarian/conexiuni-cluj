@@ -54,5 +54,7 @@
   "pongExit": "Ieșire",
   "funMode": "Hungry Mode",
   "funModeOn": "Activ",
-  "funModeOff": "Inactiv"
+  "funModeOff": "Inactiv",
+  "themeDefault": "Implicit",
+  "chomperTheme": "Chomper"
 }

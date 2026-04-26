@@ -43,6 +43,12 @@ function setTheme(theme: Theme) {
   settings.setTheme(theme)
 }
 
+function onChomperChange(e: Event) {
+  const val = (e.target as HTMLSelectElement).value
+  if (val === 'on') settings.activateEasterEgg()
+  else settings.deactivateEasterEgg()
+}
+
 function setLocale(newLocale: 'ro' | 'en') {
   settings.setLocale(newLocale)
   locale.value = newLocale
@@ -68,35 +74,20 @@ function setLocale(newLocale: 'ro' | 'en') {
     <div v-if="isOpen" class="settings-popover" role="dialog" :aria-label="t('settings')">
       <p class="section-label">{{ t('theme') }}</p>
       <div class="option-group" role="group" :aria-label="t('theme')">
-        <button
-          type="button"
-          class="option-btn"
-          :class="{ active: settings.theme === 'light' }"
-          @click="setTheme('light')"
-        >
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }" @click="setTheme('light')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
             <circle cx="12" cy="12" r="4"/>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
           </svg>
           {{ t('themeLight') }}
         </button>
-        <button
-          type="button"
-          class="option-btn"
-          :class="{ active: settings.theme === 'dark' }"
-          @click="setTheme('dark')"
-        >
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }" @click="setTheme('dark')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
             <path d="M12 3a6 6 0 009 9 9 9 0 11-9-9z"/>
           </svg>
           {{ t('themeDark') }}
         </button>
-        <button
-          type="button"
-          class="option-btn"
-          :class="{ active: settings.theme === 'system' }"
-          @click="setTheme('system')"
-        >
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }" @click="setTheme('system')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <path d="M8 21h8M12 17v4"/>
@@ -104,6 +95,22 @@ function setLocale(newLocale: 'ro' | 'en') {
           {{ t('themeSystem') }}
         </button>
       </div>
+
+        <div v-if="settings.easterEggUnlocked" class="select-wrap">
+          <select
+            class="theme-select"
+            :value="settings.easterEggActive ? 'on' : 'off'"
+            :class="{ 'is-chomper': settings.easterEggActive }"
+            @change="onChomperChange"
+            :aria-label="t('chomperTheme')"
+          >
+            <option value="off">{{ t('themeDefault') }}</option>
+            <option value="on">{{ t('chomperTheme') }}</option>
+          </select>
+          <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
 
       <p class="section-label">{{ t('language') }}</p>
       <div class="option-group" role="group" :aria-label="t('language')">
@@ -125,23 +132,6 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
       </div>
 
-      <template v-if="settings.easterEggUnlocked">
-        <p class="section-label">{{ t('funMode') }}</p>
-        <div class="option-group" role="group" :aria-label="t('funMode')">
-          <button
-            type="button"
-            class="option-btn"
-            :class="{ active: !settings.easterEggActive }"
-            @click="settings.deactivateEasterEgg()"
-          >{{ t('funModeOff') }}</button>
-          <button
-            type="button"
-            class="option-btn fun-on-btn"
-            :class="{ active: settings.easterEggActive }"
-            @click="settings.activateEasterEgg()"
-          >{{ t('funModeOn') }}</button>
-        </div>
-      </template>
     </div>
   </div>
 </template>
@@ -219,7 +209,6 @@ function setLocale(newLocale: 'ro' | 'en') {
   margin: 0 0 0.4rem 0;
   font-size: 0.7rem;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #94a3b8;
 }
@@ -276,14 +265,57 @@ function setLocale(newLocale: 'ro' | 'en') {
   border-color: #1d4ed8;
 }
 
-.fun-on-btn.active {
+.select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.theme-select {
+  width: 100%;
+  padding: 0.4rem 2rem 0.4rem 0.625rem;
+  margin: 0.4rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.theme-select:hover  { border-color: #94a3b8; background: #f8fafc; }
+.theme-select:focus  { border-color: #94a3b8; }
+.theme-select.is-chomper {
+  border-color: #fcd34d;
   background: #fef9c3;
   color: #92400e;
-  border-color: #fcd34d;
 }
-.settings-root.is-dark .fun-on-btn.active {
+
+.settings-root.is-dark .theme-select {
+  border-color: #334155;
+  color: #cbd5e1;
+  background: transparent;
+}
+.settings-root.is-dark .theme-select:hover  { border-color: #475569; background: #1e293b; }
+.settings-root.is-dark .theme-select option { background: #1e293b; color: #cbd5e1; }
+.settings-root.is-dark .theme-select.is-chomper {
+  border-color: #d97706;
   background: #422006;
   color: #fde68a;
-  border-color: #d97706;
 }
+
+.select-chevron {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+.settings-root.is-dark .select-chevron { color: #475569; }
 </style>
