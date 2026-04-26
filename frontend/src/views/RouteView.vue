@@ -556,10 +556,10 @@ onUnmounted(() => {
         <span class="truncate">{{ timetable?.out_stop_name }}</span>
       </button>
       <button :disabled="!hasIncoming" @click="onDirClick('1')" :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
+        <span class="truncate">{{ timetable?.in_stop_name }}</span>
         <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
-        <span class="truncate">{{ timetable?.in_stop_name }}</span>
       </button>
     </div>
 
