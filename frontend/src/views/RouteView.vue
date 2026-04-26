@@ -921,6 +921,6 @@ onUnmounted(() => {
 .fav-btn.is-fav { color: #f43f5e; }
 .fav-btn.is-fav:hover { background: #fee2e2; }
 
-.tt-hour-next-day { color: #7dd3fc; }
+.tt-hour-next-day { color: #7dd3fc !important; }
 
 </style>
