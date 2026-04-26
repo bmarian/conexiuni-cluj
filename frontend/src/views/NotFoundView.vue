@@ -30,7 +30,7 @@ onUnmounted(() => {
   <div class="bsod" role="alertdialog" aria-label="STOP error">
     <div class="bsod-inner">
       <div class="bsod-header">
-        <span class="bsod-banner">Windows</span>
+        <span class="bsod-banner">Conexiuni Cluj</span>
       </div>
 
       <p class="bsod-code">{{ t('bsodCode') }}</p>
