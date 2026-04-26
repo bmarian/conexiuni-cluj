@@ -48,6 +48,10 @@
   "greenFridayDesc": "Public transport is free today!",
   "dismiss": "Dismiss",
   "metroEggLine": "Cluj-Napoca Metro",
+  "pongYouWin": "🎉 You win!",
+  "pongAiWins": "😅 AI wins",
+  "pongPlayAgain": "Play again",
+  "pongExit": "Exit",
   "funMode": "Hungry Mode",
   "funModeOn": "On",
   "funModeOff": "Off"

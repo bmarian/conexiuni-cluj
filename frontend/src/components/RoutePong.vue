@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings.ts'
 import { useUserStore } from '@/stores/user.ts'
 
@@ -10,6 +11,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ exit: [] }>()
 
+const { t } = useI18n()
 const { easterEggActive } = storeToRefs(useSettingsStore())
 const { isDarkMode } = storeToRefs(useUserStore())
 
@@ -115,6 +117,7 @@ let rpy         = H / 2 - PH / 2
 let scoreL      = 0, scoreR = 0
 let pauseFrames = 0
 let raf         = 0
+let running     = false
 
 function launch() {
   bx = W / 2
@@ -132,16 +135,14 @@ function clampVy() {
 }
 
 function endGame(winner: 'player' | 'ai') {
-  cancelAnimationFrame(raf)
-  raf = 0
-  draw()
+  running = false
   gameOver.value = winner
 }
 
 function tick() {
   // AI tracks ball even during pause so it recenters
   const aiStep = (by - PH / 2 - lpy) * 0.07
-  lpy += Math.max(-2.8, Math.min(2.8, aiStep))
+  lpy += Math.max(-1.6, Math.min(1.6, aiStep))
   lpy = Math.max(0, Math.min(H - PH, lpy))
 
   if (pauseFrames > 0) { pauseFrames--; return }
@@ -254,9 +255,10 @@ function draw() {
 }
 
 function loop() {
+  if (!running) return
   tick()
   draw()
-  raf = requestAnimationFrame(loop)
+  if (running) raf = requestAnimationFrame(loop)
 }
 
 function restart() {
@@ -264,6 +266,7 @@ function restart() {
   gameOver.value = null
   lpy = H / 2 - PH / 2
   rpy = H / 2 - PH / 2
+  running = true
   launch()
   raf = requestAnimationFrame(loop)
 }
@@ -298,11 +301,13 @@ onMounted(() => {
     rpy = H / 2 - PH / 2
     launch()
   }
+  running = true
   raf = requestAnimationFrame(loop)
   window.addEventListener('keydown', onKey)
 })
 
 onUnmounted(() => {
+  running = false
   cancelAnimationFrame(raf)
   window.removeEventListener('keydown', onKey)
 })
@@ -318,7 +323,7 @@ onUnmounted(() => {
 
     <div v-if="gameOver" class="pong-over" :style="{ background: overlayTheme.bg }">
       <p class="pong-over-title" :style="{ color: overlayTheme.title }">
-        {{ gameOver === 'player' ? '🎉 You win!' : '😅 AI wins' }}
+        {{ gameOver === 'player' ? t('pongYouWin') : t('pongAiWins') }}
       </p>
       <p class="pong-over-score" :style="{ color: overlayTheme.score }">
         {{ scoreR }} – {{ scoreL }}
@@ -328,12 +333,12 @@ onUnmounted(() => {
           class="pong-over-btn"
           :style="{ background: overlayTheme.btnBg, color: overlayTheme.btnFg }"
           @click="restart"
-        >Play again</button>
+        >{{ t('pongPlayAgain') }}</button>
         <button
           class="pong-over-btn"
           :style="{ background: overlayTheme.ghBg, color: overlayTheme.ghFg }"
           @click="emit('exit')"
-        >Exit</button>
+        >{{ t('pongExit') }}</button>
       </div>
     </div>
 

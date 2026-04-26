@@ -48,6 +48,10 @@
   "greenFridayDesc": "Astăzi transportul public este gratuit!",
   "dismiss": "Închide",
   "metroEggLine": "Metrou Cluj-Napoca",
+  "pongYouWin": "🎉 Ai câștigat!",
+  "pongAiWins": "😅 AI câștigă",
+  "pongPlayAgain": "Joacă din nou",
+  "pongExit": "Ieșire",
   "funMode": "Hungry Mode",
   "funModeOn": "Activ",
   "funModeOff": "Inactiv"
