@@ -33,8 +33,6 @@ onUnmounted(() => {
         <span class="bsod-banner">Windows</span>
       </div>
 
-      <p class="bsod-lead">{{ t('bsodLead') }}</p>
-
       <p class="bsod-code">{{ t('bsodCode') }}</p>
 
       <p>{{ t('bsodMissing') }}</p>

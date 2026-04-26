@@ -83,7 +83,7 @@ html[data-traditional] .app-drawer {
 
 /* Title text — left side of title bar */
 html[data-traditional] .app-drawer::before {
-  content: '🚌  Cluj Transit';
+  content: '🚌  Conexiuni Cluj';
   position: absolute;
   top: 0;
   left: 10px;
@@ -99,21 +99,6 @@ html[data-traditional] .app-drawer::before {
   pointer-events: none;
   letter-spacing: 0.01em;
   white-space: nowrap;
-}
-
-/* Window controls — right side of title bar */
-html[data-traditional] .app-drawer::after {
-  content: '';
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 66px;
-  height: 18px;
-  z-index: 5;
-  background-image: url("data:image/svg+xml,%3Csvg width='66' height='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='rgb(95,165,235)'/%3E%3Cstop offset='50%25' stop-color='rgb(35,110,200)'/%3E%3Cstop offset='100%25' stop-color='rgb(20,80,180)'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='rgb(245,128,128)'/%3E%3Cstop offset='50%25' stop-color='rgb(208,64,48)'/%3E%3Cstop offset='100%25' stop-color='rgb(160,30,30)'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1' y='1' width='20' height='16' fill='url(%23b)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Crect x='6' y='12' width='10' height='2' fill='white'/%3E%3Crect x='23' y='1' width='20' height='16' fill='url(%23b)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Crect x='29' y='5' width='8' height='8' stroke='white' stroke-width='1.5' fill='none'/%3E%3Crect x='45' y='1' width='20' height='16' fill='url(%23r)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Cpath d='M50 5 L60 13 M60 5 L50 13' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-size: contain;
-  background-repeat: no-repeat;
-  pointer-events: none;
 }
 
 html[data-traditional] .drawer-grip { display: none !important; }
@@ -825,6 +810,42 @@ html[data-traditional] .search-input { font-family: var(--xp-font) !important; }
 html[data-traditional] .drag-handle { color: #808080 !important; }
 html.dark[data-traditional] .drag-handle { color: #6A6A82 !important; }
 
+/* ── Generic emoji icon helpers (replace SVGs in XP mode) ─────────────── */
+html[data-traditional] .emoji-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.20));
+}
+html[data-traditional] .emoji-icon-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+html[data-traditional] .emoji-icon-md {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+html[data-traditional] .emoji-icon-xl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.30));
+}
+
 /* ── Route view stop indicators — Win11 emojis instead of SVGs ────────── */
 html[data-traditional] .route-stop-emoji {
   font-size: 14px;
@@ -864,6 +885,10 @@ html[data-traditional] .fav-stop-remove {
 /* ── Theme combo box — sunken XP "dropdown" with raised button on right ── */
 html[data-traditional] .select-wrap {
   position: relative !important;
+  /* Reset the select's vertical margin so the wrap is exactly the select's
+     height — otherwise the chevron pseudo (positioned on the wrap) extends
+     past the select's borders. */
+  margin: 0.4rem 0 !important;
 }
 
 html[data-traditional] .theme-select,
@@ -879,9 +904,11 @@ html[data-traditional] .theme-select.is-chomper {
   font-family: var(--xp-font) !important;
   font-size: 12.5px !important;
   font-weight: 400 !important;
-  padding: 0.32rem 1.85rem 0.32rem 0.55rem !important;
+  padding: 0.32rem 2rem 0.32rem 0.55rem !important;
   height: 2rem !important;
+  margin: 0 !important;
   cursor: default !important;
+  box-sizing: border-box !important;
 }
 
 html[data-traditional] .theme-select:hover,
@@ -909,16 +936,15 @@ html[data-traditional] .select-wrap::after {
   content: '';
   position: absolute;
   right: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 22px;
-  height: calc(100% - 4px);
+  top: 2px;
+  bottom: 2px;
+  width: 24px;
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0 L10 0 L5 6 Z' fill='%23000'/%3E%3C/svg%3E") no-repeat 50% 50%,
-    linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M0 0 L11 0 L5.5 7 Z' fill='%23000'/%3E%3C/svg%3E") no-repeat 50% 50%,
+    linear-gradient(to bottom, #FFFFFF 0%, #ECE9D8 50%, #C8C4B0 100%);
   border: 1px solid;
   border-color: #FFFFFF #404040 #404040 #FFFFFF;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6) !important;
+  box-sizing: border-box;
   pointer-events: none;
   z-index: 2;
 }
@@ -945,7 +971,7 @@ html.dark[data-traditional] .theme-select option:checked {
 }
 html.dark[data-traditional] .select-wrap::after {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0 L10 0 L5 6 Z' fill='%23fff'/%3E%3C/svg%3E") no-repeat 50% 50%,
-    linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
-  border-color: #444A5C #000000 #000000 #444A5C;
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M0 0 L11 0 L5.5 7 Z' fill='%23fff'/%3E%3C/svg%3E") no-repeat 50% 50%,
+    linear-gradient(to bottom, #5A607A 0%, #3A4055 50%, #232838 100%);
+  border-color: #6A7090 #0A0E1C #0A0E1C #6A7090;
 }

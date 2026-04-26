@@ -403,7 +403,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
     <header class="flex items-start gap-4">
       <div class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
-        <StopIcon class="w-7 h-7 text-white"/>
+        <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
+        <StopIcon v-else class="w-7 h-7 text-white"/>
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
@@ -501,7 +502,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
     <section class="pb-6">
       <h2 class="section-label">
-        <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
+        <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
         {{ t('allRoutesAtStop') }}

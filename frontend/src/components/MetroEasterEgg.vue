@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 const props = defineProps<{ search: string }>()
 const { t, locale } = useI18n()
+const router = useRouter()
+
+function onEggClick() {
+  router.push({ name: 'not-found' })
+}
 
 const QUOTES_RO = [
   'ETA: 2035 (optimist)',
@@ -30,7 +36,14 @@ const quote = computed(() => {
 
 <template>
   <div v-if="showEgg" class="egg-wrap">
-    <div class="egg-row">
+    <div
+      class="egg-row"
+      role="button"
+      tabindex="0"
+      :aria-label="t('metroEggLine')"
+      @click="onEggClick"
+      @keydown.enter.space.prevent="onEggClick"
+    >
       <div class="egg-badge">M1</div>
       <div class="egg-text">
         <span class="egg-name">{{ t('metroEggLine') }}</span>
@@ -63,6 +76,13 @@ const quote = computed(() => {
   border-radius: 0.5rem;
   opacity: 0.6;
   user-select: none;
+  cursor: pointer;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+.egg-row:hover { opacity: 1; }
+.egg-row:focus-visible {
+  outline: 2px solid #94a3b8;
+  outline-offset: 2px;
 }
 
 .egg-badge {

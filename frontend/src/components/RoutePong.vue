@@ -12,49 +12,91 @@ const props = defineProps<{
 const emit = defineEmits<{ exit: [] }>()
 
 const { t } = useI18n()
-const { easterEggActive } = storeToRefs(useSettingsStore())
+const { easterEggActive, traditionalActive } = storeToRefs(useSettingsStore())
 const { isDarkMode } = storeToRefs(useUserStore())
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 // Read by draw() every rAF frame — always current.
 const canvasTheme = computed(() => {
-  const h = easterEggActive.value, d = isDarkMode.value
+  const h = easterEggActive.value
+  const x = traditionalActive.value
+  const d = isDarkMode.value
+  if (x && d) return {
+    court:     '#1A2030',
+    paddle:    '#5BA1F0',
+    ballBorder:'#FFFFFF',
+    line:      'rgba(91,161,240,0.28)',
+    score:     '#90B4E0',
+    pipOn:     '#5BA1F0',
+    pipOff:    'rgba(91,161,240,0.20)',
+    isXp:      true,
+  }
+  if (x) return {
+    court:     '#ECE9D8',
+    paddle:    '#245EDC',
+    ballBorder:'#000000',
+    line:      'rgba(36,94,220,0.30)',
+    score:     '#245EDC',
+    pipOn:     '#245EDC',
+    pipOff:    'rgba(36,94,220,0.18)',
+    isXp:      true,
+  }
   if (h && d) return {
     court:     '#1c1608',
     paddle:    'rgba(253,230,138,0.90)',
+    ballBorder:'',
     line:      'rgba(253,230,138,0.10)',
     score:     'rgba(253,230,138,0.38)',
     pipOn:     'rgba(253,230,138,0.85)',
     pipOff:    'rgba(253,230,138,0.18)',
+    isXp:      false,
   }
   if (h) return {
     court:     '#fefce8',
     paddle:    '#78350f',
+    ballBorder:'',
     line:      'rgba(120,53,15,0.12)',
     score:     'rgba(120,53,15,0.42)',
     pipOn:     'rgba(120,53,15,0.78)',
     pipOff:    'rgba(120,53,15,0.16)',
+    isXp:      false,
   }
   if (d) return {
     court:     '#0f172a',
     paddle:    'rgba(255,255,255,0.88)',
+    ballBorder:'',
     line:      'rgba(255,255,255,0.10)',
     score:     'rgba(255,255,255,0.30)',
     pipOn:     'rgba(255,255,255,0.85)',
     pipOff:    'rgba(255,255,255,0.18)',
+    isXp:      false,
   }
   return {
     court:     '#f1f5f9',
     paddle:    'rgba(15,23,42,0.72)',
+    ballBorder:'',
     line:      'rgba(15,23,42,0.10)',
     score:     'rgba(15,23,42,0.33)',
     pipOn:     'rgba(15,23,42,0.72)',
     pipOff:    'rgba(15,23,42,0.16)',
+    isXp:      false,
   }
 })
 
 const overlayTheme = computed(() => {
-  const h = easterEggActive.value, d = isDarkMode.value
+  const h = easterEggActive.value
+  const x = traditionalActive.value
+  const d = isDarkMode.value
+  if (x && d) return {
+    bg:    '#1A2030',
+    title: '#90B4E0',
+    score: '#5BA1F0',
+  }
+  if (x) return {
+    bg:    '#ECE9D8',
+    title: '#245EDC',
+    score: '#316AC5',
+  }
   if (h && d) return {
     bg:      'rgba(28,22,8,0.82)',
     title:   '#fde68a',
@@ -93,10 +135,18 @@ const overlayTheme = computed(() => {
   }
 })
 
-const exitBtnStyle = computed(() => isDarkMode.value
-  ? { background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)' }
-  : { background: 'rgba(15,23,42,0.09)',    color: 'rgba(15,23,42,0.48)'    }
-)
+const exitBtnStyle = computed(() => {
+  if (traditionalActive.value) {
+    return {
+      background: 'linear-gradient(to bottom, #F88080, #D04040 50%, #A82020)',
+      color: '#FFFFFF',
+      border: '1px solid #6B1010',
+    }
+  }
+  return isDarkMode.value
+    ? { background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)' }
+    : { background: 'rgba(15,23,42,0.09)',    color: 'rgba(15,23,42,0.48)'    }
+})
 
 // ── Game constants ────────────────────────────────────────────────────────────
 const canvasEl  = ref<HTMLCanvasElement | null>(null)
@@ -109,15 +159,14 @@ const BR        = 15
 const WIN_SCORE = 5
 
 // ── Mutable game state (lives outside Vue reactivity — mutated in rAF) ────────
-// All speeds in px/second so physics is refresh-rate independent.
 let W              = 300
-let BASE           = 150  // px/sec — set to W/2 in onMounted
+let BASE           = 150
 let bx = W / 2, by = H / 2, vx = BASE, vy = 0
 let lpy            = H / 2 - PH / 2
 let rpy            = H / 2 - PH / 2
 let scoreL         = 0, scoreR = 0
-let pauseRemaining = 0   // seconds
-let lastTime       = 0   // rAF timestamp of previous frame
+let pauseRemaining = 0
+let lastTime       = 0
 let raf            = 0
 let running        = false
 
@@ -142,7 +191,6 @@ function endGame(winner: 'player' | 'ai') {
 }
 
 function tick(dt: number) {
-  // AI always tracks the ball, capped so it's beatable.
   const want = by - PH / 2 - lpy
   lpy += Math.max(-BASE * 0.5 * dt, Math.min(BASE * 0.5 * dt, want))
   lpy = Math.max(0, Math.min(H - PH, lpy))
@@ -198,10 +246,15 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
 function drawPips(ctx: CanvasRenderingContext2D, filled: number, cx: number, cy: number) {
   const t = canvasTheme.value
   for (let i = 0; i < WIN_SCORE; i++) {
-    ctx.beginPath()
-    ctx.arc(cx + (i - 2) * 10, cy, 3, 0, Math.PI * 2)
+    const x = cx + (i - 2) * 10
     ctx.fillStyle = i < filled ? t.pipOn : t.pipOff
-    ctx.fill()
+    if (t.isXp) {
+      ctx.fillRect(x - 3, cy - 3, 6, 6)
+    } else {
+      ctx.beginPath()
+      ctx.arc(x, cy, 3, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
 }
 
@@ -210,11 +263,13 @@ function draw() {
   if (!ctx) return
   const t = canvasTheme.value
 
+  // Court
   ctx.fillStyle = t.court
   ctx.fillRect(0, 0, W, H)
 
+  // Center divider
   ctx.save()
-  ctx.setLineDash([5, 7])
+  ctx.setLineDash(t.isXp ? [2, 4] : [5, 7])
   ctx.strokeStyle = t.line
   ctx.lineWidth = 2
   ctx.beginPath()
@@ -223,8 +278,11 @@ function draw() {
   ctx.stroke()
   ctx.restore()
 
+  // Score
   ctx.fillStyle = t.score
-  ctx.font = 'bold 28px ui-monospace, monospace'
+  ctx.font = t.isXp
+    ? 'bold 24px Tahoma, "Trebuchet MS", sans-serif'
+    : 'bold 28px ui-monospace, monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   ctx.fillText(`${scoreL}`, W / 2 - 34, 8)
@@ -233,22 +291,39 @@ function draw() {
   drawPips(ctx, scoreL, W / 2 - 34, 48)
   drawPips(ctx, scoreR, W / 2 + 34, 48)
 
+  // Paddles
   ctx.fillStyle = t.paddle
-  rr(ctx, 0, lpy, PW, PH, 3); ctx.fill()
-  rr(ctx, W - PW, rpy, PW, PH, 3); ctx.fill()
+  if (t.isXp) {
+    ctx.fillRect(0, lpy, PW, PH)
+    ctx.fillRect(W - PW, rpy, PW, PH)
+  } else {
+    rr(ctx, 0, lpy, PW, PH, 3); ctx.fill()
+    rr(ctx, W - PW, rpy, PW, PH, 3); ctx.fill()
+  }
 
-  ctx.font = 'bold 13px ui-sans-serif, sans-serif'
+  // Ball badge
+  ctx.font = t.isXp
+    ? 'bold 12px Tahoma, "Trebuchet MS", sans-serif'
+    : 'bold 13px ui-sans-serif, sans-serif'
   const tw = ctx.measureText(props.routeShortName).width
   const bw = Math.max(tw + 18, 34)
   const bh = 26
 
-  ctx.save()
-  ctx.shadowColor = props.routeColor
-  ctx.shadowBlur  = 18
-  ctx.fillStyle   = props.routeColor
-  rr(ctx, bx - bw / 2, by - bh / 2, bw, bh, 7)
-  ctx.fill()
-  ctx.restore()
+  if (t.isXp) {
+    ctx.fillStyle = props.routeColor
+    ctx.fillRect(bx - bw / 2, by - bh / 2, bw, bh)
+    ctx.strokeStyle = t.ballBorder
+    ctx.lineWidth = 1
+    ctx.strokeRect(bx - bw / 2 + 0.5, by - bh / 2 + 0.5, bw - 1, bh - 1)
+  } else {
+    ctx.save()
+    ctx.shadowColor = props.routeColor
+    ctx.shadowBlur  = 18
+    ctx.fillStyle   = props.routeColor
+    rr(ctx, bx - bw / 2, by - bh / 2, bw, bh, 7)
+    ctx.fill()
+    ctx.restore()
+  }
 
   ctx.fillStyle    = '#fff'
   ctx.textAlign    = 'center'
@@ -300,7 +375,7 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => {
   if (canvasEl.value) {
     W    = canvasEl.value.offsetWidth || 300
-    BASE = W / 1.6   // px/sec — ball crosses full court in ~1.6 s
+    BASE = W / 1.6
     canvasEl.value.width  = W
     canvasEl.value.height = H
     lpy = H / 2 - PH / 2
@@ -322,9 +397,14 @@ onUnmounted(() => {
 <template>
   <div
     class="pong-wrap"
+    :class="{ 'is-xp': traditionalActive }"
     @pointermove="onPointerMove"
     @touchmove.prevent="onTouchMove"
   >
+    <div v-if="traditionalActive" class="pong-titlebar">
+      <span class="pong-titlebar-text">🎮 Pong — {{ props.routeShortName }}</span>
+    </div>
+
     <canvas ref="canvasEl" :height="H" class="pong-canvas" />
 
     <div v-if="gameOver" class="pong-over" :style="{ background: overlayTheme.bg }">
@@ -337,12 +417,14 @@ onUnmounted(() => {
       <div class="pong-over-actions">
         <button
           class="pong-over-btn"
-          :style="{ background: overlayTheme.btnBg, color: overlayTheme.btnFg }"
+          :class="{ 'pong-over-btn-primary': true, 'is-xp': traditionalActive }"
+          :style="!traditionalActive && overlayTheme.btnBg ? { background: overlayTheme.btnBg, color: overlayTheme.btnFg } : undefined"
           @click="restart"
         >{{ t('pongPlayAgain') }}</button>
         <button
           class="pong-over-btn"
-          :style="{ background: overlayTheme.ghBg, color: overlayTheme.ghFg }"
+          :class="{ 'is-xp': traditionalActive }"
+          :style="!traditionalActive && overlayTheme.ghBg ? { background: overlayTheme.ghBg, color: overlayTheme.ghFg } : undefined"
           @click="emit('exit')"
         >{{ t('pongExit') }}</button>
       </div>
@@ -351,6 +433,7 @@ onUnmounted(() => {
     <button
       v-else
       class="pong-exit"
+      :class="{ 'is-xp': traditionalActive }"
       :style="exitBtnStyle"
       @click="emit('exit')"
       title="Exit (Esc)"
@@ -366,6 +449,56 @@ onUnmounted(() => {
   margin: 1rem 0 1.5rem;
   cursor: none;
   user-select: none;
+}
+
+/* ── XP window chrome ─────────────────────────────────────────────────── */
+.pong-wrap.is-xp {
+  border-radius: 0;
+  border: 1px solid #003C9C;
+  box-shadow: 1px 1px 0 #FFFFFF inset, 0 2px 6px rgba(0,0,0,0.25);
+  margin: 0.75rem 0 1.25rem;
+}
+:global(html.dark[data-traditional]) .pong-wrap.is-xp {
+  border-color: #001E5C;
+  box-shadow: 1px 1px 0 rgba(255,255,255,0.05) inset, 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.pong-titlebar {
+  height: 24px;
+  background: linear-gradient(
+    to bottom,
+    #0058DA 0%,
+    #2E84E8 6%,
+    #1A6CD0 14%,
+    #1056C0 50%,
+    #0E54BE 51%,
+    #1A66D0 95%,
+    #0E4DAC 100%
+  );
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid #003C9C;
+}
+:global(html.dark[data-traditional]) .pong-titlebar {
+  background: linear-gradient(
+    to bottom,
+    #003478 0%,
+    #1A6CD0 8%,
+    #0F4FA8 50%,
+    #0A3E90 51%,
+    #1656B8 95%,
+    #062A6C 100%
+  );
+  border-bottom-color: #001E5C;
+}
+.pong-titlebar-text {
+  color: #FFFFFF;
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.45);
+  letter-spacing: 0.02em;
 }
 
 .pong-canvas {
@@ -391,6 +524,23 @@ onUnmounted(() => {
 }
 .pong-exit:hover { opacity: 0.7; }
 
+/* XP close button — repositioned into the title bar's right edge */
+.pong-exit.is-xp {
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 17px;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Tahoma', sans-serif;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.pong-exit.is-xp:hover {
+  opacity: 1;
+  filter: brightness(1.15);
+}
+
 .pong-over {
   position: absolute;
   inset: 0;
@@ -400,6 +550,10 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   cursor: default;
+}
+/* When XP titlebar is present, the overlay sits below it */
+.pong-wrap.is-xp .pong-over {
+  inset: 25px 0 0 0;
 }
 
 .pong-over-title {
@@ -430,4 +584,66 @@ onUnmounted(() => {
   transition: opacity 0.15s;
 }
 .pong-over-btn:hover { opacity: 0.82; }
+
+/* XP-style buttons in the message dialog */
+.pong-over-btn.is-xp {
+  border-radius: 0;
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%);
+  border: 1px solid #ACA899;
+  color: #000000;
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+  font-size: 0.75rem;
+  padding: 0.35rem 1.1rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  min-width: 80px;
+}
+.pong-over-btn.is-xp:hover {
+  opacity: 1;
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%);
+  border-color: #D08020;
+}
+.pong-over-btn.is-xp.pong-over-btn-primary {
+  background: linear-gradient(to bottom, #4A90E0 0%, #2470D4 50%, #1A52B8 100%);
+  color: #FFFFFF;
+  border-color: #003C9C;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.pong-over-btn.is-xp.pong-over-btn-primary:hover {
+  background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%);
+  border-color: #003C9C;
+}
+:global(html.dark[data-traditional]) .pong-over-btn.is-xp {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
+  color: #E0E6F2;
+  border-color: #444A5C;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+}
+:global(html.dark[data-traditional]) .pong-over-btn.is-xp:hover {
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%);
+  border-color: #4E88D8;
+}
+:global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary {
+  background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%);
+  color: #FFFFFF;
+  border-color: #1B3E78;
+}
+:global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary:hover {
+  background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%);
+}
+
+/* XP overlay — opaque XP "message dialog" surface */
+.pong-wrap.is-xp .pong-over {
+  background: #ECE9D8 !important;
+}
+.pong-wrap.is-xp .pong-over-title {
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+.pong-wrap.is-xp .pong-over-score {
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+}
+:global(html.dark[data-traditional]) .pong-wrap.is-xp .pong-over {
+  background: #1A2030 !important;
+}
 </style>

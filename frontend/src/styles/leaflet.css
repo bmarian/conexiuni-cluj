@@ -391,6 +391,48 @@
 .traditional-theme .leaflet-popup-tip,
 .traditional-theme .stop-name-tooltip { border-radius: 0 !important; }
 
+/* Zoom control: keep native + / - text, just style the typography */
+.traditional-theme .leaflet-control-zoom-in,
+.traditional-theme .leaflet-control-zoom-out {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
+}
+
+/* Replace SVGs inside our custom control (center + fit) with emojis.
+   Excludes both .leaflet-control-zoom and .leaflet-control-geosearch so we
+   only target the custom .leaflet-bar that holds the two helper buttons. */
+.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a svg { display: none !important; }
+.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(1)::before {
+  content: '🎯';
+  font-size: 18px;
+  line-height: 1;
+}
+.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(2)::before {
+  content: '🗺️';
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Geosearch toggle: nuke the library's magnifier (drawn with ::before triangle
+   handle + ::after circle lens) and replace with a 🔍 emoji. `all: unset`
+   wipes width/height/position/border/background and resets `content` to none,
+   so the lone explicit `content: '🔍'` rule is the only thing rendered. */
+.traditional-theme .leaflet-control-geosearch a.leaflet-bar-part::before,
+.traditional-theme .leaflet-control-geosearch a.leaflet-bar-part::after {
+  all: unset !important;
+}
+.traditional-theme .leaflet-control-geosearch a.leaflet-bar-part {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.traditional-theme .leaflet-control-geosearch a.leaflet-bar-part::before {
+  content: '🔍' !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
 /* Dark — muted Luna blue */
 :root.dark .traditional-theme .leaflet-bar {
   box-shadow: 0 4px 16px -2px rgba(0,0,0,0.45), 0 1px 4px rgba(36,94,220,0.30) !important;

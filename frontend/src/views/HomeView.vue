@@ -7,6 +7,7 @@ import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useMapStore} from '@/stores/map.ts'
+import {useSettingsStore} from '@/stores/settings.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
@@ -18,6 +19,7 @@ const router = useRouter()
 const favoritesStore = useFavoritesStore()
 const routeStore = useRouteStore()
 const mapStore = useMapStore()
+const settings = useSettingsStore()
 const {favoriteRouteIds, favoriteStopIds, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
@@ -126,7 +128,8 @@ const stopFavoritesModel = computed<number[]>({
 
     <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
       <h2 class="section-label">
-        <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">❤️</span>
+        <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
         </svg>
         {{ t('favorites') }}
@@ -209,7 +212,8 @@ const stopFavoritesModel = computed<number[]>({
                 <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
               </svg>
               <div class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-                <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+                <span v-if="settings.traditionalActive" class="emoji-icon-md" aria-hidden="true">📍</span>
+                <svg v-else class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
               </div>
@@ -238,14 +242,16 @@ const stopFavoritesModel = computed<number[]>({
 
     <section class="flex flex-col gap-3 pb-6">
       <h2 class="section-label">
-        <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
+        <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
         {{ t('allRoutes') }}
       </h2>
 
       <div class="search-wrap">
-        <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🔍</span>
+        <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
         </svg>
         <input
