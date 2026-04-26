@@ -27,6 +27,7 @@ import IconNotFoundFace from '@/components/icons/IconNotFoundFace.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
+import RoutePong from '@/components/RoutePong.vue'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -401,6 +402,21 @@ async function loadShapeInfoFromApi(): Promise<boolean> {
   }
 }
 
+// Pong easter egg: spam the direction toggle 5× within 2 s to activate
+const pongActive = ref(false)
+const dirTapTimes: number[] = []
+
+function onDirClick(dir: '0' | '1') {
+  currentDirection.value = dir
+  const now = Date.now()
+  while (dirTapTimes.length && now - dirTapTimes[0]! > 2000) dirTapTimes.shift()
+  dirTapTimes.push(now)
+  if (dirTapTimes.length >= 5) {
+    pongActive.value = true
+    dirTapTimes.length = 0
+  }
+}
+
 // Easter egg: chomp animation for the route badge
 const mouthOpen = ref(true)
 let chompTimer: ReturnType<typeof setInterval> | null = null
@@ -526,14 +542,20 @@ onUnmounted(() => {
       </button>
     </header>
 
-    <div class="direction-toggle-wrap">
-      <button :disabled="!hasOutgoing" @click="currentDirection = '0'" :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
+    <RoutePong
+      v-if="pongActive"
+      :route-short-name="shapeInfo.route_short_name"
+      :route-color="shapeInfo.route_color"
+      @exit="pongActive = false"
+    />
+    <div v-else class="direction-toggle-wrap">
+      <button :disabled="!hasOutgoing" @click="onDirClick('0')" :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
         <span class="truncate">{{ timetable?.out_stop_name }}</span>
       </button>
-      <button :disabled="!hasIncoming" @click="currentDirection = '1'" :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
+      <button :disabled="!hasIncoming" @click="onDirClick('1')" :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
