@@ -264,18 +264,18 @@ html[data-traditional] .dir-btn-inactive {
   font-family: var(--xp-font) !important;
 }
 
-/* ── Settings button — XP Start button ────────────────────────────────── */
+/* ── Settings button — Luna blue (matches map chrome) ─────────────────── */
 html[data-traditional] .settings-btn {
-  background: radial-gradient(circle at 30% 30%, #95D87A, #5BAA38 55%, #3D7E22 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #6BA1F0, #245EDC 55%, #1A4FB8 100%) !important;
   color: #FFFFFF !important;
   box-shadow:
-    inset 0 1px 1px rgba(255,255,255,0.65),
+    inset 0 1px 1px rgba(255,255,255,0.55),
     inset 0 -2px 4px rgba(0,0,0,0.20),
     0 2px 4px rgba(0,0,0,0.30) !important;
-  border: 1px solid #2D5F18 !important;
+  border: 1px solid #003C9C !important;
 }
 html[data-traditional] .settings-btn:hover {
-  background: radial-gradient(circle at 30% 30%, #A8E58E, #6BBE48 55%, #4D8E2E 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #84B4F8, #316AC5 55%, #2558B0 100%) !important;
   color: #FFFFFF !important;
 }
 
@@ -322,15 +322,15 @@ html[data-traditional] .option-btn.active {
   border-color: #003C9C !important;
 }
 
-/* ── Landscape toggle ──────────────────────────────────────────────────── */
+/* ── Landscape toggle — Luna blue ─────────────────────────────────────── */
 html[data-traditional] .landscape-drawer-toggle {
-  background: radial-gradient(circle at 30% 30%, #95D87A, #5BAA38 55%, #3D7E22 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #6BA1F0, #245EDC 55%, #1A4FB8 100%) !important;
   color: #FFFFFF !important;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.65), 0 2px 4px rgba(0,0,0,0.30) !important;
-  border: 1px solid #2D5F18 !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.55), 0 2px 4px rgba(0,0,0,0.30) !important;
+  border: 1px solid #003C9C !important;
 }
 html[data-traditional] .landscape-drawer-toggle:hover {
-  background: radial-gradient(circle at 30% 30%, #A8E58E, #6BBE48 55%, #4D8E2E 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #84B4F8, #316AC5 55%, #2558B0 100%) !important;
   color: #FFFFFF !important;
 }
 
@@ -479,15 +479,15 @@ html.dark[data-traditional] .dir-btn-inactive {
   color: rgba(224,230,242,0.5) !important;
 }
 
-/* Dark settings */
+/* Dark settings — muted Luna blue */
 html.dark[data-traditional] .settings-btn {
-  background: radial-gradient(circle at 30% 30%, #6FB852, #3D8024 55%, #265A12 100%) !important;
-  color: #E8F4DC !important;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.50) !important;
-  border: 1px solid #1E4810 !important;
+  background: radial-gradient(circle at 30% 30%, #5BA1F0, #2A66B8 55%, #1B3E78 100%) !important;
+  color: #E0E6F2 !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.30), 0 2px 8px rgba(0,0,0,0.50) !important;
+  border: 1px solid #001E5C !important;
 }
 html.dark[data-traditional] .settings-btn:hover {
-  background: radial-gradient(circle at 30% 30%, #80CD60, #4D9530 55%, #356E1A 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #6FB4F8, #3A7EC8 55%, #2A4F90 100%) !important;
   color: #FFFFFF !important;
 }
 
@@ -518,13 +518,13 @@ html.dark[data-traditional] .option-btn.active {
 }
 
 html.dark[data-traditional] .landscape-drawer-toggle {
-  background: radial-gradient(circle at 30% 30%, #6FB852, #3D8024 55%, #265A12 100%) !important;
-  color: #E8F4DC !important;
-  border: 1px solid #1E4810 !important;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.50) !important;
+  background: radial-gradient(circle at 30% 30%, #5BA1F0, #2A66B8 55%, #1B3E78 100%) !important;
+  color: #E0E6F2 !important;
+  border: 1px solid #001E5C !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.30), 0 2px 8px rgba(0,0,0,0.50) !important;
 }
 html.dark[data-traditional] .landscape-drawer-toggle:hover {
-  background: radial-gradient(circle at 30% 30%, #80CD60, #4D9530 55%, #356E1A 100%) !important;
+  background: radial-gradient(circle at 30% 30%, #6FB4F8, #3A7EC8 55%, #2A4F90 100%) !important;
   color: #FFFFFF !important;
 }
 
@@ -648,8 +648,8 @@ html[data-traditional] .home-view-container .fav-route-badge {
 }
 
 /* ── Back button (toolbar style + extra right padding) ────────────────── */
-html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn),
-html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn) {
+html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
+html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
   background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
   border: 1px solid var(--xp-border) !important;
   color: #000000 !important;
@@ -658,21 +658,21 @@ html[data-traditional] .route-view-container button[class*="text-slate-500"][cla
   padding: 0.28rem 0.7rem 0.28rem 0.45rem !important;
   font-weight: 700 !important;
 }
-html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover,
-html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover {
+html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
+html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
   background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
   border-color: #D08020 !important;
   color: #000000 !important;
 }
-html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn),
-html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn) {
+html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
+html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
   background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
   border-color: var(--xp-border) !important;
   color: var(--xp-text) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
 }
-html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover,
-html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover {
+html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
+html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
   background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
   border-color: var(--xp-blue) !important;
 }
@@ -914,17 +914,13 @@ html[data-traditional] .select-wrap::after {
   width: 22px;
   height: calc(100% - 4px);
   background:
-    /* 5-row CSS triangle pointing down (9-7-5-3-1 px wide rows, 1px tall each) */
-    linear-gradient(to bottom, transparent calc(50% - 3px), #000000 calc(50% - 3px), #000000 calc(50% - 2px), transparent calc(50% - 2px)) no-repeat 50% 50% / 9px 1px,
-    linear-gradient(to bottom, transparent calc(50% - 2px), #000000 calc(50% - 2px), #000000 calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
-    linear-gradient(to bottom, transparent calc(50% - 1px), #000000 calc(50% - 1px), #000000 calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
-    linear-gradient(to bottom, transparent 50%, #000000 50%, #000000 calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,
-    linear-gradient(to bottom, transparent calc(50% + 1px), #000000 calc(50% + 1px), #000000 calc(50% + 2px), transparent calc(50% + 2px)) no-repeat 50% 50% / 1px 1px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0 L10 0 L5 6 Z' fill='%23000'/%3E%3C/svg%3E") no-repeat 50% 50%,
     linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%);
   border: 1px solid;
   border-color: #FFFFFF #404040 #404040 #FFFFFF;
   box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6) !important;
   pointer-events: none;
+  z-index: 2;
 }
 
 /* Dark mode combo box */
@@ -949,11 +945,7 @@ html.dark[data-traditional] .theme-select option:checked {
 }
 html.dark[data-traditional] .select-wrap::after {
   background:
-    linear-gradient(to bottom, transparent calc(50% - 3px), #FFFFFF calc(50% - 3px), #FFFFFF calc(50% - 2px), transparent calc(50% - 2px)) no-repeat 50% 50% / 9px 1px,
-    linear-gradient(to bottom, transparent calc(50% - 2px), #FFFFFF calc(50% - 2px), #FFFFFF calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
-    linear-gradient(to bottom, transparent calc(50% - 1px), #FFFFFF calc(50% - 1px), #FFFFFF calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
-    linear-gradient(to bottom, transparent 50%, #FFFFFF 50%, #FFFFFF calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,
-    linear-gradient(to bottom, transparent calc(50% + 1px), #FFFFFF calc(50% + 1px), #FFFFFF calc(50% + 2px), transparent calc(50% + 2px)) no-repeat 50% 50% / 1px 1px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0 L10 0 L5 6 Z' fill='%23fff'/%3E%3C/svg%3E") no-repeat 50% 50%,
     linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
   border-color: #444A5C #000000 #000000 #444A5C;
 }
