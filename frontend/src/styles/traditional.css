@@ -707,6 +707,15 @@ html.dark[data-traditional] .fav-btn:hover {
   border-color: #C04050 !important;
   color: #FF6080 !important;
 }
+html.dark[data-traditional] .fav-btn.is-fav {
+  background: linear-gradient(to bottom, #F88080 0%, #D04040 50%, #A82020 100%) !important;
+  border-color: #6B1010 !important;
+  color: #FFFFFF !important;
+}
+html.dark[data-traditional] .fav-btn.is-fav:hover {
+  background: linear-gradient(to bottom, #FA9090 0%, #E05050 50%, #B82828 100%) !important;
+  color: #FFFFFF !important;
+}
 
 /* ── RouteView stop list dots ─────────────────────────────────────────── */
 html[data-traditional] .route-view-container .bg-emerald-500 { background: #5BAA38 !important; }
@@ -816,6 +825,34 @@ html[data-traditional] .search-input { font-family: var(--xp-font) !important; }
 html[data-traditional] .drag-handle { color: #808080 !important; }
 html.dark[data-traditional] .drag-handle { color: #6A6A82 !important; }
 
+/* ── Route view stop indicators — Win11 emojis instead of SVGs ────────── */
+html[data-traditional] .route-stop-emoji {
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+}
+html[data-traditional] .route-stop-bullet {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #FFFFFF;
+  border: 1px solid #5C6470;
+}
+html[data-traditional] .route-stop-bullet-end {
+  width: 8px;
+  height: 8px;
+  background: #5C6470;
+  border-color: #2A3040;
+}
+html.dark[data-traditional] .route-stop-bullet {
+  background: #1A2030;
+  border-color: #8AA0C0;
+}
+html.dark[data-traditional] .route-stop-bullet-end {
+  background: #8AA0C0;
+  border-color: #C0D0E8;
+}
+
 /* Generic XP styling for any small "close" buttons (×) */
 html[data-traditional] .fav-remove,
 html[data-traditional] .fav-stop-remove {
@@ -840,10 +877,10 @@ html[data-traditional] .theme-select.is-chomper {
     inset -1px -1px 0 #DFDFDF !important;
   color: #000000 !important;
   font-family: var(--xp-font) !important;
-  font-size: 11px !important;
+  font-size: 12.5px !important;
   font-weight: 400 !important;
-  padding: 0.18rem 1.5rem 0.18rem 0.4rem !important;
-  height: 1.6rem !important;
+  padding: 0.32rem 1.85rem 0.32rem 0.55rem !important;
+  height: 2rem !important;
   cursor: default !important;
 }
 
@@ -874,10 +911,11 @@ html[data-traditional] .select-wrap::after {
   right: 2px;
   top: 50%;
   transform: translateY(-50%);
-  width: 17px;
+  width: 22px;
   height: calc(100% - 4px);
   background:
-    /* Tiny down-triangle in the middle */
+    /* 5-row CSS triangle pointing down (9-7-5-3-1 px wide rows, 1px tall each) */
+    linear-gradient(to bottom, transparent calc(50% - 3px), #000000 calc(50% - 3px), #000000 calc(50% - 2px), transparent calc(50% - 2px)) no-repeat 50% 50% / 9px 1px,
     linear-gradient(to bottom, transparent calc(50% - 2px), #000000 calc(50% - 2px), #000000 calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
     linear-gradient(to bottom, transparent calc(50% - 1px), #000000 calc(50% - 1px), #000000 calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
     linear-gradient(to bottom, transparent 50%, #000000 50%, #000000 calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,
@@ -911,6 +949,7 @@ html.dark[data-traditional] .theme-select option:checked {
 }
 html.dark[data-traditional] .select-wrap::after {
   background:
+    linear-gradient(to bottom, transparent calc(50% - 3px), #FFFFFF calc(50% - 3px), #FFFFFF calc(50% - 2px), transparent calc(50% - 2px)) no-repeat 50% 50% / 9px 1px,
     linear-gradient(to bottom, transparent calc(50% - 2px), #FFFFFF calc(50% - 2px), #FFFFFF calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
     linear-gradient(to bottom, transparent calc(50% - 1px), #FFFFFF calc(50% - 1px), #FFFFFF calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
     linear-gradient(to bottom, transparent 50%, #FFFFFF 50%, #FFFFFF calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,

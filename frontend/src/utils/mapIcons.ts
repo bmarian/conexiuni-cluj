@@ -21,20 +21,20 @@ const BUS_STOP_PATH =
 function clippySvg(wire: string, wireDark: string, w: number, h: number): string {
   return `<svg viewBox="0 0 26 32" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="13" cy="30.5" rx="6.5" ry="0.9" fill="rgba(0,0,0,0.22)"/>
-    <path d="M 19 7 L 7 7 Q 3 7 3 11 L 3 24 Q 3 28 7 28 L 16 28" stroke="${wireDark}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.55"/>
-    <path d="M 19 11 L 12 11 Q 8 11 8 14 L 8 26" stroke="${wireDark}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.55"/>
-    <path d="M 19 7 L 7 7 Q 3 7 3 11 L 3 24 Q 3 28 7 28 L 16 28" stroke="${wire}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M 19 11 L 12 11 Q 8 11 8 14 L 8 26" stroke="${wire}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M 19 6.2 L 7.5 6.2 Q 4 6.2 4 9" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" fill="none" opacity="0.7"/>
-    <path d="M 19 10.2 L 12 10.2" stroke="#FFFFFF" stroke-width="0.5" stroke-linecap="round" fill="none" opacity="0.55"/>
-    <ellipse cx="10" cy="12" rx="3.2" ry="3.7" fill="white" stroke="#1A1A1A" stroke-width="0.6"/>
-    <ellipse cx="17" cy="12" rx="3.2" ry="3.7" fill="white" stroke="#1A1A1A" stroke-width="0.6"/>
-    <ellipse cx="10.6" cy="12.6" rx="1.3" ry="1.7" fill="#1A1A1A"/>
-    <ellipse cx="17.6" cy="12.6" rx="1.3" ry="1.7" fill="#1A1A1A"/>
-    <circle cx="10" cy="11.7" r="0.55" fill="white"/>
-    <circle cx="17" cy="11.7" r="0.55" fill="white"/>
-    <path d="M 5.5 7.5 Q 10 5.5 13 7" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-    <path d="M 14 7 Q 17 5.5 21.5 7.5" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <rect x="3" y="5" width="20" height="25" rx="4.5" ry="4.5" fill="none" stroke="${wireDark}" stroke-width="3.2" stroke-opacity="0.55"/>
+    <rect x="3" y="5" width="20" height="25" rx="4.5" ry="4.5" fill="none" stroke="${wire}" stroke-width="2.4"/>
+    <rect x="7" y="9" width="12" height="17" rx="3" ry="3" fill="none" stroke="${wireDark}" stroke-width="3.2" stroke-opacity="0.55"/>
+    <rect x="7" y="9" width="12" height="17" rx="3" ry="3" fill="none" stroke="${wire}" stroke-width="2.4"/>
+    <path d="M 4.2 6.5 Q 4.2 5 5.7 5 L 19 5" fill="none" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" opacity="0.7"/>
+    <path d="M 8 9.5 L 18 9.5" fill="none" stroke="#FFFFFF" stroke-width="0.5" stroke-linecap="round" opacity="0.55"/>
+    <ellipse cx="10" cy="13" rx="3.2" ry="3.7" fill="white" stroke="#1A1A1A" stroke-width="0.6"/>
+    <ellipse cx="17" cy="13" rx="3.2" ry="3.7" fill="white" stroke="#1A1A1A" stroke-width="0.6"/>
+    <ellipse cx="10.6" cy="13.6" rx="1.3" ry="1.7" fill="#1A1A1A"/>
+    <ellipse cx="17.6" cy="13.6" rx="1.3" ry="1.7" fill="#1A1A1A"/>
+    <circle cx="10" cy="12.7" r="0.55" fill="white"/>
+    <circle cx="17" cy="12.7" r="0.55" fill="white"/>
+    <path d="M 5.5 8 Q 10 6 13 7.5" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <path d="M 14 7.5 Q 17 6 21.5 8" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
   </svg>`
 }
 

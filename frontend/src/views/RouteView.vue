@@ -606,6 +606,13 @@ onUnmounted(() => {
                 <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
               </svg>
             </template>
+            <template v-else-if="settings.traditionalActive">
+              <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
+              <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
+              <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="route-stop-emoji">❤️</span>
+              <span v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="route-stop-bullet route-stop-bullet-end"></span>
+              <span v-else class="route-stop-bullet"></span>
+            </template>
             <template v-else>
               <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
               <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
@@ -623,15 +630,17 @@ onUnmounted(() => {
               idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
               'font-medium text-slate-500 dark:text-slate-400'
             ]">{{ getStopLabel(idx, stop) }}</span>
-            <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
-            <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
+            <template v-if="!settings.traditionalActive">
+              <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </template>
           </div>
 
           <div class="times-cols shrink-0">
@@ -719,6 +728,13 @@ onUnmounted(() => {
                     <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
                   </svg>
                 </template>
+                <template v-else-if="settings.traditionalActive">
+                  <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
+                  <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
+                  <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="route-stop-emoji">❤️</span>
+                  <span v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="route-stop-bullet route-stop-bullet-end"></span>
+                  <span v-else class="route-stop-bullet"></span>
+                </template>
                 <template v-else>
                   <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
                   <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
@@ -736,15 +752,17 @@ onUnmounted(() => {
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
                 ]">{{ getStopLabel(idx, stop) }}</span>
-                <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-                <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-                <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
+                <template v-if="!settings.traditionalActive">
+                  <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                  <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                  <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                </template>
               </div>
 
               <span :class="[
