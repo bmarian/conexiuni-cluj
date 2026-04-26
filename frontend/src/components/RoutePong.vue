@@ -106,18 +106,20 @@ const H         = 220
 const PW        = 10
 const PH        = 55
 const BR        = 15
-const BASE      = 2.5
 const WIN_SCORE = 5
 
 // ── Mutable game state (lives outside Vue reactivity — mutated in rAF) ────────
-let W           = 300
-let bx = W / 2, by = H / 2, vx = BASE, vy = 1
-let lpy         = H / 2 - PH / 2
-let rpy         = H / 2 - PH / 2
-let scoreL      = 0, scoreR = 0
-let pauseFrames = 0
-let raf         = 0
-let running     = false
+// All speeds in px/second so physics is refresh-rate independent.
+let W              = 300
+let BASE           = 150  // px/sec — set to W/2 in onMounted
+let bx = W / 2, by = H / 2, vx = BASE, vy = 0
+let lpy            = H / 2 - PH / 2
+let rpy            = H / 2 - PH / 2
+let scoreL         = 0, scoreR = 0
+let pauseRemaining = 0   // seconds
+let lastTime       = 0   // rAF timestamp of previous frame
+let raf            = 0
+let running        = false
 
 function launch() {
   bx = W / 2
@@ -126,7 +128,7 @@ function launch() {
   const dir   = Math.random() < 0.5 ? 1 : -1
   vx = dir * BASE * Math.cos(angle)
   vy = BASE * Math.sin(angle)
-  pauseFrames = 70
+  pauseRemaining = 1.2
 }
 
 function clampVy() {
@@ -139,16 +141,16 @@ function endGame(winner: 'player' | 'ai') {
   gameOver.value = winner
 }
 
-function tick() {
-  // AI tracks ball even during pause so it recenters
-  const aiStep = (by - PH / 2 - lpy) * 0.07
-  lpy += Math.max(-1.6, Math.min(1.6, aiStep))
+function tick(dt: number) {
+  // AI always tracks the ball, capped so it's beatable.
+  const want = by - PH / 2 - lpy
+  lpy += Math.max(-BASE * 0.5 * dt, Math.min(BASE * 0.5 * dt, want))
   lpy = Math.max(0, Math.min(H - PH, lpy))
 
-  if (pauseFrames > 0) { pauseFrames--; return }
+  if (pauseRemaining > 0) { pauseRemaining -= dt; return }
 
-  bx += vx
-  by += vy
+  bx += vx * dt
+  by += vy * dt
 
   if (by - BR < 0)  { by = BR;     vy =  Math.abs(vy) }
   if (by + BR > H)  { by = H - BR; vy = -Math.abs(vy) }
@@ -254,9 +256,11 @@ function draw() {
   ctx.fillText(props.routeShortName, bx, by + 1)
 }
 
-function loop() {
+function loop(ts: number) {
   if (!running) return
-  tick()
+  const dt = lastTime === 0 ? 0 : Math.min((ts - lastTime) / 1000, 0.05)
+  lastTime = ts
+  tick(dt)
   draw()
   if (running) raf = requestAnimationFrame(loop)
 }
@@ -266,6 +270,7 @@ function restart() {
   gameOver.value = null
   lpy = H / 2 - PH / 2
   rpy = H / 2 - PH / 2
+  lastTime = 0
   running = true
   launch()
   raf = requestAnimationFrame(loop)
@@ -294,7 +299,8 @@ function onKey(e: KeyboardEvent) {
 
 onMounted(() => {
   if (canvasEl.value) {
-    W = canvasEl.value.offsetWidth || 300
+    W    = canvasEl.value.offsetWidth || 300
+    BASE = W / 1.6   // px/sec — ball crosses full court in ~1.6 s
     canvasEl.value.width  = W
     canvasEl.value.height = H
     lpy = H / 2 - PH / 2
