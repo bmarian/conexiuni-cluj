@@ -623,6 +623,51 @@ html[data-traditional] .time-cell-live {
   padding: 0 0.25rem !important;
 }
 
+/* ── Flat map (RouteView stop list) text on Bliss gradient ─────────────── */
+
+/* Normal stop rows sit directly on Bliss — white text + shadow for contrast  */
+html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-500,
+html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-700,
+html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-500,
+html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-600,
+html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-700 {
+  color: #FFFFFF !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.55) !important;
+}
+html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .time-cell:not(.time-cell-live),
+html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .time-cell:not(.time-cell-live) {
+  color: #FFFFFF !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.55) !important;
+}
+
+/* Nearest + fav rows have semi-transparent white/cream overlay — dark text */
+html[data-traditional] .route-view-container .stop-row-nearest .text-slate-500,
+html[data-traditional] .route-view-container .stop-row-nearest .text-slate-700,
+html[data-traditional] .route-view-container .stop-row-fav .text-slate-500,
+html[data-traditional] .route-view-container .stop-row-fav .text-slate-700,
+html[data-traditional] .route-view-container .stop-row-nearest .text-slate-600,
+html[data-traditional] .route-view-container .stop-row-fav .text-slate-600 {
+  color: #1A1A1A !important;
+  text-shadow: none !important;
+}
+html[data-traditional] .route-view-container .stop-row-nearest .time-cell:not(.time-cell-live),
+html[data-traditional] .route-view-container .stop-row-fav .time-cell:not(.time-cell-live) {
+  color: #333333 !important;
+  text-shadow: none !important;
+}
+
+/* Stops header (section label + next-departure column times) on Bliss */
+html[data-traditional] .route-view-container .stops-header .time-cell,
+html[data-traditional] .route-view-container .stops-header .text-slate-400 {
+  color: #FFFFFF !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.55) !important;
+}
+
+/* Timeline vertical connector on Bliss */
+html[data-traditional] .route-view-container .relative > .absolute.left-\[10px\] {
+  background-color: rgba(255,255,255,0.55) !important;
+}
+
 /* Route number badges (the colored squares) */
 html[data-traditional] .stop-view-container [style*="background-color"][class*="font-black"],
 html[data-traditional] .route-view-container header > div[style*="background-color"],
