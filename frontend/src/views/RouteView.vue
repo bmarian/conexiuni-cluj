@@ -218,17 +218,28 @@ const allEntriesSuspended = computed(
   () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended)
 )
 
-type HourGroup = { hour: string; chips: TimetableChip[] }
+type HourGroup = { hour: string; chips: TimetableChip[]; isNextDay: boolean }
 
 const timetableByHour = computed((): HourGroup[] => {
   const groups = new Map<string, TimetableChip[]>()
   for (const entry of timetableEntries.value) {
     if (entry.isSuspended) continue
-    const hour = entry.time.slice(0, 2)
-    if (!groups.has(hour)) groups.set(hour, [])
-    groups.get(hour)!.push(entry)
+    const rawHour = entry.time.slice(0, 2)
+    if (!groups.has(rawHour)) groups.set(rawHour, [])
+    groups.get(rawHour)!.push(entry)
   }
-  return Array.from(groups.entries()).map(([hour, chips]) => ({hour, chips}))
+  return Array.from(groups.entries()).map(([rawHour, chips]) => {
+    const h = parseInt(rawHour, 10)
+    const isNextDay = h >= 24
+    const hour = isNextDay ? String(h - 24).padStart(2, '0') : rawHour
+    return { hour, chips, isNextDay }
+  })
+})
+
+const selectedDepartureTimeDisplay = computed(() => {
+  if (!selectedDepartureTime.value) return null
+  const m = timeStringToMinutes(selectedDepartureTime.value)
+  return m !== null ? formatAbsoluteMinutes(m) : selectedDepartureTime.value
 })
 
 const selectedDepartureTime = ref<string | null>(null)
@@ -638,7 +649,7 @@ onUnmounted(() => {
 
         <div class="tt-table">
           <div v-for="group in timetableByHour" :key="group.hour" class="tt-row">
-            <span class="tt-hour">{{ group.hour }}</span>
+            <span class="tt-hour" :class="group.isNextDay ? 'tt-hour-next-day' : ''">{{ group.hour }}</span>
             <div class="tt-mins">
               <span
                 v-for="chip in group.chips"
@@ -656,7 +667,7 @@ onUnmounted(() => {
 
         <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef" class="trip-view">
           <div class="flex items-center gap-2 mb-3">
-            <span class="section-label-text">{{ t('tripAt', { time: selectedDepartureTime }) }}</span>
+            <span class="section-label-text">{{ t('tripAt', { time: selectedDepartureTimeDisplay }) }}</span>
             <div class="flex-1"></div>
             <button
               @click="selectedDepartureTime = null"
@@ -909,5 +920,7 @@ onUnmounted(() => {
 .fav-btn:active { transform: scale(0.92); }
 .fav-btn.is-fav { color: #f43f5e; }
 .fav-btn.is-fav:hover { background: #fee2e2; }
+
+.tt-hour-next-day { color: #7dd3fc; }
 
 </style>
