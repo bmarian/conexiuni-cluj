@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useSettingsStore } from '@/stores/settings.ts'
+import { useUserStore } from '@/stores/user.ts'
 
 const props = defineProps<{
   routeShortName: string
@@ -7,29 +10,117 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ exit: [] }>()
 
-const canvasEl = ref<HTMLCanvasElement | null>(null)
-const gameOver = ref<'player' | 'ai' | null>(null)
+const { easterEggActive } = storeToRefs(useSettingsStore())
+const { isDarkMode } = storeToRefs(useUserStore())
 
-const H = 220
-const PW = 10
-const PH = 55
-const BR = 15
-const BASE = 2.5
+// ── Theme ────────────────────────────────────────────────────────────────────
+// Read by draw() every rAF frame — always current.
+const canvasTheme = computed(() => {
+  const h = easterEggActive.value, d = isDarkMode.value
+  if (h && d) return {
+    court:     '#1c1608',
+    paddle:    'rgba(253,230,138,0.90)',
+    line:      'rgba(253,230,138,0.10)',
+    score:     'rgba(253,230,138,0.38)',
+    pipOn:     'rgba(253,230,138,0.85)',
+    pipOff:    'rgba(253,230,138,0.18)',
+  }
+  if (h) return {
+    court:     '#fefce8',
+    paddle:    '#78350f',
+    line:      'rgba(120,53,15,0.12)',
+    score:     'rgba(120,53,15,0.42)',
+    pipOn:     'rgba(120,53,15,0.78)',
+    pipOff:    'rgba(120,53,15,0.16)',
+  }
+  if (d) return {
+    court:     '#0f172a',
+    paddle:    'rgba(255,255,255,0.88)',
+    line:      'rgba(255,255,255,0.10)',
+    score:     'rgba(255,255,255,0.30)',
+    pipOn:     'rgba(255,255,255,0.85)',
+    pipOff:    'rgba(255,255,255,0.18)',
+  }
+  return {
+    court:     '#f1f5f9',
+    paddle:    'rgba(15,23,42,0.72)',
+    line:      'rgba(15,23,42,0.10)',
+    score:     'rgba(15,23,42,0.33)',
+    pipOn:     'rgba(15,23,42,0.72)',
+    pipOff:    'rgba(15,23,42,0.16)',
+  }
+})
+
+const overlayTheme = computed(() => {
+  const h = easterEggActive.value, d = isDarkMode.value
+  if (h && d) return {
+    bg:      'rgba(28,22,8,0.82)',
+    title:   '#fde68a',
+    score:   'rgba(253,230,138,0.45)',
+    btnBg:   '#fde68a',
+    btnFg:   '#78350f',
+    ghBg:    'rgba(253,230,138,0.14)',
+    ghFg:    'rgba(253,230,138,0.75)',
+  }
+  if (h) return {
+    bg:      'rgba(254,252,232,0.88)',
+    title:   '#78350f',
+    score:   'rgba(120,53,15,0.48)',
+    btnBg:   '#78350f',
+    btnFg:   '#fef9c3',
+    ghBg:    'rgba(120,53,15,0.12)',
+    ghFg:    'rgba(120,53,15,0.72)',
+  }
+  if (d) return {
+    bg:      'rgba(0,0,0,0.72)',
+    title:   '#ffffff',
+    score:   'rgba(255,255,255,0.42)',
+    btnBg:   '#ffffff',
+    btnFg:   '#0f172a',
+    ghBg:    'rgba(255,255,255,0.12)',
+    ghFg:    'rgba(255,255,255,0.68)',
+  }
+  return {
+    bg:      'rgba(248,250,252,0.90)',
+    title:   '#0f172a',
+    score:   'rgba(15,23,42,0.42)',
+    btnBg:   '#0f172a',
+    btnFg:   '#f8fafc',
+    ghBg:    'rgba(15,23,42,0.10)',
+    ghFg:    'rgba(15,23,42,0.62)',
+  }
+})
+
+const exitBtnStyle = computed(() => isDarkMode.value
+  ? { background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)' }
+  : { background: 'rgba(15,23,42,0.09)',    color: 'rgba(15,23,42,0.48)'    }
+)
+
+// ── Game constants ────────────────────────────────────────────────────────────
+const canvasEl  = ref<HTMLCanvasElement | null>(null)
+const gameOver  = ref<'player' | 'ai' | null>(null)
+
+const H         = 220
+const PW        = 10
+const PH        = 55
+const BR        = 15
+const BASE      = 2.5
 const WIN_SCORE = 5
 
-let W = 300
+// ── Mutable game state (lives outside Vue reactivity — mutated in rAF) ────────
+let W           = 300
 let bx = W / 2, by = H / 2, vx = BASE, vy = 1
-let lpy = H / 2 - PH / 2
-let rpy = H / 2 - PH / 2
-let scoreL = 0, scoreR = 0
+let lpy         = H / 2 - PH / 2
+let rpy         = H / 2 - PH / 2
+let scoreL      = 0, scoreR = 0
 let pauseFrames = 0
-let raf = 0
+let raf         = 0
 
 function launch() {
   bx = W / 2
   by = H / 2
   const angle = (Math.random() * 0.35 - 0.175) * Math.PI
-  const dir = Math.random() < 0.5 ? 1 : -1
+  const dir   = Math.random() < 0.5 ? 1 : -1
   vx = dir * BASE * Math.cos(angle)
   vy = BASE * Math.sin(angle)
   pauseFrames = 70
@@ -48,9 +139,8 @@ function endGame(winner: 'player' | 'ai') {
 }
 
 function tick() {
-  // AI always tracks — even during pause so it recenters
-  const aiTarget = by - PH / 2
-  const aiStep = (aiTarget - lpy) * 0.07
+  // AI tracks ball even during pause so it recenters
+  const aiStep = (by - PH / 2 - lpy) * 0.07
   lpy += Math.max(-2.8, Math.min(2.8, aiStep))
   lpy = Math.max(0, Math.min(H - PH, lpy))
 
@@ -59,11 +149,9 @@ function tick() {
   bx += vx
   by += vy
 
-  // Top / bottom walls
   if (by - BR < 0)  { by = BR;     vy =  Math.abs(vy) }
   if (by + BR > H)  { by = H - BR; vy = -Math.abs(vy) }
 
-  // Left paddle hit
   if (vx < 0 && bx - BR < PW && by > lpy && by < lpy + PH) {
     bx = PW + BR
     vx = Math.abs(vx) * 1.04
@@ -71,7 +159,6 @@ function tick() {
     clampVy()
   }
 
-  // Right paddle hit
   if (vx > 0 && bx + BR > W - PW && by > rpy && by < rpy + PH) {
     bx = W - PW - BR
     vx = -Math.abs(vx) * 1.04
@@ -79,7 +166,6 @@ function tick() {
     clampVy()
   }
 
-  // Score
   if (bx + BR < 0) {
     scoreR++
     if (scoreR >= WIN_SCORE) { endGame('player'); return }
@@ -107,10 +193,11 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
 }
 
 function drawPips(ctx: CanvasRenderingContext2D, filled: number, cx: number, cy: number) {
+  const t = canvasTheme.value
   for (let i = 0; i < WIN_SCORE; i++) {
     ctx.beginPath()
     ctx.arc(cx + (i - 2) * 10, cy, 3, 0, Math.PI * 2)
-    ctx.fillStyle = i < filled ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.18)'
+    ctx.fillStyle = i < filled ? t.pipOn : t.pipOff
     ctx.fill()
   }
 }
@@ -118,15 +205,14 @@ function drawPips(ctx: CanvasRenderingContext2D, filled: number, cx: number, cy:
 function draw() {
   const ctx = canvasEl.value?.getContext('2d')
   if (!ctx) return
+  const t = canvasTheme.value
 
-  // Court
-  ctx.fillStyle = '#0f172a'
+  ctx.fillStyle = t.court
   ctx.fillRect(0, 0, W, H)
 
-  // Center dashed line
   ctx.save()
   ctx.setLineDash([5, 7])
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)'
+  ctx.strokeStyle = t.line
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.moveTo(W / 2, 0)
@@ -134,24 +220,20 @@ function draw() {
   ctx.stroke()
   ctx.restore()
 
-  // Score numbers
-  ctx.fillStyle = 'rgba(255,255,255,0.30)'
+  ctx.fillStyle = t.score
   ctx.font = 'bold 28px ui-monospace, monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   ctx.fillText(`${scoreL}`, W / 2 - 34, 8)
   ctx.fillText(`${scoreR}`, W / 2 + 34, 8)
 
-  // Goal pips (5 dots per side)
   drawPips(ctx, scoreL, W / 2 - 34, 48)
   drawPips(ctx, scoreR, W / 2 + 34, 48)
 
-  // Paddles
-  ctx.fillStyle = 'rgba(255,255,255,0.88)'
+  ctx.fillStyle = t.paddle
   rr(ctx, 0, lpy, PW, PH, 3); ctx.fill()
   rr(ctx, W - PW, rpy, PW, PH, 3); ctx.fill()
 
-  // Ball badge
   ctx.font = 'bold 13px ui-sans-serif, sans-serif'
   const tw = ctx.measureText(props.routeShortName).width
   const bw = Math.max(tw + 18, 34)
@@ -159,14 +241,14 @@ function draw() {
 
   ctx.save()
   ctx.shadowColor = props.routeColor
-  ctx.shadowBlur = 18
-  ctx.fillStyle = props.routeColor
+  ctx.shadowBlur  = 18
+  ctx.fillStyle   = props.routeColor
   rr(ctx, bx - bw / 2, by - bh / 2, bw, bh, 7)
   ctx.fill()
   ctx.restore()
 
-  ctx.fillStyle = '#fff'
-  ctx.textAlign = 'center'
+  ctx.fillStyle    = '#fff'
+  ctx.textAlign    = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(props.routeShortName, bx, by + 1)
 }
@@ -178,8 +260,7 @@ function loop() {
 }
 
 function restart() {
-  scoreL = 0
-  scoreR = 0
+  scoreL = 0; scoreR = 0
   gameOver.value = null
   lpy = H / 2 - PH / 2
   rpy = H / 2 - PH / 2
@@ -211,7 +292,7 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => {
   if (canvasEl.value) {
     W = canvasEl.value.offsetWidth || 300
-    canvasEl.value.width = W
+    canvasEl.value.width  = W
     canvasEl.value.height = H
     lpy = H / 2 - PH / 2
     rpy = H / 2 - PH / 2
@@ -235,16 +316,34 @@ onUnmounted(() => {
   >
     <canvas ref="canvasEl" :height="H" class="pong-canvas" />
 
-    <div v-if="gameOver" class="pong-over">
-      <p class="pong-over-title">{{ gameOver === 'player' ? '🎉 You win!' : '😅 AI wins' }}</p>
-      <p class="pong-over-score">{{ scoreR }} – {{ scoreL }}</p>
+    <div v-if="gameOver" class="pong-over" :style="{ background: overlayTheme.bg }">
+      <p class="pong-over-title" :style="{ color: overlayTheme.title }">
+        {{ gameOver === 'player' ? '🎉 You win!' : '😅 AI wins' }}
+      </p>
+      <p class="pong-over-score" :style="{ color: overlayTheme.score }">
+        {{ scoreR }} – {{ scoreL }}
+      </p>
       <div class="pong-over-actions">
-        <button class="pong-over-btn pong-over-btn-primary" @click="restart">Play again</button>
-        <button class="pong-over-btn pong-over-btn-ghost" @click="emit('exit')">Exit</button>
+        <button
+          class="pong-over-btn"
+          :style="{ background: overlayTheme.btnBg, color: overlayTheme.btnFg }"
+          @click="restart"
+        >Play again</button>
+        <button
+          class="pong-over-btn"
+          :style="{ background: overlayTheme.ghBg, color: overlayTheme.ghFg }"
+          @click="emit('exit')"
+        >Exit</button>
       </div>
     </div>
 
-    <button v-else class="pong-exit" @click="emit('exit')" title="Exit (Esc)">✕</button>
+    <button
+      v-else
+      class="pong-exit"
+      :style="exitBtnStyle"
+      @click="emit('exit')"
+      title="Exit (Esc)"
+    >✕</button>
   </div>
 </template>
 
@@ -271,22 +370,16 @@ onUnmounted(() => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.45);
   font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   border: none;
-  transition: background 0.15s, color 0.15s;
+  transition: opacity 0.15s;
 }
-.pong-exit:hover {
-  background: rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.9);
-}
+.pong-exit:hover { opacity: 0.7; }
 
-/* Game-over overlay */
 .pong-over {
   position: absolute;
   inset: 0;
@@ -295,14 +388,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.72);
   cursor: default;
 }
 
 .pong-over-title {
   font-size: 1.35rem;
   font-weight: 900;
-  color: #fff;
   letter-spacing: -0.01em;
 }
 
@@ -310,7 +401,6 @@ onUnmounted(() => {
   font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 0.5rem;
 }
 
@@ -328,15 +418,5 @@ onUnmounted(() => {
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.pong-over-btn:hover { opacity: 0.85; }
-
-.pong-over-btn-primary {
-  background: #fff;
-  color: #0f172a;
-}
-
-.pong-over-btn-ghost {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
-}
+.pong-over-btn:hover { opacity: 0.82; }
 </style>
