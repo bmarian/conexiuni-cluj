@@ -11,6 +11,7 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
+import MetroEasterEgg from '@/components/MetroEasterEgg.vue'
 
 const {t} = useI18n()
 const router = useRouter()
@@ -301,9 +302,7 @@ const stopFavoritesModel = computed<number[]>({
         </div>
       </div>
 
-      <p v-else class="text-sm text-slate-400 dark:text-slate-500 py-4 text-center">
-        {{ t('noResults') }}
-      </p>
+      <MetroEasterEgg v-else :search="search" />
     </section>
 
   </div>
