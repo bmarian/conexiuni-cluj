@@ -8,15 +8,11 @@ const { t, locale } = useI18n()
 const QUOTES_RO = [
   'ETA: 2035 (optimist)',
   'Încă săpăm, încearcă un autobuz 🚌',
-  'Finanțat din fonduri europene (eventual)',
-  'Stația următoare: nicăieri',
-  'Proiect în stadiu de vis',
+  'Proiect în stadiu de vis 😴',
 ]
 const QUOTES_EN = [
   'ETA: 2035 (optimistic)',
   'Still digging, try a bus 🚌',
-  'Funded by EU grants (eventually)',
-  'Next station: nowhere',
   'Project status: wishful thinking',
 ]
 
