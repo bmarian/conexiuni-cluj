@@ -21,7 +21,7 @@ const mapStore = useMapStore()
 const settingsStore = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedStops} = storeToRefs(mapStore)
-const {easterEggActive} = storeToRefs(settingsStore)
+const {easterEggActive, traditionalActive} = storeToRefs(settingsStore)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -102,6 +102,26 @@ const makeStopIcon = (stopId: string) => {
       popupAnchor: [0, -24]
     })
   }
+  if (traditionalActive.value) {
+    const isFav = favoritesStore.isStopFavorite(parseInt(stopId))
+    const c = isFav ? '#C41E3A' : '#D4A017'
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:20px;height:26px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 20 26" width="18" height="24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="26" x2="10" y2="6" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+          <ellipse cx="10" cy="4" rx="2.5" ry="4" fill="${c}"/>
+          <ellipse cx="6.5" cy="9" rx="3" ry="1.5" fill="${c}" transform="rotate(-40 6.5 9)"/>
+          <ellipse cx="5.5" cy="14" rx="3" ry="1.5" fill="${c}" transform="rotate(-30 5.5 14)"/>
+          <ellipse cx="13.5" cy="9" rx="3" ry="1.5" fill="${c}" transform="rotate(40 13.5 9)"/>
+          <ellipse cx="14.5" cy="14" rx="3" ry="1.5" fill="${c}" transform="rotate(30 14.5 14)"/>
+        </svg>
+      </div>`,
+      iconSize: [20, 26],
+      iconAnchor: [10, 24],
+      popupAnchor: [0, -24]
+    })
+  }
   return stopIcon
 }
 
@@ -116,6 +136,22 @@ const makeSelectedStopIcon = () => {
           <circle cx="7.8" cy="8" r="1.3" fill="white"/>
           <circle cx="4.4" cy="8.5" r="0.6" fill="#15803d"/>
           <circle cx="8.4" cy="8.5" r="0.6" fill="#15803d"/>
+        </svg>
+      </div>`,
+      iconSize: [28, 36], iconAnchor: [14, 34], popupAnchor: [0, -34]
+    })
+  }
+  if (traditionalActive.value) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 20 26" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="26" x2="10" y2="6" stroke="#2D8B2D" stroke-width="1.8" stroke-linecap="round"/>
+          <ellipse cx="10" cy="4" rx="2.5" ry="4" fill="#2D8B2D"/>
+          <ellipse cx="6.5" cy="9" rx="3" ry="1.5" fill="#2D8B2D" transform="rotate(-40 6.5 9)"/>
+          <ellipse cx="5.5" cy="14" rx="3" ry="1.5" fill="#2D8B2D" transform="rotate(-30 5.5 14)"/>
+          <ellipse cx="13.5" cy="9" rx="3" ry="1.5" fill="#2D8B2D" transform="rotate(40 13.5 9)"/>
+          <ellipse cx="14.5" cy="14" rx="3" ry="1.5" fill="#2D8B2D" transform="rotate(30 14.5 14)"/>
         </svg>
       </div>`,
       iconSize: [28, 36], iconAnchor: [14, 34], popupAnchor: [0, -34]
@@ -434,6 +470,18 @@ watch(easterEggActive, (active) => {
   }
 })
 
+watch(traditionalActive, (active) => {
+  mapContainer.value?.classList.toggle('traditional-theme', active)
+  stopMarkers.forEach((marker, id) => {
+    if (id === currentlyHighlightedStopId.value) return
+    marker.setIcon(makeStopIcon(id))
+  })
+  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
+    const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
+    marker.setIcon(makeSelectedStopIcon())
+  }
+})
+
 watch(isDarkMode, (newValue) => {
   if (!currentTileLayer.value) return
 
@@ -665,6 +713,56 @@ const getVehicleMarkerHtml = (
       </div>`
   }
 
+  if (traditionalActive.value) {
+    // tractor faces right at 0°; same heading offset as chomper
+    const rotation = heading - 90
+    const sz = isStopView ? 36 : 32
+    const tractorH = Math.round(sz * 28 / 38)
+    const tractor = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
+      <svg viewBox="0 0 38 28" width="${sz}" height="${tractorH}" xmlns="http://www.w3.org/2000/svg">
+        <!-- Rear large wheel -->
+        <circle cx="8" cy="21" r="7" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
+        <circle cx="8" cy="21" r="2.5" fill="rgba(255,255,255,0.35)"/>
+        <line x1="8" y1="14" x2="8" y2="28" stroke="white" stroke-width="0.9" opacity="0.5"/>
+        <line x1="1" y1="21" x2="15" y2="21" stroke="white" stroke-width="0.9" opacity="0.5"/>
+        <!-- Chassis -->
+        <rect x="7" y="13" width="22" height="8" rx="1.5" fill="${resolvedColor}"/>
+        <!-- Cab -->
+        <rect x="8" y="5" width="13" height="14" rx="2" fill="${resolvedColor}"/>
+        <!-- Window -->
+        <rect x="10" y="7" width="9" height="6" rx="1" fill="rgba(255,255,255,0.5)"/>
+        <!-- Exhaust stack -->
+        <rect x="17" y="1" width="2.5" height="5" rx="1" fill="${resolvedColor}"/>
+        <!-- Hood -->
+        <rect x="21" y="14" width="10" height="6" rx="1.5" fill="${resolvedColor}"/>
+        <!-- Front small wheel -->
+        <circle cx="30" cy="21" r="5" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
+        <circle cx="30" cy="21" r="2" fill="rgba(255,255,255,0.35)"/>
+        <line x1="30" y1="16" x2="30" y2="26" stroke="white" stroke-width="0.9" opacity="0.5"/>
+        <line x1="25" y1="21" x2="35" y2="21" stroke="white" stroke-width="0.9" opacity="0.5"/>
+      </svg>
+    </div>`
+
+    if (isStopView) {
+      return `
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
+          ${tractor}
+          <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
+          ${showStopInfo ? `
+            <div class="absolute" style="left:44px;top:0;background:rgba(28,16,8,0.92);color:#F0DFC0;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
+              <span style="font-weight:700;font-size:14px;">${titleText}</span>
+              <span style="font-size:12px;color:#C8B090;">${roundedSpeed} km/h</span>
+            </div>
+          ` : ''}
+        </div>`
+    }
+
+    return `
+      <div style="position:relative;display:flex;align-items:center;">
+        ${tractor}
+      </div>`
+  }
+
   return isStopView
     ? `
       <div class="relative flex items-center">
@@ -739,7 +837,7 @@ const renderVehicles = (vehicles: DisplayVehicle[], currentRouteName: string | s
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, easterEggActive], ([vehicles, routeName]) => {
+watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, easterEggActive, traditionalActive], ([vehicles, routeName]) => {
   renderVehicles(vehicles as DisplayVehicle[], routeName)
 }, {deep: true})
 

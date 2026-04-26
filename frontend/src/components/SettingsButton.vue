@@ -43,10 +43,17 @@ function setTheme(theme: Theme) {
   settings.setTheme(theme)
 }
 
-function onChomperChange(e: Event) {
+const activeSpecialTheme = computed(() => {
+  if (settings.easterEggActive) return 'chomper'
+  if (settings.traditionalActive) return 'traditional'
+  return 'default'
+})
+
+function onSpecialThemeChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value
-  if (val === 'on') settings.activateEasterEgg()
-  else settings.deactivateEasterEgg()
+  if (val === 'chomper') settings.activateEasterEgg()
+  else if (val === 'traditional') settings.activateTraditional()
+  else { settings.deactivateEasterEgg(); settings.deactivateTraditional() }
 }
 
 function setLocale(newLocale: 'ro' | 'en') {
@@ -96,16 +103,20 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
       </div>
 
-        <div v-if="settings.easterEggUnlocked" class="select-wrap">
+        <div v-if="settings.easterEggUnlocked || settings.traditionalUnlocked" class="select-wrap">
           <select
             class="theme-select"
-            :value="settings.easterEggActive ? 'on' : 'off'"
-            :class="{ 'is-chomper': settings.easterEggActive }"
-            @change="onChomperChange"
-            :aria-label="t('chomperTheme')"
+            :value="activeSpecialTheme"
+            :class="{
+              'is-chomper': settings.easterEggActive,
+              'is-traditional': settings.traditionalActive,
+            }"
+            @change="onSpecialThemeChange"
+            :aria-label="t('theme')"
           >
-            <option value="off">{{ t('themeDefault') }}</option>
-            <option value="on">{{ t('chomperTheme') }}</option>
+            <option value="default">{{ t('themeDefault') }}</option>
+            <option v-if="settings.easterEggUnlocked" value="chomper">{{ t('chomperTheme') }}</option>
+            <option v-if="settings.traditionalUnlocked" value="traditional">{{ t('traditionalTheme') }}</option>
           </select>
           <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M6 9l6 6 6-6"/>
@@ -293,6 +304,11 @@ function setLocale(newLocale: 'ro' | 'en') {
   background: #fef9c3;
   color: #92400e;
 }
+.theme-select.is-traditional {
+  border-color: #E8C882;
+  background: #FDF5E6;
+  color: #8B1A1A;
+}
 
 .settings-root.is-dark .theme-select {
   border-color: #334155;
@@ -305,6 +321,11 @@ function setLocale(newLocale: 'ro' | 'en') {
   border-color: #d97706;
   background: #422006;
   color: #fde68a;
+}
+.settings-root.is-dark .theme-select.is-traditional {
+  border-color: #8B1A1A;
+  background: #3C1010;
+  color: #F0DFC0;
 }
 
 .select-chevron {

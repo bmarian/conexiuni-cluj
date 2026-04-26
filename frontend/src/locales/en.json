@@ -57,5 +57,7 @@
   "funModeOn": "On",
   "funModeOff": "Off",
   "themeDefault": "Default",
-  "chomperTheme": "Chomper"
+  "chomperTheme": "Chomper",
+  "traditionalTheme": "Traditional",
+  "traditionalUnlocked": "You discovered the Traditional theme!"
 }

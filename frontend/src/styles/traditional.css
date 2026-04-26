@@ -1,0 +1,252 @@
+/* ── Traditional Mode — Romanian-inspired theme ────────────────────────── */
+/*
+ * Palette:
+ *   Carmine red  #C41E3A  (traditional costume, Romanian flag)
+ *   Deep crimson #8B1A1A  (dark-mode red accent)
+ *   Golden wheat #D4A017  (folk-art gold / ornamentation)
+ *   Warm cream   #FDF5E6  (linen / old parchment)
+ *   Deep brown   #3C2010  (wood / earth tones)
+ */
+
+/* ── Global theme (light) ─────────────────────────────────────────────── */
+html[data-traditional] .app-shell {
+  background-color: #FDF5E6 !important;
+}
+html[data-traditional] .app-drawer {
+  background-color: #FAF0D8 !important;
+}
+html[data-traditional] .drawer-grip {
+  background: #C41E3A !important;
+}
+
+html[data-traditional] .stop-view-container,
+html[data-traditional] .route-view-container,
+html[data-traditional] .home-view-container {
+  background-color: #FAF0D8 !important;
+}
+
+html[data-traditional] .departure-card {
+  background: #FFF8F0 !important;
+  border-color: #E8C882 !important;
+}
+html[data-traditional] .departure-card:hover {
+  background: #FFF0E0 !important;
+  border-color: #D4A017 !important;
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.12) !important;
+}
+/* Must come AFTER .departure-card rules — same specificity, last wins */
+html[data-traditional] .departure-card-fav {
+  background: #FFF0F0 !important;
+  border-color: #E89090 !important;
+}
+html[data-traditional] .departure-card-fav:hover {
+  background: #FFE4E4 !important;
+  border-color: #C41E3A !important;
+}
+
+html[data-traditional] .stop-row-selected { background: #FFF0E8 !important; }
+html[data-traditional] .stop-row-nearest  { background: #FFFBF0 !important; }
+html[data-traditional] .stop-row-fav      { background: #FFF0F0 !important; }
+
+html[data-traditional] .fav-route-chip {
+  background: #FFF8F0 !important;
+  border-color: #E8C882 !important;
+}
+
+html[data-traditional] .all-route-row:hover,
+html[data-traditional] .fav-stop-row:hover,
+html[data-traditional] .fav-route-chip:hover {
+  background: #FFF0E0 !important;
+  color: #3C2010 !important;
+}
+
+html[data-traditional] .search-wrap {
+  border-color: #E8C882 !important;
+  background: #FFFBF4 !important;
+}
+html[data-traditional] .search-wrap:focus-within {
+  border-color: #C41E3A !important;
+  background: #FDF5E6 !important;
+}
+html[data-traditional] .search-input {
+  color: #3C2010 !important;
+}
+html[data-traditional] .search-input::placeholder {
+  color: #8B5E3C !important;
+}
+
+html[data-traditional] .direction-toggle-wrap {
+  background: #E8C882 !important;
+}
+html[data-traditional] .dir-btn-active {
+  background: #ffffff !important;
+  color: #3C2010 !important;
+}
+html[data-traditional] .dir-btn-inactive {
+  color: #8B5E3C !important;
+}
+
+html[data-traditional] .settings-btn {
+  background: #C41E3A !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px -1px rgba(196, 30, 58, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
+}
+html[data-traditional] .settings-btn:hover {
+  background: #A01528 !important;
+  color: #ffffff !important;
+}
+html[data-traditional] .settings-popover {
+  background: #FDF5E6 !important;
+  box-shadow: 0 10px 30px -4px rgba(196, 30, 58, 0.15), 0 1px 6px rgba(0,0,0,0.08) !important;
+}
+html[data-traditional] .option-btn:hover {
+  background: #FAE8EC !important;
+  color: #8B1A1A !important;
+}
+html[data-traditional] .option-btn.active {
+  background: #F5C2CB !important;
+  color: #8B1A1A !important;
+  border-color: #C41E3A !important;
+}
+
+html[data-traditional] .landscape-drawer-toggle {
+  background: #C41E3A !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px -1px rgba(196, 30, 58, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
+}
+html[data-traditional] .landscape-drawer-toggle:hover {
+  background: #A01528 !important;
+  color: #ffffff !important;
+}
+
+/* ── Global theme (dark) ──────────────────────────────────────────────── */
+html.dark[data-traditional] .app-shell,
+html.dark[data-traditional] .app-drawer,
+html.dark[data-traditional] .stop-view-container,
+html.dark[data-traditional] .route-view-container,
+html.dark[data-traditional] .home-view-container {
+  background-color: #150C06 !important;
+}
+html.dark[data-traditional] .app-drawer {
+  background-color: #1C1008 !important;
+}
+html.dark[data-traditional] .drawer-grip {
+  background: #8B1A1A !important;
+}
+
+html.dark[data-traditional] .departure-card {
+  background: #201408 !important;
+  border-color: #5C2810 !important;
+  color: #F0DFC0 !important;
+}
+html.dark[data-traditional] .departure-card:hover {
+  background: #2A1A0A !important;
+  border-color: #8B4010 !important;
+  color: #F0DFC0 !important;
+}
+/* Must come AFTER .departure-card rules — same specificity, last wins */
+html.dark[data-traditional] .departure-card-fav {
+  background: #251008 !important;
+  border-color: #7C2010 !important;
+  color: #F0DFC0 !important;
+}
+html.dark[data-traditional] .departure-card-fav:hover {
+  background: #341208 !important;
+  border-color: #A01528 !important;
+  color: #F0DFC0 !important;
+}
+
+html.dark[data-traditional] .stop-row-selected,
+html.dark[data-traditional] .stop-row-nearest,
+html.dark[data-traditional] .stop-row-fav {
+  background: #281508 !important;
+  color: #F0DFC0 !important;
+}
+
+html.dark[data-traditional] .fav-route-chip {
+  background: #201408 !important;
+  border-color: #5C2810 !important;
+}
+
+html.dark[data-traditional] .all-route-row:hover,
+html.dark[data-traditional] .fav-stop-row:hover,
+html.dark[data-traditional] .fav-route-chip:hover {
+  background: #2A1A0A !important;
+  color: #F0DFC0 !important;
+}
+
+html.dark[data-traditional] .search-wrap {
+  border-color: #5C2810 !important;
+  background: #201408 !important;
+}
+html.dark[data-traditional] .search-wrap:focus-within {
+  border-color: #C41E3A !important;
+  background: #150C06 !important;
+}
+html.dark[data-traditional] .search-input {
+  color: #F0DFC0 !important;
+}
+html.dark[data-traditional] .search-input::placeholder {
+  color: #C8B090 !important;
+}
+
+html.dark[data-traditional] .direction-toggle-wrap {
+  background: #3C1010 !important;
+}
+html.dark[data-traditional] .dir-btn-active {
+  background: #150C06 !important;
+  color: #F0DFC0 !important;
+}
+html.dark[data-traditional] .dir-btn-inactive {
+  color: #D4A017 !important;
+}
+
+html.dark[data-traditional] .settings-btn {
+  background: #8B1A1A !important;
+  color: #F0DFC0 !important;
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(139,26,26,0.25) !important;
+}
+html.dark[data-traditional] .settings-btn:hover {
+  background: #A01528 !important;
+  color: #FFFBF0 !important;
+}
+html.dark[data-traditional] .settings-popover {
+  background: #1C1008 !important;
+  box-shadow: 0 10px 30px -4px rgba(0,0,0,0.5), 0 1px 6px rgba(0,0,0,0.24) !important;
+}
+html.dark[data-traditional] .option-btn:hover {
+  background: #2A1A0A !important;
+  color: #F0DFC0 !important;
+}
+html.dark[data-traditional] .option-btn.active {
+  background: #3C1010 !important;
+  color: #F0DFC0 !important;
+  border-color: #8B1A1A !important;
+}
+
+html.dark[data-traditional] .landscape-drawer-toggle {
+  background: #8B1A1A !important;
+  color: #F0DFC0 !important;
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(139,26,26,0.25) !important;
+}
+html.dark[data-traditional] .landscape-drawer-toggle:hover {
+  background: #A01528 !important;
+  color: #FFFBF0 !important;
+}
+
+/* ── Not Found page ───────────────────────────────────────────────────── */
+html[data-traditional] .not-found-container {
+  background-color: #FAF0D8 !important;
+}
+html[data-traditional] .not-found-horse-wagon,
+html[data-traditional] .not-found-text {
+  color: #8B1A1A !important;
+}
+
+html.dark[data-traditional] .not-found-container {
+  background-color: #1C1008 !important;
+}
+html.dark[data-traditional] .not-found-horse-wagon,
+html.dark[data-traditional] .not-found-text {
+  color: #D4A017 !important;
+}

@@ -1,9 +1,19 @@
 <script setup lang="ts">
+import {onMounted} from 'vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
+import {useSettingsStore} from '@/stores/settings'
 
 const router = useRouter()
 const {t} = useI18n()
+const settings = useSettingsStore()
+
+onMounted(() => {
+  if (!settings.traditionalUnlocked) {
+    settings.unlockTraditional()
+    settings.showToast(t('traditionalUnlocked'))
+  }
+})
 </script>
 
 <template>

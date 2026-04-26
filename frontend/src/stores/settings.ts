@@ -34,7 +34,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.locale', newLocale)
   }
 
-  // Easter egg
+  // Chomper easter egg
   const easterEggUnlocked = ref(localStorage.getItem('settings.easterEggUnlocked') === 'true')
   const easterEggActive = ref(localStorage.getItem('settings.easterEggActive') === 'true')
 
@@ -52,6 +52,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function activateEasterEgg() {
+    deactivateTraditional()
     easterEggActive.value = true
     localStorage.setItem('settings.easterEggActive', 'true')
   }
@@ -59,6 +60,35 @@ export const useSettingsStore = defineStore('settings', () => {
   function deactivateEasterEgg() {
     easterEggActive.value = false
     localStorage.setItem('settings.easterEggActive', 'false')
+  }
+
+  // Traditional theme (unlocked by visiting the 404 page)
+  const traditionalUnlocked = ref(localStorage.getItem('settings.traditionalUnlocked') === 'true')
+  const traditionalActive = ref(localStorage.getItem('settings.traditionalActive') === 'true')
+
+  watch(traditionalActive, (active) => {
+    if (active) {
+      document.documentElement.setAttribute('data-traditional', '')
+    } else {
+      document.documentElement.removeAttribute('data-traditional')
+    }
+  }, { immediate: true })
+
+  function unlockTraditional() {
+    if (traditionalUnlocked.value) return
+    traditionalUnlocked.value = true
+    localStorage.setItem('settings.traditionalUnlocked', 'true')
+  }
+
+  function activateTraditional() {
+    deactivateEasterEgg()
+    traditionalActive.value = true
+    localStorage.setItem('settings.traditionalActive', 'true')
+  }
+
+  function deactivateTraditional() {
+    traditionalActive.value = false
+    localStorage.setItem('settings.traditionalActive', 'false')
   }
 
   // Toast
@@ -75,6 +105,8 @@ export const useSettingsStore = defineStore('settings', () => {
     theme, locale, isDark, setTheme, setLocale,
     easterEggUnlocked, easterEggActive,
     unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
+    traditionalUnlocked, traditionalActive,
+    unlockTraditional, activateTraditional, deactivateTraditional,
     toastMessage, showToast,
   }
 })
