@@ -6,7 +6,6 @@ import SettingsButton from "@/components/SettingsButton.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import HungryTransition from "@/components/HungryTransition.vue"
-import WindTransition from "@/components/WindTransition.vue"
 import {useOnline} from "@/composables/useOnline"
 
 const {t} = useI18n()
@@ -189,7 +188,6 @@ function toggleLandscapeDrawer() {
     </aside>
   </main>
   <HungryTransition />
-  <WindTransition />
 </template>
 
 <style scoped>

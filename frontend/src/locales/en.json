@@ -58,6 +58,13 @@
   "funModeOff": "Off",
   "themeDefault": "Default",
   "chomperTheme": "Chomper",
-  "traditionalTheme": "Traditional",
-  "traditionalUnlocked": "You discovered the Traditional theme!"
+  "traditionalTheme": "The good old days",
+  "traditionalUnlocked": "You discovered The good old days!",
+  "bsodLead": "A problem has been detected and Cluj Transit has been politely escorted off the route to prevent further confusion.",
+  "bsodCode": "PAGE_NOT_FOUND_404",
+  "bsodMissing": "The page you were looking for is no longer at this address. We checked the timetable. We checked under the seats. It's just not here.",
+  "bsodReason": "Maybe it took a different route. Maybe it's stuck in traffic on Calea Mănăștur. Either way — it's not coming.",
+  "bsodTechHeader": "Technical information:",
+  "bsodStop": "*** STOP: 0x00000404 (BUS_NOT_FOUND, NOT_EVEN_CLOSE, GOOD_LUCK_NEXT_TIME)",
+  "bsodPrompt": "Press any key to walk home"
 }

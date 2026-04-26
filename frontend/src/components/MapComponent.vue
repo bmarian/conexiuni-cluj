@@ -496,13 +496,13 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     drawnPaths.add(signature)
 
     L.polyline(latLngs, {
-      color: '#94a3b8',
-      weight: 5,
-      opacity: 0.7,
+      color: traditionalActive.value ? '#003C9C' : '#94a3b8',
+      weight: traditionalActive.value ? 4 : 5,
+      opacity: traditionalActive.value ? 0.85 : 0.7,
       dashArray: easterEggActive.value ? '0 14' : (dashArray || undefined),
       smoothFactor: 1.5,
-      lineJoin: 'round',
-      lineCap: 'round'
+      lineJoin: traditionalActive.value ? 'miter' : 'round',
+      lineCap: traditionalActive.value ? 'butt' : 'round'
     }).addTo(layerGroup)
 
     if (hasHighlights) continue

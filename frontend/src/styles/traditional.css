@@ -1,342 +1,920 @@
-/* ── Traditional Mode — Romanian folk-costume inspired ──────────────────────
+/* ── "The good old days" / "Vremurile bune" — Windows XP Luna theme ──────
  *
- * Palette drawn from the ia (blouse) + pieptar (vest) + brâu (red sash):
- *
- *   Folk red     #BB1C2A  — the brâu (red sash), dominant warm accent
- *   Deep crimson #6B1212  — embroidery thread (dark burgundy, not gold)
- *   Black trim   #1A1A1A  — pieptar (black velvet vest)
- *   Linen white  #F8F5F2  — ia (blouse) fabric, slightly warm
- *   Near-white   #FDFCFB  — inner surface / card ground
- *   Folk text    #1A0808  — near-black with the faintest red warmth
- *
- * Dark variants use the same hues shifted into shadow.
- * NO golden/wheat tones — those belong to the Chomper theme.
+ *   Drawer = real XP window (Luna title bar gradient + window-control SVG)
+ *   App-shell (desktop) = the Bliss wallpaper gradient
+ *   Views = Bliss desktop with white XP "panes" floating on top
+ *   Map controls = green Start-button gradient, matching the settings button
+ *   404 = BSOD (rendered by NotFoundView.vue itself)
+ *   Stops = Clippy. Buses = the XP mouse arrow.
+ *   Zero rounded corners — every box is XP-square.
  * ──────────────────────────────────────────────────────────────────────── */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UNIVERSAL: kill every rounded corner in this theme. XP is square.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html[data-traditional],
+html[data-traditional] *,
+html[data-traditional] *::before,
+html[data-traditional] *::after {
+  border-radius: 0 !important;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    LIGHT
    ══════════════════════════════════════════════════════════════════════════ */
 
-html[data-traditional] .app-shell {
-  /* Linen texture: tiny diamond motif at very low opacity, like embroidered fabric */
-  background-color: #F8F5F2 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 4L16 8L12 12L8 8Z' fill='%23BB1C2A' opacity='0.06'/%3E%3Cpath d='M12 12L16 16L12 20L8 16Z' fill='%23BB1C2A' opacity='0.06'/%3E%3C/svg%3E") !important;
+html[data-traditional] {
+  --xp-titlebar-h: 28px;
+  --xp-tan: #ECE9D8;
+  --xp-blue: #245EDC;
+  --xp-blue-hi: #316AC5;
+  --xp-border: #ACA899;
+  --xp-text: #000000;
+  --xp-font: 'Tahoma', 'Trebuchet MS', 'DejaVu Sans', sans-serif;
+  --xp-bliss-light:
+    linear-gradient(to bottom,
+      #4A86C8 0%,
+      #6193E0 12%,
+      #8FB3DC 30%,
+      #B8C8B0 46%,
+      #84B348 56%,
+      #6FA53D 72%,
+      #4E8C2E 100%
+    );
+  --xp-bliss-dark:
+    linear-gradient(to bottom,
+      #0E1B40 0%,
+      #1A2D5A 14%,
+      #2A4470 30%,
+      #3A4858 46%,
+      #2D4520 60%,
+      #1F3416 80%,
+      #0F1E0A 100%
+    );
 }
 
+/* ── App shell = the XP desktop (Bliss wallpaper) ──────────────────────── */
+html[data-traditional] .app-shell {
+  background: var(--xp-bliss-light) !important;
+}
+
+/* ── Drawer = XP Window ────────────────────────────────────────────────── */
 html[data-traditional] .app-drawer {
-  /* Red-then-black border strip at top — costume hem trim */
-  background-color: #FDFCFB !important;
+  background-color: var(--xp-tan) !important;
   background-image: linear-gradient(
     to bottom,
-    #BB1C2A 0px, #BB1C2A 4px,
-    #1A1A1A 4px, #1A1A1A 6px,
-    #FDFCFB 6px
+    #0058DA 0%,
+    #2E84E8 6%,
+    #1A6CD0 14%,
+    #1056C0 50%,
+    #0E54BE 51%,
+    #1A66D0 95%,
+    #0E4DAC 100%
   ) !important;
   background-repeat: no-repeat !important;
-  background-size: 100% 100% !important;
+  background-size: 100% var(--xp-titlebar-h) !important;
+  background-position: top !important;
+  border-top: 1px solid #003C9C !important;
+  border-left: 1px solid #003C9C !important;
+  border-right: 1px solid #003C9C !important;
+  font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .drawer-grip {
-  background: #BB1C2A !important;
+/* Title text — left side of title bar */
+html[data-traditional] .app-drawer::before {
+  content: '🚌  Cluj Transit';
+  position: absolute;
+  top: 0;
+  left: 10px;
+  height: var(--xp-titlebar-h);
+  display: flex;
+  align-items: center;
+  z-index: 5;
+  color: white;
+  font-family: var(--xp-font);
+  font-weight: 700;
+  font-size: 12px;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.45);
+  pointer-events: none;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
+/* Window controls — right side of title bar */
+html[data-traditional] .app-drawer::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 66px;
+  height: 18px;
+  z-index: 5;
+  background-image: url("data:image/svg+xml,%3Csvg width='66' height='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='rgb(95,165,235)'/%3E%3Cstop offset='50%25' stop-color='rgb(35,110,200)'/%3E%3Cstop offset='100%25' stop-color='rgb(20,80,180)'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='rgb(245,128,128)'/%3E%3Cstop offset='50%25' stop-color='rgb(208,64,48)'/%3E%3Cstop offset='100%25' stop-color='rgb(160,30,30)'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1' y='1' width='20' height='16' fill='url(%23b)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Crect x='6' y='12' width='10' height='2' fill='white'/%3E%3Crect x='23' y='1' width='20' height='16' fill='url(%23b)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Crect x='29' y='5' width='8' height='8' stroke='white' stroke-width='1.5' fill='none'/%3E%3Crect x='45' y='1' width='20' height='16' fill='url(%23r)' stroke='rgba(255,255,255,0.45)' stroke-width='0.6'/%3E%3Cpath d='M50 5 L60 13 M60 5 L50 13' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+html[data-traditional] .drawer-grip { display: none !important; }
+html[data-traditional] .drawer-handle { height: var(--xp-titlebar-h) !important; }
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  html[data-traditional] .drawer-scroll { padding-top: var(--xp-titlebar-h) !important; }
+}
+@media (min-width: 1024px) {
+  html[data-traditional] .drawer-scroll { padding-top: var(--xp-titlebar-h) !important; }
+}
+
+/* ── View containers = mini Bliss desktops with content panes ─────────── */
 html[data-traditional] .stop-view-container,
 html[data-traditional] .route-view-container,
 html[data-traditional] .home-view-container {
-  background-color: #FDFCFB !important;
+  background: var(--xp-bliss-light) !important;
+  font-family: var(--xp-font) !important;
 }
 
-/* ── Cards ─────────────────────────────────────────────────────────────── */
+/* Heading region "task pane" — wrap the page header in a white XP box */
+html[data-traditional] .stop-view-container > div > header,
+html[data-traditional] .route-view-container > div > header {
+  background: #FFFFFF !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, 1px 1px 0 rgba(0,0,0,0.15) !important;
+  padding: 0.75rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* ── Cards (XP "task pane" look — white window on Bliss) ──────────────── */
 html[data-traditional] .departure-card {
   background: #FFFFFF !important;
-  border-color: transparent !important;
-  border-left: 3px solid #BB1C2A !important;
-  box-shadow: 0 1px 4px rgba(187,28,42,0.08) !important;
+  border: 1px solid var(--xp-border) !important;
+  border-left: 4px solid var(--xp-blue) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, 1px 1px 0 rgba(0,0,0,0.15) !important;
+  font-family: var(--xp-font) !important;
 }
 html[data-traditional] .departure-card:hover {
-  background: #FFF5F6 !important;
-  border-left-color: #6B1212 !important;
-  box-shadow: 0 2px 8px rgba(187,28,42,0.14) !important;
+  background: #FFFCEA !important;
+  border-left-color: var(--xp-blue-hi) !important;
 }
 html[data-traditional] .departure-card-fav {
   background: #FFFFFF !important;
-  border-left: 3px solid #6B1212 !important;
-  box-shadow: 0 1px 4px rgba(107,18,18,0.1) !important;
+  border: 1px solid var(--xp-border) !important;
+  border-left: 4px solid #E89C2A !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, 1px 1px 0 rgba(0,0,0,0.15) !important;
+  font-family: var(--xp-font) !important;
 }
 html[data-traditional] .departure-card-fav:hover {
-  background: #FFF0F0 !important;
-  border-left-color: #BB1C2A !important;
-  box-shadow: 0 2px 8px rgba(107,18,18,0.16) !important;
+  background: #FFFCEA !important;
+  border-left-color: #B87410 !important;
 }
 
 /* ── Stop rows ─────────────────────────────────────────────────────────── */
-html[data-traditional] .stop-row-selected { background: #FFF5F6 !important; border-left: 3px solid #BB1C2A !important; }
-html[data-traditional] .stop-row-nearest  { background: #FDFCFB !important; }
-html[data-traditional] .stop-row-fav      { background: #FFF8F8 !important; border-left: 3px solid #6B1212 !important; }
+html[data-traditional] .stop-row-selected {
+  background: linear-gradient(to bottom, #316AC5, #245EDC) !important;
+  color: #FFFFFF !important;
+  border-left: 3px solid #1B4FB8 !important;
+}
+html[data-traditional] .stop-row-nearest { background: rgba(255,255,255,0.55) !important; }
+html[data-traditional] .stop-row-fav     {
+  background: rgba(255,250,236,0.75) !important;
+  border-left: 3px solid #E89C2A !important;
+}
 
-/* ── Chips / rows ──────────────────────────────────────────────────────── */
+/* ── Favorites — boxy XP listbox ──────────────────────────────────────── */
 html[data-traditional] .fav-route-chip {
-  background: #FFFFFF !important;
-  border-color: rgba(187,28,42,0.25) !important;
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 rgba(128,128,128,0.45) !important;
+  font-family: var(--xp-font) !important;
+  padding: 0.4rem 0.55rem !important;
 }
-
-html[data-traditional] .all-route-row:hover,
-html[data-traditional] .fav-stop-row:hover,
 html[data-traditional] .fav-route-chip:hover {
-  background: #FFF5F6 !important;
-  color: #1A0808 !important;
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+  color: #000000 !important;
 }
 
-/* ── Favorites section ─────────────────────────────────────────────────── */
-html[data-traditional] .section-label svg { color: #BB1C2A !important; }
-html[data-traditional] .sub-label { color: #7A3030 !important; }
-html[data-traditional] .fav-route-name { color: #3D1515 !important; }
-html[data-traditional] .fav-stop-row > div:nth-child(2) {
-  background-color: rgba(187,28,42,0.10) !important;
-}
-html[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: #BB1C2A !important; }
-
-/* ── Search ─────────────────────────────────────────────────────────────── */
-html[data-traditional] .search-wrap {
-  border-color: rgba(187,28,42,0.3) !important;
+html[data-traditional] .fav-stop-row {
   background: #FFFFFF !important;
+  border: 1px solid var(--xp-border) !important;
+  margin-top: -1px !important;
+  padding: 0.5rem 0.6rem !important;
+}
+html[data-traditional] .fav-stop-row:hover {
+  background: #316AC5 !important;
+  color: #FFFFFF !important;
+  border-color: #1B4FB8 !important;
+}
+html[data-traditional] .fav-stop-row:hover * { color: #FFFFFF !important; }
+
+html[data-traditional] .all-route-row {
+  background: #FFFFFF !important;
+  border: 1px solid transparent !important;
+  margin: 0 !important;
+  padding: 0.45rem 0.5rem !important;
+}
+html[data-traditional] .all-route-row:hover {
+  background: #316AC5 !important;
+  color: #FFFFFF !important;
+}
+html[data-traditional] .all-route-row:hover * { color: #FFFFFF !important; }
+
+/* ── Favorites section labels ──────────────────────────────────────────── */
+html[data-traditional] .section-label svg { color: var(--xp-blue) !important; }
+html[data-traditional] .sub-label { color: #FFFFFF !important; text-shadow: 1px 1px 0 rgba(0,0,0,0.45) !important; }
+html[data-traditional] .fav-route-name { color: #1A3070 !important; font-weight: 700 !important; }
+html[data-traditional] .fav-stop-row > div:nth-child(2) {
+  background: rgba(36,94,220,0.12) !important;
+  border: 1px solid var(--xp-border) !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+html[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: var(--xp-blue) !important; }
+
+/* ── Search (XP "Run" dialog input) ────────────────────────────────────── */
+html[data-traditional] .search-wrap {
+  border-color: #7F9DB9 !important;
+  background: #FFFFFF !important;
+  box-shadow: inset 1px 1px 1px rgba(0,0,0,0.18), inset -1px -1px 0 rgba(255,255,255,0.5) !important;
 }
 html[data-traditional] .search-wrap:focus-within {
-  border-color: #BB1C2A !important;
+  border-color: var(--xp-blue) !important;
   background: #FFFFFF !important;
-  box-shadow: 0 0 0 3px rgba(187,28,42,0.1) !important;
+  box-shadow: inset 1px 1px 1px rgba(0,0,0,0.15), 0 0 0 1px var(--xp-blue) !important;
 }
 html[data-traditional] .search-input {
-  color: #1A0808 !important;
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
 }
-html[data-traditional] .search-input::placeholder {
-  color: #7A3030 !important;
-}
+html[data-traditional] .search-input::placeholder { color: #808080 !important; }
 
 /* ── Direction toggle ──────────────────────────────────────────────────── */
 html[data-traditional] .direction-toggle-wrap {
-  background: #1A1A1A !important;
+  background: #D4D0C8 !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 #808080 !important;
 }
 html[data-traditional] .dir-btn-active {
-  background: #BB1C2A !important;
-  color: #ffffff !important;
+  background: linear-gradient(to bottom, #316AC5, #245EDC) !important;
+  color: #FFFFFF !important;
+  font-family: var(--xp-font) !important;
 }
 html[data-traditional] .dir-btn-inactive {
-  color: rgba(255,255,255,0.55) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
 }
 
-/* ── Settings ──────────────────────────────────────────────────────────── */
+/* ── Settings button — XP Start button ────────────────────────────────── */
 html[data-traditional] .settings-btn {
-  background: #BB1C2A !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 10px -1px rgba(187,28,42,0.4), 0 1px 3px rgba(0,0,0,0.1) !important;
+  background: radial-gradient(circle at 30% 30%, #95D87A, #5BAA38 55%, #3D7E22 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,0.65),
+    inset 0 -2px 4px rgba(0,0,0,0.20),
+    0 2px 4px rgba(0,0,0,0.30) !important;
+  border: 1px solid #2D5F18 !important;
 }
 html[data-traditional] .settings-btn:hover {
-  background: #8B1212 !important;
-  color: #ffffff !important;
+  background: radial-gradient(circle at 30% 30%, #A8E58E, #6BBE48 55%, #4D8E2E 100%) !important;
+  color: #FFFFFF !important;
 }
+
 html[data-traditional] .settings-popover {
-  background: #FDFCFB !important;
-  border-top: 3px solid #BB1C2A !important;
-  box-shadow: 0 10px 30px -4px rgba(187,28,42,0.18), 0 1px 6px rgba(0,0,0,0.08) !important;
+  background: var(--xp-tan) !important;
+  border: 1px solid #003C9C !important;
+  box-shadow:
+    inset 1px 1px 0 #FFFFFF,
+    3px 3px 10px rgba(0,0,0,0.32) !important;
+  font-family: var(--xp-font) !important;
+  padding-top: 28px !important;
+}
+html[data-traditional] .settings-popover::before {
+  content: '';
+  position: absolute;
+  top: 1px; left: 1px; right: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, #0058DA 0%, #2E84E8 6%, #1A6CD0 14%, #1056C0 50%, #0E54BE 51%, #1A66D0 95%, #0E4DAC 100%);
+  pointer-events: none;
 }
 html[data-traditional] .section-label {
-  color: #6B1212 !important;
-  letter-spacing: 0.08em !important;
+  color: var(--xp-blue) !important;
+  letter-spacing: 0.04em !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+/* Option buttons — XP raised buttons */
+html[data-traditional] .option-btn {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
 }
 html[data-traditional] .option-btn:hover {
-  background: #FFF5F6 !important;
-  color: #6B1212 !important;
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+  color: #000000 !important;
 }
 html[data-traditional] .option-btn.active {
-  background: #FFF0F1 !important;
-  color: #BB1C2A !important;
-  border-color: #BB1C2A !important;
+  background: linear-gradient(to bottom, #4A90E0 0%, #2470D4 50%, #1A52B8 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #003C9C !important;
 }
 
 /* ── Landscape toggle ──────────────────────────────────────────────────── */
 html[data-traditional] .landscape-drawer-toggle {
-  background: #BB1C2A !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 10px -1px rgba(187,28,42,0.4), 0 1px 3px rgba(0,0,0,0.1) !important;
+  background: radial-gradient(circle at 30% 30%, #95D87A, #5BAA38 55%, #3D7E22 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.65), 0 2px 4px rgba(0,0,0,0.30) !important;
+  border: 1px solid #2D5F18 !important;
 }
 html[data-traditional] .landscape-drawer-toggle:hover {
-  background: #8B1212 !important;
-  color: #ffffff !important;
+  background: radial-gradient(circle at 30% 30%, #A8E58E, #6BBE48 55%, #4D8E2E 100%) !important;
+  color: #FFFFFF !important;
 }
-
-/* ── Not Found ─────────────────────────────────────────────────────────── */
-html[data-traditional] .not-found-container {
-  background-color: #FDFCFB !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 4L16 8L12 12L8 8Z' fill='%23BB1C2A' opacity='0.06'/%3E%3Cpath d='M12 12L16 16L12 20L8 16Z' fill='%23BB1C2A' opacity='0.06'/%3E%3C/svg%3E") !important;
-}
-html[data-traditional] .not-found-horse-wagon,
-html[data-traditional] .not-found-text {
-  color: #6B1212 !important;
-}
-
 
 /* ══════════════════════════════════════════════════════════════════════════
    DARK
    ══════════════════════════════════════════════════════════════════════════ */
 
+html.dark[data-traditional] {
+  --xp-tan: #2A2D38;
+  --xp-blue: #4E88D8;
+  --xp-blue-hi: #6AA0E8;
+  --xp-border: #444A5C;
+  --xp-text: #E0E6F2;
+}
+
 html.dark[data-traditional] .app-shell {
-  background-color: #120A0A !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 4L16 8L12 12L8 8Z' fill='%23CC2020' opacity='0.06'/%3E%3Cpath d='M12 12L16 16L12 20L8 16Z' fill='%23CC2020' opacity='0.06'/%3E%3C/svg%3E") !important;
+  background: var(--xp-bliss-dark) !important;
 }
 
 html.dark[data-traditional] .app-drawer {
-  background-color: #1C0C0C !important;
+  background-color: var(--xp-tan) !important;
   background-image: linear-gradient(
     to bottom,
-    #CC2020 0px, #CC2020 4px,
-    #F5F0EC 4px, #F5F0EC 6px,
-    #1C0C0C 6px
+    #003478 0%,
+    #1A6CD0 8%,
+    #0F4FA8 50%,
+    #0A3E90 51%,
+    #1656B8 95%,
+    #062A6C 100%
   ) !important;
   background-repeat: no-repeat !important;
-  background-size: 100% 100% !important;
+  background-size: 100% var(--xp-titlebar-h) !important;
+  background-position: top !important;
+  border-top: 1px solid #001E5C !important;
+  border-left: 1px solid #001E5C !important;
+  border-right: 1px solid #001E5C !important;
 }
 
 html.dark[data-traditional] .stop-view-container,
 html.dark[data-traditional] .route-view-container,
 html.dark[data-traditional] .home-view-container {
-  background-color: #1C0C0C !important;
+  background: var(--xp-bliss-dark) !important;
+  color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .drawer-grip {
-  background: #CC2020 !important;
+html.dark[data-traditional] .stop-view-container > div > header,
+html.dark[data-traditional] .route-view-container > div > header {
+  background: #1A2030 !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.05), 1px 1px 0 rgba(0,0,0,0.40) !important;
 }
 
-/* ── Dark cards ────────────────────────────────────────────────────────── */
+/* Dark cards */
 html.dark[data-traditional] .departure-card {
-  background: #240E0E !important;
-  border-color: transparent !important;
-  border-left: 3px solid #CC2020 !important;
-  color: #F5F0EC !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+  background: #1A2030 !important;
+  border: 1px solid var(--xp-border) !important;
+  border-left: 4px solid var(--xp-blue) !important;
+  color: var(--xp-text) !important;
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.40) !important;
 }
 html.dark[data-traditional] .departure-card:hover {
-  background: #2E1010 !important;
-  border-left-color: #F5F0EC !important;
-  color: #F5F0EC !important;
+  background: #232A40 !important;
+  border-left-color: var(--xp-blue-hi) !important;
 }
 html.dark[data-traditional] .departure-card-fav {
-  background: #240E0E !important;
-  border-left: 3px solid #8B1818 !important;
-  color: #F5F0EC !important;
+  background: #1A2030 !important;
+  border: 1px solid var(--xp-border) !important;
+  border-left: 4px solid #E89C2A !important;
+  color: var(--xp-text) !important;
 }
 html.dark[data-traditional] .departure-card-fav:hover {
-  background: #2E1010 !important;
-  border-left-color: #CC2020 !important;
-  color: #F5F0EC !important;
+  background: #232A40 !important;
+  border-left-color: #FFB840 !important;
 }
 
-/* ── Dark stop rows ────────────────────────────────────────────────────── */
-html.dark[data-traditional] .stop-row-selected,
+/* Dark stop rows */
 html.dark[data-traditional] .stop-row-nearest,
 html.dark[data-traditional] .stop-row-fav {
-  background: #281010 !important;
-  color: #F5F0EC !important;
+  background: rgba(26,32,48,0.70) !important;
+  color: var(--xp-text) !important;
 }
-html.dark[data-traditional] .stop-row-selected { border-left: 3px solid #CC2020 !important; }
-html.dark[data-traditional] .stop-row-fav      { border-left: 3px solid #8B1818 !important; }
+html.dark[data-traditional] .stop-row-selected {
+  background: linear-gradient(to bottom, #2A508C, #1B3E78) !important;
+  color: #FFFFFF !important;
+  border-left: 3px solid var(--xp-blue) !important;
+}
+html.dark[data-traditional] .stop-row-fav { border-left: 3px solid #E89C2A !important; }
 
-/* ── Dark chips / rows ─────────────────────────────────────────────────── */
+/* Dark favorites */
 html.dark[data-traditional] .fav-route-chip {
-  background: #240E0E !important;
-  border-color: #4A1010 !important;
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.07) !important;
 }
-
-html.dark[data-traditional] .all-route-row:hover,
-html.dark[data-traditional] .fav-stop-row:hover,
 html.dark[data-traditional] .fav-route-chip:hover {
-  background: #2E1010 !important;
-  color: #F5F0EC !important;
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
+}
+html.dark[data-traditional] .fav-stop-row {
+  background: #1A2030 !important;
+  border: 1px solid var(--xp-border) !important;
+}
+html.dark[data-traditional] .fav-stop-row:hover {
+  background: #2A508C !important;
+  border-color: var(--xp-blue) !important;
+}
+html.dark[data-traditional] .all-route-row {
+  background: #1A2030 !important;
+}
+html.dark[data-traditional] .all-route-row:hover {
+  background: #2A508C !important;
 }
 
-/* ── Dark favorites section ────────────────────────────────────────────── */
-html.dark[data-traditional] .section-label svg { color: #CC2020 !important; }
-html.dark[data-traditional] .sub-label { color: #C8A0A0 !important; }
-html.dark[data-traditional] .fav-route-name { color: #C8A0A0 !important; }
+/* Dark favorites section */
+html.dark[data-traditional] .section-label svg { color: var(--xp-blue) !important; }
+html.dark[data-traditional] .sub-label { color: #FFFFFF !important; text-shadow: 1px 1px 0 rgba(0,0,0,0.55) !important; }
+html.dark[data-traditional] .fav-route-name { color: #B0CDF0 !important; font-weight: 700 !important; }
 html.dark[data-traditional] .fav-stop-row > div:nth-child(2) {
-  background-color: rgba(204,32,32,0.15) !important;
+  background: rgba(78,136,216,0.15) !important;
+  border: 1px solid var(--xp-border) !important;
 }
-html.dark[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: #CC2020 !important; }
+html.dark[data-traditional] .fav-stop-row > div:nth-child(2) svg { color: var(--xp-blue) !important; }
 
-/* ── Dark search ───────────────────────────────────────────────────────── */
+/* Dark search */
 html.dark[data-traditional] .search-wrap {
-  border-color: #4A1010 !important;
-  background: #240E0E !important;
+  border-color: var(--xp-border) !important;
+  background: #1A2030 !important;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5) !important;
 }
 html.dark[data-traditional] .search-wrap:focus-within {
-  border-color: #CC2020 !important;
-  background: #1C0C0C !important;
-  box-shadow: 0 0 0 3px rgba(204,32,32,0.15) !important;
+  border-color: var(--xp-blue) !important;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5), 0 0 0 1px var(--xp-blue) !important;
 }
-html.dark[data-traditional] .search-input {
-  color: #F5F0EC !important;
-}
-html.dark[data-traditional] .search-input::placeholder {
-  color: #C8A0A0 !important;
-}
+html.dark[data-traditional] .search-input { color: var(--xp-text) !important; }
+html.dark[data-traditional] .search-input::placeholder { color: #5A6580 !important; }
 
-/* ── Dark direction toggle ─────────────────────────────────────────────── */
 html.dark[data-traditional] .direction-toggle-wrap {
-  background: #0E0606 !important;
+  background: #181B28 !important;
+  border: 1px solid var(--xp-border) !important;
 }
 html.dark[data-traditional] .dir-btn-active {
-  background: #CC2020 !important;
-  color: #ffffff !important;
+  background: linear-gradient(to bottom, #2A508C, #1B3E78) !important;
+  color: #FFFFFF !important;
 }
 html.dark[data-traditional] .dir-btn-inactive {
-  color: rgba(245,240,236,0.45) !important;
+  color: rgba(224,230,242,0.5) !important;
 }
 
-/* ── Dark settings ─────────────────────────────────────────────────────── */
+/* Dark settings */
 html.dark[data-traditional] .settings-btn {
-  background: #8B1818 !important;
-  color: #F5F0EC !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.45), 0 1px 4px rgba(139,24,24,0.3) !important;
+  background: radial-gradient(circle at 30% 30%, #6FB852, #3D8024 55%, #265A12 100%) !important;
+  color: #E8F4DC !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.50) !important;
+  border: 1px solid #1E4810 !important;
 }
 html.dark[data-traditional] .settings-btn:hover {
-  background: #CC2020 !important;
-  color: #ffffff !important;
+  background: radial-gradient(circle at 30% 30%, #80CD60, #4D9530 55%, #356E1A 100%) !important;
+  color: #FFFFFF !important;
 }
+
 html.dark[data-traditional] .settings-popover {
-  background: #1C0C0C !important;
-  border-top: 3px solid #CC2020 !important;
-  box-shadow: 0 10px 30px -4px rgba(0,0,0,0.55), 0 1px 6px rgba(0,0,0,0.28) !important;
+  background: var(--xp-tan) !important;
+  border: 1px solid #001E5C !important;
+  box-shadow: 3px 3px 12px rgba(0,0,0,0.6) !important;
 }
-html.dark[data-traditional] .section-label {
-  color: #8B1818 !important;
+html.dark[data-traditional] .settings-popover::before {
+  background: linear-gradient(to bottom, #003478 0%, #1A6CD0 8%, #0F4FA8 50%, #0A3E90 51%, #1656B8 95%, #062A6C 100%);
+}
+html.dark[data-traditional] .section-label { color: var(--xp-blue) !important; }
+
+html.dark[data-traditional] .option-btn {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: var(--xp-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
 }
 html.dark[data-traditional] .option-btn:hover {
-  background: #2E1010 !important;
-  color: #F5F0EC !important;
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
 }
 html.dark[data-traditional] .option-btn.active {
-  background: #3A1010 !important;
-  color: #F5F0EC !important;
-  border-color: #8B1818 !important;
+  background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #1B3E78 !important;
 }
 
-/* ── Dark landscape toggle ─────────────────────────────────────────────── */
 html.dark[data-traditional] .landscape-drawer-toggle {
-  background: #8B1818 !important;
-  color: #F5F0EC !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.45), 0 1px 4px rgba(139,24,24,0.3) !important;
+  background: radial-gradient(circle at 30% 30%, #6FB852, #3D8024 55%, #265A12 100%) !important;
+  color: #E8F4DC !important;
+  border: 1px solid #1E4810 !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.50) !important;
 }
 html.dark[data-traditional] .landscape-drawer-toggle:hover {
-  background: #CC2020 !important;
-  color: #ffffff !important;
+  background: radial-gradient(circle at 30% 30%, #80CD60, #4D9530 55%, #356E1A 100%) !important;
+  color: #FFFFFF !important;
 }
 
-/* ── Dark not found ────────────────────────────────────────────────────── */
-html.dark[data-traditional] .not-found-container {
-  background-color: #1C0C0C !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 4L16 8L12 12L8 8Z' fill='%23CC2020' opacity='0.06'/%3E%3Cpath d='M12 12L16 16L12 20L8 16Z' fill='%23CC2020' opacity='0.06'/%3E%3C/svg%3E") !important;
+/* ══════════════════════════════════════════════════════════════════════════
+   VIEW-LEVEL XP OVERRIDES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Tahoma for view content */
+html[data-traditional] .stop-view-container h1,
+html[data-traditional] .stop-view-container h2,
+html[data-traditional] .stop-view-container h3,
+html[data-traditional] .route-view-container h1,
+html[data-traditional] .route-view-container h2,
+html[data-traditional] .route-view-container h3,
+html[data-traditional] .home-view-container h1,
+html[data-traditional] .home-view-container h2,
+html[data-traditional] .home-view-container h3 {
+  font-family: var(--xp-font) !important;
 }
-html.dark[data-traditional] .not-found-horse-wagon,
-html.dark[data-traditional] .not-found-text {
-  color: #CC2020 !important;
+
+/* Bus-stop / route header icon block */
+html[data-traditional] .stop-view-container header > div:first-child {
+  background: linear-gradient(135deg, #4A90E0 0%, #245EDC 50%, #1A52B8 100%) !important;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.5), 0 2px 6px rgba(36,94,220,0.30) !important;
+  border: 1px solid #003C9C !important;
+}
+html.dark[data-traditional] .stop-view-container header > div:first-child {
+  background: linear-gradient(135deg, #2D5DA6 0%, #1B3E78 50%, #0F2550 100%) !important;
+  border: 1px solid #001E5C !important;
+}
+
+/* Route header (uses inline route_color) — give it XP border */
+html[data-traditional] .route-view-container header > div:first-child {
+  border: 1px solid #003C9C !important;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.45), 0 2px 6px rgba(0,0,0,0.25) !important;
+}
+
+/* Captions / accents */
+html[data-traditional] .stop-view-container .text-emerald-600,
+html[data-traditional] .stop-view-container .text-emerald-400,
+html[data-traditional] .stop-view-container .text-emerald-500 { color: var(--xp-blue) !important; }
+
+/* Section labels */
+html[data-traditional] .section-label,
+html[data-traditional] .section-label-text {
+  color: var(--xp-blue) !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.7) !important;
+}
+html.dark[data-traditional] .section-label,
+html.dark[data-traditional] .section-label-text {
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.6) !important;
+}
+
+html[data-traditional] .section-label .bg-emerald-500 {
+  background: linear-gradient(to bottom, #95D87A, #5BAA38) !important;
+  box-shadow: 0 0 4px rgba(91,170,56,0.7), inset 0 1px 0 rgba(255,255,255,0.5) !important;
+}
+
+html[data-traditional] .home-view-container .section-label .text-rose-500 { color: #C03030 !important; }
+
+/* LIVE badge */
+html[data-traditional] .live-badge {
+  background: linear-gradient(to bottom, #6FB452 0%, #5BAA38 50%, #3D7E22 100%) !important;
+  border: 1px solid #2D5F18 !important;
+  color: #FFFFFF !important;
+  font-family: var(--xp-font) !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4) !important;
+}
+html[data-traditional] .live-badge .bg-emerald-500 {
+  background: #FFFFFF !important;
+}
+
+/* Time pills */
+html[data-traditional] .time-pill {
+  border: 1px solid var(--xp-border) !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+  padding: 0.18rem 0.45rem !important;
+}
+html[data-traditional] .time-pill-live {
+  background: linear-gradient(to bottom, #6FB452 0%, #5BAA38 50%, #3D7E22 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #2D5F18 !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25) !important;
+}
+html[data-traditional] .time-pill-sched {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  color: #000000 !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF !important;
+}
+html.dark[data-traditional] .time-pill-sched {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  color: var(--xp-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
+}
+
+/* Time cells */
+html[data-traditional] .time-cell {
+  font-family: var(--xp-font) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+html[data-traditional] .time-cell-live {
+  background: #5BAA38 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #2D5F18 !important;
+  padding: 0 0.25rem !important;
+}
+
+/* Route number badges (the colored squares) */
+html[data-traditional] .stop-view-container [style*="background-color"][class*="font-black"],
+html[data-traditional] .route-view-container header > div[style*="background-color"],
+html[data-traditional] .home-view-container .fav-route-badge {
+  border: 1px solid rgba(0,0,0,0.4) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 1px 1px 0 rgba(0,0,0,0.25) !important;
+  font-family: var(--xp-font) !important;
+}
+
+/* ── Back button (toolbar style + extra right padding) ────────────────── */
+html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn),
+html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn) {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+  padding: 0.28rem 0.7rem 0.28rem 0.45rem !important;
+  font-weight: 700 !important;
+}
+html[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover,
+html[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover {
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+  color: #000000 !important;
+}
+html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn),
+html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn) {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border-color: var(--xp-border) !important;
+  color: var(--xp-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
+}
+html.dark[data-traditional] .stop-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover,
+html.dark[data-traditional] .route-view-container button[class*="text-slate-500"][class*="rounded"]:not(.fav-btn):hover {
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
+}
+
+/* ── Heart fav button ─────────────────────────────────────────────────── */
+html[data-traditional] .fav-btn {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #808080 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+}
+html[data-traditional] .fav-btn:hover {
+  background: linear-gradient(to bottom, #FFE0E5 0%, #FFCCD2 100%) !important;
+  border-color: #C04050 !important;
+  color: #C03050 !important;
+}
+html[data-traditional] .fav-btn.is-fav {
+  background: linear-gradient(to bottom, #F88080 0%, #D04040 50%, #A82020 100%) !important;
+  border-color: #6B1010 !important;
+  color: #FFFFFF !important;
+}
+html[data-traditional] .fav-btn.is-fav:hover {
+  background: linear-gradient(to bottom, #FA9090 0%, #E05050 50%, #B82828 100%) !important;
+}
+html.dark[data-traditional] .fav-btn {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border-color: var(--xp-border) !important;
+  color: #6A6A82 !important;
+}
+html.dark[data-traditional] .fav-btn:hover {
+  background: linear-gradient(to bottom, #4A2030 0%, #3A1820 100%) !important;
+  border-color: #C04050 !important;
+  color: #FF6080 !important;
+}
+
+/* ── RouteView stop list dots ─────────────────────────────────────────── */
+html[data-traditional] .route-view-container .bg-emerald-500 { background: #5BAA38 !important; }
+html[data-traditional] .route-view-container .bg-purple-500  { background: #E89C2A !important; }
+html[data-traditional] .route-view-container .bg-rose-500    { background: #C03030 !important; }
+html[data-traditional] .route-view-container .text-emerald-500,
+html[data-traditional] .route-view-container .text-emerald-400,
+html[data-traditional] .route-view-container .text-emerald-600,
+html[data-traditional] .route-view-container .dark\:text-emerald-400 { color: #3D7E22 !important; }
+html[data-traditional] .route-view-container .text-purple-500,
+html[data-traditional] .route-view-container .text-purple-400,
+html[data-traditional] .route-view-container .dark\:text-purple-400 { color: #B87410 !important; }
+html[data-traditional] .route-view-container .text-rose-400,
+html[data-traditional] .route-view-container .text-rose-500 { color: #C03030 !important; }
+
+/* HomeView favorite-stops icon circle */
+html[data-traditional] .home-view-container .bg-emerald-100,
+html[data-traditional] .home-view-container .dark\:bg-emerald-500\/15 {
+  background: rgba(36,94,220,0.12) !important;
+}
+html[data-traditional] .home-view-container .text-emerald-600,
+html[data-traditional] .home-view-container .text-emerald-400,
+html.dark[data-traditional] .home-view-container .text-emerald-400 { color: var(--xp-blue) !important; }
+
+/* ── Timetable controls (RouteView) ───────────────────────────────────── */
+html[data-traditional] .tt-tab {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+  padding: 0.3rem 0.7rem !important;
+}
+html[data-traditional] .tt-tab-active,
+html[data-traditional] .tt-tab.tt-tab-active {
+  background: linear-gradient(to bottom, #4A90E0 0%, #2470D4 50%, #1A52B8 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #003C9C !important;
+}
+html[data-traditional] .tt-tab:hover {
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+}
+html[data-traditional] .tt-tab-active:hover {
+  background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #1B5BB8 100%) !important;
+}
+
+html[data-traditional] .tt-min {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+  padding: 0.15rem 0.4rem !important;
+}
+html[data-traditional] .tt-min-past { opacity: 0.55 !important; }
+html[data-traditional] .tt-min-future { background: linear-gradient(to bottom, #FFFFFF 0%, #F0EEE0 50%, #E0DCC8 100%) !important; }
+html[data-traditional] .tt-min-selected,
+html[data-traditional] .tt-min.tt-min-selected {
+  background: linear-gradient(to bottom, #4A90E0 0%, #2470D4 50%, #1A52B8 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #003C9C !important;
+}
+html[data-traditional] .tt-min:hover {
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+}
+
+html[data-traditional] .tt-hour {
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+  color: var(--xp-blue) !important;
+}
+html[data-traditional] .tt-today-dot {
+  background: #5BAA38 !important;
+}
+html[data-traditional] .suspended-banner {
+  background: linear-gradient(to bottom, #FFE0A0 0%, #FFCC60 100%) !important;
+  border: 1px solid #C08020 !important;
+  color: #5C3000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .tt-tab {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border-color: var(--xp-border) !important;
+  color: var(--xp-text) !important;
+}
+html.dark[data-traditional] .tt-tab:hover {
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
+}
+html.dark[data-traditional] .tt-min {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  border-color: var(--xp-border) !important;
+  color: var(--xp-text) !important;
+}
+html.dark[data-traditional] .tt-min:hover {
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
+}
+
+/* Search input font */
+html[data-traditional] .search-input { font-family: var(--xp-font) !important; }
+
+/* Drag handles → XP gray */
+html[data-traditional] .drag-handle { color: #808080 !important; }
+html.dark[data-traditional] .drag-handle { color: #6A6A82 !important; }
+
+/* Generic XP styling for any small "close" buttons (×) */
+html[data-traditional] .fav-remove,
+html[data-traditional] .fav-stop-remove {
+  background: linear-gradient(to bottom, #F88080 0%, #D04040 50%, #A82020 100%) !important;
+  border: 1px solid #6B1010 !important;
+  color: #FFFFFF !important;
+}
+
+/* ── Theme combo box — sunken XP "dropdown" with raised button on right ── */
+html[data-traditional] .select-wrap {
+  position: relative !important;
+}
+
+html[data-traditional] .theme-select,
+html[data-traditional] .theme-select.is-traditional,
+html[data-traditional] .theme-select.is-chomper {
+  background: #FFFFFF !important;
+  border: 1px solid #7F9DB9 !important;
+  box-shadow:
+    inset 1px 1px 0 #404040,
+    inset 2px 2px 0 #DFDFDF,
+    inset -1px -1px 0 #DFDFDF !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  padding: 0.18rem 1.5rem 0.18rem 0.4rem !important;
+  height: 1.6rem !important;
+  cursor: default !important;
+}
+
+html[data-traditional] .theme-select:hover,
+html[data-traditional] .theme-select:focus {
+  background: #FFFFFF !important;
+  border-color: #7F9DB9 !important;
+}
+
+html[data-traditional] .theme-select option {
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+html[data-traditional] .theme-select option:checked {
+  background: #316AC5 !important;
+  color: #FFFFFF !important;
+}
+
+/* Hide the original chevron SVG and draw an XP raised dropdown button instead */
+html[data-traditional] .select-chevron {
+  display: none !important;
+}
+
+html[data-traditional] .select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: calc(100% - 4px);
+  background:
+    /* Tiny down-triangle in the middle */
+    linear-gradient(to bottom, transparent calc(50% - 2px), #000000 calc(50% - 2px), #000000 calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
+    linear-gradient(to bottom, transparent calc(50% - 1px), #000000 calc(50% - 1px), #000000 calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
+    linear-gradient(to bottom, transparent 50%, #000000 50%, #000000 calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,
+    linear-gradient(to bottom, transparent calc(50% + 1px), #000000 calc(50% + 1px), #000000 calc(50% + 2px), transparent calc(50% + 2px)) no-repeat 50% 50% / 1px 1px,
+    linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%);
+  border: 1px solid;
+  border-color: #FFFFFF #404040 #404040 #FFFFFF;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6) !important;
+  pointer-events: none;
+}
+
+/* Dark mode combo box */
+html.dark[data-traditional] .theme-select,
+html.dark[data-traditional] .theme-select.is-traditional,
+html.dark[data-traditional] .theme-select.is-chomper {
+  background: #14182A !important;
+  border-color: #444A5C !important;
+  box-shadow:
+    inset 1px 1px 0 #000000,
+    inset 2px 2px 0 #1A1F35,
+    inset -1px -1px 0 #2A3045 !important;
+  color: var(--xp-text) !important;
+}
+html.dark[data-traditional] .theme-select option {
+  background: #14182A !important;
+  color: var(--xp-text) !important;
+}
+html.dark[data-traditional] .theme-select option:checked {
+  background: #2A508C !important;
+  color: #FFFFFF !important;
+}
+html.dark[data-traditional] .select-wrap::after {
+  background:
+    linear-gradient(to bottom, transparent calc(50% - 2px), #FFFFFF calc(50% - 2px), #FFFFFF calc(50% - 1px), transparent calc(50% - 1px)) no-repeat 50% 50% / 7px 1px,
+    linear-gradient(to bottom, transparent calc(50% - 1px), #FFFFFF calc(50% - 1px), #FFFFFF calc(50%), transparent calc(50%)) no-repeat 50% 50% / 5px 1px,
+    linear-gradient(to bottom, transparent 50%, #FFFFFF 50%, #FFFFFF calc(50% + 1px), transparent calc(50% + 1px)) no-repeat 50% 50% / 3px 1px,
+    linear-gradient(to bottom, transparent calc(50% + 1px), #FFFFFF calc(50% + 1px), #FFFFFF calc(50% + 2px), transparent calc(50% + 2px)) no-repeat 50% 50% / 1px 1px,
+    linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
+  border-color: #444A5C #000000 #000000 #444A5C;
 }

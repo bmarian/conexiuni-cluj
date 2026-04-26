@@ -58,6 +58,13 @@
   "funModeOff": "Inactiv",
   "themeDefault": "Implicit",
   "chomperTheme": "Chomper",
-  "traditionalTheme": "Tradițional",
-  "traditionalUnlocked": "Ai descoperit tema Tradițională!"
+  "traditionalTheme": "Vremurile bune",
+  "traditionalUnlocked": "Ai descoperit tema Vremurile bune!",
+  "bsodLead": "S-a detectat o problemă și Cluj Transit a fost escortat politicos de pe traseu pentru a preveni alte confuzii.",
+  "bsodCode": "PAGE_NOT_FOUND_404",
+  "bsodMissing": "Pagina pe care o căutai nu mai e la această adresă. Am verificat orarul. Am verificat sub scaune. Pur și simplu nu e aici.",
+  "bsodReason": "Poate a luat o altă rută. Poate e blocată în trafic pe Calea Mănăștur. Oricum — nu mai vine.",
+  "bsodTechHeader": "Informații tehnice:",
+  "bsodStop": "*** STOP: 0x00000404 (AUTOBUZUL_A_PLECAT, NICI_PE_APROAPE, MULT_NOROC_DATA_VIITOARE)",
+  "bsodPrompt": "Apasă orice tastă pentru a merge acasă"
 }
