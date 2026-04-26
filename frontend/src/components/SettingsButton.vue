@@ -326,6 +326,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   background: #422006;
   color: #fde68a;
 }
+.settings-root.is-dark .theme-select.is-chomper option { background: #422006; color: #fde68a; }
 .settings-root.is-dark .theme-select.is-traditional {
   border-color: #2A508C;
   background: #10193A;
