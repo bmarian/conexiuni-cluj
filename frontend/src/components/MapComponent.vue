@@ -637,8 +637,8 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
   if (traditionalActive.value) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
-      html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
-        <svg viewBox="0 0 20 26" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
+      html: `<div style="width:24px;height:30px;display:flex;align-items:flex-end;justify-content:center;">
+        <svg viewBox="0 0 20 26" width="22" height="28" xmlns="http://www.w3.org/2000/svg">
           <line x1="10" y1="26" x2="10" y2="6" stroke="${bg}" stroke-width="1.8" stroke-linecap="round"/>
           <ellipse cx="10" cy="4" rx="2.5" ry="4" fill="${bg}"/>
           <ellipse cx="6.5" cy="9" rx="3" ry="1.5" fill="${bg}" transform="rotate(-40 6.5 9)"/>
@@ -647,8 +647,8 @@ const makeHighlightIcon = (color: 'green' | 'purple' | 'red' | 'gray') => {
           <ellipse cx="14.5" cy="14" rx="3" ry="1.5" fill="${bg}" transform="rotate(30 14.5 14)"/>
         </svg>
       </div>`,
-      iconSize: [28, 36],
-      iconAnchor: [14, 34],
+      iconSize: [24, 30],
+      iconAnchor: [12, 28],
     })
   }
 
