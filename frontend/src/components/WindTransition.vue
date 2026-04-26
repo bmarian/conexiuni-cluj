@@ -29,7 +29,7 @@ function paperStyle(i: number) {
     animationName: goRight.value ? 'wind-blow-right' : 'wind-blow-left',
     animationDuration: `${dur}s`,
     animationTimingFunction: 'ease-in',
-    animationFillMode: 'forwards',
+    animationFillMode: 'both',
     '--r-start': `${rStart}deg`,
     '--r-end': `${rEnd}deg`,
   }

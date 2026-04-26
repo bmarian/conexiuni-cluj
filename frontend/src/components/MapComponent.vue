@@ -733,39 +733,43 @@ const getVehicleMarkerHtml = (
   }
 
   if (traditionalActive.value) {
-    // top-down view: symmetric around horizontal midline so any rotation looks correct
-    const rotation = heading - 90
-    const sz = isStopView ? 40 : 34
-    const tractorH = Math.round(sz * 22 / 36)
-    const tractor = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
-      <svg viewBox="0 0 36 22" width="${sz}" height="${tractorH}" xmlns="http://www.w3.org/2000/svg">
-        <!-- Big rear wheels (left) — symmetric around y=11 -->
-        <rect x="0" y="1.5" width="8" height="8" rx="2" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
-        <line x1="4" y1="2" x2="4" y2="9" stroke="white" stroke-width="0.8" opacity="0.55"/>
-        <line x1="0.8" y1="5.5" x2="7.2" y2="5.5" stroke="white" stroke-width="0.8" opacity="0.55"/>
-        <rect x="0" y="12.5" width="8" height="8" rx="2" fill="${resolvedColor}" stroke="white" stroke-width="1.5"/>
-        <line x1="4" y1="13" x2="4" y2="20" stroke="white" stroke-width="0.8" opacity="0.55"/>
-        <line x1="0.8" y1="16.5" x2="7.2" y2="16.5" stroke="white" stroke-width="0.8" opacity="0.55"/>
-        <!-- Chassis -->
-        <rect x="5" y="4" width="24" height="14" rx="2" fill="${resolvedColor}"/>
-        <!-- Cab (rear/left portion) with window -->
-        <rect x="6" y="5" width="12" height="12" rx="1.5" fill="${resolvedColor}" stroke="rgba(255,255,255,0.45)" stroke-width="0.9"/>
-        <rect x="7.5" y="6.5" width="9" height="9" rx="1" fill="rgba(255,255,255,0.4)"/>
-        <!-- Hood (front/right portion) -->
-        <rect x="18" y="7" width="10" height="8" rx="1.5" fill="${resolvedColor}"/>
-        <!-- Small front wheels (right) — symmetric around y=11 -->
-        <rect x="27" y="3" width="7" height="7" rx="1.5" fill="${resolvedColor}" stroke="white" stroke-width="1.2"/>
-        <rect x="27" y="12" width="7" height="7" rx="1.5" fill="${resolvedColor}" stroke="white" stroke-width="1.2"/>
-      </svg>
+    const sz = isStopView ? 36 : 32
+    const tractorW = Math.round(sz * 0.62)
+    const tractorH = Math.round(tractorW * 16 / 22)
+
+    // White side-view tractor silhouette — does not rotate; heading indicator does
+    const tractorSvg = `<svg viewBox="0 0 22 16" width="${tractorW}" height="${tractorH}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="5.5" cy="11" r="3.5" fill="none" stroke="white" stroke-width="1.2"/>
+      <circle cx="5.5" cy="11" r="1.4" fill="rgba(255,255,255,0.3)"/>
+      <line x1="5.5" y1="7.5" x2="5.5" y2="14.5" stroke="white" stroke-width="0.6" opacity="0.65"/>
+      <line x1="2" y1="11" x2="9" y2="11" stroke="white" stroke-width="0.6" opacity="0.65"/>
+      <rect x="4" y="7.5" width="14" height="4.5" rx="1" fill="white"/>
+      <rect x="4" y="2" width="7.5" height="8.5" rx="1.2" fill="white"/>
+      <rect x="5.3" y="3.3" width="4.8" height="3.2" rx="0.4" fill="rgba(0,0,0,0.22)"/>
+      <rect x="10.2" y="0.5" width="1.8" height="4" rx="0.4" fill="white"/>
+      <rect x="11.5" y="8.5" width="6" height="4" rx="1" fill="rgba(255,255,255,0.85)"/>
+      <circle cx="17.5" cy="11.5" r="2.8" fill="none" stroke="white" stroke-width="1.2"/>
+      <circle cx="17.5" cy="11.5" r="1.1" fill="rgba(255,255,255,0.3)"/>
+      <line x1="17.5" y1="8.7" x2="17.5" y2="14.3" stroke="white" stroke-width="0.6" opacity="0.65"/>
+      <line x1="14.7" y1="11.5" x2="20.3" y2="11.5" stroke="white" stroke-width="0.6" opacity="0.65"/>
+    </svg>`
+
+    const circle = `<div style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;background:${resolvedColor};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      ${tractorSvg}
+      <div style="position:absolute;bottom:-2px;right:-2px;width:13px;height:13px;border-radius:50%;background:rgba(28,16,8,0.85);border:1.5px solid white;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="white" width="8" height="8" style="transform:rotate(${heading}deg);">
+          <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="white" stroke-width="1" stroke-linejoin="round"/>
+        </svg>
+      </div>
     </div>`
 
     if (isStopView) {
       return `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
-          ${tractor}
+          ${circle}
           <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
           ${showStopInfo ? `
-            <div class="absolute" style="left:44px;top:0;background:rgba(28,16,8,0.92);color:#F0DFC0;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
+            <div class="absolute" style="left:${sz + 8}px;top:0;background:rgba(28,16,8,0.92);color:#F0DFC0;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
               <span style="font-weight:700;font-size:14px;">${titleText}</span>
               <span style="font-size:12px;color:#C8B090;">${roundedSpeed} km/h</span>
             </div>
@@ -775,7 +779,11 @@ const getVehicleMarkerHtml = (
 
     return `
       <div style="position:relative;display:flex;align-items:center;">
-        ${tractor}
+        ${circle}
+        <div class="absolute" style="left:${sz + 8}px;background:rgba(28,16,8,0.92);color:#F0DFC0;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
+          <span style="font-weight:700;font-size:14px;">${titleText}</span>
+          <span style="font-size:12px;color:#C8B090;">${roundedSpeed} km/h</span>
+        </div>
       </div>`
   }
 
