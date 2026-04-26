@@ -263,6 +263,15 @@ html[data-traditional] .settings-btn:hover {
   background: radial-gradient(circle at 30% 30%, #84B4F8, #316AC5 55%, #2558B0 100%) !important;
   color: #FFFFFF !important;
 }
+html[data-traditional] .weather-pill {
+  background: radial-gradient(circle at 30% 30%, #6BA1F0, #245EDC 55%, #1A4FB8 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,0.55),
+    inset 0 -2px 4px rgba(0,0,0,0.20),
+    0 2px 4px rgba(0,0,0,0.30) !important;
+  border: 1px solid #003C9C !important;
+}
 
 html[data-traditional] .settings-popover {
   background: var(--xp-tan) !important;
@@ -474,6 +483,12 @@ html.dark[data-traditional] .settings-btn {
 html.dark[data-traditional] .settings-btn:hover {
   background: radial-gradient(circle at 30% 30%, #6FB4F8, #3A7EC8 55%, #2A4F90 100%) !important;
   color: #FFFFFF !important;
+}
+html.dark[data-traditional] .weather-pill {
+  background: radial-gradient(circle at 30% 30%, #5BA1F0, #2A66B8 55%, #1B3E78 100%) !important;
+  color: #E0E6F2 !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.30), 0 2px 8px rgba(0,0,0,0.50) !important;
+  border: 1px solid #001E5C !important;
 }
 
 html.dark[data-traditional] .settings-popover {

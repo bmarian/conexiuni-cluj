@@ -3,6 +3,7 @@ import {computed, nextTick, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
+import WeatherButton from "@/components/WeatherButton.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import HungryTransition from "@/components/HungryTransition.vue"
@@ -146,6 +147,7 @@ function toggleLandscapeDrawer() {
     </div>
     <MapComponent class="app-map" />
     <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
+    <WeatherButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
     <EasterEggToast />
     <button
       type="button"
@@ -261,6 +263,7 @@ function toggleLandscapeDrawer() {
 
 .app-drawer {
   position: relative; /* needed for HungryTransition overlay */
+  z-index: 4000;
   flex-shrink: 0;
   width: 100%;
   border-top-left-radius: 1.25rem;

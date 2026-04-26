@@ -63,7 +63,7 @@ function setLocale(newLocale: 'ro' | 'en') {
 </script>
 
 <template>
-  <div ref="rootRef" class="settings-root" :class="{ 'is-dark': isDark }">
+  <div ref="rootRef" class="settings-root" :class="{ 'is-dark': isDark }" :style="isOpen ? { zIndex: 9999 } : {}">
     <button
       type="button"
       class="settings-btn"
@@ -156,7 +156,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   position: fixed;
   top: calc(0.75rem + env(safe-area-inset-top));
   right: calc(0.75rem + env(safe-area-inset-right));
-  z-index: 4600;
+  z-index: 3000;
   transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
