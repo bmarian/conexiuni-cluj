@@ -671,6 +671,22 @@ html[data-traditional] .route-view-container .stop-row-fav .time-cell:not(.time-
   text-shadow: none !important;
 }
 
+/* Dark mode: nearest/fav overlay is dark — flip to light text */
+html.dark[data-traditional] .route-view-container .stop-row-nearest .text-slate-500,
+html.dark[data-traditional] .route-view-container .stop-row-nearest .text-slate-600,
+html.dark[data-traditional] .route-view-container .stop-row-nearest .text-slate-700,
+html.dark[data-traditional] .route-view-container .stop-row-fav .text-slate-500,
+html.dark[data-traditional] .route-view-container .stop-row-fav .text-slate-600,
+html.dark[data-traditional] .route-view-container .stop-row-fav .text-slate-700 {
+  color: #E0E6F2 !important;
+  text-shadow: none !important;
+}
+html.dark[data-traditional] .route-view-container .stop-row-nearest .time-cell:not(.time-cell-live),
+html.dark[data-traditional] .route-view-container .stop-row-fav .time-cell:not(.time-cell-live) {
+  color: #C8D4E8 !important;
+  text-shadow: none !important;
+}
+
 /* Stops header (section label + next-departure column times) on Bliss */
 html[data-traditional] .route-view-container .stops-header .time-cell,
 html[data-traditional] .route-view-container .stops-header .text-slate-400 {

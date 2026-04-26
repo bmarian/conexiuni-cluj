@@ -9,8 +9,10 @@ const {t} = useI18n()
 const settings = useSettingsStore()
 
 function activateAndGo() {
-  if (!settings.traditionalUnlocked) settings.unlockTraditional()
-  if (!settings.traditionalActive) settings.activateTraditional()
+  if (!settings.traditionalUnlocked) {
+    settings.unlockTraditional()
+    settings.activateTraditional()
+  }
   router.push({name: 'home'})
 }
 

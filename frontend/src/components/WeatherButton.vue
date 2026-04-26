@@ -7,6 +7,7 @@ const isDark = computed(() => settings.isDark)
 
 const temp = ref<number | null>(null)
 const code = ref<number | null>(null)
+const isDay = ref(true)
 
 const WMO: Record<number, string> = {
   0: '☀️',
@@ -22,16 +23,27 @@ const WMO: Record<number, string> = {
   95: '⛈️', 96: '⛈️', 99: '⛈️',
 }
 
-const emoji = computed(() => code.value != null ? (WMO[code.value] ?? '🌡️') : null)
+const WMO_NIGHT: Partial<Record<number, string>> = {
+  0: '🌙',
+  1: '🌙',
+  2: '🌛',
+}
+
+const emoji = computed(() => {
+  if (code.value == null) return null
+  if (!isDay.value && code.value in WMO_NIGHT) return WMO_NIGHT[code.value]!
+  return WMO[code.value] ?? '🌡️'
+})
 
 async function fetch_weather() {
   try {
     const res = await fetch(
-      'https://api.open-meteo.com/v1/forecast?latitude=46.77&longitude=23.59&current=temperature_2m,weathercode&timezone=Europe%2FBucharest'
+      'https://api.open-meteo.com/v1/forecast?latitude=46.77&longitude=23.59&current=temperature_2m,weathercode,is_day&timezone=Europe%2FBucharest'
     )
     const data = await res.json()
     temp.value = Math.round(data.current.temperature_2m)
     code.value = data.current.weathercode
+    isDay.value = data.current.is_day === 1
   } catch {
     // fail silently — widget just stays hidden
   }
