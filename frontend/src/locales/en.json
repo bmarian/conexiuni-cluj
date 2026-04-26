@@ -35,6 +35,7 @@
   "closeTripView": "Close trip view",
   "notFound": "Page not found",
   "notFoundDesc": "The route or stop you're looking for doesn't exist or is no longer available.",
+  "notFoundFunny": "You're lost! Giddy up home!",
   "offlineBanner": "You're offline — live data unavailable",
   "offlineShort": "Offline",
   "toggleDrawer": "Toggle panel",

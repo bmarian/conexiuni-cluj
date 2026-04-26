@@ -250,3 +250,20 @@ html.dark[data-hungry] .landscape-drawer-toggle:hover {
 }
 
 /* Leaflet controls are themed in src/styles/leaflet.css (hungry-theme section) */
+
+/* ── Not Found page ───────────────────────────────────────────────────── */
+html[data-hungry] .not-found-container {
+  background-color: #fefce8 !important;
+}
+html[data-hungry] .not-found-horse-wagon,
+html[data-hungry] .not-found-text {
+  color: #92400e !important;
+}
+
+html.dark[data-hungry] .not-found-container {
+  background-color: #1c1608 !important;
+}
+html.dark[data-hungry] .not-found-horse-wagon,
+html.dark[data-hungry] .not-found-text {
+  color: #fbbf24 !important;
+}
