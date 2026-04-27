@@ -277,3 +277,29 @@ html.dark[data-hungry] .not-found-horse-wagon,
 html.dark[data-hungry] .not-found-text {
   color: #fbbf24 !important;
 }
+
+/* ── ViewErrorState ───────────────────────────────────────────────────── */
+html[data-hungry] .ves-illus    { color: #d97706; }
+html[data-hungry] .ves-title    { color: #78350f; }
+html[data-hungry] .ves-desc     { color: #92400e; }
+html[data-hungry] .ves-back-btn { background: #d97706; color: #fff7ed; }
+html[data-hungry] .ves-back-btn:hover { background: #b45309; }
+
+html.dark[data-hungry] .ves-illus    { color: #f59e0b; }
+html.dark[data-hungry] .ves-title    { color: #fde68a; }
+html.dark[data-hungry] .ves-desc     { color: #fbbf24; }
+html.dark[data-hungry] .ves-back-btn { background: #b45309; color: #fef9c3; }
+html.dark[data-hungry] .ves-back-btn:hover { background: #d97706; }
+
+/* ── Offline pill ─────────────────────────────────────────────────────── */
+html[data-hungry] .offline-pill {
+  background: #78350f;
+  color: #fef9c3;
+  box-shadow: 0 2px 8px rgba(120, 53, 15, 0.40);
+}
+html.dark[data-hungry] .offline-pill {
+  background: #92400e;
+  color: #fef9c3;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+

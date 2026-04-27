@@ -13,10 +13,27 @@
    UNIVERSAL: kill every rounded corner in this theme. XP is square.
    ══════════════════════════════════════════════════════════════════════════ */
 
-html[data-traditional],
-html[data-traditional] *,
-html[data-traditional] *::before,
-html[data-traditional] *::after {
+/* App shell itself */
+html[data-traditional] .app-shell,
+html[data-traditional] .app-shell::before,
+html[data-traditional] .app-shell::after,
+
+/* Drawer and everything rendered inside it (all views, cards, buttons) */
+html[data-traditional] .app-drawer,
+html[data-traditional] .app-drawer *,
+html[data-traditional] .app-drawer *::before,
+html[data-traditional] .app-drawer *::after,
+
+/* Fixed-position chrome that lives outside the drawer */
+html[data-traditional] .settings-btn,
+html[data-traditional] .settings-popover,
+html[data-traditional] .settings-popover *,
+html[data-traditional] .settings-popover *::before,
+html[data-traditional] .settings-popover *::after,
+html[data-traditional] .weather-pill,
+html[data-traditional] .landscape-drawer-toggle,
+html[data-traditional] .offline-pill,
+html[data-traditional] .egg-toast {
   border-radius: 0 !important;
 }
 
@@ -52,6 +69,13 @@ html[data-traditional] {
       #1F3416 80%,
       #0F1E0A 100%
     );
+}
+
+/* ── Map container — layout isolation so Leaflet's internal reflows don't
+      propagate out and trigger unnecessary style recalculation on the
+      drawer / shell on every resize ──────────────────────────────────── */
+html[data-traditional] .map-container {
+  contain: layout;
 }
 
 /* ── App shell = the XP desktop (Bliss wallpaper) ──────────────────────── */
@@ -950,12 +974,77 @@ html.dark[data-traditional] .route-stop-bullet-end {
   border-color: #C0D0E8;
 }
 
+/* ── ViewErrorState (stop / route not-found error state) ─────────────────── */
+html[data-traditional] .ves-card {
+  background: #FFFFFF !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF, 2px 2px 6px rgba(0,0,0,0.18) !important;
+  padding: 1.5rem 1.75rem 1.75rem !important;
+}
+html.dark[data-traditional] .ves-card {
+  background: #1A2030 !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.40) !important;
+}
+
+html[data-traditional] .ves-illus { color: var(--xp-blue) !important; }
+
+html[data-traditional] .ves-title {
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
+  font-size: 1.1rem !important;
+}
+html[data-traditional] .ves-desc {
+  color: #555555 !important;
+  font-family: var(--xp-font) !important;
+  font-size: 0.80rem !important;
+}
+html.dark[data-traditional] .ves-title { color: var(--xp-text) !important; }
+html.dark[data-traditional] .ves-desc  { color: #8898B0 !important; }
+
+html[data-traditional] .ves-back-btn {
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  color: #000000 !important;
+  border: 1px solid var(--xp-border) !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+}
+html[data-traditional] .ves-back-btn:hover {
+  background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%) !important;
+  border-color: #D08020 !important;
+}
+html.dark[data-traditional] .ves-back-btn {
+  background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%) !important;
+  color: var(--xp-text) !important;
+  border-color: var(--xp-border) !important;
+}
+html.dark[data-traditional] .ves-back-btn:hover {
+  background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%) !important;
+  border-color: var(--xp-blue) !important;
+}
+
 /* Generic XP styling for any small "close" buttons (×) */
 html[data-traditional] .fav-remove,
 html[data-traditional] .fav-stop-remove {
   background: linear-gradient(to bottom, #F88080 0%, #D04040 50%, #A82020 100%) !important;
   border: 1px solid #6B1010 !important;
   color: #FFFFFF !important;
+}
+
+/* ── Offline pill — XP Luna blue (matches map controls + title bar) ──── */
+html[data-traditional] .offline-pill {
+  background: linear-gradient(to bottom, #4A88E8 0%, #245EDC 50%, #1A52B8 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #003C9C !important;
+  box-shadow: 0 2px 6px rgba(36, 94, 220, 0.45) !important;
+  font-family: var(--xp-font) !important;
+  font-size: 0.7rem !important;
+  backdrop-filter: none !important;
+}
+html.dark[data-traditional] .offline-pill {
+  background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%) !important;
+  border-color: #001E5C !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.50) !important;
 }
 
 /* ── Theme combo box — sunken XP "dropdown" with raised button on right ── */

@@ -127,3 +127,18 @@ html.dark .green-friday-banner {
 html.dark .green-friday-icon { color: #34d399; }
 html.dark .green-friday-title { color: #6ee7b7; }
 html.dark .green-friday-desc { color: #34d399; }
+
+/* ── ViewErrorState ───────────────────────────────────────────── */
+html.dark .ves-illus    { color: #475569; }
+html.dark .ves-title    { color: #f1f5f9; }
+html.dark .ves-desc     { color: #94a3b8; }
+html.dark .ves-back-btn { background: #334155; color: #f8fafc; }
+html.dark .ves-back-btn:hover { background: #475569; }
+
+/* ── Offline pill ─────────────────────────────────────────────── */
+/* Slightly brighter amber so it pops against the dark map tiles  */
+html.dark .offline-pill {
+  background: rgba(217, 119, 6, 0.97);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+

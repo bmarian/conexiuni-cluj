@@ -6,8 +6,8 @@ import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
 import IconBack from "@/components/icons/IconBack.vue"
-import IconNotFoundFace from "@/components/icons/IconNotFoundFace.vue"
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
+import ViewErrorState from "@/components/ViewErrorState.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {
   OUTGOING_SUFFIX,
@@ -372,21 +372,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
   </div>
 
-  <div v-else-if="loadError" class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center gap-5">
-    <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-      <IconNotFoundFace class="w-7 h-7 text-slate-400 dark:text-slate-500"/>
-    </div>
-    <div class="text-center">
-      <h1 class="text-lg font-black text-slate-800 dark:text-white mb-1">{{ t('notFound') }}</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">{{ t('notFoundDesc') }}</p>
-    </div>
-    <button
-      @click="goBack"
-      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity"
-    >
-      <IconBack class="w-4 h-4"/>
-      {{ t('back') }}
-    </button>
+  <div v-else-if="loadError" class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
+    <ViewErrorState @back="goBack" />
   </div>
 
   <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
