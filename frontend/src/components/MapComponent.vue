@@ -2,8 +2,6 @@
 import {onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import {GeoSearchControl, OpenStreetMapProvider} from 'leaflet-geosearch'
-import 'leaflet-geosearch/dist/geosearch.css'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {apiRequest} from "@/utils/request_cache.ts";
@@ -31,6 +29,7 @@ const favoritesStore = useFavoritesStore()
 const {
   shapesToDisplay,
   centerOnUser,
+  flyToLocation,
   zoomOut,
   vehiclesToDisplay,
   highlightedStops
@@ -42,7 +41,7 @@ const stopMarkers = new Map<string, L.Marker>()
 const stopNames = new Map<string, string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedStopVehicleId = ref<number | null>(null)
-const {t, locale} = useI18n()
+const {t} = useI18n()
 const mapContainer = ref()
 
 const map = shallowRef<L.Map>()
@@ -64,7 +63,6 @@ const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
 const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
 const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
 const MIN_ZOOM = 9
-const CLUJ_VIEWBOX = '23.50,46.81,23.70,46.71'
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 
@@ -190,44 +188,6 @@ const createCenterControl = (mapValue: L.Map) => {
   return control
 }
 
-const createSearchControl = () => {
-  const provider = new OpenStreetMapProvider({
-    params: {
-      countrycodes: 'ro',
-      viewbox: CLUJ_VIEWBOX,
-      bounded: 0
-    }
-  })
-  const customSearchIcon = L.divIcon({
-    className: 'bg-transparent! border-none!',
-    html: `
-    <div class="w-8 h-8 drop-shadow-lg -mt-2 text-blue-500 dark:text-blue-400">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-        <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-      </svg>
-    </div>
-  `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 24]
-  })
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  return new GeoSearchControl({
-    provider,
-    showMarker: true,
-    marker: {
-      icon: customSearchIcon,
-      draggable: false,
-    },
-    retainZoomLevel: false,
-    animateZoom: true,
-    autoClose: true,
-    searchLabel: t('Search location...'),
-    keepResult: true
-  })
-}
-
 const initLayerGroups = (mapValue: L.Map) => {
   stopGroup.value = L.featureGroup()
   shapeLayerGroup.value = L.featureGroup().addTo(mapValue)
@@ -262,7 +222,6 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   }).addTo(mapValue)
 
   mapValue.addControl(createCenterControl(mapValue))
-  mapValue.addControl(createSearchControl())
   mapValue.locate({
     watch: true,
     enableHighAccuracy: false,
@@ -406,13 +365,6 @@ watch(isDarkMode, (newValue) => {
 
   currentTileLayer.value.setUrl(getTileLayerUrl(newValue))
 })
-
-const updateSearchPlaceholder = () => {
-  const searchInput = document.querySelector('.leaflet-control-geosearch input.glass') as HTMLInputElement | null
-  if (searchInput) searchInput.placeholder = t('Search location...')
-}
-
-watch(locale, updateSearchPlaceholder)
 
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
@@ -623,6 +575,12 @@ watch(centerOnUser, (shouldCenter) => {
 
   mapValue.flyTo(userLocation, DEFAULT_ZOOM, {duration: 1})
   centerOnUser.value = false
+})
+
+watch(flyToLocation, (loc) => {
+  if (!loc || !map.value) return
+  map.value.flyTo([loc.lat, loc.lng], DEFAULT_ZOOM, {duration: 1})
+  flyToLocation.value = null
 })
 
 onUnmounted(() => {

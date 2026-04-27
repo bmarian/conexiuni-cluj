@@ -101,7 +101,8 @@ html[data-hungry] .fav-route-chip {
 
 html[data-hungry] .all-route-row:hover,
 html[data-hungry] .fav-stop-row:hover,
-html[data-hungry] .fav-route-chip:hover {
+html[data-hungry] .fav-route-chip:hover,
+html[data-hungry] .geo-result-row:hover {
   background: #fef9c3 !important;
   color: #78350f !important;
 }
@@ -228,7 +229,8 @@ html.dark[data-hungry] .fav-route-chip {
 
 html.dark[data-hungry] .all-route-row:hover,
 html.dark[data-hungry] .fav-stop-row:hover,
-html.dark[data-hungry] .fav-route-chip:hover {
+html.dark[data-hungry] .fav-route-chip:hover,
+html.dark[data-hungry] .geo-result-row:hover {
   background: #2a2006 !important;
   color: #fde68a !important;
 }

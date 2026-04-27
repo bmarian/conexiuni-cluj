@@ -20,6 +20,7 @@ export const useMapStore = defineStore('map', () => {
   const vehicleColor = ref<string | null>(null)
   const zoomOut = ref(false)
   const centerOnUser = ref(false)
+  const flyToLocation = ref<{lat: number; lng: number} | null>(null)
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
     if (!displayShapes) return
@@ -58,8 +59,13 @@ export const useMapStore = defineStore('map', () => {
     vehicleColor.value = color
   }
 
+  const setFlyToLocation = (lat: number, lng: number) => {
+    flyToLocation.value = {lat, lng}
+  }
+
   return {
     centerOnUser,
+    flyToLocation,
     shapesToDisplay,
     zoomOut,
     vehiclesToDisplay,
@@ -71,6 +77,7 @@ export const useMapStore = defineStore('map', () => {
     setVehiclesToDisplay,
     setHighlightedStops,
     setVehicleColor,
+    setFlyToLocation,
 
     requestShapes,
   }

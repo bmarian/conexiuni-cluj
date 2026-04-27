@@ -12,13 +12,13 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
-import MetroEasterEgg from '@/components/MetroEasterEgg.vue'
+import UniversalSearch from '@/components/UniversalSearch.vue'
 
 const {t} = useI18n()
 const router = useRouter()
 const favoritesStore = useFavoritesStore()
-const routeStore = useRouteStore()
 const mapStore = useMapStore()
+const routeStore = useRouteStore()
 const settings = useSettingsStore()
 const {favoriteRouteIds, favoriteStopIds, isHydrated} = storeToRefs(favoritesStore)
 
@@ -26,7 +26,7 @@ const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
 const {fetchShapeInfo} = useRouteShapeInfoApi()
 
-const search = ref('')
+const isSearchMode = ref(false)
 const navigatingRouteId = ref<number | null>(null)
 
 const routesById = computed(() => {
@@ -69,16 +69,6 @@ const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favorit
 const sortedRoutes = computed<Route[]>(() => {
   return [...routes.value].sort((a, b) =>
     a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true}),
-  )
-})
-
-const filteredRoutes = computed<Route[]>(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return sortedRoutes.value
-  return sortedRoutes.value.filter(
-    (r) =>
-      r.route_short_name.toLowerCase().includes(q) ||
-      r.route_long_name.toLowerCase().includes(q),
   )
 })
 
@@ -127,221 +117,210 @@ const stopFavoritesModel = computed<number[]>({
     class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
-    <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
-      <h2 class="section-label">
-        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">❤️</span>
-        <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
-             viewBox="0 0 24 24">
-          <path
-            d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-        </svg>
-        {{ t('favorites') }}
-      </h2>
+    <UniversalSearch
+      v-model:active="isSearchMode"
+      :routes="sortedRoutes"
+      :stops="stops"
+    />
 
-      <div v-if="favoriteRoutes.length" class="flex flex-col gap-2">
-        <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
-        <Draggable
-          v-model="routeFavoritesModel"
-          :item-key="(id: number) => id"
-          class="favorite-routes-grid"
-          tag="div"
-          handle=".drag-handle"
-          ghost-class="drag-ghost"
-          chosen-class="drag-chosen"
-          :animation="180"
-        >
-          <template #item="{element: routeId}">
-            <div
-              v-if="routesById.get(routeId)"
-              class="fav-route-chip group"
-              :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === routeId }"
-              :style="{ '--chip-color': routesById.get(routeId)?.route_color }"
-              @click="navigateToRoute(routesById.get(routeId)!)"
-              @keydown.enter.space.prevent="navigateToRoute(routesById.get(routeId)!)"
-              role="button"
-              tabindex="0"
-            >
-              <svg
-                class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="9" cy="5" r="1.5"/>
-                <circle cx="15" cy="5" r="1.5"/>
-                <circle cx="9" cy="12" r="1.5"/>
-                <circle cx="15" cy="12" r="1.5"/>
-                <circle cx="9" cy="19" r="1.5"/>
-                <circle cx="15" cy="19" r="1.5"/>
-              </svg>
-              <span
-                class="fav-route-badge"
-                :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
-                :title="routesById.get(routeId)?.route_long_name"
-              >{{ routesById.get(routeId)?.route_short_name }}</span>
-              <span
-                class="fav-route-name"
-                :title="routesById.get(routeId)?.route_long_name"
-              >{{ routesById.get(routeId)?.route_long_name }}</span>
-              <button
-                type="button"
-                class="fav-remove"
-                :title="t('removeFromFavorites')"
-                :aria-label="t('removeFromFavorites')"
-                @click.stop="removeFavoriteRoute(routesById.get(routeId)!, $event)"
-              >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                     stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-          </template>
-        </Draggable>
-      </div>
+    <template v-if="!isSearchMode">
 
-      <div v-if="favoriteStops.length" class="flex flex-col gap-2">
-        <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
-        <Draggable
-          v-model="stopFavoritesModel"
-          :item-key="(id: number) => id"
-          class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
-          tag="div"
-          handle=".drag-handle"
-          ghost-class="drag-ghost"
-          chosen-class="drag-chosen"
-          :animation="180"
-        >
-          <template #item="{element: stopId}">
-            <div
-              v-if="stopsById.get(stopId)"
-              class="fav-stop-row group"
-              @click="navigateToStop(stopsById.get(stopId)!)"
-            >
-              <svg
-                class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="9" cy="5" r="1.5"/>
-                <circle cx="15" cy="5" r="1.5"/>
-                <circle cx="9" cy="12" r="1.5"/>
-                <circle cx="15" cy="12" r="1.5"/>
-                <circle cx="9" cy="19" r="1.5"/>
-                <circle cx="15" cy="19" r="1.5"/>
-              </svg>
+      <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
+        <h2 class="section-label">
+          <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">❤️</span>
+          <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
+               viewBox="0 0 24 24">
+            <path
+              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          {{ t('favorites') }}
+        </h2>
+
+        <div v-if="favoriteRoutes.length" class="flex flex-col gap-2">
+          <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
+          <Draggable
+            v-model="routeFavoritesModel"
+            :item-key="(id: number) => id"
+            class="favorite-routes-grid"
+            tag="div"
+            handle=".drag-handle"
+            ghost-class="drag-ghost"
+            chosen-class="drag-chosen"
+            :animation="180"
+          >
+            <template #item="{element: routeId}">
               <div
-                class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-                <span v-if="settings.traditionalActive" class="emoji-icon-md"
-                      aria-hidden="true">📍</span>
-                <svg v-else class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"
-                     viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                v-if="routesById.get(routeId)"
+                class="fav-route-chip group"
+                :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === routeId }"
+                :style="{ '--chip-color': routesById.get(routeId)?.route_color }"
+                @click="navigateToRoute(routesById.get(routeId)!)"
+                @keydown.enter.space.prevent="navigateToRoute(routesById.get(routeId)!)"
+                role="button"
+                tabindex="0"
+              >
+                <svg
+                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
+                  viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="5" r="1.5"/>
+                  <circle cx="15" cy="5" r="1.5"/>
+                  <circle cx="9" cy="12" r="1.5"/>
+                  <circle cx="15" cy="12" r="1.5"/>
+                  <circle cx="9" cy="19" r="1.5"/>
+                  <circle cx="15" cy="19" r="1.5"/>
+                </svg>
+                <span
+                  class="fav-route-badge"
+                  :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
+                  :title="routesById.get(routeId)?.route_long_name"
+                >{{ routesById.get(routeId)?.route_short_name }}</span>
+                <span
+                  class="fav-route-name"
+                  :title="routesById.get(routeId)?.route_long_name"
+                >{{ routesById.get(routeId)?.route_long_name }}</span>
+                <button
+                  type="button"
+                  class="fav-remove"
+                  :title="t('removeFromFavorites')"
+                  :aria-label="t('removeFromFavorites')"
+                  @click.stop="removeFavoriteRoute(routesById.get(routeId)!, $event)"
+                >
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                       stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </Draggable>
+        </div>
+
+        <div v-if="favoriteStops.length" class="flex flex-col gap-2">
+          <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
+          <Draggable
+            v-model="stopFavoritesModel"
+            :item-key="(id: number) => id"
+            class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
+            tag="div"
+            handle=".drag-handle"
+            ghost-class="drag-ghost"
+            chosen-class="drag-chosen"
+            :animation="180"
+          >
+            <template #item="{element: stopId}">
+              <div
+                v-if="stopsById.get(stopId)"
+                class="fav-stop-row group"
+                @click="navigateToStop(stopsById.get(stopId)!)"
+              >
+                <svg
+                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
+                  viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="5" r="1.5"/>
+                  <circle cx="15" cy="5" r="1.5"/>
+                  <circle cx="9" cy="12" r="1.5"/>
+                  <circle cx="15" cy="12" r="1.5"/>
+                  <circle cx="9" cy="19" r="1.5"/>
+                  <circle cx="15" cy="19" r="1.5"/>
+                </svg>
+                <div
+                  class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
+                  <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                        aria-hidden="true">📍</span>
+                  <svg v-else class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"
+                       viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+                <span
+                  class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
+                  {{ stopsById.get(stopId)?.stop_name }}
+                </span>
+                <button
+                  type="button"
+                  class="fav-stop-remove"
+                  :title="t('removeFromFavorites')"
+                  :aria-label="t('removeFromFavorites')"
+                  @click.stop="removeFavoriteStop(stopsById.get(stopId)!, $event)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                       stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+                <svg
+                  class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                 </svg>
               </div>
-              <span
-                class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
-                {{ stopsById.get(stopId)?.stop_name }}
-              </span>
-              <button
-                type="button"
-                class="fav-stop-remove"
-                :title="t('removeFromFavorites')"
-                :aria-label="t('removeFromFavorites')"
-                @click.stop="removeFavoriteStop(stopsById.get(stopId)!, $event)"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                     stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-              <svg
-                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
-            </div>
-          </template>
-        </Draggable>
-      </div>
-    </section>
-
-    <section class="flex flex-col gap-3 pb-6">
-      <h2 class="section-label">
-        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
-        <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-        </svg>
-        {{ t('allRoutes') }}
-      </h2>
-
-      <div class="search-wrap">
-        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🔍</span>
-        <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
-        </svg>
-        <input
-          v-model="search"
-          type="search"
-          :placeholder="t('searchRoutes')"
-          class="search-input"
-        />
-      </div>
-
-      <p v-if="isHydrated && !hasFavorites && !search"
-         class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
-        {{ t('noFavorites') }}
-      </p>
-
-      <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
-        <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
-          <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-          <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            </template>
+          </Draggable>
         </div>
-      </div>
+      </section>
 
-      <div v-else-if="filteredRoutes.length"
-           class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
-        <div
-          v-for="route in filteredRoutes"
-          :key="route.route_id"
-          @click="navigateToRoute(route)"
-          class="all-route-row group"
-          :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
-        >
-          <div
-            class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-            :style="{ backgroundColor: route.route_color }"
-          >{{ route.route_short_name }}
+      <section class="flex flex-col gap-3 pb-6">
+        <h2 class="section-label">
+          <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
+          <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          {{ t('allRoutes') }}
+        </h2>
+
+        <p v-if="isHydrated && !hasFavorites"
+           class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
+          {{ t('noFavorites') }}
+        </p>
+
+        <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
+          <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
+            <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+            <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
           </div>
-
-          <span
-            class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-            {{ route.route_long_name }}
-          </span>
-
-          <svg
-            v-if="navigatingRouteId === route.route_id"
-            class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-            fill="none" viewBox="0 0 24 24"
-          >
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                    stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-          </svg>
-          <svg
-            v-else
-            class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-          </svg>
         </div>
-      </div>
 
-      <MetroEasterEgg v-else :search="search"/>
-    </section>
+        <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div
+            v-for="route in sortedRoutes"
+            :key="route.route_id"
+            @click="navigateToRoute(route)"
+            class="all-route-row group"
+            :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
+          >
+            <div
+              class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
+              :style="{ backgroundColor: route.route_color }"
+            >{{ route.route_short_name }}
+            </div>
+            <span
+              class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+              {{ route.route_long_name }}
+            </span>
+            <svg
+              v-if="navigatingRouteId === route.route_id"
+              class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
+              fill="none" viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                      stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            </svg>
+            <svg
+              v-else
+              class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      </section>
 
+    </template>
   </div>
 </template>
 
@@ -366,12 +345,8 @@ const stopFavoritesModel = computed<number[]>({
 }
 
 @keyframes nav-sweep {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .section-label {
@@ -547,42 +522,6 @@ const stopFavoritesModel = computed<number[]>({
 
 .drag-chosen {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
-}
-
-.search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.search-wrap:focus-within {
-  border-color: #94a3b8;
-  background: white;
-}
-
-.search-input {
-  flex: 1;
-  background: transparent;
-  border: 0;
-  outline: 0;
-  font-size: 0.875rem;
-  color: #0f172a;
-  font-weight: 500;
-}
-
-.search-input::placeholder {
-  color: #94a3b8;
-  font-weight: 400;
-}
-
-.search-input::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 .all-route-row {
