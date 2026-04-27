@@ -61,6 +61,12 @@ const searchRouteResults = computed<Route[]>(() => {
     .slice(0, 3)
 })
 
+const metroEggVisible = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (q.length < 2) return false
+  return 'metrou'.startsWith(q) || q === 'm1'
+})
+
 const searchStopResults = computed<Stop[]>(() => {
   const q = norm(search.value.trim())
   if (!q) return []
@@ -124,7 +130,7 @@ function geoResultParts(displayName: string): {main: string; sub: string} {
   const parts = displayName.split(',').map(p => p.trim())
   return {
     main: parts[0] ?? displayName,
-    sub: parts.slice(1, 3).reverse().join(', '),
+    sub: parts.slice(1, 3).join(', '),
   }
 }
 
@@ -149,13 +155,21 @@ async function navigateToRoute(route: Route) {
 }
 
 function navigateToStop(stop: Stop) {
+  mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
+}
+
+function formatDistance(lat: number, lon: number): string | null {
+  const loc = userStore.userLocation
+  if (!loc) return null
+  const m = haversineMeters(loc.latitude, loc.longitude, lat, lon)
+  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`
 }
 </script>
 
 <template>
   <div class="universal-search">
-    <!-- nav loading bar — absolute-positioned to home-view-container (position:relative) -->
+    <!-- Absolute-positioned into home-view-container which has position:relative. -->
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
     <div class="search-wrap">
@@ -188,7 +202,6 @@ function navigateToStop(stop: Stop) {
 
     <div v-if="isSearchMode" class="search-results">
 
-      <!-- Places -->
       <div v-if="geoResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -222,6 +235,10 @@ function navigateToStop(stop: Stop) {
                 {{ geoResultParts(result.display_name).sub }}
               </span>
             </div>
+            <span
+              v-if="formatDistance(parseFloat(result.lat), parseFloat(result.lon))"
+              class="dist-badge"
+            >{{ formatDistance(parseFloat(result.lat), parseFloat(result.lon)) }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -231,7 +248,6 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <!-- Routes -->
       <div v-if="searchRouteResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsRoutes') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -272,7 +288,6 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <!-- Stops -->
       <div v-if="searchStopResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsStops') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -296,6 +311,10 @@ function navigateToStop(stop: Stop) {
               class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
               {{ stop.stop_name }}
             </span>
+            <span
+              v-if="formatDistance(stop.stop_lat, stop.stop_lon)"
+              class="dist-badge"
+            >{{ formatDistance(stop.stop_lat, stop.stop_lon) }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
@@ -306,10 +325,12 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <MetroEasterEgg
-        v-if="!geoLoading && !geoResults.length && !searchRouteResults.length && !searchStopResults.length"
-        :search="search"
-      />
+      <MetroEasterEgg :search="search" />
+
+      <p
+        v-if="!metroEggVisible && !geoLoading && !geoResults.length && !searchRouteResults.length && !searchStopResults.length"
+        class="no-results"
+      >{{ t('noResults') }}</p>
 
     </div>
   </div>
@@ -322,7 +343,6 @@ function navigateToStop(stop: Stop) {
   gap: 1.25rem;
 }
 
-/* Loading bar — absolute relative to home-view-container (position: relative) */
 .nav-loading-bar {
   position: absolute;
   top: 0;
@@ -447,10 +467,28 @@ function navigateToStop(stop: Stop) {
 .all-route-row:hover {
   background: #f8fafc;
 }
+
+.no-results {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.dist-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
 </style>
 
 <style>
-/* Dark-mode hover for all list rows — unscoped so it covers HomeView's full-list rows too */
+/* Unscoped so it covers HomeView's full-list rows too. */
 html.dark .geo-result-row:hover,
 html.dark .all-route-row:hover,
 html.dark .fav-stop-row:hover {

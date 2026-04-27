@@ -39,6 +39,7 @@ html[data-traditional] .app-drawer .fav-stop-row,
 html[data-traditional] .app-drawer .fav-stop-remove,
 html[data-traditional] .app-drawer .search-wrap,
 html[data-traditional] .app-drawer .drawer-handle,
+html[data-traditional] .app-drawer .dist-badge,
 /* settings button and popover */
 html[data-traditional] .settings-btn,
 html[data-traditional] .settings-popover,
@@ -721,6 +722,19 @@ html[data-traditional] .time-pill {
   font-family: var(--xp-font) !important;
   font-weight: 700 !important;
   padding: 0.18rem 0.45rem !important;
+}
+
+html[data-traditional] .dist-badge {
+  background: var(--xp-tan) !important;
+  color: var(--xp-text) !important;
+  border: 1px solid var(--xp-border) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .dist-badge {
+  background: #1A2030 !important;
+  color: var(--xp-blue) !important;
+  border-color: var(--xp-border) !important;
 }
 
 html[data-traditional] .time-pill-live {

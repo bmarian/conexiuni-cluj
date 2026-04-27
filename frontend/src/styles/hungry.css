@@ -382,3 +382,13 @@ html.dark[data-hungry] .offline-pill {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
+html[data-hungry] .dist-badge {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+html.dark[data-hungry] .dist-badge {
+  background: #2a2006 !important;
+  color: #fbbf24 !important;
+}
+
