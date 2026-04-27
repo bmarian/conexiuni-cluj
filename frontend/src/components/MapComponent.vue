@@ -447,26 +447,32 @@ const addGroupedStart = (
 }
 
 const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, routeColor: string) => {
+  const isTraditional = traditionalActive.value
   const endMarkerIcon = L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
-    html: `
-      <div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
-           style="background-color: ${routeColor};">
-        <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
-      </div>
-    `,
+    html: isTraditional
+      ? `<div style="width:20px;height:20px;background-color:${routeColor};border:2px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+           <div style="width:6px;height:6px;background:white;border:1px solid rgba(0,0,0,0.4);"></div>
+         </div>`
+      : `<div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
+              style="background-color: ${routeColor};">
+           <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
+         </div>`,
     iconSize: [24, 24], iconAnchor: [12, 12]
   })
   L.marker(endPoint, {icon: endMarkerIcon}).addTo(layerGroup)
 }
 
 const addGroupedStartMarkers = (layerGroup: L.FeatureGroup, groupedStarts: Map<string, GroupedStart>) => {
+  const isTraditional = traditionalActive.value
   groupedStarts.forEach((data) => {
     const routesHtml = data.routes.map((r) =>
-      `<div style="background-color: ${r.color};"
-            class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
-        ${r.name}
-      </div>`
+      isTraditional
+        ? `<div style="background-color:${r.color};color:white;font-size:10px;font-weight:700;padding:2px 6px;border:1px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.35);line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;">${r.name}</div>`
+        : `<div style="background-color: ${r.color};"
+                class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
+             ${r.name}
+           </div>`
     ).join('')
     const startMarkerIcon = L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',

@@ -1,18 +1,56 @@
 ﻿/* Windows XP Luna theme */
 
-/* kill all rounded corners - XP is square */
+/* kill all rounded corners - XP is square.
+   Targets explicit classes instead of * to avoid matching every DOM node
+   in the drawer (which triggers full subtree style-recalc on each Vue update). */
 html[data-traditional] .app-shell,
 html[data-traditional] .app-shell::before,
 html[data-traditional] .app-shell::after,
 html[data-traditional] .app-drawer,
-html[data-traditional] .app-drawer *,
-html[data-traditional] .app-drawer *::before,
-html[data-traditional] .app-drawer *::after,
+/* Tailwind rounded utilities used inside the drawer */
+html[data-traditional] .app-drawer .rounded,
+html[data-traditional] .app-drawer .rounded-sm,
+html[data-traditional] .app-drawer .rounded-md,
+html[data-traditional] .app-drawer .rounded-lg,
+html[data-traditional] .app-drawer .rounded-xl,
+html[data-traditional] .app-drawer .rounded-2xl,
+html[data-traditional] .app-drawer .rounded-3xl,
+html[data-traditional] .app-drawer .rounded-full,
+/* component classes that set border-radius in scoped CSS */
+html[data-traditional] .app-drawer .departure-card,
+html[data-traditional] .app-drawer .live-badge,
+html[data-traditional] .app-drawer .time-pill,
+html[data-traditional] .app-drawer .all-route-row,
+html[data-traditional] .app-drawer .fav-btn,
+html[data-traditional] .app-drawer .direction-toggle-wrap,
+html[data-traditional] .app-drawer .dir-btn,
+html[data-traditional] .app-drawer .stop-row,
+html[data-traditional] .app-drawer .tt-tab,
+html[data-traditional] .app-drawer .tt-today-dot,
+html[data-traditional] .app-drawer .tt-min,
+html[data-traditional] .app-drawer .suspended-banner,
+html[data-traditional] .app-drawer .trip-stop-row,
+html[data-traditional] .app-drawer .fav-route-chip,
+html[data-traditional] .app-drawer .fav-route-chip::before,
+html[data-traditional] .app-drawer .fav-route-badge,
+html[data-traditional] .app-drawer .fav-remove,
+html[data-traditional] .app-drawer .fav-stop-row,
+html[data-traditional] .app-drawer .fav-stop-remove,
+html[data-traditional] .app-drawer .search-wrap,
+html[data-traditional] .app-drawer .drawer-handle,
+/* settings button and popover */
 html[data-traditional] .settings-btn,
 html[data-traditional] .settings-popover,
-html[data-traditional] .settings-popover *,
-html[data-traditional] .settings-popover *::before,
-html[data-traditional] .settings-popover *::after,
+html[data-traditional] .settings-popover .rounded,
+html[data-traditional] .settings-popover .rounded-sm,
+html[data-traditional] .settings-popover .rounded-md,
+html[data-traditional] .settings-popover .rounded-lg,
+html[data-traditional] .settings-popover .rounded-xl,
+html[data-traditional] .settings-popover .rounded-full,
+html[data-traditional] .settings-popover .option-btn,
+html[data-traditional] .settings-popover .theme-select,
+html[data-traditional] .settings-popover .select-wrap::after,
+/* fixed chrome */
 html[data-traditional] .weather-pill,
 html[data-traditional] .landscape-drawer-toggle,
 html[data-traditional] .offline-pill,
@@ -712,17 +750,21 @@ html[data-traditional] .time-cell-live {
 }
 
 
-html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-500,
-html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-700,
-html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-500,
-html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-600,
-html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .text-slate-700 {
+/* Blanket: all stop-row text → white (Bliss gradient bg is colorful on plain rows,
+   and selected/nearest/fav rows override back below). Avoids triple :not() chains
+   which are evaluated against every child of every row. */
+html[data-traditional] .route-view-container .stop-row .text-slate-500,
+html[data-traditional] .route-view-container .stop-row .text-slate-600,
+html[data-traditional] .route-view-container .stop-row .text-slate-700,
+html[data-traditional] .route-view-container .trip-stop-row .text-slate-500,
+html[data-traditional] .route-view-container .trip-stop-row .text-slate-600,
+html[data-traditional] .route-view-container .trip-stop-row .text-slate-700 {
   color: #FFFFFF !important;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55) !important;
 }
 
-html[data-traditional] .route-view-container .stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .time-cell:not(.time-cell-live),
-html[data-traditional] .route-view-container .trip-stop-row:not(.stop-row-selected):not(.stop-row-nearest):not(.stop-row-fav) .time-cell:not(.time-cell-live) {
+html[data-traditional] .route-view-container .stop-row .time-cell,
+html[data-traditional] .route-view-container .trip-stop-row .time-cell {
   color: #FFFFFF !important;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55) !important;
 }
@@ -922,7 +964,7 @@ html[data-traditional] .tt-tab-active:hover {
 }
 
 html[data-traditional] .tt-min {
-  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%) !important;
+  background: linear-gradient(to bottom, #FDFDFB 0%, #D6D2C0 100%) !important;
   border: 1px solid var(--xp-border) !important;
   color: #000000 !important;
   font-family: var(--xp-font) !important;
@@ -1008,7 +1050,7 @@ html[data-traditional] .emoji-icon {
   font-size: 14px;
   line-height: 1;
   flex-shrink: 0;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.20));
+  /* filter: drop-shadow forces GPU layer promotion per-element; flat is fine for XP */
 }
 
 html[data-traditional] .emoji-icon-sm {
@@ -1036,13 +1078,11 @@ html[data-traditional] .emoji-icon-xl {
   font-size: 28px;
   line-height: 1;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.30));
 }
 
 html[data-traditional] .route-stop-emoji {
   font-size: 14px;
   line-height: 1;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
 }
 
 html[data-traditional] .route-stop-bullet {
