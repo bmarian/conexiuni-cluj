@@ -114,6 +114,7 @@ onUnmounted(() => {
   top: calc(3.5rem + env(safe-area-inset-top));
   right: calc(0.75rem + env(safe-area-inset-right));
   z-index: 3000;
+  transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {

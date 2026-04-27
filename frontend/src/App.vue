@@ -4,13 +4,12 @@ import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import WeatherButton from "@/components/WeatherButton.vue"
+import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import HungryTransition from "@/components/HungryTransition.vue"
-import {useOnline} from "@/composables/useOnline"
 
 const {t} = useI18n()
-const {isOnline} = useOnline()
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -138,18 +137,7 @@ function toggleLandscapeDrawer() {
 
 <template>
   <main class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-    <div v-if="!isOnline" class="offline-pill" role="status" aria-live="polite" :title="t('offlineBanner')">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M2 2l20 20"/>
-        <path d="M8.5 16.5a5 5 0 017 0"/>
-        <path d="M2 8.82a15 15 0 014.17-2.65"/>
-        <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
-        <path d="M16.85 11.25a10 10 0 012.22 1.68"/>
-        <path d="M5 13a10 10 0 015.17-2.69"/>
-        <line x1="12" y1="20" x2="12.01" y2="20"/>
-      </svg>
-      <span>{{ t('offlineShort') }}</span>
-    </div>
+    <OfflinePill :landscape-open="isLandscapeDrawerOpen" />
     <MapComponent class="app-map" />
     <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
     <WeatherButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
@@ -208,30 +196,6 @@ function toggleLandscapeDrawer() {
   overflow: hidden;
 }
 
-.offline-pill {
-  position: fixed;
-  top: calc(0.75rem + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  background: rgba(180, 83, 9, 0.95);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-  backdrop-filter: blur(4px);
-}
-.offline-pill svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  flex-shrink: 0;
-}
 
 .app-map {
   flex: 1 1 auto;
