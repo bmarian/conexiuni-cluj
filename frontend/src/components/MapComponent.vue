@@ -17,6 +17,7 @@ import {
   getVehicleMarkerHtml,
   type IconThemeOptions,
   makeHighlightIcon,
+  makePinIcon,
   makeSelectedStopIcon,
   makeStopIcon,
 } from '@/utils/mapIcons.ts'
@@ -30,6 +31,7 @@ const {
   shapesToDisplay,
   centerOnUser,
   flyToLocation,
+  pinnedLocation,
   zoomOut,
   vehiclesToDisplay,
   highlightedStops
@@ -52,6 +54,7 @@ const accuracyCircle = shallowRef<L.Circle>()
 const shapeLayerGroup = shallowRef<L.FeatureGroup>()
 const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
 const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
+const pinMarker = shallowRef<L.Marker>()
 const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
@@ -583,7 +586,30 @@ watch(flyToLocation, (loc) => {
   flyToLocation.value = null
 })
 
+watch([pinnedLocation, easterEggActive, traditionalActive], ([loc]) => {
+  if (pinMarker.value) {
+    map.value?.removeLayer(pinMarker.value)
+    pinMarker.value = undefined
+  }
+  if (!loc || !map.value) return
+  const {lat, lng, label} = loc as {lat: number; lng: number; label: string}
+  const parts = label.split(',').map((p: string) => p.trim())
+  const main = parts[0] ?? label
+  const sub = parts.slice(1, 3).join(', ')
+  const tooltipHtml = sub
+    ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
+    : `<div class="pin-tip-main">${main}</div>`
+  pinMarker.value = L.marker([lat, lng], {
+    icon: makePinIcon(themeOpts()),
+    zIndexOffset: 9000,
+    interactive: true,
+  })
+    .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
+    .addTo(map.value)
+})
+
 onUnmounted(() => {
+  mapStore.clearPinnedLocation()
   window.removeEventListener('resize', scheduleInvalidateMapSize)
   window.removeEventListener('orientationchange', scheduleInvalidateMapSize)
   window.visualViewport?.removeEventListener('resize', scheduleInvalidateMapSize)

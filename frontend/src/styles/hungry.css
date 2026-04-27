@@ -392,3 +392,11 @@ html.dark[data-hungry] .dist-badge {
   color: #fbbf24 !important;
 }
 
+html[data-hungry] .geo-loading-dot {
+  background: #d97706 !important;
+}
+
+html.dark[data-hungry] .geo-loading-dot {
+  background: #fbbf24 !important;
+}
+

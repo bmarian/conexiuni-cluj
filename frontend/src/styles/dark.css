@@ -280,3 +280,7 @@ html.dark .dist-badge {
   color: #64748b;
 }
 
+html.dark .geo-loading-dot {
+  background: #475569;
+}
+

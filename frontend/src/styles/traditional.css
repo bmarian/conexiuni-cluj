@@ -737,6 +737,14 @@ html.dark[data-traditional] .dist-badge {
   border-color: var(--xp-border) !important;
 }
 
+html[data-traditional] .geo-loading-dot {
+  background: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .geo-loading-dot {
+  background: var(--xp-blue) !important;
+}
+
 html[data-traditional] .time-pill-live {
   background: var(--xp-live) !important;
   color: #FFFFFF !important;

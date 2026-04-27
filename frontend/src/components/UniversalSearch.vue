@@ -112,6 +112,7 @@ async function fetchGeo(q: string) {
 
 watch(search, (q) => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
+  geoResults.value = []
   const trimmed = q.trim()
   if (trimmed.length < 3) {
     geoResults.value = []
@@ -126,7 +127,7 @@ onUnmounted(() => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
 })
 
-function geoResultParts(displayName: string): {main: string; sub: string} {
+function geoResultParts(displayName: string): { main: string; sub: string } {
   const parts = displayName.split(',').map(p => p.trim())
   return {
     main: parts[0] ?? displayName,
@@ -135,13 +136,17 @@ function geoResultParts(displayName: string): {main: string; sub: string} {
 }
 
 function flyToGeoResult(result: GeoResult) {
-  mapStore.setFlyToLocation(parseFloat(result.lat), parseFloat(result.lon))
+  const lat = parseFloat(result.lat)
+  const lon = parseFloat(result.lon)
+  mapStore.setFlyToLocation(lat, lon)
+  mapStore.setPinnedLocation(lat, lon, result.display_name)
   search.value = ''
 }
 
 async function navigateToRoute(route: Route) {
   if (navigatingRouteId.value === route.route_id) return
   navigatingRouteId.value = route.route_id
+  mapStore.clearPinnedLocation()
   try {
     const shapeInfo = await fetchShapeInfo(route)
     const tripId = `${route.route_id}${OUTGOING_SUFFIX}`
@@ -155,6 +160,7 @@ async function navigateToRoute(route: Route) {
 }
 
 function navigateToStop(stop: Stop) {
+  mapStore.clearPinnedLocation()
   mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
 }
@@ -185,13 +191,14 @@ function formatDistance(lat: number, lon: number): string | null {
         :placeholder="t('searchPlaceholder')"
         class="search-input"
         autocomplete="off"
+        @keydown.enter="($event.target as HTMLInputElement).blur()"
       />
       <button
         v-if="search"
         type="button"
         class="search-clear"
         aria-label="Clear search"
-        @click="search = ''"
+        @click="search = ''; mapStore.clearPinnedLocation()"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
              stroke-width="2.5">
@@ -201,6 +208,12 @@ function formatDistance(lat: number, lon: number): string | null {
     </div>
 
     <div v-if="isSearchMode" class="search-results">
+
+      <div v-if="geoLoading" class="geo-loading" aria-label="Loading places">
+        <span class="geo-loading-dot"></span>
+        <span class="geo-loading-dot"></span>
+        <span class="geo-loading-dot"></span>
+      </div>
 
       <div v-if="geoResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
@@ -325,7 +338,7 @@ function formatDistance(lat: number, lon: number): string | null {
         </div>
       </div>
 
-      <MetroEasterEgg :search="search" />
+      <MetroEasterEgg :search="search"/>
 
       <p
         v-if="!metroEggVisible && !geoLoading && !geoResults.length && !searchRouteResults.length && !searchStopResults.length"
@@ -355,8 +368,12 @@ function formatDistance(lat: number, lon: number): string | null {
 }
 
 @keyframes nav-sweep {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .search-wrap {
@@ -484,6 +501,29 @@ function formatDistance(lat: number, lon: number): string | null {
   border-radius: 0.25rem;
   padding: 0.1rem 0.35rem;
   white-space: nowrap;
+}
+
+.geo-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.geo-loading-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #94a3b8;
+  animation: geo-pulse 1.1s ease-in-out infinite;
+}
+
+.geo-loading-dot:nth-child(2) { animation-delay: 0.18s; }
+.geo-loading-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes geo-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 </style>
 
