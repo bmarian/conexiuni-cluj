@@ -177,6 +177,46 @@ export function makeHighlightIcon(
   })
 }
 
+export function makePinIcon(opts: IconThemeOptions): L.DivIcon {
+  if (opts.easterEggActive) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
+        <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="#f59e0b" stroke="white" stroke-width="1.5"/>
+          <path d="M10 10 L15.2 7 A6 6 0 1 0 15.2 13 Z" fill="#fff8e1"/>
+        </svg>
+      </div>`,
+      iconSize: [24, 32],
+      iconAnchor: [12, 32],
+      popupAnchor: [0, -32],
+    })
+  }
+
+  if (opts.traditionalActive) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="font-size:28px;line-height:1;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.4));display:block;">📍</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [7, 26],
+      popupAnchor: [0, -26],
+    })
+  }
+
+  return L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `<div style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
+      <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="#0ea5e9" stroke="white" stroke-width="1.5"/>
+        <circle cx="10" cy="10" r="3.5" fill="white" opacity="0.9"/>
+      </svg>
+    </div>`,
+    iconSize: [24, 32],
+    iconAnchor: [12, 32],
+    popupAnchor: [0, -32],
+  })
+}
+
 export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,

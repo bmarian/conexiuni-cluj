@@ -1,5 +1,4 @@
 {
-  "Search location...": "Search location...",
   "Center": "Center on my location",
   "fitRoutes": "Zoom out",
   "now": "now",
@@ -27,6 +26,10 @@
   "favoriteStops": "Favorite stops",
   "noFavorites": "No favorites yet. Tap the heart on a route or stop to save it here.",
   "searchRoutes": "Search routes...",
+  "searchPlaceholder": "Search routes, stops, places...",
+  "searchResultsPlaces": "Places",
+  "searchResultsRoutes": "Routes",
+  "searchResultsStops": "Stops",
   "noResults": "No results",
   "addToFavorites": "Add to favorites",
   "removeFromFavorites": "Remove from favorites",
@@ -65,5 +68,14 @@
   "bsodReason": "Maybe it took a different route. Maybe it's stuck in traffic. Either way, it's not coming.",
   "bsodTechHeader": "Technical information:",
   "bsodStop": "*** STOP: 0x00000404 (BUS_NOT_FOUND, NOT_EVEN_CLOSE, GOOD_LUCK_NEXT_TIME)",
-  "bsodPrompt": "Press any key to walk home"
+  "bsodPrompt": "Press any key to walk home",
+  "planTitle": "Route planner",
+  "planTitleGeneric": "Plan a route",
+  "planFrom": "From",
+  "planTo": "To",
+  "planOriginCurrentLocation": "My current location",
+  "planOriginUnknown": "Unknown location",
+  "planRoutesLabel": "Available routes",
+  "planComingSoon": "Coming soon",
+  "planComingSoonDesc": "Route planning will be available soon."
 }

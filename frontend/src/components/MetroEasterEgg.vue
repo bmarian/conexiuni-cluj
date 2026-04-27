@@ -52,17 +52,9 @@ const quote = computed(() => {
       <span class="egg-icon">🚧</span>
     </div>
   </div>
-
-  <p v-else class="no-results">{{ t('noResults') }}</p>
 </template>
 
 <style scoped>
-.no-results {
-  font-size: 0.875rem;
-  color: #94a3b8;
-  padding: 1rem 0;
-  text-align: center;
-}
 
 .egg-wrap {
   margin-top: 0.25rem;

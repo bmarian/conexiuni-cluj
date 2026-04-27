@@ -3,6 +3,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 const HomeView = () => import('@/views/HomeView.vue')
 const StopView = () => import('@/views/StopView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
+const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 
 const router = createRouter({
@@ -24,6 +25,11 @@ const router = createRouter({
       name: 'route',
       component: RouteView,
       props: true,
+    },
+    {
+      path: '/plan',
+      name: 'plan',
+      component: RoutePlanningView,
     },
     {
       path: '/:pathMatch(.*)*',
