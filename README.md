@@ -1,31 +1,25 @@
 # Conexiuni Cluj
 
-A fast, modern bus tracker for Cluj-Napoca — live vehicle positions, real-time departures, and full timetables, all in one place.
-
-**→ [bus.bmarian.online](https://bus.bmarian.online/)**
+Live bus tracker for Cluj-Napoca.
 
 ---
 
 ## What it does
 
-Conexiuni Cluj pulls together everything you need to get around Cluj-Napoca by public transit:
-
-- **Live map** — see every CTP bus and tram moving in real time, updated every few seconds
-- **Stop departures** — tap any stop to see the next buses, with live countdowns where available and scheduled fallbacks otherwise
-- **Route timetables** — full schedules for every route, sourced directly from CTP Cluj-Napoca
-- **Favorites** — pin the routes and stops you use most
+- **Live map** - every CTP bus and tram moving in real time, updated every few seconds
+- **Stop departures** - next buses with live countdowns, falling back to the schedule when there's no GPS signal
+- **Route timetables** - full schedules sourced directly from CTP Cluj-Napoca
+- **Favorites** - pin the routes and stops you actually use
 - **Dark mode**
-- **PWA** — installable on any device, works offline for cached data
+- **PWA** - installable, works offline for cached data
 
-There are also a few hidden surprises scattered around the app for the curious. 🐣
+There are a few hidden things scattered around for the curious. 🐣
 
 ---
 
-## Motivation
+## Why it exists
 
-The official CTP Cluj-Napoca apps and the existing third-party options are functional but feel dated. Cluj is a growing city with a lot of daily commuters, students, and visitors who deserve a transit experience that feels as polished as the apps they use for everything else.
-
-Conexiuni Cluj started as a personal tool and grew into something worth sharing. The goal was simple: build the bus app I actually wanted to use — live, fast, clean, and pleasant to open every morning.
+The official CTP site works, but it doesn't have all the features that I want. I commute in Cluj every day and got tired of it, so I built something I'd actually want to open.
 
 ---
 
@@ -91,7 +85,7 @@ cd frontend
 npm run build
 ```
 
-Output goes to `frontend/dist/` — serve it from any static host alongside the backend.
+Output goes to `frontend/dist/` - serve it from any static host alongside the backend.
 
 ---
 
