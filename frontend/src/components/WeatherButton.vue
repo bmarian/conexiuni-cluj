@@ -34,7 +34,6 @@ const temp = ref<number | null>(null)
 const code = ref<number | null>(null)
 const isDay = ref(true)
 
-// WMO code → [dayIcon, nightIcon]
 const WMO: Record<number, [string, string]> = {
   0: [iClearDay, iClearNight],
   1: [iClearDay, iClearNight],
@@ -83,7 +82,7 @@ async function fetch_weather() {
     code.value = data.current.weathercode
     isDay.value = data.current.is_day === 1
   } catch {
-    // fail silently — widget just stays hidden
+    // fail silently, widget stays hidden
   }
 }
 

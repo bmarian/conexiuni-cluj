@@ -64,7 +64,6 @@ function onPointerDown(e: PointerEvent) {
   startHeight = el.getBoundingClientRect().height
   moved = false
   isDragging.value = true
-  // Freeze height and kill CSS transition
   el.style.transition = 'none'
   el.style.height = `${startHeight}px`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -77,7 +76,6 @@ function onPointerMove(e: PointerEvent) {
   const dy = e.clientY - startY
   if (Math.abs(dy) > 3) moved = true
   const vh = viewportPx()
-  // Direct DOM write
   el.style.height = `${Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))}px`
 }
 
@@ -111,7 +109,7 @@ function endDrag() {
     }
   }
 
-  // Clear inline style so Vue / CSS transition takes over again
+  // Restore CSS transition after drag ends
   if (el) {
     el.style.transition = ''
     el.style.height = ''

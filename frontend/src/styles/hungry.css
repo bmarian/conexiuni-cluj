@@ -1,6 +1,3 @@
-/* ── Hungry Mode — global styles ──────────────────────────────────────── */
-
-/* Chomper character animation (mouth opens/closes, faces right) */
 @keyframes hungry-chomp {
   0%, 100% {
     clip-path: polygon(50% 50%, 100% 25%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 75%);
@@ -13,7 +10,6 @@
   animation: hungry-chomp 0.35s linear infinite;
 }
 
-/* Route-view stop traveler */
 @keyframes hungry-route-travel {
   0%      { top: 6px;  opacity: 1; }
   86%     { top: calc(100% - 22px); opacity: 1; }
@@ -30,7 +26,6 @@
   animation: hungry-route-travel 5s linear infinite;
 }
 
-/* ── Global theme (light) ─────────────────────────────────────────────── */
 html[data-hungry] .app-shell {
   background-color: #fef9c3 !important;
 }
@@ -145,7 +140,6 @@ html[data-hungry] .landscape-drawer-toggle:hover {
   color: #451a03 !important;
 }
 
-/* ── Global theme (dark) ──────────────────────────────────────────────── */
 html.dark[data-hungry] .app-shell,
 html.dark[data-hungry] .app-drawer,
 html.dark[data-hungry] .stop-view-container,
@@ -164,7 +158,7 @@ html.dark[data-hungry] .departure-card:hover {
   border-color: #b45309 !important;
   color: #fde68a !important;
 }
-/* Must come AFTER .departure-card rules — same specificity, last wins */
+/* Must come after .departure-card — same specificity, last wins */
 html.dark[data-hungry] .departure-card-fav {
   background: #2a1205 !important;
   border-color: #9a3412 !important;
@@ -259,9 +253,6 @@ html.dark[data-hungry] .landscape-drawer-toggle:hover {
   color: #fef9c3 !important;
 }
 
-/* Leaflet controls are themed in src/styles/leaflet.css (hungry-theme section) */
-
-/* ── Not Found page ───────────────────────────────────────────────────── */
 html[data-hungry] .not-found-container {
   background-color: #fefce8 !important;
 }
@@ -278,7 +269,6 @@ html.dark[data-hungry] .not-found-text {
   color: #fbbf24 !important;
 }
 
-/* ── ViewErrorState ───────────────────────────────────────────────────── */
 html[data-hungry] .ves-illus    { color: #d97706; }
 html[data-hungry] .ves-title    { color: #78350f; }
 html[data-hungry] .ves-desc     { color: #92400e; }
@@ -291,7 +281,6 @@ html.dark[data-hungry] .ves-desc     { color: #fbbf24; }
 html.dark[data-hungry] .ves-back-btn { background: #b45309; color: #fef9c3; }
 html.dark[data-hungry] .ves-back-btn:hover { background: #d97706; }
 
-/* ── Offline pill ─────────────────────────────────────────────────────── */
 html[data-hungry] .offline-pill {
   background: #78350f;
   color: #fef9c3;

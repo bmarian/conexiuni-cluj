@@ -34,7 +34,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.locale', newLocale)
   }
 
-  // Chomper easter egg
   const easterEggUnlocked = ref(localStorage.getItem('settings.easterEggUnlocked') === 'true')
   const easterEggActive = ref(localStorage.getItem('settings.easterEggActive') === 'true')
 
@@ -62,7 +61,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.easterEggActive', 'false')
   }
 
-  // Traditional theme (unlocked by visiting the 404 page)
   const traditionalUnlocked = ref(localStorage.getItem('settings.traditionalUnlocked') === 'true')
   const traditionalActive = ref(localStorage.getItem('settings.traditionalActive') === 'true')
 
@@ -91,7 +89,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.traditionalActive', 'false')
   }
 
-  // Toast
   const toastMessage = ref<string | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
 

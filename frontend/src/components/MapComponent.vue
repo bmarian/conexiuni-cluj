@@ -138,7 +138,6 @@ const createCenterControl = (mapValue: L.Map) => {
   control.onAdd = () => {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
 
-    // ── Center on user ──
     const centerBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
     centerBtn.href = '#'
     centerBtn.title = t('Center')
@@ -159,7 +158,6 @@ const createCenterControl = (mapValue: L.Map) => {
       mapValue.flyTo(location, DEFAULT_ZOOM, {duration: 1})
     })
 
-    // ── Fit all visible routes ──
     const fitBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
     fitBtn.href = '#'
     fitBtn.title = t('fitRoutes')

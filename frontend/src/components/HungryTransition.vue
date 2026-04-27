@@ -32,14 +32,12 @@ const ghosts = computed(() => hunted.value ? HUNTED_GHOSTS : HUNTER_GHOSTS)
 
 const isVertical = computed(() => direction.value === 'ttb' || direction.value === 'btt')
 
-// Chomper is first when it's trailing (chasing from behind).
-// For RTL: first = right = trailing ✓. For all others: first = leading edge = trailing too.
-// Special: RTL reverses visual order, so hunter uses chomperFirst=false there.
+// RTL reverses visual order so chomper needs to be at the back (not front) to stay trailing.
 const chomperFirst = computed(() =>
   direction.value === 'rtl' ? hunted.value : !hunted.value
 )
 
-// Ghost pupils look toward the pursuer (right for RTL-hunter, left for LTR-hunter, fixed for vertical)
+// Pupils look toward whoever is chasing.
 const ghostLookRight = computed(() => {
   if (isVertical.value) return false
   return hunted.value === (direction.value === 'ltr')
@@ -122,7 +120,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* ── Horizontal ──────────────────────────────────────────────── */
 .chase-row {
   position: absolute;
   display: flex;
@@ -139,7 +136,6 @@ onUnmounted(() => {
 .chase-ltr { animation: chase-run-ltr 1.8s linear forwards; }
 .chase-rtl { animation: chase-run-rtl 1.8s linear forwards; }
 
-/* ── Vertical ────────────────────────────────────────────────── */
 .chase-ttb,
 .chase-btt {
   top: 0;
@@ -156,7 +152,6 @@ onUnmounted(() => {
   animation: chase-run-btt 1.8s linear forwards;
 }
 
-/* ── Characters ──────────────────────────────────────────────── */
 .chase-ghost {
   width: 28px;
   height: 37px;
@@ -178,7 +173,6 @@ onUnmounted(() => {
 .chase-chomper-down { transform: rotate(90deg); }
 .chase-chomper-up   { transform: rotate(-90deg); }
 
-/* ── Animations ──────────────────────────────────────────────── */
 @keyframes ghost-bob {
   from { transform: translateY(0); }
   to   { transform: translateY(-6px); }

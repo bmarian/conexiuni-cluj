@@ -1,10 +1,3 @@
-/* ================================================================
-   App-wide dark mode overrides — driven by html.dark set by
-   settings store. All selectors use html.dark to get specificity
-   (0,2,1) which beats every scoped base rule (0,2,0).
-   ================================================================ */
-
-/* ── App shell ────────────────────────────────────────────────── */
 html.dark .landscape-drawer-toggle {
   background: #0f172a;
   color: #f1f5f9;
@@ -16,7 +9,6 @@ html.dark .landscape-drawer-toggle:hover {
 }
 html.dark .drawer-grip { background: #475569; }
 
-/* ── Shared across views ──────────────────────────────────────── */
 html.dark .section-label { color: #94a3b8; }
 html.dark .sub-label { color: #64748b; }
 html.dark .all-route-row:hover { background: rgb(30 41 59 / 0.5); }
@@ -26,7 +18,6 @@ html.dark .fav-btn:hover { background: rgb(244 63 94 / 0.12); color: #fb7185; }
 html.dark .fav-btn.is-fav { color: #fb7185; }
 html.dark .fav-btn.is-fav:hover { background: rgb(244 63 94 / 0.2); }
 
-/* ── HomeView ─────────────────────────────────────────────────── */
 html.dark .fav-route-chip {
   border-color: rgb(51 65 85 / 0.5);
   background: rgb(30 41 59 / 0.6);
@@ -56,7 +47,6 @@ html.dark .search-wrap:focus-within {
 html.dark .search-input { color: #f1f5f9; }
 html.dark .search-input::placeholder { color: #64748b; }
 
-/* ── StopView ─────────────────────────────────────────────────── */
 html.dark .card-dest  { color: #e2e8f0; }
 html.dark .card-origin { color: #475569; }
 
@@ -91,7 +81,6 @@ html.dark .departure-card-fav:hover {
 html.dark .all-route-row-fav { background: rgb(244 63 94 / 0.06); }
 html.dark .all-route-row-fav:hover { background: rgb(244 63 94 / 0.1) !important; }
 
-/* ── RouteView ────────────────────────────────────────────────── */
 html.dark .section-label-text { color: #94a3b8; }
 
 html.dark .direction-toggle-wrap { background: #1e293b; }
@@ -119,7 +108,6 @@ html.dark .tt-min-selected { background: #1d4ed8; }
 
 html.dark .suspended-banner { background: rgb(244 63 94 / 0.12); color: #fda4af; }
 
-/* ── Green Friday banner ──────────────────────────────────────── */
 html.dark .green-friday-banner {
   background: linear-gradient(135deg, rgb(6 78 59 / 0.4), rgb(4 120 87 / 0.3));
   border-color: rgb(16 185 129 / 0.25);
@@ -128,17 +116,13 @@ html.dark .green-friday-icon { color: #34d399; }
 html.dark .green-friday-title { color: #6ee7b7; }
 html.dark .green-friday-desc { color: #34d399; }
 
-/* ── ViewErrorState ───────────────────────────────────────────── */
 html.dark .ves-illus    { color: #475569; }
 html.dark .ves-title    { color: #f1f5f9; }
 html.dark .ves-desc     { color: #94a3b8; }
 html.dark .ves-back-btn { background: #334155; color: #f8fafc; }
 html.dark .ves-back-btn:hover { background: #475569; }
 
-/* ── Offline pill ─────────────────────────────────────────────── */
-/* Slightly brighter amber so it pops against the dark map tiles  */
 html.dark .offline-pill {
   background: rgba(217, 119, 6, 0.97);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
-

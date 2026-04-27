@@ -15,8 +15,7 @@ const { t } = useI18n()
 const { easterEggActive, traditionalActive } = storeToRefs(useSettingsStore())
 const { isDarkMode } = storeToRefs(useUserStore())
 
-// ── Theme ────────────────────────────────────────────────────────────────────
-// Read by draw() every rAF frame — always current.
+// canvasTheme and overlayTheme are computed so draw() always reads the current theme each rAF frame.
 const canvasTheme = computed(() => {
   const h = easterEggActive.value
   const x = traditionalActive.value
@@ -148,7 +147,6 @@ const exitBtnStyle = computed(() => {
     : { background: 'rgba(15,23,42,0.09)',    color: 'rgba(15,23,42,0.48)'    }
 })
 
-// ── Game constants ────────────────────────────────────────────────────────────
 const canvasEl  = ref<HTMLCanvasElement | null>(null)
 const gameOver  = ref<'player' | 'ai' | null>(null)
 
@@ -158,7 +156,7 @@ const PH        = 55
 const BR        = 15
 const WIN_SCORE = 5
 
-// ── Mutable game state (lives outside Vue reactivity — mutated in rAF) ────────
+// Game state lives outside Vue reactivity so mutations inside the rAF loop don't trigger re-renders.
 let W              = 300
 let BASE           = 150
 let bx = W / 2, by = H / 2, vx = BASE, vy = 0

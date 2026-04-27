@@ -30,28 +30,22 @@ defineProps<{ landscapeOpen?: boolean }>()
 </template>
 
 <style scoped>
-/* Positioning anchor — centers within the visible map area */
 .offline-root {
   position: fixed;
   top: calc(0.75rem + env(safe-area-inset-top));
-  /* Portrait / default: center of full viewport */
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
   pointer-events: none;
-  /* Slide with the drawer at the same cadence as SettingsButton */
   transition: left 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Landscape mobile: when drawer is open, center within remaining map area */
 @media (max-width: 1023px) and (orientation: landscape) {
   .offline-root.landscape-open {
-    /* map fills 100vw - drawer-width; its centre is half of that */
     left: calc((100vw - var(--landscape-drawer-width)) / 2);
   }
 }
 
-/* Desktop: map is always 70 vw on the left; centre = 35 vw */
 @media (min-width: 1024px) {
   .offline-root {
     left: 35vw;
@@ -79,4 +73,3 @@ defineProps<{ landscapeOpen?: boolean }>()
   flex-shrink: 0;
 }
 </style>
-

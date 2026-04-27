@@ -8,16 +8,11 @@ export interface IconThemeOptions {
   traditionalActive: boolean
 }
 
-// ── Shared constants ────────────────────────────────────────────────────────
-
 const BUS_STOP_PATH =
   'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
 
-// ── Clippy ──────────────────────────────────────────────────────────────────
-// Recognizable Office Assistant: paperclip body in `wire` colour with a darker
-// `wireDark` shadow stroke under it for depth, two big googly eyes overlapping
-// the top loop, and bushy raised eyebrows. viewBox 0 0 26 32.
-
+// Clippy: paperclip body in `wire` color with a `wireDark` shadow below for depth,
+// plus googly eyes and raised eyebrows overlapping the top loop.
 function clippySvg(wire: string, wireDark: string, w: number, h: number): string {
   return `<svg viewBox="0 0 26 32" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="13" cy="30.5" rx="6.5" ry="0.9" fill="rgba(0,0,0,0.22)"/>
@@ -38,8 +33,6 @@ function clippySvg(wire: string, wireDark: string, w: number, h: number): string
   </svg>`
 }
 
-// ── Default stop icon (shared, created once) ────────────────────────────────
-
 export const defaultStopIcon = L.divIcon({
   className: 'bg-transparent border-none',
   html: `
@@ -53,8 +46,6 @@ export const defaultStopIcon = L.divIcon({
   iconAnchor: [12, 12],
   popupAnchor: [0, -12],
 })
-
-// ── Stop icon ────────────────────────────────────────────────────────────────
 
 export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon {
   if (opts.easterEggActive) {
@@ -93,8 +84,6 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon 
 
   return defaultStopIcon
 }
-
-// ── Selected stop icon ───────────────────────────────────────────────────────
 
 export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
   if (opts.easterEggActive) {
@@ -135,8 +124,6 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
     iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16],
   })
 }
-
-// ── Highlight icon (route-highlighted stops) ─────────────────────────────────
 
 export function makeHighlightIcon(
   color: 'green' | 'purple' | 'red' | 'gray',
@@ -186,8 +173,6 @@ export function makeHighlightIcon(
   })
 }
 
-// ── Vehicle marker HTML ──────────────────────────────────────────────────────
-
 export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,
@@ -235,7 +220,7 @@ export function getVehicleMarkerHtml(
     const sz = isStopView ? 36 : 32
     const cursorRotation = heading + 45
 
-    // Classic XP mouse arrow — fill = route color, black outline (the cursor IS the bus)
+    // Classic XP mouse cursor. Rotated heading+45 so the NW-pointing tip aims at direction of travel.
     const cursorSvg = `<svg viewBox="-1 -1 14 20" width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${cursorRotation}deg);transform-origin:center;display:block;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.45));">
       <path d="M 0 0 L 0 16 L 4 12 L 6 18 L 8 17 L 6 11 L 11 11 Z" fill="${resolvedColor}" stroke="black" stroke-width="1" stroke-linejoin="miter" stroke-linecap="round"/>
       <path d="M 1 1 L 1 14" stroke="rgba(255,255,255,0.55)" stroke-width="0.7" stroke-linecap="round" fill="none"/>
@@ -243,13 +228,11 @@ export function getVehicleMarkerHtml(
 
     const cursorBox = `<div style="width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${cursorSvg}</div>`
 
-    // XP tooltip styling: pale-yellow infobox with 1px black border, Tahoma 11px
     const xpTip = (extraStyle: string = '') => `<div class="absolute" style="${extraStyle}background:#FFFFE0;color:#000000;padding:3px 7px;border:1px solid #000000;box-shadow:1px 1px 0 rgba(0,0,0,0.35);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;font-family:'Tahoma','Trebuchet MS',sans-serif;line-height:1.3;">
       <span style="font-weight:700;font-size:11px;">${titleText}</span>
       <span style="font-size:11px;color:#404040;">${roundedSpeed} km/h</span>
     </div>`
 
-    // XP-square route badge for stopView
     const routeBadge = `<div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:700;padding:1px 5px;border-radius:0;border:1px solid #000000;line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;box-shadow:1px 1px 0 rgba(0,0,0,0.3);">${routeName}</div>`
 
     if (isStopView) {
