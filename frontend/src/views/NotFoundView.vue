@@ -31,25 +31,27 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="bsod" role="alertdialog" aria-label="STOP error">
-    <div class="bsod-inner">
-      <div class="bsod-header">
-        <span class="bsod-banner">Conexiuni Cluj</span>
+  <Teleport to="body">
+    <div class="bsod" role="alertdialog" aria-label="STOP error">
+      <div class="bsod-inner">
+        <div class="bsod-header">
+          <span class="bsod-banner">Conexiuni Cluj</span>
+        </div>
+
+        <p class="bsod-code">{{ t('bsodCode') }}</p>
+
+        <p>{{ t('bsodMissing') }}</p>
+
+        <p>{{ t('bsodReason') }}</p>
+
+        <p>{{ t('bsodTechHeader') }}</p>
+
+        <p class="bsod-stop">{{ t('bsodStop') }}</p>
+
+        <p class="bsod-prompt">{{ t('bsodPrompt') }}</p>
       </div>
-
-      <p class="bsod-code">{{ t('bsodCode') }}</p>
-
-      <p>{{ t('bsodMissing') }}</p>
-
-      <p>{{ t('bsodReason') }}</p>
-
-      <p>{{ t('bsodTechHeader') }}</p>
-
-      <p class="bsod-stop">{{ t('bsodStop') }}</p>
-
-      <p class="bsod-prompt">{{ t('bsodPrompt') }}</p>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>

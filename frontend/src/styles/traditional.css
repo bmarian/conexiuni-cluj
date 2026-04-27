@@ -91,32 +91,6 @@ html[data-traditional] .map-container {
   contain: layout paint;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html[data-traditional] .app-drawer.is-dragging .stop-view-container,
-  html[data-traditional] .app-drawer.is-dragging .route-view-container,
-  html[data-traditional] .app-drawer.is-dragging .home-view-container {
-    background: var(--xp-tan) !important;
-  }
-
-  html[data-traditional] .app-drawer.is-dragging .departure-card,
-  html[data-traditional] .app-drawer.is-dragging .departure-card-fav,
-  html[data-traditional] .app-drawer.is-dragging .fav-route-chip,
-  html[data-traditional] .app-drawer.is-dragging .fav-stop-row,
-  html[data-traditional] .app-drawer.is-dragging .all-route-row,
-  html[data-traditional] .app-drawer.is-dragging .tt-tab,
-  html[data-traditional] .app-drawer.is-dragging .tt-min,
-  html[data-traditional] .app-drawer.is-dragging .option-btn,
-  html[data-traditional] .app-drawer.is-dragging .direction-toggle-wrap,
-  html[data-traditional] .app-drawer.is-dragging .fav-btn,
-  html[data-traditional] .app-drawer.is-dragging .time-pill,
-  html[data-traditional] .app-drawer.is-dragging .live-badge,
-  html[data-traditional] .app-drawer.is-dragging .search-wrap,
-  html[data-traditional] .app-drawer.is-dragging .stop-view-container > div > header,
-  html[data-traditional] .app-drawer.is-dragging .route-view-container > div > header {
-    box-shadow: none !important;
-    background-image: none !important;
-  }
-}
 
 html[data-traditional] .app-shell {
   background: var(--xp-bliss-light) !important;
