@@ -61,7 +61,7 @@ function goBack() {
     </div>
 
     <header class="flex items-center gap-3">
-      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
         <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
         <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -186,8 +186,8 @@ function goBack() {
 }
 
 .leg-dot-dest {
-  background: #2563eb;
-  box-shadow: 0 0 0 3px #dbeafe;
+  background: #0284c7;
+  box-shadow: 0 0 0 3px #bae6fd;
 }
 
 .leg-line {
@@ -221,7 +221,7 @@ function goBack() {
 }
 
 .leg-type-badge-dest {
-  color: #2563eb;
+  color: #0284c7;
 }
 
 .leg-name {
