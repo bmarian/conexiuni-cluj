@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -76,7 +77,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		}
 	}
 
-	// Fetch all stops once and index by ID — avoids N+1 queries
+	// Fetch all stops at once and index by ID
 	allStops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
 	if err != nil {
 		return nil, err
@@ -94,12 +95,21 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		}
 		shapes := shapesByID[shapeByTrip[t.TripID]]
 		var previousStop *models.Stop
+		stopIndex := 0
 		for _, st := range gr {
 			currentStop := stopByID[st.StopID]
 			offsetArrivalTime := 0.0
 			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
 				offsetArrivalTime = calculateStopOffset(*previousStop, currentStop, shapes)
+				if stopIndex == 1 {
+					// Generally buses do a funny and are late when leaving the first stop,
+					// so I hardcoded this 🤢
+					offsetArrivalTime = offsetArrivalTime + 30
+				}
+				// And also always round up to the nearest minute
+				offsetArrivalTime = math.Ceil(offsetArrivalTime)
 			}
+			stopIndex++
 			out = append(out, models.StopTime{
 				TripID:            st.TripID,
 				StopID:            st.StopID,
