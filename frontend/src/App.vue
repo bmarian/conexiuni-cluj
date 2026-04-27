@@ -25,14 +25,12 @@ const SNAP_FRAC: Record<DrawerState, number> = {
 }
 const cycleOrder: DrawerState[] = ['minimized', 'half', 'fullscreen']
 
+const drawerEl = ref<HTMLElement | null>(null)
 const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(false)
-
 const isDragging = ref(false)
-const dragHeightPx = ref<number | null>(null)
 
 const drawerStyle = computed(() => {
-  if (dragHeightPx.value != null) return { height: `${dragHeightPx.value}px` }
   if (drawerState.value === 'minimized') return { height: `${MINIMIZED_PX}px` }
   if (drawerState.value === 'fullscreen') return { height: '100dvh' }
   return { height: `${SNAP_FRAC[drawerState.value] * 100}dvh` }
@@ -58,35 +56,37 @@ function viewportPx() {
   return window.visualViewport?.height ?? window.innerHeight
 }
 
-function currentHeightPx(el: HTMLElement) {
-  return el.getBoundingClientRect().height
-}
-
 function onPointerDown(e: PointerEvent) {
   if (e.button !== 0 && e.pointerType === 'mouse') return
-  const el = (e.currentTarget as HTMLElement).closest('.app-drawer') as HTMLElement | null
+  const el = drawerEl.value
   if (!el) return
   pointerId = e.pointerId
   startY = e.clientY
-  startHeight = currentHeightPx(el)
+  startHeight = el.getBoundingClientRect().height
   moved = false
   isDragging.value = true
-  dragHeightPx.value = startHeight
+  // Freeze height and kill CSS transition
+  el.style.transition = 'none'
+  el.style.height = `${startHeight}px`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
 function onPointerMove(e: PointerEvent) {
   if (!isDragging.value || e.pointerId !== pointerId) return
+  const el = drawerEl.value
+  if (!el) return
   const dy = e.clientY - startY
   if (Math.abs(dy) > 3) moved = true
   const vh = viewportPx()
-  dragHeightPx.value = Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))
+  // Direct DOM write
+  el.style.height = `${Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))}px`
 }
 
 function endDrag() {
   if (!isDragging.value) return
+  const el = drawerEl.value
   const vh = viewportPx()
-  const height = dragHeightPx.value ?? startHeight
+  const height = el ? parseFloat(el.style.height) || startHeight : startHeight
 
   const allStates: DrawerState[] = ['minimized', 'collapsed', 'half', 'expanded', 'fullscreen']
   const snapHeights: Record<DrawerState, number> = {
@@ -111,9 +111,14 @@ function endDrag() {
       best = drawerState.value === 'collapsed' ? 'half' : 'fullscreen'
     }
   }
-  drawerState.value = best
+
+  // Clear inline style so Vue / CSS transition takes over again
+  if (el) {
+    el.style.transition = ''
+    el.style.height = ''
+  }
   isDragging.value = false
-  dragHeightPx.value = null
+  drawerState.value = best
   pointerId = -1
 }
 
@@ -165,6 +170,7 @@ function toggleLandscapeDrawer() {
     </button>
 
     <aside
+      ref="drawerEl"
       class="app-drawer bg-slate-100 dark:bg-slate-900 shadow-xl/30"
       :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
       :style="drawerStyle"

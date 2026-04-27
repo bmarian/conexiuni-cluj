@@ -487,7 +487,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                   'time-pill',
                   i === 0 && !shape.static_time_approximation
                     ? 'time-pill-live'
-                    : 'time-pill-sched'
+                    : 'time-pill-sched',
+                  i > 0 ? 'time-pill-extra' : ''
                 ]"
               >{{ i === 0 && shape.static_time_approximation ? '~\u202f' : '' }}{{ formatMinutes(t.minutes) }}</span>
             </div>
@@ -562,6 +563,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   border-radius: 1rem;
   border: 1px solid #f1f5f9;
   background: #f8fafc;
+  container-type: inline-size;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
@@ -604,6 +606,13 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 .time-pill-sched {
   background: #f1f5f9;
   color: #475569;
+}
+
+/* Hide 2nd + 3rd pill when card is narrow */
+@container (max-width: 300px) {
+  .time-pill-extra {
+    display: none;
+  }
 }
 
 .all-route-row {
