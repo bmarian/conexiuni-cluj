@@ -22,12 +22,12 @@ const emit = defineEmits<{ back: [] }>()
   <div class="ves-root">
     <div class="ves-card">
       <div class="ves-illus">
-        <IconBus404 />
+        <IconBus404/>
       </div>
       <h1 class="ves-title">{{ title ?? t('notFound') }}</h1>
       <p class="ves-desc">{{ description ?? t('notFoundDesc') }}</p>
       <button type="button" class="ves-back-btn" @click="emit('back')">
-        <IconBack class="ves-back-icon" aria-hidden="true" />
+        <IconBack class="ves-back-icon" aria-hidden="true"/>
         {{ backLabel ?? t('back') }}
       </button>
     </div>
@@ -90,8 +90,14 @@ const emit = defineEmits<{ back: [] }>()
   cursor: pointer;
   transition: background 150ms ease, transform 100ms ease;
 }
-.ves-back-btn:hover  { background: #0f172a; }
-.ves-back-btn:active { transform: scale(0.97); }
+
+.ves-back-btn:hover {
+  background: #0f172a;
+}
+
+.ves-back-btn:active {
+  transform: scale(0.97);
+}
 
 .ves-back-icon {
   width: 1rem;

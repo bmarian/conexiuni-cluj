@@ -1,7 +1,11 @@
 import L from 'leaflet'
-import type { Vehicle } from '@/types/tranzy.ts'
+import type {Vehicle} from '@/types/tranzy.ts'
 
-export type DisplayVehicle = Vehicle & { route_short_name: string; route_color?: string; heading: number }
+export type DisplayVehicle = Vehicle & {
+  route_short_name: string;
+  route_color?: string;
+  heading: number
+}
 
 export interface IconThemeOptions {
   easterEggActive: boolean
@@ -131,9 +135,9 @@ export function makeHighlightIcon(
 ): L.DivIcon {
   const bg =
     color === 'green' ? '#10b981'
-    : color === 'purple' ? '#a855f7'
-    : color === 'red' ? '#f43f5e'
-    : '#64748b'
+      : color === 'purple' ? '#a855f7'
+        : color === 'red' ? '#f43f5e'
+          : '#64748b'
 
   if (opts.easterEggActive) {
     return L.divIcon({

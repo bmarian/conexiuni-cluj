@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-import { useOnline } from '@/composables/useOnline'
+import {useI18n} from 'vue-i18n'
+import {useOnline} from '@/composables/useOnline'
 
-const { t } = useI18n()
-const { isOnline } = useOnline()
+const {t} = useI18n()
+const {isOnline} = useOnline()
 
 defineProps<{ landscapeOpen?: boolean }>()
 </script>
@@ -15,7 +15,8 @@ defineProps<{ landscapeOpen?: boolean }>()
     :class="{ 'landscape-open': landscapeOpen }"
   >
     <div class="offline-pill" role="status" aria-live="polite" :title="t('offlineBanner')">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M2 2l20 20"/>
         <path d="M8.5 16.5a5 5 0 017 0"/>
         <path d="M2 8.82a15 15 0 014.17-2.65"/>

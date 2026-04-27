@@ -1,4 +1,4 @@
-import {onUnmounted, ref, watch, type Ref} from 'vue'
+import {onUnmounted, ref, type Ref, watch} from 'vue'
 import type {Vehicle} from '@/types/tranzy.ts'
 
 export function useVehicleStream(tripIds: Ref<string[]>) {
@@ -67,14 +67,17 @@ export function useVehicleStream(tripIds: Ref<string[]>) {
       start(tripIds.value)
     }
   }
+
   function onOnline() {
     if (tripIds.value?.length && !es && (typeof document === 'undefined' || !document.hidden)) {
       start(tripIds.value)
     }
   }
+
   function onOffline() {
     stop()
   }
+
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibility)
   }

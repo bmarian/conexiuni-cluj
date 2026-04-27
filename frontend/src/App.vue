@@ -30,9 +30,9 @@ const isLandscapeDrawerOpen = ref(false)
 const isDragging = ref(false)
 
 const drawerStyle = computed(() => {
-  if (drawerState.value === 'minimized') return { height: `${MINIMIZED_PX}px` }
-  if (drawerState.value === 'fullscreen') return { height: '100dvh' }
-  return { height: `${SNAP_FRAC[drawerState.value] * 100}dvh` }
+  if (drawerState.value === 'minimized') return {height: `${MINIMIZED_PX}px`}
+  if (drawerState.value === 'fullscreen') return {height: '100dvh'}
+  return {height: `${SNAP_FRAC[drawerState.value] * 100}dvh`}
 })
 
 watch([drawerState, isDragging], async ([, dragging]) => {
@@ -98,7 +98,10 @@ function endDrag() {
   let bestDist = Infinity
   for (const s of allStates) {
     const d = Math.abs(snapHeights[s] - height)
-    if (d < bestDist) { bestDist = d; best = s }
+    if (d < bestDist) {
+      bestDist = d;
+      best = s
+    }
   }
   if (!moved) {
     if (cycleOrder.includes(drawerState.value)) {
@@ -123,7 +126,10 @@ function onPointerUp(e: PointerEvent) {
   if (e.pointerId !== pointerId) return
   const el = e.currentTarget as HTMLElement
   if (el.hasPointerCapture?.(e.pointerId)) {
-    try { el.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    try {
+      el.releasePointerCapture(e.pointerId)
+    } catch { /* noop */
+    }
   }
   endDrag()
 }
@@ -135,11 +141,11 @@ function toggleLandscapeDrawer() {
 
 <template>
   <main class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-    <OfflinePill :landscape-open="isLandscapeDrawerOpen" />
-    <MapComponent class="app-map" />
-    <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
-    <WeatherButton :class="{ 'landscape-open': isLandscapeDrawerOpen }" />
-    <EasterEggToast />
+    <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
+    <MapComponent class="app-map"/>
+    <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
+    <WeatherButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
+    <EasterEggToast/>
     <button
       type="button"
       class="landscape-drawer-toggle"
@@ -149,7 +155,8 @@ function toggleLandscapeDrawer() {
       :aria-expanded="isLandscapeDrawerOpen"
       @click="toggleLandscapeDrawer"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path v-if="isLandscapeDrawerOpen" d="M9 18l6-6-6-6"/>
         <path v-else d="M15 18l-6-6 6-6"/>
       </svg>
@@ -174,14 +181,14 @@ function toggleLandscapeDrawer() {
         <span class="drawer-grip"></span>
       </div>
       <div class="drawer-scroll">
-        <GreenFridayBanner />
+        <GreenFridayBanner/>
         <div class="drawer-view">
-          <RouterView />
+          <RouterView/>
         </div>
       </div>
     </aside>
   </main>
-  <HungryTransition />
+  <HungryTransition/>
 </template>
 
 <style scoped>
@@ -216,14 +223,16 @@ function toggleLandscapeDrawer() {
   border-radius: 0.875rem;
   background: #ffffff;
   color: #334155;
-  box-shadow: 0 2px 10px -1px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1), background 150ms ease, color 150ms ease;
 }
+
 .landscape-drawer-toggle:hover {
   background: #f1f5f9;
   color: #0f172a;
 }
+
 .landscape-drawer-toggle svg {
   width: 1rem;
   height: 1rem;
@@ -260,7 +269,10 @@ function toggleLandscapeDrawer() {
   touch-action: none;
   user-select: none;
 }
-.drawer-handle:active { cursor: grabbing; }
+
+.drawer-handle:active {
+  cursor: grabbing;
+}
 
 .drawer-grip {
   width: 2.5rem;
@@ -268,6 +280,7 @@ function toggleLandscapeDrawer() {
   border-radius: 9999px;
   background: #cbd5e1;
 }
+
 .drawer-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -292,6 +305,7 @@ function toggleLandscapeDrawer() {
   .landscape-drawer-toggle {
     display: inline-flex;
   }
+
   .landscape-drawer-toggle.is-open {
     right: calc(var(--landscape-drawer-width) + 0.625rem + env(safe-area-inset-right));
   }
@@ -311,11 +325,13 @@ function toggleLandscapeDrawer() {
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24);
     transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease;
   }
+
   .app-drawer.is-landscape-open {
     transform: translateX(0);
     opacity: 1;
     pointer-events: auto;
   }
+
   .drawer-handle {
     display: none;
   }
@@ -325,14 +341,17 @@ function toggleLandscapeDrawer() {
   .landscape-drawer-toggle {
     display: none !important;
   }
+
   .app-shell {
     flex-direction: row;
     height: 100dvh;
   }
+
   .app-map {
     width: 70vw;
     height: 100dvh;
   }
+
   .app-drawer {
     width: 30vw;
     height: 100dvh !important;
@@ -340,6 +359,7 @@ function toggleLandscapeDrawer() {
     padding-bottom: 0;
     transition: none;
   }
+
   .drawer-handle {
     display: none;
   }

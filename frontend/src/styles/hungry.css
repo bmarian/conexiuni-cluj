@@ -6,17 +6,34 @@
     clip-path: polygon(50% 50%, 100% 47%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 53%);
   }
 }
+
 .hungry-chomp {
   animation: hungry-chomp 0.35s linear infinite;
 }
 
 @keyframes hungry-route-travel {
-  0%      { top: 6px;  opacity: 1; }
-  86%     { top: calc(100% - 22px); opacity: 1; }
-  93%     { top: calc(100% - 22px); opacity: 0; }
-  93.01%  { top: 6px;  opacity: 0; }
-  100%    { top: 6px;  opacity: 1; }
+  0% {
+    top: 6px;
+    opacity: 1;
+  }
+  86% {
+    top: calc(100% - 22px);
+    opacity: 1;
+  }
+  93% {
+    top: calc(100% - 22px);
+    opacity: 0;
+  }
+  93.01% {
+    top: 6px;
+    opacity: 0;
+  }
+  100% {
+    top: 6px;
+    opacity: 1;
+  }
 }
+
 .hungry-eater {
   position: absolute;
   left: 2px;
@@ -29,9 +46,11 @@
 html[data-hungry] .app-shell {
   background-color: #fef9c3 !important;
 }
+
 html[data-hungry] .app-drawer {
   background-color: #fefce8 !important;
 }
+
 html[data-hungry] .drawer-grip {
   background: #f59e0b !important;
 }
@@ -46,23 +65,34 @@ html[data-hungry] .departure-card {
   background: #fffbeb !important;
   border-color: #fde68a !important;
 }
+
 html[data-hungry] .departure-card:hover {
   background: #fef9c3 !important;
   border-color: #fbbf24 !important;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15) !important;
 }
+
 html[data-hungry] .departure-card-fav {
   background: #fef3c7 !important;
   border-color: #fcd34d !important;
 }
+
 html[data-hungry] .departure-card-fav:hover {
   background: #fde68a !important;
   border-color: #f59e0b !important;
 }
 
-html[data-hungry] .stop-row-selected { background: #fef9c3 !important; }
-html[data-hungry] .stop-row-nearest  { background: #fef3c7 !important; }
-html[data-hungry] .stop-row-fav      { background: #fef9c3 !important; }
+html[data-hungry] .stop-row-selected {
+  background: #fef9c3 !important;
+}
+
+html[data-hungry] .stop-row-nearest {
+  background: #fef3c7 !important;
+}
+
+html[data-hungry] .stop-row-fav {
+  background: #fef9c3 !important;
+}
 
 html[data-hungry] .fav-route-chip {
   background: #fffbeb !important;
@@ -80,13 +110,16 @@ html[data-hungry] .search-wrap {
   border-color: #fde68a !important;
   background: #fffbeb !important;
 }
+
 html[data-hungry] .search-wrap:focus-within {
   border-color: #f59e0b !important;
   background: #fefce8 !important;
 }
+
 html[data-hungry] .search-input {
   color: #78350f !important;
 }
+
 html[data-hungry] .search-input::placeholder {
   color: #b45309 !important;
 }
@@ -94,10 +127,12 @@ html[data-hungry] .search-input::placeholder {
 html[data-hungry] .direction-toggle-wrap {
   background: #fde68a !important;
 }
+
 html[data-hungry] .dir-btn-active {
   background: #ffffff !important;
   color: #78350f !important;
 }
+
 html[data-hungry] .dir-btn-inactive {
   color: #b45309 !important;
 }
@@ -105,25 +140,30 @@ html[data-hungry] .dir-btn-inactive {
 html[data-hungry] .settings-btn {
   background: #facc15 !important;
   color: #78350f !important;
-  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
+  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
+
 html[data-hungry] .settings-btn:hover {
   background: #fde047 !important;
   color: #451a03 !important;
 }
+
 html[data-hungry] .weather-pill {
   background: #facc15 !important;
   color: #78350f !important;
-  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
+  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
+
 html[data-hungry] .settings-popover {
   background: #fffbeb !important;
-  box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0,0,0,0.08) !important;
+  box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
 }
+
 html[data-hungry] .option-btn:hover {
   background: #fef9c3 !important;
   color: #78350f !important;
 }
+
 html[data-hungry] .option-btn.active {
   background: #fef3c7 !important;
   color: #92400e !important;
@@ -133,8 +173,9 @@ html[data-hungry] .option-btn.active {
 html[data-hungry] .landscape-drawer-toggle {
   background: #facc15 !important;
   color: #78350f !important;
-  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0,0,0,0.08) !important;
+  box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
+
 html[data-hungry] .landscape-drawer-toggle:hover {
   background: #fde047 !important;
   color: #451a03 !important;
@@ -153,17 +194,20 @@ html.dark[data-hungry] .departure-card {
   border-color: #78350f !important;
   color: #fde68a !important;
 }
+
 html.dark[data-hungry] .departure-card:hover {
   background: #2a2006 !important;
   border-color: #b45309 !important;
   color: #fde68a !important;
 }
+
 /* Must come after .departure-card — same specificity, last wins */
 html.dark[data-hungry] .departure-card-fav {
   background: #2a1205 !important;
   border-color: #9a3412 !important;
   color: #fde68a !important;
 }
+
 html.dark[data-hungry] .departure-card-fav:hover {
   background: #3d1a06 !important;
   border-color: #c2470a !important;
@@ -193,13 +237,16 @@ html.dark[data-hungry] .search-wrap {
   border-color: #78350f !important;
   background: #211a05 !important;
 }
+
 html.dark[data-hungry] .search-wrap:focus-within {
   border-color: #d97706 !important;
   background: #1c1608 !important;
 }
+
 html.dark[data-hungry] .search-input {
   color: #fde68a !important;
 }
+
 html.dark[data-hungry] .search-input::placeholder {
   color: #d97706 !important;
 }
@@ -207,10 +254,12 @@ html.dark[data-hungry] .search-input::placeholder {
 html.dark[data-hungry] .direction-toggle-wrap {
   background: #451a03 !important;
 }
+
 html.dark[data-hungry] .dir-btn-active {
   background: #1c1608 !important;
   color: #fde68a !important;
 }
+
 html.dark[data-hungry] .dir-btn-inactive {
   color: #d97706 !important;
 }
@@ -218,25 +267,30 @@ html.dark[data-hungry] .dir-btn-inactive {
 html.dark[data-hungry] .settings-btn {
   background: #854d0e !important;
   color: #fde68a !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(234,179,8,0.2) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
+
 html.dark[data-hungry] .settings-btn:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
 }
+
 html.dark[data-hungry] .weather-pill {
   background: #854d0e !important;
   color: #fde68a !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(234,179,8,0.2) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
+
 html.dark[data-hungry] .settings-popover {
   background: #1c1608 !important;
-  box-shadow: 0 10px 30px -4px rgba(0,0,0,0.5), 0 1px 6px rgba(0,0,0,0.24) !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
 }
+
 html.dark[data-hungry] .option-btn:hover {
   background: #2a2006 !important;
   color: #fde68a !important;
 }
+
 html.dark[data-hungry] .option-btn.active {
   background: #422006 !important;
   color: #fde68a !important;
@@ -246,8 +300,9 @@ html.dark[data-hungry] .option-btn.active {
 html.dark[data-hungry] .landscape-drawer-toggle {
   background: #854d0e !important;
   color: #fde68a !important;
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 1px 4px rgba(234,179,8,0.2) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
+
 html.dark[data-hungry] .landscape-drawer-toggle:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
@@ -256,6 +311,7 @@ html.dark[data-hungry] .landscape-drawer-toggle:hover {
 html[data-hungry] .not-found-container {
   background-color: #fefce8 !important;
 }
+
 html[data-hungry] .not-found-horse-wagon,
 html[data-hungry] .not-found-text {
   color: #92400e !important;
@@ -264,28 +320,60 @@ html[data-hungry] .not-found-text {
 html.dark[data-hungry] .not-found-container {
   background-color: #1c1608 !important;
 }
+
 html.dark[data-hungry] .not-found-horse-wagon,
 html.dark[data-hungry] .not-found-text {
   color: #fbbf24 !important;
 }
 
-html[data-hungry] .ves-illus    { color: #d97706; }
-html[data-hungry] .ves-title    { color: #78350f; }
-html[data-hungry] .ves-desc     { color: #92400e; }
-html[data-hungry] .ves-back-btn { background: #d97706; color: #fff7ed; }
-html[data-hungry] .ves-back-btn:hover { background: #b45309; }
+html[data-hungry] .ves-illus {
+  color: #d97706;
+}
 
-html.dark[data-hungry] .ves-illus    { color: #f59e0b; }
-html.dark[data-hungry] .ves-title    { color: #fde68a; }
-html.dark[data-hungry] .ves-desc     { color: #fbbf24; }
-html.dark[data-hungry] .ves-back-btn { background: #b45309; color: #fef9c3; }
-html.dark[data-hungry] .ves-back-btn:hover { background: #d97706; }
+html[data-hungry] .ves-title {
+  color: #78350f;
+}
+
+html[data-hungry] .ves-desc {
+  color: #92400e;
+}
+
+html[data-hungry] .ves-back-btn {
+  background: #d97706;
+  color: #fff7ed;
+}
+
+html[data-hungry] .ves-back-btn:hover {
+  background: #b45309;
+}
+
+html.dark[data-hungry] .ves-illus {
+  color: #f59e0b;
+}
+
+html.dark[data-hungry] .ves-title {
+  color: #fde68a;
+}
+
+html.dark[data-hungry] .ves-desc {
+  color: #fbbf24;
+}
+
+html.dark[data-hungry] .ves-back-btn {
+  background: #b45309;
+  color: #fef9c3;
+}
+
+html.dark[data-hungry] .ves-back-btn:hover {
+  background: #d97706;
+}
 
 html[data-hungry] .offline-pill {
   background: #78350f;
   color: #fef9c3;
   box-shadow: 0 2px 8px rgba(120, 53, 15, 0.40);
 }
+
 html.dark[data-hungry] .offline-pill {
   background: #92400e;
   color: #fef9c3;

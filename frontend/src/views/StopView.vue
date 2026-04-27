@@ -153,7 +153,13 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
       const routeId = getRouteIdFromTripId(trip_id)
       if (routeId === null) return acc
       const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
-      if (shape) acc.push({trip_id, route_short_name: shape.route_short_name, route_long_name: shape.timetable?.route_long_name || '', route_color: shape.route_color, route_type: shape.route_type})
+      if (shape) acc.push({
+        trip_id,
+        route_short_name: shape.route_short_name,
+        route_long_name: shape.timetable?.route_long_name || '',
+        route_color: shape.route_color,
+        route_type: shape.route_type
+      })
       return acc
     }, [])
 }
@@ -334,32 +340,44 @@ const navigateToRoute = (shape: VehiclesInStop) => {
   const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
   routeStore.setSelectedRoute(si, shape.trip_id, props.stopId, stopName.value || '')
-  router.push({name: 'route', params: {routeId: shape.route_id, direction: shape.trip_id.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}})
+  router.push({
+    name: 'route',
+    params: {
+      routeId: shape.route_id,
+      direction: shape.trip_id.endsWith(OUTGOING_SUFFIX) ? '0' : '1'
+    }
+  })
 }
 
 const navigateToAllRoute = (shape: ShapeInfo) => {
   const tripId = getTripId(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
   routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
-  router.push({name: 'route', params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}})
+  router.push({
+    name: 'route',
+    params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}
+  })
 }
 </script>
 
 <template>
-  <div v-if="isLoading" class="stop-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-8">
+  <div v-if="isLoading"
+       class="stop-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-8">
     <header class="flex items-center gap-4">
       <div class="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
       <div class="h-7 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
     </header>
     <section class="flex flex-col gap-3">
       <div class="h-3 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
-      <div v-for="i in 4" :key="i" class="flex items-center gap-3 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
+      <div v-for="i in 4" :key="i"
+           class="flex items-center gap-3 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
         <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
         <div class="flex-1 flex flex-col gap-1.5">
           <div class="h-2.5 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
           <div class="h-4 w-36 bg-slate-200 dark:bg-slate-700 rounded"></div>
         </div>
         <div class="flex gap-1.5">
-          <div v-for="j in 3" :key="j" class="w-9 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
+          <div v-for="j in 3" :key="j"
+               class="w-9 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
         </div>
       </div>
     </section>
@@ -372,11 +390,13 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
   </div>
 
-  <div v-else-if="loadError" class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <ViewErrorState @back="goBack" />
+  <div v-else-if="loadError"
+       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
+    <ViewErrorState @back="goBack"/>
   </div>
 
-  <div v-else class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
+  <div v-else
+       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
     <div class="flex items-center -mb-4">
       <button
@@ -389,14 +409,21 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </div>
 
     <header class="flex items-start gap-4">
-      <div class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
+      <div
+        class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
         <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
         <StopIcon v-else class="w-7 h-7 text-white"/>
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
-          <span class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide">{{ t('busStop') }}</span>
-          <span v-if="stopInfo?.stop_code" class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{ stopInfo.stop_code }}</span>
+          <span
+            class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide">{{
+              t('busStop')
+            }}</span>
+          <span v-if="stopInfo?.stop_code"
+                class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{
+              stopInfo.stop_code
+            }}</span>
         </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
           {{ stopName }}
@@ -418,12 +445,14 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
     <section>
       <h2 class="section-label">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
+        <span
+          class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
         {{ t('nextDepartures') }}
       </h2>
 
       <div v-if="isComputingDepartures" class="flex flex-col gap-2.5 animate-pulse">
-        <div v-for="i in 3" :key="i" class="flex items-center gap-2.5 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
+        <div v-for="i in 3" :key="i"
+             class="flex items-center gap-2.5 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
           <div class="w-1 self-stretch rounded-full bg-slate-200 dark:bg-slate-700 shrink-0"></div>
           <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
           <div class="flex-1 flex flex-col gap-1.5">
@@ -431,13 +460,15 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             <div class="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div>
           </div>
           <div class="flex gap-1">
-            <div v-for="j in 3" :key="j" class="w-10 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
+            <div v-for="j in 3" :key="j"
+                 class="w-10 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
           </div>
           <div class="w-4 h-4 rounded bg-slate-100 dark:bg-slate-800 shrink-0"></div>
         </div>
       </div>
       <template v-else>
-        <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length" class="text-sm text-slate-400 dark:text-slate-500 py-2">
+        <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length"
+           class="text-sm text-slate-400 dark:text-slate-500 py-2">
           {{ t('noSchedule') }}
         </p>
         <div class="flex flex-col gap-2.5">
@@ -448,12 +479,14 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             class="departure-card group"
             :class="{ 'departure-card-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
           >
-            <div :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
+            <div
+              :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
 
             <div
               class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
               :style="{ backgroundColor: shape.route_color }"
-            >{{ shape.route_short_name }}</div>
+            >{{ shape.route_short_name }}
+            </div>
 
             <div class="flex-1 min-w-0 flex flex-col justify-center">
               <div class="flex items-center gap-1.5 mb-0.5">
@@ -477,10 +510,14 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                     : 'time-pill-sched',
                   i > 0 ? 'time-pill-extra' : ''
                 ]"
-              >{{ i === 0 && shape.static_time_approximation ? '~\u202f' : '' }}{{ formatMinutes(t.minutes) }}</span>
+              >{{
+                  i === 0 && shape.static_time_approximation ? '~\u202f' : ''
+                }}{{ formatMinutes(t.minutes) }}</span>
             </div>
 
-            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <svg
+              class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
             </svg>
           </div>
@@ -491,8 +528,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     <section class="pb-6">
       <h2 class="section-label">
         <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
-        <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
         {{ t('allRoutesAtStop') }}
       </h2>
@@ -508,13 +547,17 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           <div
             class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
             :style="{ backgroundColor: shape.route_color }"
-          >{{ shape.route_short_name }}</div>
+          >{{ shape.route_short_name }}
+          </div>
 
-          <span class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+          <span
+            class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
             {{ shape.timetable.route_long_name }}
           </span>
 
-          <svg class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <svg
+            class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
           </svg>
         </div>
@@ -558,7 +601,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 .departure-card:hover {
   background: white;
   border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .live-badge {
@@ -613,19 +656,27 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   margin: 0 -0.25rem;
 }
 
-.all-route-row:hover { background: #f8fafc; }
+.all-route-row:hover {
+  background: #f8fafc;
+}
 
 .departure-card-fav {
   background: #fff1f2;
   border-color: #fecdd3;
 }
+
 .departure-card-fav:hover {
   background: #ffe4e6;
   border-color: #fda4af;
 }
 
-.all-route-row-fav { background: #fff1f2; }
-.all-route-row-fav:hover { background: #ffe4e6 !important; }
+.all-route-row-fav {
+  background: #fff1f2;
+}
+
+.all-route-row-fav:hover {
+  background: #ffe4e6 !important;
+}
 
 .card-dest {
   font-size: 0.8125rem;
@@ -658,12 +709,22 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.15s;
 }
+
 .fav-btn:hover {
   background: #fef2f2;
   color: #f43f5e;
 }
-.fav-btn:active { transform: scale(0.92); }
-.fav-btn.is-fav { color: #f43f5e; }
-.fav-btn.is-fav:hover { background: #fee2e2; }
+
+.fav-btn:active {
+  transform: scale(0.92);
+}
+
+.fav-btn.is-fav {
+  color: #f43f5e;
+}
+
+.fav-btn.is-fav:hover {
+  background: #fee2e2;
+}
 
 </style>

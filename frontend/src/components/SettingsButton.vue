@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useSettingsStore } from '@/stores/settings'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useSettingsStore} from '@/stores/settings'
 
 type Theme = 'light' | 'dark' | 'system'
 
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 const settings = useSettingsStore()
 const isDark = computed(() => settings.isDark)
 
@@ -53,7 +53,10 @@ function onSpecialThemeChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value
   if (val === 'chomper') settings.activateEasterEgg()
   else if (val === 'traditional') settings.activateTraditional()
-  else { settings.deactivateEasterEgg(); settings.deactivateTraditional() }
+  else {
+    settings.deactivateEasterEgg();
+    settings.deactivateTraditional()
+  }
 }
 
 function setLocale(newLocale: 'ro' | 'en') {
@@ -63,7 +66,8 @@ function setLocale(newLocale: 'ro' | 'en') {
 </script>
 
 <template>
-  <div ref="rootRef" class="settings-root" :class="{ 'is-dark': isDark }" :style="isOpen ? { zIndex: 9999 } : {}">
+  <div ref="rootRef" class="settings-root" :class="{ 'is-dark': isDark }"
+       :style="isOpen ? { zIndex: 9999 } : {}">
     <button
       type="button"
       class="settings-btn"
@@ -73,8 +77,11 @@ function setLocale(newLocale: 'ro' | 'en') {
       @click="toggle"
     >
       <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">⚙️</span>
-      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
-        <path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/>
+      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+           width="16" height="16" aria-hidden="true">
+        <path
+          d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/>
         <circle cx="12" cy="12" r="3"/>
       </svg>
     </button>
@@ -82,24 +89,34 @@ function setLocale(newLocale: 'ro' | 'en') {
     <div v-if="isOpen" class="settings-popover" role="dialog" :aria-label="t('settings')">
       <p class="section-label">{{ t('theme') }}</p>
       <div class="option-group" role="group" :aria-label="t('theme')">
-        <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }" @click="setTheme('light')">
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }"
+                @click="setTheme('light')">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">☀️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true">
             <circle cx="12" cy="12" r="4"/>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            <path
+              d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
           </svg>
           {{ t('themeLight') }}
         </button>
-        <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }" @click="setTheme('dark')">
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }"
+                @click="setTheme('dark')">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🌙</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true">
             <path d="M12 3a6 6 0 009 9 9 9 0 11-9-9z"/>
           </svg>
           {{ t('themeDark') }}
         </button>
-        <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }" @click="setTheme('system')">
+        <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }"
+                @click="setTheme('system')">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🖥️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true">
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <path d="M8 21h8M12 17v4"/>
           </svg>
@@ -107,25 +124,29 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
       </div>
 
-        <div v-if="settings.easterEggUnlocked || settings.traditionalUnlocked" class="select-wrap">
-          <select
-            class="theme-select"
-            :value="activeSpecialTheme"
-            :class="{
+      <div v-if="settings.easterEggUnlocked || settings.traditionalUnlocked" class="select-wrap">
+        <select
+          class="theme-select"
+          :value="activeSpecialTheme"
+          :class="{
               'is-chomper': settings.easterEggActive,
               'is-traditional': settings.traditionalActive,
             }"
-            @change="onSpecialThemeChange"
-            :aria-label="t('theme')"
-          >
-            <option value="default">{{ t('themeDefault') }}</option>
-            <option v-if="settings.easterEggUnlocked" value="chomper">{{ t('chomperTheme') }}</option>
-            <option v-if="settings.traditionalUnlocked" value="traditional">{{ t('traditionalTheme') }}</option>
-          </select>
-          <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </div>
+          @change="onSpecialThemeChange"
+          :aria-label="t('theme')"
+        >
+          <option value="default">{{ t('themeDefault') }}</option>
+          <option v-if="settings.easterEggUnlocked" value="chomper">{{ t('chomperTheme') }}</option>
+          <option v-if="settings.traditionalUnlocked" value="traditional">{{
+              t('traditionalTheme')
+            }}
+          </option>
+        </select>
+        <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </div>
 
       <p class="section-label">{{ t('language') }}</p>
       <div class="option-group" role="group" :aria-label="t('language')">
@@ -186,6 +207,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease;
 }
+
 .settings-btn:hover {
   background: #f1f5f9;
   color: #0f172a;
@@ -196,6 +218,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #f1f5f9;
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.24);
 }
+
 .settings-root.is-dark .settings-btn:hover {
   background: #1e293b;
   color: #f8fafc;
@@ -227,6 +250,7 @@ function setLocale(newLocale: 'ro' | 'en') {
   letter-spacing: 0.05em;
   color: #94a3b8;
 }
+
 .section-label + .option-group + .section-label {
   margin-top: 0.75rem;
 }
@@ -257,10 +281,12 @@ function setLocale(newLocale: 'ro' | 'en') {
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
   white-space: nowrap;
 }
+
 .option-btn:hover {
   background: #f1f5f9;
   color: #0f172a;
 }
+
 .option-btn.active {
   background: #eff6ff;
   color: #1d4ed8;
@@ -270,10 +296,12 @@ function setLocale(newLocale: 'ro' | 'en') {
 .settings-root.is-dark .option-btn {
   color: #64748b;
 }
+
 .settings-root.is-dark .option-btn:hover {
   background: #334155;
   color: #e2e8f0;
 }
+
 .settings-root.is-dark .option-btn.active {
   background: #1e3a5f;
   color: #93c5fd;
@@ -301,13 +329,22 @@ function setLocale(newLocale: 'ro' | 'en') {
   outline: none;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.theme-select:hover  { border-color: #94a3b8; background: #f8fafc; }
-.theme-select:focus  { border-color: #94a3b8; }
+
+.theme-select:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.theme-select:focus {
+  border-color: #94a3b8;
+}
+
 .theme-select.is-chomper {
   border-color: #fcd34d;
   background: #fef9c3;
   color: #92400e;
 }
+
 .theme-select.is-traditional {
   border-color: #245EDC;
   background: #EEF3FF;
@@ -319,14 +356,28 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #cbd5e1;
   background: transparent;
 }
-.settings-root.is-dark .theme-select:hover  { border-color: #475569; background: #1e293b; }
-.settings-root.is-dark .theme-select option { background: #1e293b; color: #cbd5e1; }
+
+.settings-root.is-dark .theme-select:hover {
+  border-color: #475569;
+  background: #1e293b;
+}
+
+.settings-root.is-dark .theme-select option {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
 .settings-root.is-dark .theme-select.is-chomper {
   border-color: #d97706;
   background: #422006;
   color: #fde68a;
 }
-.settings-root.is-dark .theme-select.is-chomper option { background: #422006; color: #fde68a; }
+
+.settings-root.is-dark .theme-select.is-chomper option {
+  background: #422006;
+  color: #fde68a;
+}
+
 .settings-root.is-dark .theme-select.is-traditional {
   border-color: #2A508C;
   background: #10193A;
@@ -343,5 +394,8 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #94a3b8;
   pointer-events: none;
 }
-.settings-root.is-dark .select-chevron { color: #475569; }
+
+.settings-root.is-dark .select-chevron {
+  color: #475569;
+}
 </style>

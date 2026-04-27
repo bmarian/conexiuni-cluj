@@ -1,4 +1,4 @@
-import {ref, computed} from 'vue'
+import {computed, ref} from 'vue'
 import {defineStore} from 'pinia'
 import type {UserLocation} from "@/types/tranzy.ts"
 import {useSettingsStore} from './settings'

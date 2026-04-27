@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useI18n } from 'vue-i18n'
-import { useSettingsStore } from '@/stores/settings.ts'
-import { useUserStore } from '@/stores/user.ts'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {storeToRefs} from 'pinia'
+import {useI18n} from 'vue-i18n'
+import {useSettingsStore} from '@/stores/settings.ts'
+import {useUserStore} from '@/stores/user.ts'
 
 const props = defineProps<{
   routeShortName: string
@@ -11,9 +11,9 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ exit: [] }>()
 
-const { t } = useI18n()
-const { easterEggActive, traditionalActive } = storeToRefs(useSettingsStore())
-const { isDarkMode } = storeToRefs(useUserStore())
+const {t} = useI18n()
+const {easterEggActive, traditionalActive} = storeToRefs(useSettingsStore())
+const {isDarkMode} = storeToRefs(useUserStore())
 
 // canvasTheme and overlayTheme are computed so draw() always reads the current theme each rAF frame.
 const canvasTheme = computed(() => {
@@ -21,64 +21,64 @@ const canvasTheme = computed(() => {
   const x = traditionalActive.value
   const d = isDarkMode.value
   if (x && d) return {
-    court:     '#1A2030',
-    paddle:    '#5BA1F0',
-    ballBorder:'#FFFFFF',
-    line:      'rgba(91,161,240,0.28)',
-    score:     '#90B4E0',
-    pipOn:     '#5BA1F0',
-    pipOff:    'rgba(91,161,240,0.20)',
-    isXp:      true,
+    court: '#1A2030',
+    paddle: '#5BA1F0',
+    ballBorder: '#FFFFFF',
+    line: 'rgba(91,161,240,0.28)',
+    score: '#90B4E0',
+    pipOn: '#5BA1F0',
+    pipOff: 'rgba(91,161,240,0.20)',
+    isXp: true,
   }
   if (x) return {
-    court:     '#ECE9D8',
-    paddle:    '#245EDC',
-    ballBorder:'#000000',
-    line:      'rgba(36,94,220,0.30)',
-    score:     '#245EDC',
-    pipOn:     '#245EDC',
-    pipOff:    'rgba(36,94,220,0.18)',
-    isXp:      true,
+    court: '#ECE9D8',
+    paddle: '#245EDC',
+    ballBorder: '#000000',
+    line: 'rgba(36,94,220,0.30)',
+    score: '#245EDC',
+    pipOn: '#245EDC',
+    pipOff: 'rgba(36,94,220,0.18)',
+    isXp: true,
   }
   if (h && d) return {
-    court:     '#1c1608',
-    paddle:    'rgba(253,230,138,0.90)',
-    ballBorder:'',
-    line:      'rgba(253,230,138,0.10)',
-    score:     'rgba(253,230,138,0.38)',
-    pipOn:     'rgba(253,230,138,0.85)',
-    pipOff:    'rgba(253,230,138,0.18)',
-    isXp:      false,
+    court: '#1c1608',
+    paddle: 'rgba(253,230,138,0.90)',
+    ballBorder: '',
+    line: 'rgba(253,230,138,0.10)',
+    score: 'rgba(253,230,138,0.38)',
+    pipOn: 'rgba(253,230,138,0.85)',
+    pipOff: 'rgba(253,230,138,0.18)',
+    isXp: false,
   }
   if (h) return {
-    court:     '#fefce8',
-    paddle:    '#78350f',
-    ballBorder:'',
-    line:      'rgba(120,53,15,0.12)',
-    score:     'rgba(120,53,15,0.42)',
-    pipOn:     'rgba(120,53,15,0.78)',
-    pipOff:    'rgba(120,53,15,0.16)',
-    isXp:      false,
+    court: '#fefce8',
+    paddle: '#78350f',
+    ballBorder: '',
+    line: 'rgba(120,53,15,0.12)',
+    score: 'rgba(120,53,15,0.42)',
+    pipOn: 'rgba(120,53,15,0.78)',
+    pipOff: 'rgba(120,53,15,0.16)',
+    isXp: false,
   }
   if (d) return {
-    court:     '#0f172a',
-    paddle:    'rgba(255,255,255,0.88)',
-    ballBorder:'',
-    line:      'rgba(255,255,255,0.10)',
-    score:     'rgba(255,255,255,0.30)',
-    pipOn:     'rgba(255,255,255,0.85)',
-    pipOff:    'rgba(255,255,255,0.18)',
-    isXp:      false,
+    court: '#0f172a',
+    paddle: 'rgba(255,255,255,0.88)',
+    ballBorder: '',
+    line: 'rgba(255,255,255,0.10)',
+    score: 'rgba(255,255,255,0.30)',
+    pipOn: 'rgba(255,255,255,0.85)',
+    pipOff: 'rgba(255,255,255,0.18)',
+    isXp: false,
   }
   return {
-    court:     '#f1f5f9',
-    paddle:    'rgba(15,23,42,0.72)',
-    ballBorder:'',
-    line:      'rgba(15,23,42,0.10)',
-    score:     'rgba(15,23,42,0.33)',
-    pipOn:     'rgba(15,23,42,0.72)',
-    pipOff:    'rgba(15,23,42,0.16)',
-    isXp:      false,
+    court: '#f1f5f9',
+    paddle: 'rgba(15,23,42,0.72)',
+    ballBorder: '',
+    line: 'rgba(15,23,42,0.10)',
+    score: 'rgba(15,23,42,0.33)',
+    pipOn: 'rgba(15,23,42,0.72)',
+    pipOff: 'rgba(15,23,42,0.16)',
+    isXp: false,
   }
 })
 
@@ -87,50 +87,50 @@ const overlayTheme = computed(() => {
   const x = traditionalActive.value
   const d = isDarkMode.value
   if (x && d) return {
-    bg:    '#1A2030',
+    bg: '#1A2030',
     title: '#90B4E0',
     score: '#5BA1F0',
   }
   if (x) return {
-    bg:    '#ECE9D8',
+    bg: '#ECE9D8',
     title: '#245EDC',
     score: '#316AC5',
   }
   if (h && d) return {
-    bg:      'rgba(28,22,8,0.82)',
-    title:   '#fde68a',
-    score:   'rgba(253,230,138,0.45)',
-    btnBg:   '#fde68a',
-    btnFg:   '#78350f',
-    ghBg:    'rgba(253,230,138,0.14)',
-    ghFg:    'rgba(253,230,138,0.75)',
+    bg: 'rgba(28,22,8,0.82)',
+    title: '#fde68a',
+    score: 'rgba(253,230,138,0.45)',
+    btnBg: '#fde68a',
+    btnFg: '#78350f',
+    ghBg: 'rgba(253,230,138,0.14)',
+    ghFg: 'rgba(253,230,138,0.75)',
   }
   if (h) return {
-    bg:      'rgba(254,252,232,0.88)',
-    title:   '#78350f',
-    score:   'rgba(120,53,15,0.48)',
-    btnBg:   '#78350f',
-    btnFg:   '#fef9c3',
-    ghBg:    'rgba(120,53,15,0.12)',
-    ghFg:    'rgba(120,53,15,0.72)',
+    bg: 'rgba(254,252,232,0.88)',
+    title: '#78350f',
+    score: 'rgba(120,53,15,0.48)',
+    btnBg: '#78350f',
+    btnFg: '#fef9c3',
+    ghBg: 'rgba(120,53,15,0.12)',
+    ghFg: 'rgba(120,53,15,0.72)',
   }
   if (d) return {
-    bg:      'rgba(0,0,0,0.72)',
-    title:   '#ffffff',
-    score:   'rgba(255,255,255,0.42)',
-    btnBg:   '#ffffff',
-    btnFg:   '#0f172a',
-    ghBg:    'rgba(255,255,255,0.12)',
-    ghFg:    'rgba(255,255,255,0.68)',
+    bg: 'rgba(0,0,0,0.72)',
+    title: '#ffffff',
+    score: 'rgba(255,255,255,0.42)',
+    btnBg: '#ffffff',
+    btnFg: '#0f172a',
+    ghBg: 'rgba(255,255,255,0.12)',
+    ghFg: 'rgba(255,255,255,0.68)',
   }
   return {
-    bg:      'rgba(248,250,252,0.90)',
-    title:   '#0f172a',
-    score:   'rgba(15,23,42,0.42)',
-    btnBg:   '#0f172a',
-    btnFg:   '#f8fafc',
-    ghBg:    'rgba(15,23,42,0.10)',
-    ghFg:    'rgba(15,23,42,0.62)',
+    bg: 'rgba(248,250,252,0.90)',
+    title: '#0f172a',
+    score: 'rgba(15,23,42,0.42)',
+    btnBg: '#0f172a',
+    btnFg: '#f8fafc',
+    ghBg: 'rgba(15,23,42,0.10)',
+    ghFg: 'rgba(15,23,42,0.62)',
   }
 })
 
@@ -143,36 +143,36 @@ const exitBtnStyle = computed(() => {
     }
   }
   return isDarkMode.value
-    ? { background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)' }
-    : { background: 'rgba(15,23,42,0.09)',    color: 'rgba(15,23,42,0.48)'    }
+    ? {background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)'}
+    : {background: 'rgba(15,23,42,0.09)', color: 'rgba(15,23,42,0.48)'}
 })
 
-const canvasEl  = ref<HTMLCanvasElement | null>(null)
-const gameOver  = ref<'player' | 'ai' | null>(null)
+const canvasEl = ref<HTMLCanvasElement | null>(null)
+const gameOver = ref<'player' | 'ai' | null>(null)
 
-const H         = 220
-const PW        = 10
-const PH        = 55
-const BR        = 15
+const H = 220
+const PW = 10
+const PH = 55
+const BR = 15
 const WIN_SCORE = 5
 
 // Game state lives outside Vue reactivity so mutations inside the rAF loop don't trigger re-renders.
-let W              = 300
-let BASE           = 150
+let W = 300
+let BASE = 150
 let bx = W / 2, by = H / 2, vx = BASE, vy = 0
-let lpy            = H / 2 - PH / 2
-let rpy            = H / 2 - PH / 2
-let scoreL         = 0, scoreR = 0
+let lpy = H / 2 - PH / 2
+let rpy = H / 2 - PH / 2
+let scoreL = 0, scoreR = 0
 let pauseRemaining = 0
-let lastTime       = 0
-let raf            = 0
-let running        = false
+let lastTime = 0
+let raf = 0
+let running = false
 
 function launch() {
   bx = W / 2
   by = H / 2
   const angle = (Math.random() * 0.35 - 0.175) * Math.PI
-  const dir   = Math.random() < 0.5 ? 1 : -1
+  const dir = Math.random() < 0.5 ? 1 : -1
   vx = dir * BASE * Math.cos(angle)
   vy = BASE * Math.sin(angle)
   pauseRemaining = 1.2
@@ -193,13 +193,22 @@ function tick(dt: number) {
   lpy += Math.max(-BASE * 0.5 * dt, Math.min(BASE * 0.5 * dt, want))
   lpy = Math.max(0, Math.min(H - PH, lpy))
 
-  if (pauseRemaining > 0) { pauseRemaining -= dt; return }
+  if (pauseRemaining > 0) {
+    pauseRemaining -= dt;
+    return
+  }
 
   bx += vx * dt
   by += vy * dt
 
-  if (by - BR < 0)  { by = BR;     vy =  Math.abs(vy) }
-  if (by + BR > H)  { by = H - BR; vy = -Math.abs(vy) }
+  if (by - BR < 0) {
+    by = BR;
+    vy = Math.abs(vy)
+  }
+  if (by + BR > H) {
+    by = H - BR;
+    vy = -Math.abs(vy)
+  }
 
   if (vx < 0 && bx - BR < PW && by > lpy && by < lpy + PH) {
     bx = PW + BR
@@ -217,12 +226,18 @@ function tick(dt: number) {
 
   if (bx + BR < 0) {
     scoreR++
-    if (scoreR >= WIN_SCORE) { endGame('player'); return }
+    if (scoreR >= WIN_SCORE) {
+      endGame('player');
+      return
+    }
     launch()
   }
   if (bx - BR > W) {
     scoreL++
-    if (scoreL >= WIN_SCORE) { endGame('ai'); return }
+    if (scoreL >= WIN_SCORE) {
+      endGame('ai');
+      return
+    }
     launch()
   }
 }
@@ -231,13 +246,13 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   ctx.beginPath()
   ctx.moveTo(x + r, y)
   ctx.lineTo(x + w - r, y)
-  ctx.arcTo(x + w, y,     x + w, y + r,     r)
+  ctx.arcTo(x + w, y, x + w, y + r, r)
   ctx.lineTo(x + w, y + h - r)
   ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
   ctx.lineTo(x + r, y + h)
-  ctx.arcTo(x,     y + h, x,       y + h - r, r)
+  ctx.arcTo(x, y + h, x, y + h - r, r)
   ctx.lineTo(x, y + r)
-  ctx.arcTo(x,     y,     x + r,   y,         r)
+  ctx.arcTo(x, y, x + r, y, r)
   ctx.closePath()
 }
 
@@ -295,8 +310,10 @@ function draw() {
     ctx.fillRect(0, lpy, PW, PH)
     ctx.fillRect(W - PW, rpy, PW, PH)
   } else {
-    rr(ctx, 0, lpy, PW, PH, 3); ctx.fill()
-    rr(ctx, W - PW, rpy, PW, PH, 3); ctx.fill()
+    rr(ctx, 0, lpy, PW, PH, 3);
+    ctx.fill()
+    rr(ctx, W - PW, rpy, PW, PH, 3);
+    ctx.fill()
   }
 
   // Ball badge
@@ -316,15 +333,15 @@ function draw() {
   } else {
     ctx.save()
     ctx.shadowColor = props.routeColor
-    ctx.shadowBlur  = 18
-    ctx.fillStyle   = props.routeColor
+    ctx.shadowBlur = 18
+    ctx.fillStyle = props.routeColor
     rr(ctx, bx - bw / 2, by - bh / 2, bw, bh, 7)
     ctx.fill()
     ctx.restore()
   }
 
-  ctx.fillStyle    = '#fff'
-  ctx.textAlign    = 'center'
+  ctx.fillStyle = '#fff'
+  ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(props.routeShortName, bx, by + 1)
 }
@@ -339,7 +356,8 @@ function loop(ts: number) {
 }
 
 function restart() {
-  scoreL = 0; scoreR = 0
+  scoreL = 0;
+  scoreR = 0
   gameOver.value = null
   lpy = H / 2 - PH / 2
   rpy = H / 2 - PH / 2
@@ -364,17 +382,20 @@ function onTouchMove(e: TouchEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') { emit('exit'); return }
+  if (e.key === 'Escape') {
+    emit('exit');
+    return
+  }
   const step = 18
-  if (e.key === 'ArrowUp')   rpy = Math.max(0, rpy - step)
+  if (e.key === 'ArrowUp') rpy = Math.max(0, rpy - step)
   if (e.key === 'ArrowDown') rpy = Math.min(H - PH, rpy + step)
 }
 
 onMounted(() => {
   if (canvasEl.value) {
-    W    = canvasEl.value.offsetWidth || 300
+    W = canvasEl.value.offsetWidth || 300
     BASE = W / 1.6
-    canvasEl.value.width  = W
+    canvasEl.value.width = W
     canvasEl.value.height = H
     lpy = H / 2 - PH / 2
     rpy = H / 2 - PH / 2
@@ -403,7 +424,7 @@ onUnmounted(() => {
       <span class="pong-titlebar-text">🎮 Pong — {{ props.routeShortName }}</span>
     </div>
 
-    <canvas ref="canvasEl" :height="H" class="pong-canvas" />
+    <canvas ref="canvasEl" :height="H" class="pong-canvas"/>
 
     <div v-if="gameOver" class="pong-over" :style="{ background: overlayTheme.bg }">
       <p class="pong-over-title" :style="{ color: overlayTheme.title }">
@@ -418,13 +439,15 @@ onUnmounted(() => {
           :class="{ 'pong-over-btn-primary': true, 'is-xp': traditionalActive }"
           :style="!traditionalActive && overlayTheme.btnBg ? { background: overlayTheme.btnBg, color: overlayTheme.btnFg } : undefined"
           @click="restart"
-        >{{ t('pongPlayAgain') }}</button>
+        >{{ t('pongPlayAgain') }}
+        </button>
         <button
           class="pong-over-btn"
           :class="{ 'is-xp': traditionalActive }"
           :style="!traditionalActive && overlayTheme.ghBg ? { background: overlayTheme.ghBg, color: overlayTheme.ghFg } : undefined"
           @click="emit('exit')"
-        >{{ t('pongExit') }}</button>
+        >{{ t('pongExit') }}
+        </button>
       </div>
     </div>
 
@@ -435,7 +458,8 @@ onUnmounted(() => {
       :style="exitBtnStyle"
       @click="emit('exit')"
       title="Exit (Esc)"
-    >✕</button>
+    >✕
+    </button>
   </div>
 </template>
 
@@ -453,12 +477,13 @@ onUnmounted(() => {
 .pong-wrap.is-xp {
   border-radius: 0;
   border: 1px solid #003C9C;
-  box-shadow: 1px 1px 0 #FFFFFF inset, 0 2px 6px rgba(0,0,0,0.25);
+  box-shadow: 1px 1px 0 #FFFFFF inset, 0 2px 6px rgba(0, 0, 0, 0.25);
   margin: 0.75rem 0 1.25rem;
 }
+
 :global(html.dark[data-traditional]) .pong-wrap.is-xp {
   border-color: #001E5C;
-  box-shadow: 1px 1px 0 rgba(255,255,255,0.05) inset, 0 2px 8px rgba(0,0,0,0.5);
+  box-shadow: 1px 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .pong-titlebar {
@@ -478,6 +503,7 @@ onUnmounted(() => {
   padding: 0 8px;
   border-bottom: 1px solid #003C9C;
 }
+
 :global(html.dark[data-traditional]) .pong-titlebar {
   background: linear-gradient(
     to bottom,
@@ -490,12 +516,13 @@ onUnmounted(() => {
   );
   border-bottom-color: #001E5C;
 }
+
 .pong-titlebar-text {
   color: #FFFFFF;
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
   font-size: 11px;
   font-weight: 700;
-  text-shadow: 1px 1px 1px rgba(0,0,0,0.45);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
   letter-spacing: 0.02em;
 }
 
@@ -520,7 +547,10 @@ onUnmounted(() => {
   border: none;
   transition: opacity 0.15s;
 }
-.pong-exit:hover { opacity: 0.7; }
+
+.pong-exit:hover {
+  opacity: 0.7;
+}
 
 /* XP close button — repositioned into the title bar's right edge */
 .pong-exit.is-xp {
@@ -532,8 +562,9 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 700;
   font-family: 'Tahoma', sans-serif;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
+
 .pong-exit.is-xp:hover {
   opacity: 1;
   filter: brightness(1.15);
@@ -549,6 +580,7 @@ onUnmounted(() => {
   gap: 0.5rem;
   cursor: default;
 }
+
 /* When XP titlebar is present, the overlay sits below it */
 .pong-wrap.is-xp .pong-over {
   inset: 25px 0 0 0;
@@ -581,7 +613,10 @@ onUnmounted(() => {
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.pong-over-btn:hover { opacity: 0.82; }
+
+.pong-over-btn:hover {
+  opacity: 0.82;
+}
 
 /* XP-style buttons in the message dialog */
 .pong-over-btn.is-xp {
@@ -592,39 +627,46 @@ onUnmounted(() => {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
   font-size: 0.75rem;
   padding: 0.35rem 1.1rem;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   min-width: 80px;
 }
+
 .pong-over-btn.is-xp:hover {
   opacity: 1;
   background: linear-gradient(to bottom, #FFF5C8 0%, #FFE07A 50%, #F3C94E 100%);
   border-color: #D08020;
 }
+
 .pong-over-btn.is-xp.pong-over-btn-primary {
   background: linear-gradient(to bottom, #4A90E0 0%, #2470D4 50%, #1A52B8 100%);
   color: #FFFFFF;
   border-color: #003C9C;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
+
 .pong-over-btn.is-xp.pong-over-btn-primary:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%);
   border-color: #003C9C;
 }
+
 :global(html.dark[data-traditional]) .pong-over-btn.is-xp {
   background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
   color: #E0E6F2;
   border-color: #444A5C;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
+
 :global(html.dark[data-traditional]) .pong-over-btn.is-xp:hover {
   background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%);
   border-color: #4E88D8;
 }
+
 :global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary {
   background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%);
   color: #FFFFFF;
   border-color: #1B3E78;
 }
+
 :global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%);
 }
@@ -633,14 +675,17 @@ onUnmounted(() => {
 .pong-wrap.is-xp .pong-over {
   background: #ECE9D8 !important;
 }
+
 .pong-wrap.is-xp .pong-over-title {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
   font-size: 1.05rem;
   letter-spacing: 0;
 }
+
 .pong-wrap.is-xp .pong-over-score {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
 }
+
 :global(html.dark[data-traditional]) .pong-wrap.is-xp .pong-over {
   background: #1A2030 !important;
 }

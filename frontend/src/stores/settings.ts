@@ -1,5 +1,5 @@
-import { ref, computed, watch } from 'vue'
-import { defineStore } from 'pinia'
+import {computed, ref, watch} from 'vue'
+import {defineStore} from 'pinia'
 
 type Theme = 'light' | 'dark' | 'system'
 type AppLocale = 'ro' | 'en'
@@ -22,7 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(isDark, (dark) => {
     document.documentElement.classList.toggle('dark', dark)
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-  }, { immediate: true })
+  }, {immediate: true})
 
   function setTheme(newTheme: Theme) {
     theme.value = newTheme
@@ -43,7 +43,7 @@ export const useSettingsStore = defineStore('settings', () => {
     } else {
       document.documentElement.removeAttribute('data-hungry')
     }
-  }, { immediate: true })
+  }, {immediate: true})
 
   function unlockEasterEgg() {
     easterEggUnlocked.value = true
@@ -70,7 +70,7 @@ export const useSettingsStore = defineStore('settings', () => {
     } else {
       document.documentElement.removeAttribute('data-traditional')
     }
-  }, { immediate: true })
+  }, {immediate: true})
 
   function unlockTraditional() {
     if (traditionalUnlocked.value) return
@@ -95,7 +95,9 @@ export const useSettingsStore = defineStore('settings', () => {
   function showToast(message: string) {
     toastMessage.value = message
     if (toastTimer) clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => { toastMessage.value = null }, 3000)
+    toastTimer = setTimeout(() => {
+      toastMessage.value = null
+    }, 3000)
   }
 
   return {

@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import {onMounted, onUnmounted, ref} from 'vue'
 
 const isOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
 
@@ -8,6 +8,7 @@ let refCount = 0
 function handleOnline() {
   isOnline.value = true
 }
+
 function handleOffline() {
   isOnline.value = false
 }
@@ -32,5 +33,5 @@ export function useOnline() {
     }
   })
 
-  return { isOnline }
+  return {isOnline}
 }

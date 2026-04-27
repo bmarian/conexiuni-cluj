@@ -16,11 +16,11 @@ import {useSettingsStore} from "@/stores/settings.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {
   type DisplayVehicle,
-  type IconThemeOptions,
-  makeStopIcon,
-  makeSelectedStopIcon,
-  makeHighlightIcon,
   getVehicleMarkerHtml,
+  type IconThemeOptions,
+  makeHighlightIcon,
+  makeSelectedStopIcon,
+  makeStopIcon,
 } from '@/utils/mapIcons.ts'
 
 const userStore = useUserStore()
@@ -28,7 +28,13 @@ const {isDarkMode} = storeToRefs(userStore)
 const mapStore = useMapStore()
 const settingsStore = useSettingsStore()
 const favoritesStore = useFavoritesStore()
-const {shapesToDisplay, centerOnUser, zoomOut, vehiclesToDisplay, highlightedStops} = storeToRefs(mapStore)
+const {
+  shapesToDisplay,
+  centerOnUser,
+  zoomOut,
+  vehiclesToDisplay,
+  highlightedStops
+} = storeToRefs(mapStore)
 const {easterEggActive, traditionalActive} = storeToRefs(settingsStore)
 const router = useRouter()
 const route = useRoute()
@@ -240,7 +246,9 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
 
   map.value = mapValue
   mapValue.on('locationfound', updateLiveLocation)
-  mapValue.on('click', () => { selectedStopVehicleId.value = null })
+  mapValue.on('click', () => {
+    selectedStopVehicleId.value = null
+  })
   mapValue.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
     userStore.setHasLocationPermission(false)
@@ -427,7 +435,11 @@ const addGroupedStart = (
   routeColor: string,
 ) => {
   const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
-  if (!groupedStarts.has(key)) groupedStarts.set(key, {lat: startPoint[0], lng: startPoint[1], routes: []})
+  if (!groupedStarts.has(key)) groupedStarts.set(key, {
+    lat: startPoint[0],
+    lng: startPoint[1],
+    routes: []
+  })
   const existing = groupedStarts.get(key)!
   if (!existing.routes.some((r) => r.name === routeName)) {
     existing.routes.push({name: routeName, color: routeColor})

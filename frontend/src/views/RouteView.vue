@@ -7,13 +7,19 @@ import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import {OUTGOING_SUFFIX, INCOMING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
-import {formatMinutesFromNow, getMinutesFromDate, getTimetableDayKey, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
+import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
+import {
+  formatMinutesFromNow,
+  getMinutesFromDate,
+  getTimetableDayKey,
+  getTimetableForDay,
+  timeStringToMinutes
+} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
 import {
-  buildStopShapeIdxByStopId,
   buildShapeIndex,
+  buildStopShapeIdxByStopId,
   etaForStop,
   getIndexedVehicles,
   type IndexedVehicle,
@@ -109,7 +115,10 @@ const nearestStopIdx = computed(() => {
   stopsForDirection.value.forEach((stop, idx) => {
     if (!stop.stop_lat || !stop.stop_lon) return
     const d = haversineMeters(loc.latitude, loc.longitude, stop.stop_lat, stop.stop_lon)
-    if (d < bestDist) { bestDist = d; best = idx }
+    if (d < bestDist) {
+      bestDist = d;
+      best = idx
+    }
   })
   return best
 })
@@ -145,7 +154,10 @@ const baseDepartureTimes = computed((): number[] => {
     .map((v) => v.absMin)
 })
 
-interface StopTimeDisplay { label: string; isLive: boolean }
+interface StopTimeDisplay {
+  label: string;
+  isLive: boolean
+}
 
 function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
   const times = baseDepartureTimes.value.map((base) => base + stop.timeOffsetFromStart)
@@ -185,10 +197,10 @@ const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
 const availableTabs = computed(() => {
   const tt = timetable.value
   if (!tt) return []
-  const tabs: Array<{key: TimetableTab; label: string}> = []
+  const tabs: Array<{ key: TimetableTab; label: string }> = []
   if (tt.weekdays?.entries?.length) tabs.push({key: 'weekdays', label: t('weekdays')})
   if (tt.saturday?.entries?.length) tabs.push({key: 'saturday', label: t('saturday')})
-  if (tt.sunday?.entries?.length)   tabs.push({key: 'sunday',   label: t('sunday')})
+  if (tt.sunday?.entries?.length) tabs.push({key: 'sunday', label: t('sunday')})
   return tabs
 })
 
@@ -198,9 +210,9 @@ const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
   if (!tt) return []
   const sched =
-    selectedTimetableTab.value === 'sunday'   ? tt.sunday :
-    selectedTimetableTab.value === 'saturday' ? tt.saturday :
-    tt.weekdays
+    selectedTimetableTab.value === 'sunday' ? tt.sunday :
+      selectedTimetableTab.value === 'saturday' ? tt.saturday :
+        tt.weekdays
   if (!sched?.entries?.length) return []
   const isToday = selectedTimetableTab.value === todayTab.value
   const now = currentMinutes.value
@@ -233,7 +245,7 @@ const timetableByHour = computed((): HourGroup[] => {
     const h = parseInt(rawHour, 10)
     const isNextDay = h >= 24
     const hour = isNextDay ? String(h - 24).padStart(2, '0') : rawHour
-    return { hour, chips, isNextDay }
+    return {hour, chips, isNextDay}
   })
 })
 
@@ -257,8 +269,12 @@ watch(selectedDepartureTime, async (val) => {
   tripViewRef.value?.scrollIntoView({behavior: 'smooth', block: 'nearest'})
 })
 
-watch(currentDirection, () => { selectedDepartureTime.value = null })
-watch(selectedTimetableTab, () => { selectedDepartureTime.value = null })
+watch(currentDirection, () => {
+  selectedDepartureTime.value = null
+})
+watch(selectedTimetableTab, () => {
+  selectedDepartureTime.value = null
+})
 
 type TripStop = IndexedStop & { arrivalTimeStr: string }
 
@@ -296,7 +312,7 @@ function updateMap() {
 }
 
 watchEffect(() => {
-  const highlights: Array<{stopId: string; color: 'green' | 'purple' | 'red' | 'gray'}> = []
+  const highlights: Array<{ stopId: string; color: 'green' | 'purple' | 'red' | 'gray' }> = []
   stopsForDirection.value.forEach((stop, idx) => {
     const stopId = String(stop.stop_id)
     if (stopId === fromStopId.value) highlights.push({stopId, color: 'green'})
@@ -366,15 +382,23 @@ async function refreshVehiclesFromStream() {
   }
 
   await Promise.all([
-    refreshDirection('0', direction0Shape.value, (vehicles) => { direction0Vehicles.value = vehicles }, 'outgoing'),
-    refreshDirection('1', direction1Shape.value, (vehicles) => { direction1Vehicles.value = vehicles }, 'incoming'),
+    refreshDirection('0', direction0Shape.value, (vehicles) => {
+      direction0Vehicles.value = vehicles
+    }, 'outgoing'),
+    refreshDirection('1', direction1Shape.value, (vehicles) => {
+      direction1Vehicles.value = vehicles
+    }, 'incoming'),
   ])
 
   mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
 }
 
-watch(vehiclesByTrip, () => { void refreshVehiclesFromStream() }, {deep: true})
-watch(currentDirection, () => { updateMap() })
+watch(vehiclesByTrip, () => {
+  void refreshVehiclesFromStream()
+}, {deep: true})
+watch(currentDirection, () => {
+  updateMap()
+})
 
 const isInitialLoading = ref(!shapeInfo.value || shapeInfo.value.route_id !== Number(props.routeId))
 
@@ -423,18 +447,23 @@ let chompTimer: ReturnType<typeof setInterval> | null = null
 
 function startChomp() {
   if (chompTimer) return
-  chompTimer = setInterval(() => { mouthOpen.value = !mouthOpen.value }, 320)
+  chompTimer = setInterval(() => {
+    mouthOpen.value = !mouthOpen.value
+  }, 320)
 }
 
 function stopChomp() {
-  if (chompTimer) { clearInterval(chompTimer); chompTimer = null }
+  if (chompTimer) {
+    clearInterval(chompTimer);
+    chompTimer = null
+  }
   mouthOpen.value = true
 }
 
 watch(() => settings.easterEggActive, (active) => {
   if (active) startChomp()
   else stopChomp()
-}, { immediate: true })
+}, {immediate: true})
 
 function ghostFill(stop: IndexedStop, idx: number): string {
   if (String(stop.stop_id) === fromStopId.value) return '#10b981'
@@ -453,7 +482,9 @@ onMounted(async () => {
     if (!ok) return
   }
   updateMap()
-  void loadAllDirections().then(() => { updateMap() })
+  void loadAllDirections().then(() => {
+    updateMap()
+  })
 })
 
 onUnmounted(() => {
@@ -465,7 +496,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="isInitialLoading" class="route-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-6">
+  <div v-if="isInitialLoading"
+       class="route-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-6">
     <div class="h-6 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
     <header class="flex items-start gap-4 pb-1">
       <div class="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0"></div>
@@ -489,13 +521,15 @@ onUnmounted(() => {
   </div>
 
   <div v-else-if="!shapeInfo" class="route-view-container flex flex-col">
-    <ViewErrorState @back="goBack" />
+    <ViewErrorState @back="goBack"/>
   </div>
 
-  <div v-else class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
+  <div v-else
+       class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
     <div class="flex items-center mb-4!">
-      <button @click="goBack" class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150">
+      <button @click="goBack"
+              class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150">
         <IconBack class="w-4 h-4"/>
         {{ t('back') }}
       </button>
@@ -506,16 +540,22 @@ onUnmounted(() => {
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
         :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
       >
-        <span class="text-2xl font-black text-white leading-none">{{ shapeInfo.route_short_name }}</span>
+        <span class="text-2xl font-black text-white leading-none">{{
+            shapeInfo.route_short_name
+          }}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">{{ t('route') }}</div>
+        <div
+          class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
+          {{ t('route') }}
+        </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
           {{ timetable?.route_long_name || shapeInfo.route_short_name }}
         </h1>
-        <p v-if="fromStopName" class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5">
+        <p v-if="fromStopName"
+           class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-          {{ t('from', { name: fromStopName }) }}
+          {{ t('from', {name: fromStopName}) }}
         </p>
       </div>
       <button
@@ -539,21 +579,26 @@ onUnmounted(() => {
       @exit="pongActive = false"
     />
     <div v-else class="direction-toggle-wrap">
-      <button :disabled="!hasOutgoing" @click="onDirClick('0')" :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
-        <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <button :disabled="!hasOutgoing" @click="onDirClick('0')"
+              :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
+        <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+             stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
         <span class="truncate">{{ timetable?.out_stop_name }}</span>
       </button>
-      <button :disabled="!hasIncoming" @click="onDirClick('1')" :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
+      <button :disabled="!hasIncoming" @click="onDirClick('1')"
+              :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <span class="truncate">{{ timetable?.in_stop_name }}</span>
-        <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
       </button>
     </div>
 
-    <div v-if="!stopsForDirection.length" class="mt-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+    <div v-if="!stopsForDirection.length"
+         class="mt-8 text-center text-slate-400 dark:text-slate-500 text-sm">
       {{ t('noSchedule') }}
     </div>
 
@@ -563,9 +608,13 @@ onUnmounted(() => {
         <span class="section-label-text">{{ t('stops') }}</span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
         <div class="flex flex-col items-end gap-0.5">
-          <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{ t('nextDepartures') }}</span>
+          <span
+            class="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{
+              t('nextDepartures')
+            }}</span>
           <div class="times-cols">
-            <span v-for="(time, i) in getHeaderTimes()" :key="i" class="time-cell text-slate-400 dark:text-slate-500">{{ time }}</span>
+            <span v-for="(time, i) in getHeaderTimes()" :key="i"
+                  class="time-cell text-slate-400 dark:text-slate-500">{{ time }}</span>
           </div>
         </div>
       </div>
@@ -574,7 +623,8 @@ onUnmounted(() => {
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
         <div v-if="settings.easterEggActive" class="hungry-eater" aria-hidden="true">
-          <div class="hungry-chomp" style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
+          <div class="hungry-chomp"
+               style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
         </div>
 
         <div
@@ -588,8 +638,12 @@ onUnmounted(() => {
         >
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
             <template v-if="settings.easterEggActive">
-              <svg viewBox="0 0 12 16" :width="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10" :height="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13" aria-hidden="true">
-                <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" :fill="ghostFill(stop, idx)"/>
+              <svg viewBox="0 0 12 16"
+                   :width="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
+                   :height="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
+                   aria-hidden="true">
+                <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z"
+                      :fill="ghostFill(stop, idx)"/>
                 <circle cx="4" cy="8" r="1.4" fill="white"/>
                 <circle cx="8" cy="8" r="1.4" fill="white"/>
                 <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
@@ -599,16 +653,23 @@ onUnmounted(() => {
             <template v-else-if="settings.traditionalActive">
               <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
               <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
-              <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="route-stop-emoji">❤️</span>
-              <span v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="route-stop-bullet route-stop-bullet-end"></span>
+              <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                    class="route-stop-emoji">❤️</span>
+              <span v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
+                    class="route-stop-bullet route-stop-bullet-end"></span>
               <span v-else class="route-stop-bullet"></span>
             </template>
             <template v-else>
-              <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-              <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+              <div v-if="String(stop.stop_id) === fromStopId"
+                   class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="idx === nearestStopIdx"
+                   class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                   class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+              <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
+                   class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+              <div v-else
+                   class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
             </template>
           </div>
 
@@ -621,14 +682,21 @@ onUnmounted(() => {
               'font-medium text-slate-500 dark:text-slate-400'
             ]">{{ getStopLabel(idx, stop) }}</span>
             <template v-if="!settings.traditionalActive">
-              <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              <svg v-if="String(stop.stop_id) === fromStopId"
+                   class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
+                   fill="currentColor">
+                <path
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
               </svg>
-              <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0"
+                   viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
-              <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                   class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </template>
           </div>
@@ -651,7 +719,9 @@ onUnmounted(() => {
         <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{ t('timetableClickHint') }}</span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{
+              t('timetableClickHint')
+            }}</span>
         </div>
 
         <div class="flex gap-1.5 mb-4!">
@@ -670,7 +740,9 @@ onUnmounted(() => {
 
         <div class="tt-table">
           <div v-for="group in timetableByHour" :key="group.hour" class="tt-row">
-            <span class="tt-hour" :class="group.isNextDay ? 'tt-hour-next-day' : ''">{{ group.hour }}</span>
+            <span class="tt-hour" :class="group.isNextDay ? 'tt-hour-next-day' : ''">{{
+                group.hour
+              }}</span>
             <div class="tt-mins">
               <span
                 v-for="chip in group.chips"
@@ -686,19 +758,24 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef" class="trip-view">
+        <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef"
+             class="trip-view">
           <div class="flex items-center gap-2 mb-3">
-            <span class="section-label-text">{{ t('tripAt', { time: selectedDepartureTimeDisplay }) }}</span>
+            <span class="section-label-text">{{
+                t('tripAt', {time: selectedDepartureTimeDisplay})
+              }}</span>
             <div class="flex-1"></div>
             <button
               @click="selectedDepartureTime = null"
               class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold"
               :aria-label="t('closeTripView')"
-            >×</button>
+            >×
+            </button>
           </div>
 
           <div class="relative">
-            <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
+            <div
+              class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
             <div
               v-for="(stop, idx) in selectedDepartureStops"
               :key="stop.stop_id + '-trip'"
@@ -710,8 +787,12 @@ onUnmounted(() => {
             >
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
                 <template v-if="settings.easterEggActive">
-                  <svg viewBox="0 0 12 16" :width="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10" :height="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13" aria-hidden="true">
-                    <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" :fill="ghostFill(stop, idx)"/>
+                  <svg viewBox="0 0 12 16"
+                       :width="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
+                       :height="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
+                       aria-hidden="true">
+                    <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z"
+                          :fill="ghostFill(stop, idx)"/>
                     <circle cx="4" cy="8" r="1.4" fill="white"/>
                     <circle cx="8" cy="8" r="1.4" fill="white"/>
                     <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
@@ -721,16 +802,23 @@ onUnmounted(() => {
                 <template v-else-if="settings.traditionalActive">
                   <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
                   <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
-                  <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="route-stop-emoji">❤️</span>
-                  <span v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="route-stop-bullet route-stop-bullet-end"></span>
+                  <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                        class="route-stop-emoji">❤️</span>
+                  <span v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
+                        class="route-stop-bullet route-stop-bullet-end"></span>
                   <span v-else class="route-stop-bullet"></span>
                 </template>
                 <template v-else>
-                  <div v-if="String(stop.stop_id) === fromStopId" class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="idx === nearestStopIdx" class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1" class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-                  <div v-else class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
+                  <div v-if="String(stop.stop_id) === fromStopId"
+                       class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="idx === nearestStopIdx"
+                       class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                       class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                  <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
+                       class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+                  <div v-else
+                       class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
                 </template>
               </div>
 
@@ -743,14 +831,23 @@ onUnmounted(() => {
                   'font-medium text-slate-500 dark:text-slate-400'
                 ]">{{ getStopLabel(idx, stop) }}</span>
                 <template v-if="!settings.traditionalActive">
-                  <svg v-if="String(stop.stop_id) === fromStopId" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <svg v-if="String(stop.stop_id) === fromStopId"
+                       class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
+                       fill="currentColor">
+                    <path
+                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                   </svg>
-                  <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  <svg v-else-if="idx === nearestStopIdx"
+                       class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24"
+                       fill="currentColor">
+                    <path
+                      d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
-                  <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)" class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                       class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24"
+                       fill="currentColor">
+                    <path
+                      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                   </svg>
                 </template>
               </div>
@@ -782,6 +879,7 @@ onUnmounted(() => {
   color: #64748b;
   white-space: nowrap;
 }
+
 .direction-toggle-wrap {
   display: flex;
   gap: 0;
@@ -806,18 +904,38 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.dir-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.dir-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .dir-btn-active {
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
-.dir-btn-inactive { background: transparent; color: #64748b; }
-.dir-btn-inactive:hover:not(:disabled) { color: #334155; }
 
-.stops-header { display: flex; align-items: center; margin-bottom: 0.875rem; }
+.dir-btn-inactive {
+  background: transparent;
+  color: #64748b;
+}
 
-.times-cols { display: flex; gap: 0; }
+.dir-btn-inactive:hover:not(:disabled) {
+  color: #334155;
+}
+
+.stops-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.875rem;
+}
+
+.times-cols {
+  display: flex;
+  gap: 0;
+}
+
 .time-cell {
   font-size: 0.7rem;
   font-weight: 700;
@@ -826,7 +944,10 @@ onUnmounted(() => {
   text-align: right;
   letter-spacing: -0.01em;
 }
-.time-cell-live { color: #10b981; }
+
+.time-cell-live {
+  color: #10b981;
+}
 
 .stop-row {
   display: flex;
@@ -837,9 +958,21 @@ onUnmounted(() => {
   margin: 0 -0.5rem;
   transition: background 0.15s;
 }
-.stop-row-selected { background: #ecfdf5; padding: 0.625rem 0.5rem; }
-.stop-row-nearest  { background: #faf5ff; padding: 0.625rem 0.5rem; }
-.stop-row-fav      { background: #fff1f2; padding: 0.625rem 0.5rem; }
+
+.stop-row-selected {
+  background: #ecfdf5;
+  padding: 0.625rem 0.5rem;
+}
+
+.stop-row-nearest {
+  background: #faf5ff;
+  padding: 0.625rem 0.5rem;
+}
+
+.stop-row-fav {
+  background: #fff1f2;
+  padding: 0.625rem 0.5rem;
+}
 
 .tt-tab {
   position: relative;
@@ -854,20 +987,52 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.15s;
 }
-.tt-tab-active   { background: #0f172a; color: white; border-color: #0f172a; }
-.tt-tab-inactive { background: transparent; color: #64748b; border-color: #e2e8f0; }
-.tt-tab-inactive:hover { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
-.tt-today-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
-.tt-tab-active .tt-today-dot { background: #6ee7b7; }
 
-.tt-table { width: 100%; }
+.tt-tab-active {
+  background: #0f172a;
+  color: white;
+  border-color: #0f172a;
+}
+
+.tt-tab-inactive {
+  background: transparent;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.tt-tab-inactive:hover {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.tt-today-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+}
+
+.tt-tab-active .tt-today-dot {
+  background: #6ee7b7;
+}
+
+.tt-table {
+  width: 100%;
+}
 
 .tt-row {
   display: flex;
   align-items: center;
   border-bottom: 1px solid #f1f5f9;
 }
-.tt-row:last-child { border-bottom: none; }
+
+.tt-row:last-child {
+  border-bottom: none;
+}
+
 .tt-hour {
   width: 2.5rem;
   align-self: stretch;
@@ -883,6 +1048,7 @@ onUnmounted(() => {
   border-right: 2px solid #e2e8f0;
   line-height: 1;
 }
+
 .tt-mins {
   display: flex;
   flex-wrap: wrap;
@@ -905,10 +1071,24 @@ onUnmounted(() => {
   transition: background 0.1s, color 0.1s;
   user-select: none;
 }
-.tt-min-future   { color: #1e293b; }
-.tt-min-future:hover { background: #f1f5f9; }
-.tt-min-past     { color: #cbd5e1; cursor: default; }
-.tt-min-selected { background: #1e40af; color: white !important; }
+
+.tt-min-future {
+  color: #1e293b;
+}
+
+.tt-min-future:hover {
+  background: #f1f5f9;
+}
+
+.tt-min-past {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.tt-min-selected {
+  background: #1e40af;
+  color: white !important;
+}
 
 .suspended-banner {
   display: flex;
@@ -923,7 +1103,10 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.trip-view { margin-top: 1.25rem; }
+
+.trip-view {
+  margin-top: 1.25rem;
+}
 
 .trip-stop-row {
   display: flex;
@@ -946,11 +1129,26 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.fav-btn:hover { background: #fef2f2; color: #f43f5e; }
-.fav-btn:active { transform: scale(0.92); }
-.fav-btn.is-fav { color: #f43f5e; }
-.fav-btn.is-fav:hover { background: #fee2e2; }
 
-.tt-hour-next-day { color: #7dd3fc !important; }
+.fav-btn:hover {
+  background: #fef2f2;
+  color: #f43f5e;
+}
+
+.fav-btn:active {
+  transform: scale(0.92);
+}
+
+.fav-btn.is-fav {
+  color: #f43f5e;
+}
+
+.fav-btn.is-fav:hover {
+  background: #fee2e2;
+}
+
+.tt-hour-next-day {
+  color: #7dd3fc !important;
+}
 
 </style>

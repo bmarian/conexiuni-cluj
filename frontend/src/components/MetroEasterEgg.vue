@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import {computed} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
 
 const props = defineProps<{ search: string }>()
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 const router = useRouter()
 
 function onEggClick() {
-  router.push({ name: 'not-found' })
+  router.push({name: 'not-found'})
 }
 
 const QUOTES_RO = [
@@ -79,7 +79,11 @@ const quote = computed(() => {
   cursor: pointer;
   transition: opacity 120ms ease, background 120ms ease;
 }
-.egg-row:hover { opacity: 1; }
+
+.egg-row:hover {
+  opacity: 1;
+}
+
 .egg-row:focus-visible {
   outline: 2px solid #94a3b8;
   outline-offset: 2px;
@@ -116,7 +120,10 @@ const quote = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-:global(.dark) .egg-name { color: #475569; }
+
+:global(.dark) .egg-name {
+  color: #475569;
+}
 
 .egg-quote {
   font-size: 0.7rem;
@@ -126,7 +133,10 @@ const quote = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-:global(.dark) .egg-quote { color: #334155; }
+
+:global(.dark) .egg-quote {
+  color: #334155;
+}
 
 .egg-icon {
   font-size: 1rem;

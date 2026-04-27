@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {createRouter, createWebHistory} from 'vue-router'
 
 const HomeView = () => import('@/views/HomeView.vue')
 const StopView = () => import('@/views/StopView.vue')

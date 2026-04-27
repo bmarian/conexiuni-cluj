@@ -34,5 +34,5 @@ export function useStopInfoApi() {
     }
   }
 
-  return { stopInfo, error, fetchStopData }
+  return {stopInfo, error, fetchStopData}
 }

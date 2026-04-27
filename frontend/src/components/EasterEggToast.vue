@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useSettingsStore } from '@/stores/settings'
+import {useSettingsStore} from '@/stores/settings'
+
 const settings = useSettingsStore()
 </script>
 
@@ -34,10 +35,12 @@ const settings = useSettingsStore()
 .egg-toast-leave-active {
   transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 .egg-toast-enter-from {
   opacity: 0;
   transform: translateX(-50%) scale(0.75);
 }
+
 .egg-toast-leave-to {
   opacity: 0;
   transform: translateX(-50%) scale(0.9) translateY(-10px);
