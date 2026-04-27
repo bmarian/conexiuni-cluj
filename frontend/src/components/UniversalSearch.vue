@@ -21,7 +21,6 @@ interface GeoResult {
 const props = defineProps<{
   routes: Route[]
   stops: Stop[]
-  active: boolean
 }>()
 
 const emit = defineEmits<{

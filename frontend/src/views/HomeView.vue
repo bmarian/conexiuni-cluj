@@ -118,9 +118,9 @@ const stopFavoritesModel = computed<number[]>({
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
     <UniversalSearch
-      v-model:active="isSearchMode"
       :routes="sortedRoutes"
       :stops="stops"
+      @update:active="isSearchMode = $event"
     />
 
     <template v-if="!isSearchMode">
