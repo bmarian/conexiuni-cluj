@@ -8,7 +8,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
-import {haversineMeters} from '@/utils/geo.ts'
+import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
 import MetroEasterEgg from '@/components/MetroEasterEgg.vue'
 
 interface GeoResult {
@@ -16,6 +16,19 @@ interface GeoResult {
   display_name: string
   lat: string
   lon: string
+}
+
+interface EnrichedGeoResult extends GeoResult {
+  parsedLat: number
+  parsedLon: number
+  dist: string | null
+  main: string
+  sub: string
+}
+
+interface StopWithDist {
+  stop: Stop
+  dist: string | null
 }
 
 const props = defineProps<{
@@ -72,13 +85,10 @@ const searchStopResults = computed<Stop[]>(() => {
   if (!q) return []
   const filtered = props.stops.filter(s => norm(s.stop_name).includes(q))
   const loc = userStore.userLocation
-  if (loc) {
-    filtered.sort((a, b) =>
-      haversineMeters(loc.latitude, loc.longitude, a.stop_lat, a.stop_lon) -
-      haversineMeters(loc.latitude, loc.longitude, b.stop_lat, b.stop_lon)
-    )
-  }
-  return filtered.slice(0, 3)
+  const sorted = loc
+    ? sortByDistance(filtered, loc.latitude, loc.longitude, s => s.stop_lat, s => s.stop_lon)
+    : filtered
+  return sorted.slice(0, 3)
 })
 
 async function fetchGeo(q: string) {
@@ -96,13 +106,9 @@ async function fetchGeo(q: string) {
     const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
     const results: GeoResult[] = resp.ok ? await resp.json() : []
     const loc = userStore.userLocation
-    if (loc && results.length > 1) {
-      results.sort((a, b) =>
-        haversineMeters(loc.latitude, loc.longitude, parseFloat(a.lat), parseFloat(a.lon)) -
-        haversineMeters(loc.latitude, loc.longitude, parseFloat(b.lat), parseFloat(b.lon))
-      )
-    }
-    geoResults.value = results
+    geoResults.value = loc && results.length > 1
+      ? sortByDistance(results, loc.latitude, loc.longitude, r => parseFloat(r.lat), r => parseFloat(r.lon))
+      : results
   } catch {
     geoResults.value = []
   } finally {
@@ -127,13 +133,34 @@ onUnmounted(() => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
 })
 
-function geoResultParts(displayName: string): { main: string; sub: string } {
-  const parts = displayName.split(',').map(p => p.trim())
-  return {
-    main: parts[0] ?? displayName,
-    sub: parts.slice(1, 3).join(', '),
-  }
+function distanceFrom(lat: number, lon: number): string | null {
+  const loc = userStore.userLocation
+  if (!loc) return null
+  return formatMeters(haversineMeters(loc.latitude, loc.longitude, lat, lon))
 }
+
+const enrichedGeoResults = computed<EnrichedGeoResult[]>(() =>
+  geoResults.value.map(r => {
+    const parsedLat = parseFloat(r.lat)
+    const parsedLon = parseFloat(r.lon)
+    const parts = r.display_name.split(',').map(p => p.trim())
+    return {
+      ...r,
+      parsedLat,
+      parsedLon,
+      dist: distanceFrom(parsedLat, parsedLon),
+      main: parts[0] ?? r.display_name,
+      sub: parts.slice(1, 3).join(', '),
+    }
+  })
+)
+
+const stopResultsWithDist = computed<StopWithDist[]>(() =>
+  searchStopResults.value.map(stop => ({
+    stop,
+    dist: distanceFrom(stop.stop_lat, stop.stop_lon),
+  }))
+)
 
 function navigateToPlan(result: GeoResult) {
   search.value = ''
@@ -170,12 +197,6 @@ function navigateToStop(stop: Stop) {
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
 }
 
-function formatDistance(lat: number, lon: number): string | null {
-  const loc = userStore.userLocation
-  if (!loc) return null
-  const m = haversineMeters(loc.latitude, loc.longitude, lat, lon)
-  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`
-}
 </script>
 
 <template>
@@ -220,11 +241,11 @@ function formatDistance(lat: number, lon: number): string | null {
         <span class="geo-loading-dot"></span>
       </div>
 
-      <div v-if="geoResults.length" class="result-group">
+      <div v-if="enrichedGeoResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div
-            v-for="result in geoResults"
+            v-for="result in enrichedGeoResults"
             :key="result.place_id"
             class="geo-result-row group"
             role="button"
@@ -245,18 +266,15 @@ function formatDistance(lat: number, lon: number): string | null {
             <div class="flex flex-col flex-1 min-w-0 gap-0.5">
               <span
                 class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
-                {{ geoResultParts(result.display_name).main }}
+                {{ result.main }}
               </span>
               <span
-                v-if="geoResultParts(result.display_name).sub"
+                v-if="result.sub"
                 class="text-xs text-slate-400 dark:text-slate-500 truncate">
-                {{ geoResultParts(result.display_name).sub }}
+                {{ result.sub }}
               </span>
             </div>
-            <span
-              v-if="formatDistance(parseFloat(result.lat), parseFloat(result.lon))"
-              class="dist-badge"
-            >{{ formatDistance(parseFloat(result.lat), parseFloat(result.lon)) }}</span>
+            <span v-if="result.dist" class="dist-badge">{{ result.dist }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -306,14 +324,14 @@ function formatDistance(lat: number, lon: number): string | null {
         </div>
       </div>
 
-      <div v-if="searchStopResults.length" class="result-group">
+      <div v-if="stopResultsWithDist.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsStops') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div
-            v-for="stop in searchStopResults"
-            :key="stop.stop_id"
+            v-for="entry in stopResultsWithDist"
+            :key="entry.stop.stop_id"
             class="all-route-row group"
-            @click="navigateToStop(stop)"
+            @click="navigateToStop(entry.stop)"
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
@@ -327,12 +345,9 @@ function formatDistance(lat: number, lon: number): string | null {
             </div>
             <span
               class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-              {{ stop.stop_name }}
+              {{ entry.stop.stop_name }}
             </span>
-            <span
-              v-if="formatDistance(stop.stop_lat, stop.stop_lon)"
-              class="dist-badge"
-            >{{ formatDistance(stop.stop_lat, stop.stop_lon) }}</span>
+            <span v-if="entry.dist" class="dist-badge">{{ entry.dist }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
@@ -346,7 +361,7 @@ function formatDistance(lat: number, lon: number): string | null {
       <MetroEasterEgg :search="search"/>
 
       <p
-        v-if="!metroEggVisible && !geoLoading && !geoResults.length && !searchRouteResults.length && !searchStopResults.length"
+        v-if="!metroEggVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
         class="no-results"
       >{{ t('noResults') }}</p>
 
