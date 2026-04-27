@@ -284,3 +284,25 @@ html.dark .geo-loading-dot {
   background: #475569;
 }
 
+html.dark .route-legs-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.dark .leg-dot-origin {
+  box-shadow: 0 0 0 3px #2e1065;
+}
+
+html.dark .leg-dot-dest {
+  box-shadow: 0 0 0 3px #1e1b4b;
+}
+
+html.dark .leg-name {
+  color: #f1f5f9;
+}
+
+html.dark .plan-placeholder {
+  border-color: #334155;
+  background: #0f172a;
+}
+

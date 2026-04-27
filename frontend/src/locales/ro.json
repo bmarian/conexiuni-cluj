@@ -68,5 +68,14 @@
   "bsodReason": "Poate a luat o altă rută. Poate e blocată în trafic pe. Oricum, nu mai vine.",
   "bsodTechHeader": "Informații tehnice:",
   "bsodStop": "*** STOP: 0x00000404 (AUTOBUZUL_A_PLECAT, NIMIC_PE_APROAPE, MULT_NOROC_DATA_VIITOARE)",
-  "bsodPrompt": "Apasă orice tastă pentru a merge acasă"
+  "bsodPrompt": "Apasă orice tastă pentru a merge acasă",
+  "planTitle": "Planificare rută",
+  "planTitleGeneric": "Planifică o rută",
+  "planFrom": "De la",
+  "planTo": "Până la",
+  "planOriginCurrentLocation": "Locația mea actuală",
+  "planOriginUnknown": "Locație necunoscută",
+  "planRoutesLabel": "Rute disponibile",
+  "planComingSoon": "În curând",
+  "planComingSoonDesc": "Planificarea rutelor va fi disponibilă în curând."
 }

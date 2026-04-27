@@ -57,7 +57,8 @@ html[data-hungry] .drawer-grip {
 
 html[data-hungry] .stop-view-container,
 html[data-hungry] .route-view-container,
-html[data-hungry] .home-view-container {
+html[data-hungry] .home-view-container,
+html[data-hungry] .plan-view-container {
   background-color: #fefce8 !important;
 }
 
@@ -186,7 +187,8 @@ html.dark[data-hungry] .app-shell,
 html.dark[data-hungry] .app-drawer,
 html.dark[data-hungry] .stop-view-container,
 html.dark[data-hungry] .route-view-container,
-html.dark[data-hungry] .home-view-container {
+html.dark[data-hungry] .home-view-container,
+html.dark[data-hungry] .plan-view-container {
   background-color: #1c1608 !important;
 }
 
@@ -398,5 +400,95 @@ html[data-hungry] .geo-loading-dot {
 
 html.dark[data-hungry] .geo-loading-dot {
   background: #fbbf24 !important;
+}
+
+/* RoutePlanningView */
+
+html[data-hungry] .route-legs-card {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html[data-hungry] .leg-dot-origin,
+html[data-hungry] .leg-dot-dest {
+  background: #f59e0b !important;
+  box-shadow: 0 0 0 3px #fef3c7 !important;
+}
+
+html[data-hungry] .leg-line {
+  background: repeating-linear-gradient(to bottom, #f59e0b 0, #f59e0b 4px, transparent 4px, transparent 8px) !important;
+  opacity: 0.5 !important;
+}
+
+html[data-hungry] .leg-type-badge,
+html[data-hungry] .leg-type-badge-dest {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .leg-name {
+  color: #78350f !important;
+}
+
+html[data-hungry] .plan-placeholder {
+  background: #fef9c3 !important;
+  border-color: #fde68a !important;
+}
+
+html.dark[data-hungry] .route-legs-card {
+  background: #211a05 !important;
+  border-color: #78350f !important;
+}
+
+html.dark[data-hungry] .leg-dot-origin,
+html.dark[data-hungry] .leg-dot-dest {
+  background: #d97706 !important;
+  box-shadow: 0 0 0 3px #451a03 !important;
+}
+
+html.dark[data-hungry] .leg-line {
+  background: repeating-linear-gradient(to bottom, #d97706 0, #d97706 4px, transparent 4px, transparent 8px) !important;
+  opacity: 0.5 !important;
+}
+
+html.dark[data-hungry] .leg-type-badge,
+html.dark[data-hungry] .leg-type-badge-dest {
+  color: #fbbf24 !important;
+}
+
+html.dark[data-hungry] .leg-name {
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .plan-placeholder {
+  background: #1c1608 !important;
+  border-color: #78350f !important;
+}
+
+html[data-hungry] .plan-view-container > header > div:first-child {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+html[data-hungry] .plan-view-container .text-violet-600,
+html[data-hungry] .plan-view-container .text-violet-400 {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .plan-view-container .bg-violet-500 {
+  background: #f59e0b !important;
+}
+
+html.dark[data-hungry] .plan-view-container > header > div:first-child {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+}
+
+html.dark[data-hungry] .plan-view-container .text-violet-600,
+html.dark[data-hungry] .plan-view-container .text-violet-400 {
+  color: #fbbf24 !important;
+}
+
+html.dark[data-hungry] .plan-view-container .bg-violet-500 {
+  background: #d97706 !important;
 }
 

@@ -135,12 +135,17 @@ function geoResultParts(displayName: string): { main: string; sub: string } {
   }
 }
 
-function flyToGeoResult(result: GeoResult) {
-  const lat = parseFloat(result.lat)
-  const lon = parseFloat(result.lon)
-  mapStore.setFlyToLocation(lat, lon)
-  mapStore.setPinnedLocation(lat, lon, result.display_name)
+function navigateToPlan(result: GeoResult) {
   search.value = ''
+
+  void router.push({
+    name: 'plan',
+    query: {
+      lat: result.lat,
+      lot: result.lon,
+      name: result.display_name,
+    },
+  })
 }
 
 async function navigateToRoute(route: Route) {
@@ -224,8 +229,8 @@ function formatDistance(lat: number, lon: number): string | null {
             class="geo-result-row group"
             role="button"
             tabindex="0"
-            @click="flyToGeoResult(result)"
-            @keydown.enter.space.prevent="flyToGeoResult(result)"
+            @click="navigateToPlan(result)"
+            @keydown.enter.space.prevent="navigateToPlan(result)"
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
