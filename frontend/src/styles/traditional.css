@@ -1362,12 +1362,12 @@ html[data-traditional] .plan-placeholder {
   border: 1px solid var(--xp-border) !important;
 }
 
-html[data-traditional] .plan-view-container .bg-violet-500 {
+html[data-traditional] .plan-view-container .bg-sky-500 {
   background: var(--xp-blue) !important;
 }
 
-html[data-traditional] .plan-view-container .text-violet-600,
-html[data-traditional] .plan-view-container .text-violet-400 {
+html[data-traditional] .plan-view-container .text-sky-600,
+html[data-traditional] .plan-view-container .text-sky-400 {
   color: var(--xp-blue) !important;
 }
 
@@ -1388,11 +1388,11 @@ html.dark[data-traditional] .plan-placeholder {
   border: 1px solid var(--xp-border) !important;
 }
 
-html.dark[data-traditional] .plan-view-container .bg-violet-500 {
+html.dark[data-traditional] .plan-view-container .bg-sky-500 {
   background: var(--xp-blue) !important;
 }
 
-html.dark[data-traditional] .plan-view-container .text-violet-600,
-html.dark[data-traditional] .plan-view-container .text-violet-400 {
+html.dark[data-traditional] .plan-view-container .text-sky-600,
+html.dark[data-traditional] .plan-view-container .text-sky-400 {
   color: var(--xp-blue) !important;
 }

@@ -61,7 +61,7 @@ function goBack() {
     </div>
 
     <header class="flex items-center gap-3">
-      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
         <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
         <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -69,7 +69,7 @@ function goBack() {
         </svg>
       </div>
       <div class="flex-1 min-w-0">
-        <span class="text-[10px] font-semibold text-violet-600 dark:text-violet-400 tracking-wide uppercase">{{ t('planTitle') }}</span>
+        <span class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{ t('planTitle') }}</span>
         <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
           {{ hasValidDest ? destName : t('planTitleGeneric') }}
         </h1>
@@ -109,7 +109,7 @@ function goBack() {
 
     <section class="flex flex-col gap-3 pb-8">
       <h2 class="section-label">
-        <span class="w-2 h-2 rounded-full bg-violet-500 shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
         {{ t('planRoutesLabel') }}
       </h2>
 
@@ -181,19 +181,19 @@ function goBack() {
 }
 
 .leg-dot-origin {
-  background: #8b5cf6;
-  box-shadow: 0 0 0 3px #ede9fe;
+  background: #0ea5e9;
+  box-shadow: 0 0 0 3px #e0f2fe;
 }
 
 .leg-dot-dest {
-  background: #6366f1;
-  box-shadow: 0 0 0 3px #e0e7ff;
+  background: #2563eb;
+  box-shadow: 0 0 0 3px #dbeafe;
 }
 
 .leg-line {
   flex: 1;
   width: 2px;
-  background: repeating-linear-gradient(to bottom, #c4b5fd 0, #c4b5fd 4px, transparent 4px, transparent 8px);
+  background: repeating-linear-gradient(to bottom, #7dd3fc 0, #7dd3fc 4px, transparent 4px, transparent 8px);
   margin: 0.25rem 0;
   min-height: 0.75rem;
 }
@@ -217,11 +217,11 @@ function goBack() {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #8b5cf6;
+  color: #0ea5e9;
 }
 
 .leg-type-badge-dest {
-  color: #6366f1;
+  color: #2563eb;
 }
 
 .leg-name {

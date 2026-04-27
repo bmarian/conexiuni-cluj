@@ -290,11 +290,11 @@ html.dark .route-legs-card {
 }
 
 html.dark .leg-dot-origin {
-  box-shadow: 0 0 0 3px #2e1065;
+  box-shadow: 0 0 0 3px #0c4a6e;
 }
 
 html.dark .leg-dot-dest {
-  box-shadow: 0 0 0 3px #1e1b4b;
+  box-shadow: 0 0 0 3px #1e3a8a;
 }
 
 html.dark .leg-name {

@@ -469,12 +469,12 @@ html[data-hungry] .plan-view-container > header > div:first-child {
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
 }
 
-html[data-hungry] .plan-view-container .text-violet-600,
-html[data-hungry] .plan-view-container .text-violet-400 {
+html[data-hungry] .plan-view-container .text-sky-600,
+html[data-hungry] .plan-view-container .text-sky-400 {
   color: #b45309 !important;
 }
 
-html[data-hungry] .plan-view-container .bg-violet-500 {
+html[data-hungry] .plan-view-container .bg-sky-500 {
   background: #f59e0b !important;
 }
 
@@ -483,12 +483,12 @@ html.dark[data-hungry] .plan-view-container > header > div:first-child {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
 }
 
-html.dark[data-hungry] .plan-view-container .text-violet-600,
-html.dark[data-hungry] .plan-view-container .text-violet-400 {
+html.dark[data-hungry] .plan-view-container .text-sky-600,
+html.dark[data-hungry] .plan-view-container .text-sky-400 {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .plan-view-container .bg-violet-500 {
+html.dark[data-hungry] .plan-view-container .bg-sky-500 {
   background: #d97706 !important;
 }
 
