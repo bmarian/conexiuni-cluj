@@ -81,20 +81,28 @@ async function fetch_weather() {
     temp.value = Math.round(data.current.temperature_2m)
     code.value = data.current.weathercode
     isDay.value = data.current.is_day === 1
+    scheduleNext(data.current.time, data.current.interval)
   } catch {
-    // fail silently, widget stays hidden
+    // fail silently, retry in 10 min
+    timer = setTimeout(fetch_weather, 10 * 60 * 1000)
   }
 }
 
-let timer: ReturnType<typeof setInterval> | null = null
+function scheduleNext(isoTime: string, intervalSec: number) {
+  const dataTime = new Date(isoTime).getTime()
+  const nextUpdate = dataTime + intervalSec * 1000
+  const delay = Math.max(nextUpdate - Date.now() + 5_000, 30_000)
+  timer = setTimeout(fetch_weather, delay)
+}
+
+let timer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   fetch_weather()
-  timer = setInterval(fetch_weather, 10 * 60 * 1000)
 })
 
 onUnmounted(() => {
-  if (timer !== null) clearInterval(timer)
+  if (timer !== null) clearTimeout(timer)
 })
 </script>
 
