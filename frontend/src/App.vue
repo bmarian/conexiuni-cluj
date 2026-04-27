@@ -206,6 +206,7 @@ function toggleLandscapeDrawer() {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
+  contain: layout paint;
 }
 
 .landscape-drawer-toggle {
@@ -254,7 +255,18 @@ function toggleLandscapeDrawer() {
 
 .app-drawer.is-dragging {
   transition: none;
+  will-change: height;
 }
+
+.is-dragging .drawer-scroll {
+  contain: layout paint;
+}
+
+.is-dragging .drawer-view {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
 
 .drawer-handle {
   display: flex;
@@ -295,6 +307,7 @@ function toggleLandscapeDrawer() {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  contain: layout paint;
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
