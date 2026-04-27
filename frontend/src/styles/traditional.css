@@ -59,7 +59,8 @@ html[data-traditional] .settings-popover .select-wrap::after,
 html[data-traditional] .weather-pill,
 html[data-traditional] .landscape-drawer-toggle,
 html[data-traditional] .offline-pill,
-html[data-traditional] .egg-toast {
+html[data-traditional] .egg-toast,
+html[data-traditional] .app-drawer .green-friday-close {
   border-radius: 0 !important;
 }
 
@@ -1395,4 +1396,71 @@ html.dark[data-traditional] .plan-view-container .bg-sky-500 {
 html.dark[data-traditional] .plan-view-container .text-sky-600,
 html.dark[data-traditional] .plan-view-container .text-sky-400 {
   color: var(--xp-blue) !important;
+}
+
+/* GreenFridayBanner */
+html[data-traditional] .green-friday-banner {
+  background: var(--xp-tan) !important;
+  border-bottom: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF !important;
+}
+
+html[data-traditional] .green-friday-title {
+  background: var(--xp-live) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+html[data-traditional] .green-friday-desc {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .green-friday-close {
+  background: var(--xp-fav-active) !important;
+  border: 1px solid #6B1010 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-traditional] .green-friday-close:hover {
+  background: var(--xp-fav-active-hover) !important;
+  border-color: #6B1010 !important;
+  color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .green-friday-banner {
+  background: #1A2030 !important;
+  border-bottom: 1px solid var(--xp-border) !important;
+  box-shadow: none !important;
+}
+
+html.dark[data-traditional] .green-friday-title {
+  background: var(--xp-live) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+html.dark[data-traditional] .green-friday-desc {
+  color: #8898B0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .green-friday-close {
+  background: var(--xp-fav-active) !important;
+  border: 1px solid #6B1010 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+html.dark[data-traditional] .green-friday-close:hover {
+  background: var(--xp-fav-active-hover) !important;
+  border-color: #6B1010 !important;
+  color: #FFFFFF !important;
 }
