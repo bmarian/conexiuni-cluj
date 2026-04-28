@@ -55,10 +55,16 @@ onUnmounted(() => {
 const drawerStyle = computed(() => {
   if (!isPortraitMobile.value) return {}
   const state = drawerState.value
-  if (state === 'fullscreen') return {transform: 'translateY(0px)'}
-  if (state === 'minimized') return {transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`}
+  if (state === 'fullscreen') return {transform: 'translateY(0px)', '--drawer-visible-h': '100dvh'}
+  if (state === 'minimized') return {
+    transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`,
+    '--drawer-visible-h': `${MINIMIZED_PX}px`,
+  }
   const hiddenFrac = 1 - SNAP_FRAC[state]
-  return {transform: `translateY(${hiddenFrac * 100}dvh)`}
+  return {
+    transform: `translateY(${hiddenFrac * 100}dvh)`,
+    '--drawer-visible-h': `${SNAP_FRAC[state] * 100}dvh`,
+  }
 })
 
 watch([drawerState, isDragging], async ([, dragging]) => {
@@ -352,6 +358,8 @@ function toggleLandscapeDrawer() {
 .drawer-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  /* Clamp scroll area to the visually exposed portion so content doesn't hide below the fold. */
+  max-height: calc(var(--drawer-visible-h, 100dvh) - 2.5rem);
   display: flex;
   flex-direction: column;
   touch-action: pan-y;
