@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted} from 'vue'
+import {computed, onMounted, onUnmounted, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import IconBack from '@/components/icons/IconBack.vue'
+import {closestStop} from "@/utils/geo.ts";
+import {apiRequest} from "@/utils/request_cache.ts";
+import type {Stop, StopInfo} from "@/types/tranzy.ts";
+import {storeToRefs} from "pinia";
 
 const {t} = useI18n()
 const route = useRoute()
@@ -13,6 +17,7 @@ const router = useRouter()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
+const {userLocation} = storeToRefs(userStore)
 
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
@@ -25,8 +30,6 @@ const originLabel = computed(() => {
   if (userStore.userLocation) return t('planOriginCurrentLocation')
   return t('planOriginUnknown')
 })
-
-// using openrouteservice 2000 requests/day 40/min directions vs api
 
 onMounted(() => {
   mapStore.setHighlightedStops([])
@@ -47,10 +50,33 @@ onUnmounted(() => {
 function goBack() {
   router.replace({name: 'home'})
 }
+
+const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul]) => {
+  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul) return
+
+  const stops = await apiRequest('stops') as Stop[]
+  if (!Array.isArray(stops) || !stops.length) return
+
+  const closestStopToDestination = closestStop(lat, lon, stops) as Stop
+  const closestStopToUser = closestStop(ul.latitude, ul.longitude, stops) as Stop
+
+  if (!closestStopToDestination || !closestStopToUser) return
+  const destinationStop = await apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>
+  const startStop = await apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>
+
+  console.log('destinationStop', destinationStop)
+  console.log('startStop', startStop)
+
+  stopWatcher()
+}, {immediate: true})
+
+// using openrouteservice 2000 requests/day 40/min directionsV2 API - to go to this stop
+
 </script>
 
 <template>
-  <div class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
+  <div
+    class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
 
     <div class="flex items-center -mb-2">
       <button
@@ -63,16 +89,22 @@ function goBack() {
     </div>
 
     <header class="flex items-center gap-3">
-      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+      <div
+        class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
         <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
-        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
       </div>
       <div class="flex-1 min-w-0">
-        <span class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{ t('planTitle') }}</span>
-        <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+        <span
+          class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{
+            t('planTitle')
+          }}</span>
+        <h1
+          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
           {{ hasValidDest ? destName : t('planTitleGeneric') }}
         </h1>
       </div>
@@ -98,7 +130,8 @@ function goBack() {
         <div class="leg-icon-col">
           <div class="leg-dot leg-dot-dest">
             <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              <path
+                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
             </svg>
           </div>
         </div>
@@ -116,12 +149,15 @@ function goBack() {
       </h2>
 
       <div class="plan-placeholder">
-        <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
         </svg>
-        <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">{{ t('planComingSoon') }}</p>
-        <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">{{ t('planComingSoonDesc') }}</p>
+        <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+          {{ t('planComingSoon') }}</p>
+        <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">
+          {{ t('planComingSoonDesc') }}</p>
       </div>
     </section>
 

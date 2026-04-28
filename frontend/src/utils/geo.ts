@@ -1,4 +1,4 @@
-import type {StopTime, UserLocation} from "@/types/tranzy.ts"
+import type {Stop, StopTime} from "@/types/tranzy.ts"
 
 const earthRadiusMeters = 6_371_000.0
 
@@ -42,7 +42,7 @@ export const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2:
   return (toDeg(theta) + 360) % 360;
 };
 
-export const closestStop = ({latitude, longitude}: {latitude: number, longitude: number}, stops: StopTime[]): StopTime | null => {
+export const closestStop = (latitude: number, longitude: number, stops: StopTime[] | Stop[]): StopTime | Stop | null => {
   if (!Array.isArray(stops) || stops.length === 0) return null
 
   let clStop = stops[0]!
