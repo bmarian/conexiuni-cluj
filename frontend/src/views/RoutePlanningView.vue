@@ -26,6 +26,8 @@ const originLabel = computed(() => {
   return t('planOriginUnknown')
 })
 
+// using openrouteservice 2000 requests/day 40/min directions vs api
+
 onMounted(() => {
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])

@@ -22,7 +22,6 @@ const SNAP_FRAC: Record<DrawerState, number> = {
   expanded: 0.92,
   fullscreen: 1.0,
 }
-const cycleOrder: DrawerState[] = ['minimized', 'half', 'fullscreen']
 
 const drawerEl = ref<HTMLElement | null>(null)
 const drawerState = ref<DrawerState>('half')
@@ -50,6 +49,9 @@ let pointerId = -1
 let startY = 0
 let startHeight = 0
 let moved = false
+let lastY = 0
+let lastT = 0
+let velocityY = 0 // px/ms, positive = downward
 
 function viewportPx() {
   return window.visualViewport?.height ?? window.innerHeight
@@ -63,6 +65,9 @@ function onPointerDown(e: PointerEvent) {
   startY = e.clientY
   startHeight = el.getBoundingClientRect().height
   moved = false
+  velocityY = 0
+  lastY = e.clientY
+  lastT = e.timeStamp
   isDragging.value = true
   el.style.transition = 'none'
   el.style.height = `${startHeight}px`
@@ -75,6 +80,10 @@ function onPointerMove(e: PointerEvent) {
   if (!el) return
   const dy = e.clientY - startY
   if (Math.abs(dy) > 3) moved = true
+  const dt = e.timeStamp - lastT
+  if (dt > 0) velocityY = (e.clientY - lastY) / dt
+  lastY = e.clientY
+  lastT = e.timeStamp
   const vh = viewportPx()
   el.style.height = `${Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))}px`
 }
@@ -85,7 +94,7 @@ function endDrag() {
   const vh = viewportPx()
   const height = el ? parseFloat(el.style.height) || startHeight : startHeight
 
-  const allStates: DrawerState[] = ['minimized', 'collapsed', 'half', 'expanded', 'fullscreen']
+  const snapStates: DrawerState[] = ['minimized', 'half', 'fullscreen']
   const snapHeights: Record<DrawerState, number> = {
     minimized: MINIMIZED_PX,
     collapsed: SNAP_FRAC.collapsed * vh,
@@ -95,24 +104,29 @@ function endDrag() {
   }
 
   let best: DrawerState = 'half'
-  let bestDist = Infinity
-  for (const s of allStates) {
-    const d = Math.abs(snapHeights[s] - height)
-    if (d < bestDist) {
-      bestDist = d;
-      best = s
-    }
-  }
+
+  const FLICK_THRESHOLD = 0.4 // px/ms
   if (!moved) {
-    if (cycleOrder.includes(drawerState.value)) {
-      const i = cycleOrder.indexOf(drawerState.value)
-      best = cycleOrder[(i + 1) % cycleOrder.length]!
-    } else {
-      best = drawerState.value === 'collapsed' ? 'half' : 'fullscreen'
+    best = drawerState.value === 'minimized' ? 'half' : 'minimized'
+  } else if (velocityY > FLICK_THRESHOLD) {
+    // flicked downward — collapse toward minimized
+    const cur = snapStates.indexOf(drawerState.value)
+    best = snapStates[Math.max(0, cur - 1)]!
+  } else if (velocityY < -FLICK_THRESHOLD) {
+    // flicked upward — expand toward fullscreen
+    const cur = snapStates.indexOf(drawerState.value)
+    best = snapStates[Math.min(snapStates.length - 1, cur + 1)]!
+  } else {
+    let bestDist = Infinity
+    for (const s of snapStates) {
+      const d = Math.abs(snapHeights[s] - height)
+      if (d < bestDist) {
+        bestDist = d
+        best = s
+      }
     }
   }
 
-  // Restore CSS transition after drag ends
   if (el) {
     el.style.transition = ''
     el.style.height = ''
@@ -273,7 +287,7 @@ function toggleLandscapeDrawer() {
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  height: 1.75rem;
+  height: 2.5rem;
   width: 100%;
   background: transparent;
   border: 0;
@@ -287,8 +301,8 @@ function toggleLandscapeDrawer() {
 }
 
 .drawer-grip {
-  width: 2.5rem;
-  height: 0.3125rem;
+  width: 3.5rem;
+  height: 0.375rem;
   border-radius: 9999px;
   background: #cbd5e1;
 }
