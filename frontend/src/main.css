@@ -16,4 +16,12 @@
 body {
   margin: 0;
   padding: 0;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
 }

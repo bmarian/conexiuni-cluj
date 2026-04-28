@@ -34,7 +34,8 @@ const {
   pinnedLocation,
   zoomOut,
   vehiclesToDisplay,
-  highlightedStops
+  highlightedStops,
+  drawerBottomPx,
 } = storeToRefs(mapStore)
 const {easterEggActive, traditionalActive} = storeToRefs(settingsStore)
 const router = useRouter()
@@ -127,6 +128,20 @@ const invalidateMapSize = () => {
   map.value.invalidateSize({pan: false, animate: false})
 }
 
+// Offset the latlng so flyTo centres the point in the visible map area above the drawer.
+const flyToVisible = (latlng: L.LatLng, zoom: number, duration = 1) => {
+  const m = map.value
+  if (!m) return
+  const offset = drawerBottomPx.value / 2
+  if (offset < 4) {
+    m.flyTo(latlng, zoom, {duration})
+    return
+  }
+  const projected = m.project(latlng, zoom)
+  const adjusted = m.unproject(projected.add([0, offset]), zoom)
+  m.flyTo(adjusted, zoom, {duration})
+}
+
 const scheduleInvalidateMapSize = () => {
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
   resizeRaf = requestAnimationFrame(() => {
@@ -162,7 +177,7 @@ const createCenterControl = (mapValue: L.Map) => {
       e.preventDefault()
       const location = userDot.value?.getLatLng()
       if (!location) return
-      mapValue.flyTo(location, DEFAULT_ZOOM, {duration: 1})
+      flyToVisible(location, DEFAULT_ZOOM)
     })
 
     const fitBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
@@ -181,7 +196,13 @@ const createCenterControl = (mapValue: L.Map) => {
       e.preventDefault()
       const bounds = shapeLayerGroup.value?.getBounds()
       if (!bounds || !bounds.isValid()) return
-      mapValue.fitBounds(bounds, {padding: [24, 24], maxZoom: 16, animate: true, duration: 0.8})
+      mapValue.fitBounds(bounds, {
+        paddingTopLeft: [24, 24],
+        paddingBottomRight: [24, 24 + drawerBottomPx.value],
+        maxZoom: 16,
+        animate: true,
+        duration: 0.8,
+      })
     })
 
     L.DomEvent.disableClickPropagation(container)
@@ -297,7 +318,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   if (isFirstLocationHandle) {
-    map.value.flyTo(e.latlng, DEFAULT_ZOOM, {duration: 1})
+    flyToVisible(e.latlng, DEFAULT_ZOOM)
     isFirstLocationHandle = false
   }
 
@@ -573,16 +594,13 @@ watch(centerOnUser, (shouldCenter) => {
   const userLocation = userDot.value?.getLatLng()
   if (!userLocation) return
 
-  const mapValue = map.value
-  if (!mapValue) return
-
-  mapValue.flyTo(userLocation, DEFAULT_ZOOM, {duration: 1})
+  flyToVisible(userLocation, DEFAULT_ZOOM)
   centerOnUser.value = false
 })
 
 watch(flyToLocation, (loc) => {
   if (!loc || !map.value) return
-  map.value.flyTo([loc.lat, loc.lng], DEFAULT_ZOOM, {duration: 1})
+  flyToVisible(L.latLng(loc.lat, loc.lng), DEFAULT_ZOOM)
   flyToLocation.value = null
 })
 

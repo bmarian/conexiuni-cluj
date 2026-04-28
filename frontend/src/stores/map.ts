@@ -22,6 +22,11 @@ export const useMapStore = defineStore('map', () => {
   const centerOnUser = ref(false)
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
+  const drawerBottomPx = ref(0)
+
+  const setDrawerBottomPx = (px: number) => {
+    drawerBottomPx.value = px
+  }
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
     if (!displayShapes) return
@@ -90,6 +95,8 @@ export const useMapStore = defineStore('map', () => {
     setFlyToLocation,
     setPinnedLocation,
     clearPinnedLocation,
+    drawerBottomPx,
+    setDrawerBottomPx,
 
     requestShapes,
   }

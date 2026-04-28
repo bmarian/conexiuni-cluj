@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, ref, watch} from "vue"
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
@@ -8,8 +8,10 @@ import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import HungryTransition from "@/components/HungryTransition.vue"
+import {useMapStore} from "@/stores/map.ts"
 
 const {t} = useI18n()
+const mapStore = useMapStore()
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -28,10 +30,35 @@ const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(false)
 const isDragging = ref(false)
 
+// Landscape and desktop let CSS handle the transform, so drawerStyle must not set one there.
+const isPortraitMobile = ref(false)
+let mqlLandscape: MediaQueryList | null = null
+let mqlDesktop: MediaQueryList | null = null
+
+const updatePortraitMobile = () => {
+  isPortraitMobile.value = !(mqlLandscape?.matches || mqlDesktop?.matches)
+}
+
+onMounted(() => {
+  mqlLandscape = window.matchMedia('(max-width: 1023px) and (orientation: landscape)')
+  mqlDesktop = window.matchMedia('(min-width: 1024px)')
+  mqlLandscape.addEventListener('change', updatePortraitMobile)
+  mqlDesktop.addEventListener('change', updatePortraitMobile)
+  updatePortraitMobile()
+})
+
+onUnmounted(() => {
+  mqlLandscape?.removeEventListener('change', updatePortraitMobile)
+  mqlDesktop?.removeEventListener('change', updatePortraitMobile)
+})
+
 const drawerStyle = computed(() => {
-  if (drawerState.value === 'minimized') return {height: `${MINIMIZED_PX}px`}
-  if (drawerState.value === 'fullscreen') return {height: '100dvh'}
-  return {height: `${SNAP_FRAC[drawerState.value] * 100}dvh`}
+  if (!isPortraitMobile.value) return {}
+  const state = drawerState.value
+  if (state === 'fullscreen') return {transform: 'translateY(0px)'}
+  if (state === 'minimized') return {transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`}
+  const hiddenFrac = 1 - SNAP_FRAC[state]
+  return {transform: `translateY(${hiddenFrac * 100}dvh)`}
 })
 
 watch([drawerState, isDragging], async ([, dragging]) => {
@@ -40,6 +67,10 @@ watch([drawerState, isDragging], async ([, dragging]) => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
 
+watch([drawerState, isPortraitMobile], () => {
+  mapStore.setDrawerBottomPx(isPortraitMobile.value ? getDrawerVisibleHeight() : 0)
+}, {immediate: true})
+
 watch(isLandscapeDrawerOpen, () => {
   window.dispatchEvent(new Event('resize'))
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
@@ -47,14 +78,22 @@ watch(isLandscapeDrawerOpen, () => {
 
 let pointerId = -1
 let startY = 0
-let startHeight = 0
+let startHeight = 0 // visible height at drag start
 let moved = false
 let lastY = 0
 let lastT = 0
 let velocityY = 0 // px/ms, positive = downward
+let currentDragHeightPx = 0
 
 function viewportPx() {
   return window.visualViewport?.height ?? window.innerHeight
+}
+
+function getDrawerVisibleHeight(): number {
+  const vh = viewportPx()
+  if (drawerState.value === 'minimized') return MINIMIZED_PX
+  if (drawerState.value === 'fullscreen') return vh
+  return SNAP_FRAC[drawerState.value] * vh
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -63,14 +102,17 @@ function onPointerDown(e: PointerEvent) {
   if (!el) return
   pointerId = e.pointerId
   startY = e.clientY
-  startHeight = el.getBoundingClientRect().height
+  startHeight = getDrawerVisibleHeight()
+  currentDragHeightPx = startHeight
   moved = false
   velocityY = 0
   lastY = e.clientY
   lastT = e.timeStamp
   isDragging.value = true
   el.style.transition = 'none'
-  el.style.height = `${startHeight}px`
+  // Pin the drawer at its current position immediately so there's no jump on drag start
+  const vh = viewportPx()
+  el.style.transform = `translateY(${vh - startHeight}px)`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
@@ -85,14 +127,15 @@ function onPointerMove(e: PointerEvent) {
   lastY = e.clientY
   lastT = e.timeStamp
   const vh = viewportPx()
-  el.style.height = `${Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))}px`
+  currentDragHeightPx = Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))
+  el.style.transform = `translateY(${vh - currentDragHeightPx}px)`
 }
 
 function endDrag() {
   if (!isDragging.value) return
   const el = drawerEl.value
   const vh = viewportPx()
-  const height = el ? parseFloat(el.style.height) || startHeight : startHeight
+  const height = currentDragHeightPx || getDrawerVisibleHeight()
 
   const snapStates: DrawerState[] = ['minimized', 'half', 'fullscreen']
   const snapHeights: Record<DrawerState, number> = {
@@ -109,11 +152,11 @@ function endDrag() {
   if (!moved) {
     best = drawerState.value === 'minimized' ? 'half' : 'minimized'
   } else if (velocityY > FLICK_THRESHOLD) {
-    // flicked downward — collapse toward minimized
+    // positive velocityY = moving down = collapsing
     const cur = snapStates.indexOf(drawerState.value)
     best = snapStates[Math.max(0, cur - 1)]!
   } else if (velocityY < -FLICK_THRESHOLD) {
-    // flicked upward — expand toward fullscreen
+    // negative velocityY = moving up = expanding
     const cur = snapStates.indexOf(drawerState.value)
     best = snapStates[Math.min(snapStates.length - 1, cur + 1)]!
   } else {
@@ -128,8 +171,8 @@ function endDrag() {
   }
 
   if (el) {
+    // Keeping el.style.transform lets the CSS transition animate from wherever the drag ended.
     el.style.transition = ''
-    el.style.height = ''
   }
   isDragging.value = false
   drawerState.value = best
@@ -208,19 +251,16 @@ function toggleLandscapeDrawer() {
 <style scoped>
 .app-shell {
   --landscape-drawer-width: min(26rem, 58vw);
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
 }
 
-
 .app-map {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  contain: layout paint;
+  position: absolute;
+  inset: 0;
+  contain: paint style;
 }
 
 .landscape-drawer-toggle {
@@ -253,23 +293,26 @@ function toggleLandscapeDrawer() {
   height: 1rem;
 }
 
+/* Height stays 100dvh so translateY never triggers a layout reflow on the map behind it. */
 .app-drawer {
-  position: relative; /* needed for HungryTransition overlay */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 4000;
-  flex-shrink: 0;
-  width: 100%;
+  height: 100dvh;
   border-top-left-radius: 1.25rem;
   border-top-right-radius: 1.25rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .app-drawer.is-dragging {
   transition: none;
-  will-change: height;
+  will-change: transform;
 }
 
 .is-dragging .drawer-scroll {
@@ -280,7 +323,6 @@ function toggleLandscapeDrawer() {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
 }
-
 
 .drawer-handle {
   display: flex;
@@ -321,6 +363,7 @@ function toggleLandscapeDrawer() {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  overscroll-behavior: contain;
   contain: layout paint;
 }
 
@@ -337,10 +380,12 @@ function toggleLandscapeDrawer() {
     right: calc(var(--landscape-drawer-width) + 0.625rem + env(safe-area-inset-right));
   }
 
+  /* drawerStyle returns {} here, so this CSS transform won't be shadowed by an inline style. */
   .app-drawer {
     position: absolute;
     top: 0;
     right: 0;
+    left: auto;
     width: var(--landscape-drawer-width);
     height: 100dvh !important;
     border-radius: 1.25rem 0 0 1.25rem;
@@ -370,16 +415,24 @@ function toggleLandscapeDrawer() {
   }
 
   .app-shell {
+    display: flex;
     flex-direction: row;
     height: 100dvh;
   }
 
   .app-map {
-    width: 70vw;
+    position: static;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: auto;
     height: 100dvh;
+    contain: layout paint;
   }
 
   .app-drawer {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
     width: 30vw;
     height: 100dvh !important;
     border-radius: 0;
