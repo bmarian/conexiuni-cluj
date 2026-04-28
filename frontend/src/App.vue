@@ -415,6 +415,10 @@ function toggleLandscapeDrawer() {
   .drawer-handle {
     display: none;
   }
+
+  .drawer-scroll {
+    max-height: 100dvh;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -450,6 +454,10 @@ function toggleLandscapeDrawer() {
 
   .drawer-handle {
     display: none;
+  }
+
+  .drawer-scroll {
+    max-height: 100dvh;
   }
 }
 </style>
