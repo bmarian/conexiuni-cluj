@@ -6,7 +6,7 @@ import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import IconBack from '@/components/icons/IconBack.vue'
-import {closestStop} from "@/utils/geo.ts";
+import {closestStop, decodePolyline} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
@@ -35,8 +35,8 @@ onMounted(() => {
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])
   mapStore.setShapesToDisplay([])
+
   if (hasValidCoords.value) {
-    mapStore.setFlyToLocation(destLat.value, destLon.value)
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
   }
 })
@@ -45,6 +45,8 @@ onUnmounted(() => {
   mapStore.clearPinnedLocation()
   mapStore.setVehiclesToDisplay([])
   mapStore.setShapesToDisplay([])
+  mapStore.setHighlightedStops([])
+  mapStore.clearWalkingPolylines()
 })
 
 function goBack() {
@@ -61,16 +63,31 @@ const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul
   const closestStopToUser = closestStop(ul.latitude, ul.longitude, stops) as Stop
 
   if (!closestStopToDestination || !closestStopToUser) return
-  const destinationStop = await apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>
-  const startStop = await apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>
 
-  console.log('destinationStop', destinationStop)
-  console.log('startStop', startStop)
+  const [startStop, destinationStop] = await Promise.all([
+    apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>,
+    apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>,
+  ])
+
+  const [dirToStart, dirToDest] = await Promise.all([
+    apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<any>,
+    apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<any>,
+  ])
+
+  mapStore.setHighlightedStops([
+    {stopId: String(closestStopToUser.stop_id), color: 'green'},
+    {stopId: String(closestStopToDestination.stop_id), color: 'red'},
+  ])
+
+  const polylines: [number, number][][] = []
+  const geomToStart = dirToStart?.routes?.[0]?.geometry as string | undefined
+  if (geomToStart) polylines.push(decodePolyline(geomToStart))
+  const geomToDest = dirToDest?.routes?.[0]?.geometry as string | undefined
+  if (geomToDest) polylines.push(decodePolyline(geomToDest))
+  if (polylines.length) mapStore.setWalkingPolylines(polylines)
 
   stopWatcher()
 }, {immediate: true})
-
-// using openrouteservice 2000 requests/day 40/min directionsV2 API - to go to this stop
 
 </script>
 

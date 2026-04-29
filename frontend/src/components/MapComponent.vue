@@ -29,6 +29,7 @@ const settingsStore = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const {
   shapesToDisplay,
+  walkingPolylines,
   centerOnUser,
   flyToLocation,
   pinnedLocation,
@@ -53,6 +54,7 @@ const currentTileLayer = shallowRef<L.TileLayer>()
 const userDot = shallowRef<L.Marker>()
 const accuracyCircle = shallowRef<L.Circle>()
 const shapeLayerGroup = shallowRef<L.FeatureGroup>()
+const walkingLayerGroup = shallowRef<L.FeatureGroup>()
 const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
 const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
 const pinMarker = shallowRef<L.Marker>()
@@ -215,6 +217,7 @@ const createCenterControl = (mapValue: L.Map) => {
 const initLayerGroups = (mapValue: L.Map) => {
   stopGroup.value = L.featureGroup()
   shapeLayerGroup.value = L.featureGroup().addTo(mapValue)
+  walkingLayerGroup.value = L.featureGroup().addTo(mapValue)
   vehicleLayerGroup.value = L.featureGroup().addTo(mapValue)
   highlightedStopLayerGroup.value = L.featureGroup().addTo(mapValue)
   mapValue.on('zoomend', handleZoomVisibility)
@@ -514,6 +517,36 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
 watch([shapesToDisplay, easterEggActive, traditionalActive], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
+}, {deep: true})
+
+const renderWalkingPolylines = (polylines: [number, number][][]) => {
+  if (!walkingLayerGroup.value) return
+  walkingLayerGroup.value.clearLayers()
+  for (const points of polylines) {
+    if (!points.length) continue
+    L.polyline(points as L.LatLngTuple[], {
+      color: traditionalActive.value ? '#245EDC' : '#38bdf8',
+      weight: 3,
+      opacity: 0.85,
+      dashArray: '8 6',
+      lineJoin: traditionalActive.value ? 'miter' : 'round',
+      lineCap: traditionalActive.value ? 'butt' : 'round',
+    }).addTo(walkingLayerGroup.value)
+  }
+  const bounds = walkingLayerGroup.value.getBounds()
+  if (bounds.isValid() && map.value) {
+    map.value.fitBounds(bounds, {
+      paddingTopLeft: [24, 24],
+      paddingBottomRight: [24, 24 + drawerBottomPx.value],
+      maxZoom: 16,
+      animate: true,
+      duration: 0.8,
+    })
+  }
+}
+
+watch([walkingPolylines, easterEggActive, traditionalActive], ([polylines]) => {
+  renderWalkingPolylines(polylines as [number, number][][])
 }, {deep: true})
 
 

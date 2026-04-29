@@ -42,6 +42,22 @@ export const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2:
   return (toDeg(theta) + 360) % 360;
 };
 
+// Decodes a Google-encoded polyline into [lat, lng] pairs (already Leaflet order).
+export const decodePolyline = (encoded: string): [number, number][] => {
+  const coords: [number, number][] = []
+  let index = 0, lat = 0, lng = 0
+  while (index < encoded.length) {
+    let shift = 0, result = 0, b: number
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += (result & 1) ? ~(result >> 1) : result >> 1
+    shift = 0; result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += (result & 1) ? ~(result >> 1) : result >> 1
+    coords.push([lat / 1e5, lng / 1e5])
+  }
+  return coords
+}
+
 export const closestStop = (latitude: number, longitude: number, stops: StopTime[] | Stop[]): StopTime | Stop | null => {
   if (!Array.isArray(stops) || stops.length === 0) return null
 
