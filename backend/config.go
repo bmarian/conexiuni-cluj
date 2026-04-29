@@ -36,6 +36,10 @@ type Config struct {
 	VehicleScheduleWeekend    string
 	VehicleMinInterval        time.Duration
 	VehicleMaxInterval        time.Duration
+	ORSApiKey                 string
+	ORSBaseURL                string
+	ORSDailyQuota             int
+	ORSMinuteQuota            int
 }
 
 func getEnv(key, defaultValue string) string {
@@ -111,5 +115,9 @@ func Load() *Config {
 		VehicleScheduleWeekend:    getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleMinInterval:        getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
 		VehicleMaxInterval:        getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
+		ORSApiKey:                 getEnv("OPEN_ROUTE_SERVICE_API_KEY", ""),
+		ORSBaseURL:                getEnv("ORS_BASE_URL", "https://api.openrouteservice.org"),
+		ORSDailyQuota:             getInt("ORS_DAILY_QUOTA", 2000),
+		ORSMinuteQuota:            getInt("ORS_MINUTE_QUOTA", 40),
 	}
 }
