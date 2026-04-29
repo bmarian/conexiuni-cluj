@@ -42,7 +42,7 @@ export const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2:
   return (toDeg(theta) + 360) % 360;
 };
 
-// Decodes a Google-encoded polyline into [lat, lng] pairs (already Leaflet order).
+// Decodes a Google-encoded polyline into [lat, lng] pairs
 export const decodePolyline = (encoded: string): [number, number][] => {
   const coords: [number, number][] = []
   let index = 0, lat = 0, lng = 0
