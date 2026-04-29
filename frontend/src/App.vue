@@ -156,7 +156,8 @@ function endDrag() {
 
   const FLICK_THRESHOLD = 0.4 // px/ms
   if (!moved) {
-    best = drawerState.value === 'minimized' ? 'half' : 'minimized'
+    if (drawerState.value === 'minimized' || drawerState.value === 'fullscreen') best = 'half'
+    else best = 'minimized'
   } else if (velocityY > FLICK_THRESHOLD) {
     // positive velocityY = moving down = collapsing
     const cur = snapStates.indexOf(drawerState.value)
@@ -335,7 +336,7 @@ function toggleLandscapeDrawer() {
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  height: 2.5rem;
+  height: 2.75rem;
   width: 100%;
   background: transparent;
   border: 0;
@@ -359,7 +360,7 @@ function toggleLandscapeDrawer() {
   flex: 1 1 auto;
   min-height: 0;
   /* Clamp scroll area to the visually exposed portion so content doesn't hide below the fold. */
-  max-height: calc(var(--drawer-visible-h, 100dvh) - 2.5rem);
+  max-height: calc(var(--drawer-visible-h, 100dvh) - 2.75rem);
   display: flex;
   flex-direction: column;
   touch-action: pan-y;
@@ -442,7 +443,7 @@ function toggleLandscapeDrawer() {
   }
 
   .app-drawer {
-    position: static;
+    position: relative;
     transform: none;
     flex-shrink: 0;
     width: 30vw;
