@@ -9,6 +9,7 @@ import IconBack from '@/components/icons/IconBack.vue'
 import {closestStop, decodePolyline} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
+import type {DirectionsResponse} from "@/types/directions.ts";
 import {storeToRefs} from "pinia";
 
 const {t} = useI18n()
@@ -70,8 +71,8 @@ const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul
   ])
 
   const [dirToStart, dirToDest] = await Promise.all([
-    apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<any>,
-    apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<any>,
+    apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
+    apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<DirectionsResponse>,
   ])
 
   mapStore.setHighlightedStops([
@@ -80,9 +81,9 @@ const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul
   ])
 
   const polylines: [number, number][][] = []
-  const geomToStart = dirToStart?.routes?.[0]?.geometry as string | undefined
+  const geomToStart = dirToStart.routes[0]?.geometry
   if (geomToStart) polylines.push(decodePolyline(geomToStart))
-  const geomToDest = dirToDest?.routes?.[0]?.geometry as string | undefined
+  const geomToDest = dirToDest.routes[0]?.geometry
   if (geomToDest) polylines.push(decodePolyline(geomToDest))
   if (polylines.length) mapStore.setWalkingPolylines(polylines)
 

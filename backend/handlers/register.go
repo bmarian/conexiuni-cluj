@@ -262,10 +262,10 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		if len(data) == 0 {
+		if len(data.Routes) == 0 {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "directions unavailable"})
 		}
 		c.Set("Cache-Control", "no-store")
-		return c.Send(data)
+		return c.JSON(data)
 	})
 }
