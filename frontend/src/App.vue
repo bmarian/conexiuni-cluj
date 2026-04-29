@@ -268,6 +268,9 @@ function toggleLandscapeDrawer() {
   position: absolute;
   inset: 0;
   contain: paint style;
+  min-height: 0;
+  width: auto;
+  height: 100dvh;
 }
 
 .landscape-drawer-toggle {
@@ -436,10 +439,6 @@ function toggleLandscapeDrawer() {
   .app-map {
     position: static;
     flex: 1 1 auto;
-    min-height: 0;
-    width: auto;
-    height: 100dvh;
-    contain: layout paint;
   }
 
   .app-drawer {
