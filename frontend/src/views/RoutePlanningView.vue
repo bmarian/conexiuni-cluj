@@ -33,6 +33,7 @@ import {
 } from "@/utils/time.ts";
 import {getShapeStopTimes} from "@/utils/trips.ts";
 
+const MAX_MINUTES = 60
 const {t} = useI18n()
 const route = useRoute()
 const mapStore = useMapStore()
@@ -107,8 +108,7 @@ watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([rout
     const buses = getAvailableBusesForStop(dr.startStop, now, {limit: 3, tripId: dr.tripId})
     const myBus = buses.find(b => b.route_id === dr.route.route_id)
 
-    // DEBUGGER: remove the filtering to see buses all the time
-    let times = myBus ? myBus.next_times.filter(t => t.minutes <= 60) : []
+    let times = myBus ? myBus.next_times.filter(t => t.minutes <= MAX_MINUTES) : []
     let isLive = false
 
     const points = shapesMap.get(dr.tripId)
@@ -132,13 +132,13 @@ watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([rout
 
       if (startStopShapeIdx >= 0) {
         const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
-        if (eta && eta.etaMinutes <= 60) {
+        if (eta && eta.etaMinutes <= MAX_MINUTES) {
           isLive = true
           times = [
             {minutes: eta.etaMinutes, is_live: true},
             ...times.filter(t => t.minutes !== eta.etaMinutes).slice(0, 2)
           ]
-        } else if (eta && eta.etaMinutes > 60) {
+        } else if (eta && eta.etaMinutes > MAX_MINUTES) {
           times = []
         }
       }
