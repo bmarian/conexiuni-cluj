@@ -103,7 +103,8 @@ html[data-hungry] .fav-route-chip {
 html[data-hungry] .all-route-row:hover,
 html[data-hungry] .fav-stop-row:hover,
 html[data-hungry] .fav-route-chip:hover,
-html[data-hungry] .geo-result-row:hover {
+html[data-hungry] .geo-result-row:hover,
+html[data-hungry] .stop-result-row:hover {
   background: #fef9c3 !important;
   color: #78350f !important;
 }

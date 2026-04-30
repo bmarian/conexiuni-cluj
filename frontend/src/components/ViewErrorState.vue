@@ -3,6 +3,7 @@ import {useI18n} from 'vue-i18n'
 import IconBus404 from '@/components/icons/IconBus404.vue'
 import IconBack from '@/components/icons/IconBack.vue'
 import {useRouter} from "vue-router";
+import IconHome from "@/components/icons/IconHome.vue";
 
 const {t} = useI18n()
 const router = useRouter()
@@ -32,8 +33,8 @@ const goHome = () => {
       <h1 class="ves-title">{{ title ?? t('notFound') }}</h1>
       <p class="ves-desc">{{ description ?? t('notFoundDesc') }}</p>
       <button type="button" class="ves-back-btn" @click="goHome">
-        <IconBack class="ves-back-icon" aria-hidden="true"/>
-        {{ backLabel ?? t('back') }}
+        <IconHome class="ves-back-icon" aria-hidden="true"/>
+        {{ backLabel ?? t('home') }}
       </button>
     </div>
   </div>

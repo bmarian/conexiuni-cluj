@@ -77,6 +77,7 @@
   "planOriginCurrentLocation": "My current location",
   "planOriginUnknown": "Unknown location",
   "planRoutesLabel": "Available routes",
+  "planNearbyStops": "Nearby stations",
   "planComingSoon": "Coming soon",
   "planComingSoonDesc": "Route planning will be available soon."
 }
