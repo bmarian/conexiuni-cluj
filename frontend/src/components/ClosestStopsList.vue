@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import {computed, onMounted, onUnmounted, watch} from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings.ts'
@@ -26,7 +26,7 @@ const closestStops = computed(() => {
     s => s.stop_lat,
     s => s.stop_lon
   )
-  return sorted.slice(0, 2).map(stop => ({
+  return sorted.slice(0, 6).map(stop => ({
     stop,
     dist: formatMeters(haversineMeters(props.centerLat, props.centerLon, stop.stop_lat, stop.stop_lon))
   }))
@@ -37,6 +37,18 @@ function navigateToStop(stop: Stop) {
   mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
   void router.push({ name: 'stop', params: { stopId: String(stop.stop_id) } })
 }
+
+watch(closestStops, (stops) => {
+  const highlightStops = stops.map(stop => ({
+    stopId: String(stop.stop.stop_id),
+    color: 'green' as const,
+  }))
+  mapStore.setHighlightedStops(highlightStops)
+})
+
+onUnmounted(() => {
+  mapStore.setHighlightedStops([])
+})
 </script>
 
 <template>

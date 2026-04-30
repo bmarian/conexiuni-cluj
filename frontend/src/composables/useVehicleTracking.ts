@@ -4,7 +4,7 @@ import type {Shape, StopTime, Vehicle} from '@/types/tranzy.ts'
 
 export const CLOSE_TO_STOP_THRESHOLD = 200
 export const VEHICLE_GRACE_PERIOD = 10
-export const MIN_SPEED_KMH = 12
+export const MIN_SPEED_KMH = 7 // MinSpeedFloor
 const STALE_POSITION_METERS = 20
 const STALE_POSITION_MS = 3 * 60_000
 const HEADING_LOOKAHEAD = 3

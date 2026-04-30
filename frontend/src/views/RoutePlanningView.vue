@@ -43,6 +43,10 @@ onMounted(async () => {
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
     allStops.value = await apiRequest('stops') as Stop[]
+
+    if (!hasLocationPermission.value) {
+      mapStore.setFlyToLocation(destLat.value, destLon.value)
+    }
   }
 })
 
@@ -102,31 +106,30 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation], asyn
     <div class="flex items-center -mb-2">
       <HeaderNavigation/>
     </div>
-
-    <div v-if="hasLocationPermission">
-      <header class="flex items-center gap-3">
-        <div
-          class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-          <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
-          <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor"
-               stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-          </svg>
-        </div>
-        <div class="flex-1 min-w-0">
+    <header class="flex items-center gap-3">
+      <div
+        class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+        <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
+        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor"
+             stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
         <span
           class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{
             t('planTitle')
           }}</span>
-          <h1
-            class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
-            {{ hasValidDest ? destName : t('planTitleGeneric') }}
-          </h1>
-        </div>
-      </header>
+        <h1
+          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+          {{ hasValidDest ? destName : t('planTitleGeneric') }}
+        </h1>
+      </div>
+    </header>
 
+    <div v-if="hasLocationPermission">
       <section class="route-legs-card">
         <div class="leg-row">
           <div class="leg-icon-col">

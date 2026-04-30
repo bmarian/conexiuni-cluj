@@ -12,7 +12,7 @@ import (
 const (
 	VehicleCacheId = "VEHICLES"
 	EmaAlpha       = 0.3
-	MinSpeedFloor  = 12.0
+	MinSpeedFloor  = 7.0 // MIN_SPEED_KMH
 )
 
 type VehicleFilter struct {
