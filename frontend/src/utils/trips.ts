@@ -1,4 +1,11 @@
-import type {ShapeInfo, StopTime} from '@/types/tranzy.ts'
+import type {ShapeInfo, StopInfo, StopTime} from '@/types/tranzy.ts'
+
+export type DirectRoute = {
+  route: ShapeInfo
+  startStop: StopInfo
+  destStop: StopInfo
+  tripId: string
+}
 
 export const getRouteIdFromTripId = (tripId: string): number | null => {
   const [routeIdPart] = String(tripId).split('_')
@@ -25,4 +32,51 @@ export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopI
 
 export const getShapeStopTimes = (shapeInfo: ShapeInfo | null | undefined): StopTime[] => {
   return shapeInfo?.stop_times ?? shapeInfo?.stop_time ?? []
+}
+
+export const findDirectRoutes = (
+  startStops: StopInfo[],
+  destStops: StopInfo[]
+): DirectRoute[] => {
+  const directRoutes: DirectRoute[] = []
+  const seenRoutes = new Set<string>()
+
+  for (const startStop of startStops) {
+    for (const shape of startStop.shapes_info) {
+      const stopTimes = getShapeStopTimes(shape)
+
+      // Group stopTimes by trip_id once per shape
+      const tripGroups = new Map<string, StopTime[]>()
+      for (const st of stopTimes) {
+        if (!tripGroups.has(st.trip_id)) {
+          tripGroups.set(st.trip_id, [])
+        }
+        tripGroups.get(st.trip_id)!.push(st)
+      }
+
+      for (const [tripId, tripStopTimes] of tripGroups) {
+        const startStopTime = tripStopTimes.find(st => st.stop_id === startStop.stop_id)
+        if (!startStopTime) continue
+
+        for (const destStop of destStops) {
+          const destStopTime = tripStopTimes.find(st => st.stop_id === destStop.stop_id)
+
+          if (destStopTime && startStopTime.stop_sequence < destStopTime.stop_sequence) {
+            const key = `${shape.route_id}-${startStop.stop_id}-${destStop.stop_id}`
+            if (!seenRoutes.has(key)) {
+              directRoutes.push({
+                route: shape,
+                startStop,
+                destStop,
+                tripId
+              })
+              seenRoutes.add(key)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return directRoutes
 }

@@ -9,13 +9,14 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {closestStop} from "@/utils/geo.ts";
+import {sortByDistance} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
-import {getAvailableBusesForStop} from "@/utils/time.ts";
+
+import {findDirectRoutes, type DirectRoute} from "@/utils/trips.ts";
 
 const {t} = useI18n()
 const route = useRoute()
@@ -41,6 +42,7 @@ function toggleFavorite() {
 }
 
 const allStops = ref<Stop[]>([])
+const directRoutes = ref<DirectRoute[]>([])
 
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
@@ -76,27 +78,27 @@ onUnmounted(() => {
 const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
-  const closestStopToDestination = closestStop(lat, lon, stops) as Stop
-  const closestStopToUser = closestStop(ul.latitude, ul.longitude, stops) as Stop
+  const top4ClosestStopsToUser = await Promise.all(sortByDistance(
+    stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon
+  ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-  if (!closestStopToDestination || !closestStopToUser) return
+  const top4ClosestStopsToDestination = await Promise.all(sortByDistance(
+    stops, lat, lon, s => s.stop_lat, s => s.stop_lon
+  ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-  // It should check if the top 3 stations in the area have a direct route to the top 3 stations to the destination
-  const [startStop, destinationStop] = await Promise.all([
-    apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>,
-    apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>,
-  ])
+  directRoutes.value = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
 
-  const availableBussesForStart = getAvailableBusesForStop(startStop, userStore.userTime!)
-  const availableBussesForDest = getAvailableBusesForStop(destinationStop, userStore.userTime!)
-  console.log(availableBussesForStart, availableBussesForDest)
+  if (directRoutes.value.length > 0) {
+    const firstRoute = directRoutes.value[0]
+    if (firstRoute) {
+      mapStore.setHighlightedStops([
+        {stopId: String(firstRoute.startStop.stop_id), color: 'green'},
+        {stopId: String(firstRoute.destStop.stop_id), color: 'red'},
+      ])
+    }
+  }
+
   debugger;
-
-  mapStore.setHighlightedStops([
-    {stopId: String(closestStopToUser.stop_id), color: 'green'},
-    {stopId: String(closestStopToDestination.stop_id), color: 'red'},
-  ])
-
 
   // const [dirToStart, dirToDest] = await Promise.all([
   //   apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,

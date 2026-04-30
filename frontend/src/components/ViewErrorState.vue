@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {useI18n} from 'vue-i18n'
 import IconBus404 from '@/components/icons/IconBus404.vue'
-import IconBack from '@/components/icons/IconBack.vue'
 import {useRouter} from "vue-router";
 import IconHome from "@/components/icons/IconHome.vue";
 

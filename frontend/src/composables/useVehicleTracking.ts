@@ -87,7 +87,7 @@ function estimateEtaMinutes(distanceMeters: number, speedKmh: number): number {
 }
 
 export function buildShapeIndex(shape: Shape[]): ShapeIndex {
-  const cumulativeDist = new Array<number>(shape.length)
+  const cumulativeDist = Array.from<number>({ length: shape.length })
   if (!shape.length) return {shape, cumulativeDist}
   cumulativeDist[0] = 0
   for (let i = 1; i < shape.length; i++) {

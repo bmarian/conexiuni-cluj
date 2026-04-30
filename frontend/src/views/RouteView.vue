@@ -814,13 +814,13 @@ onUnmounted(() => {
               </div>
 
               <div class="flex-1 min-w-0 flex items-center gap-1.5">
-                <span :class="[
-                  'text-sm leading-tight truncate',
+                <router-link :class="[
+                  'text-sm leading-tight truncate cursor-pointer',
                   String(stop.stop_id) === fromStopId ? 'font-bold text-emerald-500 dark:text-emerald-400' :
                   idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
-                ]">{{ getStopLabel(idx, stop) }}</span>
+                ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}</router-link>
                 <template v-if="!settings.traditionalActive">
                   <svg v-if="String(stop.stop_id) === fromStopId"
                        class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
