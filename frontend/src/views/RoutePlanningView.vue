@@ -87,18 +87,13 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
   directRoutes.value = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
+  if (!directRoutes.value.length) return
 
-  if (directRoutes.value.length > 0) {
-    const firstRoute = directRoutes.value[0]
-    if (firstRoute) {
-      mapStore.setHighlightedStops([
-        {stopId: String(firstRoute.startStop.stop_id), color: 'green'},
-        {stopId: String(firstRoute.destStop.stop_id), color: 'red'},
-      ])
-    }
-  }
-
-  debugger;
+  const firstRoute = directRoutes.value[0]!
+  mapStore.setHighlightedStops([
+    {stopId: String(firstRoute.startStop.stop_id), color: 'green'},
+    {stopId: String(firstRoute.destStop.stop_id), color: 'red'},
+  ])
 
   // const [dirToStart, dirToDest] = await Promise.all([
   //   apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
