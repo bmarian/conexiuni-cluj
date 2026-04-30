@@ -84,5 +84,6 @@
     "planBoarding": "Urcare",
     "planAlighting": "Coborâre",
     "planWalk": "Mers",
-    "planCalculating": "Calculăm ruta..."
+    "planCalculating": "Calculăm ruta...",
+    "planNoBusesNextHour": "Nu sunt autobuze disponibile în următoarea oră"
 }

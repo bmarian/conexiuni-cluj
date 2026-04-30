@@ -84,5 +84,6 @@
     "planBoarding": "Boarding",
     "planAlighting": "Alighting",
     "planWalk": "Walk",
-    "planCalculating": "Calculating your route..."
+    "planCalculating": "Calculating your route...",
+    "planNoBusesNextHour": "No buses are available in the next hour"
 }

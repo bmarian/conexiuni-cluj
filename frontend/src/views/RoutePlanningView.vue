@@ -60,7 +60,8 @@ const allStops = ref<Stop[]>([])
 const directRoutes = ref<DirectRoute[]>([])
 const selectedRouteIndex = ref(0)
 const isCalculating = ref(false)
-const selectedRoute = computed(() => directRoutes.value[selectedRouteIndex.value])
+const hasFlownToFallback = ref(false)
+const selectedRoute = computed(() => routesWithTimes.value[selectedRouteIndex.value])
 
 const directRoutesShapes = ref(new Map<string, Shape[]>())
 const routesWithTimes = ref<(DirectRoute & { nextTimes: TimeEntry[], isLive: boolean })[]>([])
@@ -106,7 +107,8 @@ watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([rout
     const buses = getAvailableBusesForStop(dr.startStop, now, {limit: 3, tripId: dr.tripId})
     const myBus = buses.find(b => b.route_id === dr.route.route_id)
 
-    let times = myBus ? myBus.next_times : []
+    // DEBUGGER: remove the filtering to see busses all the time
+    let times = myBus ? myBus.next_times.filter(t => t.minutes <= 60) : []
     let isLive = false
 
     const points = shapesMap.get(dr.tripId)
@@ -130,21 +132,25 @@ watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([rout
 
       if (startStopShapeIdx >= 0) {
         const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
-        if (eta) {
+        if (eta && eta.etaMinutes <= 60) {
           isLive = true
           times = [
             {minutes: eta.etaMinutes, is_live: true},
-            ...times.slice(1)
+            ...times.filter(t => t.minutes !== eta.etaMinutes).slice(0, 2)
           ]
+        } else if (eta && eta.etaMinutes > 60) {
+          times = []
         }
       }
     }
 
-    results.push({
-      ...dr,
-      nextTimes: times,
-      isLive
-    })
+    if (times.length > 0) {
+      results.push({
+        ...dr,
+        nextTimes: times,
+        isLive
+      })
+    }
   }
 
   routesWithTimes.value = results
@@ -311,10 +317,29 @@ onUnmounted(() => {
   mapStore.clearWalkingPolylines()
 })
 
+watch(routesWithTimes, (newRoutes) => {
+  if (selectedRouteIndex.value >= newRoutes.length) {
+    selectedRouteIndex.value = 0
+  }
+})
+
+watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
+  if (calculating || routes.length > 0) {
+    hasFlownToFallback.value = false
+    return
+  }
+
+  if (routes.length === 0 && !isNaN(destLat.value) && !isNaN(destLon.value) && !hasFlownToFallback.value) {
+    mapStore.setFlyToLocation(destLat.value, destLon.value)
+    hasFlownToFallback.value = true
+  }
+})
+
 const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
   isCalculating.value = true
+  directRoutes.value = []
   try {
     const top4ClosestStopsToUser = await Promise.all(sortByDistance(
       stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon, 700
@@ -325,7 +350,10 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
     ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
     const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
-    if (!routes.length) return
+    if (!routes.length) {
+      directRoutes.value = []
+      return
+    }
 
     const now = userTime.value || new Date()
     routes.sort((a, b) => {
@@ -399,7 +427,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
     </header>
 
     <div v-if="hasLocationPermission">
-      <section class="route-legs-card">
+      <section v-if="isCalculating || routesWithTimes.length > 0" class="route-legs-card">
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
@@ -492,7 +520,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           <p class="loading-text animate-pulse">{{ t('planCalculating') }}</p>
         </div>
 
-        <div v-else-if="directRoutes.length > 0" class="flex flex-col gap-2.5">
+        <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
           <div
             v-for="(direct, index) in routesWithTimes"
             :key="index"
@@ -542,16 +570,31 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           </div>
         </div>
 
-        <div v-else class="plan-placeholder">
-          <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-          </svg>
-          <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
-            {{ t('planComingSoon') }}</p>
-          <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">
-            {{ t('planComingSoonDesc') }}</p>
+        <div v-else class="flex flex-col gap-4">
+          <div class="plan-placeholder">
+            <template v-if="directRoutes.length > 0">
+              <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+              </svg>
+              <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+                {{ t('planNoBusesNextHour') }}</p>
+            </template>
+            <template v-else>
+              <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+              </svg>
+              <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+                {{ t('planComingSoon') }}</p>
+              <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">
+                {{ t('planComingSoonDesc') }}</p>
+            </template>
+          </div>
+
+          <ClosestStopsList :stops="allStops" :center-lat="destLat" :center-lon="destLon"/>
         </div>
       </section>
     </div>
@@ -969,6 +1012,25 @@ html[data-traditional] .loading-text {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
   color: #000000;
   animation: none !important;
+}
+
+.dark .plan-placeholder {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-hungry] .plan-placeholder {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-style: solid;
+}
+
+html[data-traditional] .plan-placeholder {
+  background: #ECE9D8;
+  border: 2px solid #919B9C;
+  border-radius: 0;
+  box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
+  border-style: solid;
 }
 </style>
 
