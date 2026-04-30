@@ -229,6 +229,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     maxBounds: CLUJ_COUNTY_BOUNDS,
     maxBoundsViscosity: 1.0,
     minZoom: MIN_ZOOM,
+    attributionControl: true,
   }).setView([lat, lon], zoom)
 
   map.value = mapValue

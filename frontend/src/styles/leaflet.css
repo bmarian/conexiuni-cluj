@@ -232,15 +232,33 @@
   margin: 14px 18px !important;
 }
 
+
 .leaflet-control-attribution {
   background: none !important;
-  color: #94a3b8 !important;
+  padding: 2px 8px !important;
   font-size: 10px !important;
+  color: #64748b !important;
 }
 
 .leaflet-control-attribution a {
+  color: #475569 !important;
+  text-decoration: none !important;
+}
+
+:root.dark .leaflet-control-attribution {
+  color: #94a3b8 !important;
+}
+
+:root.dark .leaflet-control-attribution a {
   color: #64748b !important;
 }
+
+@media (max-width: 1023px) and (orientation: portrait) {
+  .leaflet-control-attribution {
+    display: none !important;
+  }
+}
+
 
 :root.dark .map-container {
   background-color: #090909;
@@ -289,13 +307,6 @@
   color: #f1f5f9 !important;
 }
 
-:root.dark .leaflet-control-attribution {
-  color: #475569 !important;
-}
-
-:root.dark .leaflet-control-attribution a {
-  color: #64748b !important;
-}
 
 /* hungry-theme uses one extra class so it always wins over the base rules above */
 
@@ -363,9 +374,18 @@
   border-radius: 0 !important;
 }
 
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a,
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a:visited {
+  background: var(--xp-blue) !important;
+}
+
 .traditional-theme .leaflet-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%) !important;
   color: #FFFFFF !important;
+}
+
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a:hover {
+  background: var(--xp-blue-hi) !important;
 }
 
 .traditional-theme .leaflet-bar a:not(:last-child) {
@@ -454,3 +474,11 @@
   color: rgba(224, 230, 242, 0.40) !important;
 }
 
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a,
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a:visited {
+  background: var(--xp-blue) !important;
+}
+
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a:hover {
+  background: var(--xp-blue-hi) !important;
+}

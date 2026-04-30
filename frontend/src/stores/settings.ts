@@ -63,12 +63,25 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const traditionalUnlocked = ref(localStorage.getItem('settings.traditionalUnlocked') === 'true')
   const traditionalActive = ref(localStorage.getItem('settings.traditionalActive') === 'true')
+  const traditionalLowPerf = ref(localStorage.getItem('settings.traditionalLowPerf') === 'true')
 
   watch(traditionalActive, (active) => {
     if (active) {
       document.documentElement.setAttribute('data-traditional', '')
+      if (traditionalLowPerf.value) {
+        document.documentElement.setAttribute('data-traditional-lowperf', '')
+      }
     } else {
       document.documentElement.removeAttribute('data-traditional')
+      document.documentElement.removeAttribute('data-traditional-lowperf')
+    }
+  }, {immediate: true})
+
+  watch(traditionalLowPerf, (lowPerf) => {
+    if (lowPerf) {
+      document.documentElement.setAttribute('data-traditional-lowperf', '')
+    } else {
+      document.documentElement.removeAttribute('data-traditional-lowperf')
     }
   }, {immediate: true})
 
@@ -89,6 +102,11 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.traditionalActive', 'false')
   }
 
+  function setTraditionalLowPerf(val: boolean) {
+    traditionalLowPerf.value = val
+    localStorage.setItem('settings.traditionalLowPerf', val ? 'true' : 'false')
+  }
+
   const toastMessage = ref<string | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -104,8 +122,8 @@ export const useSettingsStore = defineStore('settings', () => {
     theme, locale, isDark, setTheme, setLocale,
     easterEggUnlocked, easterEggActive,
     unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
-    traditionalUnlocked, traditionalActive,
-    unlockTraditional, activateTraditional, deactivateTraditional,
+    traditionalUnlocked, traditionalActive, traditionalLowPerf,
+    unlockTraditional, activateTraditional, deactivateTraditional, setTraditionalLowPerf,
     toastMessage, showToast,
   }
 })
