@@ -317,11 +317,11 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   isCalculating.value = true
   try {
     const top4ClosestStopsToUser = await Promise.all(sortByDistance(
-      stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon
+      stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon, 700
     ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
     const top4ClosestStopsToDestination = await Promise.all(sortByDistance(
-      stops, lat, lon, s => s.stop_lat, s => s.stop_lon
+      stops, lat, lon, s => s.stop_lat, s => s.stop_lon, 700
     ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
     const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)

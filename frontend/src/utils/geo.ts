@@ -11,11 +11,14 @@ export const sortByDistance = <T>(
   userLon: number,
   getLat: (item: T) => number,
   getLon: (item: T) => number,
-): T[] =>
-  items
-    .map(item => ({item, dist: haversineMeters(userLat, userLon, getLat(item), getLon(item))}))
-    .sort((a, b) => a.dist - b.dist)
-    .map(({item}) => item)
+  maxDistanceMeters?: number,
+): T[] => {
+  let mapped = items.map(item => ({item, dist: haversineMeters(userLat, userLon, getLat(item), getLon(item))}))
+  if (maxDistanceMeters !== undefined) {
+    mapped = mapped.filter(d => d.dist <= maxDistanceMeters)
+  }
+  return mapped.sort((a, b) => a.dist - b.dist).map(({item}) => item)
+}
 
 export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const dLat = (lat2 - lat1) * (Math.PI / 180)

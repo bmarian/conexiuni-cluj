@@ -24,7 +24,8 @@ const closestStops = computed(() => {
     props.centerLat,
     props.centerLon,
     s => s.stop_lat,
-    s => s.stop_lon
+    s => s.stop_lon,
+    700
   )
   return sorted.slice(0, 6).map(stop => ({
     stop,
