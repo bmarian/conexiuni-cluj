@@ -6,7 +6,14 @@ import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 
 const ROUTES_KEY = 'favorites:routes'
 const STOPS_KEY = 'favorites:stops'
+const PLANS_KEY = 'favorites:plans'
 const IDB_MIGRATION_KEY = 'favorites:idb-migrated'
+
+export interface FavoritePlan {
+  name: string
+  lat: number
+  lon: number
+}
 
 function idbGet(store: IDBObjectStore, key: string): Promise<unknown> {
   return new Promise((resolve) => {
@@ -61,6 +68,7 @@ async function migrateFromIdb(): Promise<void> {
 export const useFavoritesStore = defineStore('favorites', () => {
   const favoriteRouteIds = ref<number[]>([])
   const favoriteStopIds = ref<number[]>([])
+  const favoritePlans = ref<FavoritePlan[]>([])
   const isHydrated = ref(false)
 
   async function hydrate() {
@@ -68,8 +76,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
     try {
       const routes = JSON.parse(localStorage.getItem(ROUTES_KEY) ?? 'null')
       const stops = JSON.parse(localStorage.getItem(STOPS_KEY) ?? 'null')
+      const plans = JSON.parse(localStorage.getItem(PLANS_KEY) ?? 'null')
       favoriteRouteIds.value = Array.isArray(routes) ? routes : []
       favoriteStopIds.value = Array.isArray(stops) ? stops : []
+      favoritePlans.value = Array.isArray(plans) ? plans : []
     } catch (err) {
       console.warn('Failed to hydrate favorites:', err)
     } finally {
@@ -85,12 +95,20 @@ export const useFavoritesStore = defineStore('favorites', () => {
     localStorage.setItem(STOPS_KEY, JSON.stringify(favoriteStopIds.value))
   }
 
+  function persistPlans() {
+    localStorage.setItem(PLANS_KEY, JSON.stringify(favoritePlans.value))
+  }
+
   function isRouteFavorite(id: number): boolean {
     return favoriteRouteIds.value.includes(id)
   }
 
   function isStopFavorite(id: number): boolean {
     return favoriteStopIds.value.includes(id)
+  }
+
+  function isPlanFavorite(lat: number, lon: number): boolean {
+    return favoritePlans.value.some(p => p.lat === lat && p.lon === lon)
   }
 
   function toggleRouteFavorite(id: number) {
@@ -107,6 +125,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistStops()
   }
 
+  function togglePlanFavorite(plan: FavoritePlan) {
+    const idx = favoritePlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    if (idx === -1) favoritePlans.value.push(plan)
+    else favoritePlans.value.splice(idx, 1)
+    persistPlans()
+  }
+
   function reorderRouteIds(newIds: number[]) {
     favoriteRouteIds.value = newIds
     persistRoutes()
@@ -115,6 +140,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
   function reorderStopIds(newIds: number[]) {
     favoriteStopIds.value = newIds
     persistStops()
+  }
+
+  function reorderPlans(newPlans: FavoritePlan[]) {
+    favoritePlans.value = newPlans
+    persistPlans()
   }
 
   async function preloadFavorites() {
@@ -150,14 +180,18 @@ export const useFavoritesStore = defineStore('favorites', () => {
   return {
     favoriteRouteIds,
     favoriteStopIds,
+    favoritePlans,
     isHydrated,
     hydrate,
     isRouteFavorite,
     isStopFavorite,
+    isPlanFavorite,
     toggleRouteFavorite,
     toggleStopFavorite,
+    togglePlanFavorite,
     reorderRouteIds,
     reorderStopIds,
+    reorderPlans,
     preloadFavorites,
   }
 })

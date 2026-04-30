@@ -5,6 +5,7 @@ import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
+import type {FavoritePlan} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
@@ -20,7 +21,7 @@ const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
-const {favoriteRouteIds, favoriteStopIds, isHydrated} = storeToRefs(favoritesStore)
+const {favoriteRouteIds, favoriteStopIds, favoritePlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -64,7 +65,7 @@ const favoriteStops = computed<Stop[]>(() => {
     .filter((s): s is Stop => !!s)
 })
 
-const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favoriteStopIds.value.length > 0)
+const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favoriteStopIds.value.length > 0 || favoritePlans.value.length > 0)
 
 const sortedRoutes = computed<Route[]>(() => {
   return [...routes.value].sort((a, b) =>
@@ -91,6 +92,17 @@ function navigateToStop(stop: Stop) {
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
 }
 
+function navigateToPlan(plan: {name: string, lat: number, lon: number}) {
+  void router.push({
+    name: 'plan',
+    query: {
+      lat: String(plan.lat),
+      lot: String(plan.lon),
+      name: plan.name,
+    },
+  })
+}
+
 function removeFavoriteRoute(route: Route, ev: Event) {
   ev.stopPropagation()
   favoritesStore.toggleRouteFavorite(route.route_id)
@@ -101,6 +113,11 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   favoritesStore.toggleStopFavorite(stop.stop_id)
 }
 
+function removeFavoritePlan(plan: {name: string, lat: number, lon: number}, ev: Event) {
+  ev.stopPropagation()
+  favoritesStore.togglePlanFavorite(plan)
+}
+
 const routeFavoritesModel = computed<number[]>({
   get: () => favoriteRouteIds.value,
   set: (newIds) => favoritesStore.reorderRouteIds([...newIds]),
@@ -109,6 +126,11 @@ const routeFavoritesModel = computed<number[]>({
 const stopFavoritesModel = computed<number[]>({
   get: () => favoriteStopIds.value,
   set: (newIds) => favoritesStore.reorderStopIds([...newIds]),
+})
+
+const planFavoritesModel = computed<FavoritePlan[]>({
+  get: () => favoritePlans.value,
+  set: (newPlans) => favoritesStore.reorderPlans([...newPlans]),
 })
 </script>
 
@@ -243,6 +265,69 @@ const stopFavoritesModel = computed<number[]>({
                   :title="t('removeFromFavorites')"
                   :aria-label="t('removeFromFavorites')"
                   @click.stop="removeFavoriteStop(stopsById.get(stopId)!, $event)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                       stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+                <svg
+                  class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </template>
+          </Draggable>
+        </div>
+
+        <div v-if="favoritePlans.length" class="flex flex-col gap-2">
+          <h3 class="sub-label">{{ t('favoritePlans') }}</h3>
+          <Draggable
+            v-model="planFavoritesModel"
+            :item-key="(p: any) => `${p.lat}-${p.lon}`"
+            class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
+            tag="div"
+            handle=".drag-handle"
+            ghost-class="drag-ghost"
+            chosen-class="drag-chosen"
+            :animation="180"
+          >
+            <template #item="{element: plan}">
+              <div
+                class="fav-stop-row group"
+                @click="navigateToPlan(plan)"
+              >
+                <svg
+                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
+                  viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="5" r="1.5"/>
+                  <circle cx="15" cy="5" r="1.5"/>
+                  <circle cx="9" cy="12" r="1.5"/>
+                  <circle cx="15" cy="12" r="1.5"/>
+                  <circle cx="9" cy="19" r="1.5"/>
+                  <circle cx="15" cy="19" r="1.5"/>
+                </svg>
+                <div
+                  class="w-7 h-7 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
+                  <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                        aria-hidden="true">🗺️</span>
+                  <svg v-else class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
+                       viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+                <span
+                  class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
+                  {{ plan.name }}
+                </span>
+                <button
+                  type="button"
+                  class="fav-stop-remove"
+                  :title="t('removeFromFavorites')"
+                  :aria-label="t('removeFromFavorites')"
+                  @click.stop="removeFavoritePlan(plan, $event)"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                        stroke-width="2.5">

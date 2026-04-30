@@ -6,6 +6,9 @@ import {useI18n} from 'vue-i18n'
 import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
+import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {closestStop, decodePolyline} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
@@ -19,11 +22,23 @@ const route = useRoute()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
+const favoritesStore = useFavoritesStore()
 const {userLocation, hasLocationPermission} = storeToRefs(userStore)
 
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
 const destLon = computed(() => parseFloat((route.query.lot as string) ?? 'NaN'))
+
+const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value))
+
+function toggleFavorite() {
+  if (isNaN(destLat.value) || isNaN(destLon.value)) return
+  favoritesStore.togglePlanFavorite({
+    name: destName.value || t('planTitleGeneric'),
+    lat: destLat.value,
+    lon: destLon.value
+  })
+}
 
 const allStops = ref<Stop[]>([])
 
@@ -120,10 +135,24 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
             t('planTitle')
           }}</span>
         <h1
-          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate"
+          :title="hasValidDest ? destName : t('planTitleGeneric')">
           {{ hasValidDest ? destName : t('planTitleGeneric') }}
         </h1>
       </div>
+      <button
+        v-if="hasValidCoords"
+        type="button"
+        class="fav-btn mt-1 shrink-0"
+        :class="{ 'is-fav': isFavorite }"
+        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-pressed="isFavorite"
+        @click="toggleFavorite"
+      >
+        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
+        <IconHeartOutline v-else class="w-5 h-5"/>
+      </button>
     </header>
 
     <div v-if="hasLocationPermission">
@@ -302,5 +331,35 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   border: 1.5px dashed #e2e8f0;
   border-radius: 1rem;
   background: #fafafa;
+}
+
+.fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.fav-btn:hover {
+  background: #fef2f2;
+  color: #f43f5e;
+}
+
+.fav-btn:active {
+  transform: scale(0.92);
+}
+
+.fav-btn.is-fav {
+  color: #f43f5e;
+}
+
+.fav-btn.is-fav:hover {
+  background: #fee2e2;
 }
 </style>
