@@ -3,20 +3,33 @@ import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
-import {useMapStore} from '@/stores/map.ts'
+import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {sortByDistance} from "@/utils/geo.ts";
+import {decodePolyline, sortByDistance} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
-import type {Stop, StopInfo} from "@/types/tranzy.ts";
+import type {DirectionsResponse, Stop, StopInfo} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
 
 import {findDirectRoutes, type DirectRoute} from "@/utils/trips.ts";
+import {useVehicleStream} from "@/composables/useVehicleStream.ts";
+import {
+  buildShapeIndex,
+  getIndexedVehicles,
+  findClosestShapeIdx,
+  type IndexedVehicle,
+  type ShapeIndex
+} from "@/composables/useVehicleTracking.ts";
+import {
+  formatMinutesFromNow,
+  getAvailableBusesForStop
+} from "@/utils/time.ts";
+import {getShapeStopTimes} from "@/utils/trips.ts";
 
 const {t} = useI18n()
 const route = useRoute()
@@ -24,11 +37,11 @@ const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
-const {userLocation, hasLocationPermission} = storeToRefs(userStore)
+const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
 
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
-const destLon = computed(() => parseFloat((route.query.lot as string) ?? 'NaN'))
+const destLon = computed(() => parseFloat((route.query.lon as string) ?? 'NaN'))
 
 const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value))
 
@@ -43,6 +56,149 @@ function toggleFavorite() {
 
 const allStops = ref<Stop[]>([])
 const directRoutes = ref<DirectRoute[]>([])
+const selectedRouteIndex = ref(0)
+const selectedRoute = computed(() => directRoutes.value[selectedRouteIndex.value])
+
+const routesWithTimes = computed(() => {
+  const now = userTime.value || new Date()
+  return directRoutes.value.map(dr => {
+    const buses = getAvailableBusesForStop(dr.startStop, now, { limit: 3 })
+    const myBus = buses.find(b => b.route_id === dr.route.route_id)
+    return {
+      ...dr,
+      nextTimes: myBus ? myBus.next_times : []
+    }
+  })
+})
+
+const currentShapeIndex = ref<ShapeIndex | null>(null)
+const currentVehicles = ref<IndexedVehicle[]>([])
+
+const streamTripIds = computed(() => selectedRoute.value ? [selectedRoute.value.tripId] : [])
+const {vehiclesByTrip} = useVehicleStream(streamTripIds)
+
+watch(selectedRoute, async (newRoute) => {
+  if (!newRoute) {
+    currentShapeIndex.value = null
+    void mapStore.setShapesToDisplay([])
+    return
+  }
+
+  try {
+    const shapeData = await mapStore.requestShapes([{
+      trip_id: newRoute.tripId,
+      route_short_name: newRoute.route.route_short_name,
+      route_long_name: newRoute.route.route_long_name,
+      route_color: newRoute.route.route_color,
+      route_type: newRoute.route.route_type,
+    }])
+    const pts = shapeData[0]?.[1] ?? []
+    if (pts.length) {
+      const startIdx = findClosestShapeIdx(newRoute.startStop.stop_lat, newRoute.startStop.stop_lon, pts)
+      const destIdx = findClosestShapeIdx(newRoute.destStop.stop_lat, newRoute.destStop.stop_lon, pts)
+
+      const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+      const croppedPts = pts.slice(realStart, realEnd + 1)
+
+      currentShapeIndex.value = buildShapeIndex(croppedPts)
+      if (shapeData[0]) {
+        mapStore.setLoadedShapes([[shapeData[0][0], croppedPts]])
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load shape:', e)
+  }
+}, {immediate: true})
+
+watch([selectedRoute, userLocation], async ([newRoute, ul]) => {
+  if (!newRoute || !ul || isNaN(destLat.value) || isNaN(destLon.value)) {
+    mapStore.clearWalkingPolylines()
+    return
+  }
+
+  try {
+    const [dirToStart, dirToDest] = await Promise.all([
+      apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${newRoute.startStop.stop_lat}&to_lng=${newRoute.startStop.stop_lon}`) as Promise<DirectionsResponse>,
+      apiRequest(`directions?from_lat=${newRoute.destStop.stop_lat}&from_lng=${newRoute.destStop.stop_lon}&to_lat=${destLat.value}&to_lng=${destLon.value}`) as Promise<DirectionsResponse>,
+    ])
+
+    const polylines: [number, number][][] = []
+    const geomToStart = dirToStart?.routes?.[0]?.geometry
+    if (geomToStart) polylines.push(decodePolyline(geomToStart))
+    const geomToDest = dirToDest?.routes?.[0]?.geometry
+    if (geomToDest) polylines.push(decodePolyline(geomToDest))
+
+    mapStore.setWalkingPolylines(polylines)
+  } catch (e) {
+    console.error('Failed to fetch walking directions:', e)
+  }
+}, {immediate: true})
+
+watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route, shapeIndex]) => {
+  if (!route || !shapeIndex) {
+    currentVehicles.value = []
+    mapStore.setVehiclesToDisplay([])
+    return
+  }
+
+  const tid = route.tripId
+  const v = byTrip.get(tid) ?? []
+
+  try {
+    currentVehicles.value = await getIndexedVehicles(
+      tid,
+      route.route.route_short_name,
+      route.route.route_color,
+      shapeIndex,
+      userTime.value,
+      v
+    )
+    mapStore.setVehiclesToDisplay(currentVehicles.value)
+  } catch (e) {
+    console.warn('Failed to index vehicles:', e)
+  }
+}, {deep: true})
+
+
+const intermediateStops = computed(() => {
+  if (!selectedRoute.value) return []
+  const {tripId, startStop, destStop, route} = selectedRoute.value
+  const allStopTimes = getShapeStopTimes(route)
+
+  const tripStopTimes = allStopTimes
+    .filter(st => st.trip_id === tripId)
+    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+
+  const startSeq = tripStopTimes.find(st => st.stop_id === startStop.stop_id)?.stop_sequence ?? -1
+  const destSeq = tripStopTimes.find(st => st.stop_id === destStop.stop_id)?.stop_sequence ?? -1
+
+  if (startSeq === -1 || destSeq === -1) return []
+
+  return tripStopTimes
+    .filter(st => st.stop_sequence > startSeq && st.stop_sequence < destSeq)
+    .map(st => ({
+      stop_id: st.stop_id,
+      stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
+    }))
+})
+
+watch([selectedRoute, intermediateStops], ([newRoute, iStops]) => {
+  if (!newRoute) {
+    mapStore.setHighlightedStops([])
+    return
+  }
+
+  const highlighted: HighlightedStop[] = [
+    {stopId: String(newRoute.startStop.stop_id), color: 'green'},
+    {stopId: String(newRoute.destStop.stop_id), color: 'red'},
+  ]
+
+  iStops.forEach(s => {
+    highlighted.push({stopId: String(s.stop_id), color: 'gray'})
+  })
+
+  mapStore.setHighlightedStops(highlighted)
+}, {immediate: true})
 
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
@@ -88,24 +244,6 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
 
   directRoutes.value = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
   if (!directRoutes.value.length) return
-
-  const firstRoute = directRoutes.value[0]!
-  mapStore.setHighlightedStops([
-    {stopId: String(firstRoute.startStop.stop_id), color: 'green'},
-    {stopId: String(firstRoute.destStop.stop_id), color: 'red'},
-  ])
-
-  // const [dirToStart, dirToDest] = await Promise.all([
-  //   apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
-  //   apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<DirectionsResponse>,
-  // ])
-  //
-  // const polylines: [number, number][][] = []
-  // const geomToStart = dirToStart.routes[0]?.geometry
-  // if (geomToStart) polylines.push(decodePolyline(geomToStart))
-  // const geomToDest = dirToDest.routes[0]?.geometry
-  // if (geomToDest) polylines.push(decodePolyline(geomToDest))
-  // if (polylines.length) mapStore.setWalkingPolylines(polylines)
 
   stopRouteCalculationWatcher()
 }, {immediate: true})
@@ -176,6 +314,46 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           </div>
         </div>
 
+        <template v-if="selectedRoute">
+          <div class="leg-row">
+            <div class="leg-icon-col">
+              <div class="leg-dot bg-white border-2" :style="{ borderColor: selectedRoute.route.route_color }">
+                <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+              </div>
+              <div class="leg-line" :style="{ backgroundColor: selectedRoute.route.route_color, backgroundImage: 'none' }"></div>
+            </div>
+            <div class="leg-label-col">
+              <span class="leg-type-badge" :style="{ color: selectedRoute.route.route_color }">{{ t('planBoarding') }}</span>
+              <span class="leg-name">{{ selectedRoute.startStop.stop_name }}</span>
+            </div>
+          </div>
+
+          <div v-for="stop in intermediateStops" :key="stop.stop_id" class="leg-row intermediate-leg">
+            <div class="leg-icon-col">
+              <div class="leg-dot intermediate-dot">
+                <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+              </div>
+              <div class="leg-line" :style="{ backgroundColor: selectedRoute.route.route_color, backgroundImage: 'none' }"></div>
+            </div>
+            <div class="leg-label-col">
+              <span class="leg-name intermediate-name">{{ stop.stop_name }}</span>
+            </div>
+          </div>
+
+          <div class="leg-row">
+            <div class="leg-icon-col">
+              <div class="leg-dot bg-white border-2" :style="{ borderColor: selectedRoute.route.route_color }">
+                <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+              </div>
+              <div class="leg-line"></div>
+            </div>
+            <div class="leg-label-col">
+              <span class="leg-type-badge" :style="{ color: selectedRoute.route.route_color }">{{ t('planAlighting') }}</span>
+              <span class="leg-name">{{ selectedRoute.destStop.stop_name }}</span>
+            </div>
+          </div>
+        </template>
+
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-dest">
@@ -198,7 +376,57 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           {{ t('planRoutesLabel') }}
         </h2>
 
-        <div class="plan-placeholder">
+        <div v-if="directRoutes.length > 0" class="flex flex-col gap-2.5">
+          <div
+            v-for="(direct, index) in routesWithTimes"
+            :key="index"
+            class="departure-card group"
+            :class="{ 'is-selected': selectedRouteIndex === index }"
+            @click="selectedRouteIndex = index"
+          >
+            <div
+              class="w-1 self-stretch rounded-full shrink-0"
+              :class="selectedRouteIndex === index ? 'bg-sky-500' : 'bg-transparent'"
+            ></div>
+
+            <div
+              class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
+              :style="{ backgroundColor: direct.route.route_color }"
+            >{{ direct.route.route_short_name }}
+            </div>
+
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span v-if="direct.nextTimes[0]?.is_live" class="live-badge">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {{ t('live') }}
+                </span>
+                <span class="card-dest">→ {{ direct.destStop.stop_name }}</span>
+              </div>
+              <span class="card-origin">{{ direct.startStop.stop_name }}</span>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <span
+                v-for="(entry, i) in direct.nextTimes"
+                :key="i"
+                :class="[
+                  'time-pill',
+                  entry.is_live ? 'time-pill-live' : 'time-pill-sched',
+                  i > 0 ? 'time-pill-extra' : ''
+                ]"
+              >{{ entry.is_live ? '' : '~\u202f' }}{{ formatMinutesFromNow(entry.minutes, userTime || new Date(), t('now')) }}</span>
+            </div>
+
+            <svg
+              class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+
+        <div v-else class="plan-placeholder">
           <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -327,6 +555,32 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   white-space: nowrap;
 }
 
+.intermediate-leg {
+  min-height: 1.5rem;
+}
+
+.intermediate-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+}
+
+.intermediate-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.dark .intermediate-name {
+  color: #94a3b8;
+}
+
+.dark .intermediate-dot {
+  background: #1e293b;
+  border-color: #334155;
+}
+
 .plan-placeholder {
   display: flex;
   flex-direction: column;
@@ -336,6 +590,115 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   border: 1.5px dashed #e2e8f0;
   border-radius: 1rem;
   background: #fafafa;
+}
+
+.departure-card {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 0.625rem 0.75rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  container-type: inline-size;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.departure-card:hover {
+  background: white;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+}
+
+.departure-card.is-selected {
+  border-color: #0ea5e9;
+  background: #f0f9ff;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+}
+
+.dark .departure-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark .departure-card:hover {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.dark .departure-card.is-selected {
+  background: #0f172a;
+  border-color: #38bdf8;
+}
+
+.card-dest {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dark .card-dest {
+  color: #f1f5f9;
+}
+
+.card-origin {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.time-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.time-pill-live {
+  background: #10b981;
+  color: white;
+}
+
+.time-pill-sched {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dark .time-pill-sched {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+/* Hide 2nd + 3rd pill when card is narrow */
+@container (max-width: 300px) {
+  .time-pill-extra {
+    display: none;
+  }
 }
 
 .fav-btn {

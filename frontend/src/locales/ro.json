@@ -79,6 +79,9 @@
   "planOriginUnknown": "Locație necunoscută",
   "planRoutesLabel": "Rute disponibile",
   "planNearbyStops": "Stații din apropiere",
-  "planComingSoon": "În curând",
-  "planComingSoonDesc": "Planificarea rutelor va fi disponibilă în curând."
+    "planComingSoon": "Călătorii cu legătură în curând",
+    "planComingSoonDesc": "Momentan oferim doar rute directe. Călătoriile cu legătură vor fi disponibile în curând.",
+    "planBoarding": "Urcare",
+    "planAlighting": "Coborâre",
+    "planWalk": "Mers"
 }

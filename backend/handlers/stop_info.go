@@ -157,6 +157,7 @@ func buildShapesInfoParallel(
 				ok: true,
 				info: models.ShapeInfo{
 					RouteShortName: rsn,
+					RouteLongName:  route.RouteLongName,
 					RouteId:        route.RouteID,
 					RouteType:      route.RouteType,
 					RouteColor:     route.RouteColor,

@@ -208,6 +208,28 @@ html[data-traditional] .departure-card:hover {
   border-left-color: var(--xp-blue-hi) !important;
 }
 
+html[data-traditional] .departure-card.is-selected {
+  background: var(--xp-blue-hi) !important;
+  color: #FFFFFF !important;
+  border-left: 4px solid #1B4FB8 !important;
+}
+
+html[data-traditional] .departure-card.is-selected * {
+  color: #FFFFFF !important;
+}
+
+html[data-traditional] .departure-card.is-selected .time-pill-sched {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #FFFFFF !important;
+}
+
+html[data-traditional] .departure-card.is-selected .live-badge {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #FFFFFF !important;
+}
+
 html[data-traditional] .departure-card-fav {
   background: #FFFFFF !important;
   border: 1px solid var(--xp-border) !important;
@@ -531,6 +553,28 @@ html.dark[data-traditional] .departure-card {
 html.dark[data-traditional] .departure-card:hover {
   background: #232A40 !important;
   border-left-color: var(--xp-blue-hi) !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected {
+  background: #2A508C !important;
+  color: #FFFFFF !important;
+  border-left: 4px solid var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected * {
+  color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .time-pill-sched {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .live-badge {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #FFFFFF !important;
 }
 
 html.dark[data-traditional] .departure-card-fav {

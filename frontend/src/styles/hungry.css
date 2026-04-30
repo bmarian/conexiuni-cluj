@@ -73,6 +73,16 @@ html[data-hungry] .departure-card:hover {
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15) !important;
 }
 
+html[data-hungry] .departure-card.is-selected {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+}
+
+html[data-hungry] .departure-card.is-selected * {
+  color: #78350f !important;
+}
+
 html[data-hungry] .departure-card-fav {
   background: #fef3c7 !important;
   border-color: #fcd34d !important;
@@ -202,6 +212,16 @@ html.dark[data-hungry] .departure-card {
 html.dark[data-hungry] .departure-card:hover {
   background: #2a2006 !important;
   border-color: #b45309 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected {
+  background: #3d2b08 !important;
+  border-color: #d97706 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected * {
   color: #fde68a !important;
 }
 

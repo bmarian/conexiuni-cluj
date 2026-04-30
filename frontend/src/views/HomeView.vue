@@ -97,7 +97,7 @@ function navigateToPlan(plan: {name: string, lat: number, lon: number}) {
     name: 'plan',
     query: {
       lat: String(plan.lat),
-      lot: String(plan.lon),
+      lon: String(plan.lon),
       name: plan.name,
     },
   })

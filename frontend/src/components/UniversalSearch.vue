@@ -169,7 +169,7 @@ function navigateToPlan(result: GeoResult) {
     name: 'plan',
     query: {
       lat: result.lat,
-      lot: result.lon,
+      lon: result.lon,
       name: result.display_name,
     },
   })

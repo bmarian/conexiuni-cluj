@@ -50,6 +50,7 @@ export type LocationType =
 
 export type ShapeInfo = {
   route_short_name: string
+  route_long_name: string
   route_id: number
   route_type: RouteType
   route_color: string
@@ -119,4 +120,10 @@ export type VehiclesInStop = {
   route_long_name: string
   static_time_approximation: boolean
   vehicles?: Vehicle[]
+}
+
+export type DirectionsResponse = {
+  routes: {
+    geometry: string
+  }[]
 }

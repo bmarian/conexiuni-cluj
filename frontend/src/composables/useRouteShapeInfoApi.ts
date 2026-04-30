@@ -63,6 +63,7 @@ export function useRouteShapeInfoApi() {
 
       return {
         route_short_name: route.route_short_name,
+        route_long_name: route.route_long_name,
         route_id: route.route_id,
         route_type: route.route_type,
         route_color: route.route_color,

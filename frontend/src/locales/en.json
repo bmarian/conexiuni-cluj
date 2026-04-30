@@ -79,6 +79,9 @@
   "planOriginUnknown": "Unknown location",
   "planRoutesLabel": "Available routes",
   "planNearbyStops": "Nearby stations",
-  "planComingSoon": "Coming soon",
-  "planComingSoonDesc": "Route planning will be available soon."
+    "planComingSoon": "Connecting trips coming soon",
+    "planComingSoonDesc": "Currently we only support direct routes. Connecting trips will be available soon.",
+    "planBoarding": "Boarding",
+    "planAlighting": "Alighting",
+    "planWalk": "Walk"
 }

@@ -15,6 +15,7 @@ type StopInfo struct {
 
 type ShapeInfo struct {
 	RouteShortName string     `json:"route_short_name"`
+	RouteLongName  string     `json:"route_long_name"`
 	RouteId        int        `json:"route_id"`
 	RouteType      RouteType  `json:"route_type"`
 	RouteColor     string     `json:"route_color"`
