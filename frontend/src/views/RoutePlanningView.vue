@@ -9,13 +9,13 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {closestStop, decodePolyline} from "@/utils/geo.ts";
+import {closestStop} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
-import type {DirectionsResponse} from "@/types/directions.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
+import {getAvailableBusesForStop} from "@/utils/time.ts";
 
 const {t} = useI18n()
 const route = useRoute()
@@ -87,22 +87,28 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
     apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>,
   ])
 
-  const [dirToStart, dirToDest] = await Promise.all([
-    apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
-    apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<DirectionsResponse>,
-  ])
+  const availableBussesForStart = getAvailableBusesForStop(startStop, userStore.userTime!)
+  const availableBussesForDest = getAvailableBusesForStop(destinationStop, userStore.userTime!)
+  console.log(availableBussesForStart, availableBussesForDest)
+  debugger;
 
   mapStore.setHighlightedStops([
     {stopId: String(closestStopToUser.stop_id), color: 'green'},
     {stopId: String(closestStopToDestination.stop_id), color: 'red'},
   ])
 
-  const polylines: [number, number][][] = []
-  const geomToStart = dirToStart.routes[0]?.geometry
-  if (geomToStart) polylines.push(decodePolyline(geomToStart))
-  const geomToDest = dirToDest.routes[0]?.geometry
-  if (geomToDest) polylines.push(decodePolyline(geomToDest))
-  if (polylines.length) mapStore.setWalkingPolylines(polylines)
+
+  // const [dirToStart, dirToDest] = await Promise.all([
+  //   apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
+  //   apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<DirectionsResponse>,
+  // ])
+  //
+  // const polylines: [number, number][][] = []
+  // const geomToStart = dirToStart.routes[0]?.geometry
+  // if (geomToStart) polylines.push(decodePolyline(geomToStart))
+  // const geomToDest = dirToDest.routes[0]?.geometry
+  // if (geomToDest) polylines.push(decodePolyline(geomToDest))
+  // if (polylines.length) mapStore.setWalkingPolylines(polylines)
 
   stopRouteCalculationWatcher()
 }, {immediate: true})
@@ -184,7 +190,8 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           </div>
           <div class="leg-label-col">
             <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-            <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+            <span class="leg-name"
+                  :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
           </div>
         </div>
       </section>

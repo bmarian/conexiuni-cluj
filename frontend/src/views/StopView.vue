@@ -12,18 +12,13 @@ import {
   OUTGOING_SUFFIX,
   type Shape,
   type ShapeInfo,
-  type StopTime,
-  type TimeEntry,
   type Vehicle,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
 import {
   formatMinutesFromNow,
-  getMinutesFromDate,
-  getTimetableForDay,
   hasTimetableEntries,
-  isTimetableAvailableOnDay,
-  timeStringToMinutes
+  getAvailableBusesForStop
 } from "@/utils/time.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {
@@ -38,7 +33,11 @@ import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
-import {getRouteIdFromTripId, getShapeStopTimes} from "@/utils/trips.ts";
+import {
+  getRouteIdFromTripId,
+  getShapeStopTimes,
+  getTripIdForRouteAtStop
+} from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 
 const props = defineProps<{ stopId: string }>()
@@ -117,98 +116,13 @@ const departuresSorted = computed(() => {
   })
 })
 
-const getTimeOffsetToStop = (stopTime: StopTime[], tripId: string): number => {
-  const propStopId = Number(props.stopId)
-  let timeOffset = 0
-  for (let j = 0; j < stopTime.length; j++) {
-    const {trip_id, stop_id, offset_arrival_time} = stopTime[j]!
-    if (trip_id !== tripId) continue
-    if (stop_id === propStopId) break
-    timeOffset += Math.ceil(offset_arrival_time / 60)
-  }
-  return timeOffset
-}
-
-const getTripId = (outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string) => {
-  const wantedRouteId = Number(routeId)
-  if (!Number.isFinite(wantedRouteId)) return undefined
-  return [...(outgoingTripIds || []), ...(incomingTripIds || [])]
-    .find((id) => getRouteIdFromTripId(id) === wantedRouteId)
-}
-
-const reverseRouteLongName = (routeLongName: string) => {
-  return routeLongName.split(' - ').reverse().join(' - ')
-}
-
-const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShape[] => {
-  if (!availableShapes?.length) return []
-  const routeIdsWithAvailableTimetables = new Set(availableShapes.map((shape: ShapeInfo) => shape.route_id))
-  const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value
-  return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
-    .filter((trip_id) => {
-      const tripRouteId = getRouteIdFromTripId(trip_id)
-      return tripRouteId !== null && routeIdsWithAvailableTimetables.has(tripRouteId)
-    })
-    .reduce((acc: DisplayShape[], trip_id: string) => {
-      const routeId = getRouteIdFromTripId(trip_id)
-      if (routeId === null) return acc
-      const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
-      if (shape) acc.push({
-        trip_id,
-        route_short_name: shape.route_short_name,
-        route_long_name: shape.timetable?.route_long_name || '',
-        route_color: shape.route_color,
-        route_type: shape.route_type
-      })
-      return acc
-    }, [])
-}
-
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
   if (!stopInfo.value) return []
-  const referenceDate = userTime.value || new Date()
-  const currentTimeInMinutes = getMinutesFromDate(userTime.value || new Date())
-  const {outgoing_trip_ids, incoming_trip_ids, shapes_info} = stopInfo.value
-
-  const results: VehiclesInStop[] = []
-  for (const shapeInfo of shapes_info) {
-    const {route_short_name, route_type, route_color, route_id, timetable} = shapeInfo
-    const stopTime = getShapeStopTimes(shapeInfo)
-    if (!hasTimetableEntries(timetable) || !isTimetableAvailableOnDay(referenceDate, timetable)) continue
-
-    const tripId = getTripId(outgoing_trip_ids, incoming_trip_ids, route_id)
-    if (!tripId) continue
-
-    const timeOffsetToStop = getTimeOffsetToStop(stopTime, tripId)
-    const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
-    const todayTimetable = getTimetableForDay(timetable, referenceDate)
-
-    const upcomingMinutes: number[] = todayTimetable.entries
-      .map((entry) => {
-        const t = timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out)
-        return t === null ? null : t + timeOffsetToStop
-      })
-      .filter((t: number | null): t is number => t !== null)
-      .map((t: number) => ((t - currentTimeInMinutes) + 1440) % 1440)
-      .filter((m: number) => m < 480)
-      .sort((a: number, b: number) => a - b)
-      .slice(0, 3)
-
-    if (!upcomingMinutes.length) continue
-
-    results.push({
-      minutes_left: upcomingMinutes[0]!,
-      next_times: upcomingMinutes.map((m) => ({minutes: m, is_live: false} as TimeEntry)),
-      route_short_name,
-      route_type,
-      route_color,
-      trip_id: tripId,
-      route_id,
-      route_long_name: isOutgoing ? timetable.route_long_name : reverseRouteLongName(timetable.route_long_name),
-      static_time_approximation: true,
-    })
-  }
-  return results.sort((a, b) => a.minutes_left - b.minutes_left)
+  return getAvailableBusesForStop(
+    stopInfo.value,
+    userTime.value || new Date(),
+    {maxMinutes: 480, limit: 3}
+  )
 })
 
 watch(() => props.stopId, async (newValue) => {
@@ -346,12 +260,36 @@ const navigateToRoute = (shape: VehiclesInStop) => {
 }
 
 const navigateToAllRoute = (shape: ShapeInfo) => {
-  const tripId = getTripId(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
+  const tripId = getTripIdForRouteAtStop(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
   routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
   router.push({
     name: 'route',
     params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}
   })
+}
+
+const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShape[] => {
+  if (!availableShapes?.length) return []
+  const routeIdsWithAvailableTimetables = new Set(availableShapes.map((shape: ShapeInfo) => shape.route_id))
+  const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value!
+  return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
+    .filter((trip_id) => {
+      const tripRouteId = getRouteIdFromTripId(trip_id)
+      return tripRouteId !== null && routeIdsWithAvailableTimetables.has(tripRouteId)
+    })
+    .reduce((acc: DisplayShape[], trip_id: string) => {
+      const routeId = getRouteIdFromTripId(trip_id)
+      if (routeId === null) return acc
+      const shape = availableShapes.find((shape: ShapeInfo) => shape.route_id === routeId)
+      if (shape) acc.push({
+        trip_id,
+        route_short_name: shape.route_short_name,
+        route_long_name: shape.timetable?.route_long_name || '',
+        route_color: shape.route_color,
+        route_type: shape.route_type
+      })
+      return acc
+    }, [])
 }
 </script>
 

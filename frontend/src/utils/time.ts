@@ -1,4 +1,11 @@
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
+import {
+  OUTGOING_SUFFIX,
+  type StopInfo,
+  type TimeEntry,
+  type VehiclesInStop
+} from '@/types/tranzy.ts'
+import {getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 
 export const timeStringToMinutes = (timeString: string): number | null => {
   if (!timeString || !timeString.includes(':')) {
@@ -54,4 +61,70 @@ export const hasTimetableEntries = (timetable?: Timetable | null): boolean => {
 
 export const isTimetableAvailableOnDay = (referenceDate: Date, timetable: Timetable): boolean => {
   return !!getTimetableForDay(timetable, referenceDate)?.entries?.length
+}
+
+export const reverseRouteLongName = (routeLongName: string): string => {
+  return routeLongName.split(' - ').reverse().join(' - ')
+}
+
+export const getAvailableBusesForStop = (
+  stopInfo: StopInfo,
+  referenceDate: Date,
+  options: { maxMinutes?: number; limit?: number } = {}
+): VehiclesInStop[] => {
+  const referenceMinutes = getMinutesFromDate(referenceDate)
+  const {outgoing_trip_ids, incoming_trip_ids, shapes_info, stop_id} = stopInfo
+
+  const results: VehiclesInStop[] = []
+  for (const shape of shapes_info) {
+    const {route_short_name, route_type, route_color, route_id, timetable} = shape
+    if (!isTimetableAvailableOnDay(referenceDate, timetable)) continue
+
+    const tripId = getTripIdForRouteAtStop(outgoing_trip_ids ?? [], incoming_trip_ids ?? [], route_id)
+    if (!tripId) continue
+
+    const stopTimes = getShapeStopTimes(shape)
+    const timeOffsetToStop = getTimeOffsetToStop(stopTimes, tripId, stop_id)
+    const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
+    const daySchedule = getTimetableForDay(timetable, referenceDate)
+
+    let upcomingEntries: TimeEntry[] = daySchedule.entries
+      .map(entry => {
+        const depStr = isOutgoing ? entry.departure_in : entry.departure_out
+        const depMinutes = timeStringToMinutes(depStr)
+        if (depMinutes === null) return null
+
+        const arrivalAtStopMinutes = depMinutes + timeOffsetToStop
+        const minutesDiff = ((arrivalAtStopMinutes - referenceMinutes) + 1440) % 1440
+
+        if (options.maxMinutes !== undefined && minutesDiff >= options.maxMinutes) return null
+
+        return {
+          minutes: minutesDiff,
+          is_live: false
+        }
+      })
+      .filter((e): e is TimeEntry => e !== null)
+      .sort((a, b) => a.minutes - b.minutes)
+
+    if (options.limit !== undefined) {
+      upcomingEntries = upcomingEntries.slice(0, options.limit)
+    }
+
+    if (upcomingEntries.length === 0) continue
+
+    results.push({
+      minutes_left: upcomingEntries[0]!.minutes,
+      next_times: upcomingEntries,
+      route_short_name,
+      route_type,
+      route_color,
+      trip_id: tripId,
+      route_id,
+      route_long_name: isOutgoing ? timetable.route_long_name : reverseRouteLongName(timetable.route_long_name),
+      static_time_approximation: true,
+    })
+  }
+
+  return results.sort((a, b) => a.minutes_left - b.minutes_left)
 }
