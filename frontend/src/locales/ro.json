@@ -24,7 +24,8 @@
   "favorites": "Favorite",
   "favoriteRoutes": "Rute favorite",
   "favoriteStops": "Stații favorite",
-  "noFavorites": "Nicio rută sau stație salvată. Apasă inima pe o rută sau stație pentru a o adăuga la favorite.",
+  "favoritePlans": "Destinații favorite",
+  "noFavorites": "Nicio rută, stație sau destinație salvată. Apasă inima pe una pentru a o adăuga la favorite.",
   "searchRoutes": "Caută rute...",
   "searchPlaceholder": "Caută rute, stații, locuri...",
   "searchResultsPlaces": "Locuri",
@@ -77,6 +78,7 @@
   "planOriginCurrentLocation": "Locația mea actuală",
   "planOriginUnknown": "Locație necunoscută",
   "planRoutesLabel": "Rute disponibile",
+  "planNearbyStops": "Stații din apropiere",
   "planComingSoon": "În curând",
   "planComingSoonDesc": "Planificarea rutelor va fi disponibilă în curând."
 }

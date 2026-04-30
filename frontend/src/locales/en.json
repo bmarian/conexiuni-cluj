@@ -24,7 +24,8 @@
   "favorites": "Favorites",
   "favoriteRoutes": "Favorite routes",
   "favoriteStops": "Favorite stops",
-  "noFavorites": "No favorites yet. Tap the heart on a route or stop to save it here.",
+  "favoritePlans": "Favorite destinations",
+  "noFavorites": "No favorites yet. Tap the heart on a route, stop or destination to save it here.",
   "searchRoutes": "Search routes...",
   "searchPlaceholder": "Search routes, stops, places...",
   "searchResultsPlaces": "Places",
@@ -77,6 +78,7 @@
   "planOriginCurrentLocation": "My current location",
   "planOriginUnknown": "Unknown location",
   "planRoutesLabel": "Available routes",
+  "planNearbyStops": "Nearby stations",
   "planComingSoon": "Coming soon",
   "planComingSoonDesc": "Route planning will be available soon."
 }

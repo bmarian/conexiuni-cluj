@@ -10,7 +10,7 @@ func LoadTranzyQuota(name string) (int, time.Time, error) {
 	var count int
 	var resetUnix int64
 	err := DB.QueryRow(
-		`SELECT count, reset_at FROM tranzy_quotas WHERE name = ?`, name,
+		`SELECT count, reset_at FROM quotas WHERE name = ?`, name,
 	).Scan(&count, &resetUnix)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, time.Time{}, nil
@@ -23,7 +23,7 @@ func LoadTranzyQuota(name string) (int, time.Time, error) {
 
 func SaveTranzyQuota(name string, count int, resetAt time.Time) error {
 	_, err := DB.Exec(
-		`INSERT OR REPLACE INTO tranzy_quotas (name, count, reset_at) VALUES (?, ?, ?)`,
+		`INSERT OR REPLACE INTO quotas (name, count, reset_at) VALUES (?, ?, ?)`,
 		name, count, resetAt.Unix(),
 	)
 	return err

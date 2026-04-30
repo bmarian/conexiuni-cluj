@@ -5,7 +5,6 @@ import {computed, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
-import IconBack from "@/components/icons/IconBack.vue"
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
@@ -38,6 +37,7 @@ import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
+import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {getRouteIdFromTripId, getShapeStopTimes} from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 
@@ -322,10 +322,6 @@ onUnmounted(() => {
   mapStore.setShapesToDisplay([])
 })
 
-const goBack = () => {
-  router.replace({name: 'home'})
-}
-
 function routeDestination(name: string): string {
   const i = name.lastIndexOf(' - ')
   return i >= 0 ? name.slice(i + 3) : name
@@ -392,20 +388,14 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
   <div v-else-if="loadError"
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <ViewErrorState @back="goBack"/>
+    <ViewErrorState/>
   </div>
 
   <div v-else
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
     <div class="flex items-center -mb-4">
-      <button
-        @click="goBack"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
-      >
-        <IconBack class="w-4 h-4"/>
-        {{ t('back') }}
-      </button>
+      <HeaderNavigation />
     </div>
 
     <header class="flex items-start gap-4">

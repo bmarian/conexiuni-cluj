@@ -21,6 +21,7 @@ html[data-traditional] .app-drawer .departure-card,
 html[data-traditional] .app-drawer .live-badge,
 html[data-traditional] .app-drawer .time-pill,
 html[data-traditional] .app-drawer .all-route-row,
+html[data-traditional] .app-drawer .stop-result-row,
 html[data-traditional] .app-drawer .geo-result-row,
 html[data-traditional] .app-drawer .fav-btn,
 html[data-traditional] .app-drawer .direction-toggle-wrap,
@@ -271,6 +272,7 @@ html[data-traditional] .fav-stop-row:hover * {
 }
 
 html[data-traditional] .all-route-row,
+html[data-traditional] .stop-result-row,
 html[data-traditional] .geo-result-row {
   background: #FFFFFF !important;
   border: 1px solid transparent !important;
@@ -279,12 +281,14 @@ html[data-traditional] .geo-result-row {
 }
 
 html[data-traditional] .all-route-row:hover,
+html[data-traditional] .stop-result-row:hover,
 html[data-traditional] .geo-result-row:hover {
   background: #316AC5 !important;
   color: #FFFFFF !important;
 }
 
 html[data-traditional] .all-route-row:hover *,
+html[data-traditional] .stop-result-row:hover *,
 html[data-traditional] .geo-result-row:hover * {
   color: #FFFFFF !important;
 }
@@ -579,11 +583,13 @@ html.dark[data-traditional] .fav-stop-row:hover {
 }
 
 html.dark[data-traditional] .all-route-row,
+html.dark[data-traditional] .stop-result-row,
 html.dark[data-traditional] .geo-result-row {
   background: #1A2030 !important;
 }
 
 html.dark[data-traditional] .all-route-row:hover,
+html.dark[data-traditional] .stop-result-row:hover,
 html.dark[data-traditional] .geo-result-row:hover {
   background: #2A508C !important;
 }

@@ -1,22 +1,46 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useRoute} from 'vue-router'
+import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
-import IconBack from '@/components/icons/IconBack.vue'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
+import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
+import {closestStop, decodePolyline} from "@/utils/geo.ts";
+import {apiRequest} from "@/utils/request_cache.ts";
+import type {Stop, StopInfo} from "@/types/tranzy.ts";
+import type {DirectionsResponse} from "@/types/directions.ts";
+import {storeToRefs} from "pinia";
+import ClosestStopsList from "@/components/ClosestStopsList.vue";
+import ViewErrorState from "@/components/ViewErrorState.vue";
 
 const {t} = useI18n()
 const route = useRoute()
-const router = useRouter()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
+const favoritesStore = useFavoritesStore()
+const {userLocation, hasLocationPermission} = storeToRefs(userStore)
 
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
 const destLon = computed(() => parseFloat((route.query.lot as string) ?? 'NaN'))
+
+const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value))
+
+function toggleFavorite() {
+  if (isNaN(destLat.value) || isNaN(destLon.value)) return
+  favoritesStore.togglePlanFavorite({
+    name: destName.value || t('planTitleGeneric'),
+    lat: destLat.value,
+    lon: destLon.value
+  })
+}
+
+const allStops = ref<Stop[]>([])
 
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
@@ -26,15 +50,18 @@ const originLabel = computed(() => {
   return t('planOriginUnknown')
 })
 
-// using openrouteservice 2000 requests/day 40/min directions vs api
-
-onMounted(() => {
+onMounted(async () => {
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])
-  mapStore.setShapesToDisplay([])
+  void mapStore.setShapesToDisplay([])
+
   if (hasValidCoords.value) {
-    mapStore.setFlyToLocation(destLat.value, destLon.value)
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
+    allStops.value = await apiRequest('stops') as Stop[]
+
+    if (!hasLocationPermission.value) {
+      mapStore.setFlyToLocation(destLat.value, destLon.value)
+    }
   }
 })
 
@@ -42,89 +69,149 @@ onUnmounted(() => {
   mapStore.clearPinnedLocation()
   mapStore.setVehiclesToDisplay([])
   mapStore.setShapesToDisplay([])
+  mapStore.setHighlightedStops([])
+  mapStore.clearWalkingPolylines()
 })
 
-function goBack() {
-  router.replace({name: 'home'})
-}
+const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
+  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
+
+  const closestStopToDestination = closestStop(lat, lon, stops) as Stop
+  const closestStopToUser = closestStop(ul.latitude, ul.longitude, stops) as Stop
+
+  if (!closestStopToDestination || !closestStopToUser) return
+
+  const [startStop, destinationStop] = await Promise.all([
+    apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>,
+    apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>,
+  ])
+
+  const [dirToStart, dirToDest] = await Promise.all([
+    apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${startStop.stop_lat}&to_lng=${startStop.stop_lon}`) as Promise<DirectionsResponse>,
+    apiRequest(`directions?from_lat=${destinationStop.stop_lat}&from_lng=${destinationStop.stop_lon}&to_lat=${lat}&to_lng=${lon}`) as Promise<DirectionsResponse>,
+  ])
+
+  mapStore.setHighlightedStops([
+    {stopId: String(closestStopToUser.stop_id), color: 'green'},
+    {stopId: String(closestStopToDestination.stop_id), color: 'red'},
+  ])
+
+  const polylines: [number, number][][] = []
+  const geomToStart = dirToStart.routes[0]?.geometry
+  if (geomToStart) polylines.push(decodePolyline(geomToStart))
+  const geomToDest = dirToDest.routes[0]?.geometry
+  if (geomToDest) polylines.push(decodePolyline(geomToDest))
+  if (polylines.length) mapStore.setWalkingPolylines(polylines)
+
+  stopRouteCalculationWatcher()
+}, {immediate: true})
+
 </script>
 
 <template>
-  <div class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
-
+  <div v-if="!hasValidCoords"
+       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
+    <ViewErrorState/>
+  </div>
+  <div v-else
+       class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
     <div class="flex items-center -mb-2">
-      <button
-        @click="goBack"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
-      >
-        <IconBack class="w-4 h-4"/>
-        {{ t('back') }}
-      </button>
+      <HeaderNavigation/>
     </div>
-
     <header class="flex items-center gap-3">
-      <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+      <div
+        class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
         <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
-        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor"
+             stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
         </svg>
       </div>
       <div class="flex-1 min-w-0">
-        <span class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{ t('planTitle') }}</span>
-        <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+        <span
+          class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{
+            t('planTitle')
+          }}</span>
+        <h1
+          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate"
+          :title="hasValidDest ? destName : t('planTitleGeneric')">
           {{ hasValidDest ? destName : t('planTitleGeneric') }}
         </h1>
       </div>
+      <button
+        v-if="hasValidCoords"
+        type="button"
+        class="fav-btn mt-1 shrink-0"
+        :class="{ 'is-fav': isFavorite }"
+        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+        :aria-pressed="isFavorite"
+        @click="toggleFavorite"
+      >
+        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
+        <IconHeartOutline v-else class="w-5 h-5"/>
+      </button>
     </header>
 
-    <section class="route-legs-card">
-      <div class="leg-row">
-        <div class="leg-icon-col">
-          <div class="leg-dot leg-dot-origin">
-            <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="6"/>
-            </svg>
+    <div v-if="hasLocationPermission">
+      <section class="route-legs-card">
+        <div class="leg-row">
+          <div class="leg-icon-col">
+            <div class="leg-dot leg-dot-origin">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="6"/>
+              </svg>
+            </div>
+            <div class="leg-line"></div>
           </div>
-          <div class="leg-line"></div>
-        </div>
-        <div class="leg-label-col">
-          <span class="leg-type-badge">{{ t('planFrom') }}</span>
-          <span class="leg-name">{{ originLabel }}</span>
-        </div>
-      </div>
-
-      <div class="leg-row">
-        <div class="leg-icon-col">
-          <div class="leg-dot leg-dot-dest">
-            <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
+          <div class="leg-label-col">
+            <span class="leg-type-badge">{{ t('planFrom') }}</span>
+            <span class="leg-name">{{ originLabel }}</span>
           </div>
         </div>
-        <div class="leg-label-col">
-          <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-          <span class="leg-name">{{ hasValidDest ? destName : '—' }}</span>
+
+        <div class="leg-row">
+          <div class="leg-icon-col">
+            <div class="leg-dot leg-dot-dest">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="leg-label-col">
+            <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
+            <span class="leg-name">{{ hasValidDest ? destName : '—' }}</span>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+      <section class="flex flex-col gap-3 pb-8">
+        <h2 class="section-label">
+          <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
+          {{ t('planRoutesLabel') }}
+        </h2>
 
-    <section class="flex flex-col gap-3 pb-8">
-      <h2 class="section-label">
-        <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
-        {{ t('planRoutesLabel') }}
-      </h2>
+        <div class="plan-placeholder">
+          <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+          </svg>
+          <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+            {{ t('planComingSoon') }}</p>
+          <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">
+            {{ t('planComingSoonDesc') }}</p>
+        </div>
+      </section>
+    </div>
 
-      <div class="plan-placeholder">
-        <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-        </svg>
-        <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">{{ t('planComingSoon') }}</p>
-        <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">{{ t('planComingSoonDesc') }}</p>
-      </div>
-    </section>
-
+    <div v-else>
+      <section class="flex flex-col gap-3 pb-8">
+        <ClosestStopsList :stops="allStops" :center-lat="destLat" :center-lon="destLon"/>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -244,5 +331,35 @@ function goBack() {
   border: 1.5px dashed #e2e8f0;
   border-radius: 1rem;
   background: #fafafa;
+}
+
+.fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.fav-btn:hover {
+  background: #fef2f2;
+  color: #f43f5e;
+}
+
+.fav-btn:active {
+  transform: scale(0.92);
+}
+
+.fav-btn.is-fav {
+  color: #f43f5e;
+}
+
+.fav-btn.is-fav:hover {
+  background: #fee2e2;
 }
 </style>

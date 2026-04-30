@@ -2,8 +2,11 @@
 import {useI18n} from 'vue-i18n'
 import IconBus404 from '@/components/icons/IconBus404.vue'
 import IconBack from '@/components/icons/IconBack.vue'
+import {useRouter} from "vue-router";
+import IconHome from "@/components/icons/IconHome.vue";
 
 const {t} = useI18n()
+const router = useRouter()
 
 withDefaults(defineProps<{
   title?: string
@@ -15,7 +18,10 @@ withDefaults(defineProps<{
   backLabel: undefined,
 })
 
-const emit = defineEmits<{ back: [] }>()
+const goHome = () => {
+  router.replace({name: 'home'})
+}
+
 </script>
 
 <template>
@@ -26,9 +32,9 @@ const emit = defineEmits<{ back: [] }>()
       </div>
       <h1 class="ves-title">{{ title ?? t('notFound') }}</h1>
       <p class="ves-desc">{{ description ?? t('notFoundDesc') }}</p>
-      <button type="button" class="ves-back-btn" @click="emit('back')">
-        <IconBack class="ves-back-icon" aria-hidden="true"/>
-        {{ backLabel ?? t('back') }}
+      <button type="button" class="ves-back-btn" @click="goHome">
+        <IconHome class="ves-back-icon" aria-hidden="true"/>
+        {{ backLabel ?? t('home') }}
       </button>
     </div>
   </div>

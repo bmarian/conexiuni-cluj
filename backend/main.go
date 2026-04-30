@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/handlers"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
+	"conexiuni-cluj/services/ors"
 	"conexiuni-cluj/services/tranzy"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -84,6 +85,13 @@ func main() {
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
+	var orsClient *ors.Client
+	if config.ORSApiKey != "" {
+		orsClient = ors.NewClient(config.ORSBaseURL, config.ORSApiKey, config.ORSDailyQuota, config.ORSMinuteQuota, dbQuotaPersister{})
+	} else {
+		log.Println("Warning: ORS_API_KEY not set; GET /api/directions will return 503")
+	}
+
 	weekdaySlots, err := handlers.ParseSchedule(config.VehicleSchedule)
 	if err != nil {
 		log.Fatalf("VEHICLE_SCHEDULE: %v", err)
@@ -124,10 +132,11 @@ func main() {
 		APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
 		StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
 		TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
+		DirectionsCacheShelfLife:  config.DirectionsCacheShelfLife,
 	}
 
 	api := app.Group("/api")
-	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
+	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, orsClient, cacheTimes)
 
 	if _, err := os.Stat("./dist"); err == nil {
 		app.Get("/sw.js", func(c fiber.Ctx) error {

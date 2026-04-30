@@ -17,6 +17,7 @@ export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])
   const vehiclesToDisplay = ref<Vehicle[]>([])
   const highlightedStops = ref<HighlightedStop[]>([])
+  const walkingPolylines = ref<[number, number][][]>([])
   const vehicleColor = ref<string | null>(null)
   const zoomOut = ref(false)
   const centerOnUser = ref(false)
@@ -52,6 +53,14 @@ export const useMapStore = defineStore('map', () => {
     return displayShapes.map((d): [DisplayShape, Shape[]] => [d, grouped.get(d.trip_id) ?? []])
   }
 
+  const setWalkingPolylines = (polylines: [number, number][][]) => {
+    walkingPolylines.value = polylines
+  }
+
+  const clearWalkingPolylines = () => {
+    walkingPolylines.value = []
+  }
+
   const setVehiclesToDisplay = (vehicles: Vehicle[]) => {
     if (!vehicles) return
     vehiclesToDisplay.value = vehicles
@@ -82,6 +91,7 @@ export const useMapStore = defineStore('map', () => {
     flyToLocation,
     pinnedLocation,
     shapesToDisplay,
+    walkingPolylines,
     zoomOut,
     vehiclesToDisplay,
     highlightedStops,
@@ -95,6 +105,8 @@ export const useMapStore = defineStore('map', () => {
     setFlyToLocation,
     setPinnedLocation,
     clearPinnedLocation,
+    setWalkingPolylines,
+    clearWalkingPolylines,
     drawerBottomPx,
     setDrawerBottomPx,
 
