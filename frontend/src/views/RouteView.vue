@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect} from 'vue'
-import {useRouter} from 'vue-router'
+import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import {useRouteStore} from '@/stores/route.ts'
@@ -28,7 +28,6 @@ import {
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
-import IconBack from '@/components/icons/IconBack.vue'
 import ViewErrorState from '@/components/ViewErrorState.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
@@ -37,7 +36,6 @@ import RoutePong from '@/components/RoutePong.vue'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
-const router = useRouter()
 const {t} = useI18n()
 const routeStore = useRouteStore()
 const userStore = useUserStore()
@@ -402,14 +400,6 @@ watch(currentDirection, () => {
 
 const isInitialLoading = ref(!shapeInfo.value || shapeInfo.value.route_id !== Number(props.routeId))
 
-function goBack() {
-  if (fromStopId.value) {
-    router.replace({name: 'stop', params: {stopId: fromStopId.value}})
-  } else {
-    router.replace({name: 'home'})
-  }
-}
-
 async function loadShapeInfoFromApi(): Promise<boolean> {
   const {routes, fetchRoutes} = useRoutesApi()
   const {fetchShapeInfo} = useRouteShapeInfoApi()
@@ -521,18 +511,14 @@ onUnmounted(() => {
   </div>
 
   <div v-else-if="!shapeInfo" class="route-view-container flex flex-col">
-    <ViewErrorState @back="goBack"/>
+    <ViewErrorState/>
   </div>
 
   <div v-else
        class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
     <div class="flex items-center mb-4!">
-      <button @click="goBack"
-              class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150">
-        <IconBack class="w-4 h-4"/>
-        {{ t('back') }}
-      </button>
+      <HeaderNavigation />
     </div>
 
     <header class="flex items-start gap-4 pb-5">

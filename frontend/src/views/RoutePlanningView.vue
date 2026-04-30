@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, watch} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
+import {useRoute} from 'vue-router'
+import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
-import IconBack from '@/components/icons/IconBack.vue'
 import {closestStop, decodePolyline} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {Stop, StopInfo} from "@/types/tranzy.ts";
@@ -14,7 +14,6 @@ import {storeToRefs} from "pinia";
 
 const {t} = useI18n()
 const route = useRoute()
-const router = useRouter()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
@@ -49,10 +48,6 @@ onUnmounted(() => {
   mapStore.setHighlightedStops([])
   mapStore.clearWalkingPolylines()
 })
-
-function goBack() {
-  router.replace({name: 'home'})
-}
 
 const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul]) => {
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul) return
@@ -97,13 +92,7 @@ const stopWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul
     class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
 
     <div class="flex items-center -mb-2">
-      <button
-        @click="goBack"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
-      >
-        <IconBack class="w-4 h-4"/>
-        {{ t('back') }}
-      </button>
+      <HeaderNavigation />
     </div>
 
     <header class="flex items-center gap-3">
