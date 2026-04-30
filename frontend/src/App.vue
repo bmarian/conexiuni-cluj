@@ -327,6 +327,7 @@ function toggleLandscapeDrawer() {
 
 .is-dragging .drawer-scroll {
   contain: layout paint;
+  max-height: 100dvh;
 }
 
 .is-dragging .drawer-view {

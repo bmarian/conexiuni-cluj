@@ -363,9 +363,18 @@
   border-radius: 0 !important;
 }
 
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a,
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a:visited {
+  background: var(--xp-blue) !important;
+}
+
 .traditional-theme .leaflet-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%) !important;
   color: #FFFFFF !important;
+}
+
+html[data-traditional-lowperf] .traditional-theme .leaflet-bar a:hover {
+  background: var(--xp-blue-hi) !important;
 }
 
 .traditional-theme .leaflet-bar a:not(:last-child) {
@@ -454,3 +463,11 @@
   color: rgba(224, 230, 242, 0.40) !important;
 }
 
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a,
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a:visited {
+  background: var(--xp-blue) !important;
+}
+
+:root.dark[data-traditional-lowperf] .traditional-theme .leaflet-bar a:hover {
+  background: var(--xp-blue-hi) !important;
+}
