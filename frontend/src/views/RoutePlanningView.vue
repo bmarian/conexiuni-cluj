@@ -11,7 +11,7 @@ import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {decodePolyline, sortByDistance} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
-import type {DirectionsResponse, Stop, StopInfo} from "@/types/tranzy.ts";
+import type {DirectionsResponse, Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
@@ -22,6 +22,8 @@ import {
   buildShapeIndex,
   getIndexedVehicles,
   findClosestShapeIdx,
+  buildStopShapeIdxByStopId,
+  etaForStop,
   type IndexedVehicle,
   type ShapeIndex
 } from "@/composables/useVehicleTracking.ts";
@@ -59,23 +61,96 @@ const directRoutes = ref<DirectRoute[]>([])
 const selectedRouteIndex = ref(0)
 const selectedRoute = computed(() => directRoutes.value[selectedRouteIndex.value])
 
-const routesWithTimes = computed(() => {
-  const now = userTime.value || new Date()
-  return directRoutes.value.map(dr => {
-    const buses = getAvailableBusesForStop(dr.startStop, now, { limit: 3 })
+const directRoutesShapes = ref(new Map<string, Shape[]>())
+const routesWithTimes = ref<(DirectRoute & { nextTimes: TimeEntry[], isLive: boolean })[]>([])
+
+watch(directRoutes, async (newRoutes) => {
+  if (!newRoutes.length) {
+    directRoutesShapes.value.clear()
+    return
+  }
+
+  const toRequest = newRoutes
+    .filter(dr => !directRoutesShapes.value.has(dr.tripId))
+    .map(dr => ({
+      trip_id: dr.tripId,
+      route_short_name: dr.route.route_short_name,
+      route_long_name: dr.route.route_long_name,
+      route_color: dr.route.route_color,
+      route_type: dr.route.route_type,
+    }))
+
+  if (toRequest.length === 0) return
+
+  try {
+    const shapeData = await mapStore.requestShapes(toRequest)
+    shapeData.forEach(([info, points]) => {
+      if (points?.length) {
+        directRoutesShapes.value.set(info.trip_id, points)
+      }
+    })
+  } catch (e) {
+    console.warn('Failed to fetch shapes for direct routes:', e)
+  }
+}, {immediate: true})
+
+const streamTripIds = computed(() => directRoutes.value.map(dr => dr.tripId))
+const {vehiclesByTrip} = useVehicleStream(streamTripIds)
+
+watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([routes, byTrip, shapesMap, uTime]) => {
+  const now = uTime || new Date()
+  const results: (DirectRoute & { nextTimes: TimeEntry[], isLive: boolean })[] = []
+
+  for (const dr of routes) {
+    const buses = getAvailableBusesForStop(dr.startStop, now, {limit: 3, tripId: dr.tripId})
     const myBus = buses.find(b => b.route_id === dr.route.route_id)
-    return {
-      ...dr,
-      nextTimes: myBus ? myBus.next_times : []
+
+    let times = myBus ? myBus.next_times : []
+    let isLive = false
+
+    const points = shapesMap.get(dr.tripId)
+    const vehicles = byTrip.get(dr.tripId) ?? []
+
+    if (points && vehicles.length > 0) {
+      const shapeIndex = buildShapeIndex(points)
+      const indexedVehicles = await getIndexedVehicles(
+        dr.tripId,
+        dr.route.route_short_name,
+        dr.route.route_color,
+        shapeIndex,
+        now,
+        vehicles
+      )
+
+      const allStopTimes = getShapeStopTimes(dr.route)
+      const tripStopTimes = allStopTimes.filter(st => st.trip_id === dr.tripId)
+      const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
+      const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
+
+      if (startStopShapeIdx >= 0) {
+        const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
+        if (eta) {
+          isLive = true
+          times = [
+            {minutes: eta.etaMinutes, is_live: true},
+            ...times.slice(1)
+          ]
+        }
+      }
     }
-  })
-})
+
+    results.push({
+      ...dr,
+      nextTimes: times,
+      isLive
+    })
+  }
+
+  routesWithTimes.value = results
+}, {immediate: true})
 
 const currentShapeIndex = ref<ShapeIndex | null>(null)
 const currentVehicles = ref<IndexedVehicle[]>([])
-
-const streamTripIds = computed(() => selectedRoute.value ? [selectedRoute.value.tripId] : [])
-const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
 watch(selectedRoute, async (newRoute) => {
   if (!newRoute) {
@@ -208,6 +283,10 @@ const originLabel = computed(() => {
   return t('planOriginUnknown')
 })
 
+watch(selectedRouteIndex, () => {
+  mapStore.fitWalkingPolylines = true
+})
+
 onMounted(async () => {
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])
@@ -242,8 +321,24 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
     stops, lat, lon, s => s.stop_lat, s => s.stop_lon
   ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-  directRoutes.value = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
-  if (!directRoutes.value.length) return
+  const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
+  if (!routes.length) return
+
+  const now = userTime.value || new Date()
+  routes.sort((a, b) => {
+    const busesA = getAvailableBusesForStop(a.startStop, now, {limit: 1, tripId: a.tripId})
+    const myBusA = busesA.find(bu => bu.route_id === a.route.route_id)
+    const timeA = myBusA?.next_times?.[0] ? myBusA.next_times[0].minutes : Infinity
+
+    const busesB = getAvailableBusesForStop(b.startStop, now, {limit: 1, tripId: b.tripId})
+    const myBusB = busesB.find(bu => bu.route_id === b.route.route_id)
+    const timeB = myBusB?.next_times?.[0] ? myBusB.next_times[0].minutes : Infinity
+
+    return timeA - timeB
+  })
+
+  directRoutes.value = routes
+  mapStore.fitWalkingPolylines = true
 
   stopRouteCalculationWatcher()
 }, {immediate: true})
@@ -302,7 +397,8 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
-              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <span v-if="settings.traditionalActive" class="text-sm">📍</span>
+              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="6"/>
               </svg>
             </div>
@@ -317,8 +413,8 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         <template v-if="selectedRoute">
           <div class="leg-row">
             <div class="leg-icon-col">
-              <div class="leg-dot bg-white border-2" :style="{ borderColor: selectedRoute.route.route_color }">
-                <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+              <div class="leg-dot boarding-dot" :style="{ borderColor: selectedRoute.route.route_color }">
+                <div class="dot-inner" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
               </div>
               <div class="leg-line" :style="{ backgroundColor: selectedRoute.route.route_color, backgroundImage: 'none' }"></div>
             </div>
@@ -342,8 +438,8 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
 
           <div class="leg-row">
             <div class="leg-icon-col">
-              <div class="leg-dot bg-white border-2" :style="{ borderColor: selectedRoute.route.route_color }">
-                <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+              <div class="leg-dot boarding-dot" :style="{ borderColor: selectedRoute.route.route_color }">
+                <div class="dot-inner" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
               </div>
               <div class="leg-line"></div>
             </div>
@@ -357,7 +453,8 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-dest">
-              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <span v-if="settings.traditionalActive" class="text-sm">🏁</span>
+              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
               </svg>
@@ -397,7 +494,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
 
             <div class="flex-1 min-w-0 flex flex-col justify-center">
               <div class="flex items-center gap-1.5 mb-0.5">
-                <span v-if="direct.nextTimes[0]?.is_live" class="live-badge">
+                <span v-if="direct.isLive" class="live-badge">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   {{ t('live') }}
                 </span>
@@ -464,6 +561,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   font-weight: 600;
   color: #64748b;
   margin-bottom: 0.25rem;
+  margin-top: 1.25rem;
 }
 
 .route-legs-card {
@@ -500,6 +598,67 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   justify-content: center;
   flex-shrink: 0;
   margin-top: 0.125rem;
+}
+
+.boarding-dot {
+  background: white;
+  border-width: 2px;
+}
+
+.dot-inner {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+.dark .boarding-dot {
+  background: #0f172a;
+}
+
+.dark .leg-dot-origin {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+.dark .leg-dot-dest {
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+/* Hungry Theme Overrides */
+html[data-hungry] .leg-dot-origin {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px #fef3c7;
+}
+
+html[data-hungry] .leg-dot-dest {
+  background: #b45309;
+  box-shadow: 0 0 0 3px #fde68a;
+}
+
+html[data-hungry] .leg-type-badge {
+  color: #d97706;
+}
+
+/* Traditional Theme Overrides */
+html[data-traditional] .leg-dot-origin,
+html[data-traditional] .leg-dot-dest {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-traditional] .boarding-dot {
+  border-radius: 0;
+}
+
+html[data-traditional] .intermediate-dot {
+  border-radius: 0;
+}
+
+html[data-traditional] .intermediate-dot div {
+  border-radius: 0;
+}
+
+html[data-traditional] .dot-inner {
+  border-radius: 0;
 }
 
 .leg-dot-origin {

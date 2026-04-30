@@ -5,7 +5,7 @@ import {
   type TimeEntry,
   type VehiclesInStop
 } from '@/types/tranzy.ts'
-import {getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from "@/utils/trips.ts";
+import {getRouteIdFromTripId, getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 
 export const timeStringToMinutes = (timeString: string): number | null => {
   if (!timeString || !timeString.includes(':')) {
@@ -70,7 +70,7 @@ export const reverseRouteLongName = (routeLongName: string): string => {
 export const getAvailableBusesForStop = (
   stopInfo: StopInfo,
   referenceDate: Date,
-  options: { maxMinutes?: number; limit?: number } = {}
+  options: { maxMinutes?: number; limit?: number; tripId?: string } = {}
 ): VehiclesInStop[] => {
   const referenceMinutes = getMinutesFromDate(referenceDate)
   const {outgoing_trip_ids, incoming_trip_ids, shapes_info, stop_id} = stopInfo
@@ -80,7 +80,10 @@ export const getAvailableBusesForStop = (
     const {route_short_name, route_type, route_color, route_id, timetable} = shape
     if (!isTimetableAvailableOnDay(referenceDate, timetable)) continue
 
-    const tripId = getTripIdForRouteAtStop(outgoing_trip_ids ?? [], incoming_trip_ids ?? [], route_id)
+    // If a specific tripId is provided, we only care about shapes that match its route
+    if (options.tripId && getRouteIdFromTripId(options.tripId) !== route_id) continue
+
+    const tripId = options.tripId || getTripIdForRouteAtStop(outgoing_trip_ids ?? [], incoming_trip_ids ?? [], route_id)
     if (!tripId) continue
 
     const stopTimes = getShapeStopTimes(shape)

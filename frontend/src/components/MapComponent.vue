@@ -535,7 +535,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
     }).addTo(walkingLayerGroup.value)
   }
   const bounds = walkingLayerGroup.value.getBounds()
-  if (bounds.isValid() && map.value) {
+  if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines) {
     map.value.fitBounds(bounds, {
       paddingTopLeft: [24, 24],
       paddingBottomRight: [24, 24 + drawerBottomPx.value],
@@ -543,6 +543,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
       animate: true,
       duration: 0.8,
     })
+    mapStore.fitWalkingPolylines = false
   }
 }
 

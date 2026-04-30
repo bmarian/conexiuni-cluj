@@ -24,6 +24,7 @@ export const useMapStore = defineStore('map', () => {
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
   const drawerBottomPx = ref(0)
+  const fitWalkingPolylines = ref(false)
 
   const setDrawerBottomPx = (px: number) => {
     drawerBottomPx.value = px
@@ -109,6 +110,7 @@ export const useMapStore = defineStore('map', () => {
     clearWalkingPolylines,
     drawerBottomPx,
     setDrawerBottomPx,
+    fitWalkingPolylines,
 
     requestShapes,
   }
