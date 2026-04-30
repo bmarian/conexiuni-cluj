@@ -33,7 +33,7 @@ import {
 } from "@/utils/time.ts";
 import {getShapeStopTimes} from "@/utils/trips.ts";
 
-const MAX_MINUTES = 60
+const MAX_MINUTES = 600
 const {t} = useI18n()
 const route = useRoute()
 const mapStore = useMapStore()
