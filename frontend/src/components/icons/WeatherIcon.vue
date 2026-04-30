@@ -1,32 +1,25 @@
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue'
+import { computed } from 'vue'
 
 interface WeatherIconProps {
   slug: string
-  style?: 'fill' | 'flat' | 'line' | 'monochrome'
   size?: number | string
 }
 
 const props = withDefaults(defineProps<WeatherIconProps>(), {
-  style: 'fill',
   size: 64
 })
 
-const src = ref('')
+// Specifically, include only used icons to avoid bloating the bundle.
+const icons = import.meta.glob(
+  '../../../node_modules/@meteocons/svg/fill/{clear-day,clear-night,partly-cloudy-day,partly-cloudy-night,cloudy,overcast-night,fog-day,fog-night,partly-cloudy-day-drizzle,partly-cloudy-night-drizzle,drizzle,partly-cloudy-day-sleet,partly-cloudy-night-sleet,sleet,partly-cloudy-day-rain,partly-cloudy-night-rain,rain,partly-cloudy-day-snow,partly-cloudy-night-snow,snow,snowflake,thunderstorms-day-rain,thunderstorms-night-rain,not-available}.svg',
+  { query: '?url', import: 'default', eager: true }
+) as Record<string, string>
 
-watchEffect(async () => {
-  if (!props.slug) {
-    src.value = ''
-    return
-  }
-  try {
-    // relative path to help Vite's static analysis
-    const mod = await import(`../../../node_modules/@meteocons/svg/${props.style}/${props.slug}.svg?url`)
-    src.value = mod.default
-  } catch (err) {
-    console.error(`Failed to load weather icon: ${props.slug}`, err)
-    src.value = ''
-  }
+const src = computed(() => {
+  if (!props.slug) return ''
+  const path = `../../../node_modules/@meteocons/svg/fill/${props.slug}.svg`
+  return icons[path] || ''
 })
 </script>
 
