@@ -33,6 +33,7 @@ import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import RoutePong from '@/components/RoutePong.vue'
+import {useRouter} from "vue-router";
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -42,6 +43,7 @@ const userStore = useUserStore()
 const mapStore = useMapStore()
 const favoritesStore = useFavoritesStore()
 const settings = useSettingsStore()
+const router = useRouter()
 const {userTime, userLocation} = storeToRefs(userStore)
 const {zoomOut} = storeToRefs(mapStore)
 const {favoriteStopIds} = storeToRefs(favoritesStore)
@@ -421,6 +423,8 @@ const pongActive = ref(false)
 const dirTapTimes: number[] = []
 
 function onDirClick(dir: '0' | '1') {
+  router.replace({name: 'route', params: {routeId: props.routeId, direction: dir}})
+
   currentDirection.value = dir
   const now = Date.now()
   while (dirTapTimes.length && now - dirTapTimes[0]! > 2000) dirTapTimes.shift()
@@ -518,7 +522,7 @@ onUnmounted(() => {
        class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
     <div class="flex items-center mb-4!">
-      <HeaderNavigation />
+      <HeaderNavigation/>
     </div>
 
     <header class="flex items-start gap-4 pb-5">
@@ -666,7 +670,8 @@ onUnmounted(() => {
               idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
               idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
               'font-medium text-slate-500 dark:text-slate-400'
-            ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}</router-link>
+            ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}
+            </router-link>
             <template v-if="!settings.traditionalActive">
               <svg v-if="String(stop.stop_id) === fromStopId"
                    class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
