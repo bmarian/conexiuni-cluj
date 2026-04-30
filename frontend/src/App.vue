@@ -55,10 +55,16 @@ onUnmounted(() => {
 const drawerStyle = computed(() => {
   if (!isPortraitMobile.value) return {}
   const state = drawerState.value
-  if (state === 'fullscreen') return {transform: 'translateY(0px)'}
-  if (state === 'minimized') return {transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`}
+  if (state === 'fullscreen') return {transform: 'translateY(0px)', '--drawer-visible-h': '100dvh'}
+  if (state === 'minimized') return {
+    transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`,
+    '--drawer-visible-h': `${MINIMIZED_PX}px`,
+  }
   const hiddenFrac = 1 - SNAP_FRAC[state]
-  return {transform: `translateY(${hiddenFrac * 100}dvh)`}
+  return {
+    transform: `translateY(${hiddenFrac * 100}dvh)`,
+    '--drawer-visible-h': `${SNAP_FRAC[state] * 100}dvh`,
+  }
 })
 
 watch([drawerState, isDragging], async ([, dragging]) => {
@@ -150,7 +156,8 @@ function endDrag() {
 
   const FLICK_THRESHOLD = 0.4 // px/ms
   if (!moved) {
-    best = drawerState.value === 'minimized' ? 'half' : 'minimized'
+    if (drawerState.value === 'minimized' || drawerState.value === 'fullscreen') best = 'half'
+    else best = 'minimized'
   } else if (velocityY > FLICK_THRESHOLD) {
     // positive velocityY = moving down = collapsing
     const cur = snapStates.indexOf(drawerState.value)
@@ -261,6 +268,9 @@ function toggleLandscapeDrawer() {
   position: absolute;
   inset: 0;
   contain: paint style;
+  min-height: 0;
+  width: auto;
+  height: 100dvh;
 }
 
 .landscape-drawer-toggle {
@@ -329,7 +339,7 @@ function toggleLandscapeDrawer() {
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  height: 2.5rem;
+  height: 2.75rem;
   width: 100%;
   background: transparent;
   border: 0;
@@ -352,6 +362,8 @@ function toggleLandscapeDrawer() {
 .drawer-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  /* Clamp scroll area to the visually exposed portion so content doesn't hide below the fold. */
+  max-height: calc(var(--drawer-visible-h, 100dvh) - 2.75rem);
   display: flex;
   flex-direction: column;
   touch-action: pan-y;
@@ -407,6 +419,10 @@ function toggleLandscapeDrawer() {
   .drawer-handle {
     display: none;
   }
+
+  .drawer-scroll {
+    max-height: 100dvh;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -423,14 +439,10 @@ function toggleLandscapeDrawer() {
   .app-map {
     position: static;
     flex: 1 1 auto;
-    min-height: 0;
-    width: auto;
-    height: 100dvh;
-    contain: layout paint;
   }
 
   .app-drawer {
-    position: static;
+    position: relative;
     transform: none;
     flex-shrink: 0;
     width: 30vw;
@@ -442,6 +454,10 @@ function toggleLandscapeDrawer() {
 
   .drawer-handle {
     display: none;
+  }
+
+  .drawer-scroll {
+    max-height: 100dvh;
   }
 }
 </style>

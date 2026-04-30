@@ -417,7 +417,7 @@ function navigateToStop(stop: Stop) {
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #0f172a;
   font-weight: 500;
 }
