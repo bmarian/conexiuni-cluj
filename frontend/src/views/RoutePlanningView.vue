@@ -81,6 +81,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
 
   if (!closestStopToDestination || !closestStopToUser) return
 
+  // It should check if the top 3 stations in the area have a direct route to the top 3 stations to the destination
   const [startStop, destinationStop] = await Promise.all([
     apiRequest(`stop_info?stop_id=${closestStopToUser.stop_id}`) as Promise<StopInfo>,
     apiRequest(`stop_info?stop_id=${closestStopToDestination.stop_id}`) as Promise<StopInfo>,
@@ -183,7 +184,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           </div>
           <div class="leg-label-col">
             <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-            <span class="leg-name">{{ hasValidDest ? destName : '—' }}</span>
+            <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
           </div>
         </div>
       </section>
