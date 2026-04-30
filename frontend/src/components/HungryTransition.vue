@@ -2,7 +2,7 @@
 import {computed, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
-import HungryGhostIcon from './HungryGhostIcon.vue'
+import HungryGhostIcon from './icons/HungryGhostIcon.vue'
 
 type Direction = 'ltr' | 'rtl' | 'ttb' | 'btt'
 
