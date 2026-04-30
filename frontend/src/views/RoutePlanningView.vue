@@ -107,7 +107,7 @@ watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([rout
     const buses = getAvailableBusesForStop(dr.startStop, now, {limit: 3, tripId: dr.tripId})
     const myBus = buses.find(b => b.route_id === dr.route.route_id)
 
-    // DEBUGGER: remove the filtering to see busses all the time
+    // DEBUGGER: remove the filtering to see buses all the time
     let times = myBus ? myBus.next_times.filter(t => t.minutes <= 60) : []
     let isLive = false
 
