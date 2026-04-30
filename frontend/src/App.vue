@@ -342,9 +342,7 @@ function toggleLandscapeDrawer() {
   bottom: 100%;
   right: 0.5rem;
   padding: 2px 8px;
-  background: rgba(241, 245, 249, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: none;
   border-radius: 6px 6px 0 0;
   font-size: 10px;
   color: #64748b;
@@ -359,7 +357,6 @@ function toggleLandscapeDrawer() {
 }
 
 :root.dark .drawer-credits {
-  background: rgba(15, 23, 42, 0.6);
   color: #94a3b8;
 }
 

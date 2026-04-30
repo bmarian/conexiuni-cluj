@@ -234,9 +234,7 @@
 
 
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: none !important;
   padding: 2px 8px !important;
   font-size: 10px !important;
   color: #64748b !important;
@@ -248,7 +246,6 @@
 }
 
 :root.dark .leaflet-control-attribution {
-  background: rgba(15, 23, 42, 0.7) !important;
   color: #94a3b8 !important;
 }
 
