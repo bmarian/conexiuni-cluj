@@ -43,6 +43,7 @@ Live bus tracker for Cluj-Napoca.
 ## 4. Testing & Verification (CRITICAL)
 **THERE ARE NO AUTOMATED TESTS IN THIS PROJECT.**
 - **DO NOT run `go test` or any other test commands after completing a task.**
+- **DO NOT run `go build .` as it creates `.exe` files.** Use `go check` or `lint` tools instead.
 - **DO NOT attempt to create new tests unless explicitly requested.**
 - Verify changes via **Normal Checks** only:
   - **Backend**: Ensure it compiles and API returns expected JSON (use Bruno in `api-tests/`).

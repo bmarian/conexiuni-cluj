@@ -163,7 +163,13 @@ func InitSchemas() error {
             shapes_short_name TEXT NOT NULL
         );
 
-		CREATE TABLE IF NOT EXISTS tranzy_quotas
+		CREATE TABLE IF NOT EXISTS directions
+        (
+            id   TEXT PRIMARY KEY,
+            data TEXT NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS quotas
         (
             name      TEXT PRIMARY KEY,
             count     INTEGER NOT NULL,

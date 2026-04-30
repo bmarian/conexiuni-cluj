@@ -185,6 +185,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		c.Set("Cache-Control", staticCacheControl)
 		return c.JSON(data)
 	})
 
@@ -258,14 +259,14 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to_lng"})
 		}
 
-		data, err := GetDirections(orsClient, fromLat, fromLng, toLat, toLng)
+		data, err := GetDirections(orsClient, cacheTimes.DirectionsCacheShelfLife, fromLat, fromLng, toLat, toLng)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		if len(data.Routes) == 0 {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "directions unavailable"})
 		}
-		c.Set("Cache-Control", "no-store")
+		c.Set("Cache-Control", staticCacheControl)
 		return c.JSON(data)
 	})
 }

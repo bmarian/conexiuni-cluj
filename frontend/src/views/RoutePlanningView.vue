@@ -58,11 +58,8 @@ onUnmounted(() => {
   mapStore.clearWalkingPolylines()
 })
 
-const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation], async ([lat, lon, ul]) => {
-  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value) return
-
-  const stops = allStops.value
-  if (!Array.isArray(stops) || !stops.length) return
+const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
+  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
   const closestStopToDestination = closestStop(lat, lon, stops) as Stop
   const closestStopToUser = closestStop(ul.latitude, ul.longitude, stops) as Stop
