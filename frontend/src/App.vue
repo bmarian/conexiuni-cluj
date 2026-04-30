@@ -30,6 +30,8 @@ const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(false)
 const isDragging = ref(false)
 
+const attributionHtml = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
+
 // Landscape and desktop let CSS handle the transform, so drawerStyle must not set one there.
 const isPortraitMobile = ref(false)
 let mqlLandscape: MediaQueryList | null = null
@@ -232,6 +234,7 @@ function toggleLandscapeDrawer() {
       :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
       :style="drawerStyle"
     >
+      <div v-if="isPortraitMobile" class="drawer-credits" v-html="attributionHtml"></div>
       <div
         class="drawer-handle lg:hidden"
         role="button"
@@ -306,7 +309,7 @@ function toggleLandscapeDrawer() {
 /* Height stays 100dvh so translateY never triggers a layout reflow on the map behind it. */
 .app-drawer {
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: 4000;
@@ -315,7 +318,6 @@ function toggleLandscapeDrawer() {
   border-top-right-radius: 1.25rem;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -333,6 +335,36 @@ function toggleLandscapeDrawer() {
 .is-dragging .drawer-view {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
+}
+
+.drawer-credits {
+  position: absolute;
+  bottom: 100%;
+  right: 0.5rem;
+  padding: 2px 8px;
+  background: rgba(241, 245, 249, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 6px 6px 0 0;
+  font-size: 10px;
+  color: #64748b;
+  pointer-events: auto;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.drawer-credits :deep(a) {
+  color: #475569;
+  text-decoration: none;
+}
+
+:root.dark .drawer-credits {
+  background: rgba(15, 23, 42, 0.6);
+  color: #94a3b8;
+}
+
+:root.dark .drawer-credits :deep(a) {
+  color: #64748b;
 }
 
 .drawer-handle {

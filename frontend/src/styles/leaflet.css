@@ -232,15 +232,36 @@
   margin: 14px 18px !important;
 }
 
+
 .leaflet-control-attribution {
-  background: none !important;
-  color: #94a3b8 !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 2px 8px !important;
   font-size: 10px !important;
+  color: #64748b !important;
 }
 
 .leaflet-control-attribution a {
+  color: #475569 !important;
+  text-decoration: none !important;
+}
+
+:root.dark .leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.7) !important;
+  color: #94a3b8 !important;
+}
+
+:root.dark .leaflet-control-attribution a {
   color: #64748b !important;
 }
+
+@media (max-width: 1023px) and (orientation: portrait) {
+  .leaflet-control-attribution {
+    display: none !important;
+  }
+}
+
 
 :root.dark .map-container {
   background-color: #090909;
@@ -289,13 +310,6 @@
   color: #f1f5f9 !important;
 }
 
-:root.dark .leaflet-control-attribution {
-  color: #475569 !important;
-}
-
-:root.dark .leaflet-control-attribution a {
-  color: #64748b !important;
-}
 
 /* hungry-theme uses one extra class so it always wins over the base rules above */
 
