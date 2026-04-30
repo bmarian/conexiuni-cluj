@@ -83,5 +83,6 @@
     "planComingSoonDesc": "Currently we only support direct routes. Connecting trips will be available soon.",
     "planBoarding": "Boarding",
     "planAlighting": "Alighting",
-    "planWalk": "Walk"
+    "planWalk": "Walk",
+    "planCalculating": "Calculating your route..."
 }

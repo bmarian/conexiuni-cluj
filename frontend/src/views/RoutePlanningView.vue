@@ -59,6 +59,7 @@ function toggleFavorite() {
 const allStops = ref<Stop[]>([])
 const directRoutes = ref<DirectRoute[]>([])
 const selectedRouteIndex = ref(0)
+const isCalculating = ref(false)
 const selectedRoute = computed(() => directRoutes.value[selectedRouteIndex.value])
 
 const directRoutesShapes = ref(new Map<string, Shape[]>())
@@ -313,34 +314,39 @@ onUnmounted(() => {
 const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
-  const top4ClosestStopsToUser = await Promise.all(sortByDistance(
-    stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon
-  ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
+  isCalculating.value = true
+  try {
+    const top4ClosestStopsToUser = await Promise.all(sortByDistance(
+      stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon
+    ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-  const top4ClosestStopsToDestination = await Promise.all(sortByDistance(
-    stops, lat, lon, s => s.stop_lat, s => s.stop_lon
-  ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
+    const top4ClosestStopsToDestination = await Promise.all(sortByDistance(
+      stops, lat, lon, s => s.stop_lat, s => s.stop_lon
+    ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-  const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
-  if (!routes.length) return
+    const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
+    if (!routes.length) return
 
-  const now = userTime.value || new Date()
-  routes.sort((a, b) => {
-    const busesA = getAvailableBusesForStop(a.startStop, now, {limit: 1, tripId: a.tripId})
-    const myBusA = busesA.find(bu => bu.route_id === a.route.route_id)
-    const timeA = myBusA?.next_times?.[0] ? myBusA.next_times[0].minutes : Infinity
+    const now = userTime.value || new Date()
+    routes.sort((a, b) => {
+      const busesA = getAvailableBusesForStop(a.startStop, now, {limit: 1, tripId: a.tripId})
+      const myBusA = busesA.find(bu => bu.route_id === a.route.route_id)
+      const timeA = myBusA?.next_times?.[0] ? myBusA.next_times[0].minutes : Infinity
 
-    const busesB = getAvailableBusesForStop(b.startStop, now, {limit: 1, tripId: b.tripId})
-    const myBusB = busesB.find(bu => bu.route_id === b.route.route_id)
-    const timeB = myBusB?.next_times?.[0] ? myBusB.next_times[0].minutes : Infinity
+      const busesB = getAvailableBusesForStop(b.startStop, now, {limit: 1, tripId: b.tripId})
+      const myBusB = busesB.find(bu => bu.route_id === b.route.route_id)
+      const timeB = myBusB?.next_times?.[0] ? myBusB.next_times[0].minutes : Infinity
 
-    return timeA - timeB
-  })
+      return timeA - timeB
+    })
 
-  directRoutes.value = routes
-  mapStore.fitWalkingPolylines = true
+    directRoutes.value = routes
+    mapStore.fitWalkingPolylines = true
 
-  stopRouteCalculationWatcher()
+    stopRouteCalculationWatcher()
+  } finally {
+    isCalculating.value = false
+  }
 }, {immediate: true})
 
 </script>
@@ -473,7 +479,20 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
           {{ t('planRoutesLabel') }}
         </h2>
 
-        <div v-if="directRoutes.length > 0" class="flex flex-col gap-2.5">
+        <div v-if="isCalculating" class="plan-loading">
+          <div class="bus-loader-container">
+            <span v-if="settings.traditionalActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
+            <span v-else-if="settings.easterEggActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
+            <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+            </svg>
+          </div>
+          <p class="loading-text animate-pulse">{{ t('planCalculating') }}</p>
+        </div>
+
+        <div v-else-if="directRoutes.length > 0" class="flex flex-col gap-2.5">
           <div
             v-for="(direct, index) in routesWithTimes"
             :key="index"
@@ -888,5 +907,76 @@ html[data-traditional] .dot-inner {
 
 .fav-btn.is-fav:hover {
   background: #fee2e2;
+}
+
+.plan-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 1rem;
+  background: #f8fafc;
+  border-radius: 1rem;
+  border: 1.5px solid #e2e8f0;
+}
+
+.dark .plan-loading {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.bus-loader-container {
+  overflow: hidden;
+  width: 100px;
+  display: flex;
+  justify-content: center;
+}
+
+.animate-bus-run {
+  animation: bus-run 1.2s infinite linear;
+}
+
+.loading-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.dark .loading-text {
+  color: #94a3b8;
+}
+
+/* Hungry Theme */
+html[data-hungry] .plan-loading {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+html[data-hungry] .loading-text {
+  color: #d97706;
+}
+
+/* Traditional Theme */
+html[data-traditional] .plan-loading {
+  background: #ECE9D8;
+  border: 2px solid #919B9C;
+  border-radius: 0;
+  box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
+}
+
+html[data-traditional] .loading-text {
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+  color: #000000;
+  animation: none !important;
+}
+</style>
+
+<style>
+@keyframes bus-run {
+  0% { transform: translateX(-50px); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(50px); opacity: 0; }
 }
 </style>
