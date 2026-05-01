@@ -82,6 +82,12 @@ func Build(
 }
 
 func buildShapesForRoute(g *Graph, route models.Route, sts []models.StopTime, tt models.Timetable) {
+	// Drop "ghost" routes that have no scheduled departures on any day. These
+	// show up in the GTFS feed (e.g. discontinued or planned-but-not-running
+	// routes like TE8) but would never produce a real arrival on the client.
+	if len(tt.Weekdays.Entries) == 0 && len(tt.Saturday.Entries) == 0 && len(tt.Sunday.Entries) == 0 {
+		return
+	}
 	// Group stop_times by trip_id; pick direction by trip_id suffix.
 	type tripGroup struct {
 		direction models.DirectionType

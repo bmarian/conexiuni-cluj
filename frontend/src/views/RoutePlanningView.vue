@@ -137,6 +137,10 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
       const dr = pr.legs[0]!
       const times: TimeEntry[] = []
       let isLive = false
+      // Track which grouped routes actually have a near-term arrival so chips
+      // for routes that won't run any time soon (e.g. 4N at midday) are dropped.
+      const liveLegRoutes: typeof dr.routes = []
+      const liveLegTripIds: string[] = []
 
       for (let i = 0; i < dr.routes.length; i++) {
         const route = dr.routes[i]
@@ -145,51 +149,56 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
 
         const buses = getAvailableBusesForStop(dr.startStop as StopInfo, now, {limit: 2, tripId: tripId})
         const myBus = buses.find(b => b.route_id === route.route_id)
+        if (!myBus) continue
 
-        if (myBus) {
-          let busTimes = myBus.next_times.filter(t => t.minutes <= MAX_MINUTES)
-          const points = shapesMap.get(tripId)
-          const vehicles = byTrip.get(tripId) ?? []
+        let busTimes = myBus.next_times.filter(t => t.minutes <= MAX_MINUTES)
+        const points = shapesMap.get(tripId)
+        const vehicles = byTrip.get(tripId) ?? []
 
-          if (points && vehicles.length > 0) {
-            const shapeIndex = buildShapeIndex(points)
-            const indexedVehicles = await getIndexedVehicles(
-              tripId,
-              route.route_short_name,
-              route.route_color,
-              shapeIndex,
-              now,
-              vehicles
-            )
+        if (points && vehicles.length > 0) {
+          const shapeIndex = buildShapeIndex(points)
+          const indexedVehicles = await getIndexedVehicles(
+            tripId,
+            route.route_short_name,
+            route.route_color,
+            shapeIndex,
+            now,
+            vehicles
+          )
 
-            const allStopTimes = getShapeStopTimes(route)
-            const tripStopTimes = allStopTimes.filter(st => st.trip_id === tripId)
-            const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
-            const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
+          const allStopTimes = getShapeStopTimes(route)
+          const tripStopTimes = allStopTimes.filter(st => st.trip_id === tripId)
+          const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
+          const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
 
-            if (startStopShapeIdx >= 0) {
-              const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
-              if (eta && eta.etaMinutes <= MAX_MINUTES) {
-                isLive = true
-                busTimes = [
-                  {minutes: eta.etaMinutes, is_live: true},
-                  ...busTimes.filter(t => t.minutes !== eta.etaMinutes).slice(0, 1)
-                ]
-              } else if (eta && eta.etaMinutes > MAX_MINUTES) {
-                busTimes = []
-              }
+          if (startStopShapeIdx >= 0) {
+            const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
+            if (eta && eta.etaMinutes <= MAX_MINUTES) {
+              isLive = true
+              busTimes = [
+                {minutes: eta.etaMinutes, is_live: true},
+                ...busTimes.filter(t => t.minutes !== eta.etaMinutes).slice(0, 1)
+              ]
+            } else if (eta && eta.etaMinutes > MAX_MINUTES) {
+              busTimes = []
             }
           }
-          times.push(...busTimes)
         }
+
+        if (busTimes.length === 0) continue
+        liveLegRoutes.push(route)
+        liveLegTripIds.push(tripId)
+        times.push(...busTimes)
       }
 
-      if (times.length > 0) {
+      if (times.length > 0 && liveLegRoutes.length > 0) {
+        const filteredLeg = {...dr, routes: liveLegRoutes, tripIds: liveLegTripIds}
+        const filteredPr: PlannedRoute = {...pr, legs: [filteredLeg]}
         results.push({
-          ...pr,
+          ...filteredPr,
           nextTimes: times.sort((a, b) => a.minutes - b.minutes).slice(0, 3),
           isLive,
-          key: routeSignature(pr),
+          key: routeSignature(filteredPr),
         })
       }
     } else {
@@ -198,8 +207,11 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
       const leg2 = pr.legs[1]!
 
       const validTimes: TimeEntry[] = []
+      // Set of leg2 grouped-route indices that have at least one connection
+      // within 30 min of arrival at the transfer. Routes never confirmed are
+      // dropped from the displayed chip.
+      const liveLeg2Indices = new Set<number>()
 
-      // For connecting routes, we use the first route option for Leg 1 as primary
       const route1 = leg1.routes[0]
       const tripId1 = leg1.tripIds[0]
       if (!route1 || !tripId1) continue
@@ -216,7 +228,6 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
 
         const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + offsetToTransfer) * 60_000)
 
-        // Check any of the routes for Leg 2
         let hasConnection = false
         for (let j = 0; j < leg2.routes.length; j++) {
           const route2 = leg2.routes[j]
@@ -227,7 +238,7 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
           } as unknown as StopInfo, arrivalAtTransfer, {limit: 1, tripId: tripId2, maxMinutes: 30})
           if (buses2.length > 0) {
             hasConnection = true
-            break
+            liveLeg2Indices.add(j)
           }
         }
 
@@ -236,12 +247,19 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
         }
       }
 
-      if (validTimes.length > 0) {
+      if (validTimes.length > 0 && liveLeg2Indices.size > 0) {
+        const idxs = Array.from(liveLeg2Indices).sort((a, b) => a - b)
+        const filteredLeg2 = {
+          ...leg2,
+          routes: idxs.map(j => leg2.routes[j]!).filter(Boolean),
+          tripIds: idxs.map(j => leg2.tripIds[j]!).filter(Boolean),
+        }
+        const filteredPr: PlannedRoute = {...pr, legs: [leg1, filteredLeg2]}
         results.push({
-          ...pr,
+          ...filteredPr,
           nextTimes: validTimes.slice(0, 3),
           isLive: false,
-          key: routeSignature(pr),
+          key: routeSignature(filteredPr),
         })
       }
     }
@@ -936,10 +954,8 @@ async function refreshRoutes() {
   border-radius: 1rem;
 }
 
-.dark .trip-summary {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0.16) 100%);
-  border-color: rgba(56, 189, 248, 0.25);
-}
+/* Dark mode trip-summary styling lives in src/styles/dark.css alongside the
+   other route-legs/route-card overrides. */
 
 .trip-summary-stat {
   flex: 1;
@@ -957,9 +973,6 @@ async function refreshRoutes() {
   border-right: 1px solid #bae6fd;
 }
 
-.dark .trip-summary-stat:not(:last-child) {
-  border-right-color: rgba(56, 189, 248, 0.2);
-}
 
 .trip-summary-stat-value {
   font-size: 1.05rem;
@@ -976,13 +989,6 @@ async function refreshRoutes() {
   color: #047857;
 }
 
-.dark .trip-summary-stat-value {
-  color: #e0f2fe;
-}
-
-.dark .trip-summary-stat-value.is-live {
-  color: #34d399;
-}
 
 .trip-summary-stat-label {
   font-size: 0.62rem;
@@ -992,8 +998,48 @@ async function refreshRoutes() {
   color: #0369a1;
 }
 
-.dark .trip-summary-stat-label {
-  color: #7dd3fc;
+
+html[data-traditional] .trip-summary {
+  background: #ECE9D8;
+  border: 2px solid #919B9C;
+  border-radius: 0;
+  box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
+  padding: 0.5rem;
+}
+
+html[data-traditional] .trip-summary-stat:not(:last-child) {
+  border-right: 1px solid #919B9C;
+}
+
+html[data-traditional] .trip-summary-stat-value {
+  color: #000000;
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+}
+
+html[data-traditional] .trip-summary-stat-value.is-live {
+  color: #006400;
+}
+
+html[data-traditional] .trip-summary-stat-label {
+  color: #404040;
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
+}
+
+html[data-hungry] .trip-summary {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fde68a;
+}
+
+html[data-hungry] .trip-summary-stat-value {
+  color: #92400e;
+}
+
+html[data-hungry] .trip-summary-stat-label {
+  color: #b45309;
+}
+
+html[data-hungry] .trip-summary-stat:not(:last-child) {
+  border-right-color: #fde68a;
 }
 
 .leg-ride-time {

@@ -289,6 +289,27 @@ html.dark .route-legs-card {
   border-color: #334155;
 }
 
+html.dark .trip-summary {
+  background: linear-gradient(135deg, rgb(14 165 233 / 0.22) 0%, rgb(2 132 199 / 0.12) 100%) !important;
+  border-color: rgb(56 189 248 / 0.4) !important;
+}
+
+html.dark .trip-summary-stat:not(:last-child) {
+  border-right-color: rgb(56 189 248 / 0.3) !important;
+}
+
+html.dark .trip-summary-stat-value {
+  color: #f1f5f9 !important;
+}
+
+html.dark .trip-summary-stat-value.is-live {
+  color: #34d399 !important;
+}
+
+html.dark .trip-summary-stat-label {
+  color: #7dd3fc !important;
+}
+
 html.dark .leg-dot-origin {
   box-shadow: 0 0 0 3px #0c4a6e;
 }
