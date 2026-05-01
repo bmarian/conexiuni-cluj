@@ -239,13 +239,8 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
   routesWithTimes.value = results.sort((a, b) => {
     const timeA = a.nextTimes[0]?.minutes ?? 999
     const timeB = b.nextTimes[0]?.minutes ?? 999
+    // Prioritize sooner arrival (departure + approx duration), then fewer changes, then distance
     if (Math.abs(timeA - timeB) > 5) return timeA - timeB
-    // Prefer routes that alight closer to destination — even with a transfer, less walking wins
-    const aLast = a.legs[a.legs.length - 1]!.destStop
-    const bLast = b.legs[b.legs.length - 1]!.destStop
-    const walkA = haversineMeters(aLast.stop_lat, aLast.stop_lon, destLat.value, destLon.value)
-    const walkB = haversineMeters(bLast.stop_lat, bLast.stop_lon, destLat.value, destLon.value)
-    if (Math.abs(walkA - walkB) > 100) return walkA - walkB
     return (a.legs.length - b.legs.length) || (a.totalDistance - b.totalDistance)
   })
 }, {immediate: true})
@@ -387,10 +382,10 @@ const routeLegsData = computed(() => {
 
     const intermediates = (startSeq !== -1 && destSeq !== -1)
       ? tripStopTimes.filter(st => st.stop_sequence > startSeq && st.stop_sequence < destSeq)
-        .map(st => ({
-          stop_id: st.stop_id,
-          stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
-        }))
+          .map(st => ({
+            stop_id: st.stop_id,
+            stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
+          }))
       : []
 
     return {
@@ -624,12 +619,12 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
             </div>
 
             <div v-if="legIdx < routeLegsData.length - 1" class="leg-row transfer-row">
-              <div class="leg-icon-col">
-                <div class="leg-line leg-line-dashed"></div>
-              </div>
-              <div class="leg-label-col">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ t('planTransfer') }}</span>
-              </div>
+                <div class="leg-icon-col">
+                   <div class="leg-line leg-line-dashed"></div>
+                </div>
+                <div class="leg-label-col">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ t('planTransfer') }}</span>
+                </div>
             </div>
           </div>
         </template>
@@ -684,16 +679,16 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
             ></div>
 
             <div class="flex flex-col gap-1 shrink-0">
-              <div
-                v-for="(leg, lIdx) in route.legs"
-                :key="lIdx"
-                class="flex items-center justify-center px-2 min-w-11 h-7 rounded-lg font-black text-xs text-white shadow-sm"
-                :style="{ backgroundColor: leg.routes[0]?.route_color }"
-              >
-                <template v-for="(r, rIdx) in leg.routes" :key="rIdx">
-                  {{ r.route_short_name }}{{ rIdx < leg.routes.length - 1 ? ' / ' : '' }}
-                </template>
-              </div>
+               <div
+                  v-for="(leg, lIdx) in route.legs"
+                  :key="lIdx"
+                  class="flex items-center justify-center px-2 min-w-11 h-7 rounded-lg font-black text-xs text-white shadow-sm"
+                  :style="{ backgroundColor: leg.routes[0]?.route_color }"
+                >
+                  <template v-for="(r, rIdx) in leg.routes" :key="rIdx">
+                    {{ r.route_short_name }}{{ rIdx < leg.routes.length - 1 ? ' / ' : '' }}
+                  </template>
+                </div>
             </div>
 
             <div class="flex-1 min-w-0 flex flex-col justify-center">
@@ -976,28 +971,28 @@ html[data-traditional] .dot-inner {
 }
 
 .transfer-row {
-  min-height: 1.5rem;
+    min-height: 1.5rem;
 }
 
 .transfer-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #64748b;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  padding: 0.125rem 0.375rem;
-  border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    padding: 0.125rem 0.375rem;
+    border-radius: 9999px;
 }
 
 .dark .transfer-badge {
-  background: #334155;
-  border-color: #475569;
-  color: #94a3b8;
+    background: #334155;
+    border-color: #475569;
+    color: #94a3b8;
 }
 
 .departure-card {

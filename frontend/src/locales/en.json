@@ -79,11 +79,12 @@
   "planOriginUnknown": "Unknown location",
   "planRoutesLabel": "Available routes",
   "planNearbyStops": "Nearby stations",
-    "planComingSoon": "Connecting trips coming soon",
-    "planComingSoonDesc": "Currently we only support direct routes. Connecting trips will be available soon.",
     "planBoarding": "Boarding",
     "planAlighting": "Alighting",
     "planWalk": "Walk",
     "planCalculating": "Calculating your route...",
-    "planNoBusesNextHour": "No buses are available in the next hour"
+    "planNoBusesNextHour": "No buses are available in the next hour",
+    "planChanges": "changes",
+    "planTransfer": "Transfer",
+    "planNoResults": "No routes found for your destination"
 }
