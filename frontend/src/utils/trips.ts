@@ -225,6 +225,19 @@ export const findRoutes = (
       const stopTimes1 = getShapeStopTimes(shape1)
       const tripGroups1 = groupStopTimesByTrip(stopTimes1)
 
+      // destStops shape1 already reaches from startStop — any transfer to these is redundant
+      const destStopsReachedByShape1 = new Set<number>()
+      for (const tripSTs of tripGroups1.values()) {
+        const startST = tripSTs.find(st => st.stop_id === startStop.stop_id)
+        if (!startST) continue
+        for (const ds of destStops) {
+          const destST = tripSTs.find(st => st.stop_id === ds.stop_id)
+          if (destST && destST.stop_sequence > startST.stop_sequence) {
+            destStopsReachedByShape1.add(ds.stop_id)
+          }
+        }
+      }
+
       for (const [tripId1, tripStopTimes1] of tripGroups1) {
         const startST1 = tripStopTimes1.find(st => st.stop_id === startStop.stop_id)
         if (!startST1) continue
@@ -242,6 +255,7 @@ export const findRoutes = (
 
           for (const destStop of destStops) {
             if (directDestStopIds.has(destStop.stop_id)) continue
+            if (destStopsReachedByShape1.has(destStop.stop_id)) continue
 
             for (const shape2 of destStop.shapes_info) {
               if (shape1.route_id === shape2.route_id) continue
