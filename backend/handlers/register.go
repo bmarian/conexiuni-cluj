@@ -269,4 +269,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		c.Set("Cache-Control", staticCacheControl)
 		return c.JSON(data)
 	})
+
+	api.Get("/plan_routes", handlePlanRoutes)
 }

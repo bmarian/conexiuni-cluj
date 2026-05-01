@@ -9,14 +9,14 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {decodePolyline, haversineMeters, sortByDistance} from "@/utils/geo.ts";
+import {decodePolyline} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {DirectionsResponse, Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
 
-import {findRoutes, getTimeOffsetToStop, type PlannedRoute} from "@/utils/trips.ts";
+import {estimateMinutesToDestination, findRoutes, getTimeOffsetToStop, type PlannedRoute} from "@/utils/trips.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import type {DisplayShape} from "@/stores/map.ts";
 import {
@@ -237,11 +237,10 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
   }
 
   routesWithTimes.value = results.sort((a, b) => {
-    const timeA = a.nextTimes[0]?.minutes ?? 999
-    const timeB = b.nextTimes[0]?.minutes ?? 999
-    // Prioritize sooner arrival (departure + approx duration), then fewer changes, then distance
-    if (Math.abs(timeA - timeB) > 5) return timeA - timeB
-    return (a.legs.length - b.legs.length) || (a.totalDistance - b.totalDistance)
+    const arrivalA = estimateMinutesToDestination(a, a.nextTimes)
+    const arrivalB = estimateMinutesToDestination(b, b.nextTimes)
+    if (Math.abs(arrivalA - arrivalB) > 1) return arrivalA - arrivalB
+    return (a.legs.length - b.legs.length) || (a.walkEndMeters - b.walkEndMeters)
   })
 }, {immediate: true})
 
@@ -483,15 +482,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   isCalculating.value = true
   plannedRoutes.value = []
   try {
-    const top4ClosestStopsToUser = await Promise.all(sortByDistance(
-      stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon, 700
-    ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
-
-    const top4ClosestStopsToDestination = await Promise.all(sortByDistance(
-      stops, lat, lon, s => s.stop_lat, s => s.stop_lon, 700
-    ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
-
-    const routes = findRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination, stops, ul.latitude, ul.longitude, lat, lon)
+    const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
     if (!routes.length) {
       plannedRoutes.value = []
       return
