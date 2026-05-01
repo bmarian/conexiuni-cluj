@@ -17,7 +17,7 @@ import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
 
-import {estimateMinutesToDestination, findRoutes, getTimeOffsetToStop, routeSignature, type PlannedRoute} from "@/utils/trips.ts";
+import {estimateMinutesToDestination, findRoutes, getRideMinutesBetweenStops, routeSignature, type PlannedRoute} from "@/utils/trips.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import type {DisplayShape} from "@/stores/map.ts";
 import {
@@ -225,12 +225,18 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
       if (!myBus1) continue
 
       const stopTimes1 = getShapeStopTimes(route1)
-      const offsetToTransfer = getTimeOffsetToStop(stopTimes1, tripId1, leg1.destStop.stop_id)
+      // Ride from where the user boards to where they alight, NOT from the
+      // bus's terminus. t1.minutes already accounts for the time the bus needs
+      // to reach the boarding stop, so adding the full terminus-to-transfer
+      // distance would double-count and rule out otherwise-catchable transfers.
+      const rideStartToTransfer = getRideMinutesBetweenStops(
+        stopTimes1, tripId1, leg1.startStop.stop_id, leg1.destStop.stop_id
+      )
 
       for (const t1 of myBus1.next_times) {
         if (t1.minutes > MAX_MINUTES) continue
 
-        const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + offsetToTransfer) * 60_000)
+        const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + rideStartToTransfer) * 60_000)
 
         let hasConnection = false
         for (let j = 0; j < leg2.routes.length; j++) {

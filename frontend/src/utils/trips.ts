@@ -42,6 +42,32 @@ export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopI
   return timeOffset
 }
 
+// Minutes the bus takes to ride from `fromStopId` to `toStopId` on the given
+// trip. The GTFS feed stores offset_arrival_time as a per-stop delta (seconds
+// since the previous stop), so we sum deltas after fromStop, including the
+// arrival delta into toStop. Used by the connection check so arrivalAtTransfer
+// reflects when the user *actually arrives* at the transfer (boarding stop +
+// ride), not when the bus left its terminus.
+export const getRideMinutesBetweenStops = (
+  stopTimes: StopTime[],
+  tripId: string,
+  fromStopId: number,
+  toStopId: number,
+): number => {
+  let started = false
+  let totalSec = 0
+  for (const st of stopTimes) {
+    if (st.trip_id !== tripId) continue
+    if (!started) {
+      if (st.stop_id === fromStopId) started = true
+      continue
+    }
+    totalSec += st.offset_arrival_time
+    if (st.stop_id === toStopId) return Math.ceil(totalSec / 60)
+  }
+  return 0
+}
+
 export const getShapeStopTimes = (shapeInfo: ShapeInfo | null | undefined): StopTime[] => {
   return shapeInfo?.stop_times ?? shapeInfo?.stop_time ?? []
 }

@@ -22,8 +22,12 @@ type ShapeKey struct {
 }
 
 type ShapeStop struct {
-	StopID            int
-	StopSequence      int
+	StopID       int
+	StopSequence int
+	// Seconds from the start of the trip until the bus reaches this stop —
+	// cumulative, not the per-leg delta the GTFS feed stores. Pre-summing here
+	// lets the pathfinder compute ride time between two stops as a simple
+	// subtraction instead of an O(N) scan.
 	OffsetArrivalTime float64
 }
 

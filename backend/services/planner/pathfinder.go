@@ -2,6 +2,7 @@ package planner
 
 import (
 	"conexiuni-cluj/models"
+	"math"
 	"sort"
 )
 
@@ -60,10 +61,15 @@ func (g *Graph) Plan(req PlanRequest) []candidate {
 		out = append(out, c)
 	}
 
-	// 1-leg
+	// 1-leg via a stop in the user's top-N endpoint set.
 	for _, oe := range originEndpoints {
 		g.expandDirect(oe, destByID, directDist, push)
 	}
+	// 1-leg via *any* shape that has a stop within walking distance of both
+	// origin and destination. Catches routes whose nearest stop to the user
+	// isn't in the top-N endpoints — e.g. a route that runs one block over and
+	// happens to be the perfect direct line.
+	g.expandDirectShapeWide(req, push)
 	// 2-leg
 	for _, oe := range originEndpoints {
 		g.expandTwoLeg(oe, destByID, directDist, push)
@@ -80,6 +86,92 @@ func (g *Graph) Plan(req PlanRequest) []candidate {
 		out = out[:maxResults]
 	}
 	return out
+}
+
+// expandDirectShapeWide enumerates every shape and looks for a direct trip
+// where the bus has a stop within walkRadius of the origin AND a later stop
+// within walkRadius of the destination. The candidate's walkStart/walkEnd are
+// computed from those two stops — the user just walks to whichever stop on the
+// shape is closest. This complements expandDirect, which is anchored to the
+// fixed list of "closest N stops" near origin and would miss a shape whose
+// nearest origin stop happens to be the (N+1)-th closest.
+func (g *Graph) expandDirectShapeWide(req PlanRequest, push func(candidate)) {
+	const walkRadius = endpointWalkRadius
+	directDist := haversineMeters(req.OriginLat, req.OriginLon, req.DestLat, req.DestLon)
+
+	for shapeKey, shape := range g.shapes {
+		bestOriginIdx, bestOriginDist := -1, math.MaxFloat64
+		for i, ss := range shape.Stops {
+			s, ok := g.stops[ss.StopID]
+			if !ok {
+				continue
+			}
+			d := haversineMeters(req.OriginLat, req.OriginLon, s.StopLat, s.StopLon)
+			if d > walkRadius {
+				continue
+			}
+			if d < bestOriginDist {
+				bestOriginDist = d
+				bestOriginIdx = i
+			}
+		}
+		if bestOriginIdx < 0 {
+			continue
+		}
+
+		bestDestIdx, bestDestDist := -1, math.MaxFloat64
+		for i := bestOriginIdx + 1; i < len(shape.Stops); i++ {
+			ss := shape.Stops[i]
+			s, ok := g.stops[ss.StopID]
+			if !ok {
+				continue
+			}
+			d := haversineMeters(req.DestLat, req.DestLon, s.StopLat, s.StopLon)
+			if d > walkRadius {
+				continue
+			}
+			if d < bestDestDist {
+				bestDestDist = d
+				bestDestIdx = i
+			}
+		}
+		if bestDestIdx < 0 {
+			continue
+		}
+
+		from := shape.Stops[bestOriginIdx]
+		to := shape.Stops[bestDestIdx]
+		rideSec := to.OffsetArrivalTime - from.OffsetArrivalTime
+		if rideSec <= 0 {
+			continue
+		}
+		busDist := g.legDistance(shape, bestOriginIdx, bestDestIdx)
+		fromStop, ok := g.stops[from.StopID]
+		if !ok {
+			continue
+		}
+		c := candidate{
+			legs: []leg{{
+				shapeKey:    shapeKey,
+				tripID:      shape.TripIDs[0],
+				startStopID: from.StopID,
+				destStopID:  to.StopID,
+				startIdx:    bestOriginIdx,
+				destIdx:     bestDestIdx,
+				rideSec:     rideSec,
+			}},
+			walkStart:      bestOriginDist,
+			walkEnd:        bestDestDist,
+			transitSec:     rideSec,
+			totalDistance:  bestOriginDist + busDist + bestDestDist,
+			originStopID:   from.StopID,
+			destEndpointID: to.StopID,
+		}
+		if !c.isReasonable(directDist, fromStop) {
+			continue
+		}
+		push(c)
+	}
 }
 
 func (g *Graph) expandDirect(oe endpointStop, destByID map[int]float64, directDist float64, push func(candidate)) {

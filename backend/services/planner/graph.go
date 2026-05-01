@@ -133,11 +133,17 @@ func buildShapesForRoute(g *Graph, route models.Route, sts []models.StopTime, tt
 			RouteShortName: route.RouteShortName,
 			Stops:          make([]ShapeStop, 0, len(grp.stops)),
 		}
+		// GTFS feeds give us per-stop deltas, but the planner subtracts pairs of
+		// these to derive ride times — so we accumulate here. After this loop,
+		// stops[j].OffsetArrivalTime - stops[i].OffsetArrivalTime is the real
+		// ride time between stops i and j on this shape.
+		var cumulative float64
 		for _, st := range grp.stops {
+			cumulative += st.OffsetArrivalTime
 			path.Stops = append(path.Stops, ShapeStop{
 				StopID:            st.StopID,
 				StopSequence:      st.StopSequence,
-				OffsetArrivalTime: st.OffsetArrivalTime,
+				OffsetArrivalTime: cumulative,
 			})
 		}
 		path.TripIDs = append(path.TripIDs, allTripsPerDir[dir]...)
