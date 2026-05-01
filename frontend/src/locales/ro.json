@@ -90,5 +90,10 @@
     "planTransfer": "Transfer",
     "planTransferWalk": "de mers",
     "planTransferSameStop": "aceeași stație",
+    "planRefresh": "Recalculează rutele",
+    "planTripTotal": "Total călătorie",
+    "planNextDepartures": "următoarele",
+    "planConnectionWait": "Așteptare legătură",
+    "planRideTime": "în autobuz",
     "planNoResults": "Nu am găsit nicio rută spre destinație"
 }

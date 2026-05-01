@@ -46,6 +46,16 @@ export const getShapeStopTimes = (shapeInfo: ShapeInfo | null | undefined): Stop
   return shapeInfo?.stop_times ?? shapeInfo?.stop_time ?? []
 }
 
+// Stable identifier for a planned route — same shape across re-renders so
+// downstream watches can gate on identity without relying on object refs.
+export const routeSignature = (route: PlannedRoute): string => {
+  return (route.isDirect ? 'D' : `C${route.legs.length}`) + ':' + route.legs.map(l => {
+    const tid = l.tripIds[0] ?? ''
+    const dir = tid.endsWith('_0') ? '0' : tid.endsWith('_1') ? '1' : 'x'
+    return `${l.routes[0]?.route_id ?? 'x'}/${dir}@${l.startStop.stop_id}>${l.destStop.stop_id}`
+  }).join('|')
+}
+
 export const estimateMinutesToDestination = (
   route: PlannedRoute,
   nextTimes: TimeEntry[]

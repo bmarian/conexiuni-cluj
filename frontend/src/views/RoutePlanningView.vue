@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {RouterLink, useRoute} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
@@ -9,14 +9,15 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {decodePolyline, haversineMeters} from "@/utils/geo.ts";
+import {haversineMeters} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
-import type {DirectionsResponse, Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
+import {fetchWalkingPolyline} from "@/utils/directions.ts";
+import type {Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
 
-import {estimateMinutesToDestination, findRoutes, getTimeOffsetToStop, type PlannedRoute} from "@/utils/trips.ts";
+import {estimateMinutesToDestination, findRoutes, getTimeOffsetToStop, routeSignature, type PlannedRoute} from "@/utils/trips.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
 import type {DisplayShape} from "@/stores/map.ts";
 import {
@@ -61,13 +62,21 @@ function toggleFavorite() {
 const allStops = ref<Stop[]>([])
 const plannedRoutes = ref<PlannedRoute[]>([])
 const selectedRouteIndex = ref(0)
+const selectedRouteKey = ref<string | null>(null)
 const isCalculating = ref(false)
 const hasFlownToFallback = ref(false)
-const selectedRoute = computed(() => routesWithTimes.value[selectedRouteIndex.value])
 
 const plannedRoutesShapes = ref(new Map<string, Shape[]>())
-const routesWithTimes = ref<(PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean })[]>([])
+const routesWithTimes = ref<(PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean, key: string })[]>([])
 const directRoutes = computed(() => plannedRoutes.value.filter(r => r.isDirect))
+const selectedRoute = computed(() => routesWithTimes.value[selectedRouteIndex.value])
+const selectedRouteSignature = computed(() => selectedRoute.value ? selectedRoute.value.key : null)
+
+function selectRouteAt(idx: number) {
+  selectedRouteIndex.value = idx
+  const r = routesWithTimes.value[idx]
+  selectedRouteKey.value = r ? r.key : null
+}
 
 watch(plannedRoutes, async (newRoutes) => {
   if (!newRoutes.length) {
@@ -121,7 +130,7 @@ const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
 watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([routes, byTrip, shapesMap, uTime]) => {
   const now = uTime || new Date()
-  const results: (PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean })[] = []
+  const results: (PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean, key: string })[] = []
 
   for (const pr of routes) {
     if (pr.isDirect) {
@@ -179,7 +188,8 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
         results.push({
           ...pr,
           nextTimes: times.sort((a, b) => a.minutes - b.minutes).slice(0, 3),
-          isLive
+          isLive,
+          key: routeSignature(pr),
         })
       }
     } else {
@@ -230,25 +240,35 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
         results.push({
           ...pr,
           nextTimes: validTimes.slice(0, 3),
-          isLive: false
+          isLive: false,
+          key: routeSignature(pr),
         })
       }
     }
   }
 
-  routesWithTimes.value = results.sort((a, b) => {
-    const arrivalA = estimateMinutesToDestination(a, a.nextTimes)
-    const arrivalB = estimateMinutesToDestination(b, b.nextTimes)
-    if (Math.abs(arrivalA - arrivalB) > 1) return arrivalA - arrivalB
-    return (a.legs.length - b.legs.length) || (a.walkEndMeters - b.walkEndMeters)
-  })
+  // Sort once on the first build. After that preserve order so the user's
+  // selected card doesn't jump around as time/vehicles tick.
+  if (routesWithTimes.value.length === 0) {
+    results.sort((a, b) => {
+      const arrivalA = estimateMinutesToDestination(a, a.nextTimes)
+      const arrivalB = estimateMinutesToDestination(b, b.nextTimes)
+      if (Math.abs(arrivalA - arrivalB) > 1) return arrivalA - arrivalB
+      return (a.legs.length - b.legs.length) || (a.walkEndMeters - b.walkEndMeters)
+    })
+  } else {
+    const order = new Map(routesWithTimes.value.map((r, i) => [r.key, i]))
+    results.sort((a, b) => (order.get(a.key) ?? 999) - (order.get(b.key) ?? 999))
+  }
+  routesWithTimes.value = results
 }, {immediate: true})
 
 const currentShapeIndex = ref<ShapeIndex | null>(null)
 const currentVehicles = ref<IndexedVehicle[]>([])
 
-watch(selectedRoute, async (newRoute) => {
-  if (!newRoute) {
+watch(selectedRouteSignature, async (newKey) => {
+  const newRoute = selectedRoute.value
+  if (!newKey || !newRoute) {
     currentShapeIndex.value = null
     void mapStore.setShapesToDisplay([])
     return
@@ -293,47 +313,57 @@ watch(selectedRoute, async (newRoute) => {
   }
 }, {immediate: true})
 
-watch([selectedRoute, userLocation], async ([newRoute, ul]) => {
-  if (!newRoute || !ul || isNaN(destLat.value) || isNaN(destLon.value)) {
-    mapStore.clearWalkingPolylines()
-    return
-  }
+// Snap coords so small GPS jitter doesn't refire the directions watch.
+const SIGNIFICANT_LOC_M = 50
+const lastWalkLocRef = ref<{ lat: number; lon: number } | null>(null)
 
-  try {
-    const firstLeg = newRoute.legs[0]!
-    const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
+watch(
+  [selectedRouteSignature, userLocation],
+  async ([newKey, ul]) => {
+    if (!newKey || !ul || isNaN(destLat.value) || isNaN(destLon.value)) {
+      mapStore.clearWalkingPolylines()
+      return
+    }
+    const last = lastWalkLocRef.value
+    const movedFar = !last || haversineMeters(last.lat, last.lon, ul.latitude, ul.longitude) > SIGNIFICANT_LOC_M
+    // Only refetch directions when (a) route changed or (b) user actually moved.
+    // GPS jitter <50 m is ignored.
+    if (!movedFar && mapStore.walkingPolylines.length > 0) return
+    lastWalkLocRef.value = {lat: ul.latitude, lon: ul.longitude}
 
-    const promises = [
-      apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${firstLeg.startStop.stop_lat}&to_lng=${firstLeg.startStop.stop_lon}`) as Promise<DirectionsResponse>,
-      apiRequest(`directions?from_lat=${lastLeg.destStop.stop_lat}&from_lng=${lastLeg.destStop.stop_lon}&to_lat=${destLat.value}&to_lng=${destLon.value}`) as Promise<DirectionsResponse>,
-    ]
+    const newRoute = selectedRoute.value
+    if (!newRoute) return
 
-    // If there's a transfer with a walk
-    if (newRoute.legs.length > 1) {
+    try {
+      const firstLeg = newRoute.legs[0]!
+      const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
+
+      const segments: Array<[[number, number], [number, number]]> = [
+        [[ul.latitude, ul.longitude], [firstLeg.startStop.stop_lat, firstLeg.startStop.stop_lon]],
+        [[lastLeg.destStop.stop_lat, lastLeg.destStop.stop_lon], [destLat.value, destLon.value]],
+      ]
       for (let i = 0; i < newRoute.legs.length - 1; i++) {
         const legA = newRoute.legs[i]!
-        const legB = newRoute.legs[i+1]!
+        const legB = newRoute.legs[i + 1]!
         if (legA.destStop.stop_id !== legB.startStop.stop_id) {
-          promises.push(apiRequest(`directions?from_lat=${legA.destStop.stop_lat}&from_lng=${legA.destStop.stop_lon}&to_lat=${legB.startStop.stop_lat}&to_lng=${legB.startStop.stop_lon}`) as Promise<DirectionsResponse>)
+          segments.push([
+            [legA.destStop.stop_lat, legA.destStop.stop_lon],
+            [legB.startStop.stop_lat, legB.startStop.stop_lon],
+          ])
         }
       }
+
+      const polylines = await Promise.all(segments.map(([a, b]) => fetchWalkingPolyline(a, b)))
+      mapStore.setWalkingPolylines(polylines)
+    } catch (e) {
+      console.error('Failed to fetch walking directions:', e)
     }
+  },
+  {immediate: true},
+)
 
-    const responses = await Promise.all(promises)
-
-    const polylines: [number, number][][] = []
-    responses.forEach(res => {
-      const geom = res?.routes?.[0]?.geometry
-      if (geom) polylines.push(decodePolyline(geom))
-    })
-
-    mapStore.setWalkingPolylines(polylines)
-  } catch (e) {
-    console.error('Failed to fetch walking directions:', e)
-  }
-}, {immediate: true})
-
-watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route, shapeIndex]) => {
+watch([vehiclesByTrip, selectedRouteSignature, currentShapeIndex], async ([byTrip, , shapeIndex]) => {
+  const route = selectedRoute.value
   if (!route || !shapeIndex) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
@@ -362,6 +392,32 @@ watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route,
   }
 }, {deep: true})
 
+
+const totalTripMinutes = computed(() => {
+  const r = selectedRoute.value
+  if (!r) return 0
+  const minutes = estimateMinutesToDestination(r, r.nextTimes)
+  return Number.isFinite(minutes) ? Math.round(minutes) : 0
+})
+
+const formatMinutes = (m: number): string => {
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  const rem = m % 60
+  return rem === 0 ? `${h} h` : `${h} h ${rem} min`
+}
+
+const getLegRideMinutes = (leg: PlannedRoute['legs'][number]): number => {
+  const route = leg.routes[0]
+  const tripId = leg.tripIds[0]
+  if (!route || !tripId) return 0
+  const stopTimes = getShapeStopTimes(route)
+  const tripStopTimes = stopTimes.filter(st => st.trip_id === tripId)
+  const startST = tripStopTimes.find(st => st.stop_id === leg.startStop.stop_id)
+  const destST = tripStopTimes.find(st => st.stop_id === leg.destStop.stop_id)
+  if (!startST || !destST) return 0
+  return Math.max(0, Math.round((destST.offset_arrival_time - startST.offset_arrival_time) / 60))
+}
 
 const getTransferWalkMeters = (legIdx: number): number => {
   const route = selectedRoute.value
@@ -404,7 +460,8 @@ const routeLegsData = computed(() => {
   })
 })
 
-watch([selectedRoute, routeLegsData], ([newRoute, legsData]) => {
+watch([selectedRouteSignature, routeLegsData], ([, legsData]) => {
+  const newRoute = selectedRoute.value
   if (!newRoute) {
     mapStore.setHighlightedStops([])
     return
@@ -470,9 +527,22 @@ onUnmounted(() => {
 })
 
 watch(routesWithTimes, (newRoutes) => {
+  if (!newRoutes.length) {
+    selectedRouteIndex.value = 0
+    selectedRouteKey.value = null
+    return
+  }
+  if (selectedRouteKey.value) {
+    const idx = newRoutes.findIndex(r => r.key === selectedRouteKey.value)
+    if (idx >= 0) {
+      selectedRouteIndex.value = idx
+      return
+    }
+  }
   if (selectedRouteIndex.value >= newRoutes.length) {
     selectedRouteIndex.value = 0
   }
+  selectedRouteKey.value = newRoutes[selectedRouteIndex.value]?.key ?? null
 })
 
 watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
@@ -487,26 +557,39 @@ watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
   }
 })
 
-const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async ([lat, lon, ul, stops]) => {
+async function calculateRoutes() {
+  const lat = destLat.value
+  const lon = destLon.value
+  const ul = userLocation.value
+  const stops = allStops.value
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
   isCalculating.value = true
-  plannedRoutes.value = []
   try {
     const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
-    if (!routes.length) {
-      plannedRoutes.value = []
-      return
-    }
-
+    routesWithTimes.value = []
     plannedRoutes.value = routes
-    mapStore.fitWalkingPolylines = true
-
-    stopRouteCalculationWatcher()
+    if (routes.length) mapStore.fitWalkingPolylines = true
   } finally {
     isCalculating.value = false
   }
+}
+
+const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async () => {
+  if (plannedRoutes.value.length) return
+  await calculateRoutes()
+  if (plannedRoutes.value.length) stopRouteCalculationWatcher()
 }, {immediate: true})
+
+async function refreshRoutes() {
+  if (isCalculating.value) return
+  selectedRouteIndex.value = 0
+  selectedRouteKey.value = null
+  routesWithTimes.value = []
+  plannedRoutes.value = []
+  lastWalkLocRef.value = null
+  await calculateRoutes()
+}
 
 </script>
 
@@ -543,6 +626,20 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         </h1>
       </div>
       <button
+        v-if="hasValidCoords && hasLocationPermission"
+        type="button"
+        class="refresh-btn mt-1 shrink-0"
+        :class="{ 'is-busy': isCalculating }"
+        :title="t('planRefresh')"
+        :aria-label="t('planRefresh')"
+        :disabled="isCalculating"
+        @click="refreshRoutes"
+      >
+        <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 6 5l-2 2m0 8a8 8 0 0 0 14 4l2-2"/>
+        </svg>
+      </button>
+      <button
         v-if="hasValidCoords"
         type="button"
         class="fav-btn mt-1 shrink-0"
@@ -558,6 +655,22 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
     </header>
 
     <div v-if="hasLocationPermission">
+      <section v-if="!isCalculating && selectedRoute" class="trip-summary">
+        <div class="trip-summary-stat">
+          <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
+          <span class="trip-summary-stat-label">{{ t('planTripTotal') }}</span>
+        </div>
+        <div v-if="selectedRoute.nextTimes[0]" class="trip-summary-stat">
+          <span class="trip-summary-stat-value" :class="selectedRoute.isLive ? 'is-live' : ''">
+            <span v-if="selectedRoute.isLive" class="live-dot"></span>{{ selectedRoute.nextTimes[0].is_live ? '' : '~ ' }}{{ formatMinutesFromNow(selectedRoute.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
+          </span>
+          <span class="trip-summary-stat-label">{{ t('planNextDepartures') }}</span>
+        </div>
+        <div v-if="!selectedRoute.isDirect" class="trip-summary-stat">
+          <span class="trip-summary-stat-value">{{ selectedRoute.legs.length - 1 }}</span>
+          <span class="trip-summary-stat-label">{{ selectedRoute.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}</span>
+        </div>
+      </section>
       <section v-if="isCalculating || routesWithTimes.length > 0" class="route-legs-card">
         <div class="leg-row">
           <div class="leg-icon-col">
@@ -587,11 +700,18 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">
                   {{ t('planBoarding') }}
-                  <template v-for="(r, rIdx) in ld.leg.routes" :key="rIdx">
-                    {{ r.route_short_name }}{{ rIdx < ld.leg.routes.length - 1 ? ' / ' : '' }}
+                  <template v-for="(r, rIdx) in ld.leg.routes" :key="r.route_id">
+                    <RouterLink
+                      class="leg-route-link"
+                      :to="{ name: 'route', params: { routeId: r.route_id, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
+                      @click.stop
+                    >{{ r.route_short_name }}</RouterLink><span v-if="rIdx < ld.leg.routes.length - 1" class="leg-route-sep"> / </span>
                   </template>
+                  <span v-if="getLegRideMinutes(ld.leg) > 0" class="leg-ride-time">
+                    · {{ getLegRideMinutes(ld.leg) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
+                  </span>
                 </span>
-                <span class="leg-name">{{ ld.leg.startStop.stop_name }}</span>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStop.stop_id } }">{{ ld.leg.startStop.stop_name }}</RouterLink>
               </div>
             </div>
 
@@ -603,7 +723,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
                 <div class="leg-line" :style="{ backgroundColor: ld.leg.routes[0]?.route_color, backgroundImage: 'none' }"></div>
               </div>
               <div class="leg-label-col">
-                <span class="leg-name intermediate-name">{{ stop.stop_name }}</span>
+                <RouterLink class="leg-name intermediate-name leg-name-link" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
               </div>
             </div>
 
@@ -616,7 +736,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
               </div>
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">{{ t('planAlighting') }}</span>
-                <span class="leg-name">{{ ld.leg.destStop.stop_name }}</span>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStop.stop_id } }">{{ ld.leg.destStop.stop_name }}</RouterLink>
               </div>
             </div>
 
@@ -684,10 +804,10 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
           <div
             v-for="(route, index) in routesWithTimes"
-            :key="index"
+            :key="route.key"
             class="departure-card group"
             :class="{ 'is-selected': selectedRouteIndex === index }"
-            @click="selectedRouteIndex = index"
+            @click="selectRouteAt(index)"
           >
             <div class="card-rail" :class="{ 'is-active': selectedRouteIndex === index }"></div>
 
@@ -803,6 +923,90 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   border-radius: 1rem;
   padding: 0.875rem 1rem;
   gap: 0;
+}
+
+.trip-summary {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 1rem;
+}
+
+.dark .trip-summary {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0.16) 100%);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.trip-summary-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  gap: 0.15rem;
+  padding: 0.25rem;
+}
+
+.trip-summary-stat:not(:last-child) {
+  border-right: 1px solid #bae6fd;
+}
+
+.dark .trip-summary-stat:not(:last-child) {
+  border-right-color: rgba(56, 189, 248, 0.2);
+}
+
+.trip-summary-stat-value {
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0c4a6e;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.trip-summary-stat-value.is-live {
+  color: #047857;
+}
+
+.dark .trip-summary-stat-value {
+  color: #e0f2fe;
+}
+
+.dark .trip-summary-stat-value.is-live {
+  color: #34d399;
+}
+
+.trip-summary-stat-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #0369a1;
+}
+
+.dark .trip-summary-stat-label {
+  color: #7dd3fc;
+}
+
+.leg-ride-time {
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.62rem;
+  margin-left: 0.15rem;
+}
+
+.dark .leg-ride-time {
+  color: #64748b;
 }
 
 .leg-row {
@@ -1409,6 +1613,87 @@ html[data-traditional] .transfer-block-content {
 .dark .time-pill-sched {
   background: #334155;
   color: #cbd5e1;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.refresh-btn:hover {
+  background: #f1f5f9;
+  color: #0ea5e9;
+}
+
+.refresh-btn:active {
+  transform: rotate(-30deg);
+}
+
+.refresh-btn:disabled {
+  cursor: wait;
+}
+
+.dark .refresh-btn {
+  color: #94a3b8;
+}
+
+.dark .refresh-btn:hover {
+  background: #334155;
+  color: #38bdf8;
+}
+
+.animate-spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.leg-name-link {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.15s;
+  display: inline-block;
+  padding: 0.15rem 0;
+  margin: -0.15rem 0;
+}
+
+.leg-name-link:hover,
+.leg-name-link:active {
+  color: #0ea5e9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dark .leg-name-link:hover,
+.dark .leg-name-link:active {
+  color: #38bdf8;
+}
+
+.leg-route-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+  padding-bottom: 1px;
+}
+
+.leg-route-link:hover,
+.leg-route-link:active {
+  border-bottom-style: solid;
+}
+
+.leg-route-sep {
+  opacity: 0.6;
 }
 
 .fav-btn {

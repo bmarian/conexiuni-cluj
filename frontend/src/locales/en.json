@@ -90,5 +90,10 @@
     "planTransfer": "Transfer",
     "planTransferWalk": "walk",
     "planTransferSameStop": "same stop",
+    "planRefresh": "Refresh routes",
+    "planTripTotal": "Total trip",
+    "planNextDepartures": "next",
+    "planConnectionWait": "Connection wait",
+    "planRideTime": "ride",
     "planNoResults": "No routes found for your destination"
 }
