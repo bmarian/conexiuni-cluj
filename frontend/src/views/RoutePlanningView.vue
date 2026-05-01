@@ -9,15 +9,16 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {decodePolyline, sortByDistance} from "@/utils/geo.ts";
+import {decodePolyline, haversineMeters, sortByDistance} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {DirectionsResponse, Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
 import ViewErrorState from "@/components/ViewErrorState.vue";
 
-import {findDirectRoutes, type DirectRoute} from "@/utils/trips.ts";
+import {findRoutes, getTimeOffsetToStop, type PlannedRoute} from "@/utils/trips.ts";
 import {useVehicleStream} from "@/composables/useVehicleStream.ts";
+import type {DisplayShape} from "@/stores/map.ts";
 import {
   buildShapeIndex,
   getIndexedVehicles,
@@ -58,30 +59,44 @@ function toggleFavorite() {
 }
 
 const allStops = ref<Stop[]>([])
-const directRoutes = ref<DirectRoute[]>([])
+const plannedRoutes = ref<PlannedRoute[]>([])
 const selectedRouteIndex = ref(0)
 const isCalculating = ref(false)
 const hasFlownToFallback = ref(false)
 const selectedRoute = computed(() => routesWithTimes.value[selectedRouteIndex.value])
 
-const directRoutesShapes = ref(new Map<string, Shape[]>())
-const routesWithTimes = ref<(DirectRoute & { nextTimes: TimeEntry[], isLive: boolean })[]>([])
+const plannedRoutesShapes = ref(new Map<string, Shape[]>())
+const routesWithTimes = ref<(PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean })[]>([])
+const directRoutes = computed(() => plannedRoutes.value.filter(r => r.isDirect))
 
-watch(directRoutes, async (newRoutes) => {
+watch(plannedRoutes, async (newRoutes) => {
   if (!newRoutes.length) {
-    directRoutesShapes.value.clear()
+    plannedRoutesShapes.value.clear()
     return
   }
 
-  const toRequest = newRoutes
-    .filter(dr => !directRoutesShapes.value.has(dr.tripId))
-    .map(dr => ({
-      trip_id: dr.tripId,
-      route_short_name: dr.route.route_short_name,
-      route_long_name: dr.route.route_long_name,
-      route_color: dr.route.route_color,
-      route_type: dr.route.route_type,
-    }))
+  const tripIds = new Set<string>()
+  newRoutes.forEach(pr => pr.legs.forEach(l => l.tripIds.forEach(tid => tripIds.add(tid))))
+
+  const toRequest: DisplayShape[] = []
+  newRoutes.forEach(pr => {
+    pr.legs.forEach(l => {
+      l.tripIds.forEach((tid, idx) => {
+        if (!plannedRoutesShapes.value.has(tid)) {
+          const route = l.routes[idx]
+          if (route) {
+            toRequest.push({
+              trip_id: tid,
+              route_short_name: route.route_short_name,
+              route_long_name: route.route_long_name,
+              route_color: route.route_color,
+              route_type: route.route_type,
+            })
+          }
+        }
+      })
+    })
+  })
 
   if (toRequest.length === 0) return
 
@@ -89,71 +104,150 @@ watch(directRoutes, async (newRoutes) => {
     const shapeData = await mapStore.requestShapes(toRequest)
     shapeData.forEach(([info, points]) => {
       if (points?.length) {
-        directRoutesShapes.value.set(info.trip_id, points)
+        plannedRoutesShapes.value.set(info.trip_id, points)
       }
     })
   } catch (e) {
-    console.warn('Failed to fetch shapes for direct routes:', e)
+    console.warn('Failed to fetch shapes for planned routes:', e)
   }
 }, {immediate: true})
 
-const streamTripIds = computed(() => directRoutes.value.map(dr => dr.tripId))
+const streamTripIds = computed(() => {
+  const ids = new Set<string>()
+  plannedRoutes.value.forEach(pr => pr.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid))))
+  return [...ids]
+})
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
-watch([directRoutes, vehiclesByTrip, directRoutesShapes, userTime], async ([routes, byTrip, shapesMap, uTime]) => {
+watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([routes, byTrip, shapesMap, uTime]) => {
   const now = uTime || new Date()
-  const results: (DirectRoute & { nextTimes: TimeEntry[], isLive: boolean })[] = []
+  const results: (PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean })[] = []
 
-  for (const dr of routes) {
-    const buses = getAvailableBusesForStop(dr.startStop, now, {limit: 3, tripId: dr.tripId})
-    const myBus = buses.find(b => b.route_id === dr.route.route_id)
+  for (const pr of routes) {
+    if (pr.isDirect) {
+      const dr = pr.legs[0]!
+      const times: TimeEntry[] = []
+      let isLive = false
 
-    let times = myBus ? myBus.next_times.filter(t => t.minutes <= MAX_MINUTES) : []
-    let isLive = false
+      for (let i = 0; i < dr.routes.length; i++) {
+        const route = dr.routes[i]
+        const tripId = dr.tripIds[i]
+        if (!route || !tripId) continue
 
-    const points = shapesMap.get(dr.tripId)
-    const vehicles = byTrip.get(dr.tripId) ?? []
+        const buses = getAvailableBusesForStop(dr.startStop as StopInfo, now, {limit: 2, tripId: tripId})
+        const myBus = buses.find(b => b.route_id === route.route_id)
 
-    if (points && vehicles.length > 0) {
-      const shapeIndex = buildShapeIndex(points)
-      const indexedVehicles = await getIndexedVehicles(
-        dr.tripId,
-        dr.route.route_short_name,
-        dr.route.route_color,
-        shapeIndex,
-        now,
-        vehicles
-      )
+        if (myBus) {
+          let busTimes = myBus.next_times.filter(t => t.minutes <= MAX_MINUTES)
+          const points = shapesMap.get(tripId)
+          const vehicles = byTrip.get(tripId) ?? []
 
-      const allStopTimes = getShapeStopTimes(dr.route)
-      const tripStopTimes = allStopTimes.filter(st => st.trip_id === dr.tripId)
-      const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
-      const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
+          if (points && vehicles.length > 0) {
+            const shapeIndex = buildShapeIndex(points)
+            const indexedVehicles = await getIndexedVehicles(
+              tripId,
+              route.route_short_name,
+              route.route_color,
+              shapeIndex,
+              now,
+              vehicles
+            )
 
-      if (startStopShapeIdx >= 0) {
-        const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
-        if (eta && eta.etaMinutes <= MAX_MINUTES) {
-          isLive = true
-          times = [
-            {minutes: eta.etaMinutes, is_live: true},
-            ...times.filter(t => t.minutes !== eta.etaMinutes).slice(0, 2)
-          ]
-        } else if (eta && eta.etaMinutes > MAX_MINUTES) {
-          times = []
+            const allStopTimes = getShapeStopTimes(route)
+            const tripStopTimes = allStopTimes.filter(st => st.trip_id === tripId)
+            const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
+            const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
+
+            if (startStopShapeIdx >= 0) {
+              const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
+              if (eta && eta.etaMinutes <= MAX_MINUTES) {
+                isLive = true
+                busTimes = [
+                  {minutes: eta.etaMinutes, is_live: true},
+                  ...busTimes.filter(t => t.minutes !== eta.etaMinutes).slice(0, 1)
+                ]
+              } else if (eta && eta.etaMinutes > MAX_MINUTES) {
+                busTimes = []
+              }
+            }
+          }
+          times.push(...busTimes)
         }
       }
-    }
 
-    if (times.length > 0) {
-      results.push({
-        ...dr,
-        nextTimes: times,
-        isLive
-      })
+      if (times.length > 0) {
+        results.push({
+          ...pr,
+          nextTimes: times.sort((a, b) => a.minutes - b.minutes).slice(0, 3),
+          isLive
+        })
+      }
+    } else {
+      // Connecting route (2 legs)
+      const leg1 = pr.legs[0]!
+      const leg2 = pr.legs[1]!
+
+      const validTimes: TimeEntry[] = []
+
+      // For connecting routes, we use the first route option for Leg 1 as primary
+      const route1 = leg1.routes[0]
+      const tripId1 = leg1.tripIds[0]
+      if (!route1 || !tripId1) continue
+
+      const buses1 = getAvailableBusesForStop(leg1.startStop as StopInfo, now, {limit: 5, tripId: tripId1})
+      const myBus1 = buses1.find(b => b.route_id === route1.route_id)
+      if (!myBus1) continue
+
+      const stopTimes1 = getShapeStopTimes(route1)
+      const offsetToTransfer = getTimeOffsetToStop(stopTimes1, tripId1, leg1.destStop.stop_id)
+
+      for (const t1 of myBus1.next_times) {
+        if (t1.minutes > MAX_MINUTES) continue
+
+        const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + offsetToTransfer) * 60_000)
+
+        // Check any of the routes for Leg 2
+        let hasConnection = false
+        for (let j = 0; j < leg2.routes.length; j++) {
+          const route2 = leg2.routes[j]
+          const tripId2 = leg2.tripIds[j]
+          const buses2 = getAvailableBusesForStop({
+            stop_id: leg2.startStop.stop_id,
+            shapes_info: [route2]
+          } as unknown as StopInfo, arrivalAtTransfer, {limit: 1, tripId: tripId2, maxMinutes: 30})
+          if (buses2.length > 0) {
+            hasConnection = true
+            break
+          }
+        }
+
+        if (hasConnection) {
+          validTimes.push(t1)
+        }
+      }
+
+      if (validTimes.length > 0) {
+        results.push({
+          ...pr,
+          nextTimes: validTimes.slice(0, 3),
+          isLive: false
+        })
+      }
     }
   }
 
-  routesWithTimes.value = results
+  routesWithTimes.value = results.sort((a, b) => {
+    const timeA = a.nextTimes[0]?.minutes ?? 999
+    const timeB = b.nextTimes[0]?.minutes ?? 999
+    if (Math.abs(timeA - timeB) > 5) return timeA - timeB
+    // Prefer routes that alight closer to destination — even with a transfer, less walking wins
+    const aLast = a.legs[a.legs.length - 1]!.destStop
+    const bLast = b.legs[b.legs.length - 1]!.destStop
+    const walkA = haversineMeters(aLast.stop_lat, aLast.stop_lon, destLat.value, destLon.value)
+    const walkB = haversineMeters(bLast.stop_lat, bLast.stop_lon, destLat.value, destLon.value)
+    if (Math.abs(walkA - walkB) > 100) return walkA - walkB
+    return (a.legs.length - b.legs.length) || (a.totalDistance - b.totalDistance)
+  })
 }, {immediate: true})
 
 const currentShapeIndex = ref<ShapeIndex | null>(null)
@@ -167,28 +261,41 @@ watch(selectedRoute, async (newRoute) => {
   }
 
   try {
-    const shapeData = await mapStore.requestShapes([{
-      trip_id: newRoute.tripId,
-      route_short_name: newRoute.route.route_short_name,
-      route_long_name: newRoute.route.route_long_name,
-      route_color: newRoute.route.route_color,
-      route_type: newRoute.route.route_type,
-    }])
-    const pts = shapeData[0]?.[1] ?? []
-    if (pts.length) {
-      const startIdx = findClosestShapeIdx(newRoute.startStop.stop_lat, newRoute.startStop.stop_lon, pts)
-      const destIdx = findClosestShapeIdx(newRoute.destStop.stop_lat, newRoute.destStop.stop_lon, pts)
-
-      const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-      const croppedPts = pts.slice(realStart, realEnd + 1)
-
-      currentShapeIndex.value = buildShapeIndex(croppedPts)
-      if (shapeData[0]) {
-        mapStore.setLoadedShapes([[shapeData[0][0], croppedPts]])
+    const toRequest = newRoute.legs.map(l => {
+      const r = l.routes[0]
+      const tid = l.tripIds[0]
+      if (!r || !tid) throw new Error("Invalid leg data")
+      return {
+        trip_id: tid,
+        route_short_name: r.route_short_name,
+        route_long_name: r.route_long_name,
+        route_color: r.route_color,
+        route_type: r.route_type,
       }
-    }
+    })
+
+    const shapeData = await mapStore.requestShapes(toRequest)
+    const loadedShapes: Array<[DisplayShape, Shape[]]> = []
+
+    shapeData.forEach(([info, pts], idx) => {
+      const leg = newRoute.legs[idx]!
+      if (pts.length) {
+        const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
+        const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
+
+        const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+        const croppedPts = pts.slice(realStart, realEnd + 1)
+
+        if (idx === 0) {
+          currentShapeIndex.value = buildShapeIndex(croppedPts)
+        }
+        loadedShapes.push([info, croppedPts])
+      }
+    })
+
+    mapStore.setLoadedShapes(loadedShapes)
   } catch (e) {
-    console.error('Failed to load shape:', e)
+    console.error('Failed to load shapes:', e)
   }
 }, {immediate: true})
 
@@ -199,16 +306,32 @@ watch([selectedRoute, userLocation], async ([newRoute, ul]) => {
   }
 
   try {
-    const [dirToStart, dirToDest] = await Promise.all([
-      apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${newRoute.startStop.stop_lat}&to_lng=${newRoute.startStop.stop_lon}`) as Promise<DirectionsResponse>,
-      apiRequest(`directions?from_lat=${newRoute.destStop.stop_lat}&from_lng=${newRoute.destStop.stop_lon}&to_lat=${destLat.value}&to_lng=${destLon.value}`) as Promise<DirectionsResponse>,
-    ])
+    const firstLeg = newRoute.legs[0]!
+    const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
+
+    const promises = [
+      apiRequest(`directions?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${firstLeg.startStop.stop_lat}&to_lng=${firstLeg.startStop.stop_lon}`) as Promise<DirectionsResponse>,
+      apiRequest(`directions?from_lat=${lastLeg.destStop.stop_lat}&from_lng=${lastLeg.destStop.stop_lon}&to_lat=${destLat.value}&to_lng=${destLon.value}`) as Promise<DirectionsResponse>,
+    ]
+
+    // If there's a transfer with a walk
+    if (newRoute.legs.length > 1) {
+      for (let i = 0; i < newRoute.legs.length - 1; i++) {
+        const legA = newRoute.legs[i]!
+        const legB = newRoute.legs[i+1]!
+        if (legA.destStop.stop_id !== legB.startStop.stop_id) {
+          promises.push(apiRequest(`directions?from_lat=${legA.destStop.stop_lat}&from_lng=${legA.destStop.stop_lon}&to_lat=${legB.startStop.stop_lat}&to_lng=${legB.startStop.stop_lon}`) as Promise<DirectionsResponse>)
+        }
+      }
+    }
+
+    const responses = await Promise.all(promises)
 
     const polylines: [number, number][][] = []
-    const geomToStart = dirToStart?.routes?.[0]?.geometry
-    if (geomToStart) polylines.push(decodePolyline(geomToStart))
-    const geomToDest = dirToDest?.routes?.[0]?.geometry
-    if (geomToDest) polylines.push(decodePolyline(geomToDest))
+    responses.forEach(res => {
+      const geom = res?.routes?.[0]?.geometry
+      if (geom) polylines.push(decodePolyline(geom))
+    })
 
     mapStore.setWalkingPolylines(polylines)
   } catch (e) {
@@ -223,14 +346,18 @@ watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route,
     return
   }
 
-  const tid = route.tripId
+  const firstLeg = route.legs[0]!
+  const tid = firstLeg.tripIds[0]
+  if (!tid) return
   const v = byTrip.get(tid) ?? []
 
   try {
+    const firstRoute = firstLeg.routes[0]
+    if (!firstRoute) return
     currentVehicles.value = await getIndexedVehicles(
       tid,
-      route.route.route_short_name,
-      route.route.route_color,
+      firstRoute.route_short_name,
+      firstRoute.route_color,
       shapeIndex,
       userTime.value,
       v
@@ -242,41 +369,61 @@ watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route,
 }, {deep: true})
 
 
-const intermediateStops = computed(() => {
+const routeLegsData = computed(() => {
   if (!selectedRoute.value) return []
-  const {tripId, startStop, destStop, route} = selectedRoute.value
-  const allStopTimes = getShapeStopTimes(route)
 
-  const tripStopTimes = allStopTimes
-    .filter(st => st.trip_id === tripId)
-    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  return selectedRoute.value.legs.map((leg) => {
+    const tripId = leg.tripIds[0]
+    const route = leg.routes[0]
+    const {startStop, destStop} = leg
+    const allStopTimes = getShapeStopTimes(route)
 
-  const startSeq = tripStopTimes.find(st => st.stop_id === startStop.stop_id)?.stop_sequence ?? -1
-  const destSeq = tripStopTimes.find(st => st.stop_id === destStop.stop_id)?.stop_sequence ?? -1
+    const tripStopTimes = allStopTimes
+      .filter(st => st.trip_id === tripId)
+      .sort((a, b) => a.stop_sequence - b.stop_sequence)
 
-  if (startSeq === -1 || destSeq === -1) return []
+    const startSeq = tripStopTimes.find(st => st.stop_id === startStop.stop_id)?.stop_sequence ?? -1
+    const destSeq = tripStopTimes.find(st => st.stop_id === destStop.stop_id)?.stop_sequence ?? -1
 
-  return tripStopTimes
-    .filter(st => st.stop_sequence > startSeq && st.stop_sequence < destSeq)
-    .map(st => ({
-      stop_id: st.stop_id,
-      stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
-    }))
+    const intermediates = (startSeq !== -1 && destSeq !== -1)
+      ? tripStopTimes.filter(st => st.stop_sequence > startSeq && st.stop_sequence < destSeq)
+        .map(st => ({
+          stop_id: st.stop_id,
+          stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
+        }))
+      : []
+
+    return {
+      leg,
+      intermediates
+    }
+  })
 })
 
-watch([selectedRoute, intermediateStops], ([newRoute, iStops]) => {
+watch([selectedRoute, routeLegsData], ([newRoute, legsData]) => {
   if (!newRoute) {
     mapStore.setHighlightedStops([])
     return
   }
 
-  const highlighted: HighlightedStop[] = [
-    {stopId: String(newRoute.startStop.stop_id), color: 'green'},
-    {stopId: String(newRoute.destStop.stop_id), color: 'red'},
-  ]
+  const highlighted: HighlightedStop[] = []
 
-  iStops.forEach(s => {
-    highlighted.push({stopId: String(s.stop_id), color: 'gray'})
+  legsData.forEach((ld, idx) => {
+    // Start of leg
+    highlighted.push({
+      stopId: String(ld.leg.startStop.stop_id),
+      color: idx === 0 ? 'green' : 'purple' // Start is green, transfer is purple
+    })
+
+    // Intermediates
+    ld.intermediates.forEach(s => {
+      highlighted.push({stopId: String(s.stop_id), color: 'gray'})
+    })
+
+    // End of last leg
+    if (idx === legsData.length - 1) {
+      highlighted.push({stopId: String(ld.leg.destStop.stop_id), color: 'red'})
+    }
   })
 
   mapStore.setHighlightedStops(highlighted)
@@ -339,7 +486,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
 
   isCalculating.value = true
-  directRoutes.value = []
+  plannedRoutes.value = []
   try {
     const top4ClosestStopsToUser = await Promise.all(sortByDistance(
       stops, ul.latitude, ul.longitude, s => s.stop_lat, s => s.stop_lon, 700
@@ -349,26 +496,13 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
       stops, lat, lon, s => s.stop_lat, s => s.stop_lon, 700
     ).slice(0, 4).map(s => apiRequest(`stop_info?stop_id=${s.stop_id}`) as Promise<StopInfo>))
 
-    const routes = findDirectRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination)
+    const routes = findRoutes(top4ClosestStopsToUser, top4ClosestStopsToDestination, stops, ul.latitude, ul.longitude, lat, lon)
     if (!routes.length) {
-      directRoutes.value = []
+      plannedRoutes.value = []
       return
     }
 
-    const now = userTime.value || new Date()
-    routes.sort((a, b) => {
-      const busesA = getAvailableBusesForStop(a.startStop, now, {limit: 1, tripId: a.tripId})
-      const myBusA = busesA.find(bu => bu.route_id === a.route.route_id)
-      const timeA = myBusA?.next_times?.[0] ? myBusA.next_times[0].minutes : Infinity
-
-      const busesB = getAvailableBusesForStop(b.startStop, now, {limit: 1, tripId: b.tripId})
-      const myBusB = busesB.find(bu => bu.route_id === b.route.route_id)
-      const timeB = myBusB?.next_times?.[0] ? myBusB.next_times[0].minutes : Infinity
-
-      return timeA - timeB
-    })
-
-    directRoutes.value = routes
+    plannedRoutes.value = routes
     mapStore.fitWalkingPolylines = true
 
     stopRouteCalculationWatcher()
@@ -445,41 +579,57 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
         </div>
 
         <template v-if="selectedRoute">
-          <div class="leg-row">
-            <div class="leg-icon-col">
-              <div class="leg-dot boarding-dot" :style="{ borderColor: selectedRoute.route.route_color }">
-                <div class="dot-inner" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+          <div v-for="(ld, legIdx) in routeLegsData" :key="legIdx">
+            <div class="leg-row">
+              <div class="leg-icon-col">
+                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.leg.routes[0]?.route_color }">
+                  <div class="dot-inner" :style="{ backgroundColor: ld.leg.routes[0]?.route_color }"></div>
+                </div>
+                <div class="leg-line" :style="{ backgroundColor: ld.leg.routes[0]?.route_color, backgroundImage: 'none' }"></div>
               </div>
-              <div class="leg-line" :style="{ backgroundColor: selectedRoute.route.route_color, backgroundImage: 'none' }"></div>
+              <div class="leg-label-col">
+                <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">
+                  {{ t('planBoarding') }}
+                  <template v-for="(r, rIdx) in ld.leg.routes" :key="rIdx">
+                    {{ r.route_short_name }}{{ rIdx < ld.leg.routes.length - 1 ? ' / ' : '' }}
+                  </template>
+                </span>
+                <span class="leg-name">{{ ld.leg.startStop.stop_name }}</span>
+              </div>
             </div>
-            <div class="leg-label-col">
-              <span class="leg-type-badge" :style="{ color: selectedRoute.route.route_color }">{{ t('planBoarding') }}</span>
-              <span class="leg-name">{{ selectedRoute.startStop.stop_name }}</span>
-            </div>
-          </div>
 
-          <div v-for="stop in intermediateStops" :key="stop.stop_id" class="leg-row intermediate-leg">
-            <div class="leg-icon-col">
-              <div class="leg-dot intermediate-dot">
-                <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+            <div v-for="stop in ld.intermediates" :key="stop.stop_id" class="leg-row intermediate-leg">
+              <div class="leg-icon-col">
+                <div class="leg-dot intermediate-dot">
+                  <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                </div>
+                <div class="leg-line" :style="{ backgroundColor: ld.leg.routes[0]?.route_color, backgroundImage: 'none' }"></div>
               </div>
-              <div class="leg-line" :style="{ backgroundColor: selectedRoute.route.route_color, backgroundImage: 'none' }"></div>
+              <div class="leg-label-col">
+                <span class="leg-name intermediate-name">{{ stop.stop_name }}</span>
+              </div>
             </div>
-            <div class="leg-label-col">
-              <span class="leg-name intermediate-name">{{ stop.stop_name }}</span>
-            </div>
-          </div>
 
-          <div class="leg-row">
-            <div class="leg-icon-col">
-              <div class="leg-dot boarding-dot" :style="{ borderColor: selectedRoute.route.route_color }">
-                <div class="dot-inner" :style="{ backgroundColor: selectedRoute.route.route_color }"></div>
+            <div class="leg-row">
+              <div class="leg-icon-col">
+                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.leg.routes[0]?.route_color }">
+                  <div class="dot-inner" :style="{ backgroundColor: ld.leg.routes[0]?.route_color }"></div>
+                </div>
+                <div class="leg-line" :class="{ 'leg-line-dashed': legIdx === routeLegsData.length - 1 }"></div>
               </div>
-              <div class="leg-line"></div>
+              <div class="leg-label-col">
+                <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">{{ t('planAlighting') }}</span>
+                <span class="leg-name">{{ ld.leg.destStop.stop_name }}</span>
+              </div>
             </div>
-            <div class="leg-label-col">
-              <span class="leg-type-badge" :style="{ color: selectedRoute.route.route_color }">{{ t('planAlighting') }}</span>
-              <span class="leg-name">{{ selectedRoute.destStop.stop_name }}</span>
+
+            <div v-if="legIdx < routeLegsData.length - 1" class="leg-row transfer-row">
+              <div class="leg-icon-col">
+                <div class="leg-line leg-line-dashed"></div>
+              </div>
+              <div class="leg-label-col">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ t('planTransfer') }}</span>
+              </div>
             </div>
           </div>
         </template>
@@ -522,7 +672,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
 
         <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
           <div
-            v-for="(direct, index) in routesWithTimes"
+            v-for="(route, index) in routesWithTimes"
             :key="index"
             class="departure-card group"
             :class="{ 'is-selected': selectedRouteIndex === index }"
@@ -533,26 +683,36 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
               :class="selectedRouteIndex === index ? 'bg-sky-500' : 'bg-transparent'"
             ></div>
 
-            <div
-              class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
-              :style="{ backgroundColor: direct.route.route_color }"
-            >{{ direct.route.route_short_name }}
+            <div class="flex flex-col gap-1 shrink-0">
+              <div
+                v-for="(leg, lIdx) in route.legs"
+                :key="lIdx"
+                class="flex items-center justify-center px-2 min-w-11 h-7 rounded-lg font-black text-xs text-white shadow-sm"
+                :style="{ backgroundColor: leg.routes[0]?.route_color }"
+              >
+                <template v-for="(r, rIdx) in leg.routes" :key="rIdx">
+                  {{ r.route_short_name }}{{ rIdx < leg.routes.length - 1 ? ' / ' : '' }}
+                </template>
+              </div>
             </div>
 
             <div class="flex-1 min-w-0 flex flex-col justify-center">
               <div class="flex items-center gap-1.5 mb-0.5">
-                <span v-if="direct.isLive" class="live-badge">
+                <span v-if="route.isLive" class="live-badge">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   {{ t('live') }}
                 </span>
-                <span class="card-dest">→ {{ direct.destStop.stop_name }}</span>
+                <span v-if="!route.isDirect" class="transfer-badge">
+                    {{ route.legs.length - 1 }} {{ t('planChanges') }}
+                </span>
+                <span class="card-dest">→ {{ route.legs[route.legs.length - 1]?.destStop?.stop_name }}</span>
               </div>
-              <span class="card-origin">{{ direct.startStop.stop_name }}</span>
+              <span class="card-origin">{{ route.legs[0]?.startStop?.stop_name }}</span>
             </div>
 
             <div class="flex items-center gap-1 shrink-0">
               <span
-                v-for="(entry, i) in direct.nextTimes"
+                v-for="(entry, i) in route.nextTimes"
                 :key="i"
                 :class="[
                   'time-pill',
@@ -588,9 +748,7 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
                       d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
               </svg>
               <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
-                {{ t('planComingSoon') }}</p>
-              <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-1">
-                {{ t('planComingSoonDesc') }}</p>
+                {{ t('planNoResults') }}</p>
             </template>
           </div>
 
@@ -811,6 +969,35 @@ html[data-traditional] .dot-inner {
   border: 1.5px dashed #e2e8f0;
   border-radius: 1rem;
   background: #fafafa;
+}
+
+.leg-line-dashed {
+  background: repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 4px, transparent 4px, transparent 8px) !important;
+}
+
+.transfer-row {
+  min-height: 1.5rem;
+}
+
+.transfer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+}
+
+.dark .transfer-badge {
+  background: #334155;
+  border-color: #475569;
+  color: #94a3b8;
 }
 
 .departure-card {
