@@ -85,6 +85,10 @@
     "planCalculating": "Calculating your route...",
     "planNoBusesNextHour": "No buses are available in the next hour",
     "planChanges": "changes",
+    "planChange": "change",
+    "planThen": "then",
     "planTransfer": "Transfer",
+    "planTransferWalk": "walk",
+    "planTransferSameStop": "same stop",
     "planNoResults": "No routes found for your destination"
 }

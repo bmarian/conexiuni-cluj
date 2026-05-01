@@ -11,7 +11,7 @@ export type DisplayShape = {
   route_type: number,
 }
 
-export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' }
+export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' }
 
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])

@@ -130,14 +130,15 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
 }
 
 export function makeHighlightIcon(
-  color: 'green' | 'purple' | 'red' | 'gray',
+  color: 'green' | 'purple' | 'red' | 'gray' | 'amber',
   opts: IconThemeOptions,
 ): L.DivIcon {
   const bg =
     color === 'green' ? '#10b981'
       : color === 'purple' ? '#a855f7'
         : color === 'red' ? '#f43f5e'
-          : '#64748b'
+          : color === 'amber' ? '#f59e0b'
+            : '#64748b'
 
   if (opts.easterEggActive) {
     return L.divIcon({

@@ -9,7 +9,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {decodePolyline} from "@/utils/geo.ts";
+import {decodePolyline, haversineMeters} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
 import type {DirectionsResponse, Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
@@ -363,6 +363,16 @@ watch([vehiclesByTrip, selectedRoute, currentShapeIndex], async ([byTrip, route,
 }, {deep: true})
 
 
+const getTransferWalkMeters = (legIdx: number): number => {
+  const route = selectedRoute.value
+  if (!route) return 0
+  const a = route.legs[legIdx]
+  const b = route.legs[legIdx + 1]
+  if (!a || !b) return 0
+  if (a.destStop.stop_id === b.startStop.stop_id) return 0
+  return haversineMeters(a.destStop.stop_lat, a.destStop.stop_lon, b.startStop.stop_lat, b.startStop.stop_lon)
+}
+
 const routeLegsData = computed(() => {
   if (!selectedRoute.value) return []
 
@@ -403,20 +413,21 @@ watch([selectedRoute, routeLegsData], ([newRoute, legsData]) => {
   const highlighted: HighlightedStop[] = []
 
   legsData.forEach((ld, idx) => {
-    // Start of leg
     highlighted.push({
       stopId: String(ld.leg.startStop.stop_id),
-      color: idx === 0 ? 'green' : 'purple' // Start is green, transfer is purple
+      color: idx === 0 ? 'green' : 'purple'
     })
 
-    // Intermediates
     ld.intermediates.forEach(s => {
       highlighted.push({stopId: String(s.stop_id), color: 'gray'})
     })
 
-    // End of last leg
     if (idx === legsData.length - 1) {
       highlighted.push({stopId: String(ld.leg.destStop.stop_id), color: 'red'})
+    } else if (ld.leg.destStop.stop_id !== legsData[idx + 1]?.leg.startStop.stop_id) {
+      // Alighting stop differs from next boarding stop — mark it as a "get off here" point
+      // so the walking transfer reads on the map.
+      highlighted.push({stopId: String(ld.leg.destStop.stop_id), color: 'amber'})
     }
   })
 
@@ -596,12 +607,12 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
               </div>
             </div>
 
-            <div class="leg-row">
+            <div class="leg-row" :class="{ 'leg-row-alight-transfer': legIdx < routeLegsData.length - 1 }">
               <div class="leg-icon-col">
                 <div class="leg-dot boarding-dot" :style="{ borderColor: ld.leg.routes[0]?.route_color }">
                   <div class="dot-inner" :style="{ backgroundColor: ld.leg.routes[0]?.route_color }"></div>
                 </div>
-                <div class="leg-line" :class="{ 'leg-line-dashed': legIdx === routeLegsData.length - 1 }"></div>
+                <div v-if="legIdx === routeLegsData.length - 1" class="leg-line leg-line-dashed"></div>
               </div>
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">{{ t('planAlighting') }}</span>
@@ -609,13 +620,27 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
               </div>
             </div>
 
-            <div v-if="legIdx < routeLegsData.length - 1" class="leg-row transfer-row">
-                <div class="leg-icon-col">
-                   <div class="leg-line leg-line-dashed"></div>
-                </div>
-                <div class="leg-label-col">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ t('planTransfer') }}</span>
-                </div>
+            <div v-if="legIdx < routeLegsData.length - 1" class="transfer-block">
+              <div class="transfer-block-rail">
+                <span class="transfer-block-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="13" cy="4" r="2"/>
+                    <path d="M5 22l4-9 4 4 4 5"/>
+                    <path d="M9 13l-2-4 4-2 3 4 3 1"/>
+                  </svg>
+                </span>
+              </div>
+              <div class="transfer-block-content">
+                <span class="transfer-block-label">{{ t('planTransfer') }}</span>
+                <span class="transfer-block-detail">
+                  <template v-if="getTransferWalkMeters(legIdx) > 25">
+                    {{ Math.round(getTransferWalkMeters(legIdx)) }}&nbsp;m {{ t('planTransferWalk') }}
+                  </template>
+                  <template v-else>
+                    {{ t('planTransferSameStop') }}
+                  </template>
+                </span>
+              </div>
             </div>
           </div>
         </template>
@@ -664,55 +689,55 @@ const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allSt
             :class="{ 'is-selected': selectedRouteIndex === index }"
             @click="selectedRouteIndex = index"
           >
-            <div
-              class="w-1 self-stretch rounded-full shrink-0"
-              :class="selectedRouteIndex === index ? 'bg-sky-500' : 'bg-transparent'"
-            ></div>
+            <div class="card-rail" :class="{ 'is-active': selectedRouteIndex === index }"></div>
 
-            <div class="flex flex-col gap-1 shrink-0">
-               <div
-                  v-for="(leg, lIdx) in route.legs"
-                  :key="lIdx"
-                  class="flex items-center justify-center px-2 min-w-11 h-7 rounded-lg font-black text-xs text-white shadow-sm"
-                  :style="{ backgroundColor: leg.routes[0]?.route_color }"
-                >
-                  <template v-for="(r, rIdx) in leg.routes" :key="rIdx">
-                    {{ r.route_short_name }}{{ rIdx < leg.routes.length - 1 ? ' / ' : '' }}
+            <div class="card-body">
+              <div class="card-row-primary">
+                <div class="bus-chain">
+                  <template v-for="(leg, lIdx) in route.legs" :key="lIdx">
+                    <span
+                      class="bus-chip"
+                      :style="{ backgroundColor: leg.routes[0]?.route_color }"
+                      :title="leg.routes.map(r => r.route_short_name).join(' / ')"
+                    ><template v-for="(r, rIdx) in leg.routes" :key="rIdx"><span class="bus-chip-name">{{ r.route_short_name }}</span><span v-if="rIdx < leg.routes.length - 1" class="bus-chip-sep">/</span></template></span>
+                    <svg v-if="lIdx < route.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
+                    </svg>
                   </template>
                 </div>
-            </div>
 
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-              <div class="flex items-center gap-1.5 mb-0.5">
-                <span v-if="route.isLive" class="live-badge">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {{ t('live') }}
+                <span v-if="route.nextTimes[0]"
+                  class="card-primary-time"
+                  :class="route.nextTimes[0].is_live ? 'card-primary-time-live' : 'card-primary-time-sched'">
+                  <span v-if="route.nextTimes[0].is_live" class="live-dot"></span><span v-if="!route.nextTimes[0].is_live">~ </span>{{ formatMinutesFromNow(route.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
                 </span>
-                <span v-if="!route.isDirect" class="transfer-badge">
-                    {{ route.legs.length - 1 }} {{ t('planChanges') }}
-                </span>
-                <span class="card-dest">→ {{ route.legs[route.legs.length - 1]?.destStop?.stop_name }}</span>
+
+                <svg class="card-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
               </div>
-              <span class="card-origin">{{ route.legs[0]?.startStop?.stop_name }}</span>
-            </div>
 
-            <div class="flex items-center gap-1 shrink-0">
-              <span
-                v-for="(entry, i) in route.nextTimes"
-                :key="i"
-                :class="[
-                  'time-pill',
-                  entry.is_live ? 'time-pill-live' : 'time-pill-sched',
-                  i > 0 ? 'time-pill-extra' : ''
-                ]"
-              >{{ entry.is_live ? '' : '~\u202f' }}{{ formatMinutesFromNow(entry.minutes, userTime || new Date(), t('now')) }}</span>
-            </div>
+              <div class="card-row-meta">
+                <span class="card-arrow">→</span>
+                <span class="card-dest" :title="route.legs[route.legs.length - 1]?.destStop?.stop_name">{{ route.legs[route.legs.length - 1]?.destStop?.stop_name }}</span>
+              </div>
 
-            <svg
-              class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
+              <div class="card-row-stats">
+                <span v-if="!route.isDirect" class="stat-chip stat-chip-transfer">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v12m-3-3l3 3 3-3m7 9V4m-3 3l3-3 3 3"/>
+                  </svg>
+                  {{ route.legs.length - 1 }}&nbsp;{{ route.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}
+                </span>
+                <span v-if="route.isLive" class="stat-chip stat-chip-live">
+                  <span class="live-dot"></span>{{ t('live') }}
+                </span>
+                <span v-if="route.nextTimes.length > 1" class="stat-chip-next">
+                  <span class="stat-chip-label">{{ t('planThen') }}</span>
+                  <template v-for="(entry, i) in route.nextTimes.slice(1, 3)" :key="i"><span class="stat-chip-time">{{ entry.is_live ? '' : '~\u202f' }}{{ formatMinutesFromNow(entry.minutes, userTime || new Date(), t('now')) }}</span></template>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -961,36 +986,123 @@ html[data-traditional] .dot-inner {
   background: repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 4px, transparent 4px, transparent 8px) !important;
 }
 
-.transfer-row {
-    min-height: 1.5rem;
+.leg-row-alight-transfer .leg-label-col {
+  padding-bottom: 0;
 }
 
-.transfer-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.625rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #64748b;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    padding: 0.125rem 0.375rem;
-    border-radius: 9999px;
+.transfer-block {
+  display: flex;
+  align-items: stretch;
+  gap: 0.875rem;
+  margin: 0.5rem 0 0.6rem;
 }
 
-.dark .transfer-badge {
-    background: #334155;
-    border-color: #475569;
-    color: #94a3b8;
+.transfer-block-rail {
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.transfer-block-rail::before,
+.transfer-block-rail::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 3px, transparent 3px, transparent 6px);
+}
+
+.transfer-block-rail::before {
+  top: -0.5rem;
+  height: calc(50% - 0.65rem);
+}
+
+.transfer-block-rail::after {
+  bottom: -0.6rem;
+  height: calc(50% - 0.65rem);
+}
+
+.dark .transfer-block-rail::before,
+.dark .transfer-block-rail::after {
+  background: repeating-linear-gradient(to bottom, #475569 0, #475569 3px, transparent 3px, transparent 6px);
+}
+
+.transfer-block-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.transfer-block-icon svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.dark .transfer-block-icon {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+.transfer-block-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.55rem;
+  background: #fffbeb;
+  border: 1px dashed #fde68a;
+}
+
+.dark .transfer-block-content {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.transfer-block-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #b45309;
+}
+
+.dark .transfer-block-label {
+  color: #fbbf24;
+}
+
+.transfer-block-detail {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.dark .transfer-block-detail {
+  color: #fcd34d;
+}
+
+html[data-traditional] .transfer-block-icon,
+html[data-traditional] .transfer-block-content {
+  border-radius: 0;
 }
 
 .departure-card {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.625rem;
-  padding: 0.75rem 0.625rem 0.75rem 0.5rem;
+  padding: 0.875rem 0.875rem 0.875rem 0;
   border-radius: 1rem;
   border: 1px solid #f1f5f9;
   background: #f8fafc;
@@ -1005,25 +1117,10 @@ html[data-traditional] .dot-inner {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #059669;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  padding: 0.125rem 0.375rem;
-  border-radius: 9999px;
-}
-
 .departure-card.is-selected {
   border-color: #0ea5e9;
   background: #f0f9ff;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.12);
 }
 
 .dark .departure-card {
@@ -1041,8 +1138,171 @@ html[data-traditional] .dot-inner {
   border-color: #38bdf8;
 }
 
+.card-rail {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.card-rail.is-active {
+  background: #0ea5e9;
+}
+
+.dark .card-rail.is-active {
+  background: #38bdf8;
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-left: 0.5rem;
+}
+
+.card-row-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.bus-chain {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.bus-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.55rem;
+  min-width: 2.25rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
+}
+
+.bus-chip-name {
+  line-height: 1;
+}
+
+.bus-chip-sep {
+  opacity: 0.65;
+  margin: 0 0.18rem;
+  font-weight: 600;
+}
+
+.bus-chain-arrow {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.dark .bus-chain-arrow {
+  color: #64748b;
+}
+
+.card-primary-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.card-primary-time-sched {
+  color: #334155;
+}
+
+.dark .card-primary-time-sched {
+  color: #e2e8f0;
+}
+
+.card-primary-time-live {
+  color: #059669;
+}
+
+.dark .card-primary-time-live {
+  color: #34d399;
+}
+
+.live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.card-chevron {
+  width: 1rem;
+  height: 1rem;
+  color: #cbd5e1;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.departure-card:hover .card-chevron {
+  color: #64748b;
+  transform: translateX(2px);
+}
+
+.departure-card.is-selected .card-chevron {
+  color: #0ea5e9;
+}
+
+.dark .card-chevron {
+  color: #475569;
+}
+
+.dark .departure-card:hover .card-chevron {
+  color: #94a3b8;
+}
+
+.dark .departure-card.is-selected .card-chevron {
+  color: #38bdf8;
+}
+
+.card-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.card-arrow {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
 .card-dest {
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #1e293b;
   white-space: nowrap;
@@ -1055,13 +1315,76 @@ html[data-traditional] .dot-inner {
   color: #f1f5f9;
 }
 
-.card-origin {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: #94a3b8;
+.card-row-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.dark .stat-chip {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.stat-chip-transfer {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.dark .stat-chip-transfer {
+  color: #cbd5e1;
+  background: #334155;
+}
+
+.stat-chip-live {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.dark .stat-chip-live {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.stat-chip-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.stat-chip-label {
+  text-transform: lowercase;
+  font-size: 0.7rem;
+}
+
+.stat-chip-time {
+  font-weight: 700;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.dark .stat-chip-time {
+  color: #cbd5e1;
+}
+
+.dark .stat-chip-next {
+  color: #64748b;
 }
 
 .time-pill {
@@ -1086,13 +1409,6 @@ html[data-traditional] .dot-inner {
 .dark .time-pill-sched {
   background: #334155;
   color: #cbd5e1;
-}
-
-/* Hide 2nd + 3rd pill when card is narrow */
-@container (max-width: 300px) {
-  .time-pill-extra {
-    display: none;
-  }
 }
 
 .fav-btn {

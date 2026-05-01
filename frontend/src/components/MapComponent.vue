@@ -492,9 +492,9 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     drawnPaths.add(signature)
 
     L.polyline(latLngs, {
-      color: traditionalActive.value ? '#003C9C' : '#94a3b8',
+      color: traditionalActive.value ? '#003C9C' : (routeColor || '#94a3b8'),
       weight: traditionalActive.value ? 4 : 5,
-      opacity: traditionalActive.value ? 0.85 : 0.7,
+      opacity: traditionalActive.value ? 0.85 : 0.85,
       dashArray: easterEggActive.value ? '0 14' : (dashArray || undefined),
       smoothFactor: 1.5,
       lineJoin: traditionalActive.value ? 'miter' : 'round',
@@ -564,7 +564,7 @@ watch([highlightedStops, currentlyHighlightedStopId, easterEggActive, traditiona
     const name = stopNames.get(stopId)
     const m = L.marker(latlng, {
       icon: makeHighlightIcon(color, themeOpts()),
-      zIndexOffset: color === 'green' ? 1200 : color === 'purple' ? 1100 : color === 'red' ? 1000 : 800,
+      zIndexOffset: color === 'green' ? 1200 : color === 'red' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
       interactive: true,
     })
     if (name) {
