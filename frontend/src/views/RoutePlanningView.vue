@@ -121,9 +121,13 @@ watch(plannedRoutes, async (newRoutes) => {
   }
 }, {immediate: true})
 
+// Stream live vehicle positions only for the trip ids the user actually
+// selected. Tracking every candidate's trips at once burned bandwidth and
+// the SSE URL never refreshed when the user picked a different card.
 const streamTripIds = computed(() => {
   const ids = new Set<string>()
-  plannedRoutes.value.forEach(pr => pr.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid))))
+  const r = selectedRoute.value
+  if (r) r.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
   return [...ids]
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
@@ -334,19 +338,27 @@ watch(selectedRouteSignature, async (newKey) => {
 // Snap coords so small GPS jitter doesn't refire the directions watch.
 const SIGNIFICANT_LOC_M = 50
 const lastWalkLocRef = ref<{ lat: number; lon: number } | null>(null)
+const lastWalkSigRef = ref<string | null>(null)
 
 watch(
   [selectedRouteSignature, userLocation],
   async ([newKey, ul]) => {
     if (!newKey || !ul || isNaN(destLat.value) || isNaN(destLon.value)) {
       mapStore.clearWalkingPolylines()
+      lastWalkSigRef.value = null
       return
     }
     const last = lastWalkLocRef.value
     const movedFar = !last || haversineMeters(last.lat, last.lon, ul.latitude, ul.longitude) > SIGNIFICANT_LOC_M
-    // Only refetch directions when (a) route changed or (b) user actually moved.
-    // GPS jitter <50 m is ignored.
-    if (!movedFar && mapStore.walkingPolylines.length > 0) return
+    const sigChanged = lastWalkSigRef.value !== newKey
+    // Refetch when (a) route changed or (b) user actually moved.
+    // GPS jitter <50 m on the same route is ignored.
+    if (!sigChanged && !movedFar && mapStore.walkingPolylines.length > 0) return
+
+    // Wipe the previous route's lines immediately so the user never sees stale
+    // walking paths overlaying the new selection while the new ones are fetched.
+    if (sigChanged) mapStore.clearWalkingPolylines()
+    lastWalkSigRef.value = newKey
     lastWalkLocRef.value = {lat: ul.latitude, lon: ul.longitude}
 
     const newRoute = selectedRoute.value
@@ -372,6 +384,8 @@ watch(
       }
 
       const polylines = await Promise.all(segments.map(([a, b]) => fetchWalkingPolyline(a, b)))
+      // Bail if the user picked yet another route while we were fetching.
+      if (lastWalkSigRef.value !== newKey) return
       mapStore.setWalkingPolylines(polylines)
     } catch (e) {
       console.error('Failed to fetch walking directions:', e)
@@ -606,6 +620,7 @@ async function refreshRoutes() {
   routesWithTimes.value = []
   plannedRoutes.value = []
   lastWalkLocRef.value = null
+  lastWalkSigRef.value = null
   await calculateRoutes()
 }
 
