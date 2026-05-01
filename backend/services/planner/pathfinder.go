@@ -37,8 +37,8 @@ func (g *Graph) Plan(req PlanRequest) []candidate {
 		return nil
 	}
 
-	originEndpoints := g.nearbyStops(req.OriginLat, req.OriginLon, endpointWalkRadius, maxEndpointStops)
-	destEndpoints := g.nearbyStops(req.DestLat, req.DestLon, endpointWalkRadius, maxEndpointStops)
+	originEndpoints := g.nearbyStops(req.OriginLat, req.OriginLon, originWalkRadius, maxEndpointStops)
+	destEndpoints := g.nearbyStops(req.DestLat, req.DestLon, destWalkRadius, maxEndpointStops)
 	if len(originEndpoints) == 0 || len(destEndpoints) == 0 {
 		return nil
 	}
@@ -96,7 +96,6 @@ func (g *Graph) Plan(req PlanRequest) []candidate {
 // fixed list of "closest N stops" near origin and would miss a shape whose
 // nearest origin stop happens to be the (N+1)-th closest.
 func (g *Graph) expandDirectShapeWide(req PlanRequest, push func(candidate)) {
-	const walkRadius = endpointWalkRadius
 	directDist := haversineMeters(req.OriginLat, req.OriginLon, req.DestLat, req.DestLon)
 
 	for shapeKey, shape := range g.shapes {
@@ -107,7 +106,7 @@ func (g *Graph) expandDirectShapeWide(req PlanRequest, push func(candidate)) {
 				continue
 			}
 			d := haversineMeters(req.OriginLat, req.OriginLon, s.StopLat, s.StopLon)
-			if d > walkRadius {
+			if d > originWalkRadius {
 				continue
 			}
 			if d < bestOriginDist {
@@ -127,7 +126,7 @@ func (g *Graph) expandDirectShapeWide(req PlanRequest, push func(candidate)) {
 				continue
 			}
 			d := haversineMeters(req.DestLat, req.DestLon, s.StopLat, s.StopLon)
-			if d > walkRadius {
+			if d > destWalkRadius {
 				continue
 			}
 			if d < bestDestDist {

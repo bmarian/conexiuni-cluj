@@ -6,13 +6,14 @@ const (
 	earthRadiusMeters   = 6_371_000.0
 	walkingSpeedMPerSec = 80.0 / 60.0
 	transferWalkRadius  = 500.0
-	endpointWalkRadius  = 1500.0
+	originWalkRadius    = 2000.0
+	destWalkRadius      = 1500.0
 	maxEndpointStops    = 8
 	maxBusLegs          = 3
 	maxResults          = 12
 	transferPenaltySec  = 60.0
 	walkCostFactor      = 1.6
-	maxTotalWalkMeters  = 2200.0
+	maxTotalWalkMeters  = 3000.0
 	maxTotalTimeSec     = 75 * 60.0
 )
 
