@@ -632,13 +632,108 @@ async function refreshRoutes() {
 
 </script>
 
+<style>
+.construction-banner {
+  background-color: #fef08a;
+  color: #854d0e;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #facc15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.banner-close-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s;
+}
+
+.banner-close-btn:hover {
+  background-color: rgba(133, 77, 14, 0.1);
+}
+
+.dark .construction-banner {
+  background-color: #713f12;
+  color: #fef9c3;
+  border-bottom: 1px solid #a16207;
+}
+
+.dark .banner-close-btn:hover {
+  background-color: rgba(254, 249, 195, 0.1);
+}
+
+html[data-traditional] .construction-banner {
+  background: var(--xp-tan);
+  color: var(--xp-text);
+  border-bottom: 1px solid var(--xp-border);
+  font-family: var(--xp-font);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding-right: 2rem;
+}
+
+html[data-traditional] .banner-close-btn {
+  border: 1px solid #ACA899;
+  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 100%);
+  box-shadow: inset 1px 1px 1px #fff;
+  border-radius: 2px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+html[data-traditional] .banner-close-btn:hover {
+  background: linear-gradient(to bottom, #FFF5C8 0%, #F3C94E 100%);
+}
+
+html[data-hungry] .construction-banner {
+  background-color: #f59e0b;
+  color: #fff;
+  border-bottom: 2px dashed #78350f;
+}
+
+html[data-hungry] .banner-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+</style>
+
 <template>
   <div v-if="!hasValidCoords"
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
+    <div v-if="!settings.constructionBannerDismissed" class="construction-banner">
+      {{ t('underConstruction') }}
+      <button class="banner-close-btn" :title="t('dismiss')" @click="settings.dismissConstructionBanner()">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
     <ViewErrorState/>
   </div>
   <div v-else
        class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
+    <div v-if="!settings.constructionBannerDismissed" class="construction-banner">
+      {{ t('underConstruction') }}
+      <button class="banner-close-btn" :title="t('dismiss')" @click="settings.dismissConstructionBanner()">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
     <div class="flex items-center -mb-2">
       <HeaderNavigation/>
     </div>

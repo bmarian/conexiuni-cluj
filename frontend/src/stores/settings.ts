@@ -118,6 +118,13 @@ export const useSettingsStore = defineStore('settings', () => {
     }, 3000)
   }
 
+  const constructionBannerDismissed = ref(localStorage.getItem('settings.constructionBannerDismissed') === 'true')
+
+  function dismissConstructionBanner() {
+    constructionBannerDismissed.value = true
+    localStorage.setItem('settings.constructionBannerDismissed', 'true')
+  }
+
   return {
     theme, locale, isDark, setTheme, setLocale,
     easterEggUnlocked, easterEggActive,
@@ -125,5 +132,6 @@ export const useSettingsStore = defineStore('settings', () => {
     traditionalUnlocked, traditionalActive, traditionalLowPerf,
     unlockTraditional, activateTraditional, deactivateTraditional, setTraditionalLowPerf,
     toastMessage, showToast,
+    constructionBannerDismissed, dismissConstructionBanner,
   }
 })

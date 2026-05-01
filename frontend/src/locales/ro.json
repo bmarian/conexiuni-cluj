@@ -97,5 +97,6 @@
     "planNextDepartures": "următoarele",
     "planConnectionWait": "Așteptare legătură",
     "planRideTime": "în autobuz",
-    "planNoResults": "Nu am găsit nicio rută spre destinație"
+    "planNoResults": "Nu am găsit nicio rută spre destinație",
+    "underConstruction": "🏗️ În construcție"
 }
