@@ -79,11 +79,12 @@
   "planOriginUnknown": "Locație necunoscută",
   "planRoutesLabel": "Rute disponibile",
   "planNearbyStops": "Stații din apropiere",
-    "planComingSoon": "Călătorii cu legătură în curând",
-    "planComingSoonDesc": "Momentan oferim doar rute directe. Călătoriile cu legătură vor fi disponibile în curând.",
     "planBoarding": "Urcare",
     "planAlighting": "Coborâre",
     "planWalk": "Mers",
     "planCalculating": "Calculăm ruta...",
-    "planNoBusesNextHour": "Nu sunt autobuze disponibile în următoarea oră"
+    "planNoBusesNextHour": "Nu sunt autobuze disponibile în următoarea oră",
+    "planChanges": "schimbări",
+    "planTransfer": "Transfer",
+    "planNoResults": "Nu am găsit nicio rută spre destinație"
 }
