@@ -25,6 +25,8 @@
   "favoriteRoutes": "Rute favorite",
   "favoriteStops": "Stații favorite",
   "favoritePlans": "Destinații favorite",
+  "recentDestinations": "Destinații recente",
+  "removeFromRecents": "Elimină din recente",
   "noFavorites": "Nicio rută, stație sau destinație salvată. Apasă inima pe una pentru a o adăuga la favorite.",
   "searchRoutes": "Caută rute...",
   "searchPlaceholder": "Caută rute, stații, locuri...",

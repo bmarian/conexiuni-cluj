@@ -21,7 +21,7 @@ const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
-const {favoriteRouteIds, favoriteStopIds, favoritePlans, isHydrated} = storeToRefs(favoritesStore)
+const {favoriteRouteIds, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -66,6 +66,12 @@ const favoriteStops = computed<Stop[]>(() => {
 })
 
 const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favoriteStopIds.value.length > 0 || favoritePlans.value.length > 0)
+
+const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
+  return recentPlans.value
+    .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon))
+    .slice(0, 5)
+})
 
 const sortedRoutes = computed<Route[]>(() => {
   return [...routes.value].sort((a, b) =>
@@ -118,6 +124,11 @@ function removeFavoritePlan(plan: {name: string, lat: number, lon: number}, ev: 
   favoritesStore.togglePlanFavorite(plan)
 }
 
+function dismissRecentPlan(plan: FavoritePlan, ev: Event) {
+  ev.stopPropagation()
+  favoritesStore.removeRecentPlan(plan)
+}
+
 const routeFavoritesModel = computed<number[]>({
   get: () => favoriteRouteIds.value,
   set: (newIds) => favoritesStore.reorderRouteIds([...newIds]),
@@ -147,7 +158,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 
     <template v-if="!isSearchMode">
 
-      <section v-if="isHydrated && hasFavorites" class="flex flex-col gap-5">
+      <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
         <h2 class="section-label">
           <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">❤️</span>
           <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
@@ -342,6 +353,50 @@ const planFavoritesModel = computed<FavoritePlan[]>({
               </div>
             </template>
           </Draggable>
+        </div>
+
+        <div v-if="recentNonFavoritePlans.length" class="flex flex-col gap-2">
+          <h3 class="sub-label">{{ t('recentDestinations') }}</h3>
+          <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+            <div
+              v-for="plan in recentNonFavoritePlans"
+              :key="`${plan.lat}-${plan.lon}`"
+              class="fav-stop-row group"
+              @click="navigateToPlan(plan)"
+            >
+              <div
+                class="w-7 h-7 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center">
+                <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                      aria-hidden="true">🕒</span>
+                <svg v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
+                     viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2a10 10 0 100 20 10 10 0 000-20zm.75 5h-1.5v6.31l5.27 3.16.75-1.23-4.52-2.71V7z"/>
+                </svg>
+              </div>
+              <span
+                class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
+                {{ plan.name }}
+              </span>
+              <button
+                type="button"
+                class="fav-stop-remove"
+                :title="t('removeFromRecents')"
+                :aria-label="t('removeFromRecents')"
+                @click.stop="dismissRecentPlan(plan, $event)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                     stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+              <svg
+                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
         </div>
       </section>
 

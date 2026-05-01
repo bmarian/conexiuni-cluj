@@ -7,7 +7,10 @@ import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 const ROUTES_KEY = 'favorites:routes'
 const STOPS_KEY = 'favorites:stops'
 const PLANS_KEY = 'favorites:plans'
+const RECENT_PLANS_KEY = 'recents:plans'
 const IDB_MIGRATION_KEY = 'favorites:idb-migrated'
+
+const MAX_RECENT_PLANS = 10
 
 export interface FavoritePlan {
   name: string
@@ -69,6 +72,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const favoriteRouteIds = ref<number[]>([])
   const favoriteStopIds = ref<number[]>([])
   const favoritePlans = ref<FavoritePlan[]>([])
+  const recentPlans = ref<FavoritePlan[]>([])
   const isHydrated = ref(false)
 
   async function hydrate() {
@@ -77,9 +81,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
       const routes = JSON.parse(localStorage.getItem(ROUTES_KEY) ?? 'null')
       const stops = JSON.parse(localStorage.getItem(STOPS_KEY) ?? 'null')
       const plans = JSON.parse(localStorage.getItem(PLANS_KEY) ?? 'null')
+      const recents = JSON.parse(localStorage.getItem(RECENT_PLANS_KEY) ?? 'null')
       favoriteRouteIds.value = Array.isArray(routes) ? routes : []
       favoriteStopIds.value = Array.isArray(stops) ? stops : []
       favoritePlans.value = Array.isArray(plans) ? plans : []
+      recentPlans.value = Array.isArray(recents) ? recents : []
     } catch (err) {
       console.warn('Failed to hydrate favorites:', err)
     } finally {
@@ -97,6 +103,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function persistPlans() {
     localStorage.setItem(PLANS_KEY, JSON.stringify(favoritePlans.value))
+  }
+
+  function persistRecentPlans() {
+    localStorage.setItem(RECENT_PLANS_KEY, JSON.stringify(recentPlans.value))
   }
 
   function isRouteFavorite(id: number): boolean {
@@ -147,6 +157,23 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistPlans()
   }
 
+  function addRecentPlan(plan: FavoritePlan) {
+    const idx = recentPlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    if (idx !== -1) recentPlans.value.splice(idx, 1)
+    recentPlans.value.unshift(plan)
+    if (recentPlans.value.length > MAX_RECENT_PLANS) {
+      recentPlans.value.length = MAX_RECENT_PLANS
+    }
+    persistRecentPlans()
+  }
+
+  function removeRecentPlan(plan: FavoritePlan) {
+    const idx = recentPlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    if (idx === -1) return
+    recentPlans.value.splice(idx, 1)
+    persistRecentPlans()
+  }
+
   async function preloadFavorites() {
     const jobs: Promise<unknown>[] = []
 
@@ -181,6 +208,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     favoriteRouteIds,
     favoriteStopIds,
     favoritePlans,
+    recentPlans,
     isHydrated,
     hydrate,
     isRouteFavorite,
@@ -192,6 +220,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     reorderRouteIds,
     reorderStopIds,
     reorderPlans,
+    addRecentPlan,
+    removeRecentPlan,
     preloadFavorites,
   }
 })

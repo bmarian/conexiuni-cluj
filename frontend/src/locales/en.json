@@ -25,6 +25,8 @@
   "favoriteRoutes": "Favorite routes",
   "favoriteStops": "Favorite stops",
   "favoritePlans": "Favorite destinations",
+  "recentDestinations": "Recent destinations",
+  "removeFromRecents": "Remove from recents",
   "noFavorites": "No favorites yet. Tap the heart on a route, stop or destination to save it here.",
   "searchRoutes": "Search routes...",
   "searchPlaceholder": "Search routes, stops, places...",

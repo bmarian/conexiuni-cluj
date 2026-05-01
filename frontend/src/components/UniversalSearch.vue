@@ -6,6 +6,7 @@ import {useMapStore} from '@/stores/map.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useUserStore} from '@/stores/user.ts'
+import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
@@ -46,6 +47,7 @@ const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
+const favoritesStore = useFavoritesStore()
 const {fetchShapeInfo} = useRouteShapeInfoApi()
 
 const search = ref('')
@@ -164,6 +166,12 @@ const stopResultsWithDist = computed<StopWithDist[]>(() =>
 
 function navigateToPlan(result: GeoResult) {
   search.value = ''
+
+  const lat = parseFloat(result.lat)
+  const lon = parseFloat(result.lon)
+  if (!isNaN(lat) && !isNaN(lon)) {
+    favoritesStore.addRecentPlan({name: result.display_name, lat, lon})
+  }
 
   void router.push({
     name: 'plan',
