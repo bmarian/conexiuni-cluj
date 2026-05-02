@@ -44,6 +44,24 @@ const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
 
+interface NominatimResult {
+  place_id: number
+  display_name: string
+  lat: string
+  lon: string
+}
+
+const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
+const isSearchActive = ref(false)
+const searchQuery = ref('')
+const searchResults = ref<NominatimResult[]>([])
+const isSearching = ref(false)
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+const vFocus = {
+  mounted: (el: HTMLElement) => el.focus()
+}
+
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
 const destLon = computed(() => parseFloat((route.query.lon as string) ?? 'NaN'))
@@ -442,11 +460,11 @@ watch([vehiclesByTrip, selectedRouteSignature, shapeIndicesByTripId], async ([by
     }
   }
 
-  const seenIds = new Set<string>()
+  const seenIds = new Set<number>()
   const deduped: IndexedVehicle[] = []
   for (const v of allIndexedVehicles) {
-    if (!seenIds.has(v.vehicle_id)) {
-      seenIds.add(v.vehicle_id)
+    if (!seenIds.has(v.id)) {
+      seenIds.add(v.id)
       deduped.push(v)
     }
   }
@@ -558,9 +576,59 @@ const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
 
 const originLabel = computed(() => {
+  if (customOrigin.value) return customOrigin.value.name
   if (userStore.userLocation) return t('planOriginCurrentLocation')
   return t('planOriginUnknown')
 })
+
+async function performSearch() {
+  const q = searchQuery.value.trim()
+  if (q.length < 3) {
+    searchResults.value = []
+    return
+  }
+  isSearching.value = true
+  try {
+    const params = new URLSearchParams({
+      q,
+      format: 'json',
+      countrycodes: 'ro',
+      viewbox: '22.75,47.50,24.27,46.38',
+      bounded: '1',
+      limit: '5',
+      'accept-language': 'ro',
+    })
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
+    searchResults.value = resp.ok ? await resp.json() : []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+watch(searchQuery, () => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(performSearch, 500)
+})
+
+function selectOrigin(res: NominatimResult) {
+  customOrigin.value = {
+    name: res.display_name.split(',')[0] || '',
+    lat: parseFloat(res.lat),
+    lon: parseFloat(res.lon)
+  }
+  isSearchActive.value = false
+  searchQuery.value = ''
+  searchResults.value = []
+  void calculateRoutes()
+}
+
+function useCurrentLocation() {
+  customOrigin.value = null
+  isSearchActive.value = false
+  searchQuery.value = ''
+  searchResults.value = []
+  void calculateRoutes()
+}
 
 watch(selectedRouteIndex, () => {
   mapStore.fitWalkingPolylines = true
@@ -623,9 +691,11 @@ watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
 async function calculateRoutes() {
   const lat = destLat.value
   const lon = destLon.value
-  const ul = userLocation.value
+  const ul = customOrigin.value
+    ? {latitude: customOrigin.value.lat, longitude: customOrigin.value.lon}
+    : (hasLocationPermission.value ? userLocation.value : null)
   const stops = allStops.value
-  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !hasLocationPermission.value || !Array.isArray(stops) || !stops.length) return
+  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !Array.isArray(stops) || !stops.length) return
 
   isCalculating.value = true
   try {
@@ -638,7 +708,7 @@ async function calculateRoutes() {
   }
 }
 
-const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops], async () => {
+const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops, customOrigin], async () => {
   if (plannedRoutes.value.length) return
   await calculateRoutes()
   if (plannedRoutes.value.length) stopRouteCalculationWatcher()
@@ -813,7 +883,7 @@ html[data-hungry] .banner-close-btn:hover {
       </button>
     </header>
 
-    <div v-if="hasLocationPermission">
+    <div v-if="hasLocationPermission || customOrigin">
       <section v-if="!isCalculating && selectedRoute" class="trip-summary">
         <div class="trip-summary-stat">
           <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
@@ -841,9 +911,58 @@ html[data-hungry] .banner-close-btn:hover {
             </div>
             <div class="leg-line"></div>
           </div>
-          <div class="leg-label-col">
-            <span class="leg-type-badge">{{ t('planFrom') }}</span>
-            <span class="leg-name">{{ originLabel }}</span>
+          <div class="leg-label-col" v-if="!isSearchActive">
+            <div class="origin-clickable" @click="isSearchActive = true">
+              <span class="leg-type-badge">{{ t('planFrom') }}</span>
+              <div class="leg-name-wrap">
+                <span class="leg-name">{{ originLabel }}</span>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="leg-label-col search-active-col" v-else>
+            <div class="search-wrap">
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                :placeholder="t('planSearchPlaceholder')"
+                @keyup.enter="performSearch"
+                @keyup.esc="isSearchActive = false"
+                v-focus
+              />
+              <button class="search-cancel" @click="isSearchActive = false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+              <div v-if="isSearching" class="search-loading">
+                <div class="mini-spinner"></div>
+                {{ t('planSearching') }}
+              </div>
+              <template v-else>
+                <div
+                  v-if="hasLocationPermission && customOrigin"
+                  class="search-result-item current-loc-option"
+                  @click="useCurrentLocation"
+                >
+                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
+                </div>
+                <div
+                  v-for="res in searchResults"
+                  :key="res.place_id"
+                  class="search-result-item"
+                  @click="selectOrigin(res)"
+                >
+                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
+                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -1048,6 +1167,66 @@ html[data-hungry] .banner-close-btn:hover {
     </div>
 
     <div v-else>
+      <section class="route-legs-card mb-4">
+        <div class="leg-row">
+          <div class="leg-icon-col">
+            <div class="leg-dot leg-dot-origin">
+              <span v-if="settings.traditionalActive" class="text-sm">📍</span>
+              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="6"/>
+              </svg>
+            </div>
+            <div class="leg-line"></div>
+          </div>
+          <div class="leg-label-col search-active-col">
+            <div class="search-wrap">
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                :placeholder="t('planSearchPlaceholder')"
+                @keyup.enter="performSearch"
+                v-focus
+              />
+            </div>
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+              <div v-if="isSearching" class="search-loading">
+                <div class="mini-spinner"></div>
+                {{ t('planSearching') }}
+              </div>
+              <template v-else>
+                <div
+                  v-for="res in searchResults"
+                  :key="res.place_id"
+                  class="search-result-item"
+                  @click="selectOrigin(res)"
+                >
+                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
+                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="leg-row">
+          <div class="leg-icon-col">
+            <div class="leg-dot leg-dot-dest">
+              <span v-if="settings.traditionalActive" class="text-sm">🏁</span>
+              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="leg-label-col">
+            <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
+            <span class="leg-name"
+                  :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+          </div>
+        </div>
+      </section>
+
       <section class="flex flex-col gap-3 pb-8">
         <ClosestStopsList :stops="allStops" :center-lat="destLat" :center-lon="destLon"/>
       </section>
@@ -1992,6 +2171,240 @@ html[data-traditional] .plan-placeholder {
   border-radius: 0;
   box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
   border-style: solid;
+}
+
+.origin-clickable {
+  cursor: pointer;
+  width: 100%;
+}
+
+.leg-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #94a3b8;
+  opacity: 0.6;
+}
+
+.origin-clickable:hover .edit-icon {
+  opacity: 1;
+  color: #0ea5e9;
+}
+
+.search-active-col {
+  width: 100%;
+  padding-bottom: 0.5rem;
+  position: relative;
+}
+
+.search-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  gap: 0.5rem;
+}
+
+.search-wrap:focus-within {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  color: #1e293b;
+  padding: 0.25rem 0;
+  outline: none;
+  min-width: 0;
+}
+
+.search-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #94a3b8;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.search-cancel:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 100;
+  margin-top: 0.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  left: 0;
+  top: 100%;
+}
+
+.search-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.search-result-item {
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: #f8fafc;
+}
+
+.res-main {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.res-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.current-loc-option {
+  background: #f0f9ff;
+  border-bottom: 1px solid #e0f2fe;
+}
+
+.current-loc-option:hover {
+  background: #e0f2fe;
+}
+
+.mini-spinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-top-color: #0ea5e9;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+html.dark .search-wrap {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.dark .search-input {
+  color: #f1f5f9;
+}
+
+html.dark .search-results {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.dark .search-result-item {
+  border-color: #334155;
+}
+
+html.dark .search-result-item:hover {
+  background: #334155;
+}
+
+html.dark .res-main {
+  color: #f1f5f9;
+}
+
+html.dark .res-sub {
+  color: #94a3b8;
+}
+
+html.dark .current-loc-option {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+html.dark .current-loc-option:hover {
+  background: #334155;
+}
+
+html[data-traditional] .search-results {
+  background: #ECE9D8;
+  border: 1px solid #919B9C;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+}
+
+html[data-traditional] .search-result-item {
+  border-bottom: 1px solid #919B9C;
+  font-family: 'Tahoma', sans-serif;
+}
+
+html[data-traditional] .search-result-item:hover {
+  background: #316AC5;
+}
+
+html[data-traditional] .search-result-item:hover .res-main,
+html[data-traditional] .search-result-item:hover .res-sub {
+  color: #FFFFFF !important;
+}
+
+html[data-traditional] .res-main {
+  color: #000000;
+}
+
+html[data-traditional] .res-sub {
+  color: #444444;
+}
+
+html[data-traditional] .current-loc-option {
+  background: #ECE9D8;
+  font-style: italic;
+}
+
+html[data-hungry] .search-results {
+  background: #FFFBEB;
+  border: 2px solid #F59E0B;
+  border-radius: 0.5rem;
+}
+
+html[data-hungry] .search-result-item:hover {
+  background: #FEF3C7;
+}
+
+html[data-hungry] .res-main {
+  color: #92400E;
 }
 </style>
 

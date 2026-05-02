@@ -98,5 +98,7 @@
     "planConnectionWait": "Așteptare legătură",
     "planRideTime": "în autobuz",
     "planNoResults": "Nu am găsit nicio rută spre destinație",
+    "planSearchPlaceholder": "Caută locația de pornire...",
+    "planSearching": "Se caută...",
     "underConstruction": "🏗️ În construcție"
 }
