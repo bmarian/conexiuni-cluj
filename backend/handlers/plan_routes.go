@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -375,11 +376,11 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 		return &planResp{Plans: []planRouteResp{}, Stops: map[string]models.Stop{}, Shapes: map[string]shapeSlim{}}, nil
 	}
 
-	allStops, err := getStopsFromDB(StopFilter{})
+	allStops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
 	if err != nil {
 		return nil, err
 	}
-	allRoutes, err := getRoutesFromDB(RouteFilter{})
+	allRoutes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
 	if err != nil {
 		return nil, err
 	}
@@ -395,11 +396,6 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 	seenPlans := make(map[string]struct{})
 
 	for _, cliResp := range allPlans {
-		connMap := make(map[int]string)
-		for _, conn := range cliResp.Connections {
-			connMap[conn.ConnOID] = conn.TID
-		}
-
 		legs := cliResp.Legs
 		var curLegs []planLegResp
 		var walkStart, walkEnd, walkTransfer float64
@@ -476,10 +472,31 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 				if leg.TripID != nil {
 					tripID = *leg.TripID
 				}
-				if tripID == "" && leg.TripStops != nil && len(*leg.TripStops) > 0 {
-					firstStopConnOID := (*leg.TripStops)[0].StopConnOID
-					if tid, ok := connMap[firstStopConnOID]; ok {
-						tripID = tid
+				if tripID == "" {
+					// Use GetStopInfo to find the trip passing through this stop for the given route.
+					if stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID}); stopInfo != nil {
+						target0 := strconv.Itoa(route.RouteID) + "_0"
+						target1 := strconv.Itoa(route.RouteID) + "_1"
+
+						found0 := slices.Contains(stopInfo.OutgoingTripIds, target0)
+						found1 := slices.Contains(stopInfo.IncomingTripIds, target1)
+
+						if found0 && !found1 {
+							tripID = target0
+						} else if found1 && !found0 {
+							tripID = target1
+						} else if found0 && found1 {
+							// If both match at start, try checking destination stop.
+							if destStopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &destStop.StopID}); destStopInfo != nil {
+								dFound0 := slices.Contains(destStopInfo.OutgoingTripIds, target0)
+								dFound1 := slices.Contains(destStopInfo.IncomingTripIds, target1)
+								if dFound0 && !dFound1 {
+									tripID = target0
+								} else if dFound1 && !dFound0 {
+									tripID = target1
+								}
+							}
+						}
 					}
 				}
 				if tripID == "" {

@@ -1,3 +1,9 @@
+<script lang="ts">
+export default {
+  name: 'RoutePlanningView'
+}
+</script>
+
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
@@ -7,6 +13,7 @@ import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
+import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts";
@@ -43,6 +50,7 @@ const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
+const plannerStore = usePlannerStore()
 const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
 
 interface NominatimResult {
@@ -590,6 +598,23 @@ const originLabel = computed(() => {
   return t('planOriginUnknown')
 })
 
+function getQueryKey() {
+  const lat = destLat.value
+  const lon = destLon.value
+  const ul = customOrigin.value
+    ? {latitude: customOrigin.value.lat, longitude: customOrigin.value.lon}
+    : (hasLocationPermission.value ? userLocation.value : null)
+  if (!ul || isNaN(lat) || isNaN(lon)) return null
+  return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}`
+}
+
+watch(selectedRouteKey, (newKey) => {
+  const qk = getQueryKey()
+  if (qk && newKey) {
+    plannerStore.setSelectedRouteKey(qk, newKey)
+  }
+})
+
 async function performSearch() {
   const q = searchQuery.value.trim()
   if (q.length < 3) {
@@ -671,7 +696,7 @@ onMounted(async () => {
 
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
-    allStops.value = await apiRequest('stops') as Stop[]
+    allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
 
     if (!hasLocationPermission.value) {
       mapStore.setFlyToLocation(destLat.value, destLon.value)
@@ -729,6 +754,11 @@ async function calculateRoutes() {
 
   isCalculating.value = true
   try {
+    const qk = getQueryKey()
+    if (qk) {
+      selectedRouteKey.value = plannerStore.getSelectedRouteKey(qk)
+    }
+
     const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
     routesWithTimes.value = []
     plannedRoutes.value = routes
@@ -748,10 +778,9 @@ async function calculateRoutes() {
   }
 }
 
-const stopRouteCalculationWatcher = watch([destLat, destLon, userLocation, allStops, customOrigin], async () => {
+watch([destLat, destLon, userLocation, allStops, customOrigin], async () => {
   if (plannedRoutes.value.length) return
   await calculateRoutes()
-  if (plannedRoutes.value.length) stopRouteCalculationWatcher()
 }, {immediate: true})
 
 async function refreshRoutes() {

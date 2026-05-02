@@ -138,7 +138,8 @@ export const findRoutes = async (
   destLon: number
 ): Promise<PlannedRoute[]> => {
   const resp = await apiRequest(
-    `plan_routes?from_lat=${userLat}&from_lng=${userLon}&to_lat=${destLat}&to_lng=${destLon}`
+    `plan_routes?from_lat=${userLat}&from_lng=${userLon}&to_lat=${destLat}&to_lng=${destLon}`,
+    5 * 60 * 1000
   ) as PlanResp
 
   if (!resp?.plans?.length) return []
