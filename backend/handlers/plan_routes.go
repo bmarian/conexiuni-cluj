@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
@@ -252,80 +253,126 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		return err
 	}
 
-	var allPlans []cliRouteResponse
-	startTime := time.Now()
-	searchWindow := 30 * time.Minute
-	maxIterations := 5
+	// Round to ~5 meters precision to increase cache hits for nearby requests.
+	const step = 0.000045
+	rFromLat := math.Round(fromLat/step) * step
+	rFromLng := math.Round(fromLng/step) * step
+	rToLat := math.Round(toLat/step) * step
+	rToLng := math.Round(toLng/step) * step
 
-	for range maxIterations {
-		if time.Since(startTime) > searchWindow {
-			break
-		}
+	cacheID := fmt.Sprintf("PLAN_%.5f_%.5f_%.5f_%.5f", rFromLat, rFromLng, rToLat, rToLng)
+	shelfLife := 5 * time.Minute
 
-		reqObj := map[string]any{
-			"feed_ids":            []int{clujFeedID},
-			"from":                [2]float64{fromLat, fromLng},
-			"to":                  [2]float64{toLat, toLng},
-			"time":                startTime.Format(time.RFC3339),
-			"transfer_categories": []string{"f", "i", "g"},
-			"output_formats":      []string{"legs", "connections"},
-		}
-		reqJSON, err := json.Marshal(reqObj)
-		if err != nil {
-			log.Printf("plan_routes: failed to marshal request params: %v", err)
-			break
-		}
+	resp, err := HandleCached(cacheID, shelfLife,
+		func() (planResp, error) { return getPlanFromDB(cacheID) },
+		func() (planResp, error) {
+			var allPlans []cliRouteResponse
+			startTime := time.Now()
+			searchWindow := 30 * time.Minute
+			maxIterations := 5
 
-		out, err := runMobroute("route", string(reqJSON))
-		if err != nil {
-			log.Printf("plan_routes: routing failed: %v", err)
-			break
-		}
+			for range maxIterations {
+				if time.Since(startTime) > searchWindow {
+					break
+				}
 
-		var cliResp cliRouteResponse
-		if err := json.Unmarshal(out, &cliResp); err != nil {
-			log.Printf("plan_routes: failed to parse routing response: %v", err)
-			break
-		}
+				reqObj := map[string]any{
+					"feed_ids":            []int{clujFeedID},
+					"from":                [2]float64{fromLat, fromLng},
+					"to":                  [2]float64{toLat, toLng},
+					"time":                startTime.Format(time.RFC3339),
+					"transfer_categories": []string{"f", "i", "g"},
+					"output_formats":      []string{"legs", "connections"},
+				}
+				reqJSON, err := json.Marshal(reqObj)
+				if err != nil {
+					log.Printf("plan_routes: failed to marshal request params: %v", err)
+					break
+				}
 
-		if len(cliResp.Legs) == 0 {
-			break
-		}
+				out, err := runMobroute("route", string(reqJSON))
+				if err != nil {
+					log.Printf("plan_routes: routing failed: %v", err)
+					break
+				}
 
-		allPlans = append(allPlans, cliResp)
+				var cliResp cliRouteResponse
+				if err := json.Unmarshal(out, &cliResp); err != nil {
+					log.Printf("plan_routes: failed to parse routing response: %v", err)
+					break
+				}
 
-		// Advance startTime to find the next itinerary.
-		// We look for the first transit departure and add 5 minutes.
-		foundTransit := false
-		for _, leg := range cliResp.Legs {
-			if leg.LegType == "trip" {
-				startTime = leg.LegBeginTime.Add(5 * time.Minute)
-				foundTransit = true
-				break
+				if len(cliResp.Legs) == 0 {
+					break
+				}
+
+				allPlans = append(allPlans, cliResp)
+
+				foundTransit := false
+				for _, leg := range cliResp.Legs {
+					if leg.LegType == "trip" {
+						startTime = leg.LegBeginTime.Add(5 * time.Minute)
+						foundTransit = true
+						break
+					}
+				}
+				if !foundTransit {
+					break
+				}
 			}
-		}
-		if !foundTransit {
-			// If it's all walking, just stop or shift slightly.
-			break
-		}
-	}
 
-	if len(allPlans) == 0 {
-		return c.JSON(planResp{
-			Plans:  []planRouteResp{},
-			Stops:  map[string]models.Stop{},
-			Shapes: map[string]shapeSlim{},
-		})
-	}
+			if len(allPlans) == 0 {
+				return planResp{
+					Plans:  []planRouteResp{},
+					Stops:  map[string]models.Stop{},
+					Shapes: map[string]shapeSlim{},
+				}, nil
+			}
 
-	resp, err := enrichResponse(allPlans, tranzyClient, ctpCjClient, cacheTimes)
+			r, err := enrichResponse(allPlans, tranzyClient, ctpCjClient, cacheTimes)
+			if err != nil {
+				return planResp{}, err
+			}
+			return *r, nil
+		},
+		func(data planResp) error { return storePlanInDB(cacheID, data) },
+		CacheOpts[planResp]{},
+	)
+
 	if err != nil {
-		log.Printf("plan_routes: enrichment failed: %v", err)
+		log.Printf("plan_routes: failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
-	c.Set("Cache-Control", "no-store")
+	c.Set("Cache-Control", "public, max-age=300")
 	return c.JSON(resp)
+}
+
+func getPlanFromDB(cacheID string) (planResp, error) {
+	var dataStr string
+	err := database.DB.QueryRow(`SELECT data FROM directions WHERE id = ?`, cacheID).Scan(&dataStr)
+	if err != nil {
+		return planResp{}, err
+	}
+
+	var data planResp
+	if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
+		return planResp{}, fmt.Errorf("failed to unmarshal plan from DB: %w", err)
+	}
+	return data, nil
+}
+
+func storePlanInDB(cacheID string, data planResp) error {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal plan for DB: %w", err)
+	}
+
+	_, err = database.DB.Exec(`
+		INSERT OR REPLACE INTO directions (id, data)
+		VALUES (?, ?)
+	`, cacheID, string(dataBytes))
+	return err
 }
 
 func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err error) {

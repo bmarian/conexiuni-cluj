@@ -137,8 +137,9 @@ export const findRoutes = async (
   destLat: number,
   destLon: number
 ): Promise<PlannedRoute[]> => {
+  const round = (n: number) => n.toFixed(5)
   const resp = await apiRequest(
-    `plan_routes?from_lat=${userLat}&from_lng=${userLon}&to_lat=${destLat}&to_lng=${destLon}`,
+    `plan_routes?from_lat=${round(userLat)}&from_lng=${round(userLon)}&to_lat=${round(destLat)}&to_lng=${round(destLon)}`,
     5 * 60 * 1000
   ) as PlanResp
 

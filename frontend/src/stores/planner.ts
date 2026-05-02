@@ -1,8 +1,11 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
+import type {PlannedRoute} from '@/utils/trips.ts'
 
 export const usePlannerStore = defineStore('planner', () => {
   const lastSelectedRouteKeys = ref<Record<string, string>>({})
+  const plannedRoutes = ref<PlannedRoute[]>([])
+  const currentQueryKey = ref<string | null>(null)
 
   function setSelectedRouteKey(queryKey: string, routeKey: string) {
     lastSelectedRouteKeys.value[queryKey] = routeKey
@@ -12,5 +15,11 @@ export const usePlannerStore = defineStore('planner', () => {
     return lastSelectedRouteKeys.value[queryKey] || null
   }
 
-  return {lastSelectedRouteKeys, setSelectedRouteKey, getSelectedRouteKey}
+  return {
+    lastSelectedRouteKeys,
+    plannedRoutes,
+    currentQueryKey,
+    setSelectedRouteKey,
+    getSelectedRouteKey
+  }
 })

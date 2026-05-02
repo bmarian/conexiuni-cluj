@@ -95,7 +95,7 @@ function toggleFavorite() {
 }
 
 const allStops = ref<Stop[]>([])
-const plannedRoutes = ref<PlannedRoute[]>([])
+const {plannedRoutes, currentQueryKey} = storeToRefs(plannerStore)
 const selectedRouteIndex = ref(0)
 const selectedRouteKey = ref<string | null>(null)
 const isCalculating = ref(false)
@@ -766,9 +766,18 @@ async function calculateRoutes() {
   const stops = allStops.value
   if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !Array.isArray(stops) || !stops.length) return
 
+  const qk = getQueryKey()
+  if (qk && qk === currentQueryKey.value && plannedRoutes.value.length > 0) {
+    // If we have cached results for this query, use them.
+    // We still check routesWithTimes to ensure UI is ready.
+    if (routesWithTimes.value.length === 0) {
+      // Logic in the watch([plannedRoutes, vehiclesByTrip...]) will populate routesWithTimes
+    }
+    return
+  }
+
   isCalculating.value = true
   try {
-    const qk = getQueryKey()
     if (qk) {
       selectedRouteKey.value = plannerStore.getSelectedRouteKey(qk)
     }
@@ -776,6 +785,7 @@ async function calculateRoutes() {
     const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
     routesWithTimes.value = []
     plannedRoutes.value = routes
+    currentQueryKey.value = qk
     if (routes.length) {
       mapStore.fitWalkingPolylines = true
       favoritesStore.addRecentPlan({
@@ -793,7 +803,6 @@ async function calculateRoutes() {
 }
 
 watch([destLat, destLon, userLocation, allStops, customOrigin], async () => {
-  if (plannedRoutes.value.length) return
   await calculateRoutes()
 }, {immediate: true})
 
@@ -803,6 +812,7 @@ async function refreshRoutes() {
   selectedRouteKey.value = null
   routesWithTimes.value = []
   plannedRoutes.value = []
+  currentQueryKey.value = null
   lastWalkLocRef.value = null
   lastWalkSigRef.value = null
   await calculateRoutes()
