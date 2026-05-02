@@ -61,7 +61,7 @@ interface NominatimResult {
 }
 
 const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
-const isSearchActive = ref(false)
+const activeSearchField = ref<'origin' | 'destination' | null>(null)
 const searchQuery = ref('')
 const searchResults = ref<NominatimResult[]>([])
 const isSearching = ref(false)
@@ -389,15 +389,16 @@ const lastWalkLocRef = ref<{ lat: number; lon: number } | null>(null)
 const lastWalkSigRef = ref<string | null>(null)
 
 watch(
-  [selectedRouteSignature, userLocation],
-  async ([newKey, ul]) => {
-    if (!newKey || !ul || isNaN(destLat.value) || isNaN(destLon.value)) {
+  [selectedRouteSignature, userLocation, customOrigin],
+  async ([newKey, ul, co]) => {
+    const origin = co ? { latitude: co.lat, longitude: co.lon } : ul
+    if (!newKey || !origin || isNaN(destLat.value) || isNaN(destLon.value)) {
       mapStore.clearWalkingPolylines()
       lastWalkSigRef.value = null
       return
     }
     const last = lastWalkLocRef.value
-    const movedFar = !last || haversineMeters(last.lat, last.lon, ul.latitude, ul.longitude) > SIGNIFICANT_LOC_M
+    const movedFar = !last || haversineMeters(last.lat, last.lon, origin.latitude, origin.longitude) > SIGNIFICANT_LOC_M
     const sigChanged = lastWalkSigRef.value !== newKey
     // Refetch when (a) route changed or (b) user actually moved.
     // GPS jitter <50 m on the same route is ignored.
@@ -407,7 +408,7 @@ watch(
     // walking paths overlaying the new selection while the new ones are fetched.
     if (sigChanged) mapStore.clearWalkingPolylines()
     lastWalkSigRef.value = newKey
-    lastWalkLocRef.value = {lat: ul.latitude, lon: ul.longitude}
+    lastWalkLocRef.value = {lat: origin.latitude, lon: origin.longitude}
 
     const newRoute = selectedRoute.value
     if (!newRoute) return
@@ -417,7 +418,7 @@ watch(
       const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
 
       const segments: Array<[[number, number], [number, number]]> = [
-        [[ul.latitude, ul.longitude], [firstLeg.startStop.stop_lat, firstLeg.startStop.stop_lon]],
+        [[origin.latitude, origin.longitude], [firstLeg.startStop.stop_lat, firstLeg.startStop.stop_lon]],
         [[lastLeg.destStop.stop_lat, lastLeg.destStop.stop_lon], [destLat.value, destLon.value]],
       ]
       for (let i = 0; i < newRoute.legs.length - 1; i++) {
@@ -660,19 +661,33 @@ watch(searchQuery, () => {
 
 function selectOrigin(res: NominatimResult) {
   customOrigin.value = {
-    name: res.display_name.split(',')[0] || '',
+    name: res.display_name,
     lat: parseFloat(res.lat),
     lon: parseFloat(res.lon)
   }
-  isSearchActive.value = false
+  activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
   void calculateRoutes()
 }
 
+function selectDestination(res: NominatimResult) {
+  const newQuery = {
+    ...route.query,
+    lat: res.lat,
+    lon: res.lon,
+    name: res.display_name
+  }
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  void router.replace({query: newQuery})
+  void calculateRoutes()
+}
+
 function useCurrentLocation() {
   customOrigin.value = null
-  isSearchActive.value = false
+  activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
   void calculateRoutes()
@@ -715,6 +730,14 @@ onMounted(async () => {
     if (!hasLocationPermission.value) {
       mapStore.setFlyToLocation(destLat.value, destLon.value)
     }
+  } else {
+    activeSearchField.value = 'destination'
+  }
+})
+
+watch([destLat, destLon, destName], ([lat, lon, name]) => {
+  if (!isNaN(lat) && !isNaN(lon)) {
+    mapStore.setPinnedLocation(lat, lon, name)
   }
 })
 
@@ -988,8 +1011,8 @@ html[data-hungry] .banner-close-btn:hover {
             </div>
             <div class="leg-line"></div>
           </div>
-          <div class="leg-label-col" v-if="!isSearchActive">
-            <div class="origin-clickable" @click="isSearchActive = true">
+          <div class="leg-label-col" v-if="activeSearchField !== 'origin'">
+            <div class="origin-clickable" @click="activeSearchField = 'origin'; searchResults = []; searchQuery = ''">
               <span class="leg-type-badge">{{ t('planFrom') }}</span>
               <div class="leg-name-wrap">
                 <span class="leg-name">{{ originLabel }}</span>
@@ -1007,10 +1030,10 @@ html[data-hungry] .banner-close-btn:hover {
                 class="search-input"
                 :placeholder="t('planSearchPlaceholder')"
                 @keyup.enter="performSearch"
-                @keyup.esc="isSearchActive = false"
+                @keyup.esc="activeSearchField = null"
                 v-focus
               />
-              <button class="search-cancel" @click="isSearchActive = false">
+              <button class="search-cancel" @click="activeSearchField = null">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                   <path d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -1130,10 +1153,51 @@ html[data-hungry] .banner-close-btn:hover {
               </svg>
             </div>
           </div>
-          <div class="leg-label-col">
-            <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-            <span class="leg-name"
-                  :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+          <div class="leg-label-col" v-if="activeSearchField !== 'destination'">
+            <div class="origin-clickable" @click="activeSearchField = 'destination'; searchResults = []; searchQuery = ''">
+              <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
+              <div class="leg-name-wrap">
+                <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="leg-label-col search-active-col" v-else>
+            <div class="search-wrap">
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                :placeholder="t('planDestSearchPlaceholder')"
+                @keyup.enter="performSearch"
+                @keyup.esc="activeSearchField = null"
+                v-focus
+              />
+              <button class="search-cancel" @click="activeSearchField = null">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+              <div v-if="isSearching" class="search-loading">
+                <div class="mini-spinner"></div>
+                {{ t('planSearching') }}
+              </div>
+              <template v-else>
+                <div
+                  v-for="res in searchResults"
+                  :key="res.place_id"
+                  class="search-result-item"
+                  @click="selectDestination(res)"
+                >
+                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
+                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </section>
@@ -1255,7 +1319,18 @@ html[data-hungry] .banner-close-btn:hover {
             </div>
             <div class="leg-line"></div>
           </div>
-          <div class="leg-label-col search-active-col">
+          <div class="leg-label-col" v-if="activeSearchField !== 'origin' && (activeSearchField !== null || routesWithTimes.length > 0)">
+            <div class="origin-clickable" @click="activeSearchField = 'origin'; searchResults = []; searchQuery = ''">
+              <span class="leg-type-badge">{{ t('planFrom') }}</span>
+              <div class="leg-name-wrap">
+                <span class="leg-name">{{ originLabel }}</span>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="leg-label-col search-active-col" v-else>
             <div class="search-wrap">
               <input
                 type="text"
@@ -1263,8 +1338,14 @@ html[data-hungry] .banner-close-btn:hover {
                 class="search-input"
                 :placeholder="t('planSearchPlaceholder')"
                 @keyup.enter="performSearch"
+                @keyup.esc="activeSearchField = null"
                 v-focus
               />
+              <button class="search-cancel" @click="activeSearchField = null" v-if="activeSearchField === 'origin'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
             <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission">
               <div v-if="isSearching" class="search-loading">
@@ -1303,10 +1384,51 @@ html[data-hungry] .banner-close-btn:hover {
               </svg>
             </div>
           </div>
-          <div class="leg-label-col">
-            <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-            <span class="leg-name"
-                  :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+          <div class="leg-label-col" v-if="activeSearchField !== 'destination'">
+            <div class="origin-clickable" @click="activeSearchField = 'destination'; searchResults = []; searchQuery = ''">
+              <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
+              <div class="leg-name-wrap">
+                <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="leg-label-col search-active-col" v-else>
+            <div class="search-wrap">
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                :placeholder="t('planDestSearchPlaceholder')"
+                @keyup.enter="performSearch"
+                @keyup.esc="activeSearchField = null"
+                v-focus
+              />
+              <button class="search-cancel" @click="activeSearchField = null">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+              <div v-if="isSearching" class="search-loading">
+                <div class="mini-spinner"></div>
+                {{ t('planSearching') }}
+              </div>
+              <template v-else>
+                <div
+                  v-for="res in searchResults"
+                  :key="res.place_id"
+                  class="search-result-item"
+                  @click="selectDestination(res)"
+                >
+                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
+                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </section>
@@ -1597,6 +1719,7 @@ html[data-traditional] .dot-inner {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 90%;
 }
 
 .intermediate-leg {

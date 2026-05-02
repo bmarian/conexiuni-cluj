@@ -99,5 +99,6 @@
     "planRideTime": "ride",
     "planNoResults": "No routes found for your destination",
     "planSearchPlaceholder": "Search for starting location...",
+    "planDestSearchPlaceholder": "Search for destination...",
     "planSearching": "Searching..."
 }

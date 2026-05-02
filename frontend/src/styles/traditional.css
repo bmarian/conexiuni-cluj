@@ -280,7 +280,7 @@ html[data-traditional] .fav-stop-row {
   background: #FFFFFF !important;
   border: 1px solid var(--xp-border) !important;
   margin-top: -1px !important;
-  padding: 0.5rem 0.6rem !important;
+  padding: 0.65rem 0.6rem !important;
 }
 
 html[data-traditional] .fav-stop-row:hover {
@@ -327,13 +327,6 @@ html[data-traditional] .sub-label {
 html[data-traditional] .fav-route-name {
   color: #1A3070 !important;
   font-weight: 700 !important;
-}
-
-html[data-traditional] .fav-stop-row > div:nth-child(2) {
-  background: rgba(36, 94, 220, 0.12) !important;
-  border: 1px solid var(--xp-border) !important;
-  width: 1.5rem !important;
-  height: 1.5rem !important;
 }
 
 html[data-traditional] .fav-stop-row > div:nth-child(2) svg {
@@ -619,6 +612,7 @@ html.dark[data-traditional] .fav-route-chip:hover {
 html.dark[data-traditional] .fav-stop-row {
   background: #1A2030 !important;
   border: 1px solid var(--xp-border) !important;
+  padding: 0.65rem 0.6rem !important;
 }
 
 html.dark[data-traditional] .fav-stop-row:hover {
@@ -650,11 +644,6 @@ html.dark[data-traditional] .sub-label {
 html.dark[data-traditional] .fav-route-name {
   color: #B0CDF0 !important;
   font-weight: 700 !important;
-}
-
-html.dark[data-traditional] .fav-stop-row > div:nth-child(2) {
-  background: rgba(78, 136, 216, 0.15) !important;
-  border: 1px solid var(--xp-border) !important;
 }
 
 html.dark[data-traditional] .fav-stop-row > div:nth-child(2) svg {

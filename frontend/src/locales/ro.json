@@ -99,5 +99,6 @@
     "planRideTime": "în autobuz",
     "planNoResults": "Nu am găsit nicio rută spre destinație",
     "planSearchPlaceholder": "Caută locația de pornire...",
+    "planDestSearchPlaceholder": "Caută destinația...",
     "planSearching": "Se caută..."
 }

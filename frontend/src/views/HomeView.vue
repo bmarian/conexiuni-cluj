@@ -335,10 +335,17 @@ const planFavoritesModel = computed<FavoritePlan[]>({
                       d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                   </svg>
                 </div>
-                <span
-                  class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
-                  {{ plan.name }}
-                </span>
+                <div class="flex-1 flex flex-col min-w-0">
+                  <span
+                    v-if="plan.originName"
+                    class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold leading-[1.3] mb-0.5 truncate">
+                    {{ t('planFrom') }}: {{ plan.originName }}
+                  </span>
+                  <span
+                    class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
+                    <span v-if="plan.originName" class="text-slate-400 dark:text-slate-500 mr-1">{{ t('planTo') }}:</span>{{ plan.name }}
+                  </span>
+                </div>
                 <button
                   type="button"
                   class="fav-stop-remove"
@@ -380,10 +387,17 @@ const planFavoritesModel = computed<FavoritePlan[]>({
                     d="M12 2a10 10 0 100 20 10 10 0 000-20zm.75 5h-1.5v6.31l5.27 3.16.75-1.23-4.52-2.71V7z"/>
                 </svg>
               </div>
-              <span
-                class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
-                {{ plan.name }}
-              </span>
+              <div class="flex-1 flex flex-col min-w-0">
+                <span
+                  v-if="plan.originName"
+                  class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold leading-[1.3] mb-0.5 truncate">
+                  {{ t('planFrom') }}: {{ plan.originName }}
+                </span>
+                <span
+                  class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
+                  <span v-if="plan.originName" class="text-slate-400 dark:text-slate-500 mr-1">{{ t('planTo') }}:</span>{{ plan.name }}
+                </span>
+              </div>
               <button
                 type="button"
                 class="fav-stop-remove"
