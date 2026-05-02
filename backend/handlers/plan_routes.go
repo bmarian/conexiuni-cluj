@@ -13,6 +13,9 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,9 +26,9 @@ import (
 )
 
 var (
-	otpOnce  sync.Once
-	otpReady bool
-	otpMu    sync.RWMutex
+	otpReady   bool
+	otpRunning bool
+	otpMu      sync.RWMutex
 )
 
 // otpBaseURL returns the base URL of the local OTP server.
@@ -198,9 +201,24 @@ func callOTP(fromLat, fromLng, toLat, toLng float64, departAt time.Time) (*otpPl
 }
 
 // InitOTP checks that the OTP server is reachable and marks the planner as ready.
-// Safe to call from a goroutine — runs once.
+// Safe to call from a goroutine — can be called multiple times to re-check.
 func InitOTP() {
-	otpOnce.Do(func() {
+	otpMu.Lock()
+	if otpRunning {
+		otpMu.Unlock()
+		return
+	}
+	otpRunning = true
+	otpReady = false
+	otpMu.Unlock()
+
+	go func() {
+		defer func() {
+			otpMu.Lock()
+			otpRunning = false
+			otpMu.Unlock()
+		}()
+
 		start := time.Now()
 		base := otpBaseURL()
 
@@ -227,7 +245,99 @@ func InitOTP() {
 			time.Sleep(poll)
 		}
 		log.Printf("otp: server did not become ready within %s", maxWait)
-	})
+	}()
+}
+
+// stopOTPServer attempts to find and kill the process listening on port 8080.
+func stopOTPServer() {
+	log.Printf("otp: stopping local server on port 8080 …")
+
+	if runtime.GOOS == "windows" {
+		// On Windows, find the PID of the process listening on port 8080.
+		cmd := exec.Command("cmd", "/c", "netstat -ano | findstr :8080")
+		out, _ := cmd.Output()
+		if len(out) == 0 {
+			log.Printf("otp: no process found on port 8080")
+			return
+		}
+
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			if len(fields) < 5 {
+				continue
+			}
+			// Example: TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       1234
+			if !strings.Contains(fields[1], ":8080") || fields[3] != "LISTENING" {
+				continue
+			}
+			pid := fields[4]
+			log.Printf("otp: killing process %s …", pid)
+			killCmd := exec.Command("taskkill", "/F", "/PID", pid)
+			if err := killCmd.Run(); err != nil {
+				log.Printf("otp: failed to kill process %s: %v", pid, err)
+			}
+		}
+	} else {
+		// On Linux/macOS, find the PID of the process listening on port 8080 using fuser or lsof.
+		// fuser -k 8080/tcp is a common way, but let's try to be more surgical.
+		cmd := exec.Command("lsof", "-t", "-i:8080")
+		out, err := cmd.Output()
+		if err != nil || len(out) == 0 {
+			log.Printf("otp: no process found on port 8080 (or lsof failed)")
+			return
+		}
+
+		pids := strings.Fields(string(out))
+		for _, pid := range pids {
+			log.Printf("otp: killing process %s …", pid)
+			killCmd := exec.Command("kill", "-9", pid)
+			if err := killCmd.Run(); err != nil {
+				log.Printf("otp: failed to kill process %s: %v", pid, err)
+			}
+		}
+	}
+}
+
+// startOTPServer launches a new instance of the OTP server.
+func startOTPServer() {
+	jarPath := filepath.Join("services", "otp", "otp-shaded-2.9.0.jar")
+	dataDir := filepath.Join("services", "otp", "cluj")
+
+	log.Printf("otp: starting server with %s …", jarPath)
+	// We use the same parameters as in start-otp.sh
+	cmd := exec.Command("java", "-Xmx2G", "-jar", jarPath, "--build", "--serve", dataDir)
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("otp: failed to start server: %v", err)
+	} else {
+		log.Printf("otp: server started with PID %d", cmd.Process.Pid)
+	}
+}
+
+// TriggerOTPRebuild restarts the local OTP server to pick up new data
+// from the latest GTFS and OSM data on disk.
+func TriggerOTPRebuild() {
+	base := otpBaseURL()
+	// Only attempt restart if it's local.
+	if !strings.Contains(base, "localhost") && !strings.Contains(base, "127.0.0.1") {
+		log.Printf("otp: server is remote (%s), skipping local restart", base)
+		return
+	}
+
+	stopOTPServer()
+
+	otpMu.Lock()
+	otpReady = false
+	otpMu.Unlock()
+
+	// Give a small delay for port to be released
+	time.Sleep(2 * time.Second)
+
+	startOTPServer()
+
+	// Re-initialize (wait for it to become ready again)
+	InitOTP()
 }
 
 type planLegResp struct {

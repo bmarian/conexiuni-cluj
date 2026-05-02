@@ -1,0 +1,8 @@
+{
+  "routingDefaults": {
+    "numItineraries": 5,
+    "walkSpeed": 1.33,
+    "transferSlack": 60,
+    "maxJourneyDuration": "4h"
+  }
+}

@@ -169,7 +169,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 		log.Printf("warmup: GTFS zip build failed: %v", err)
 	}
 
-	go InitOTP()
+	TriggerOTPRebuild()
 
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }

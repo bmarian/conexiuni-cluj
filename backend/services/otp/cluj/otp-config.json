@@ -1,0 +1,11 @@
+{
+  "otpFeatures": {
+    "ActuatorAPI": true,
+    "DebugClient": false,
+    "APIGraphInspectorTile": false,
+    "APIServerInfo": false,
+    "APIUpdaterStatus": false,
+    "APIBikeRental": false,
+    "FloatingBike": false
+  }
+}
