@@ -369,7 +369,7 @@ watch(selectedRouteSignature, async (newKey) => {
             const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
             const croppedPts = pts.slice(realStart, realEnd + 1)
 
-            newIndices.set(info.trip_id, buildShapeIndex(croppedPts))
+            newIndices.set(info.trip_id, buildShapeIndex(pts))
             loadedShapes.push([info, croppedPts])
           }
         }
@@ -470,7 +470,21 @@ watch([vehiclesByTrip, selectedRouteSignature, shapeIndicesByTripId], async ([by
           userTime.value,
           v
         )
-        allIndexedVehicles.push(...indexed)
+
+        // Filter vehicles to only show those relevant to the current leg.
+        // We show them if they are between start and dest stop, plus a small buffer.
+        const pts = shapeIndex.shape
+        const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
+        const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
+        const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+
+        const filtered = indexed.filter(iv => {
+          // Allow some buffer before start stop (e.g. 10 points ~ 100-300m)
+          // so the user can see the bus approaching.
+          return iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1
+        })
+
+        allIndexedVehicles.push(...filtered)
       } catch (e) {
         console.warn('Failed to index vehicles for trip', tid, e)
       }
@@ -878,26 +892,10 @@ html[data-hungry] .banner-close-btn:hover {
 <template>
   <div v-if="!hasValidCoords"
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <div v-if="!settings.constructionBannerDismissed" class="construction-banner">
-      {{ t('underConstruction') }}
-      <button class="banner-close-btn" :title="t('dismiss')" @click="settings.dismissConstructionBanner()">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
     <ViewErrorState/>
   </div>
   <div v-else
        class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
-    <div v-if="!settings.constructionBannerDismissed" class="construction-banner">
-      {{ t('underConstruction') }}
-      <button class="banner-close-btn" :title="t('dismiss')" @click="settings.dismissConstructionBanner()">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
     <div class="flex items-center -mb-2">
       <HeaderNavigation/>
     </div>

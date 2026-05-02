@@ -52,7 +52,23 @@ function isVisibleAtTerminus(v: Vehicle, firstStop: Shape, lastStop: Shape, now:
 
 function computeHeading(lat: number, lon: number, shape: Shape[], shapeIdx: number): number {
   if (shapeIdx < 0 || !shape.length) return 0
-  const target = shape[Math.min(shapeIdx + HEADING_LOOKAHEAD, shape.length - 1)]!
+  const targetIdx = Math.min(shapeIdx + HEADING_LOOKAHEAD, shape.length - 1)
+  const target = shape[targetIdx]!
+
+  // If we're at the very end or too close to the target point to get a stable bearing,
+  // use the direction of the segment leading to the current point.
+  if (targetIdx === shapeIdx || haversineMeters(lat, lon, target.shape_pt_lat, target.shape_pt_lon) < 2) {
+    if (shapeIdx > 0) {
+      const prev = shape[shapeIdx - 1]!
+      const curr = shape[shapeIdx]!
+      return calculateBearing(prev.shape_pt_lat, prev.shape_pt_lon, curr.shape_pt_lat, curr.shape_pt_lon)
+    }
+    if (shape.length > 1) {
+      // At index 0, use the first segment direction
+      return calculateBearing(shape[0]!.shape_pt_lat, shape[0]!.shape_pt_lon, shape[1]!.shape_pt_lat, shape[1]!.shape_pt_lon)
+    }
+  }
+
   return calculateBearing(lat, lon, target.shape_pt_lat, target.shape_pt_lon)
 }
 
