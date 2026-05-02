@@ -147,7 +147,13 @@ func InitMobroute() {
 		if port == "" {
 			port = "6698"
 		}
-		gtfsURL := fmt.Sprintf("http://localhost:%s/api/gtfs.zip", port)
+		// On Windows dev, mobroute runs inside WSL and cannot reach the
+		// Windows host via "localhost". Use the known WSL-visible host IP.
+		host := "localhost"
+		if runtime.GOOS == "windows" && os.Getenv("ENV") == "development" {
+			host = "172.28.144.1"
+		}
+		gtfsURL := fmt.Sprintf("http://%s:%s/api/gtfs.zip", host, port)
 		loadParams := fmt.Sprintf(`{"op":"loadcustomgtfs","feed_ids":[%d],"loadcustomgtfs_uri":"%s"}`, clujFeedID, gtfsURL)
 		log.Printf("mobroute: loading GTFS from %s …", gtfsURL)
 		if _, err := runMobroute("database", loadParams); err != nil {

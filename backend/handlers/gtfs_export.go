@@ -9,6 +9,8 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,12 +20,18 @@ import (
 )
 
 var (
-	gtfsMu  sync.RWMutex
-	gtfsZip []byte
+	gtfsMu   sync.RWMutex
+	gtfsPath string
 )
 
+// gtfsCachePath returns the path to the cached GTFS zip inside the project's
+// fils/mobroute directory.
+func gtfsCachePath() string {
+	return filepath.Join("services", "mobroute", "gtfs.zip")
+}
+
 // BuildGTFSZip generates a GTFS zip archive from the currently cached data
-// and stores it in memory for serving.
+// and writes it to the mobroute cache folder on disk.
 func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
 	start := time.Now()
 	log.Println("gtfs: building GTFS zip from cached data")
@@ -318,30 +326,49 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 		return fmt.Errorf("gtfs: failed to close zip: %w", err)
 	}
 
+	// Write the zip to the mobroute cache directory.
+	out := gtfsCachePath()
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("gtfs: failed to create cache dir: %w", err)
+	}
+	if err := os.WriteFile(out, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("gtfs: failed to write zip: %w", err)
+	}
+
 	gtfsMu.Lock()
-	gtfsZip = buf.Bytes()
+	gtfsPath = out
 	gtfsMu.Unlock()
 
-	log.Printf("gtfs: zip built (%d bytes, %d routes, %d stops, %d trips, %d stop_time rows, %d shape points) in %s",
-		len(gtfsZip), len(routes), len(stops), len(tripRows)-1, len(stRows)-1, len(shapeRows)-1,
-		time.Since(start).Round(time.Millisecond))
+	log.Printf("gtfs: zip built (%d bytes, %d routes, %d stops, %d trips, %d stop_time rows, %d shape points) in %s → %s",
+		buf.Len(), len(routes), len(stops), len(tripRows)-1, len(stRows)-1, len(shapeRows)-1,
+		time.Since(start).Round(time.Millisecond), out)
 	return nil
 }
 
-// HandleGTFSExport serves the pre-built GTFS zip.
+// HandleGTFSExport serves the cached GTFS zip from disk.
+// If the zip hasn't been built this session, it falls back to the
+// previously cached file in the mobroute folder.
 func HandleGTFSExport(c fiber.Ctx) error {
 	gtfsMu.RLock()
-	data := gtfsZip
+	p := gtfsPath
 	gtfsMu.RUnlock()
 
-	if data == nil {
+	// Fall back to the on-disk cache from a previous run.
+	if p == "" {
+		candidate := gtfsCachePath()
+		if _, err := os.Stat(candidate); err == nil {
+			p = candidate
+		}
+	}
+
+	if p == "" {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "GTFS feed not yet available"})
 	}
 
 	c.Set("Content-Type", "application/zip")
 	c.Set("Content-Disposition", "attachment; filename=gtfs.zip")
 	c.Set("Cache-Control", staticCacheControl)
-	return c.Send(data)
+	return c.SendFile(p)
 }
 
 // extractDepartures returns departure times for the given direction from a DaySchedule.

@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -176,6 +177,10 @@ func main() {
 
 	handlers.StartWarmup(tranzyClient, ctpCjClient, cacheTimes)
 
-	log.Printf("Server listening on http://localhost:%s", config.Port)
-	log.Fatal(app.Listen(":" + config.Port))
+	listenAddr := ":" + config.Port
+	if config.Environment == "development" && runtime.GOOS == "windows" {
+		listenAddr = "0.0.0.0:" + config.Port
+	}
+	log.Printf("Server listening on http://%s", listenAddr)
+	log.Fatal(app.Listen(listenAddr))
 }
