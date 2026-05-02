@@ -16,6 +16,11 @@ type TripFilter struct {
 }
 
 func GetTrips(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter TripFilter) ([]models.Trip, error) {
+	if filter.TripID != nil {
+		normalized := NormalizeTripID(*filter.TripID)
+		filter.TripID = &normalized
+	}
+
 	opts := CacheOpts[[]models.Trip]{}
 	if filter.RouteID != nil || filter.TripID != nil {
 		f := filter
@@ -69,6 +74,7 @@ func storeTripsInDB(trips []models.Trip) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		func(stmt *sql.Stmt) error {
 			for _, t := range trips {
+				t.TripID = NormalizeTripID(t.TripID)
 				if _, err := stmt.Exec(t.TripID, t.RouteID, t.DirectionID, t.TripHeadsign, t.BlockID, t.ShapeID, t.WheelchairAccessible, t.BikesAllowed); err != nil {
 					return fmt.Errorf("error inserting trip: %w", err)
 				}

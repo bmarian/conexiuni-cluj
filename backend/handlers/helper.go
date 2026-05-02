@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -91,6 +92,14 @@ func HandleCached[T any](
 		return opts.PostProcess(data), nil
 	}
 	return data, nil
+}
+
+func NormalizeTripID(tripID string) string {
+	parts := strings.Split(tripID, "_")
+	if len(parts) >= 2 {
+		return parts[0] + "_" + parts[1]
+	}
+	return tripID
 }
 
 func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, bool, error) {

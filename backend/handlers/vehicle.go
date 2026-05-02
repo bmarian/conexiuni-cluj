@@ -22,6 +22,14 @@ type VehicleFilter struct {
 }
 
 func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter VehicleFilter) ([]models.Vehicle, error) {
+	if filter.TripID != nil {
+		normalized := NormalizeTripID(*filter.TripID)
+		filter.TripID = &normalized
+	}
+	for i, id := range filter.TripIDs {
+		filter.TripIDs[i] = NormalizeTripID(id)
+	}
+
 	opts := CacheOpts[[]models.Vehicle]{}
 	if filter.RouteID != nil || len(filter.TripIDs) > 0 {
 		f := filter
@@ -65,6 +73,7 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		if v.RouteID == -1 || v.TripID == "-1" {
 			continue
 		}
+		v.TripID = NormalizeTripID(v.TripID)
 		if filter.RouteID != nil && v.RouteID != *filter.RouteID {
 			continue
 		}

@@ -111,7 +111,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 			}
 			stopIndex++
 			out = append(out, models.StopTime{
-				TripID:            st.TripID,
+				TripID:            NormalizeTripID(st.TripID),
 				StopID:            st.StopID,
 				OffsetArrivalTime: offsetArrivalTime,
 				StopSequence:      st.StopSequence,
@@ -161,6 +161,10 @@ type APIStopTimeFilter struct {
 }
 
 func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
+	if filter.TripID != nil {
+		normalized := NormalizeTripID(*filter.TripID)
+		filter.TripID = &normalized
+	}
 	opts := CacheOpts[[]models.RequestStopTime]{}
 	if filter.TripID != nil {
 		f := filter
@@ -206,6 +210,7 @@ func storeAPIStopTimesInDB(stopTimes []models.RequestStopTime) error {
 		VALUES (?, ?, ?)`,
 		func(stmt *sql.Stmt) error {
 			for _, st := range stopTimes {
+				st.TripID = NormalizeTripID(st.TripID)
 				if _, err := stmt.Exec(st.TripID, st.StopID, st.StopSequence); err != nil {
 					return fmt.Errorf("error inserting api stop time: %w", err)
 				}

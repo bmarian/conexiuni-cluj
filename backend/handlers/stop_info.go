@@ -67,12 +67,13 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 		if ast.StopID != stopInfo.StopID {
 			continue
 		}
-		if strings.HasSuffix(ast.TripID, OUTGOING_SUFFIX) {
-			outgoingTripIds = append(outgoingTripIds, ast.TripID)
-		} else if strings.HasSuffix(ast.TripID, INCOMING_SUFFIX) {
-			incomingTripIds = append(incomingTripIds, ast.TripID)
+		normalizedTripID := NormalizeTripID(ast.TripID)
+		if strings.HasSuffix(normalizedTripID, OUTGOING_SUFFIX) {
+			outgoingTripIds = append(outgoingTripIds, normalizedTripID)
+		} else if strings.HasSuffix(normalizedTripID, INCOMING_SUFFIX) {
+			incomingTripIds = append(incomingTripIds, normalizedTripID)
 		}
-		idStr := strings.TrimSuffix(strings.TrimSuffix(ast.TripID, OUTGOING_SUFFIX), INCOMING_SUFFIX)
+		idStr := strings.TrimSuffix(strings.TrimSuffix(normalizedTripID, OUTGOING_SUFFIX), INCOMING_SUFFIX)
 		if id, err := strconv.Atoi(idStr); err == nil {
 			routeIDSet[id] = struct{}{}
 		}

@@ -291,50 +291,57 @@ watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([ro
   routesWithTimes.value = results
 }, {immediate: true})
 
-const currentShapeIndex = ref<ShapeIndex | null>(null)
+const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
 
 watch(selectedRouteSignature, async (newKey) => {
   const newRoute = selectedRoute.value
   if (!newKey || !newRoute) {
-    currentShapeIndex.value = null
+    shapeIndicesByTripId.value = new Map()
     void mapStore.setShapesToDisplay([])
     return
   }
 
   try {
-    const toRequest = newRoute.legs.map(l => {
-      const r = l.routes[0]
-      const tid = l.tripIds[0]
-      if (!r || !tid) throw new Error("Invalid leg data")
-      return {
-        trip_id: tid,
-        route_short_name: r.route_short_name,
-        route_long_name: r.route_long_name,
-        route_color: r.route_color,
-        route_type: r.route_type,
-      }
+    const toRequest = newRoute.legs.flatMap(l => {
+      return l.tripIds.map((tid, idx) => {
+        const r = l.routes[idx]
+        if (!r || !tid) return null
+        return {
+          trip_id: tid,
+          route_short_name: r.route_short_name,
+          route_long_name: r.route_long_name,
+          route_color: r.route_color,
+          route_type: r.route_type,
+        }
+      }).filter(x => x !== null) as DisplayShape[]
     })
 
     const shapeData = await mapStore.requestShapes(toRequest)
     const loadedShapes: Array<[DisplayShape, Shape[]]> = []
+    const newIndices = new Map<string, ShapeIndex>()
 
-    shapeData.forEach(([info, pts], idx) => {
-      const leg = newRoute.legs[idx]!
-      if (pts.length) {
-        const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
-        const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
+    shapeData.forEach(([info, pts]) => {
+      // Find which leg this shape belongs to.
+      // We might have multiple legs using the same shape or different trips in the same leg.
+      // For each tripId, we want to crop the points to the leg's start/dest.
+      newRoute.legs.forEach(leg => {
+        if (leg.tripIds.includes(info.trip_id)) {
+          if (pts.length) {
+            const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
+            const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
 
-        const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-        const croppedPts = pts.slice(realStart, realEnd + 1)
+            const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+            const croppedPts = pts.slice(realStart, realEnd + 1)
 
-        if (idx === 0) {
-          currentShapeIndex.value = buildShapeIndex(croppedPts)
+            newIndices.set(info.trip_id, buildShapeIndex(croppedPts))
+            loadedShapes.push([info, croppedPts])
+          }
         }
-        loadedShapes.push([info, croppedPts])
-      }
+      })
     })
 
+    shapeIndicesByTripId.value = newIndices
     mapStore.setLoadedShapes(loadedShapes)
   } catch (e) {
     console.error('Failed to load shapes:', e)
@@ -381,7 +388,7 @@ watch(
       for (let i = 0; i < newRoute.legs.length - 1; i++) {
         const legA = newRoute.legs[i]!
         const legB = newRoute.legs[i + 1]!
-        if (legA.destStop.stop_id !== legB.startStop.stop_id) {
+        if (haversineMeters(legA.destStop.stop_lat, legA.destStop.stop_lon, legB.startStop.stop_lat, legB.startStop.stop_lon) > 5) {
           segments.push([
             [legA.destStop.stop_lat, legA.destStop.stop_lon],
             [legB.startStop.stop_lat, legB.startStop.stop_lon],
@@ -400,34 +407,52 @@ watch(
   {immediate: true},
 )
 
-watch([vehiclesByTrip, selectedRouteSignature, currentShapeIndex], async ([byTrip, , shapeIndex]) => {
+watch([vehiclesByTrip, selectedRouteSignature, shapeIndicesByTripId], async ([byTrip, , shapeIndices]) => {
   const route = selectedRoute.value
-  if (!route || !shapeIndex) {
+  if (!route || !shapeIndices.size) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
     return
   }
 
-  const firstLeg = route.legs[0]!
-  const tid = firstLeg.tripIds[0]
-  if (!tid) return
-  const v = byTrip.get(tid) ?? []
+  const allIndexedVehicles: IndexedVehicle[] = []
+  for (const leg of route.legs) {
+    for (let i = 0; i < leg.tripIds.length; i++) {
+      const tid = leg.tripIds[i]
+      const r = leg.routes[i]
+      if (!tid || !r) continue
 
-  try {
-    const firstRoute = firstLeg.routes[0]
-    if (!firstRoute) return
-    currentVehicles.value = await getIndexedVehicles(
-      tid,
-      firstRoute.route_short_name,
-      firstRoute.route_color,
-      shapeIndex,
-      userTime.value,
-      v
-    )
-    mapStore.setVehiclesToDisplay(currentVehicles.value)
-  } catch (e) {
-    console.warn('Failed to index vehicles:', e)
+      const shapeIndex = shapeIndices.get(tid)
+      if (!shapeIndex) continue
+
+      const v = byTrip.get(tid) ?? []
+      try {
+        const indexed = await getIndexedVehicles(
+          tid,
+          r.route_short_name,
+          r.route_color,
+          shapeIndex,
+          userTime.value,
+          v
+        )
+        allIndexedVehicles.push(...indexed)
+      } catch (e) {
+        console.warn('Failed to index vehicles for trip', tid, e)
+      }
+    }
   }
+
+  const seenIds = new Set<string>()
+  const deduped: IndexedVehicle[] = []
+  for (const v of allIndexedVehicles) {
+    if (!seenIds.has(v.vehicle_id)) {
+      seenIds.add(v.vehicle_id)
+      deduped.push(v)
+    }
+  }
+
+  currentVehicles.value = deduped
+  mapStore.setVehiclesToDisplay(currentVehicles.value)
 }, {deep: true})
 
 

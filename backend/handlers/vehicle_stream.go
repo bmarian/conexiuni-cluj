@@ -54,7 +54,7 @@ func (h *vehicleHub) CurrentInterval() time.Duration {
 func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
 	set := make(map[string]struct{}, len(tripIDs))
 	for _, id := range tripIDs {
-		set[id] = struct{}{}
+		set[NormalizeTripID(id)] = struct{}{}
 	}
 	sub := &vehicleSubscriber{
 		tripIDs: set,

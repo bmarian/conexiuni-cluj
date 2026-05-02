@@ -168,25 +168,34 @@ func InitMobroute() {
 // ── CLI JSON types (mirror mobroute's legs output) ──────────────────
 
 type cliRouteResponse struct {
-	Legs []cliRouteLeg `json:"legs"`
+	Legs        []cliRouteLeg  `json:"legs"`
+	Connections []cliRouteConn `json:"connections,omitzero"`
 }
 
 type cliRouteLeg struct {
 	LegType       string     `json:"leg_type"`
 	LegDuration   string     `json:"leg_duration"`
+	LegBeginTime  time.Time  `json:"leg_begin_time"`
 	LegFromCoords [2]float64 `json:"leg_from_coords"`
 	LegToCoords   [2]float64 `json:"leg_to_coords"`
 
 	// trip fields
 	TripRoute *string            `json:"trip_route,omitzero"`
+	TripID    *string            `json:"trip_id,omitzero"`
 	TripStops *[]*cliStopDetails `json:"trip_stops,omitzero"`
 
 	// walk fields
 	WalkDistKm *float64 `json:"walk_dist_km,omitzero"`
 }
 
+type cliRouteConn struct {
+	ConnOID int    `json:"conn_oid"`
+	TID     string `json:"tid"`
+}
+
 type cliStopDetails struct {
-	Coords [2]float64 `json:"stop_coords"`
+	Coords      [2]float64 `json:"stop_coords"`
+	StopConnOID int        `json:"stop_conn_oid"`
 }
 
 // ── response types (match what the frontend expects) ────────────────
@@ -242,35 +251,73 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		return err
 	}
 
-	// Build route request params as a proper JSON object to avoid any
-	// injection through string interpolation. json.Marshal guarantees
-	// well-formed output.
-	reqObj := map[string]any{
-		"feed_ids":            []int{clujFeedID},
-		"from":                [2]float64{fromLat, fromLng},
-		"to":                  [2]float64{toLat, toLng},
-		"transfer_categories": []string{"f", "i"},
-		"output_formats":      []string{"legs"},
-	}
-	reqJSON, err := json.Marshal(reqObj)
-	if err != nil {
-		log.Printf("plan_routes: failed to marshal request params: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	var allPlans []cliRouteResponse
+	startTime := time.Now()
+	searchWindow := 30 * time.Minute
+	maxIterations := 5
+
+	for range maxIterations {
+		if time.Since(startTime) > searchWindow {
+			break
+		}
+
+		reqObj := map[string]any{
+			"feed_ids":            []int{clujFeedID},
+			"from":                [2]float64{fromLat, fromLng},
+			"to":                  [2]float64{toLat, toLng},
+			"time":                startTime.Format(time.RFC3339),
+			"transfer_categories": []string{"f", "i", "g"},
+			"output_formats":      []string{"legs", "connections"},
+		}
+		reqJSON, err := json.Marshal(reqObj)
+		if err != nil {
+			log.Printf("plan_routes: failed to marshal request params: %v", err)
+			break
+		}
+
+		out, err := runMobroute("route", string(reqJSON))
+		if err != nil {
+			log.Printf("plan_routes: routing failed: %v", err)
+			break
+		}
+
+		var cliResp cliRouteResponse
+		if err := json.Unmarshal(out, &cliResp); err != nil {
+			log.Printf("plan_routes: failed to parse routing response: %v", err)
+			break
+		}
+
+		if len(cliResp.Legs) == 0 {
+			break
+		}
+
+		allPlans = append(allPlans, cliResp)
+
+		// Advance startTime to find the next itinerary.
+		// We look for the first transit departure and add 5 minutes.
+		foundTransit := false
+		for _, leg := range cliResp.Legs {
+			if leg.LegType == "trip" {
+				startTime = leg.LegBeginTime.Add(5 * time.Minute)
+				foundTransit = true
+				break
+			}
+		}
+		if !foundTransit {
+			// If it's all walking, just stop or shift slightly.
+			break
+		}
 	}
 
-	out, err := runMobroute("route", string(reqJSON))
-	if err != nil {
-		log.Printf("plan_routes: routing failed: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
+	if len(allPlans) == 0 {
+		return c.JSON(planResp{
+			Plans:  []planRouteResp{},
+			Stops:  map[string]models.Stop{},
+			Shapes: map[string]shapeSlim{},
+		})
 	}
 
-	var cliResp cliRouteResponse
-	if err := json.Unmarshal(out, &cliResp); err != nil {
-		log.Printf("plan_routes: failed to parse routing response: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
-	}
-
-	resp, err := enrichResponse(cliResp.Legs, tranzyClient, ctpCjClient, cacheTimes)
+	resp, err := enrichResponse(allPlans, tranzyClient, ctpCjClient, cacheTimes)
 	if err != nil {
 		log.Printf("plan_routes: enrichment failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
@@ -323,8 +370,8 @@ func isValidLng(v float64) bool {
 
 // ── enrichment: CLI legs → frontend PlanResp ────────────────────────
 
-func enrichResponse(legs []cliRouteLeg, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
-	if len(legs) == 0 {
+func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
+	if len(allPlans) == 0 {
 		return &planResp{Plans: []planRouteResp{}, Stops: map[string]models.Stop{}, Shapes: map[string]shapeSlim{}}, nil
 	}
 
@@ -344,108 +391,151 @@ func enrichResponse(legs []cliRouteLeg, tranzyClient *tranzy.Client, ctpCjClient
 
 	stopsMap := make(map[string]models.Stop)
 	shapesMap := make(map[string]shapeSlim)
+	plans := make([]planRouteResp, 0)
+	seenPlans := make(map[string]struct{})
 
-	var plans []planRouteResp
-	var curLegs []planLegResp
-	var walkStart, walkEnd, walkTransfer float64
-	var transitSec float64
+	for _, cliResp := range allPlans {
+		connMap := make(map[int]string)
+		for _, conn := range cliResp.Connections {
+			connMap[conn.ConnOID] = conn.TID
+		}
 
-	for _, leg := range legs {
-		switch leg.LegType {
-		case "walk":
-			km := 0.0
-			if leg.WalkDistKm != nil {
-				km = *leg.WalkDistKm
-			}
-			meters := km * 1000
-			if len(curLegs) == 0 {
-				walkStart = meters
-			} else {
-				walkEnd = meters
-			}
+		legs := cliResp.Legs
+		var curLegs []planLegResp
+		var walkStart, walkEnd, walkTransfer float64
+		var transitSec float64
 
-		case "transfer":
-			if leg.LegDuration != "" {
-				if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
-					walkTransfer += d.Seconds()
+		for i, leg := range legs {
+			switch leg.LegType {
+			case "walk":
+				km := 0.0
+				if leg.WalkDistKm != nil {
+					km = *leg.WalkDistKm
 				}
-			}
+				meters := km * 1000
 
-		case "trip":
-			routeName := ""
-			if leg.TripRoute != nil {
-				routeName = *leg.TripRoute
-			}
-			route, ok := routeByName[strings.ToUpper(strings.TrimSpace(routeName))]
-			if !ok {
-				continue
-			}
+				// Check if there is any transit trip later in the plan
+				hasTripAfter := false
+				for j := i + 1; j < len(legs); j++ {
+					if legs[j].LegType == "trip" {
+						hasTripAfter = true
+						break
+					}
+				}
 
-			startStop := nearestStop(allStops, leg.LegFromCoords[0], leg.LegFromCoords[1])
-			destStop := nearestStop(allStops, leg.LegToCoords[0], leg.LegToCoords[1])
+				if len(curLegs) == 0 {
+					walkStart += meters
+				} else if !hasTripAfter {
+					walkEnd += meters
+				} else {
+					walkTransfer += meters
+				}
 
-			var intermediates []int
-			if leg.TripStops != nil {
-				for _, ts := range *leg.TripStops {
-					sid := nearestStop(allStops, ts.Coords[0], ts.Coords[1])
-					if sid.StopID != startStop.StopID && sid.StopID != destStop.StopID {
-						intermediates = append(intermediates, sid.StopID)
+			case "transfer":
+				if leg.LegDuration != "" {
+					if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
+						// We don't have distance for pure transfers, but we can estimate
+						// or just count the time. The field is meters though.
+						// Assume 1.2 m/s walking speed for transfers if no distance.
+						walkTransfer += d.Seconds() * 1.2
+					}
+				}
+
+			case "trip":
+				routeName := ""
+				if leg.TripRoute != nil {
+					routeName = *leg.TripRoute
+				}
+				route, ok := routeByName[strings.ToUpper(strings.TrimSpace(routeName))]
+				if !ok {
+					continue
+				}
+
+				startStop := nearestStop(allStops, leg.LegFromCoords[0], leg.LegFromCoords[1])
+				destStop := nearestStop(allStops, leg.LegToCoords[0], leg.LegToCoords[1])
+
+				var intermediates []int
+				if leg.TripStops != nil {
+					for _, ts := range *leg.TripStops {
+						sid := nearestStop(allStops, ts.Coords[0], ts.Coords[1])
+						if sid.StopID != startStop.StopID && sid.StopID != destStop.StopID {
+							intermediates = append(intermediates, sid.StopID)
+						}
+					}
+				}
+
+				rideSec := 0.0
+				if leg.LegDuration != "" {
+					if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
+						rideSec = d.Seconds()
+						transitSec += rideSec
+					}
+				}
+
+				tripID := ""
+				if leg.TripID != nil {
+					tripID = *leg.TripID
+				}
+				if tripID == "" && leg.TripStops != nil && len(*leg.TripStops) > 0 {
+					firstStopConnOID := (*leg.TripStops)[0].StopConnOID
+					if tid, ok := connMap[firstStopConnOID]; ok {
+						tripID = tid
+					}
+				}
+				if tripID == "" {
+					tripID = strconv.Itoa(route.RouteID) + "_0"
+				}
+
+				curLegs = append(curLegs, planLegResp{
+					RouteID:             route.RouteID,
+					TripID:              NormalizeTripID(tripID),
+					StartStopID:         startStop.StopID,
+					DestStopID:          destStop.StopID,
+					RideSeconds:         rideSec,
+					IntermediateStopIDs: intermediates,
+				})
+
+				stopsMap[strconv.Itoa(startStop.StopID)] = startStop
+				stopsMap[strconv.Itoa(destStop.StopID)] = destStop
+				if _, exists := shapesMap[strconv.Itoa(route.RouteID)]; !exists {
+					stopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &route.RouteShortName})
+					timetable, _ := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, route.RouteShortName)
+
+					shapesMap[strconv.Itoa(route.RouteID)] = shapeSlim{
+						RouteShortName: route.RouteShortName,
+						RouteLongName:  route.RouteLongName,
+						RouteID:        route.RouteID,
+						RouteType:      route.RouteType,
+						RouteColor:     models.ResolveRouteDisplayColor(route.RouteShortName),
+						StopTime:       stopTimes,
+						Timetable:      timetable,
 					}
 				}
 			}
+		}
 
-			rideSec := 0.0
-			if leg.LegDuration != "" {
-				if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
-					rideSec = d.Seconds()
-					transitSec += rideSec
-				}
+		if len(curLegs) > 0 {
+			// Deduplicate based on legs sequence
+			planKey := fmt.Sprintf("%v", curLegs)
+			if _, seen := seenPlans[planKey]; seen {
+				continue
 			}
+			seenPlans[planKey] = struct{}{}
 
-			tripID := strconv.Itoa(route.RouteID) + "_0"
-
-			curLegs = append(curLegs, planLegResp{
-				RouteID:             route.RouteID,
-				TripID:              tripID,
-				StartStopID:         startStop.StopID,
-				DestStopID:          destStop.StopID,
-				RideSeconds:         rideSec,
-				IntermediateStopIDs: intermediates,
+			totalDist := walkStart + walkEnd + walkTransfer
+			for _, l := range curLegs {
+				totalDist += float64(l.RideSeconds) * 8.3
+			}
+			plans = append(plans, planRouteResp{
+				Legs:               curLegs,
+				IsDirect:           len(curLegs) == 1,
+				WalkStartMeters:    walkStart,
+				WalkEndMeters:      walkEnd,
+				WalkTransferMeters: walkTransfer,
+				TransitDurationSec: transitSec,
+				TotalDistance:      totalDist,
 			})
-
-			stopsMap[strconv.Itoa(startStop.StopID)] = startStop
-			stopsMap[strconv.Itoa(destStop.StopID)] = destStop
-			if _, exists := shapesMap[strconv.Itoa(route.RouteID)]; !exists {
-				stopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &route.RouteShortName})
-				timetable, _ := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, route.RouteShortName)
-
-				shapesMap[strconv.Itoa(route.RouteID)] = shapeSlim{
-					RouteShortName: route.RouteShortName,
-					RouteLongName:  route.RouteLongName,
-					RouteID:        route.RouteID,
-					RouteType:      route.RouteType,
-					RouteColor:     models.ResolveRouteDisplayColor(route.RouteShortName),
-					StopTime:       stopTimes,
-					Timetable:      timetable,
-				}
-			}
 		}
-	}
-
-	if len(curLegs) > 0 {
-		totalDist := walkStart + walkEnd + walkTransfer
-		for _, l := range curLegs {
-			totalDist += float64(l.RideSeconds) * 8.3
-		}
-		plans = append(plans, planRouteResp{
-			Legs:               curLegs,
-			IsDirect:           len(curLegs) == 1,
-			WalkStartMeters:    walkStart,
-			WalkEndMeters:      walkEnd,
-			WalkTransferMeters: walkTransfer,
-			TransitDurationSec: transitSec,
-			TotalDistance:      totalDist,
-		})
 	}
 
 	if plans == nil {

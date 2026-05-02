@@ -17,6 +17,14 @@ type ShapeFilter struct {
 }
 
 func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter ShapeFilter) ([]models.Shape, error) {
+	if filter.ShapeID != nil {
+		normalized := NormalizeTripID(*filter.ShapeID)
+		filter.ShapeID = &normalized
+	}
+	for i, id := range filter.ShapeIDs {
+		filter.ShapeIDs[i] = NormalizeTripID(id)
+	}
+
 	opts := CacheOpts[[]models.Shape]{}
 	if filter.ShapeID != nil || len(filter.ShapeIDs) > 0 {
 		f := filter
@@ -95,6 +103,7 @@ func storeShapesInDB(shapes []models.Shape) error {
 		VALUES (?, ?, ?, ?, ?)`,
 		func(stmt *sql.Stmt) error {
 			for _, s := range shapes {
+				s.ShapeID = NormalizeTripID(s.ShapeID)
 				if _, err := stmt.Exec(s.ShapeID, s.ShapePtLat, s.ShapePtLon, s.ShapePtSequence, s.ShapeDistTraveled); err != nil {
 					return fmt.Errorf("error inserting shape: %w", err)
 				}
