@@ -2481,7 +2481,7 @@ html.dark[data-traditional] .plan-placeholder {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #1e293b;
   padding: 0.25rem 0;
   outline: none;
