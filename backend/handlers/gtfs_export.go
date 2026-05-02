@@ -182,17 +182,20 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 	// routes.txt
 	routeRows := [][]string{
-		{"route_id", "agency_id", "route_short_name", "route_long_name", "route_type", "route_color"},
+		{"route_id", "agency_id", "route_short_name", "route_long_name", "route_desc", "route_type", "route_color", "route_text_color"},
 	}
 	for _, r := range routes {
 		color := strings.TrimPrefix(r.RouteColor, "#")
+		textColor := contrastTextColor(color)
 		routeRows = append(routeRows, []string{
 			strconv.Itoa(r.RouteID),
 			"1",
 			r.RouteShortName,
 			r.RouteLongName,
+			r.RouteDesc,
 			strconv.Itoa(int(r.RouteType)),
 			color,
+			textColor,
 		})
 	}
 	if err := writeCSV(zw, "routes.txt", routeRows); err != nil {
@@ -201,12 +204,14 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 	// stops.txt
 	stopRows := [][]string{
-		{"stop_id", "stop_name", "stop_lat", "stop_lon", "location_type"},
+		{"stop_id", "stop_code", "stop_name", "stop_desc", "stop_lat", "stop_lon", "location_type"},
 	}
 	for _, s := range stops {
 		stopRows = append(stopRows, []string{
 			strconv.Itoa(s.StopID),
+			s.StopCode,
 			s.StopName,
+			s.StopDesc,
 			strconv.FormatFloat(s.StopLat, 'f', 6, 64),
 			strconv.FormatFloat(s.StopLon, 'f', 6, 64),
 			strconv.Itoa(int(s.LocationType)),
@@ -219,7 +224,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	// trips.txt — expand each trip into up to 3 service variants, each with
 	// N departures from the timetable. Each departure becomes a unique GTFS trip.
 	tripRows := [][]string{
-		{"route_id", "service_id", "trip_id", "trip_headsign", "direction_id", "shape_id"},
+		{"route_id", "service_id", "trip_id", "trip_headsign", "direction_id", "block_id", "shape_id", "wheelchair_accessible", "bikes_allowed"},
 	}
 
 	// stop_times.txt
@@ -269,13 +274,29 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 				gtfsTripID := fmt.Sprintf("%s_%s_%d", tid, svc.serviceID, depIdx)
 
+				blockID := ""
+				if trip.BlockID > 0 {
+					blockID = strconv.Itoa(trip.BlockID)
+				}
+				wheelchair := ""
+				if trip.WheelchairAccessible >= 0 {
+					wheelchair = strconv.Itoa(trip.WheelchairAccessible)
+				}
+				bikes := ""
+				if trip.BikesAllowed >= 0 {
+					bikes = strconv.Itoa(trip.BikesAllowed)
+				}
+
 				tripRows = append(tripRows, []string{
 					strconv.Itoa(trip.RouteID),
 					svc.serviceID,
 					gtfsTripID,
 					trip.TripHeadsign,
 					strconv.Itoa(int(trip.DirectionID)),
+					blockID,
 					trip.ShapeID,
+					wheelchair,
+					bikes,
 				})
 
 				for _, est := range enrichedStops {
@@ -320,6 +341,14 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	}
 	if err := writeCSV(zw, "shapes.txt", shapeRows); err != nil {
 		return fmt.Errorf("gtfs: shapes.txt: %w", err)
+	}
+
+	// feed_info.txt
+	if err := writeCSV(zw, "feed_info.txt", [][]string{
+		{"feed_publisher_name", "feed_publisher_url", "feed_lang", "feed_start_date", "feed_end_date", "feed_version"},
+		{"CTP Cluj-Napoca", "https://ctpcj.ro", "ro", calStart, calEnd, now.Format("20060102T150405")},
+	}); err != nil {
+		return fmt.Errorf("gtfs: feed_info.txt: %w", err)
 	}
 
 	if err := zw.Close(); err != nil {
@@ -420,6 +449,26 @@ func secondsToGTFSTime(sec int) string {
 	m := (sec % 3600) / 60
 	s := sec % 60
 	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+}
+
+// contrastTextColor returns "FFFFFF" or "000000" depending on which provides
+// better contrast against the given hex color (without leading "#").
+func contrastTextColor(hex string) string {
+	if len(hex) != 6 {
+		return "FFFFFF"
+	}
+	r, err1 := strconv.ParseUint(hex[0:2], 16, 8)
+	g, err2 := strconv.ParseUint(hex[2:4], 16, 8)
+	b, err3 := strconv.ParseUint(hex[4:6], 16, 8)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return "FFFFFF"
+	}
+	// W3C relative luminance formula
+	luminance := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+	if luminance > 186 {
+		return "000000"
+	}
+	return "FFFFFF"
 }
 
 func writeCSV(zw *zip.Writer, name string, rows [][]string) error {

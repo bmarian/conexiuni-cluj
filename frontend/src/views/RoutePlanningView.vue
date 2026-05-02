@@ -1241,7 +1241,7 @@ html[data-hungry] .banner-close-btn:hover {
           </div>
         </div>
       </section>
-      <section class="flex flex-col gap-3 pb-8">
+      <section class="flex flex-col gap-3 pb-8!">
         <h2 class="section-label">
           <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
           {{ t('planRoutesLabel') }}
