@@ -167,9 +167,9 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 
 	if err := BuildGTFSZip(tranzyClient, ctpCjClient, cacheTimes); err != nil {
 		log.Printf("warmup: GTFS zip build failed: %v", err)
-	} else {
-		go InitMobroute()
 	}
+
+	go InitOTP()
 
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }

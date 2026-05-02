@@ -1,20 +1,18 @@
 package handlers
 
 import (
+	"bytes"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,189 +22,212 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-const clujFeedID = -2121
-
 var (
-	mobrouteOnce  sync.Once
-	mobrouteReady bool
-	mobrouteMu    sync.RWMutex
+	otpOnce  sync.Once
+	otpReady bool
+	otpMu    sync.RWMutex
 )
 
-// mobrouteBin returns the absolute path to the mobroute CLI binary
-// located in services/mobroute/ relative to the working directory
-// (expected to be the backend/ directory).
-func mobrouteBin() string {
-	// The binary is always the Linux 'mobroute' file, even on Windows
-	// where we run it through WSL.
-	return filepath.Join("services", "mobroute", "mobroute")
-}
-
-// mobrouteTimeout is the maximum time a single mobroute CLI invocation
-// is allowed to run before being killed.
-const mobrouteTimeout = 2 * time.Minute
-
-// allowedSubcmds is the strict allowlist of mobroute subcommands we invoke.
-var allowedSubcmds = map[string]struct{}{
-	"database": {},
-	"route":    {},
-}
-
-// runMobroute executes the mobroute CLI with the given subcommand and
-// JSON params string. Returns stdout (the JSON result). Logs from the
-// CLI go to stderr and are forwarded to the Go logger.
-func runMobroute(subcmd, paramsJSON string) ([]byte, error) {
-	// Validate subcommand against allowlist to prevent arbitrary CLI usage.
-	if _, ok := allowedSubcmds[subcmd]; !ok {
-		return nil, fmt.Errorf("mobroute: disallowed subcommand %q", subcmd)
+// otpBaseURL returns the base URL of the local OTP server.
+func otpBaseURL() string {
+	if u := os.Getenv("OTP_URL"); u != "" {
+		return u
 	}
+	return "http://localhost:8080"
+}
 
-	bin := mobrouteBin()
+// otpTimeout is the maximum time an OTP request is allowed to take.
+const otpTimeout = 30 * time.Second
 
-	// Verify the binary exists and resolve to absolute path to prevent
-	// PATH-based hijacking.
-	absBin, err := filepath.Abs(bin)
+// OTP GraphQL API response types
+
+type otpGraphQLResponse struct {
+	Data   *otpGraphQLData   `json:"data,omitzero"`
+	Errors []otpGraphQLError `json:"errors,omitzero"`
+}
+
+type otpGraphQLError struct {
+	Message string `json:"message"`
+}
+
+type otpGraphQLData struct {
+	Plan *otpPlan `json:"plan"`
+}
+
+type otpPlan struct {
+	Itineraries []otpItinerary `json:"itineraries"`
+}
+
+type otpItinerary struct {
+	Duration     int64    `json:"duration"`
+	WalkTime     int64    `json:"walkTime"`
+	WalkDistance float64  `json:"walkDistance"`
+	Legs         []otpLeg `json:"legs"`
+}
+
+type otpLeg struct {
+	Mode              string          `json:"mode"`
+	Duration          float64         `json:"duration"`
+	Distance          float64         `json:"distance"`
+	From              otpPlace        `json:"from"`
+	To                otpPlace        `json:"to"`
+	Route             *otpRoute       `json:"route,omitzero"`
+	IntermediateStops []otpInterStop  `json:"intermediateStops,omitzero"`
+	LegGeometry       *otpEncodedPoly `json:"legGeometry,omitzero"`
+}
+
+// otpInterStop represents a Stop object returned by intermediateStops
+// (different from otpPlace which is used for from/to).
+type otpInterStop struct {
+	GtfsID string  `json:"gtfsId"`
+	Name   string  `json:"name"`
+	Lat    float64 `json:"lat"`
+	Lon    float64 `json:"lon"`
+}
+
+type otpRoute struct {
+	GtfsID    string `json:"gtfsId"`
+	ShortName string `json:"shortName"`
+	LongName  string `json:"longName"`
+}
+
+type otpPlace struct {
+	Name string   `json:"name"`
+	Lat  float64  `json:"lat"`
+	Lon  float64  `json:"lon"`
+	Stop *otpStop `json:"stop,omitzero"`
+}
+
+type otpStop struct {
+	GtfsID string `json:"gtfsId"`
+}
+
+type otpEncodedPoly struct {
+	Points string `json:"points"`
+	Length int    `json:"length"`
+}
+
+// otpPlanQuery is the GraphQL query sent to the OTP GTFS API.
+const otpPlanQuery = `{
+  plan(
+    from: { lat: %f, lon: %f }
+    to:   { lat: %f, lon: %f }
+    date: "%s"
+    time: "%s"
+    numItineraries: 6
+    transportModes: [{ mode: WALK }, { mode: TRANSIT }]
+  ) {
+    itineraries {
+      duration
+      walkTime
+      walkDistance
+      legs {
+        mode
+        duration
+        distance
+        from {
+          name
+          lat
+          lon
+          stop { gtfsId }
+        }
+        to {
+          name
+          lat
+          lon
+          stop { gtfsId }
+        }
+        route {
+          gtfsId
+          shortName
+          longName
+        }
+        intermediateStops {
+          name
+          lat
+          lon
+          gtfsId
+        }
+        legGeometry { points length }
+      }
+    }
+  }
+}`
+
+// callOTP makes a trip planning request to the local OTP GraphQL API.
+func callOTP(fromLat, fromLng, toLat, toLng float64, departAt time.Time) (*otpPlan, error) {
+	base := otpBaseURL()
+	query := fmt.Sprintf(otpPlanQuery, fromLat, fromLng, toLat, toLng,
+		departAt.Format("2006-01-02"), departAt.Format("15:04"))
+
+	payload, err := json.Marshal(map[string]string{"query": query})
 	if err != nil {
-		return nil, fmt.Errorf("mobroute: cannot resolve binary path: %w", err)
-	}
-	if _, err := os.Stat(absBin); err != nil {
-		return nil, fmt.Errorf("mobroute: binary not found at %s: %w", absBin, err)
+		return nil, fmt.Errorf("otp: failed to marshal query: %w", err)
 	}
 
-	// Use a timeout context to prevent runaway processes.
-	ctx, cancel := context.WithTimeout(context.Background(), mobrouteTimeout)
-	defer cancel()
-
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		absDir := filepath.Dir(absBin)
-		cmd = exec.CommandContext(ctx, "wsl", "--cd", absDir, "--exec", "./mobroute", subcmd, "-p", paramsJSON)
-	} else {
-		cmd = exec.CommandContext(ctx, absBin, subcmd, "-p", paramsJSON)
-	}
-
-	// Build a minimal environment — only HOME is needed by the CLI.
-	// This avoids leaking secrets (API keys, tokens) to the subprocess.
-	cmd.Env = []string{"HOME=" + homeDir()}
-	if runtime.GOOS == "windows" {
-		// Translate HOME path for WSL.
-		cmd.Env = append(cmd.Env, "WSLENV=HOME/p")
-	}
-	if p := os.Getenv("PATH"); p != "" {
-		cmd.Env = append(cmd.Env, "PATH="+p)
-	}
-	if runtime.GOOS == "windows" {
-		if sd := os.Getenv("SYSTEMDRIVE"); sd != "" {
-			cmd.Env = append(cmd.Env, "SYSTEMDRIVE="+sd)
-		}
-		if sr := os.Getenv("SYSTEMROOT"); sr != "" {
-			cmd.Env = append(cmd.Env, "SYSTEMROOT="+sr)
-		}
-		if tmp := os.Getenv("TMP"); tmp != "" {
-			cmd.Env = append(cmd.Env, "TMP="+tmp)
-		}
-	}
-
-	out, err := cmd.Output()
+	client := &http.Client{Timeout: otpTimeout}
+	resp, err := client.Post(base+"/otp/gtfs/v1", "application/json", bytes.NewReader(payload))
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
-			return nil, fmt.Errorf("mobroute %s failed: %w\nstderr: %s", subcmd, err, string(ee.Stderr))
-		}
-		return nil, fmt.Errorf("mobroute %s failed: %w", subcmd, err)
+		return nil, fmt.Errorf("otp: request failed: %w", err)
 	}
-	return out, nil
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("otp: failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("otp: server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var gqlResp otpGraphQLResponse
+	if err := json.Unmarshal(body, &gqlResp); err != nil {
+		return nil, fmt.Errorf("otp: failed to parse response: %w", err)
+	}
+
+	if len(gqlResp.Errors) > 0 {
+		return nil, fmt.Errorf("otp: graphql error: %s", gqlResp.Errors[0].Message)
+	}
+
+	if gqlResp.Data == nil || gqlResp.Data.Plan == nil {
+		return nil, fmt.Errorf("otp: empty plan response")
+	}
+
+	return gqlResp.Data.Plan, nil
 }
 
-func homeDir() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
-	}
-	if h := os.Getenv("USERPROFILE"); h != "" {
-		return h
-	}
-	if h, err := os.UserHomeDir(); err == nil {
-		return h
-	}
-	return "."
-}
-
-// InitMobroute loads the Cluj GTFS feed and computes derived tables
-// via the mobroute CLI. Safe to call from a goroutine — runs once.
-func InitMobroute() {
-	mobrouteOnce.Do(func() {
+// InitOTP checks that the OTP server is reachable and marks the planner as ready.
+// Safe to call from a goroutine — runs once.
+func InitOTP() {
+	otpOnce.Do(func() {
 		start := time.Now()
+		base := otpBaseURL()
 
-		bin := mobrouteBin()
-		if _, err := os.Stat(bin); err != nil {
-			log.Printf("mobroute: binary not found at %s: %v", bin, err)
-			return
-		}
+		// Poll OTP until it's ready (it may still be building the graph).
+		maxWait := 10 * time.Minute
+		poll := 5 * time.Second
+		deadline := time.Now().Add(maxWait)
 
-		// 1. Load GTFS from local endpoint (built during warmup).
-		port := os.Getenv("PORT")
-		if port == "" {
-			port = "6698"
+		log.Printf("otp: waiting for OTP server at %s …", base)
+		for time.Now().Before(deadline) {
+			client := &http.Client{Timeout: 5 * time.Second}
+			payload := []byte(`{"query":"{__typename}"}`)
+			resp, err := client.Post(base+"/otp/gtfs/v1", "application/json", bytes.NewReader(payload))
+			if err == nil {
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					otpMu.Lock()
+					otpReady = true
+					otpMu.Unlock()
+					log.Printf("otp: server ready in %s", time.Since(start).Round(time.Millisecond))
+					return
+				}
+			}
+			time.Sleep(poll)
 		}
-		// On Windows dev, mobroute runs inside WSL and cannot reach the
-		// Windows host via "localhost". Use the known WSL-visible host IP.
-		host := "localhost"
-		if runtime.GOOS == "windows" && os.Getenv("ENV") == "development" {
-			host = "172.28.144.1"
-		}
-		gtfsURL := fmt.Sprintf("http://%s:%s/api/gtfs.zip", host, port)
-		loadParams := fmt.Sprintf(`{"op":"loadcustomgtfs","feed_ids":[%d],"loadcustomgtfs_uri":"%s"}`, clujFeedID, gtfsURL)
-		log.Printf("mobroute: loading GTFS from %s …", gtfsURL)
-		if _, err := runMobroute("database", loadParams); err != nil {
-			log.Printf("mobroute: loadcustomgtfs failed: %v", err)
-			return
-		}
-		log.Printf("mobroute: GTFS feed loaded")
-
-		// 2. Compute routing-optimised derived tables.
-		computeParams := fmt.Sprintf(`{"op":"compute","feed_ids":[%d]}`, clujFeedID)
-		log.Printf("mobroute: computing derived tables …")
-		if _, err := runMobroute("database", computeParams); err != nil {
-			log.Printf("mobroute: compute failed: %v", err)
-			return
-		}
-
-		mobrouteMu.Lock()
-		mobrouteReady = true
-		mobrouteMu.Unlock()
-
-		log.Printf("mobroute: runtime ready in %s", time.Since(start).Round(time.Millisecond))
+		log.Printf("otp: server did not become ready within %s", maxWait)
 	})
-}
-
-type cliRouteResponse struct {
-	Legs        []cliRouteLeg  `json:"legs"`
-	Connections []cliRouteConn `json:"connections,omitzero"`
-}
-
-type cliRouteLeg struct {
-	LegType       string     `json:"leg_type"`
-	LegDuration   string     `json:"leg_duration"`
-	LegBeginTime  time.Time  `json:"leg_begin_time"`
-	LegFromCoords [2]float64 `json:"leg_from_coords"`
-	LegToCoords   [2]float64 `json:"leg_to_coords"`
-
-	// trip fields
-	TripRoute *string            `json:"trip_route,omitzero"`
-	TripID    *string            `json:"trip_id,omitzero"`
-	TripStops *[]*cliStopDetails `json:"trip_stops,omitzero"`
-
-	// walk fields
-	WalkDistKm *float64 `json:"walk_dist_km,omitzero"`
-}
-
-type cliRouteConn struct {
-	ConnOID int    `json:"conn_oid"`
-	TID     string `json:"tid"`
-}
-
-type cliStopDetails struct {
-	Coords      [2]float64 `json:"stop_coords"`
-	StopConnOID int        `json:"stop_conn_oid"`
 }
 
 type planLegResp struct {
@@ -245,9 +266,9 @@ type shapeSlim struct {
 }
 
 func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
-	mobrouteMu.RLock()
-	ready := mobrouteReady
-	mobrouteMu.RUnlock()
+	otpMu.RLock()
+	ready := otpReady
+	otpMu.RUnlock()
 
 	if !ready {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "planner not ready"})
@@ -271,62 +292,27 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 	resp, err := HandleCached(cacheID, shelfLife,
 		func() (planResp, error) { return getPlanFromDB(cacheID) },
 		func() (planResp, error) {
-			var allPlans []cliRouteResponse
-			startTime := time.Now()
-			searchWindow := 30 * time.Minute
-			maxIterations := 5
+			// Query OTP at staggered departure times across the next hour
+			// to discover all route options the user could take.
+			now := time.Now()
+			offsets := []time.Duration{0, 15 * time.Minute, 30 * time.Minute, 45 * time.Minute}
+			var allItineraries []otpItinerary
 
-			for range maxIterations {
-				if time.Since(startTime) > searchWindow {
-					break
-				}
-
-				reqObj := map[string]any{
-					"feed_ids":            []int{clujFeedID},
-					"from":                [2]float64{fromLat, fromLng},
-					"to":                  [2]float64{toLat, toLng},
-					"time":                startTime.Format(time.RFC3339),
-					"transfer_categories": []string{"f", "i", "g"},
-					"output_formats":      []string{"legs", "connections"},
-				}
-				reqJSON, err := json.Marshal(reqObj)
+			for _, off := range offsets {
+				plan, err := callOTP(fromLat, fromLng, toLat, toLng, now.Add(off))
 				if err != nil {
-					log.Printf("plan_routes: failed to marshal request params: %v", err)
-					break
-				}
-
-				out, err := runMobroute("route", string(reqJSON))
-				if err != nil {
-					log.Printf("plan_routes: routing failed: %v", err)
-					break
-				}
-
-				var cliResp cliRouteResponse
-				if err := json.Unmarshal(out, &cliResp); err != nil {
-					log.Printf("plan_routes: failed to parse routing response: %v", err)
-					break
-				}
-
-				if len(cliResp.Legs) == 0 {
-					break
-				}
-
-				allPlans = append(allPlans, cliResp)
-
-				foundTransit := false
-				for _, leg := range cliResp.Legs {
-					if leg.LegType == "trip" {
-						startTime = leg.LegBeginTime.Add(5 * time.Minute)
-						foundTransit = true
-						break
+					// If the first call fails, propagate the error.
+					// Later calls failing is tolerable — we already have some results.
+					if len(allItineraries) == 0 {
+						return planResp{}, err
 					}
+					log.Printf("plan_routes: OTP call at +%s failed (non-fatal): %v", off, err)
+					continue
 				}
-				if !foundTransit {
-					break
-				}
+				allItineraries = append(allItineraries, plan.Itineraries...)
 			}
 
-			if len(allPlans) == 0 {
+			if len(allItineraries) == 0 {
 				return planResp{
 					Plans:  []planRouteResp{},
 					Stops:  map[string]models.Stop{},
@@ -334,7 +320,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 				}, nil
 			}
 
-			r, err := enrichResponse(allPlans, tranzyClient, ctpCjClient, cacheTimes)
+			r, err := enrichOTPResponse(allItineraries, tranzyClient, ctpCjClient, cacheTimes)
 			if err != nil {
 				return planResp{}, err
 			}
@@ -421,8 +407,43 @@ func isValidLng(v float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= -180 && v <= 180
 }
 
-func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
-	if len(allPlans) == 0 {
+// placeStopID extracts the gtfsId from an otpPlace's nested stop field.
+func placeStopID(p otpPlace) string {
+	if p.Stop != nil {
+		return p.Stop.GtfsID
+	}
+	return ""
+}
+
+// extractOTPStopID extracts the numeric stop ID from an OTP feed-scoped ID
+// like "1:12345" → 12345 or falls back to nearest-stop matching.
+func extractOTPStopID(otpID string, lat, lon float64, allStops []models.Stop) models.Stop {
+	if otpID != "" {
+		// OTP stop IDs are typically "feedId:stopId"
+		if _, after, ok := strings.Cut(otpID, ":"); ok {
+			if id, err := strconv.Atoi(after); err == nil {
+				for _, s := range allStops {
+					if s.StopID == id {
+						return s
+					}
+				}
+			}
+		}
+		// Try parsing the whole thing as a number
+		if id, err := strconv.Atoi(otpID); err == nil {
+			for _, s := range allStops {
+				if s.StopID == id {
+					return s
+				}
+			}
+		}
+	}
+	// Fall back to nearest stop by coordinates
+	return nearestStop(allStops, lat, lon)
+}
+
+func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
+	if len(itineraries) == 0 {
 		return &planResp{Plans: []planRouteResp{}, Stops: map[string]models.Stop{}, Shapes: map[string]shapeSlim{}}, nil
 	}
 
@@ -445,25 +466,20 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 	plans := make([]planRouteResp, 0)
 	seenPlans := make(map[string]struct{})
 
-	for _, cliResp := range allPlans {
-		legs := cliResp.Legs
+	for _, itin := range itineraries {
 		var curLegs []planLegResp
 		var walkStart, walkEnd, walkTransfer float64
 		var transitSec float64
 
-		for i, leg := range legs {
-			switch leg.LegType {
-			case "walk":
-				km := 0.0
-				if leg.WalkDistKm != nil {
-					km = *leg.WalkDistKm
-				}
-				meters := km * 1000
+		for i, leg := range itin.Legs {
+			switch leg.Mode {
+			case "WALK":
+				meters := leg.Distance
 
-				// Check if there is any transit trip later in the plan
+				// Check if there is any transit leg later
 				hasTripAfter := false
-				for j := i + 1; j < len(legs); j++ {
-					if legs[j].LegType == "trip" {
+				for j := i + 1; j < len(itin.Legs); j++ {
+					if itin.Legs[j].Mode != "WALK" {
 						hasTripAfter = true
 						break
 					}
@@ -477,74 +493,54 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 					walkTransfer += meters
 				}
 
-			case "transfer":
-				if leg.LegDuration != "" {
-					if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
-						// We don't have distance for pure transfers, but we can estimate
-						// or just count the time. The field is meters though.
-						// Assume 1.2 m/s walking speed for transfers if no distance.
-						walkTransfer += d.Seconds() * 1.2
-					}
+			case "BUS", "TRAM", "RAIL", "SUBWAY", "FERRY", "CABLE_CAR", "GONDOLA", "FUNICULAR", "TROLLEYBUS", "TRANSIT":
+				if leg.Route == nil {
+					continue
 				}
-
-			case "trip":
-				routeName := ""
-				if leg.TripRoute != nil {
-					routeName = *leg.TripRoute
+				routeName := leg.Route.ShortName
+				if routeName == "" {
+					routeName = leg.Route.LongName
 				}
 				route, ok := routeByName[strings.ToUpper(strings.TrimSpace(routeName))]
 				if !ok {
 					continue
 				}
 
-				startStop := nearestStop(allStops, leg.LegFromCoords[0], leg.LegFromCoords[1])
-				destStop := nearestStop(allStops, leg.LegToCoords[0], leg.LegToCoords[1])
+				startStop := extractOTPStopID(placeStopID(leg.From), leg.From.Lat, leg.From.Lon, allStops)
+				destStop := extractOTPStopID(placeStopID(leg.To), leg.To.Lat, leg.To.Lon, allStops)
 
 				var intermediates []int
-				if leg.TripStops != nil {
-					for _, ts := range *leg.TripStops {
-						sid := nearestStop(allStops, ts.Coords[0], ts.Coords[1])
-						if sid.StopID != startStop.StopID && sid.StopID != destStop.StopID {
-							intermediates = append(intermediates, sid.StopID)
-						}
+				for _, iStop := range leg.IntermediateStops {
+					s := extractOTPStopID(iStop.GtfsID, iStop.Lat, iStop.Lon, allStops)
+					if s.StopID != startStop.StopID && s.StopID != destStop.StopID {
+						intermediates = append(intermediates, s.StopID)
 					}
 				}
 
-				rideSec := 0.0
-				if leg.LegDuration != "" {
-					if d, pErr := time.ParseDuration(leg.LegDuration); pErr == nil {
-						rideSec = d.Seconds()
-						transitSec += rideSec
-					}
-				}
+				rideSec := leg.Duration
+				transitSec += rideSec
 
 				tripID := ""
-				if leg.TripID != nil {
-					tripID = *leg.TripID
-				}
-				if tripID == "" {
-					// Use GetStopInfo to find the trip passing through this stop for the given route.
-					if stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID}); stopInfo != nil {
-						target0 := strconv.Itoa(route.RouteID) + "_0"
-						target1 := strconv.Itoa(route.RouteID) + "_1"
+				// Try to resolve trip direction from stop info.
+				if stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID}); stopInfo != nil {
+					target0 := strconv.Itoa(route.RouteID) + "_0"
+					target1 := strconv.Itoa(route.RouteID) + "_1"
 
-						found0 := slices.Contains(stopInfo.OutgoingTripIds, target0)
-						found1 := slices.Contains(stopInfo.IncomingTripIds, target1)
+					found0 := slices.Contains(stopInfo.OutgoingTripIds, target0)
+					found1 := slices.Contains(stopInfo.IncomingTripIds, target1)
 
-						if found0 && !found1 {
-							tripID = target0
-						} else if found1 && !found0 {
-							tripID = target1
-						} else if found0 && found1 {
-							// If both match at start, try checking destination stop.
-							if destStopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &destStop.StopID}); destStopInfo != nil {
-								dFound0 := slices.Contains(destStopInfo.OutgoingTripIds, target0)
-								dFound1 := slices.Contains(destStopInfo.IncomingTripIds, target1)
-								if dFound0 && !dFound1 {
-									tripID = target0
-								} else if dFound1 && !dFound0 {
-									tripID = target1
-								}
+					if found0 && !found1 {
+						tripID = target0
+					} else if found1 && !found0 {
+						tripID = target1
+					} else if found0 && found1 {
+						if destStopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &destStop.StopID}); destStopInfo != nil {
+							dFound0 := slices.Contains(destStopInfo.OutgoingTripIds, target0)
+							dFound1 := slices.Contains(destStopInfo.IncomingTripIds, target1)
+							if dFound0 && !dFound1 {
+								tripID = target0
+							} else if dFound1 && !dFound0 {
+								tripID = target1
 							}
 						}
 					}
@@ -582,8 +578,15 @@ func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ct
 		}
 
 		if len(curLegs) > 0 {
-			// Deduplicate based on legs sequence
-			planKey := fmt.Sprintf("%v", curLegs)
+			// Build a structural key based on route/stop/direction — ignoring
+			// ride duration so that the same logical journey discovered at
+			// different departure times is properly deduplicated.
+			var keyParts []string
+			for _, l := range curLegs {
+				keyParts = append(keyParts, fmt.Sprintf("%d:%s:%d>%d",
+					l.RouteID, l.TripID, l.StartStopID, l.DestStopID))
+			}
+			planKey := strings.Join(keyParts, "|")
 			if _, seen := seenPlans[planKey]; seen {
 				continue
 			}
