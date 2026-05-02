@@ -24,7 +24,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-const clujFeedID = 2121
+const clujFeedID = -2121
 
 var (
 	mobrouteOnce  sync.Once
@@ -142,11 +142,22 @@ func InitMobroute() {
 			return
 		}
 
-		// 1. Load GTFS from Mobility Database (feed 2121).
-		loadParams := fmt.Sprintf(`{"op":"loadmdbgtfs","feed_ids":[%d],"loadmdbgtfs_cacheclear":false}`, clujFeedID)
-		log.Printf("mobroute: loading GTFS feed %d …", clujFeedID)
+		// 1. Load GTFS from local endpoint (built during warmup).
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "6698"
+		}
+		// On Windows dev, mobroute runs inside WSL and cannot reach the
+		// Windows host via "localhost". Use the known WSL-visible host IP.
+		host := "localhost"
+		if runtime.GOOS == "windows" && os.Getenv("ENV") == "development" {
+			host = "172.28.144.1"
+		}
+		gtfsURL := fmt.Sprintf("http://%s:%s/api/gtfs.zip", host, port)
+		loadParams := fmt.Sprintf(`{"op":"loadcustomgtfs","feed_ids":[%d],"loadcustomgtfs_uri":"%s"}`, clujFeedID, gtfsURL)
+		log.Printf("mobroute: loading GTFS from %s …", gtfsURL)
 		if _, err := runMobroute("database", loadParams); err != nil {
-			log.Printf("mobroute: loadmdbgtfs failed: %v", err)
+			log.Printf("mobroute: loadcustomgtfs failed: %v", err)
 			return
 		}
 		log.Printf("mobroute: GTFS feed loaded")

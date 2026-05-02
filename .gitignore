@@ -7,3 +7,4 @@ keys.env
 conexiuni-cluj.db*
 api-tests/tranzy-api-docs.json
 .output.txt
+backend/services/mobroute/gtfs.zip
