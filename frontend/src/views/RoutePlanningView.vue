@@ -699,26 +699,43 @@ watch(selectedRouteIndex, () => {
 
 watch(customOrigin, (val) => {
   const newQuery = {...route.query}
+  let changed = false
   if (val) {
-    newQuery.originLat = val.lat.toString()
-    newQuery.originLon = val.lon.toString()
-    newQuery.originName = val.name
+    if (newQuery.originLat !== val.lat.toString() || newQuery.originLon !== val.lon.toString() || newQuery.originName !== val.name) {
+      newQuery.originLat = val.lat.toString()
+      newQuery.originLon = val.lon.toString()
+      newQuery.originName = val.name
+      changed = true
+    }
   } else {
-    delete newQuery.originLat
-    delete newQuery.originLon
-    delete newQuery.originName
+    if (newQuery.originLat || newQuery.originLon || newQuery.originName) {
+      delete newQuery.originLat
+      delete newQuery.originLon
+      delete newQuery.originName
+      changed = true
+    }
   }
-  router.replace({query: newQuery})
+  if (changed) {
+    router.replace({query: newQuery})
+  }
 })
 
-onMounted(async () => {
-  const oLat = parseFloat(route.query.originLat as string)
-  const oLon = parseFloat(route.query.originLon as string)
-  const oName = route.query.originName as string
+watch(() => route.query, (newQuery) => {
+  const oLat = parseFloat(newQuery.originLat as string)
+  const oLon = parseFloat(newQuery.originLon as string)
+  const oName = newQuery.originName as string
   if (!isNaN(oLat) && !isNaN(oLon) && oName) {
-    customOrigin.value = {name: oName, lat: oLat, lon: oLon}
+    if (!customOrigin.value || customOrigin.value.lat !== oLat || customOrigin.value.lon !== oLon || customOrigin.value.name !== oName) {
+      customOrigin.value = {name: oName, lat: oLat, lon: oLon}
+    }
+  } else {
+    if (customOrigin.value) {
+      customOrigin.value = null
+    }
   }
+}, {immediate: true})
 
+onMounted(async () => {
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])
   void mapStore.setShapesToDisplay([])
@@ -741,8 +758,17 @@ watch([destLat, destLon, destName], ([lat, lon, name]) => {
   }
 })
 
+watch(customOrigin, (co) => {
+  if (co) {
+    mapStore.setCustomOriginLocation(co.lat, co.lon, co.name)
+  } else {
+    mapStore.clearCustomOriginLocation()
+  }
+}, {immediate: true})
+
 onUnmounted(() => {
   mapStore.clearPinnedLocation()
+  mapStore.clearCustomOriginLocation()
   mapStore.setVehiclesToDisplay([])
   mapStore.setShapesToDisplay([])
   mapStore.setHighlightedStops([])

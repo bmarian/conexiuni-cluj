@@ -23,6 +23,7 @@ export const useMapStore = defineStore('map', () => {
   const centerOnUser = ref(false)
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
+  const customOriginLocation = ref<{lat: number; lng: number; label: string} | null>(null)
   const drawerBottomPx = ref(0)
   const fitWalkingPolylines = ref(false)
 
@@ -87,10 +88,19 @@ export const useMapStore = defineStore('map', () => {
     pinnedLocation.value = null
   }
 
+  const setCustomOriginLocation = (lat: number, lng: number, label: string) => {
+    customOriginLocation.value = {lat, lng, label}
+  }
+
+  const clearCustomOriginLocation = () => {
+    customOriginLocation.value = null
+  }
+
   return {
     centerOnUser,
     flyToLocation,
     pinnedLocation,
+    customOriginLocation,
     shapesToDisplay,
     walkingPolylines,
     zoomOut,
@@ -106,6 +116,8 @@ export const useMapStore = defineStore('map', () => {
     setFlyToLocation,
     setPinnedLocation,
     clearPinnedLocation,
+    setCustomOriginLocation,
+    clearCustomOriginLocation,
     setWalkingPolylines,
     clearWalkingPolylines,
     drawerBottomPx,
