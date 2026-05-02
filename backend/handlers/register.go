@@ -273,4 +273,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	api.Get("/plan_routes", func(c fiber.Ctx) error {
 		return handlePlanRoutes(c, tranzyClient, ctpCjClient, cacheTimes)
 	})
+
+	api.Get("/gtfs.zip", HandleGTFSExport)
 }
