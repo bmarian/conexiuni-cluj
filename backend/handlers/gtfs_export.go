@@ -274,10 +274,11 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 				gtfsTripID := fmt.Sprintf("%s_%s_%d", tid, svc.serviceID, depIdx)
 
+				// block_id is deliberately omitted: each source trip is
+				// expanded into many departures so the original block
+				// assignment no longer represents a valid vehicle chain,
+				// and OTP2 rejects blocks with non-increasing trip times.
 				blockID := ""
-				if trip.BlockID > 0 {
-					blockID = strconv.Itoa(trip.BlockID)
-				}
 				wheelchair := ""
 				if trip.WheelchairAccessible >= 0 {
 					wheelchair = strconv.Itoa(trip.WheelchairAccessible)
