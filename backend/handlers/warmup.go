@@ -165,7 +165,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	Availability.MarkReady()
 	log.Printf("warmup: availability registry ready (routes-with-timetable + stops-with-buses now filter /api/routes and /api/stops)")
 
-	RebuildPlannerGraph(tranzyClient, ctpCjClient, cacheTimes)
+	go InitMobroute()
 
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }
