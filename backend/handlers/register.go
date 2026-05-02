@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/ors"
 	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"fmt"
@@ -17,7 +16,7 @@ import (
 
 const staticCacheControl = "max-age=3600, stale-while-revalidate=86400"
 
-func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, orsClient *ors.Client, cacheTimes models.CacheTimes) {
+func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
 	api.Get("/routes", func(c fiber.Ctx) error {
 		filter := RouteFilter{}
 		if s := c.Query("route_id"); s != "" {
@@ -224,47 +223,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		data, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, routeShortName)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", staticCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/directions", func(c fiber.Ctx) error {
-		if orsClient == nil {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "directions service not configured (ORS_API_KEY missing)"})
-		}
-
-		fromLatS := c.Query("from_lat")
-		fromLngS := c.Query("from_lng")
-		toLatS := c.Query("to_lat")
-		toLngS := c.Query("to_lng")
-		if fromLatS == "" || fromLngS == "" || toLatS == "" || toLngS == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "from_lat, from_lng, to_lat, to_lng are required"})
-		}
-
-		fromLat, err := strconv.ParseFloat(fromLatS, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from_lat"})
-		}
-		fromLng, err := strconv.ParseFloat(fromLngS, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from_lng"})
-		}
-		toLat, err := strconv.ParseFloat(toLatS, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to_lat"})
-		}
-		toLng, err := strconv.ParseFloat(toLngS, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to_lng"})
-		}
-
-		data, err := GetDirections(orsClient, cacheTimes.DirectionsCacheShelfLife, fromLat, fromLng, toLat, toLng)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		if len(data.Routes) == 0 {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "directions unavailable"})
 		}
 		c.Set("Cache-Control", staticCacheControl)
 		return c.JSON(data)

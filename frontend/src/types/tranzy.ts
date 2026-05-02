@@ -121,9 +121,3 @@ export type VehiclesInStop = {
   static_time_approximation: boolean
   vehicles?: Vehicle[]
 }
-
-export type DirectionsResponse = {
-  routes: {
-    geometry: string
-  }[]
-}

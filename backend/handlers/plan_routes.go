@@ -239,14 +239,21 @@ type planLegResp struct {
 	IntermediateStopIDs []int   `json:"intermediate_stop_ids,omitzero"`
 }
 
+type planWalkSegment struct {
+	Geometry    string  `json:"geometry"`
+	DistanceM   float64 `json:"distance_m"`
+	DurationSec float64 `json:"duration_sec"`
+}
+
 type planRouteResp struct {
-	Legs               []planLegResp `json:"legs"`
-	IsDirect           bool          `json:"is_direct"`
-	WalkStartMeters    float64       `json:"walk_start_meters"`
-	WalkEndMeters      float64       `json:"walk_end_meters"`
-	WalkTransferMeters float64       `json:"walk_transfer_meters"`
-	TransitDurationSec float64       `json:"transit_duration_sec"`
-	TotalDistance      float64       `json:"total_distance"`
+	Legs               []planLegResp     `json:"legs"`
+	IsDirect           bool              `json:"is_direct"`
+	WalkStartMeters    float64           `json:"walk_start_meters"`
+	WalkEndMeters      float64           `json:"walk_end_meters"`
+	WalkTransferMeters float64           `json:"walk_transfer_meters"`
+	TransitDurationSec float64           `json:"transit_duration_sec"`
+	TotalDistance      float64           `json:"total_distance"`
+	WalkSegments       []planWalkSegment `json:"walk_segments,omitzero"`
 }
 
 type planResp struct {
@@ -470,6 +477,7 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 		var curLegs []planLegResp
 		var walkStart, walkEnd, walkTransfer float64
 		var transitSec float64
+		var walkSegments []planWalkSegment
 
 		for i, leg := range itin.Legs {
 			switch leg.Mode {
@@ -491,6 +499,14 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 					walkEnd += meters
 				} else {
 					walkTransfer += meters
+				}
+
+				if leg.LegGeometry != nil && leg.LegGeometry.Points != "" {
+					walkSegments = append(walkSegments, planWalkSegment{
+						Geometry:    leg.LegGeometry.Points,
+						DistanceM:   meters,
+						DurationSec: leg.Duration,
+					})
 				}
 
 			case "BUS", "TRAM", "RAIL", "SUBWAY", "FERRY", "CABLE_CAR", "GONDOLA", "FUNICULAR", "TROLLEYBUS", "TRANSIT":
@@ -604,6 +620,7 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				WalkTransferMeters: walkTransfer,
 				TransitDurationSec: transitSec,
 				TotalDistance:      totalDist,
+				WalkSegments:       walkSegments,
 			})
 		}
 	}

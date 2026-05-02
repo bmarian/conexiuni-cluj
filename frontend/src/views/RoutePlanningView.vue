@@ -18,7 +18,6 @@ import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts";
 import {apiRequest} from "@/utils/request_cache.ts";
-import {fetchWalkingPolyline} from "@/utils/directions.ts";
 import type {Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
 import {storeToRefs} from "pinia";
 import ClosestStopsList from "@/components/ClosestStopsList.vue";
@@ -383,62 +382,15 @@ watch(selectedRouteSignature, async (newKey) => {
   }
 }, {immediate: true})
 
-// Snap coords so small GPS jitter doesn't refire the directions watch.
-const SIGNIFICANT_LOC_M = 50
-const lastWalkLocRef = ref<{ lat: number; lon: number } | null>(null)
-const lastWalkSigRef = ref<string | null>(null)
-
 watch(
-  [selectedRouteSignature, userLocation, customOrigin],
-  async ([newKey, ul, co]) => {
-    const origin = co ? { latitude: co.lat, longitude: co.lon } : ul
-    if (!newKey || !origin || isNaN(destLat.value) || isNaN(destLon.value)) {
+  selectedRouteSignature,
+  (newKey) => {
+    const route = selectedRoute.value
+    if (!newKey || !route || !route.walkSegments.length) {
       mapStore.clearWalkingPolylines()
-      lastWalkSigRef.value = null
       return
     }
-    const last = lastWalkLocRef.value
-    const movedFar = !last || haversineMeters(last.lat, last.lon, origin.latitude, origin.longitude) > SIGNIFICANT_LOC_M
-    const sigChanged = lastWalkSigRef.value !== newKey
-    // Refetch when (a) route changed or (b) user actually moved.
-    // GPS jitter <50 m on the same route is ignored.
-    if (!sigChanged && !movedFar && mapStore.walkingPolylines.length > 0) return
-
-    // Wipe the previous route's lines immediately so the user never sees stale
-    // walking paths overlaying the new selection while the new ones are fetched.
-    if (sigChanged) mapStore.clearWalkingPolylines()
-    lastWalkSigRef.value = newKey
-    lastWalkLocRef.value = {lat: origin.latitude, lon: origin.longitude}
-
-    const newRoute = selectedRoute.value
-    if (!newRoute) return
-
-    try {
-      const firstLeg = newRoute.legs[0]!
-      const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
-
-      const segments: Array<[[number, number], [number, number]]> = [
-        [[origin.latitude, origin.longitude], [firstLeg.startStop.stop_lat, firstLeg.startStop.stop_lon]],
-        [[lastLeg.destStop.stop_lat, lastLeg.destStop.stop_lon], [destLat.value, destLon.value]],
-      ]
-      for (let i = 0; i < newRoute.legs.length - 1; i++) {
-        const legA = newRoute.legs[i]!
-        const legB = newRoute.legs[i + 1]!
-        if (haversineMeters(legA.destStop.stop_lat, legA.destStop.stop_lon, legB.startStop.stop_lat, legB.startStop.stop_lon) > 5) {
-          segments.push([
-            [legA.destStop.stop_lat, legA.destStop.stop_lon],
-            [legB.startStop.stop_lat, legB.startStop.stop_lon],
-          ])
-        }
-      }
-
-      const polylines = await Promise.all(segments.map(([a, b]) => fetchWalkingPolyline(a, b)))
-      // Bail if the user picked yet another route while we were fetching.
-      if (lastWalkSigRef.value !== newKey) return
-      mapStore.setWalkingPolylines(polylines)
-    } catch (e) {
-      console.error('Failed to fetch walking directions:', e)
-    }
+    mapStore.setWalkingPolylines(route.walkSegments)
   },
   {immediate: true},
 )
@@ -876,8 +828,7 @@ async function refreshRoutes() {
   routesWithTimes.value = []
   plannedRoutes.value = []
   currentQueryKey.value = null
-  lastWalkLocRef.value = null
-  lastWalkSigRef.value = null
+  mapStore.clearWalkingPolylines()
   await calculateRoutes()
 }
 
