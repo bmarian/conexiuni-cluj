@@ -744,7 +744,7 @@ onMounted(async () => {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
     allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
 
-    if (!hasLocationPermission.value) {
+    if (!hasLocationPermission.value && !customOrigin.value) {
       mapStore.setFlyToLocation(destLat.value, destLon.value)
     }
   } else {
@@ -817,11 +817,6 @@ async function calculateRoutes() {
 
   const qk = getQueryKey()
   if (qk && qk === currentQueryKey.value && plannedRoutes.value.length > 0) {
-    // If we have cached results for this query, use them.
-    // We still check routesWithTimes to ensure UI is ready.
-    if (routesWithTimes.value.length === 0) {
-      // Logic in the watch([plannedRoutes, vehiclesByTrip...]) will populate routesWithTimes
-    }
     return
   }
 
@@ -851,8 +846,27 @@ async function calculateRoutes() {
   }
 }
 
-watch([destLat, destLon, userLocation, allStops, customOrigin], async () => {
-  await calculateRoutes()
+watch([destLat, destLon, userLocation, allStops, customOrigin], async (newVal, oldVal) => {
+  const [newLat, newLon, newUL, newStops, newCO] = newVal
+  const [oldLat, oldLon, oldUL, oldStops, oldCO] = oldVal || []
+
+  // 1. If we don't have enough to calculate, don't bother (but calculateRoutes already checks this)
+  // 2. If allStops just loaded, we definitely want to calculate if we have location
+  const stopsJustLoaded = (!oldStops || oldStops.length === 0) && newStops && newStops.length > 0
+
+  // 3. If userLocation just loaded and we didn't have it before (and no customOrigin)
+  const locationJustLoaded = !newCO && !oldUL && newUL
+
+  // 4. If destination changed
+  const destChanged = newLat !== oldLat || newLon !== oldLon
+
+  // 5. If custom origin changed
+  const originChanged = newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon
+
+  // Only auto-calculate if we don't have routes yet OR if coordinates/origin changed
+  if (plannedRoutes.value.length === 0 || destChanged || originChanged || locationJustLoaded || stopsJustLoaded) {
+    await calculateRoutes()
+  }
 }, {immediate: true})
 
 async function refreshRoutes() {
@@ -981,13 +995,13 @@ html[data-hungry] .banner-close-btn:hover {
         </h1>
       </div>
       <button
-        v-if="hasValidCoords && hasLocationPermission"
+        v-if="hasValidCoords"
         type="button"
         class="refresh-btn mt-1 shrink-0"
         :class="{ 'is-busy': isCalculating }"
         :title="t('planRefresh')"
         :aria-label="t('planRefresh')"
-        :disabled="isCalculating"
+        :disabled="isCalculating || (!hasLocationPermission && !customOrigin)"
         @click="refreshRoutes"
       >
         <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2349,6 +2363,11 @@ html[data-traditional] .transfer-block-content {
   justify-content: center;
 }
 
+html[data-traditional] .bus-loader-container {
+  width: auto;
+  overflow: visible;
+}
+
 .animate-bus-run {
   animation: bus-run 1.2s infinite linear;
 }
@@ -2375,15 +2394,19 @@ html[data-hungry] .loading-text {
 
 /* Traditional Theme */
 html[data-traditional] .plan-loading {
-  background: #ECE9D8;
-  border: 2px solid #919B9C;
+  background: var(--xp-tan, #ECE9D8);
+  border: 2px solid var(--xp-border, #919B9C);
   border-radius: 0;
   box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
 }
 
+html.dark[data-traditional] .plan-loading {
+  box-shadow: inset -1px -1px 1px #444a5c, inset 1px 1px 1px #000000;
+}
+
 html[data-traditional] .loading-text {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
-  color: #000000;
+  color: var(--xp-text, #000000);
   animation: none !important;
 }
 
@@ -2399,11 +2422,15 @@ html[data-hungry] .plan-placeholder {
 }
 
 html[data-traditional] .plan-placeholder {
-  background: #ECE9D8;
-  border: 2px solid #919B9C;
+  background: var(--xp-tan, #ECE9D8);
+  border: 2px solid var(--xp-border, #919B9C);
   border-radius: 0;
   box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
   border-style: solid;
+}
+
+html.dark[data-traditional] .plan-placeholder {
+  box-shadow: inset -1px -1px 1px #444a5c, inset 1px 1px 1px #000000;
 }
 
 .origin-clickable {

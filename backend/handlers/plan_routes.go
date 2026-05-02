@@ -167,8 +167,6 @@ func InitMobroute() {
 	})
 }
 
-// ── CLI JSON types (mirror mobroute's legs output) ──────────────────
-
 type cliRouteResponse struct {
 	Legs        []cliRouteLeg  `json:"legs"`
 	Connections []cliRouteConn `json:"connections,omitzero"`
@@ -199,8 +197,6 @@ type cliStopDetails struct {
 	Coords      [2]float64 `json:"stop_coords"`
 	StopConnOID int        `json:"stop_conn_oid"`
 }
-
-// ── response types (match what the frontend expects) ────────────────
 
 type planLegResp struct {
 	RouteID             int     `json:"route_id"`
@@ -236,8 +232,6 @@ type shapeSlim struct {
 	StopTime       []models.StopTime `json:"stop_time,omitzero"`
 	Timetable      *models.Timetable `json:"timetable,omitzero"`
 }
-
-// ── handler ─────────────────────────────────────────────────────────
 
 func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
 	mobrouteMu.RLock()
@@ -415,8 +409,6 @@ func isValidLat(v float64) bool {
 func isValidLng(v float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= -180 && v <= 180
 }
-
-// ── enrichment: CLI legs → frontend PlanResp ────────────────────────
 
 func enrichResponse(allPlans []cliRouteResponse, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
 	if len(allPlans) == 0 {
@@ -617,21 +609,11 @@ func nearestStop(stops []models.Stop, lat, lon float64) models.Stop {
 	best := stops[0]
 	bestDist := math.MaxFloat64
 	for _, s := range stops {
-		d := haversine(lat, lon, s.StopLat, s.StopLon)
+		d := haversineMeters(lat, lon, s.StopLat, s.StopLon)
 		if d < bestDist {
 			bestDist = d
 			best = s
 		}
 	}
 	return best
-}
-
-func haversine(lat1, lon1, lat2, lon2 float64) float64 {
-	const R = 6371000
-	dLat := (lat2 - lat1) * math.Pi / 180
-	dLon := (lon2 - lon1) * math.Pi / 180
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
-			math.Sin(dLon/2)*math.Sin(dLon/2)
-	return R * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }
