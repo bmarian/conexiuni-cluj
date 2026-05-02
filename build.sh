@@ -15,6 +15,7 @@ go build -o conexiuni-cluj
 cd ..
 
 echo "📄 Copying env files next to the binary..."
+sed -i 's/^ENV=.*/ENV=production/' .env
 cp .env backend/.env
 if [ -f keys.env ]; then
   cp keys.env backend/keys.env
