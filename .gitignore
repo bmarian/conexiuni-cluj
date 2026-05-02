@@ -10,3 +10,4 @@ api-tests/tranzy-api-docs.json
 backend/services/mobroute/
 backend/services/otp/otp-shaded-2.9.0.jar
 backend/services/otp/cluj/cluj.pbf
+backend/services/otp/cluj/gtfs.zip

@@ -1,6 +1,6 @@
 {
   "otpFeatures": {
-    "ActuatorAPI": true,
+    "ActuatorAPI": false,
     "DebugClient": false,
     "APIGraphInspectorTile": false,
     "APIServerInfo": false,
