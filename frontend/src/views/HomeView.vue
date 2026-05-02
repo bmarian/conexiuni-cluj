@@ -69,7 +69,7 @@ const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favorit
 
 const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
   return recentPlans.value
-    .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon))
+    .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon))
     .slice(0, 5)
 })
 
@@ -98,14 +98,20 @@ function navigateToStop(stop: Stop) {
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
 }
 
-function navigateToPlan(plan: {name: string, lat: number, lon: number}) {
+function navigateToPlan(plan: FavoritePlan) {
+  const query: Record<string, string> = {
+    lat: String(plan.lat),
+    lon: String(plan.lon),
+    name: plan.name,
+  }
+  if (plan.originLat !== undefined && plan.originLon !== undefined && plan.originName) {
+    query.originLat = String(plan.originLat)
+    query.originLon = String(plan.originLon)
+    query.originName = plan.originName
+  }
   void router.push({
     name: 'plan',
-    query: {
-      lat: String(plan.lat),
-      lon: String(plan.lon),
-      name: plan.name,
-    },
+    query,
   })
 }
 
@@ -119,7 +125,7 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
   favoritesStore.toggleStopFavorite(stop.stop_id)
 }
 
-function removeFavoritePlan(plan: {name: string, lat: number, lon: number}, ev: Event) {
+function removeFavoritePlan(plan: FavoritePlan, ev: Event) {
   ev.stopPropagation()
   favoritesStore.togglePlanFavorite(plan)
 }

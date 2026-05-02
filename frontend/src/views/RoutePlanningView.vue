@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {RouterLink, useRoute} from 'vue-router'
+import {RouterLink, useRoute, useRouter} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
@@ -38,6 +38,7 @@ import {getShapeStopTimes} from "@/utils/trips.ts";
 const MAX_MINUTES = 60
 const {t} = useI18n()
 const route = useRoute()
+const router = useRouter()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
@@ -66,14 +67,22 @@ const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
 const destLon = computed(() => parseFloat((route.query.lon as string) ?? 'NaN'))
 
-const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value))
+const isFavorite = computed(() => favoritesStore.isPlanFavorite(
+  destLat.value,
+  destLon.value,
+  customOrigin.value?.lat,
+  customOrigin.value?.lon
+))
 
 function toggleFavorite() {
   if (isNaN(destLat.value) || isNaN(destLon.value)) return
   favoritesStore.togglePlanFavorite({
     name: destName.value || t('planTitleGeneric'),
     lat: destLat.value,
-    lon: destLon.value
+    lon: destLon.value,
+    originName: customOrigin.value?.name,
+    originLat: customOrigin.value?.lat,
+    originLon: customOrigin.value?.lon
   })
 }
 
@@ -634,7 +643,28 @@ watch(selectedRouteIndex, () => {
   mapStore.fitWalkingPolylines = true
 })
 
+watch(customOrigin, (val) => {
+  const newQuery = {...route.query}
+  if (val) {
+    newQuery.originLat = val.lat.toString()
+    newQuery.originLon = val.lon.toString()
+    newQuery.originName = val.name
+  } else {
+    delete newQuery.originLat
+    delete newQuery.originLon
+    delete newQuery.originName
+  }
+  router.replace({query: newQuery})
+})
+
 onMounted(async () => {
+  const oLat = parseFloat(route.query.originLat as string)
+  const oLon = parseFloat(route.query.originLon as string)
+  const oName = route.query.originName as string
+  if (!isNaN(oLat) && !isNaN(oLon) && oName) {
+    customOrigin.value = {name: oName, lat: oLat, lon: oLon}
+  }
+
   mapStore.setHighlightedStops([])
   mapStore.setVehiclesToDisplay([])
   void mapStore.setShapesToDisplay([])
@@ -702,7 +732,17 @@ async function calculateRoutes() {
     const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
     routesWithTimes.value = []
     plannedRoutes.value = routes
-    if (routes.length) mapStore.fitWalkingPolylines = true
+    if (routes.length) {
+      mapStore.fitWalkingPolylines = true
+      favoritesStore.addRecentPlan({
+        name: destName.value || t('planTitleGeneric'),
+        lat: lat,
+        lon: lon,
+        originName: customOrigin.value?.name,
+        originLat: customOrigin.value?.lat,
+        originLon: customOrigin.value?.lon
+      })
+    }
   } finally {
     isCalculating.value = false
   }
@@ -939,14 +979,14 @@ html[data-hungry] .banner-close-btn:hover {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
               </div>
               <template v-else>
                 <div
-                  v-if="hasLocationPermission && customOrigin"
+                  v-if="hasLocationPermission"
                   class="search-result-item current-loc-option"
                   @click="useCurrentLocation"
                 >
@@ -1189,12 +1229,19 @@ html[data-hungry] .banner-close-btn:hover {
                 v-focus
               />
             </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
               </div>
               <template v-else>
+                <div
+                  v-if="hasLocationPermission"
+                  class="search-result-item current-loc-option"
+                  @click="useCurrentLocation"
+                >
+                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
+                </div>
                 <div
                   v-for="res in searchResults"
                   :key="res.place_id"

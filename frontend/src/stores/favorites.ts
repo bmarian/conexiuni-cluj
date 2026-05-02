@@ -16,6 +16,9 @@ export interface FavoritePlan {
   name: string
   lat: number
   lon: number
+  originName?: string
+  originLat?: number
+  originLon?: number
 }
 
 function idbGet(store: IDBObjectStore, key: string): Promise<unknown> {
@@ -117,8 +120,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
     return favoriteStopIds.value.includes(id)
   }
 
-  function isPlanFavorite(lat: number, lon: number): boolean {
-    return favoritePlans.value.some(p => p.lat === lat && p.lon === lon)
+  function isPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): boolean {
+    return favoritePlans.value.some(p =>
+      p.lat === lat &&
+      p.lon === lon &&
+      p.originLat === originLat &&
+      p.originLon === originLon
+    )
   }
 
   function toggleRouteFavorite(id: number) {
@@ -136,7 +144,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function togglePlanFavorite(plan: FavoritePlan) {
-    const idx = favoritePlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    const idx = favoritePlans.value.findIndex(p =>
+      p.lat === plan.lat &&
+      p.lon === plan.lon &&
+      p.originLat === plan.originLat &&
+      p.originLon === plan.originLon
+    )
     if (idx === -1) favoritePlans.value.push(plan)
     else favoritePlans.value.splice(idx, 1)
     persistPlans()
@@ -158,7 +171,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function addRecentPlan(plan: FavoritePlan) {
-    const idx = recentPlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    const idx = recentPlans.value.findIndex(p =>
+      p.lat === plan.lat &&
+      p.lon === plan.lon &&
+      p.originLat === plan.originLat &&
+      p.originLon === plan.originLon
+    )
     if (idx !== -1) recentPlans.value.splice(idx, 1)
     recentPlans.value.unshift(plan)
     if (recentPlans.value.length > MAX_RECENT_PLANS) {
@@ -168,7 +186,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function removeRecentPlan(plan: FavoritePlan) {
-    const idx = recentPlans.value.findIndex(p => p.lat === plan.lat && p.lon === plan.lon)
+    const idx = recentPlans.value.findIndex(p =>
+      p.lat === plan.lat &&
+      p.lon === plan.lon &&
+      p.originLat === plan.originLat &&
+      p.originLon === plan.originLon
+    )
     if (idx === -1) return
     recentPlans.value.splice(idx, 1)
     persistRecentPlans()
