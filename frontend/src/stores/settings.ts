@@ -79,7 +79,9 @@ export const useSettingsStore = defineStore('settings', () => {
 
   watch(traditionalLowPerf, (lowPerf) => {
     if (lowPerf) {
-      document.documentElement.setAttribute('data-traditional-lowperf', '')
+      if (traditionalActive.value) {
+        document.documentElement.setAttribute('data-traditional-lowperf', '')
+      }
     } else {
       document.documentElement.removeAttribute('data-traditional-lowperf')
     }
