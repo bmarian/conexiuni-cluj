@@ -110,6 +110,24 @@ const routesWithTimes = ref<RichPlan[]>([])
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
 
+const allStopsMap = computed(() => {
+  const m = new Map<number, Stop>()
+  for (const s of allStops.value) {
+    m.set(s.stop_id, s)
+  }
+  return m
+})
+
+function getStop(id: number | string | undefined): Stop | PlanStop | undefined {
+  if (id === undefined) return undefined
+  const numId = typeof id === 'string' ? parseInt(id) : id
+  return allStopsMap.value.get(numId) ?? stops.value[String(numId)]
+}
+
+function getStopName(id: number | string | undefined): string {
+  return getStop(id)?.stop_name ?? (id ? `Stop ${id}` : '')
+}
+
 const stops = computed(() => planData.value?.stops ?? {} as Record<string, PlanStop>)
 const shapes = computed(() => planData.value?.shapes ?? {} as Record<string, ShapeInfo>)
 
@@ -370,8 +388,8 @@ watch(selectedPlanSignature, async (key) => {
       plan.legs.forEach(leg => {
         if (leg.tripIds.includes(info.trip_id)) {
           if (pts.length) {
-            const startStop = stops.value[String(leg.startStopId)]
-            const destStop = stops.value[String(leg.destStopId)]
+            const startStop = getStop(leg.startStopId)
+            const destStop = getStop(leg.destStopId)
             if (startStop && destStop) {
               const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
               const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
@@ -436,8 +454,8 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
         )
 
         const pts = shapeIndex.shape
-        const startStop = stops.value[String(leg.startStopId)]
-        const destStop = stops.value[String(leg.destStopId)]
+        const startStop = getStop(leg.startStopId)
+        const destStop = getStop(leg.destStopId)
         if (!startStop || !destStop) continue
 
         const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
@@ -536,8 +554,8 @@ const getTransferWalkMeters = (legIdx: number): number => {
   const b = plan.legs[legIdx + 1]
   if (!a || !b) return 0
   if (a.destStopId === b.startStopId) return 0
-  const aStop = stops.value[String(a.destStopId)]
-  const bStop = stops.value[String(b.startStopId)]
+  const aStop = getStop(a.destStopId)
+  const bStop = getStop(b.startStopId)
   if (!aStop || !bStop) return 0
   return haversineMeters(aStop.stop_lat, aStop.stop_lon, bStop.stop_lat, bStop.stop_lon)
 }
@@ -549,7 +567,7 @@ const selectedPlanLegsData = computed(() => {
     const shape = shapes.value[String(leg.routeIds[0])]
     const intermediates = (leg.intermediateStopIds ?? []).map(id => ({
       stop_id: id,
-      stop_name: stops.value[String(id)]?.stop_name ?? `Stop ${id}`,
+      stop_name: getStopName(id),
     }))
     return { leg, shape, intermediates }
   })
@@ -1016,7 +1034,7 @@ async function refreshRoutes() {
                     · {{ Math.max(0, Math.round(ld.leg.rideSeconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                   </span>
                 </span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStopId } }">{{ stops[String(ld.leg.startStopId)]?.stop_name }}</RouterLink>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStopId } }">{{ getStopName(ld.leg.startStopId) }}</RouterLink>
               </div>
             </div>
 
@@ -1041,7 +1059,7 @@ async function refreshRoutes() {
               </div>
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">{{ t('planAlighting') }}</span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStopId } }">{{ stops[String(ld.leg.destStopId)]?.stop_name }}</RouterLink>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStopId } }">{{ getStopName(ld.leg.destStopId) }}</RouterLink>
               </div>
             </div>
 
@@ -1185,7 +1203,7 @@ async function refreshRoutes() {
 
               <div class="card-row-meta">
                 <span class="card-arrow">→</span>
-                <span class="card-dest" :title="stops[String(plan.legs[plan.legs.length-1]?.destStopId ?? 0)]?.stop_name">{{ stops[String(plan.legs[plan.legs.length-1]?.destStopId ?? 0)]?.stop_name }}</span>
+                <span class="card-dest" :title="getStopName(plan.legs[plan.legs.length-1]?.destStopId)">{{ getStopName(plan.legs[plan.legs.length-1]?.destStopId) }}</span>
               </div>
 
               <div class="card-row-stats">
