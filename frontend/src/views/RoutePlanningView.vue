@@ -109,6 +109,7 @@ const hasFlownToFallback = ref(false)
 const routesWithTimes = ref<RichPlan[]>([])
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
+const liveEtaByKey = ref<Map<string, number>>(new Map())
 
 const allStopsMap = computed(() => {
   const m = new Map<number, Stop>()
@@ -138,6 +139,7 @@ function selectPlanAt(idx: number) {
   selectedPlanIndex.value = idx
   const p = routesWithTimes.value[idx]
   selectedPlanKey.value = p ? p.key : null
+  mapStore.fitWalkingPolylines = true
 }
 
 // --- Timetable helpers ---
@@ -177,6 +179,41 @@ function getNextDepartures(shape: ShapeInfo, tripId: string, boardingStopId: num
   }
 
   return results
+}
+
+function computeNextTimesForPlan(plan: RichPlan, shapesMap: Record<string, ShapeInfo>, now: Date): TimeEntry[] {
+  if (plan.isDirect) {
+    const leg = plan.legs[0]!
+    const times: TimeEntry[] = []
+    for (let i = 0; i < leg.routeIds.length; i++) {
+      const shape = shapesMap[String(leg.routeIds[i]!)]
+      const tripId = leg.tripIds[i]
+      if (!shape || !tripId) continue
+      times.push(...getNextDepartures(shape, tripId, leg.startStopId, now, 2, MAX_MINUTES))
+    }
+    return times.sort((a, b) => a.minutes - b.minutes).slice(0, 3)
+  } else {
+    const leg1 = plan.legs[0]!
+    const leg2 = plan.legs[1]!
+    const shape1 = shapesMap[String(leg1.routeIds[0]!)]
+    const tripId1 = leg1.tripIds[0]
+    if (!shape1 || !tripId1) return []
+    const leg1Deps = getNextDepartures(shape1, tripId1, leg1.startStopId, now, 5, MAX_MINUTES)
+    const valid: TimeEntry[] = []
+    for (const t1 of leg1Deps) {
+      const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + Math.ceil(leg1.rideSeconds / 60)) * 60_000)
+      for (let j = 0; j < leg2.routeIds.length; j++) {
+        const shape2 = shapesMap[String(leg2.routeIds[j]!)]
+        const tripId2 = leg2.tripIds[j]
+        if (!shape2 || !tripId2) continue
+        if (getNextDepartures(shape2, tripId2, leg2.startStopId, arrivalAtTransfer, 1, 30).length > 0) {
+          valid.push(t1)
+          break
+        }
+      }
+    }
+    return valid.slice(0, 3)
+  }
 }
 
 function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[] }[] {
@@ -325,21 +362,20 @@ const streamTripIds = computed(() => {
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
-// --- Rebuild routesWithTimes when planData or userTime changes ---
-watch([planData, userTime], ([data, uTime]) => {
+// Rebuild list structure only when API data changes (not on every clock tick)
+watch(planData, (data) => {
   if (!data?.plans?.length) {
     routesWithTimes.value = []
+    liveEtaByKey.value = new Map()
     return
   }
-  const now = uTime || new Date()
+  const now = userTime.value || new Date()
   const grouped = groupPlans(data.plans)
   const results: RichPlan[] = []
-
   for (const plan of grouped) {
     const rich = buildRichPlan(plan, data.shapes, now)
     if (rich) results.push(rich)
   }
-
   results.sort((a, b) => {
     const totalA = computeTotalMinutes(a)
     const totalB = computeTotalMinutes(b)
@@ -350,9 +386,27 @@ watch([planData, userTime], ([data, uTime]) => {
     if (depA !== depB) return depA - depB
     return a.walkEndMeters - b.walkEndMeters
   })
-
   routesWithTimes.value = results
+  liveEtaByKey.value = new Map()
 }, {immediate: true})
+
+// Update departure times in-place on every clock tick — no re-sort, no DOM churn
+watch(userTime, (uTime) => {
+  const data = planData.value
+  if (!data?.shapes || !routesWithTimes.value.length) return
+  const now = uTime || new Date()
+  for (const plan of routesWithTimes.value) {
+    const newTimes = computeNextTimesForPlan(plan, data.shapes, now)
+    const liveEta = liveEtaByKey.value.get(plan.key)
+    if (liveEta !== undefined) {
+      plan.isLive = true
+      plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...newTimes.slice(0, 1)]
+    } else {
+      plan.isLive = false
+      plan.nextTimes = newTimes
+    }
+  }
+})
 
 const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
@@ -505,7 +559,7 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
         if (eta && eta.etaMinutes <= MAX_MINUTES) {
           selectedRouteIsLive.value = true
           selectedRouteLiveEtaMin.value = eta.etaMinutes
-          // Inject live time into plan's nextTimes
+          liveEtaByKey.value.set(plan.key, eta.etaMinutes)
           const existing = routesWithTimes.value.find(p => p.key === plan.key)
           if (existing) {
             existing.isLive = true
@@ -515,6 +569,9 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
             ]
           }
         } else {
+          liveEtaByKey.value.delete(plan.key)
+          const existing = routesWithTimes.value.find(p => p.key === plan.key)
+          if (existing) existing.isLive = false
           selectedRouteIsLive.value = false
           selectedRouteLiveEtaMin.value = null
         }
@@ -688,10 +745,6 @@ function useCurrentLocation() {
   void calculateRoutes()
 }
 
-watch(selectedPlanIndex, () => {
-  mapStore.fitWalkingPolylines = true
-})
-
 watch(customOrigin, (val) => {
   const newQuery = {...route.query}
   let changed = false
@@ -840,19 +893,21 @@ async function calculateRoutes() {
   }
 }
 
-watch([destLat, destLon, userLocation, allStops, customOrigin], async (newVal, oldVal) => {
-  const [newLat, newLon, newUL, newStops, newCO] = newVal
-  const [oldLat, oldLon, oldUL, oldStops, oldCO] = oldVal || []
-
-  const stopsJustLoaded = (!oldStops || oldStops.length === 0) && newStops && newStops.length > 0
-  const locationJustLoaded = !newCO && !oldUL && newUL
-  const destChanged = newLat !== oldLat || newLon !== oldLon
-  const originChanged = newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon
-
-  if (!planData.value?.plans?.length || destChanged || originChanged || locationJustLoaded || stopsJustLoaded) {
-    await calculateRoutes()
-  }
+// Recalculate when destination changes
+watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
+  if (newLat !== oldLat || newLon !== oldLon) await calculateRoutes()
 }, {immediate: true})
+
+// Recalculate when custom origin changes
+watch(customOrigin, async (newCO, oldCO) => {
+  if (newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon) await calculateRoutes()
+})
+
+// Recalculate when GPS location first arrives (no custom origin, no plan yet)
+watch(userLocation, async (newLoc, oldLoc) => {
+  if (!newLoc || oldLoc || customOrigin.value) return
+  await calculateRoutes()
+})
 
 async function refreshRoutes() {
   if (isCalculating.value) return
