@@ -1648,15 +1648,22 @@ watch(timeValue, (val) => {
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-.section-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 0.25rem;
-  margin-top: 1.25rem;
+html[data-hungry] .section-label {
+  color: #92400E;
+}
+
+html.dark[data-hungry] .section-label {
+  color: #fde68a;
+}
+
+html[data-hungry] .route-legs-card {
+  background: #fffbeb;
+  border: 2px solid #fde68a;
+}
+
+html.dark[data-hungry] .route-legs-card {
+  background: #1c1608;
+  border-color: #78350f;
 }
 
 .route-legs-card {
@@ -1724,6 +1731,32 @@ watch(timeValue, (val) => {
   color: #0369a1;
 }
 
+
+html[data-hungry] .trip-summary-stat-label {
+  color: #92400e;
+  font-family: inherit;
+}
+
+html.dark[data-hungry] .trip-summary {
+  background: linear-gradient(135deg, #1c1608 0%, #211a05 100%);
+  border-color: #78350f;
+}
+
+html.dark[data-hungry] .trip-summary-stat:not(:last-child) {
+  border-right-color: #78350f;
+}
+
+html.dark[data-hungry] .trip-summary-stat-value {
+  color: #fde68a;
+}
+
+html.dark[data-hungry] .trip-summary-stat-value.is-live {
+  color: #34d399;
+}
+
+html.dark[data-hungry] .trip-summary-stat-label {
+  color: #d97706;
+}
 
 html[data-traditional] .trip-summary {
   background: #ECE9D8;
@@ -2616,6 +2649,15 @@ html[data-hungry] .loading-text {
   color: #d97706;
 }
 
+html.dark[data-hungry] .plan-loading {
+  background: #1c1608;
+  border-color: #78350f;
+}
+
+html.dark[data-hungry] .loading-text {
+  color: #fde68a;
+}
+
 /* Traditional Theme */
 html[data-traditional] .plan-loading {
   background: var(--xp-tan, #ECE9D8);
@@ -3198,6 +3240,28 @@ html.dark[data-hungry] .plan-time-datetime:focus {
 
 html.dark[data-hungry] .plan-time-chevron {
   color: #d97706;
+}
+
+html[data-hungry] .refresh-btn,
+html[data-hungry] .swap-btn {
+  color: #B45309;
+}
+
+html[data-hungry] .refresh-btn:hover,
+html[data-hungry] .swap-btn:hover {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+html.dark[data-hungry] .refresh-btn,
+html.dark[data-hungry] .swap-btn {
+  color: #d97706;
+}
+
+html.dark[data-hungry] .refresh-btn:hover,
+html.dark[data-hungry] .swap-btn:hover {
+  background: #211a05;
+  color: #fde68a;
 }
 
 /* ----------- Traditional (Windows XP Luna) Theme ----------- */
