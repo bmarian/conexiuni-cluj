@@ -126,6 +126,7 @@ const otpPlanQuery = `{
     to:   { lat: %f, lon: %f }
     date: "%s"
     time: "%s"
+    arriveBy: %t
     numItineraries: 6
     transportModes: [{ mode: WALK }, { mode: TRANSIT }]
   ) {
@@ -167,10 +168,10 @@ const otpPlanQuery = `{
 }`
 
 // callOTP makes a trip planning request to the local OTP GraphQL API.
-func callOTP(fromLat, fromLng, toLat, toLng float64, departAt time.Time) (*otpPlan, error) {
+func callOTP(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bool) (*otpPlan, error) {
 	base := otpBaseURL()
 	query := fmt.Sprintf(otpPlanQuery, fromLat, fromLng, toLat, toLng,
-		departAt.Format("2006-01-02"), departAt.Format("15:04"))
+		when.Format("2006-01-02"), when.Format("15:04"), arriveBy)
 
 	payload, err := json.Marshal(map[string]string{"query": query})
 	if err != nil {
@@ -438,7 +439,23 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 	rToLat := math.Round(toLat/step) * step
 	rToLng := math.Round(toLng/step) * step
 
-	cacheID := fmt.Sprintf("PLAN_%.5f_%.5f_%.5f_%.5f", rFromLat, rFromLng, rToLat, rToLng)
+	when, arriveBy, err := parsePlanTime(c, tranzyClient.Location())
+	if err != nil {
+		return err
+	}
+
+	// For "now" requests, round to current minute bucket so cache hits are sane.
+	// For specific times, include the full timestamp so different times don't collide.
+	timeKey := "NOW"
+	if !when.IsZero() {
+		dir := "D"
+		if arriveBy {
+			dir = "A"
+		}
+		timeKey = fmt.Sprintf("%s_%s", dir, when.Format("20060102T1504"))
+	}
+
+	cacheID := fmt.Sprintf("PLAN_%.5f_%.5f_%.5f_%.5f_%s", rFromLat, rFromLng, rToLat, rToLng, timeKey)
 	shelfLife := 5 * time.Minute
 
 	resp, err := HandleCached(cacheID, shelfLife,
@@ -447,8 +464,11 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 			// Query OTP to discover all route options the user could take.
 			// We MUST use the transit agency's timezone (Europe/Bucharest)
 			// otherwise servers in UTC will request plans for the wrong time of day.
-			now := time.Now().In(tranzyClient.Location())
-			plan, err := callOTP(fromLat, fromLng, toLat, toLng, now)
+			reqTime := when
+			if reqTime.IsZero() {
+				reqTime = time.Now().In(tranzyClient.Location())
+			}
+			plan, err := callOTP(fromLat, fromLng, toLat, toLng, reqTime, arriveBy)
 			if err != nil {
 				return planResp{}, err
 			}
@@ -538,6 +558,31 @@ func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err e
 	}
 
 	return fromLat, fromLng, toLat, toLng, nil
+}
+
+// parsePlanTime parses optional `time` and `arrive_by` query params.
+// `time` may be RFC3339 ("2006-01-02T15:04:05Z07:00") or local "2006-01-02T15:04".
+// When `time` is omitted or empty, returns a zero time meaning "now".
+func parsePlanTime(c fiber.Ctx, loc *time.Location) (time.Time, bool, error) {
+	timeStr := strings.TrimSpace(c.Query("time"))
+	arriveBy := strings.EqualFold(strings.TrimSpace(c.Query("arrive_by")), "true") ||
+		c.Query("arrive_by") == "1"
+
+	if timeStr == "" {
+		return time.Time{}, arriveBy, nil
+	}
+
+	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return t.In(loc), arriveBy, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02T15:04", timeStr, loc); err == nil {
+		return t, arriveBy, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, loc); err == nil {
+		return t, arriveBy, nil
+	}
+	return time.Time{}, false, c.Status(fiber.StatusBadRequest).
+		JSON(fiber.Map{"error": "invalid time (expected RFC3339 or 2006-01-02T15:04)"})
 }
 
 func isValidLat(v float64) bool {

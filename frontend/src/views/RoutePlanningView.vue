@@ -48,6 +48,7 @@ const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
 const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
+const {timeMode, timeValue} = storeToRefs(plannerStore)
 
 interface PlanStop { stop_id: number; stop_name: string; stop_lat: number; stop_lon: number }
 interface PlanWalkSeg { geometry: string; distance_m: number; duration_sec: number }
@@ -362,6 +363,8 @@ function buildRichPlan(
 }
 
 const streamTripIds = computed(() => {
+  // Stop the live vehicle stream whenever the user is planning for a non-"now" time.
+  if (timeMode.value !== 'now') return []
   const ids = new Set<string>()
   const p = selectedPlan.value
   if (p) p.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
@@ -681,7 +684,8 @@ function getQueryKey() {
     ? {latitude: customOrigin.value.lat, longitude: customOrigin.value.lon}
     : (hasLocationPermission.value ? userLocation.value : null)
   if (!ul || isNaN(lat) || isNaN(lon)) return null
-  return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}`
+  const tk = timeMode.value === 'now' ? 'now' : `${timeMode.value}:${timeValue.value}`
+  return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}&t=${tk}`
 }
 
 watch(selectedPlanKey, (newKey) => {
@@ -878,7 +882,17 @@ async function calculateRoutes() {
 
     const fromLat = 'latitude' in origin ? origin.latitude : (origin as {lat: number}).lat
     const fromLng = 'longitude' in origin ? origin.longitude : (origin as {lon: number}).lon
-    const resp = await fetch(`/api/plan_routes?from_lat=${fromLat.toFixed(5)}&from_lng=${fromLng.toFixed(5)}&to_lat=${lat.toFixed(5)}&to_lng=${lon.toFixed(5)}`)
+    const params = new URLSearchParams({
+      from_lat: fromLat.toFixed(5),
+      from_lng: fromLng.toFixed(5),
+      to_lat: lat.toFixed(5),
+      to_lng: lon.toFixed(5),
+    })
+    if (timeMode.value !== 'now' && timeValue.value) {
+      params.set('time', timeValue.value)
+      params.set('arrive_by', timeMode.value === 'arrive' ? 'true' : 'false')
+    }
+    const resp = await fetch(`/api/plan_routes?${params.toString()}`)
     if (!resp.ok) throw new Error('fetch failed')
     const data = await resp.json() as ApiResp
 
@@ -948,6 +962,33 @@ async function refreshRoutes() {
   await calculateRoutes()
 }
 
+// Auto-populate `timeValue` with "now" when switching out of `now`.
+// NOTE: we intentionally do NOT auto-refresh on time-filter changes — the
+// user must click the explicit "Search" button in `.plan-time-filter-actions`
+// (or switch back to "Leave now") to trigger a recalculation.
+const formatLocalDateTime = (d: Date) => {
+  const pad = (x: number) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+// Minimum selectable datetime (current local time) — recomputed on clock tick
+// so users cannot pick a moment in the past.
+const minDateTime = computed(() => formatLocalDateTime(userTime.value || new Date()))
+watch(timeMode, (mode) => {
+  if (mode !== 'now' && !timeValue.value) {
+    timeValue.value = formatLocalDateTime(new Date())
+  }
+  if (mode === 'now') {
+    void refreshRoutes()
+  }
+})
+// Clamp `timeValue` to the present if the user picks a past moment.
+watch(timeValue, (val) => {
+  if (!val) return
+  if (val < minDateTime.value) {
+    timeValue.value = minDateTime.value
+  }
+})
+
 </script>
 
 <template>
@@ -982,33 +1023,6 @@ async function refreshRoutes() {
           {{ hasValidDest ? destName : t('planTitleGeneric') }}
         </h1>
       </div>
-      <button
-        v-if="hasValidCoords"
-        type="button"
-        class="refresh-btn mt-1 shrink-0"
-        :class="{ 'is-busy': isCalculating }"
-        :title="t('planRefresh')"
-        :aria-label="t('planRefresh')"
-        :disabled="isCalculating || (!hasLocationPermission && !customOrigin)"
-        @click="refreshRoutes"
-      >
-        <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 6 5l-2 2m0 8a8 8 0 0 0 14 4l2-2"/>
-        </svg>
-      </button>
-      <button
-        v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
-        type="button"
-        class="swap-btn mt-1 shrink-0"
-        title="Swap origin and destination"
-        aria-label="Swap origin and destination"
-        :disabled="isCalculating"
-        @click="swapOriginDestination"
-      >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-        </svg>
-      </button>
       <button
         v-if="hasValidCoords"
         type="button"
@@ -1243,10 +1257,83 @@ async function refreshRoutes() {
         </div>
       </section>
       <section class="flex flex-col gap-3 pb-8!">
-        <h2 class="section-label">
-          <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
-          {{ t('planRoutesLabel') }}
-        </h2>
+        <div class="plan-section-head">
+          <h2 class="section-label">
+            <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
+            {{ t('planRoutesLabel') }}
+          </h2>
+        </div>
+
+        <div class="plan-time-filter" role="group" :aria-label="t('planTimeFilterLabel')">
+          <div class="plan-time-filter-inputs">
+            <label class="plan-time-mode">
+              <select
+                v-model="timeMode"
+                class="plan-time-select"
+                :aria-label="t('planTimeFilterLabel')"
+              >
+                <option value="now">{{ t('planTimeLeaveNow') }}</option>
+                <option value="leave">{{ t('planTimeLeaveAt') }}</option>
+                <option value="arrive">{{ t('planTimeArriveBy') }}</option>
+              </select>
+              <svg class="plan-time-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+              </svg>
+            </label>
+            <input
+              v-if="timeMode !== 'now'"
+              type="datetime-local"
+              v-model="timeValue"
+              :min="minDateTime"
+              class="plan-time-datetime"
+              :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
+            />
+          </div>
+          <div class="plan-time-filter-actions">
+            <button
+              v-if="timeMode !== 'now'"
+              type="button"
+              class="plan-time-search-btn shrink-0"
+              :title="t('planTimeSearchAria')"
+              :aria-label="t('planTimeSearchAria')"
+              :disabled="isCalculating || !timeValue || (!hasLocationPermission && !customOrigin)"
+              @click="refreshRoutes"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="m20 20-3.5-3.5" />
+              </svg>
+              <span class="plan-time-search-label">{{ t('planTimeSearch') }}</span>
+            </button>
+            <button
+              v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
+              type="button"
+              class="swap-btn shrink-0"
+              :title="t('planSwap')"
+              :aria-label="t('planSwap')"
+              :disabled="isCalculating"
+              @click="swapOriginDestination"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+              </svg>
+            </button>
+            <button
+              v-if="hasValidCoords"
+              type="button"
+              class="refresh-btn shrink-0"
+              :class="{ 'is-busy': isCalculating }"
+              :title="t('planRefresh')"
+              :aria-label="t('planRefresh')"
+              :disabled="isCalculating || (!hasLocationPermission && !customOrigin)"
+              @click="refreshRoutes"
+            >
+              <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 6 5l-2 2m0 8a8 8 0 0 0 14 4l2-2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
 
         <div v-if="isCalculating" class="plan-loading">
           <div class="bus-loader-container">
@@ -2837,6 +2924,344 @@ html.dark[data-hungry] .current-loc-option:hover {
 
 html.dark[data-hungry] .mini-spinner {
   border-top-color: #d97706;
+}
+
+/* ============================================================
+   Plan time filter (Google-style "Leave / Arrive" + actions)
+   ============================================================ */
+.plan-time-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.plan-time-filter-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.plan-time-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.plan-time-mode {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.plan-time-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 1.85rem 0.4rem 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.plan-time-select:hover,
+.plan-time-select:focus {
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+  outline: none;
+}
+
+.plan-time-chevron {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  width: 0.85rem;
+  height: 0.85rem;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.plan-time-datetime {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.625rem;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.4rem 0.6rem;
+  min-width: 0;
+  flex: 1 1 9rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.plan-time-datetime:hover,
+.plan-time-datetime:focus {
+  border-color: #0ea5e9;
+  outline: none;
+}
+
+/* ----------- Default Dark ----------- */
+.dark .plan-time-filter {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark .plan-time-select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark .plan-time-select:hover,
+.dark .plan-time-select:focus {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.dark .plan-time-chevron {
+  color: #94a3b8;
+}
+
+.dark .plan-time-datetime {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
+.dark .plan-time-datetime:hover,
+.dark .plan-time-datetime:focus {
+  border-color: #38bdf8;
+}
+
+/* ----------- Hungry (Chomper) Theme ----------- */
+html[data-hungry] .plan-time-filter {
+  background: #FFFBEB;
+  border: 2px solid #F59E0B;
+  border-radius: 0.5rem;
+}
+
+html[data-hungry] .plan-time-select,
+html[data-hungry] .plan-time-datetime {
+  background: white;
+  border: 2px solid #F59E0B;
+  border-radius: 0.5rem;
+  color: #92400E;
+}
+
+html[data-hungry] .plan-time-select:hover,
+html[data-hungry] .plan-time-select:focus,
+html[data-hungry] .plan-time-datetime:hover,
+html[data-hungry] .plan-time-datetime:focus {
+  border-color: #D97706;
+  color: #92400E;
+}
+
+html[data-hungry] .plan-time-chevron {
+  color: #B45309;
+}
+
+html.dark[data-hungry] .plan-time-filter {
+  background: #1c1608;
+  border-color: #78350f;
+}
+
+html.dark[data-hungry] .plan-time-select,
+html.dark[data-hungry] .plan-time-datetime {
+  background: #211a05;
+  border-color: #78350f;
+  color: #fde68a;
+  color-scheme: dark;
+}
+
+html.dark[data-hungry] .plan-time-select:hover,
+html.dark[data-hungry] .plan-time-select:focus,
+html.dark[data-hungry] .plan-time-datetime:hover,
+html.dark[data-hungry] .plan-time-datetime:focus {
+  border-color: #d97706;
+  color: #fde68a;
+}
+
+html.dark[data-hungry] .plan-time-chevron {
+  color: #d97706;
+}
+
+/* ----------- Traditional (Windows XP Luna) Theme ----------- */
+html[data-traditional] .plan-time-filter {
+  background: #ECE9D8;
+  border: 1px solid #7F9DB9;
+  border-radius: 0;
+  padding: 0.4rem 0.5rem;
+}
+
+html[data-traditional] .plan-time-select,
+html[data-traditional] .plan-time-datetime {
+  background: white;
+  border: 1px solid #7F9DB9;
+  border-radius: 0 !important;
+  color: #000;
+  font-family: Tahoma, Geneva, sans-serif;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+}
+
+html[data-traditional] .plan-time-select {
+  padding-right: 1.6rem;
+}
+
+html[data-traditional] .plan-time-select:hover,
+html[data-traditional] .plan-time-select:focus,
+html[data-traditional] .plan-time-datetime:hover,
+html[data-traditional] .plan-time-datetime:focus {
+  border-color: #245EDC;
+  color: #000;
+}
+
+html[data-traditional] .plan-time-chevron {
+  color: #245EDC;
+}
+
+html.dark[data-traditional] .plan-time-filter {
+  background: #1a2540;
+  border-color: #3a4f7a;
+}
+
+html.dark[data-traditional] .plan-time-select,
+html.dark[data-traditional] .plan-time-datetime {
+  background: #0a1228;
+  border-color: #3a4f7a;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
+html.dark[data-traditional] .plan-time-chevron {
+  color: #8aa9d4;
+}
+
+/* ============================================================
+   Plan time-filter Search button
+   ============================================================ */
+.plan-time-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #0ea5e9;
+  color: white;
+  border: 1.5px solid #0ea5e9;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
+}
+
+.plan-time-search-btn:hover {
+  background: #0284c7;
+  border-color: #0284c7;
+}
+
+.plan-time-search-btn:active {
+  transform: scale(0.97);
+}
+
+.plan-time-search-btn:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.dark .plan-time-search-btn {
+  background: #0284c7;
+  border-color: #0284c7;
+}
+
+.dark .plan-time-search-btn:hover {
+  background: #0369a1;
+  border-color: #0369a1;
+}
+
+.dark .plan-time-search-btn:disabled {
+  background: #334155;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+/* Hungry */
+html[data-hungry] .plan-time-search-btn {
+  background: #D97706;
+  border: 2px solid #B45309;
+  border-radius: 0.5rem;
+  color: #FFFBEB;
+}
+
+html[data-hungry] .plan-time-search-btn:hover {
+  background: #B45309;
+  border-color: #92400E;
+}
+
+html[data-hungry] .plan-time-search-btn:disabled {
+  background: #FCD34D;
+  border-color: #FCD34D;
+  color: #92400E;
+}
+
+html.dark[data-hungry] .plan-time-search-btn {
+  background: #d97706;
+  border-color: #92400E;
+  color: #fde68a;
+}
+
+html.dark[data-hungry] .plan-time-search-btn:hover {
+  background: #b45309;
+}
+
+/* Traditional (Windows XP Luna) */
+html[data-traditional] .plan-time-search-btn {
+  background: linear-gradient(to bottom, #FFFFFF 0%, #ECE9D8 50%, #D7D2BC 100%);
+  border: 1px solid #003C74;
+  border-radius: 0 !important;
+  color: #000;
+  font-family: Tahoma, Geneva, sans-serif;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.65rem;
+}
+
+html[data-traditional] .plan-time-search-btn:hover {
+  background: linear-gradient(to bottom, #FFFFFF 0%, #FFE9A0 50%, #F5C75A 100%);
+  border-color: #003C74;
+  color: #000;
+}
+
+html[data-traditional] .plan-time-search-btn:disabled {
+  background: #ECE9D8;
+  color: #7F7F7F;
+  border-color: #A0A0A0;
+}
+
+html.dark[data-traditional] .plan-time-search-btn {
+  background: linear-gradient(to bottom, #2a3a5c 0%, #1a2540 50%, #0a1228 100%);
+  border-color: #3a4f7a;
+  color: #e2e8f0;
+}
+
+html.dark[data-traditional] .plan-time-search-btn:hover {
+  background: linear-gradient(to bottom, #3a4f7a 0%, #2a3a5c 50%, #1a2540 100%);
 }
 </style>
 
