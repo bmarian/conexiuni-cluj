@@ -65,10 +65,14 @@ if [ "$UPDATE_PBF" = true ]; then
     mv romania/romania-latest.osm.pbf.tmp romania/romania-latest.osm.pbf
     
     echo "🗑️ Deleting old Cluj PBF..."
+    mkdir -p cluj
     rm -f cluj/cluj.pbf
     
     echo "✂️ Cropping PBF with Osmosis..."
-    ./osmosis/bin/osmosis ./romania/romania-latest.osm.pbf -b=46.38,22.75,47.50,24.27 --complete-ways -o=cluj/cluj.pbf
+    ./osmosis/bin/osmosis \
+        --read-pbf file="romania/romania-latest.osm.pbf" \
+        --bounding-box bottom=46.38 left=22.75 top=47.50 right=24.27 completeWays=yes \
+        --write-pbf file="cluj/cluj.pbf"
 fi
 
 cd ../../../
