@@ -39,16 +39,17 @@ fi
 echo "🚌 Setting up OpenTripPlanner..."
 cd backend/services/otp
 
-# Download otp.jar if missing
-if [ ! -f otp.jar ]; then
+# Download otp.jar if missing or incomplete
+if [ ! -f otp.jar ] || [ ! -s otp.jar ]; then
     echo "📥 Downloading otp.jar..."
-    wget -O otp.jar https://github.com/opentripplanner/OpenTripPlanner/releases/download/v2.9.0/otp-shaded-2.9.0.jar
+    wget --tries=10 --waitretry=5 --retry-connrefused --retry-on-http-error=502,503,504 -O otp.jar.tmp https://github.com/opentripplanner/OpenTripPlanner/releases/download/v2.9.0/otp-shaded-2.9.0.jar
+    mv otp.jar.tmp otp.jar
 fi
 
-# Download osmosis if missing
-if [ ! -d osmosis ]; then
+# Download osmosis if missing or incomplete
+if [ ! -f osmosis/bin/osmosis ]; then
     echo "📥 Downloading Osmosis..."
-    wget https://github.com/openstreetmap/osmosis/releases/download/0.49.2/osmosis-0.49.2.tar
+    wget --tries=10 --waitretry=5 --retry-connrefused --retry-on-http-error=502,503,504 -O osmosis-0.49.2.tar https://github.com/openstreetmap/osmosis/releases/download/0.49.2/osmosis-0.49.2.tar
     mkdir -p osmosis
     tar -xf osmosis-0.49.2.tar -C osmosis
     rm osmosis-0.49.2.tar
@@ -59,7 +60,8 @@ if [ "$UPDATE_PBF" = true ]; then
     echo "🗺️ Updating PBF data..."
     mkdir -p romania
     echo "📥 Downloading Romania PBF..."
-    wget -O romania/romania-latest.osm.pbf https://download.geofabrik.de/europe/romania-latest.osm.pbf
+    wget --tries=10 --waitretry=5 --retry-connrefused --retry-on-http-error=502,503,504 -O romania/romania-latest.osm.pbf.tmp https://download.geofabrik.de/europe/romania-latest.osm.pbf
+    mv romania/romania-latest.osm.pbf.tmp romania/romania-latest.osm.pbf
     
     echo "🗑️ Deleting old Cluj PBF..."
     rm -f cluj/cluj.pbf
