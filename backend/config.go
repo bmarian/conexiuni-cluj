@@ -36,6 +36,7 @@ type Config struct {
 	VehicleScheduleWeekend    string
 	VehicleMinInterval        time.Duration
 	VehicleMaxInterval        time.Duration
+	OtpMaxMemory              string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -111,5 +112,6 @@ func Load() *Config {
 		VehicleScheduleWeekend:    getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleMinInterval:        getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
 		VehicleMaxInterval:        getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
+		OtpMaxMemory:              getEnv("OTP_MX", "2G"),
 	}
 }

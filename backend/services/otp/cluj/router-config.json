@@ -1,0 +1,104 @@
+{
+  "routingDefaults" : {
+    "numItineraries" : 6,
+    "transferPenalty" : 0,
+    "turnReluctance" : 1.0,
+    "elevator" : {
+      "boardCost" : 15,
+      "boardSlack" : "90s",
+      "hopTime" : "20s",
+      "reluctance" : 2.0
+    },
+    "walk" : {
+      "speed" : 1.3,
+      "reluctance" : 4.0,
+      "stairsReluctance" : 1.65,
+      "boardCost" : 600,
+      "escalator" : {
+        "reluctance" : 1.5,
+        "speed" : 0.45
+      }
+    },
+    "waitReluctance" : 1.0,
+    "otherThanPreferredRoutesPenalty" : 300,
+    "transferSlack" : "2m",
+    "accessEgress" : {
+      "maxDuration" : "45m",
+      "maxStopCount" : 500,
+      "penalty" : {
+        "FLEXIBLE" : {
+          "timePenalty" : "2m + 1.1t",
+          "costFactor" : 1.7
+        }
+      }
+    },
+    "itineraryFilters" : {
+      "transitGeneralizedCostLimit" : {
+        "costLimitFunction" : "15m + 1.5 x",
+        "intervalRelaxFactor" : 0.4
+      },
+      "nonTransitGeneralizedCostLimit" : "400 + 1.5x",
+      "removeTransitWithHigherCostThanBestOnStreetOnly" : "60 + 1.3x",
+      "accessibilityScore" : true
+    },
+    "ignoreRealtimeUpdates" : false,
+    "geoidElevation" : false,
+    "maxJourneyDuration" : "36h",
+    "unpreferred" : {
+      "agencies" : [],
+      "routes" : []
+    },
+    "unpreferredCost" : "10m + 2.0 x",
+    "streetRoutingTimeout" : "5s",
+    "transferOptimization" : {
+      "optimizeTransferWaitTime" : true,
+      "minSafeWaitTimeFactor" : 5.0,
+      "backTravelWaitTimeFactor" : 1.0,
+      "extraStopBoardAlightCostsFactor" : 8.0
+    },
+    "directTransitSearch" : {
+      "enabled" : false,
+      "costRelaxFunction" : "15m + 1.5t",
+      "maxAccessEgressDuration" : "5m",
+      "extraAccessEgressReluctance" : 2
+    }
+  },
+  "flex" : {
+    "maxTransferDuration" : "5m",
+    "maxFlexTripDuration" : "45m",
+    "maxAccessWalkDuration" : "15m",
+    "maxEgressWalkDuration" : "15m"
+  },
+  "transit" : {
+    "maxNumberOfTransfers" : 6,
+    "dynamicSearchWindow" : {
+      "minTransitTimeCoefficient" : 0.5,
+      "minWaitTimeCoefficient" : 0.5,
+      "minWindow" : "1h",
+      "maxWindow" : "5h"
+    },
+    "stopBoardAlightDuringTransferCost" : {
+      "DISCOURAGED" : 1500,
+      "ALLOWED" : 75,
+      "RECOMMENDED" : 30,
+      "PREFERRED" : 0
+    },
+    "transferCacheRequests" : [
+      {
+        "modes" : "WALK"
+      },
+      {
+        "modes" : "WALK",
+        "wheelchairAccessibility" : {
+          "enabled" : true
+        }
+      }
+    ]
+  },
+  "transmodelApi" : {
+    "hideFeedId" : true
+  },
+  "gtfsApi" : {
+    "tracingTags" : []
+  }
+}

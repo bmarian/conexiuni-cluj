@@ -30,7 +30,15 @@ var (
 	otpRunning bool
 	otpCmd     *exec.Cmd
 	otpMu      sync.RWMutex
+	otpMaxMem  string = "2G"
 )
+
+// SetOTPMaxMemory configures the maximum memory for the OTP server.
+func SetOTPMaxMemory(mx string) {
+	otpMu.Lock()
+	defer otpMu.Unlock()
+	otpMaxMem = mx
+}
 
 // otpBaseURL returns the base URL of the local OTP server.
 func otpBaseURL() string {
@@ -316,7 +324,10 @@ func startOTPServer() {
 
 	log.Printf("otp: starting server with %s …", jarPath)
 	// We use the same parameters as in start-otp.sh
-	cmd := exec.Command("java", "-Xmx2G", "-jar", jarPath, "--build", "--serve", dataDir)
+	otpMu.RLock()
+	mx := otpMaxMem
+	otpMu.RUnlock()
+	cmd := exec.Command("java", "-Xmx"+mx, "-jar", jarPath, "--build", "--serve", dataDir)
 
 	if err := cmd.Start(); err != nil {
 		log.Printf("otp: failed to start server: %v", err)
@@ -433,29 +444,16 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 	resp, err := HandleCached(cacheID, shelfLife,
 		func() (planResp, error) { return getPlanFromDB(cacheID) },
 		func() (planResp, error) {
-			// Query OTP at staggered departure times across the next hour
-			// to discover all route options the user could take.
+			// Query OTP to discover all route options the user could take.
 			// We MUST use the transit agency's timezone (Europe/Bucharest)
 			// otherwise servers in UTC will request plans for the wrong time of day.
 			now := time.Now().In(tranzyClient.Location())
-			offsets := []time.Duration{0, 15 * time.Minute, 30 * time.Minute, 45 * time.Minute}
-			var allItineraries []otpItinerary
-
-			for _, off := range offsets {
-				plan, err := callOTP(fromLat, fromLng, toLat, toLng, now.Add(off))
-				if err != nil {
-					// If the first call fails, propagate the error.
-					// Later calls failing is tolerable — we already have some results.
-					if len(allItineraries) == 0 {
-						return planResp{}, err
-					}
-					log.Printf("plan_routes: OTP call at +%s failed (non-fatal): %v", off, err)
-					continue
-				}
-				allItineraries = append(allItineraries, plan.Itineraries...)
+			plan, err := callOTP(fromLat, fromLng, toLat, toLng, now)
+			if err != nil {
+				return planResp{}, err
 			}
 
-			if len(allItineraries) == 0 {
+			if len(plan.Itineraries) == 0 {
 				return planResp{
 					Plans:  []planRouteResp{},
 					Stops:  map[string]models.Stop{},
@@ -463,7 +461,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 				}, nil
 			}
 
-			r, err := enrichOTPResponse(allItineraries, tranzyClient, ctpCjClient, cacheTimes)
+			r, err := enrichOTPResponse(plan.Itineraries, tranzyClient, ctpCjClient, cacheTimes)
 			if err != nil {
 				return planResp{}, err
 			}

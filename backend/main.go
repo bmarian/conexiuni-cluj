@@ -94,6 +94,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("VEHICLE_SCHEDULE_WEEKEND: %v", err)
 	}
+	handlers.SetOTPMaxMemory(config.OtpMaxMemory)
 	handlers.InitVehicleHub(tranzyClient, handlers.VehicleIntervalConfig{
 		Weekday:     weekdaySlots,
 		Weekend:     weekendSlots,
