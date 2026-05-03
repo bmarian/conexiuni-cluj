@@ -28,6 +28,7 @@ import (
 var (
 	otpReady   bool
 	otpRunning bool
+	otpCmd     *exec.Cmd
 	otpMu      sync.RWMutex
 )
 
@@ -250,7 +251,16 @@ func InitOTP() {
 
 // stopOTPServer attempts to find and kill the process listening on port 8080.
 func stopOTPServer() {
-	log.Printf("otp: stopping local server on port 8080 …")
+	otpMu.Lock()
+	if otpCmd != nil && otpCmd.Process != nil {
+		log.Printf("otp: stopping tracked process %d …", otpCmd.Process.Pid)
+		_ = otpCmd.Process.Kill()
+		_ = otpCmd.Wait()
+		otpCmd = nil
+	}
+	otpMu.Unlock()
+
+	log.Printf("otp: stopping local server on port 8080 (fallback check) …")
 
 	if runtime.GOOS == "windows" {
 		// On Windows, find the PID of the process listening on port 8080.
@@ -301,7 +311,7 @@ func stopOTPServer() {
 
 // startOTPServer launches a new instance of the OTP server.
 func startOTPServer() {
-	jarPath := filepath.Join("services", "otp", "otp-shaded-2.9.0.jar")
+	jarPath := filepath.Join("services", "otp", "otp.jar")
 	dataDir := filepath.Join("services", "otp", "cluj")
 
 	log.Printf("otp: starting server with %s …", jarPath)
@@ -312,6 +322,20 @@ func startOTPServer() {
 		log.Printf("otp: failed to start server: %v", err)
 	} else {
 		log.Printf("otp: server started with PID %d", cmd.Process.Pid)
+		otpMu.Lock()
+		otpCmd = cmd
+		otpMu.Unlock()
+	}
+}
+
+// CleanupOTP ensures the OTP process is killed.
+func CleanupOTP() {
+	otpMu.Lock()
+	defer otpMu.Unlock()
+	if otpCmd != nil && otpCmd.Process != nil {
+		log.Printf("otp: cleaning up process %d …", otpCmd.Process.Pid)
+		_ = otpCmd.Process.Kill()
+		otpCmd = nil
 	}
 }
 

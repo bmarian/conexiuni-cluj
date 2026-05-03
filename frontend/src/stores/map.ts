@@ -1,4 +1,5 @@
 import type {Shape, Vehicle} from "@/types/tranzy";
+import type {RouteType} from "@/types/tranzy";
 import {defineStore} from 'pinia'
 import {ref} from "vue";
 import {apiRequest} from "@/utils/request_cache.ts";
@@ -8,7 +9,7 @@ export type DisplayShape = {
   route_short_name: string,
   route_long_name: string,
   route_color: string,
-  route_type: number,
+  route_type: RouteType,
 }
 
 export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' }

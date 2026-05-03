@@ -168,6 +168,8 @@ func main() {
 
 	handlers.StartWarmup(tranzyClient, ctpCjClient, cacheTimes)
 
+	defer handlers.CleanupOTP()
+
 	listenAddr := ":" + config.Port
 	if config.Environment == "development" && runtime.GOOS == "windows" {
 		listenAddr = "0.0.0.0:" + config.Port
