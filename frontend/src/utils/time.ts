@@ -32,10 +32,11 @@ export const getMinutesFromDate = (dateObject: Date): number => {
 }
 
 export const formatMinutesFromNow = (minutes: number, referenceDate: Date, nowLabel: string): string => {
-  if (minutes === 0) return nowLabel;
-  if (minutes < 60) return `${minutes}m`;
-  const future = new Date(referenceDate.getTime() + minutes * 60_000);
-  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`;
+  const rounded = Math.round(minutes);
+  if (rounded <= 0) return nowLabel;
+  if (rounded < 60) return `${rounded}m`;
+  const future = new Date(referenceDate.getTime() + rounded * 60_000);
+  return future.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'

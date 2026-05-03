@@ -107,5 +107,8 @@
     "planNoResults": "Nu am găsit nicio rută spre destinație",
     "planSearchPlaceholder": "Caută locația de pornire...",
     "planDestSearchPlaceholder": "Caută destinația...",
+    "planArrivalAt": "ajungi la {time}",
+    "planAtTime": "la {time}",
+    "planInTime": "în {time}",
     "planSearching": "Se caută..."
 }

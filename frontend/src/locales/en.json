@@ -107,5 +107,8 @@
     "planNoResults": "No routes found for your destination",
     "planSearchPlaceholder": "Search for starting location...",
     "planDestSearchPlaceholder": "Search for destination...",
+    "planArrivalAt": "arrive by {time}",
+    "planAtTime": "at {time}",
+    "planInTime": "in {time}",
     "planSearching": "Searching..."
 }
