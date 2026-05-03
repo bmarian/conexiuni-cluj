@@ -182,6 +182,7 @@ function getNextDepartures(shape: ShapeInfo, tripId: string, boardingStopId: num
 }
 
 function computeNextTimesForPlan(plan: RichPlan, shapesMap: Record<string, ShapeInfo>, now: Date): TimeEntry[] {
+  const walkStartMin = plan.walkStartMeters / WALK_SPEED
   if (plan.isDirect) {
     const leg = plan.legs[0]!
     const times: TimeEntry[] = []
@@ -189,7 +190,8 @@ function computeNextTimesForPlan(plan: RichPlan, shapesMap: Record<string, Shape
       const shape = shapesMap[String(leg.routeIds[i]!)]
       const tripId = leg.tripIds[i]
       if (!shape || !tripId) continue
-      times.push(...getNextDepartures(shape, tripId, leg.startStopId, now, 2, MAX_MINUTES))
+      times.push(...getNextDepartures(shape, tripId, leg.startStopId, now, 4, MAX_MINUTES)
+        .filter(t => t.minutes >= walkStartMin))
     }
     return times.sort((a, b) => a.minutes - b.minutes).slice(0, 3)
   } else {
@@ -199,6 +201,7 @@ function computeNextTimesForPlan(plan: RichPlan, shapesMap: Record<string, Shape
     const tripId1 = leg1.tripIds[0]
     if (!shape1 || !tripId1) return []
     const leg1Deps = getNextDepartures(shape1, tripId1, leg1.startStopId, now, 5, MAX_MINUTES)
+      .filter(t => t.minutes >= walkStartMin)
     const valid: TimeEntry[] = []
     for (const t1 of leg1Deps) {
       const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + Math.ceil(leg1.rideSeconds / 60)) * 60_000)
@@ -265,6 +268,8 @@ function buildRichPlan(
       `${l.routeIds[0] ?? 'x'}/${l.tripIds[0]?.endsWith('_0') ? '0' : '1'}@${l.startStopId}>${l.destStopId}`
     ).join('|')
 
+  const walkStartMin = plan.walkStartMeters / WALK_SPEED
+
   if (plan.isDirect) {
     const leg = plan.legs[0]!
     const times: TimeEntry[] = []
@@ -276,11 +281,12 @@ function buildRichPlan(
       const tripId = leg.tripIds[i]!
       const shape = shapesMap[String(routeId)]
       if (!shape) continue
-      const departures = getNextDepartures(shape, tripId, leg.startStopId, now, 2, MAX_MINUTES)
-      if (!departures.length) continue
+      const catchable = getNextDepartures(shape, tripId, leg.startStopId, now, 4, MAX_MINUTES)
+        .filter(t => t.minutes >= walkStartMin)
+      if (!catchable.length) continue
       liveRouteIds.push(routeId)
       liveTripIds.push(tripId)
-      times.push(...departures)
+      times.push(...catchable)
     }
 
     if (!times.length || !liveRouteIds.length) return null
@@ -307,6 +313,7 @@ function buildRichPlan(
     if (!shape1 || !tripId1) return null
 
     const leg1Departures = getNextDepartures(shape1, tripId1, leg1.startStopId, now, 5, MAX_MINUTES)
+      .filter(t => t.minutes >= walkStartMin)
     if (!leg1Departures.length) return null
 
     const validT1: TimeEntry[] = []
@@ -582,12 +589,10 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
 
 function computeTotalMinutes(plan: RichPlan): number {
   if (!plan.nextTimes.length) return Infinity
-  const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const rideMin = plan.legs.reduce((s, l) => s + l.rideSeconds / 60, 0)
   const transferPenalty = (plan.legs.length - 1) * 5
   const walkEndMin = plan.walkEndMeters / WALK_SPEED
-  const catchable = plan.nextTimes.find(t => t.minutes >= walkStartMin) ?? plan.nextTimes[plan.nextTimes.length - 1]
-  return Math.round((catchable?.minutes ?? 0) + rideMin + transferPenalty + walkEndMin)
+  return Math.round((plan.nextTimes[0]?.minutes ?? 0) + rideMin + transferPenalty + walkEndMin)
 }
 
 const totalTripMinutes = computed(() => {
