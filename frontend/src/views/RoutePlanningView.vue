@@ -1100,7 +1100,7 @@ watch(timeValue, (val) => {
 
     <div v-if="hasLocationPermission || customOrigin">
       <section v-if="!isCalculating && selectedPlan" class="trip-summary">
-        <div class="trip-summary-stat">
+        <div class="trip-summary-stat" v-if="timeMode === 'now'">
           <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
           <span class="trip-summary-stat-label">{{ t('planTripTotal') }}</span>
         </div>
