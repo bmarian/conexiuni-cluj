@@ -16,17 +16,15 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import {haversineMeters} from "@/utils/geo.ts";
-import {apiRequest} from "@/utils/request_cache.ts";
-import {fetchWalkingPolyline} from "@/utils/directions.ts";
-import type {Shape, Stop, StopInfo, TimeEntry} from "@/types/tranzy.ts";
-import {storeToRefs} from "pinia";
-import ClosestStopsList from "@/components/ClosestStopsList.vue";
-import ViewErrorState from "@/components/ViewErrorState.vue";
+import {haversineMeters} from "@/utils/geo.ts"
+import {apiRequest} from "@/utils/request_cache.ts"
+import type {Stop, TimeEntry, ShapeInfo} from "@/types/tranzy.ts"
+import {storeToRefs} from "pinia"
+import ClosestStopsList from "@/components/ClosestStopsList.vue"
+import ViewErrorState from "@/components/ViewErrorState.vue"
 
-import {estimateMinutesToDestination, findRoutes, getRideMinutesBetweenStops, routeSignature, type PlannedRoute} from "@/utils/trips.ts";
-import {useVehicleStream} from "@/composables/useVehicleStream.ts";
-import type {DisplayShape} from "@/stores/map.ts";
+import {useVehicleStream} from "@/composables/useVehicleStream.ts"
+import type {DisplayShape} from "@/stores/map.ts"
 import {
   buildShapeIndex,
   getIndexedVehicles,
@@ -35,14 +33,12 @@ import {
   etaForStop,
   type IndexedVehicle,
   type ShapeIndex
-} from "@/composables/useVehicleTracking.ts";
-import {
-  formatMinutesFromNow,
-  getAvailableBusesForStop
-} from "@/utils/time.ts";
-import {getShapeStopTimes} from "@/utils/trips.ts";
+} from "@/composables/useVehicleTracking.ts"
+import {formatMinutesFromNow} from "@/utils/time.ts"
+import {decodePolyline} from "@/utils/geo.ts"
 
 const MAX_MINUTES = 60
+const WALK_SPEED = 80 // m/min
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -52,6 +48,15 @@ const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
 const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
+
+interface PlanStop { stop_id: number; stop_name: string; stop_lat: number; stop_lon: number }
+interface PlanWalkSeg { geometry: string; distance_m: number; duration_sec: number }
+interface ApiLeg { route_id: number; trip_id: string; start_stop_id: number; dest_stop_id: number; ride_seconds: number; intermediate_stop_ids?: number[] }
+interface ApiPlan { legs: ApiLeg[]; is_direct: boolean; walk_start_meters: number; walk_end_meters: number; walk_transfer_meters: number; transit_duration_sec: number; total_distance: number; walk_segments?: PlanWalkSeg[] }
+interface ApiResp { plans: ApiPlan[]; stops: Record<string, PlanStop>; shapes: Record<string, ShapeInfo> }
+
+interface RichLeg { routeIds: number[]; tripIds: string[]; startStopId: number; destStopId: number; rideSeconds: number; intermediateStopIds: number[] }
+interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: TimeEntry[]; isLive: boolean; key: string }
 
 interface NominatimResult {
   place_id: number
@@ -95,282 +100,286 @@ function toggleFavorite() {
 }
 
 const allStops = ref<Stop[]>([])
-const {plannedRoutes, currentQueryKey} = storeToRefs(plannerStore)
-const selectedRouteIndex = ref(0)
-const selectedRouteKey = ref<string | null>(null)
+const planData = ref<ApiResp | null>(null)
+const currentQueryKey = ref<string | null>(null)
+const selectedPlanIndex = ref(0)
+const selectedPlanKey = ref<string | null>(null)
 const isCalculating = ref(false)
 const hasFlownToFallback = ref(false)
+const routesWithTimes = ref<RichPlan[]>([])
+const selectedRouteIsLive = ref(false)
+const selectedRouteLiveEtaMin = ref<number | null>(null)
 
-const plannedRoutesShapes = ref(new Map<string, Shape[]>())
-const routesWithTimes = ref<(PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean, key: string })[]>([])
-const directRoutes = computed(() => plannedRoutes.value.filter(r => r.isDirect))
-const selectedRoute = computed(() => routesWithTimes.value[selectedRouteIndex.value])
-const selectedRouteSignature = computed(() => selectedRoute.value ? selectedRoute.value.key : null)
+const stops = computed(() => planData.value?.stops ?? {} as Record<string, PlanStop>)
+const shapes = computed(() => planData.value?.shapes ?? {} as Record<string, ShapeInfo>)
 
-function selectRouteAt(idx: number) {
-  selectedRouteIndex.value = idx
-  const r = routesWithTimes.value[idx]
-  selectedRouteKey.value = r ? r.key : null
+const selectedPlan = computed(() => routesWithTimes.value[selectedPlanIndex.value])
+const selectedPlanSignature = computed(() => selectedPlan.value?.key ?? null)
+
+function selectPlanAt(idx: number) {
+  selectedPlanIndex.value = idx
+  const p = routesWithTimes.value[idx]
+  selectedPlanKey.value = p ? p.key : null
 }
 
-watch(plannedRoutes, async (newRoutes) => {
-  if (!newRoutes.length) {
-    plannedRoutesShapes.value.clear()
-    return
+// --- Timetable helpers ---
+function getNextDepartures(shape: ShapeInfo, tripId: string, boardingStopId: number, now: Date, limit = 3, maxMinutes = 60): TimeEntry[] {
+  const timetable = shape.timetable
+  if (!timetable) return []
+
+  const isOutgoing = tripId.endsWith('_0')
+  const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tripId)
+
+  // Sum offset_arrival_time/60 for stops before boarding stop to get terminus->boarding offset
+  let offsetMin = 0
+  for (const st of stopTimes) {
+    if (st.stop_id === boardingStopId) break
+    offsetMin += st.offset_arrival_time / 60
   }
 
-  const tripIds = new Set<string>()
-  newRoutes.forEach(pr => pr.legs.forEach(l => l.tripIds.forEach(tid => tripIds.add(tid))))
+  const dayOfWeek = now.getDay()
+  const daySchedule = dayOfWeek === 0 ? timetable.sunday : dayOfWeek === 6 ? timetable.saturday : timetable.weekdays
+  if (!daySchedule?.entries) return []
 
-  const toRequest: DisplayShape[] = []
-  newRoutes.forEach(pr => {
-    pr.legs.forEach(l => {
-      l.tripIds.forEach((tid, idx) => {
-        if (!plannedRoutesShapes.value.has(tid)) {
-          const route = l.routes[idx]
-          if (route) {
-            toRequest.push({
-              trip_id: tid,
-              route_short_name: route.route_short_name,
-              route_long_name: route.route_long_name,
-              route_color: route.route_color,
-              route_type: route.route_type,
-            })
-          }
+  const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
+  const results: TimeEntry[] = []
+
+  for (const entry of daySchedule.entries) {
+    const timeStr = isOutgoing ? entry.departure_in : entry.departure_out
+    if (!timeStr) continue
+    const [hStr, mStr] = timeStr.split(':')
+    const terminusMinutes = parseInt(hStr ?? '0') * 60 + parseInt(mStr ?? '0')
+    const arrivalAtBoardingMin = terminusMinutes + offsetMin
+    const diff = arrivalAtBoardingMin - nowMins
+    if (diff > maxMinutes) break
+    if (diff >= 0) {
+      results.push({ minutes: Math.round(diff), is_live: false })
+      if (results.length >= limit) break
+    }
+  }
+
+  return results
+}
+
+function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[] }[] {
+  const groups = new Map<string, { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[] }>()
+
+  for (const p of rawPlans) {
+    const key = p.legs.map(l => `${l.start_stop_id}>${l.dest_stop_id}@${l.trip_id.endsWith('_0') ? '0' : '1'}`).join('|')
+
+    if (groups.has(key)) {
+      const existing = groups.get(key)!
+      for (let i = 0; i < p.legs.length; i++) {
+        const apiLeg = p.legs[i]
+        const richLeg = existing.legs[i]
+        if (!apiLeg || !richLeg) continue
+        if (!richLeg.routeIds.includes(apiLeg.route_id)) {
+          richLeg.routeIds.push(apiLeg.route_id)
+          richLeg.tripIds.push(apiLeg.trip_id)
         }
-      })
-    })
-  })
-
-  if (toRequest.length === 0) return
-
-  try {
-    const shapeData = await mapStore.requestShapes(toRequest)
-    shapeData.forEach(([info, points]) => {
-      if (points?.length) {
-        plannedRoutesShapes.value.set(info.trip_id, points)
       }
-    })
-  } catch (e) {
-    console.warn('Failed to fetch shapes for planned routes:', e)
+    } else {
+      groups.set(key, {
+        legs: p.legs.map(l => ({
+          routeIds: [l.route_id],
+          tripIds: [l.trip_id],
+          startStopId: l.start_stop_id,
+          destStopId: l.dest_stop_id,
+          rideSeconds: l.ride_seconds,
+          intermediateStopIds: l.intermediate_stop_ids ?? [],
+        })),
+        isDirect: p.is_direct,
+        walkStartMeters: p.walk_start_meters,
+        walkEndMeters: p.walk_end_meters,
+        walkTransferMeters: p.walk_transfer_meters,
+        walkSegments: p.walk_segments ?? [],
+      })
+    }
   }
-}, {immediate: true})
 
-// Stream live vehicle positions only for the trip ids the user actually
-// selected. Tracking every candidate's trips at once burned bandwidth and
-// the SSE URL never refreshed when the user picked a different card.
+  return Array.from(groups.values())
+}
+
+function buildRichPlan(
+  plan: ReturnType<typeof groupPlans>[number],
+  shapesMap: Record<string, ShapeInfo>,
+  now: Date
+): RichPlan | null {
+  const makeKey = (p: typeof plan) =>
+    (p.isDirect ? 'D' : `C${p.legs.length}`) + ':' + p.legs.map(l =>
+      `${l.routeIds[0] ?? 'x'}/${l.tripIds[0]?.endsWith('_0') ? '0' : '1'}@${l.startStopId}>${l.destStopId}`
+    ).join('|')
+
+  if (plan.isDirect) {
+    const leg = plan.legs[0]!
+    const times: TimeEntry[] = []
+    const liveRouteIds: number[] = []
+    const liveTripIds: string[] = []
+
+    for (let i = 0; i < leg.routeIds.length; i++) {
+      const routeId = leg.routeIds[i]!
+      const tripId = leg.tripIds[i]!
+      const shape = shapesMap[String(routeId)]
+      if (!shape) continue
+      const departures = getNextDepartures(shape, tripId, leg.startStopId, now, 2, MAX_MINUTES)
+      if (!departures.length) continue
+      liveRouteIds.push(routeId)
+      liveTripIds.push(tripId)
+      times.push(...departures)
+    }
+
+    if (!times.length || !liveRouteIds.length) return null
+
+    const filteredLeg: RichLeg = { ...leg, routeIds: liveRouteIds, tripIds: liveTripIds }
+    return {
+      legs: [filteredLeg],
+      isDirect: plan.isDirect,
+      walkStartMeters: plan.walkStartMeters,
+      walkEndMeters: plan.walkEndMeters,
+      walkTransferMeters: plan.walkTransferMeters,
+      walkSegments: plan.walkSegments,
+      nextTimes: times.sort((a, b) => a.minutes - b.minutes).slice(0, 3),
+      isLive: false,
+      key: makeKey({ ...plan, legs: [filteredLeg] }),
+    }
+  } else {
+    // Connecting route (2 legs)
+    const leg1 = plan.legs[0]!
+    const leg2 = plan.legs[1]!
+
+    const shape1 = shapesMap[String(leg1.routeIds[0])]
+    const tripId1 = leg1.tripIds[0]!
+    if (!shape1 || !tripId1) return null
+
+    const leg1Departures = getNextDepartures(shape1, tripId1, leg1.startStopId, now, 5, MAX_MINUTES)
+    if (!leg1Departures.length) return null
+
+    const validT1: TimeEntry[] = []
+    const liveLeg2Indices = new Set<number>()
+
+    for (const t1 of leg1Departures) {
+      const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + Math.ceil(leg1.rideSeconds / 60)) * 60_000)
+      let hasConnection = false
+
+      for (let j = 0; j < leg2.routeIds.length; j++) {
+        const routeId2 = leg2.routeIds[j]!
+        const tripId2 = leg2.tripIds[j]!
+        const shape2 = shapesMap[String(routeId2)]
+        if (!shape2) continue
+        const leg2Deps = getNextDepartures(shape2, tripId2, leg2.startStopId, arrivalAtTransfer, 1, 30)
+        if (leg2Deps.length > 0) {
+          hasConnection = true
+          liveLeg2Indices.add(j)
+        }
+      }
+
+      if (hasConnection) validT1.push(t1)
+    }
+
+    if (!validT1.length || !liveLeg2Indices.size) return null
+
+    const idxs = Array.from(liveLeg2Indices).sort((a, b) => a - b)
+    const filteredLeg2: RichLeg = {
+      ...leg2,
+      routeIds: idxs.map(j => leg2.routeIds[j]!).filter(Boolean),
+      tripIds: idxs.map(j => leg2.tripIds[j]!).filter(Boolean),
+    }
+    const finalLegs = [leg1, filteredLeg2]
+    return {
+      legs: finalLegs,
+      isDirect: plan.isDirect,
+      walkStartMeters: plan.walkStartMeters,
+      walkEndMeters: plan.walkEndMeters,
+      walkTransferMeters: plan.walkTransferMeters,
+      walkSegments: plan.walkSegments,
+      nextTimes: validT1.slice(0, 3),
+      isLive: false,
+      key: makeKey({ ...plan, legs: finalLegs }),
+    }
+  }
+}
+
 const streamTripIds = computed(() => {
   const ids = new Set<string>()
-  const r = selectedRoute.value
-  if (r) r.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
+  const p = selectedPlan.value
+  if (p) p.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
   return [...ids]
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
-watch([plannedRoutes, vehiclesByTrip, plannedRoutesShapes, userTime], async ([routes, byTrip, shapesMap, uTime]) => {
+// --- Rebuild routesWithTimes when planData or userTime changes ---
+watch([planData, userTime], ([data, uTime]) => {
+  if (!data?.plans?.length) {
+    routesWithTimes.value = []
+    return
+  }
   const now = uTime || new Date()
-  const results: (PlannedRoute & { nextTimes: TimeEntry[], isLive: boolean, key: string })[] = []
+  const grouped = groupPlans(data.plans)
+  const results: RichPlan[] = []
 
-  for (const pr of routes) {
-    if (pr.isDirect) {
-      const dr = pr.legs[0]!
-      const times: TimeEntry[] = []
-      let isLive = false
-      // Track which grouped routes actually have a near-term arrival so chips
-      // for routes that won't run any time soon (e.g. 4N at midday) are dropped.
-      const liveLegRoutes: typeof dr.routes = []
-      const liveLegTripIds: string[] = []
-
-      for (let i = 0; i < dr.routes.length; i++) {
-        const route = dr.routes[i]
-        const tripId = dr.tripIds[i]
-        if (!route || !tripId) continue
-
-        const buses = getAvailableBusesForStop(dr.startStop as StopInfo, now, {limit: 2, tripId: tripId})
-        const myBus = buses.find(b => b.route_id === route.route_id)
-        if (!myBus) continue
-
-        let busTimes = myBus.next_times.filter(t => t.minutes <= MAX_MINUTES)
-        const points = shapesMap.get(tripId)
-        const vehicles = byTrip.get(tripId) ?? []
-
-        if (points && vehicles.length > 0) {
-          const shapeIndex = buildShapeIndex(points)
-          const indexedVehicles = await getIndexedVehicles(
-            tripId,
-            route.route_short_name,
-            route.route_color,
-            shapeIndex,
-            now,
-            vehicles
-          )
-
-          const allStopTimes = getShapeStopTimes(route)
-          const tripStopTimes = allStopTimes.filter(st => st.trip_id === tripId)
-          const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStopTimes, points)
-          const startStopShapeIdx = stopShapeIdxByStopId.get(dr.startStop.stop_id) ?? -1
-
-          if (startStopShapeIdx >= 0) {
-            const eta = etaForStop(startStopShapeIdx, indexedVehicles, shapeIndex)
-            if (eta && eta.etaMinutes <= MAX_MINUTES) {
-              isLive = true
-              busTimes = [
-                {minutes: eta.etaMinutes, is_live: true},
-                ...busTimes.filter(t => t.minutes !== eta.etaMinutes).slice(0, 1)
-              ]
-            } else if (eta && eta.etaMinutes > MAX_MINUTES) {
-              busTimes = []
-            }
-          }
-        }
-
-        if (busTimes.length === 0) continue
-        liveLegRoutes.push(route)
-        liveLegTripIds.push(tripId)
-        times.push(...busTimes)
-      }
-
-      if (times.length > 0 && liveLegRoutes.length > 0) {
-        const filteredLeg = {...dr, routes: liveLegRoutes, tripIds: liveLegTripIds}
-        const filteredPr: PlannedRoute = {...pr, legs: [filteredLeg]}
-        results.push({
-          ...filteredPr,
-          nextTimes: times.sort((a, b) => a.minutes - b.minutes).slice(0, 3),
-          isLive,
-          key: routeSignature(filteredPr),
-        })
-      }
-    } else {
-      // Connecting route (2 legs)
-      const leg1 = pr.legs[0]!
-      const leg2 = pr.legs[1]!
-
-      const validTimes: TimeEntry[] = []
-      // Set of leg2 grouped-route indices that have at least one connection
-      // within 30 min of arrival at the transfer. Routes never confirmed are
-      // dropped from the displayed chip.
-      const liveLeg2Indices = new Set<number>()
-
-      const route1 = leg1.routes[0]
-      const tripId1 = leg1.tripIds[0]
-      if (!route1 || !tripId1) continue
-
-      const buses1 = getAvailableBusesForStop(leg1.startStop as StopInfo, now, {limit: 5, tripId: tripId1})
-      const myBus1 = buses1.find(b => b.route_id === route1.route_id)
-      if (!myBus1) continue
-
-      const stopTimes1 = getShapeStopTimes(route1)
-      // Ride from where the user boards to where they alight, NOT from the
-      // bus's terminus. t1.minutes already accounts for the time the bus needs
-      // to reach the boarding stop, so adding the full terminus-to-transfer
-      // distance would double-count and rule out otherwise-catchable transfers.
-      const rideStartToTransfer = getRideMinutesBetweenStops(
-        stopTimes1, tripId1, leg1.startStop.stop_id, leg1.destStop.stop_id
-      )
-
-      for (const t1 of myBus1.next_times) {
-        if (t1.minutes > MAX_MINUTES) continue
-
-        const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + rideStartToTransfer) * 60_000)
-
-        let hasConnection = false
-        for (let j = 0; j < leg2.routes.length; j++) {
-          const route2 = leg2.routes[j]
-          const tripId2 = leg2.tripIds[j]
-          const buses2 = getAvailableBusesForStop({
-            stop_id: leg2.startStop.stop_id,
-            shapes_info: [route2]
-          } as unknown as StopInfo, arrivalAtTransfer, {limit: 1, tripId: tripId2, maxMinutes: 30})
-          if (buses2.length > 0) {
-            hasConnection = true
-            liveLeg2Indices.add(j)
-          }
-        }
-
-        if (hasConnection) {
-          validTimes.push(t1)
-        }
-      }
-
-      if (validTimes.length > 0 && liveLeg2Indices.size > 0) {
-        const idxs = Array.from(liveLeg2Indices).sort((a, b) => a - b)
-        const filteredLeg2 = {
-          ...leg2,
-          routes: idxs.map(j => leg2.routes[j]!).filter(Boolean),
-          tripIds: idxs.map(j => leg2.tripIds[j]!).filter(Boolean),
-        }
-        const filteredPr: PlannedRoute = {...pr, legs: [leg1, filteredLeg2]}
-        results.push({
-          ...filteredPr,
-          nextTimes: validTimes.slice(0, 3),
-          isLive: false,
-          key: routeSignature(filteredPr),
-        })
-      }
-    }
+  for (const plan of grouped) {
+    const rich = buildRichPlan(plan, data.shapes, now)
+    if (rich) results.push(rich)
   }
 
-  // Sort once on the first build. After that preserve order so the user's
-  // selected card doesn't jump around as time/vehicles tick.
-  if (routesWithTimes.value.length === 0) {
-    results.sort((a, b) => {
-      const arrivalA = estimateMinutesToDestination(a, a.nextTimes)
-      const arrivalB = estimateMinutesToDestination(b, b.nextTimes)
-      if (Math.abs(arrivalA - arrivalB) > 1) return arrivalA - arrivalB
-      return (a.legs.length - b.legs.length) || (a.walkEndMeters - b.walkEndMeters)
-    })
-  } else {
-    const order = new Map(routesWithTimes.value.map((r, i) => [r.key, i]))
-    results.sort((a, b) => (order.get(a.key) ?? 999) - (order.get(b.key) ?? 999))
-  }
+  results.sort((a, b) => {
+    const totalA = computeTotalMinutes(a)
+    const totalB = computeTotalMinutes(b)
+    if (Math.abs(totalA - totalB) > 1) return totalA - totalB
+    if (a.legs.length !== b.legs.length) return a.legs.length - b.legs.length
+    const depA = a.nextTimes[0]?.minutes ?? 999
+    const depB = b.nextTimes[0]?.minutes ?? 999
+    if (depA !== depB) return depA - depB
+    return a.walkEndMeters - b.walkEndMeters
+  })
+
   routesWithTimes.value = results
 }, {immediate: true})
 
 const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
 
-watch(selectedRouteSignature, async (newKey) => {
-  const newRoute = selectedRoute.value
-  if (!newKey || !newRoute) {
+watch(selectedPlanSignature, async (key) => {
+  const plan = selectedPlan.value
+  if (!key || !plan) {
     shapeIndicesByTripId.value = new Map()
     void mapStore.setShapesToDisplay([])
     return
   }
 
   try {
-    const toRequest = newRoute.legs.flatMap(l => {
-      return l.tripIds.map((tid, idx) => {
-        const r = l.routes[idx]
-        if (!r || !tid) return null
+    const toRequest: DisplayShape[] = plan.legs.flatMap(l =>
+      l.tripIds.map((tid, i) => {
+        const s = shapes.value[String(l.routeIds[i])]
+        if (!s || !tid) return null
         return {
           trip_id: tid,
-          route_short_name: r.route_short_name,
-          route_long_name: r.route_long_name,
-          route_color: r.route_color,
-          route_type: r.route_type,
+          route_short_name: s.route_short_name,
+          route_long_name: s.route_long_name,
+          route_color: s.route_color,
+          route_type: s.route_type,
         }
-      }).filter(x => x !== null) as DisplayShape[]
-    })
+      }).filter((x): x is DisplayShape => x !== null)
+    )
 
     const shapeData = await mapStore.requestShapes(toRequest)
-    const loadedShapes: Array<[DisplayShape, Shape[]]> = []
+    const loadedShapes: Array<[DisplayShape, typeof shapeData[number][1]]> = []
     const newIndices = new Map<string, ShapeIndex>()
 
     shapeData.forEach(([info, pts]) => {
-      // Find which leg this shape belongs to.
-      // We might have multiple legs using the same shape or different trips in the same leg.
-      // For each tripId, we want to crop the points to the leg's start/dest.
-      newRoute.legs.forEach(leg => {
+      plan.legs.forEach(leg => {
         if (leg.tripIds.includes(info.trip_id)) {
           if (pts.length) {
-            const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
-            const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
-
-            const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-            const croppedPts = pts.slice(realStart, realEnd + 1)
-
-            newIndices.set(info.trip_id, buildShapeIndex(pts))
-            loadedShapes.push([info, croppedPts])
+            const startStop = stops.value[String(leg.startStopId)]
+            const destStop = stops.value[String(leg.destStopId)]
+            if (startStop && destStop) {
+              const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+              const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
+              const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+              const croppedPts = pts.slice(realStart, realEnd + 1)
+              newIndices.set(info.trip_id, buildShapeIndex(pts))
+              loadedShapes.push([info, croppedPts])
+            }
           }
         }
       })
@@ -383,108 +392,59 @@ watch(selectedRouteSignature, async (newKey) => {
   }
 }, {immediate: true})
 
-// Snap coords so small GPS jitter doesn't refire the directions watch.
-const SIGNIFICANT_LOC_M = 50
-const lastWalkLocRef = ref<{ lat: number; lon: number } | null>(null)
-const lastWalkSigRef = ref<string | null>(null)
+// --- Walk polylines ---
+watch(selectedPlanSignature, (key) => {
+  const plan = selectedPlan.value
+  if (!key || !plan || !plan.walkSegments.length) {
+    mapStore.clearWalkingPolylines()
+    return
+  }
+  mapStore.setWalkingPolylines(plan.walkSegments.map(s => decodePolyline(s.geometry)))
+}, {immediate: true})
 
-watch(
-  [selectedRouteSignature, userLocation, customOrigin],
-  async ([newKey, ul, co]) => {
-    const origin = co ? { latitude: co.lat, longitude: co.lon } : ul
-    if (!newKey || !origin || isNaN(destLat.value) || isNaN(destLon.value)) {
-      mapStore.clearWalkingPolylines()
-      lastWalkSigRef.value = null
-      return
-    }
-    const last = lastWalkLocRef.value
-    const movedFar = !last || haversineMeters(last.lat, last.lon, origin.latitude, origin.longitude) > SIGNIFICANT_LOC_M
-    const sigChanged = lastWalkSigRef.value !== newKey
-    // Refetch when (a) route changed or (b) user actually moved.
-    // GPS jitter <50 m on the same route is ignored.
-    if (!sigChanged && !movedFar && mapStore.walkingPolylines.length > 0) return
-
-    // Wipe the previous route's lines immediately so the user never sees stale
-    // walking paths overlaying the new selection while the new ones are fetched.
-    if (sigChanged) mapStore.clearWalkingPolylines()
-    lastWalkSigRef.value = newKey
-    lastWalkLocRef.value = {lat: origin.latitude, lon: origin.longitude}
-
-    const newRoute = selectedRoute.value
-    if (!newRoute) return
-
-    try {
-      const firstLeg = newRoute.legs[0]!
-      const lastLeg = newRoute.legs[newRoute.legs.length - 1]!
-
-      const segments: Array<[[number, number], [number, number]]> = [
-        [[origin.latitude, origin.longitude], [firstLeg.startStop.stop_lat, firstLeg.startStop.stop_lon]],
-        [[lastLeg.destStop.stop_lat, lastLeg.destStop.stop_lon], [destLat.value, destLon.value]],
-      ]
-      for (let i = 0; i < newRoute.legs.length - 1; i++) {
-        const legA = newRoute.legs[i]!
-        const legB = newRoute.legs[i + 1]!
-        if (haversineMeters(legA.destStop.stop_lat, legA.destStop.stop_lon, legB.startStop.stop_lat, legB.startStop.stop_lon) > 5) {
-          segments.push([
-            [legA.destStop.stop_lat, legA.destStop.stop_lon],
-            [legB.startStop.stop_lat, legB.startStop.stop_lon],
-          ])
-        }
-      }
-
-      const polylines = await Promise.all(segments.map(([a, b]) => fetchWalkingPolyline(a, b)))
-      // Bail if the user picked yet another route while we were fetching.
-      if (lastWalkSigRef.value !== newKey) return
-      mapStore.setWalkingPolylines(polylines)
-    } catch (e) {
-      console.error('Failed to fetch walking directions:', e)
-    }
-  },
-  {immediate: true},
-)
-
-watch([vehiclesByTrip, selectedRouteSignature, shapeIndicesByTripId], async ([byTrip, , shapeIndices]) => {
-  const route = selectedRoute.value
-  if (!route || !shapeIndices.size) {
+// --- Vehicle tracking ---
+watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byTrip, , shapeIndices]) => {
+  const plan = selectedPlan.value
+  if (!plan || !shapeIndices.size) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
+    selectedRouteIsLive.value = false
+    selectedRouteLiveEtaMin.value = null
     return
   }
 
   const allIndexedVehicles: IndexedVehicle[] = []
-  for (const leg of route.legs) {
+  for (const leg of plan.legs) {
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
-      const r = leg.routes[i]
-      if (!tid || !r) continue
+      const routeId = leg.routeIds[i]
+      if (!tid || routeId === undefined) continue
 
+      const shape = shapes.value[String(routeId)]
       const shapeIndex = shapeIndices.get(tid)
-      if (!shapeIndex) continue
+      if (!shapeIndex || !shape) continue
 
       const v = byTrip.get(tid) ?? []
       try {
         const indexed = await getIndexedVehicles(
           tid,
-          r.route_short_name,
-          r.route_color,
+          shape.route_short_name,
+          shape.route_color,
           shapeIndex,
           userTime.value,
           v
         )
 
-        // Filter vehicles to only show those relevant to the current leg.
-        // We show them if they are between start and dest stop, plus a small buffer.
         const pts = shapeIndex.shape
-        const startIdx = findClosestShapeIdx(leg.startStop.stop_lat, leg.startStop.stop_lon, pts)
-        const destIdx = findClosestShapeIdx(leg.destStop.stop_lat, leg.destStop.stop_lon, pts)
+        const startStop = stops.value[String(leg.startStopId)]
+        const destStop = stops.value[String(leg.destStopId)]
+        if (!startStop || !destStop) continue
+
+        const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+        const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
         const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
 
-        const filtered = indexed.filter(iv => {
-          // Allow some buffer before start stop (e.g. 10 points ~ 100-300m)
-          // so the user can see the bus approaching.
-          return iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1
-        })
-
+        const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
         allIndexedVehicles.push(...filtered)
       } catch (e) {
         console.warn('Failed to index vehicles for trip', tid, e)
@@ -500,17 +460,66 @@ watch([vehiclesByTrip, selectedRouteSignature, shapeIndicesByTripId], async ([by
       deduped.push(v)
     }
   }
-
   currentVehicles.value = deduped
   mapStore.setVehiclesToDisplay(currentVehicles.value)
+
+  // Live ETA for first leg boarding stop
+  const leg = plan.legs[0]
+  const tid = leg?.tripIds[0]
+  const si = shapeIndices.get(tid ?? '')
+  if (si && leg && tid) {
+    const routeId = leg.routeIds[0]
+    const shape = routeId !== undefined ? shapes.value[String(routeId)] : undefined
+    if (shape) {
+      const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
+      const stopShapeIdx = buildStopShapeIdxByStopId(stopTimes, si.shape)
+      const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
+      if (boardingIdx >= 0) {
+        const indexedVehiclesForTid = await getIndexedVehicles(
+          tid,
+          shape.route_short_name,
+          shape.route_color,
+          si,
+          userTime.value,
+          byTrip.get(tid) ?? []
+        )
+        const eta = etaForStop(boardingIdx, indexedVehiclesForTid, si)
+        if (eta && eta.etaMinutes <= MAX_MINUTES) {
+          selectedRouteIsLive.value = true
+          selectedRouteLiveEtaMin.value = eta.etaMinutes
+          // Inject live time into plan's nextTimes
+          const existing = routesWithTimes.value.find(p => p.key === plan.key)
+          if (existing) {
+            existing.isLive = true
+            existing.nextTimes = [
+              { minutes: eta.etaMinutes, is_live: true },
+              ...existing.nextTimes.filter(t => !t.is_live).slice(0, 1)
+            ]
+          }
+        } else {
+          selectedRouteIsLive.value = false
+          selectedRouteLiveEtaMin.value = null
+        }
+      }
+    }
+  }
 }, {deep: true})
 
+function computeTotalMinutes(plan: RichPlan): number {
+  if (!plan.nextTimes.length) return Infinity
+  const walkStartMin = plan.walkStartMeters / WALK_SPEED
+  const rideMin = plan.legs.reduce((s, l) => s + l.rideSeconds / 60, 0)
+  const transferPenalty = (plan.legs.length - 1) * 5
+  const walkEndMin = plan.walkEndMeters / WALK_SPEED
+  const catchable = plan.nextTimes.find(t => t.minutes >= walkStartMin) ?? plan.nextTimes[plan.nextTimes.length - 1]
+  return Math.round((catchable?.minutes ?? 0) + rideMin + transferPenalty + walkEndMin)
+}
 
 const totalTripMinutes = computed(() => {
-  const r = selectedRoute.value
-  if (!r) return 0
-  const minutes = estimateMinutesToDestination(r, r.nextTimes)
-  return Number.isFinite(minutes) ? Math.round(minutes) : 0
+  const plan = selectedPlan.value
+  if (!plan) return 0
+  const val = computeTotalMinutes(plan)
+  return Number.isFinite(val) ? val : 0
 })
 
 const formatMinutes = (m: number): string => {
@@ -520,84 +529,52 @@ const formatMinutes = (m: number): string => {
   return rem === 0 ? `${h} h` : `${h} h ${rem} min`
 }
 
-const getLegRideMinutes = (leg: PlannedRoute['legs'][number]): number => {
-  const route = leg.routes[0]
-  const tripId = leg.tripIds[0]
-  if (!route || !tripId) return 0
-  const stopTimes = getShapeStopTimes(route)
-  const tripStopTimes = stopTimes.filter(st => st.trip_id === tripId)
-  const startST = tripStopTimes.find(st => st.stop_id === leg.startStop.stop_id)
-  const destST = tripStopTimes.find(st => st.stop_id === leg.destStop.stop_id)
-  if (!startST || !destST) return 0
-  return Math.max(0, Math.round((destST.offset_arrival_time - startST.offset_arrival_time) / 60))
-}
-
 const getTransferWalkMeters = (legIdx: number): number => {
-  const route = selectedRoute.value
-  if (!route) return 0
-  const a = route.legs[legIdx]
-  const b = route.legs[legIdx + 1]
+  const plan = selectedPlan.value
+  if (!plan) return 0
+  const a = plan.legs[legIdx]
+  const b = plan.legs[legIdx + 1]
   if (!a || !b) return 0
-  if (a.destStop.stop_id === b.startStop.stop_id) return 0
-  return haversineMeters(a.destStop.stop_lat, a.destStop.stop_lon, b.startStop.stop_lat, b.startStop.stop_lon)
+  if (a.destStopId === b.startStopId) return 0
+  const aStop = stops.value[String(a.destStopId)]
+  const bStop = stops.value[String(b.startStopId)]
+  if (!aStop || !bStop) return 0
+  return haversineMeters(aStop.stop_lat, aStop.stop_lon, bStop.stop_lat, bStop.stop_lon)
 }
 
-const routeLegsData = computed(() => {
-  if (!selectedRoute.value) return []
-
-  return selectedRoute.value.legs.map((leg) => {
-    const tripId = leg.tripIds[0]
-    const route = leg.routes[0]
-    const {startStop, destStop} = leg
-    const allStopTimes = getShapeStopTimes(route)
-
-    const tripStopTimes = allStopTimes
-      .filter(st => st.trip_id === tripId)
-      .sort((a, b) => a.stop_sequence - b.stop_sequence)
-
-    const startSeq = tripStopTimes.find(st => st.stop_id === startStop.stop_id)?.stop_sequence ?? -1
-    const destSeq = tripStopTimes.find(st => st.stop_id === destStop.stop_id)?.stop_sequence ?? -1
-
-    const intermediates = (startSeq !== -1 && destSeq !== -1)
-      ? tripStopTimes.filter(st => st.stop_sequence > startSeq && st.stop_sequence < destSeq)
-          .map(st => ({
-            stop_id: st.stop_id,
-            stop_name: st.stop_headsign || `Stop ${st.stop_id}`,
-          }))
-      : []
-
-    return {
-      leg,
-      intermediates
-    }
+const selectedPlanLegsData = computed(() => {
+  const plan = selectedPlan.value
+  if (!plan) return []
+  return plan.legs.map(leg => {
+    const shape = shapes.value[String(leg.routeIds[0])]
+    const intermediates = (leg.intermediateStopIds ?? []).map(id => ({
+      stop_id: id,
+      stop_name: stops.value[String(id)]?.stop_name ?? `Stop ${id}`,
+    }))
+    return { leg, shape, intermediates }
   })
 })
 
-watch([selectedRouteSignature, routeLegsData], ([, legsData]) => {
-  const newRoute = selectedRoute.value
-  if (!newRoute) {
+watch([selectedPlanSignature, selectedPlanLegsData], ([, legsData]) => {
+  const plan = selectedPlan.value
+  if (!plan) {
     mapStore.setHighlightedStops([])
     return
   }
 
   const highlighted: HighlightedStop[] = []
-
   legsData.forEach((ld, idx) => {
     highlighted.push({
-      stopId: String(ld.leg.startStop.stop_id),
+      stopId: String(ld.leg.startStopId),
       color: idx === 0 ? 'green' : 'purple'
     })
-
     ld.intermediates.forEach(s => {
-      highlighted.push({stopId: String(s.stop_id), color: 'gray'})
+      highlighted.push({ stopId: String(s.stop_id), color: 'gray' })
     })
-
     if (idx === legsData.length - 1) {
-      highlighted.push({stopId: String(ld.leg.destStop.stop_id), color: 'red'})
-    } else if (ld.leg.destStop.stop_id !== legsData[idx + 1]?.leg.startStop.stop_id) {
-      // Alighting stop differs from next boarding stop — mark it as a "get off here" point
-      // so the walking transfer reads on the map.
-      highlighted.push({stopId: String(ld.leg.destStop.stop_id), color: 'amber'})
+      highlighted.push({ stopId: String(ld.leg.destStopId), color: 'red' })
+    } else if (ld.leg.destStopId !== legsData[idx + 1]?.leg.startStopId) {
+      highlighted.push({ stopId: String(ld.leg.destStopId), color: 'amber' })
     }
   })
 
@@ -623,7 +600,7 @@ function getQueryKey() {
   return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}`
 }
 
-watch(selectedRouteKey, (newKey) => {
+watch(selectedPlanKey, (newKey) => {
   const qk = getQueryKey()
   if (qk && newKey) {
     plannerStore.setSelectedRouteKey(qk, newKey)
@@ -693,7 +670,7 @@ function useCurrentLocation() {
   void calculateRoutes()
 }
 
-watch(selectedRouteIndex, () => {
+watch(selectedPlanIndex, () => {
   mapStore.fitWalkingPolylines = true
 })
 
@@ -777,21 +754,21 @@ onUnmounted(() => {
 
 watch(routesWithTimes, (newRoutes) => {
   if (!newRoutes.length) {
-    selectedRouteIndex.value = 0
-    selectedRouteKey.value = null
+    selectedPlanIndex.value = 0
+    selectedPlanKey.value = null
     return
   }
-  if (selectedRouteKey.value) {
-    const idx = newRoutes.findIndex(r => r.key === selectedRouteKey.value)
+  if (selectedPlanKey.value) {
+    const idx = newRoutes.findIndex(r => r.key === selectedPlanKey.value)
     if (idx >= 0) {
-      selectedRouteIndex.value = idx
+      selectedPlanIndex.value = idx
       return
     }
   }
-  if (selectedRouteIndex.value >= newRoutes.length) {
-    selectedRouteIndex.value = 0
+  if (selectedPlanIndex.value >= newRoutes.length) {
+    selectedPlanIndex.value = 0
   }
-  selectedRouteKey.value = newRoutes[selectedRouteIndex.value]?.key ?? null
+  selectedPlanKey.value = newRoutes[selectedPlanIndex.value]?.key ?? null
 })
 
 watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
@@ -799,7 +776,6 @@ watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
     hasFlownToFallback.value = false
     return
   }
-
   if (routes.length === 0 && !isNaN(destLat.value) && !isNaN(destLon.value) && !hasFlownToFallback.value) {
     mapStore.setFlyToLocation(destLat.value, destLon.value)
     hasFlownToFallback.value = true
@@ -807,35 +783,35 @@ watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
 })
 
 async function calculateRoutes() {
+  if (isCalculating.value) return
   const lat = destLat.value
   const lon = destLon.value
-  const ul = customOrigin.value
-    ? {latitude: customOrigin.value.lat, longitude: customOrigin.value.lon}
-    : (hasLocationPermission.value ? userLocation.value : null)
-  const stops = allStops.value
-  if (Number.isNaN(lat) || Number.isNaN(lon) || !ul || !Array.isArray(stops) || !stops.length) return
+  const origin = customOrigin.value ?? (hasLocationPermission.value ? userLocation.value : null)
+  if (!origin || isNaN(lat) || isNaN(lon)) return
 
   const qk = getQueryKey()
-  if (qk && qk === currentQueryKey.value && plannedRoutes.value.length > 0) {
-    return
-  }
+  if (qk && qk === currentQueryKey.value && planData.value?.plans.length) return
 
   isCalculating.value = true
   try {
-    if (qk) {
-      selectedRouteKey.value = plannerStore.getSelectedRouteKey(qk)
-    }
+    if (qk) selectedPlanKey.value = plannerStore.getSelectedRouteKey(qk)
 
-    const routes = await findRoutes(ul.latitude, ul.longitude, lat, lon)
+    const fromLat = 'latitude' in origin ? origin.latitude : (origin as {lat: number}).lat
+    const fromLng = 'longitude' in origin ? origin.longitude : (origin as {lon: number}).lon
+    const resp = await fetch(`/api/plan_routes?from_lat=${fromLat.toFixed(5)}&from_lng=${fromLng.toFixed(5)}&to_lat=${lat.toFixed(5)}&to_lng=${lon.toFixed(5)}`)
+    if (!resp.ok) throw new Error('fetch failed')
+    const data = await resp.json() as ApiResp
+
     routesWithTimes.value = []
-    plannedRoutes.value = routes
+    planData.value = data
     currentQueryKey.value = qk
-    if (routes.length) {
+
+    if (data.plans.length) {
       mapStore.fitWalkingPolylines = true
       favoritesStore.addRecentPlan({
         name: destName.value || t('planTitleGeneric'),
-        lat: lat,
-        lon: lon,
+        lat,
+        lon,
         originName: customOrigin.value?.name,
         originLat: customOrigin.value?.lat,
         originLon: customOrigin.value?.lon
@@ -850,117 +826,28 @@ watch([destLat, destLon, userLocation, allStops, customOrigin], async (newVal, o
   const [newLat, newLon, newUL, newStops, newCO] = newVal
   const [oldLat, oldLon, oldUL, oldStops, oldCO] = oldVal || []
 
-  // 1. If we don't have enough to calculate, don't bother (but calculateRoutes already checks this)
-  // 2. If allStops just loaded, we definitely want to calculate if we have location
   const stopsJustLoaded = (!oldStops || oldStops.length === 0) && newStops && newStops.length > 0
-
-  // 3. If userLocation just loaded and we didn't have it before (and no customOrigin)
   const locationJustLoaded = !newCO && !oldUL && newUL
-
-  // 4. If destination changed
   const destChanged = newLat !== oldLat || newLon !== oldLon
-
-  // 5. If custom origin changed
   const originChanged = newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon
 
-  // Only auto-calculate if we don't have routes yet OR if coordinates/origin changed
-  if (plannedRoutes.value.length === 0 || destChanged || originChanged || locationJustLoaded || stopsJustLoaded) {
+  if (!planData.value?.plans?.length || destChanged || originChanged || locationJustLoaded || stopsJustLoaded) {
     await calculateRoutes()
   }
 }, {immediate: true})
 
 async function refreshRoutes() {
   if (isCalculating.value) return
-  selectedRouteIndex.value = 0
-  selectedRouteKey.value = null
+  selectedPlanIndex.value = 0
+  selectedPlanKey.value = null
   routesWithTimes.value = []
-  plannedRoutes.value = []
+  planData.value = null
   currentQueryKey.value = null
-  lastWalkLocRef.value = null
-  lastWalkSigRef.value = null
+  mapStore.clearWalkingPolylines()
   await calculateRoutes()
 }
 
 </script>
-
-<style>
-.construction-banner {
-  background-color: #fef08a;
-  color: #854d0e;
-  padding: 0.5rem;
-  text-align: center;
-  font-weight: 700;
-  font-size: 0.875rem;
-  border-bottom: 1px solid #facc15;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.banner-close-btn {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 0.25rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s;
-}
-
-.banner-close-btn:hover {
-  background-color: rgba(133, 77, 14, 0.1);
-}
-
-.dark .construction-banner {
-  background-color: #713f12;
-  color: #fef9c3;
-  border-bottom: 1px solid #a16207;
-}
-
-.dark .banner-close-btn:hover {
-  background-color: rgba(254, 249, 195, 0.1);
-}
-
-html[data-traditional] .construction-banner {
-  background: var(--xp-tan);
-  color: var(--xp-text);
-  border-bottom: 1px solid var(--xp-border);
-  font-family: var(--xp-font);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  padding-right: 2rem;
-}
-
-html[data-traditional] .banner-close-btn {
-  border: 1px solid #ACA899;
-  background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 100%);
-  box-shadow: inset 1px 1px 1px #fff;
-  border-radius: 2px;
-  right: 4px;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-html[data-traditional] .banner-close-btn:hover {
-  background: linear-gradient(to bottom, #FFF5C8 0%, #F3C94E 100%);
-}
-
-html[data-hungry] .construction-banner {
-  background-color: #f59e0b;
-  color: #fff;
-  border-bottom: 2px dashed #78350f;
-}
-
-html[data-hungry] .banner-close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-</style>
 
 <template>
   <div v-if="!hasValidCoords"
@@ -1024,20 +911,20 @@ html[data-hungry] .banner-close-btn:hover {
     </header>
 
     <div v-if="hasLocationPermission || customOrigin">
-      <section v-if="!isCalculating && selectedRoute" class="trip-summary">
+      <section v-if="!isCalculating && selectedPlan" class="trip-summary">
         <div class="trip-summary-stat">
           <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
           <span class="trip-summary-stat-label">{{ t('planTripTotal') }}</span>
         </div>
-        <div v-if="selectedRoute.nextTimes[0]" class="trip-summary-stat">
-          <span class="trip-summary-stat-value" :class="selectedRoute.isLive ? 'is-live' : ''">
-            <span v-if="selectedRoute.isLive" class="live-dot"></span>{{ selectedRoute.nextTimes[0].is_live ? '' : '~ ' }}{{ formatMinutesFromNow(selectedRoute.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
+        <div v-if="selectedPlan.nextTimes[0]" class="trip-summary-stat">
+          <span class="trip-summary-stat-value" :class="selectedRouteIsLive ? 'is-live' : ''">
+            <span v-if="selectedRouteIsLive" class="live-dot"></span>{{ (selectedRouteLiveEtaMin !== null ? true : selectedPlan.nextTimes[0].is_live) ? '' : '~ ' }}{{ formatMinutesFromNow(selectedRouteLiveEtaMin ?? selectedPlan.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
           </span>
           <span class="trip-summary-stat-label">{{ t('planNextDepartures') }}</span>
         </div>
-        <div v-if="!selectedRoute.isDirect" class="trip-summary-stat">
-          <span class="trip-summary-stat-value">{{ selectedRoute.legs.length - 1 }}</span>
-          <span class="trip-summary-stat-label">{{ selectedRoute.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}</span>
+        <div v-if="!selectedPlan.isDirect" class="trip-summary-stat">
+          <span class="trip-summary-stat-value">{{ selectedPlan.legs.length - 1 }}</span>
+          <span class="trip-summary-stat-label">{{ selectedPlan.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}</span>
         </div>
       </section>
       <section v-if="isCalculating || routesWithTimes.length > 0" class="route-legs-card">
@@ -1106,30 +993,30 @@ html[data-hungry] .banner-close-btn:hover {
           </div>
         </div>
 
-        <template v-if="selectedRoute">
-          <div v-for="(ld, legIdx) in routeLegsData" :key="legIdx">
+        <template v-if="selectedPlan">
+          <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx">
             <div class="leg-row">
               <div class="leg-icon-col">
-                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.leg.routes[0]?.route_color }">
-                  <div class="dot-inner" :style="{ backgroundColor: ld.leg.routes[0]?.route_color }"></div>
+                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.shape?.route_color }">
+                  <div class="dot-inner" :style="{ backgroundColor: ld.shape?.route_color }"></div>
                 </div>
-                <div class="leg-line" :style="{ backgroundColor: ld.leg.routes[0]?.route_color, backgroundImage: 'none' }"></div>
+                <div class="leg-line" :style="{ backgroundColor: ld.shape?.route_color, backgroundImage: 'none' }"></div>
               </div>
               <div class="leg-label-col">
-                <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">
+                <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">
                   {{ t('planBoarding') }}
-                  <template v-for="(r, rIdx) in ld.leg.routes" :key="r.route_id">
+                  <template v-for="(routeId, rIdx) in ld.leg.routeIds" :key="routeId">
                     <RouterLink
                       class="leg-route-link"
-                      :to="{ name: 'route', params: { routeId: r.route_id, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
+                      :to="{ name: 'route', params: { routeId: routeId, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
                       @click.stop
-                    >{{ r.route_short_name }}</RouterLink><span v-if="rIdx < ld.leg.routes.length - 1" class="leg-route-sep"> / </span>
+                    >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < ld.leg.routeIds.length - 1" class="leg-route-sep"> / </span>
                   </template>
-                  <span v-if="getLegRideMinutes(ld.leg) > 0" class="leg-ride-time">
-                    · {{ getLegRideMinutes(ld.leg) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
+                  <span v-if="Math.max(0, Math.round(ld.leg.rideSeconds / 60)) > 0" class="leg-ride-time">
+                    · {{ Math.max(0, Math.round(ld.leg.rideSeconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                   </span>
                 </span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStop.stop_id } }">{{ ld.leg.startStop.stop_name }}</RouterLink>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStopId } }">{{ stops[String(ld.leg.startStopId)]?.stop_name }}</RouterLink>
               </div>
             </div>
 
@@ -1138,27 +1025,27 @@ html[data-hungry] .banner-close-btn:hover {
                 <div class="leg-dot intermediate-dot">
                   <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
                 </div>
-                <div class="leg-line" :style="{ backgroundColor: ld.leg.routes[0]?.route_color, backgroundImage: 'none' }"></div>
+                <div class="leg-line" :style="{ backgroundColor: ld.shape?.route_color, backgroundImage: 'none' }"></div>
               </div>
               <div class="leg-label-col">
                 <RouterLink class="leg-name intermediate-name leg-name-link" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
               </div>
             </div>
 
-            <div class="leg-row" :class="{ 'leg-row-alight-transfer': legIdx < routeLegsData.length - 1 }">
+            <div class="leg-row" :class="{ 'leg-row-alight-transfer': legIdx < selectedPlanLegsData.length - 1 }">
               <div class="leg-icon-col">
-                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.leg.routes[0]?.route_color }">
-                  <div class="dot-inner" :style="{ backgroundColor: ld.leg.routes[0]?.route_color }"></div>
+                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.shape?.route_color }">
+                  <div class="dot-inner" :style="{ backgroundColor: ld.shape?.route_color }"></div>
                 </div>
-                <div v-if="legIdx === routeLegsData.length - 1" class="leg-line leg-line-dashed"></div>
+                <div v-if="legIdx === selectedPlanLegsData.length - 1" class="leg-line leg-line-dashed"></div>
               </div>
               <div class="leg-label-col">
-                <span class="leg-type-badge" :style="{ color: ld.leg.routes[0]?.route_color }">{{ t('planAlighting') }}</span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStop.stop_id } }">{{ ld.leg.destStop.stop_name }}</RouterLink>
+                <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">{{ t('planAlighting') }}</span>
+                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStopId } }">{{ stops[String(ld.leg.destStopId)]?.stop_name }}</RouterLink>
               </div>
             </div>
 
-            <div v-if="legIdx < routeLegsData.length - 1" class="transfer-block">
+            <div v-if="legIdx < selectedPlanLegsData.length - 1" class="transfer-block">
               <div class="transfer-block-rail">
                 <span class="transfer-block-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1262,33 +1149,33 @@ html[data-hungry] .banner-close-btn:hover {
 
         <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
           <div
-            v-for="(route, index) in routesWithTimes"
-            :key="route.key"
+            v-for="(plan, index) in routesWithTimes"
+            :key="plan.key"
             class="departure-card group"
-            :class="{ 'is-selected': selectedRouteIndex === index }"
-            @click="selectRouteAt(index)"
+            :class="{ 'is-selected': selectedPlanIndex === index }"
+            @click="selectPlanAt(index)"
           >
-            <div class="card-rail" :class="{ 'is-active': selectedRouteIndex === index }"></div>
+            <div class="card-rail" :class="{ 'is-active': selectedPlanIndex === index }"></div>
 
             <div class="card-body">
               <div class="card-row-primary">
                 <div class="bus-chain">
-                  <template v-for="(leg, lIdx) in route.legs" :key="lIdx">
+                  <template v-for="(leg, lIdx) in plan.legs" :key="lIdx">
                     <span
                       class="bus-chip"
-                      :style="{ backgroundColor: leg.routes[0]?.route_color }"
-                      :title="leg.routes.map(r => r.route_short_name).join(' / ')"
-                    ><template v-for="(r, rIdx) in leg.routes" :key="rIdx"><span class="bus-chip-name">{{ r.route_short_name }}</span><span v-if="rIdx < leg.routes.length - 1" class="bus-chip-sep">/</span></template></span>
-                    <svg v-if="lIdx < route.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      :style="{ backgroundColor: shapes[String(leg.routeIds[0])]?.route_color }"
+                      :title="leg.routeIds.map(id => shapes[String(id)]?.route_short_name).join(' / ')"
+                    ><template v-for="(routeId, rIdx) in leg.routeIds" :key="rIdx"><span class="bus-chip-name">{{ shapes[String(routeId)]?.route_short_name }}</span><span v-if="rIdx < leg.routeIds.length - 1" class="bus-chip-sep">/</span></template></span>
+                    <svg v-if="lIdx < plan.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
                     </svg>
                   </template>
                 </div>
 
-                <span v-if="route.nextTimes[0]"
+                <span v-if="plan.nextTimes[0]"
                   class="card-primary-time"
-                  :class="route.nextTimes[0].is_live ? 'card-primary-time-live' : 'card-primary-time-sched'">
-                  <span v-if="route.nextTimes[0].is_live" class="live-dot"></span><span v-if="!route.nextTimes[0].is_live">~ </span>{{ formatMinutesFromNow(route.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
+                  :class="plan.nextTimes[0].is_live ? 'card-primary-time-live' : 'card-primary-time-sched'">
+                  <span v-if="plan.nextTimes[0].is_live" class="live-dot"></span><span v-if="!plan.nextTimes[0].is_live">~ </span>{{ formatMinutesFromNow(plan.nextTimes[0].minutes, userTime || new Date(), t('now')) }}
                 </span>
 
                 <svg class="card-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -1298,22 +1185,22 @@ html[data-hungry] .banner-close-btn:hover {
 
               <div class="card-row-meta">
                 <span class="card-arrow">→</span>
-                <span class="card-dest" :title="route.legs[route.legs.length - 1]?.destStop?.stop_name">{{ route.legs[route.legs.length - 1]?.destStop?.stop_name }}</span>
+                <span class="card-dest" :title="stops[String(plan.legs[plan.legs.length-1]?.destStopId ?? 0)]?.stop_name">{{ stops[String(plan.legs[plan.legs.length-1]?.destStopId ?? 0)]?.stop_name }}</span>
               </div>
 
               <div class="card-row-stats">
-                <span v-if="!route.isDirect" class="stat-chip stat-chip-transfer">
+                <span v-if="!plan.isDirect" class="stat-chip stat-chip-transfer">
                   <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v12m-3-3l3 3 3-3m7 9V4m-3 3l3-3 3 3"/>
                   </svg>
-                  {{ route.legs.length - 1 }}&nbsp;{{ route.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}
+                  {{ plan.legs.length - 1 }}&nbsp;{{ plan.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}
                 </span>
-                <span v-if="route.isLive" class="stat-chip stat-chip-live">
+                <span v-if="plan.isLive" class="stat-chip stat-chip-live">
                   <span class="live-dot"></span>{{ t('live') }}
                 </span>
-                <span v-if="route.nextTimes.length > 1" class="stat-chip-next">
+                <span v-if="plan.nextTimes.length > 1" class="stat-chip-next">
                   <span class="stat-chip-label">{{ t('planThen') }}</span>
-                  <template v-for="(entry, i) in route.nextTimes.slice(1, 3)" :key="i"><span class="stat-chip-time">{{ entry.is_live ? '' : '~\u202f' }}{{ formatMinutesFromNow(entry.minutes, userTime || new Date(), t('now')) }}</span></template>
+                  <template v-for="(entry, i) in plan.nextTimes.slice(1, 3)" :key="i"><span class="stat-chip-time">{{ entry.is_live ? '' : '~ ' }}{{ formatMinutesFromNow(entry.minutes, userTime || new Date(), t('now')) }}</span></template>
                 </span>
               </div>
             </div>
@@ -1322,7 +1209,7 @@ html[data-hungry] .banner-close-btn:hover {
 
         <div v-else class="flex flex-col gap-4">
           <div class="plan-placeholder">
-            <template v-if="directRoutes.length > 0">
+            <template v-if="planData && planData.plans.length > 0">
               <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round"

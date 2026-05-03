@@ -1,5 +1,6 @@
 import type {ShapeInfo, Stop, StopInfo, StopTime, TimeEntry} from '@/types/tranzy.ts'
 import {apiRequest} from '@/utils/request_cache.ts'
+import {decodePolyline} from '@/utils/geo.ts'
 
 export const WALKING_SPEED_M_PER_MIN = 80
 
@@ -17,6 +18,7 @@ export type PlannedRoute = {
   walkStartMeters: number
   walkEndMeters: number
   transitDurationSec: number
+  walkSegments: [number, number][][]
 }
 
 export const getRouteIdFromTripId = (tripId: string): number | null => {
@@ -115,6 +117,12 @@ type PlanLegResp = {
   intermediate_stop_ids: number[]
 }
 
+type PlanWalkSegment = {
+  geometry: string
+  distance_m: number
+  duration_sec: number
+}
+
 type PlanRouteResp = {
   legs: PlanLegResp[]
   is_direct: boolean
@@ -123,6 +131,7 @@ type PlanRouteResp = {
   walk_transfer_meters: number
   transit_duration_sec: number
   total_distance: number
+  walk_segments?: PlanWalkSegment[]
 }
 
 type PlanResp = {
@@ -172,6 +181,7 @@ export const findRoutes = async (
       walkStartMeters: p.walk_start_meters,
       walkEndMeters: p.walk_end_meters,
       transitDurationSec: p.transit_duration_sec,
+      walkSegments: (p.walk_segments ?? []).map(s => decodePolyline(s.geometry)),
     })
   }
 

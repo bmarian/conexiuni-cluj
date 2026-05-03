@@ -24,14 +24,14 @@ var (
 	gtfsPath string
 )
 
-// gtfsCachePath returns the path to the cached GTFS zip inside the project's
-// fils/mobroute directory.
+// gtfsCachePath returns the path to the cached GTFS zip inside the OTP
+// data directory.
 func gtfsCachePath() string {
-	return filepath.Join("services", "mobroute", "gtfs.zip")
+	return filepath.Join("services", "otp", "cluj", "gtfs.zip")
 }
 
 // BuildGTFSZip generates a GTFS zip archive from the currently cached data
-// and writes it to the mobroute cache folder on disk.
+// and writes it to the OTP data folder on disk.
 func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
 	start := time.Now()
 	log.Println("gtfs: building GTFS zip from cached data")
@@ -274,10 +274,11 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 				gtfsTripID := fmt.Sprintf("%s_%s_%d", tid, svc.serviceID, depIdx)
 
+				// block_id is deliberately omitted: each source trip is
+				// expanded into many departures so the original block
+				// assignment no longer represents a valid vehicle chain,
+				// and OTP2 rejects blocks with non-increasing trip times.
 				blockID := ""
-				if trip.BlockID > 0 {
-					blockID = strconv.Itoa(trip.BlockID)
-				}
 				wheelchair := ""
 				if trip.WheelchairAccessible >= 0 {
 					wheelchair = strconv.Itoa(trip.WheelchairAccessible)
@@ -355,7 +356,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 		return fmt.Errorf("gtfs: failed to close zip: %w", err)
 	}
 
-	// Write the zip to the mobroute cache directory.
+	// Write the zip to the OTP data directory.
 	out := gtfsCachePath()
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return fmt.Errorf("gtfs: failed to create cache dir: %w", err)
@@ -376,7 +377,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 // HandleGTFSExport serves the cached GTFS zip from disk.
 // If the zip hasn't been built this session, it falls back to the
-// previously cached file in the mobroute folder.
+// previously cached file in the OTP data folder.
 func HandleGTFSExport(c fiber.Ctx) error {
 	gtfsMu.RLock()
 	p := gtfsPath
