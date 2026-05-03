@@ -52,6 +52,7 @@ if [ ! -d osmosis ]; then
     mkdir -p osmosis
     tar -xf osmosis-0.49.2.tar -C osmosis
     rm osmosis-0.49.2.tar
+    chmod +x osmosis/bin/osmosis
 fi
 
 if [ "$UPDATE_PBF" = true ]; then
