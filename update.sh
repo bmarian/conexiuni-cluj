@@ -37,6 +37,7 @@ if [ -f keys.env ]; then
 fi
 
 echo "🚌 Setting up OpenTripPlanner..."
+mkdir -p backend/services/otp
 cd backend/services/otp
 
 # Download otp.jar if missing or incomplete
@@ -51,7 +52,7 @@ if [ ! -f osmosis/bin/osmosis ]; then
     echo "📥 Downloading Osmosis..."
     wget --tries=10 --waitretry=5 --retry-connrefused --retry-on-http-error=502,503,504 -O osmosis-0.49.2.tar https://github.com/openstreetmap/osmosis/releases/download/0.49.2/osmosis-0.49.2.tar
     mkdir -p osmosis
-    tar -xf osmosis-0.49.2.tar -C osmosis
+    tar -xf osmosis-0.49.2.tar -C osmosis --strip-components=1
     rm osmosis-0.49.2.tar
     chmod +x osmosis/bin/osmosis
 fi
