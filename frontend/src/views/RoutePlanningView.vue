@@ -5,7 +5,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
+import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
@@ -111,6 +111,8 @@ const routesWithTimes = ref<RichPlan[]>([])
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
 const liveEtaByKey = ref<Map<string, number>>(new Map())
+const mapActivationKey = ref(0)
+const isActive = ref(false)
 
 const allStopsMap = computed(() => {
   const m = new Map<number, Stop>()
@@ -362,8 +364,7 @@ function buildRichPlan(
 }
 
 const streamTripIds = computed(() => {
-  // Stop the live vehicle stream whenever the user is planning for a non-"now" time.
-  if (timeMode.value !== 'now') return []
+  if (!isActive.value || timeMode.value !== 'now') return []
   const ids = new Set<string>()
   const p = selectedPlan.value
   if (p) p.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
@@ -433,7 +434,7 @@ watch(userTime, (uTime) => {
 const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
 
-watch(selectedPlanSignature, async (key) => {
+watch([selectedPlanSignature, mapActivationKey], async ([key]) => {
   const plan = selectedPlan.value
   if (!key || !plan) {
     shapeIndicesByTripId.value = new Map()
@@ -487,7 +488,7 @@ watch(selectedPlanSignature, async (key) => {
 }, {immediate: true})
 
 // --- Walk polylines ---
-watch(selectedPlanSignature, (key) => {
+watch([selectedPlanSignature, mapActivationKey], ([key]) => {
   const plan = selectedPlan.value
   if (!key || !plan || !plan.walkSegments.length) {
     mapStore.clearWalkingPolylines()
@@ -528,6 +529,7 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
           userTime.value,
           v
         )
+        if (!isActive.value) return
 
         const pts = shapeIndex.shape
         const startStop = getStop(leg.startStopId)
@@ -702,7 +704,7 @@ const selectedPlanLegsData = computed(() => {
   })
 })
 
-watch([selectedPlanSignature, selectedPlanLegsData], ([, legsData]) => {
+watch([selectedPlanSignature, selectedPlanLegsData, mapActivationKey], ([, legsData]) => {
   const plan = selectedPlan.value
   if (!plan) {
     mapStore.setHighlightedStops([])
@@ -857,10 +859,6 @@ watch(() => route.query, (newQuery) => {
 }, {immediate: true})
 
 onMounted(async () => {
-  mapStore.setHighlightedStops([])
-  mapStore.setVehiclesToDisplay([])
-  void mapStore.setShapesToDisplay([])
-
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
     allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
@@ -871,6 +869,17 @@ onMounted(async () => {
   } else {
     activeSearchField.value = 'destination'
   }
+})
+
+onActivated(() => {
+  isActive.value = true
+  if (hasValidCoords.value) {
+    mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
+  }
+  if (customOrigin.value) {
+    mapStore.setCustomOriginLocation(customOrigin.value.lat, customOrigin.value.lon, customOrigin.value.name)
+  }
+  mapActivationKey.value++
 })
 
 watch([destLat, destLon, destName], ([lat, lon, name]) => {
@@ -887,14 +896,18 @@ watch(customOrigin, (co) => {
   }
 }, {immediate: true})
 
-onUnmounted(() => {
+const navigateAwayFunctions = () => {
+  isActive.value = false
   mapStore.clearPinnedLocation()
   mapStore.clearCustomOriginLocation()
   mapStore.setVehiclesToDisplay([])
-  mapStore.setShapesToDisplay([])
+  mapStore.setLoadedShapes([])
   mapStore.setHighlightedStops([])
   mapStore.clearWalkingPolylines()
-})
+}
+
+onDeactivated(navigateAwayFunctions)
+onUnmounted(navigateAwayFunctions)
 
 watch(routesWithTimes, (newRoutes) => {
   if (!newRoutes.length) {

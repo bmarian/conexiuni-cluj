@@ -250,7 +250,9 @@ function toggleLandscapeDrawer() {
       <div class="drawer-scroll">
         <GreenFridayBanner/>
         <div class="drawer-view">
-          <RouterView/>
+          <KeepAlive include="RoutePlanningView">
+            <RouterView/>
+          </KeepAlive>
         </div>
       </div>
     </aside>
