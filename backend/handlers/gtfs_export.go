@@ -147,7 +147,8 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	}
 
 	// Determine calendar date range: today + 30 days
-	now := time.Now()
+	// Use Bucharest time to ensure calendar is valid for local day.
+	now := time.Now().In(tranzyClient.Location())
 	calStart := now.Format("20060102")
 	calEnd := now.AddDate(0, 0, 30).Format("20060102")
 

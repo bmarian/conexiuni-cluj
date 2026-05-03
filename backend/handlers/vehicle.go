@@ -87,7 +87,7 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		}
 		filtered = append(filtered, v)
 	}
-	return smoothVehicles(filtered, filter)
+	return smoothVehicles(tranzyClient, filtered, filter)
 }
 
 func tripIDSet(ids []string) map[string]struct{} {
@@ -101,7 +101,7 @@ func tripIDSet(ids []string) map[string]struct{} {
 	return out
 }
 
-func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]models.Vehicle, error) {
+func smoothVehicles(tranzyClient *tranzy.Client, apiVehicles []models.Vehicle, filter VehicleFilter) ([]models.Vehicle, error) {
 	dbVehicles, err := getVehiclesFromDB(filter)
 	if err != nil {
 		for i := range apiVehicles {
@@ -135,7 +135,7 @@ func smoothVehicles(apiVehicles []models.Vehicle, filter VehicleFilter) ([]model
 	}
 
 	gracePeriod := 1 * time.Minute
-	now := time.Now()
+	now := time.Now().In(tranzyClient.Location())
 	for _, dbV := range dbVehicles {
 		if !apiMap[dbV.ID] {
 			t, err := time.Parse(time.RFC3339, dbV.Timestamp)

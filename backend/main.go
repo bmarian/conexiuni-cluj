@@ -45,6 +45,7 @@ func clientIDForLog(c fiber.Ctx, salt string) string {
 }
 
 func main() {
+	_ = os.Setenv("TZ", "Europe/Bucharest")
 	config := Load()
 	logHashSalt := config.LogIPHashSalt
 	if logHashSalt == "" {
@@ -110,7 +111,7 @@ func main() {
 			return output.WriteString(clientIDForLog(c, logHashSalt))
 		}},
 		TimeFormat: StandardLogTimestampLayout,
-		TimeZone:   "Local",
+		TimeZone:   "Europe/Bucharest",
 	}))
 	app.Use(cors.New(cors.Config{
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},

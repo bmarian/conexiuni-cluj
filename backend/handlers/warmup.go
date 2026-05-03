@@ -12,6 +12,7 @@ import (
 )
 
 func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
+	loc := tranzyClient.Location()
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -20,9 +21,9 @@ func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 		}()
 
 		for {
-			runStart := time.Now()
+			runStart := time.Now().In(loc)
 			runWarmup(tranzyClient, ctpCjClient, cacheTimes)
-			next := nextWarmupAt(runStart, cacheTimes)
+			next := nextWarmupAt(runStart, cacheTimes, loc)
 			log.Printf("warmup: next pass at %s (in %s)", next.Format(time.RFC3339), time.Until(next).Round(time.Minute))
 			time.Sleep(time.Until(next))
 		}
@@ -30,7 +31,7 @@ func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 }
 
 // Schedule warmup near cache expiry, never sooner than 1 hour.
-func nextWarmupAt(runStart time.Time, cacheTimes models.CacheTimes) time.Time {
+func nextWarmupAt(runStart time.Time, cacheTimes models.CacheTimes, loc *time.Location) time.Time {
 	candidates := []time.Duration{
 		cacheTimes.TimetableCacheShelfLife,
 		cacheTimes.StopInfoCacheShelfLife,
@@ -48,9 +49,9 @@ func nextWarmupAt(runStart time.Time, cacheTimes models.CacheTimes) time.Time {
 
 	expiry := runStart.Add(shortest)
 	dayBefore := expiry.AddDate(0, 0, -1)
-	next := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 3, 0, 0, 0, dayBefore.Location())
+	next := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 3, 0, 0, 0, loc)
 
-	if min := time.Now().Add(time.Hour); next.Before(min) {
+	if min := time.Now().In(loc).Add(time.Hour); next.Before(min) {
 		next = min
 	}
 	return next

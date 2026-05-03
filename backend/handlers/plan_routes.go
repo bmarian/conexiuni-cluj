@@ -435,7 +435,9 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		func() (planResp, error) {
 			// Query OTP at staggered departure times across the next hour
 			// to discover all route options the user could take.
-			now := time.Now()
+			// We MUST use the transit agency's timezone (Europe/Bucharest)
+			// otherwise servers in UTC will request plans for the wrong time of day.
+			now := time.Now().In(tranzyClient.Location())
 			offsets := []time.Duration{0, 15 * time.Minute, 30 * time.Minute, 45 * time.Minute}
 			var allItineraries []otpItinerary
 
