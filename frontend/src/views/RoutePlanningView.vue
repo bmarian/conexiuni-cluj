@@ -918,6 +918,25 @@ watch(userLocation, async (newLoc, oldLoc) => {
   await calculateRoutes()
 })
 
+function swapOriginDestination() {
+  if (isNaN(destLat.value) || isNaN(destLon.value)) return
+  const newDestLat = customOrigin.value?.lat ?? userLocation.value?.latitude
+  const newDestLon = customOrigin.value?.lon ?? userLocation.value?.longitude
+  const newDestName = customOrigin.value?.name ?? t('planOriginCurrentLocation')
+  if (newDestLat === undefined || newDestLon === undefined) return
+
+  void router.replace({
+    query: {
+      lat: String(newDestLat),
+      lon: String(newDestLon),
+      name: newDestName,
+      originLat: String(destLat.value),
+      originLon: String(destLon.value),
+      originName: destName.value,
+    }
+  })
+}
+
 async function refreshRoutes() {
   if (isCalculating.value) return
   selectedPlanIndex.value = 0
@@ -975,6 +994,19 @@ async function refreshRoutes() {
       >
         <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 6 5l-2 2m0 8a8 8 0 0 0 14 4l2-2"/>
+        </svg>
+      </button>
+      <button
+        v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
+        type="button"
+        class="swap-btn mt-1 shrink-0"
+        title="Swap origin and destination"
+        aria-label="Swap origin and destination"
+        :disabled="isCalculating"
+        @click="swapOriginDestination"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
         </svg>
       </button>
       <button
@@ -2228,6 +2260,42 @@ html[data-traditional] .transfer-block-content {
 }
 
 .dark .refresh-btn:hover {
+  background: #334155;
+  color: #38bdf8;
+}
+
+.swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.2s;
+}
+
+.swap-btn:hover {
+  background: #f1f5f9;
+  color: #0ea5e9;
+}
+
+.swap-btn:active {
+  transform: rotate(180deg);
+}
+
+.swap-btn:disabled {
+  cursor: wait;
+  opacity: 0.4;
+}
+
+.dark .swap-btn {
+  color: #94a3b8;
+}
+
+.dark .swap-btn:hover {
   background: #334155;
   color: #38bdf8;
 }
