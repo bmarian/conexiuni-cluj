@@ -386,12 +386,9 @@ watch(planData, (data) => {
   results.sort((a, b) => {
     const totalA = computeTotalMinutes(a)
     const totalB = computeTotalMinutes(b)
-    if (Math.abs(totalA - totalB) > 1) return totalA - totalB
-    if (a.legs.length !== b.legs.length) return a.legs.length - b.legs.length
-    const depA = a.nextTimes[0]?.minutes ?? 999
-    const depB = b.nextTimes[0]?.minutes ?? 999
-    if (depA !== depB) return depA - depB
-    return a.walkEndMeters - b.walkEndMeters
+    if (totalA !== totalB) return totalA - totalB
+    if (a.walkEndMeters !== b.walkEndMeters) return a.walkEndMeters - b.walkEndMeters
+    return a.legs.length - b.legs.length
   })
   routesWithTimes.value = results
   liveEtaByKey.value = new Map()
@@ -405,11 +402,12 @@ watch(userTime, (uTime) => {
   for (const plan of routesWithTimes.value) {
     const newTimes = computeNextTimesForPlan(plan, data.shapes, now)
     const liveEta = liveEtaByKey.value.get(plan.key)
-    if (liveEta !== undefined) {
+    const walkStartMin = plan.walkStartMeters / WALK_SPEED
+    if (liveEta !== undefined && liveEta >= walkStartMin) {
       plan.isLive = true
       plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...newTimes.slice(0, 1)]
     } else {
-      plan.isLive = false
+      plan.isLive = liveEta !== undefined // preserve LIVE pill if bus exists but isn't catchable yet
       plan.nextTimes = newTimes
     }
   }
@@ -563,18 +561,24 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
           byTrip.get(tid) ?? []
         )
         const eta = etaForStop(boardingIdx, indexedVehiclesForTid, si)
+        const walkStartMin = plan.walkStartMeters / WALK_SPEED
         if (eta && eta.etaMinutes <= MAX_MINUTES) {
+          const catchable = eta.etaMinutes >= walkStartMin
           selectedRouteIsLive.value = true
-          selectedRouteLiveEtaMin.value = eta.etaMinutes
-          liveEtaByKey.value.set(plan.key, eta.etaMinutes)
+          selectedRouteLiveEtaMin.value = catchable ? eta.etaMinutes : null
           const existing = routesWithTimes.value.find(p => p.key === plan.key)
           if (existing) {
             existing.isLive = true
-            existing.nextTimes = [
-              { minutes: eta.etaMinutes, is_live: true },
-              ...existing.nextTimes.filter(t => !t.is_live).slice(0, 1)
-            ]
+            if (catchable) {
+              liveEtaByKey.value.set(plan.key, eta.etaMinutes)
+              existing.nextTimes = [
+                { minutes: eta.etaMinutes, is_live: true },
+                ...existing.nextTimes.filter(t => !t.is_live).slice(0, 1)
+              ]
+            }
+            // uncatchable: keep timetable nextTimes, just show the LIVE pill
           }
+          if (!catchable) liveEtaByKey.value.delete(plan.key)
         } else {
           liveEtaByKey.value.delete(plan.key)
           const existing = routesWithTimes.value.find(p => p.key === plan.key)
