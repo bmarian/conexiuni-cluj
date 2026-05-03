@@ -30,7 +30,7 @@ var (
 	otpRunning bool
 	otpCmd     *exec.Cmd
 	otpMu      sync.RWMutex
-	otpMaxMem  string = "2G"
+	otpMaxMem  string = "4G"
 )
 
 // SetOTPMaxMemory configures the maximum memory for the OTP server.
@@ -328,7 +328,7 @@ func startOTPServer() {
 	otpMu.RLock()
 	mx := otpMaxMem
 	otpMu.RUnlock()
-	cmd := exec.Command("java", "-Xmx"+mx, "-jar", jarPath, "--build", "--serve", dataDir)
+	cmd := exec.Command("java", "-Xmx"+mx, "-XX:+UseZGC", "-jar", jarPath, "--build", "--serve", dataDir)
 
 	if err := cmd.Start(); err != nil {
 		log.Printf("otp: failed to start server: %v", err)
