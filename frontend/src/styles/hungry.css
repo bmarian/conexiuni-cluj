@@ -79,10 +79,6 @@ html[data-hungry] .departure-card.is-selected {
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
 }
 
-html[data-hungry] .departure-card.is-selected * {
-  color: #78350f !important;
-}
-
 html[data-hungry] .departure-card.is-selected .card-primary-time-live {
   color: #047857 !important;
 }
