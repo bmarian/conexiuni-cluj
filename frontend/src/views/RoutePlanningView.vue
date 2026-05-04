@@ -108,6 +108,12 @@ const selectedPlanKey = ref<string | null>(null)
 const isCalculating = ref(false)
 const hasFlownToFallback = ref(false)
 const routesWithTimes = ref<RichPlan[]>([])
+const expandedLegs = ref<Record<string, boolean>>({})
+
+function toggleLegExpansion(id: string) {
+  expandedLegs.value[id] = !expandedLegs.value[id]
+}
+
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
 const liveEtaByKey = ref<Map<string, number>>(new Map())
@@ -1354,13 +1360,13 @@ watch(timeValue, (val) => {
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">
                   {{ t('planBoarding') }}
-                  <template v-for="(routeId, rIdx) in ld.leg.routeIds.slice(0, 4)" :key="routeId">
+                  <template v-for="(routeId, rIdx) in (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.leg.routeIds : ld.leg.routeIds.slice(0, 4))" :key="routeId">
                     <RouterLink
                       class="leg-route-link"
                       :to="{ name: 'route', params: { routeId: routeId, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
                       @click.stop
-                    >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < Math.min(ld.leg.routeIds.length, 4) - 1" class="leg-route-sep"> / </span>
-                  </template><span v-if="ld.leg.routeIds.length > 4" class="leg-route-overflow"> +{{ ld.leg.routeIds.length - 4 }}</span>
+                    >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.leg.routeIds.length : Math.min(ld.leg.routeIds.length, 4)) - 1" class="leg-route-sep"> / </span>
+                  </template><span v-if="ld.leg.routeIds.length > 4" class="leg-route-overflow cursor-pointer" @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"> {{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.leg.routeIds.length - 4) }}</span>
                   <span v-if="Math.max(0, Math.round(ld.leg.rideSeconds / 60)) > 0" class="leg-ride-time">
                     · {{ Math.max(0, Math.round(ld.leg.rideSeconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                   </span>
@@ -1585,10 +1591,11 @@ watch(timeValue, (val) => {
                   <template v-for="(leg, lIdx) in plan.legs" :key="lIdx">
                     <span
                       class="bus-chip"
+                      :class="{ 'is-expanded': expandedLegs['list-' + plan.key + '-' + lIdx] }"
                       :style="{ backgroundColor: shapes[String(leg.routeIds[0])]?.route_color }"
                       :title="leg.routeIds.map(id => shapes[String(id)]?.route_short_name).join(' / ')"
-                    ><template v-for="(routeId, rIdx) in leg.routeIds.slice(0, 3)" :key="rIdx"><span class="bus-chip-name">{{ shapes[String(routeId)]?.route_short_name }}</span><span v-if="rIdx < Math.min(leg.routeIds.length, 3) - 1" class="bus-chip-sep">/</span></template><span v-if="leg.routeIds.length > 3" class="bus-chip-overflow">+{{ leg.routeIds.length - 3 }}</span></span>
-                    <svg v-if="lIdx < plan.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    ><template v-for="(routeId, rIdx) in (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.routeIds : leg.routeIds.slice(0, 3))" :key="rIdx"><span class="bus-chip-name">{{ shapes[String(routeId)]?.route_short_name }}</span><span v-if="rIdx < (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.routeIds.length : Math.min(leg.routeIds.length, 3)) - 1" class="bus-chip-sep">/</span></template></span><span v-if="leg.routeIds.length > 3" class="bus-chip-overflow cursor-pointer" @click.stop="toggleLegExpansion('list-' + plan.key + '-' + lIdx)">{{ expandedLegs['list-' + plan.key + '-' + lIdx] ? '«' : '+' + (leg.routeIds.length - 3) }}</span>
+                    <svg v-if="lIdx < plan.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
                     </svg>
                   </template>
@@ -1972,7 +1979,13 @@ html[data-hungry] .card-arrow {
 }
 
 html[data-hungry] .bus-chain-arrow {
-  color: #b45309 !important;
+  color: #92400e !important;
+}
+
+html[data-hungry] .bus-chip-overflow {
+  background: #fde68a !important;
+  color: #92400e !important;
+  border-color: #f59e0b !important;
 }
 
 html[data-hungry] .card-arrival-time {
@@ -2053,7 +2066,13 @@ html.dark[data-hungry] .card-arrow {
 }
 
 html.dark[data-hungry] .bus-chain-arrow {
-  color: #d97706 !important;
+  color: #fbbf24 !important;
+}
+
+html.dark[data-hungry] .bus-chip-overflow {
+  background: #451a03 !important;
+  color: #fde68a !important;
+  border-color: #d97706 !important;
 }
 
 html.dark[data-hungry] .card-arrival-time {
@@ -2529,6 +2548,25 @@ html[data-traditional] .bus-chip {
   font-family: var(--xp-font) !important;
 }
 
+html[data-traditional] .bus-chip-overflow {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  border-radius: 0 !important;
+  color: var(--xp-text) !important;
+  box-shadow: none !important;
+  font-family: var(--xp-font) !important;
+  padding: 0 0.35rem !important;
+}
+
+html[data-traditional] .bus-chip-overflow:hover {
+  background: var(--xp-btn-hover) !important;
+}
+
+html[data-traditional] .bus-chip-overflow:active {
+  background: var(--xp-btn-active) !important;
+  color: white !important;
+}
+
 html[data-traditional] .live-dot {
   border-radius: 0 !important;
   background: #3D7E22 !important;
@@ -2624,6 +2662,12 @@ html.dark[data-traditional] .card-rail.is-active {
 html.dark[data-traditional] .bus-chip {
   border: 1px solid rgba(0, 0, 0, 0.5) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark[data-traditional] .bus-chip-overflow {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: var(--xp-text) !important;
 }
 
 html.dark[data-traditional] .live-dot {
@@ -2728,7 +2772,6 @@ html.dark[data-traditional] .time-pill-sched {
   justify-content: center;
   padding: 0.25rem 0.55rem;
   min-width: 2.25rem;
-  height: 1.75rem;
   border-radius: 0.5rem;
   font-weight: 800;
   font-size: 0.78rem;
@@ -2736,6 +2779,21 @@ html.dark[data-traditional] .time-pill-sched {
   color: white;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   white-space: nowrap;
+
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  max-width: 100%;
+  height: auto;
+}
+
+.bus-chip.is-expanded {
+  white-space: normal;
+  height: auto;
+  min-height: 1.75rem;
+  flex-wrap: wrap;
+  padding: 0.35rem 0.55rem;
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .bus-chip-name {
@@ -2749,25 +2807,46 @@ html.dark[data-traditional] .time-pill-sched {
 }
 
 .bus-chip-overflow {
-  margin-left: 0.25rem;
-  font-size: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.45rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  opacity: 0.85;
-  background: rgba(0,0,0,0.25);
-  border-radius: 0.25rem;
-  padding: 0.05rem 0.3rem;
-  line-height: 1;
+  white-space: nowrap;
+  border-radius: 0.45rem;
+  background: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bus-chip-overflow:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
+.dark .bus-chip-overflow {
+  background: rgba(148, 163, 184, 0.15);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.dark .bus-chip-overflow:hover {
+  background: rgba(148, 163, 184, 0.25);
+  color: #fff;
 }
 
 .bus-chain-arrow {
   width: 0.95rem;
   height: 0.95rem;
-  color: #94a3b8;
+  color: #64748b;
   flex-shrink: 0;
 }
 
 .dark .bus-chain-arrow {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .card-primary-time {
@@ -3111,9 +3190,17 @@ html.dark[data-traditional] .time-pill-sched {
 }
 
 .leg-route-overflow {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  opacity: 0.65;
+  opacity: 0.6;
+  margin-left: 0.1rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.leg-route-overflow:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .fav-btn {
