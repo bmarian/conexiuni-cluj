@@ -499,33 +499,32 @@ watch([selectedPlanSignature, shapeIndicesByTripId, mapActivationKey], ([key, in
 
   const loadedShapes: Array<[DisplayShape, Shape[]]> = []
   for (const leg of plan.legs) {
-    for (let i = 0; i < leg.tripIds.length; i++) {
-      const tid = leg.tripIds[i]
-      const routeId = leg.routeIds[i]
-      if (!tid || routeId === undefined) continue
+    // Only draw the first (representative) route per grouped leg to avoid overlapping polylines
+    const tid = leg.tripIds[0]
+    const routeId = leg.routeIds[0]
+    if (!tid || routeId === undefined) continue
 
-      const s = shapes.value[String(routeId)]
-      const shapeIndex = indices.get(tid)
-      if (!s || !shapeIndex) continue
+    const s = shapes.value[String(routeId)]
+    const shapeIndex = indices.get(tid)
+    if (!s || !shapeIndex) continue
 
-      const pts = shapeIndex.shape
-      const startStop = getStop(leg.startStopId)
-      const destStop = getStop(leg.destStopId)
-      if (!startStop || !destStop) continue
+    const pts = shapeIndex.shape
+    const startStop = getStop(leg.startStopId)
+    const destStop = getStop(leg.destStopId)
+    if (!startStop || !destStop) continue
 
-      const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
-      const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
-      const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-      const croppedPts = pts.slice(realStart, realEnd + 1)
+    const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+    const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
+    const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+    const croppedPts = pts.slice(realStart, realEnd + 1)
 
-      loadedShapes.push([{
-        trip_id: tid,
-        route_short_name: s.route_short_name,
-        route_long_name: s.route_long_name,
-        route_color: s.route_color,
-        route_type: s.route_type,
-      }, croppedPts])
-    }
+    loadedShapes.push([{
+      trip_id: tid,
+      route_short_name: s.route_short_name,
+      route_long_name: s.route_long_name,
+      route_color: s.route_color,
+      route_type: s.route_type,
+    }, croppedPts])
   }
 
   mapStore.setLoadedShapes(loadedShapes)
