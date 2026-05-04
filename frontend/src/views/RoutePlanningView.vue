@@ -18,7 +18,7 @@ import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts"
 import {apiRequest} from "@/utils/request_cache.ts"
-import type {Stop, TimeEntry, ShapeInfo, Shape} from "@/types/tranzy.ts"
+import type {Stop, TimeEntry, ShapeInfo, Shape, Vehicle} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ClosestStopsList from "@/components/ClosestStopsList.vue"
 import ViewErrorState from "@/components/ViewErrorState.vue"
@@ -542,6 +542,9 @@ watch([selectedPlanSignature, mapActivationKey], ([key]) => {
 }, {immediate: true})
 
 // --- Vehicle tracking: compute live ETAs for ALL plans (like StopView) ---
+// Use a generation counter to discard stale async results
+let vehicleTrackingGen = 0
+
 watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
   if (!isActive.value || timeMode.value !== 'now') return
   if (!byTrip.size && !indices.size) {
@@ -549,10 +552,13 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
     mapStore.setVehiclesToDisplay([])
     selectedRouteIsLive.value = false
     selectedRouteLiveEtaMin.value = null
+    liveEtaByKey.value = new Map()
     return
   }
 
+  const gen = ++vehicleTrackingGen
   const newLiveEtas = new Map<string, number>()
+  const planUpdates = new Map<string, { isLive: boolean; bestEta: number | null }>()
 
   // Compute live ETA for every plan's first leg boarding stop
   for (const plan of routesWithTimes.value) {
@@ -582,7 +588,8 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
           userTime.value,
           vehicles
         )
-        if (!isActive.value) return
+        if (gen !== vehicleTrackingGen || !isActive.value) return
+
         if (!indexed.length) continue
 
         const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
@@ -601,18 +608,28 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
       }
     }
 
-    if (bestEta !== null) {
+    planUpdates.set(plan.key, { isLive: bestEta !== null, bestEta })
+  }
+
+  // Discard if a newer computation has started
+  if (gen !== vehicleTrackingGen) return
+
+  // Apply all ETA updates atomically (no flickering)
+  for (const plan of routesWithTimes.value) {
+    const update = planUpdates.get(plan.key)
+    if (!update) continue
+
+    if (update.bestEta !== null) {
       const walkStartMin = plan.walkStartMeters / WALK_SPEED
-      const catchable = bestEta >= walkStartMin
+      const catchable = update.bestEta >= walkStartMin
       plan.isLive = true
       if (catchable) {
-        newLiveEtas.set(plan.key, bestEta)
+        newLiveEtas.set(plan.key, update.bestEta)
         plan.nextTimes = [
-          { minutes: bestEta, is_live: true },
+          { minutes: update.bestEta, is_live: true },
           ...plan.nextTimes.filter(t => !t.is_live).slice(0, 2)
         ]
       }
-      if (!catchable) newLiveEtas.delete(plan.key)
     } else {
       plan.isLive = false
     }
@@ -631,65 +648,80 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
     selectedRouteLiveEtaMin.value = null
   }
 
-  // Show vehicles on map for the selected plan
-  if (plan && indices.size) {
-    const allIndexedVehicles: IndexedVehicle[] = []
-    for (const leg of plan.legs) {
-      for (let i = 0; i < leg.tripIds.length; i++) {
-        const tid = leg.tripIds[i]
-        const routeId = leg.routeIds[i]
-        if (!tid || routeId === undefined) continue
+  // Compute vehicles for selected plan's map display
+  updateMapVehicles(byTrip, indices)
+}, {deep: true})
 
-        const shape = shapes.value[String(routeId)]
-        const shapeIndex = indices.get(tid)
-        if (!shapeIndex || !shape) continue
+// Immediately update map vehicles when selected plan changes
+watch(selectedPlanSignature, () => {
+  // Clear old vehicles immediately to avoid stale markers
+  currentVehicles.value = []
+  mapStore.setVehiclesToDisplay([])
+  // Then recompute for new plan
+  updateMapVehicles(vehiclesByTrip.value, shapeIndicesByTripId.value)
+})
 
-        const v = byTrip.get(tid) ?? []
-        if (!v.length) continue
-
-        try {
-          const indexed = await getIndexedVehicles(
-            tid,
-            shape.route_short_name,
-            shape.route_color,
-            shapeIndex,
-            userTime.value,
-            v
-          )
-          if (!isActive.value) return
-
-          const pts = shapeIndex.shape
-          const startStop = getStop(leg.startStopId)
-          const destStop = getStop(leg.destStopId)
-          if (!startStop || !destStop) continue
-
-          const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
-          const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
-          const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-
-          const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
-          allIndexedVehicles.push(...filtered)
-        } catch (e) {
-          console.warn('Failed to index vehicles for trip', tid, e)
-        }
-      }
-    }
-
-    const seenIds = new Set<number>()
-    const deduped: IndexedVehicle[] = []
-    for (const v of allIndexedVehicles) {
-      if (!seenIds.has(v.id)) {
-        seenIds.add(v.id)
-        deduped.push(v)
-      }
-    }
-    currentVehicles.value = deduped
-    mapStore.setVehiclesToDisplay(deduped)
-  } else {
+async function updateMapVehicles(byTrip: Map<string, Vehicle[]>, indices: Map<string, ShapeIndex>) {
+  const plan = selectedPlan.value
+  if (!plan || !indices.size) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
+    return
   }
-}, {deep: true})
+
+  const allIndexedVehicles: IndexedVehicle[] = []
+  for (const leg of plan.legs) {
+    for (let i = 0; i < leg.tripIds.length; i++) {
+      const tid = leg.tripIds[i]
+      const routeId = leg.routeIds[i]
+      if (!tid || routeId === undefined) continue
+
+      const shape = shapes.value[String(routeId)]
+      const shapeIndex = indices.get(tid)
+      if (!shapeIndex || !shape) continue
+
+      const v = byTrip.get(tid) ?? []
+      if (!v.length) continue
+
+      try {
+        const indexed = await getIndexedVehicles(
+          tid,
+          shape.route_short_name,
+          shape.route_color,
+          shapeIndex,
+          userTime.value,
+          v
+        )
+        if (!isActive.value) return
+
+        const pts = shapeIndex.shape
+        const startStop = getStop(leg.startStopId)
+        const destStop = getStop(leg.destStopId)
+        if (!startStop || !destStop) continue
+
+        const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+        const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
+        const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+
+        const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
+        allIndexedVehicles.push(...filtered)
+      } catch (e) {
+        console.warn('Failed to index vehicles for trip', tid, e)
+      }
+    }
+  }
+
+  const seenIds = new Set<number>()
+  const deduped: IndexedVehicle[] = []
+  for (const v of allIndexedVehicles) {
+    if (!seenIds.has(v.id)) {
+      seenIds.add(v.id)
+      deduped.push(v)
+    }
+  }
+  currentVehicles.value = deduped
+  mapStore.setVehiclesToDisplay(deduped)
+}
 
 function computeTotalMinutes(plan: RichPlan): number {
   if (!plan.nextTimes.length) return Infinity
@@ -2496,9 +2528,10 @@ html.dark[data-traditional] .stat-chip-transfer {
 }
 
 html.dark[data-traditional] .stat-chip-live {
-  background: var(--xp-live) !important;
+  background: linear-gradient(to bottom, #7EC860 0%, #6FB452 50%, #5BAA38 100%) !important;
   color: #FFFFFF !important;
-  border: 1px solid #3D7E22 !important;
+  border: 1px solid #5BAA38 !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4) !important;
 }
 
 html.dark[data-traditional] .stat-chip-duration {

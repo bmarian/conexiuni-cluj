@@ -1557,9 +1557,10 @@ html.dark[data-traditional] .departure-card .stat-chip-transfer {
 }
 
 html.dark[data-traditional] .departure-card .stat-chip-live {
-  background: var(--xp-live) !important;
+  background: linear-gradient(to bottom, #7EC860 0%, #6FB452 50%, #5BAA38 100%) !important;
   color: #FFFFFF !important;
-  border: 1px solid #3D7E22 !important;
+  border: 1px solid #5BAA38 !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4) !important;
 }
 
 html.dark[data-traditional] .departure-card .stat-chip-duration {
