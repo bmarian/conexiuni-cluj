@@ -18,7 +18,7 @@ import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts"
 import {apiRequest} from "@/utils/request_cache.ts"
-import type {Stop, TimeEntry, ShapeInfo} from "@/types/tranzy.ts"
+import type {Stop, TimeEntry, ShapeInfo, Shape} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ClosestStopsList from "@/components/ClosestStopsList.vue"
 import ViewErrorState from "@/components/ViewErrorState.vue"
@@ -365,9 +365,15 @@ function buildRichPlan(
 
 const streamTripIds = computed(() => {
   if (!isActive.value || timeMode.value !== 'now') return []
+  const data = planData.value
+  if (!data?.plans?.length) return []
+  // Derive all unique trip IDs directly from API response - no dependency on routesWithTimes rebuild
   const ids = new Set<string>()
-  const p = selectedPlan.value
-  if (p) p.legs.forEach(l => l.tripIds.forEach(tid => ids.add(tid)))
+  for (const p of data.plans) {
+    for (const leg of p.legs) {
+      ids.add(leg.trip_id)
+    }
+  }
   return [...ids]
 })
 const {vehiclesByTrip} = useVehicleStream(streamTripIds)
@@ -423,7 +429,7 @@ watch(userTime, (uTime) => {
     const walkStartMin = plan.walkStartMeters / WALK_SPEED
     if (liveEta !== undefined && liveEta >= walkStartMin) {
       plan.isLive = true
-      plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...adjustedTimes.slice(0, 1)]
+      plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...adjustedTimes.slice(0, 2)]
     } else {
       plan.isLive = liveEta !== undefined // preserve LIVE pill if bus exists but isn't catchable yet
       plan.nextTimes = adjustedTimes
@@ -434,57 +440,95 @@ watch(userTime, (uTime) => {
 const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
 
-watch([selectedPlanSignature, mapActivationKey], async ([key]) => {
-  const plan = selectedPlan.value
-  if (!key || !plan) {
+// === SINGLE shape geometry fetch: load ALL trip shapes once when planData arrives ===
+watch([planData, mapActivationKey], async ([data]) => {
+  if (!data?.plans?.length) {
     shapeIndicesByTripId.value = new Map()
-    void mapStore.setShapesToDisplay([])
+    mapStore.setLoadedShapes([])
+    return
+  }
+
+  // Build trip_id → route_id mapping from the plans (plan_routes already gives us this)
+  const tripToRouteId = new Map<string, number>()
+  for (const p of data.plans) {
+    for (const leg of p.legs) {
+      tripToRouteId.set(leg.trip_id, leg.route_id)
+    }
+  }
+
+  const toRequest: DisplayShape[] = []
+  for (const [tid, routeId] of tripToRouteId) {
+    const s = data.shapes[String(routeId)]
+    if (!s) continue
+    toRequest.push({
+      trip_id: tid,
+      route_short_name: s.route_short_name,
+      route_long_name: s.route_long_name,
+      route_color: s.route_color,
+      route_type: s.route_type,
+    })
+  }
+
+  if (!toRequest.length) {
+    shapeIndicesByTripId.value = new Map()
+    mapStore.setLoadedShapes([])
     return
   }
 
   try {
-    const toRequest: DisplayShape[] = plan.legs.flatMap(l =>
-      l.tripIds.map((tid, i) => {
-        const s = shapes.value[String(l.routeIds[i])]
-        if (!s || !tid) return null
-        return {
-          trip_id: tid,
-          route_short_name: s.route_short_name,
-          route_long_name: s.route_long_name,
-          route_color: s.route_color,
-          route_type: s.route_type,
-        }
-      }).filter((x): x is DisplayShape => x !== null)
-    )
-
     const shapeData = await mapStore.requestShapes(toRequest)
-    const loadedShapes: Array<[DisplayShape, typeof shapeData[number][1]]> = []
     const newIndices = new Map<string, ShapeIndex>()
-
-    shapeData.forEach(([info, pts]) => {
-      plan.legs.forEach(leg => {
-        if (leg.tripIds.includes(info.trip_id)) {
-          if (pts.length) {
-            const startStop = getStop(leg.startStopId)
-            const destStop = getStop(leg.destStopId)
-            if (startStop && destStop) {
-              const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
-              const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
-              const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-              const croppedPts = pts.slice(realStart, realEnd + 1)
-              newIndices.set(info.trip_id, buildShapeIndex(pts))
-              loadedShapes.push([info, croppedPts])
-            }
-          }
-        }
-      })
-    })
-
+    for (const [info, pts] of shapeData) {
+      if (pts.length) {
+        newIndices.set(info.trip_id, buildShapeIndex(pts))
+      }
+    }
     shapeIndicesByTripId.value = newIndices
-    mapStore.setLoadedShapes(loadedShapes)
   } catch (e) {
-    console.error('Failed to load shapes:', e)
+    console.error('Failed to load shape geometry:', e)
   }
+}, {immediate: true})
+
+// === Display selected plan's shapes on map (uses cached geometry, NO extra request) ===
+watch([selectedPlanSignature, shapeIndicesByTripId, mapActivationKey], ([key, indices]) => {
+  const plan = selectedPlan.value
+  if (!key || !plan || !indices.size) {
+    mapStore.setLoadedShapes([])
+    return
+  }
+
+  const loadedShapes: Array<[DisplayShape, Shape[]]> = []
+  for (const leg of plan.legs) {
+    for (let i = 0; i < leg.tripIds.length; i++) {
+      const tid = leg.tripIds[i]
+      const routeId = leg.routeIds[i]
+      if (!tid || routeId === undefined) continue
+
+      const s = shapes.value[String(routeId)]
+      const shapeIndex = indices.get(tid)
+      if (!s || !shapeIndex) continue
+
+      const pts = shapeIndex.shape
+      const startStop = getStop(leg.startStopId)
+      const destStop = getStop(leg.destStopId)
+      if (!startStop || !destStop) continue
+
+      const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+      const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
+      const [realStart, realEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+      const croppedPts = pts.slice(realStart, realEnd + 1)
+
+      loadedShapes.push([{
+        trip_id: tid,
+        route_short_name: s.route_short_name,
+        route_long_name: s.route_long_name,
+        route_color: s.route_color,
+        route_type: s.route_type,
+      }, croppedPts])
+    }
+  }
+
+  mapStore.setLoadedShapes(loadedShapes)
 }, {immediate: true})
 
 // --- Walk polylines ---
@@ -497,10 +541,10 @@ watch([selectedPlanSignature, mapActivationKey], ([key]) => {
   mapStore.setWalkingPolylines(plan.walkSegments.map(s => decodePolyline(s.geometry)))
 }, {immediate: true})
 
-// --- Vehicle tracking ---
-watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byTrip, , shapeIndices]) => {
-  const plan = selectedPlan.value
-  if (!plan || !shapeIndices.size) {
+// --- Vehicle tracking: compute live ETAs for ALL plans (like StopView) ---
+watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
+  if (!isActive.value || timeMode.value !== 'now') return
+  if (!byTrip.size && !indices.size) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
     selectedRouteIsLive.value = false
@@ -508,18 +552,27 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
     return
   }
 
-  const allIndexedVehicles: IndexedVehicle[] = []
-  for (const leg of plan.legs) {
+  const newLiveEtas = new Map<string, number>()
+
+  // Compute live ETA for every plan's first leg boarding stop
+  for (const plan of routesWithTimes.value) {
+    const leg = plan.legs[0]
+    if (!leg) continue
+
+    let bestEta: number | null = null
+
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
       const routeId = leg.routeIds[i]
       if (!tid || routeId === undefined) continue
 
       const shape = shapes.value[String(routeId)]
-      const shapeIndex = shapeIndices.get(tid)
+      const shapeIndex = indices.get(tid)
       if (!shapeIndex || !shape) continue
 
-      const v = byTrip.get(tid) ?? []
+      const vehicles = byTrip.get(tid) ?? []
+      if (!vehicles.length) continue
+
       try {
         const indexed = await getIndexedVehicles(
           tid,
@@ -527,86 +580,114 @@ watch([vehiclesByTrip, selectedPlanSignature, shapeIndicesByTripId], async ([byT
           shape.route_color,
           shapeIndex,
           userTime.value,
-          v
+          vehicles
         )
         if (!isActive.value) return
+        if (!indexed.length) continue
 
-        const pts = shapeIndex.shape
-        const startStop = getStop(leg.startStopId)
-        const destStop = getStop(leg.destStopId)
-        if (!startStop || !destStop) continue
+        const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
+        const stopShapeIdx = buildStopShapeIdxByStopId(stopTimes, shapeIndex.shape)
+        const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
+        if (boardingIdx < 0) continue
 
-        const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
-        const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
-        const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-
-        const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
-        allIndexedVehicles.push(...filtered)
+        const eta = etaForStop(boardingIdx, indexed, shapeIndex)
+        if (eta && eta.etaMinutes <= MAX_MINUTES) {
+          if (bestEta === null || eta.etaMinutes < bestEta) {
+            bestEta = eta.etaMinutes
+          }
+        }
       } catch (e) {
-        console.warn('Failed to index vehicles for trip', tid, e)
+        console.warn('Failed to compute live ETA for trip', tid, e)
       }
     }
-  }
 
-  const seenIds = new Set<number>()
-  const deduped: IndexedVehicle[] = []
-  for (const v of allIndexedVehicles) {
-    if (!seenIds.has(v.id)) {
-      seenIds.add(v.id)
-      deduped.push(v)
+    if (bestEta !== null) {
+      const walkStartMin = plan.walkStartMeters / WALK_SPEED
+      const catchable = bestEta >= walkStartMin
+      plan.isLive = true
+      if (catchable) {
+        newLiveEtas.set(plan.key, bestEta)
+        plan.nextTimes = [
+          { minutes: bestEta, is_live: true },
+          ...plan.nextTimes.filter(t => !t.is_live).slice(0, 2)
+        ]
+      }
+      if (!catchable) newLiveEtas.delete(plan.key)
+    } else {
+      plan.isLive = false
     }
   }
-  currentVehicles.value = deduped
-  mapStore.setVehiclesToDisplay(currentVehicles.value)
 
-  // Live ETA for first leg boarding stop
-  const leg = plan.legs[0]
-  const tid = leg?.tripIds[0]
-  const si = shapeIndices.get(tid ?? '')
-  if (si && leg && tid) {
-    const routeId = leg.routeIds[0]
-    const shape = routeId !== undefined ? shapes.value[String(routeId)] : undefined
-    if (shape) {
-      const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
-      const stopShapeIdx = buildStopShapeIdxByStopId(stopTimes, si.shape)
-      const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
-      if (boardingIdx >= 0) {
-        const indexedVehiclesForTid = await getIndexedVehicles(
-          tid,
-          shape.route_short_name,
-          shape.route_color,
-          si,
-          userTime.value,
-          byTrip.get(tid) ?? []
-        )
-        const eta = etaForStop(boardingIdx, indexedVehiclesForTid, si)
-        const walkStartMin = plan.walkStartMeters / WALK_SPEED
-        if (eta && eta.etaMinutes <= MAX_MINUTES) {
-          const catchable = eta.etaMinutes >= walkStartMin
-          selectedRouteIsLive.value = true
-          selectedRouteLiveEtaMin.value = catchable ? eta.etaMinutes : null
-          const existing = routesWithTimes.value.find(p => p.key === plan.key)
-          if (existing) {
-            existing.isLive = true
-            if (catchable) {
-              liveEtaByKey.value.set(plan.key, eta.etaMinutes)
-              existing.nextTimes = [
-                { minutes: eta.etaMinutes, is_live: true },
-                ...existing.nextTimes.filter(t => !t.is_live).slice(0, 1)
-              ]
-            }
-            // uncatchable: keep timetable nextTimes, just show the LIVE pill
-          }
-          if (!catchable) liveEtaByKey.value.delete(plan.key)
-        } else {
-          liveEtaByKey.value.delete(plan.key)
-          const existing = routesWithTimes.value.find(p => p.key === plan.key)
-          if (existing) existing.isLive = false
-          selectedRouteIsLive.value = false
-          selectedRouteLiveEtaMin.value = null
+  liveEtaByKey.value = newLiveEtas
+
+  // Update selected plan live state
+  const plan = selectedPlan.value
+  if (plan) {
+    const liveEta = newLiveEtas.get(plan.key)
+    selectedRouteIsLive.value = plan.isLive
+    selectedRouteLiveEtaMin.value = liveEta ?? null
+  } else {
+    selectedRouteIsLive.value = false
+    selectedRouteLiveEtaMin.value = null
+  }
+
+  // Show vehicles on map for the selected plan
+  if (plan && indices.size) {
+    const allIndexedVehicles: IndexedVehicle[] = []
+    for (const leg of plan.legs) {
+      for (let i = 0; i < leg.tripIds.length; i++) {
+        const tid = leg.tripIds[i]
+        const routeId = leg.routeIds[i]
+        if (!tid || routeId === undefined) continue
+
+        const shape = shapes.value[String(routeId)]
+        const shapeIndex = indices.get(tid)
+        if (!shapeIndex || !shape) continue
+
+        const v = byTrip.get(tid) ?? []
+        if (!v.length) continue
+
+        try {
+          const indexed = await getIndexedVehicles(
+            tid,
+            shape.route_short_name,
+            shape.route_color,
+            shapeIndex,
+            userTime.value,
+            v
+          )
+          if (!isActive.value) return
+
+          const pts = shapeIndex.shape
+          const startStop = getStop(leg.startStopId)
+          const destStop = getStop(leg.destStopId)
+          if (!startStop || !destStop) continue
+
+          const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
+          const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
+          const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
+
+          const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
+          allIndexedVehicles.push(...filtered)
+        } catch (e) {
+          console.warn('Failed to index vehicles for trip', tid, e)
         }
       }
     }
+
+    const seenIds = new Set<number>()
+    const deduped: IndexedVehicle[] = []
+    for (const v of allIndexedVehicles) {
+      if (!seenIds.has(v.id)) {
+        seenIds.add(v.id)
+        deduped.push(v)
+      }
+    }
+    currentVehicles.value = deduped
+    mapStore.setVehiclesToDisplay(deduped)
+  } else {
+    currentVehicles.value = []
+    mapStore.setVehiclesToDisplay([])
   }
 }, {deep: true})
 
@@ -859,6 +940,7 @@ watch(() => route.query, (newQuery) => {
 }, {immediate: true})
 
 onMounted(async () => {
+  isActive.value = true
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
     allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
@@ -1814,6 +1896,168 @@ html[data-hungry] .trip-summary-stat:not(:last-child) {
   border-right-color: #fde68a;
 }
 
+/* ----------- Chomper (Hungry) – departure card sub-elements ----------- */
+html[data-hungry] .card-dest {
+  color: #78350f !important;
+}
+
+html[data-hungry] .card-arrow {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .bus-chain-arrow {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .card-arrival-time {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .card-primary-time-sched {
+  color: #78350f !important;
+}
+
+html[data-hungry] .card-primary-time-live {
+  color: #047857 !important;
+}
+
+html[data-hungry] .departure-card.is-selected .card-primary-time-live {
+  color: #047857 !important;
+}
+
+html[data-hungry] .departure-card.is-selected .live-dot {
+  background: #10b981 !important;
+}
+
+html[data-hungry] .card-chevron {
+  color: #d97706 !important;
+}
+
+html[data-hungry] .departure-card:hover .card-chevron {
+  color: #92400e !important;
+}
+
+html[data-hungry] .departure-card.is-selected .card-chevron {
+  color: #78350f !important;
+}
+
+html[data-hungry] .card-rail.is-active {
+  background: #f59e0b !important;
+}
+
+html[data-hungry] .stat-chip {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+html[data-hungry] .stat-chip-transfer {
+  background: #fde68a !important;
+  color: #78350f !important;
+}
+
+html[data-hungry] .stat-chip-live {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+html[data-hungry] .stat-chip-duration {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+html[data-hungry] .stat-chip-next {
+  color: #b45309 !important;
+}
+
+html[data-hungry] .stat-chip-time {
+  color: #78350f !important;
+}
+
+html[data-hungry] .stat-chip-label {
+  color: #b45309 !important;
+}
+
+/* Chomper dark – departure card sub-elements */
+html.dark[data-hungry] .card-dest {
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .card-arrow {
+  color: #d97706 !important;
+}
+
+html.dark[data-hungry] .bus-chain-arrow {
+  color: #d97706 !important;
+}
+
+html.dark[data-hungry] .card-arrival-time {
+  color: #d97706 !important;
+}
+
+html.dark[data-hungry] .card-primary-time-sched {
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .card-primary-time-live {
+  color: #34d399 !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .card-primary-time-live {
+  color: #34d399 !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .live-dot {
+  background: #34d399 !important;
+}
+
+html.dark[data-hungry] .card-chevron {
+  color: #78350f !important;
+}
+
+html.dark[data-hungry] .departure-card:hover .card-chevron {
+  color: #d97706 !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .card-chevron {
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .card-rail.is-active {
+  background: #d97706 !important;
+}
+
+html.dark[data-hungry] .stat-chip {
+  background: #451a03 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .stat-chip-transfer {
+  background: #78350f !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .stat-chip-live {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+}
+
+html.dark[data-hungry] .stat-chip-duration {
+  background: #451a03 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .stat-chip-next {
+  color: #d97706 !important;
+}
+
+html.dark[data-hungry] .stat-chip-time {
+  color: #fde68a !important;
+}
+
+html.dark[data-hungry] .stat-chip-label {
+  color: #d97706 !important;
+}
+
 .leg-ride-time {
   font-weight: 500;
   color: #94a3b8;
@@ -2119,6 +2363,215 @@ html[data-traditional] .dot-inner {
 html[data-traditional] .transfer-block-icon,
 html[data-traditional] .transfer-block-content {
   border-radius: 0;
+}
+
+/* ----------- Traditional – departure card sub-elements ----------- */
+html[data-traditional] .departure-card {
+  border-radius: 0;
+}
+
+html[data-traditional] .stat-chip {
+  border-radius: 0 !important;
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .stat-chip-transfer {
+  background: var(--xp-btn) !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .stat-chip-live {
+  background: var(--xp-live) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #3D7E22 !important;
+}
+
+html[data-traditional] .stat-chip-duration {
+  background: var(--xp-btn) !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .stat-chip-next {
+  color: #404040 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .stat-chip-time {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .stat-chip-label {
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .card-dest {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .card-arrow {
+  color: #404040 !important;
+}
+
+html[data-traditional] .bus-chain-arrow {
+  color: #000000 !important;
+}
+
+html[data-traditional] .card-arrival-time {
+  color: #404040 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .card-primary-time-sched {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .card-primary-time-live {
+  color: #006400 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card.is-selected .card-primary-time-live {
+  color: #90EE90 !important;
+}
+
+html[data-traditional] .departure-card.is-selected .live-dot {
+  background: #90EE90 !important;
+}
+
+html[data-traditional] .card-chevron {
+  color: var(--xp-blue) !important;
+}
+
+html[data-traditional] .card-rail {
+  border-radius: 0 !important;
+}
+
+html[data-traditional] .card-rail.is-active {
+  background: var(--xp-blue) !important;
+}
+
+html[data-traditional] .bus-chip {
+  border: 1px solid rgba(0, 0, 0, 0.35) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  border-radius: 0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .live-dot {
+  border-radius: 0 !important;
+  background: #3D7E22 !important;
+  box-shadow: none !important;
+}
+
+html[data-traditional] .time-pill {
+  border-radius: 0 !important;
+}
+
+html[data-traditional] .time-pill-live {
+  background: #3D7E22 !important;
+}
+
+html[data-traditional] .time-pill-sched {
+  background: var(--xp-btn) !important;
+  color: #000000 !important;
+  border: 1px solid var(--xp-border) !important;
+}
+
+/* Traditional dark – departure card sub-elements */
+html.dark[data-traditional] .stat-chip {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .stat-chip-transfer {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .stat-chip-live {
+  background: var(--xp-live) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #3D7E22 !important;
+}
+
+html.dark[data-traditional] .stat-chip-duration {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .stat-chip-next {
+  color: #8898B0 !important;
+}
+
+html.dark[data-traditional] .stat-chip-time {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .card-dest {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .card-arrow {
+  color: #8898B0 !important;
+}
+
+html.dark[data-traditional] .bus-chain-arrow {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .card-arrival-time {
+  color: #8898B0 !important;
+}
+
+html.dark[data-traditional] .card-primary-time-sched {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .card-primary-time-live {
+  color: #5BAA38 !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .card-primary-time-live {
+  color: #90EE90 !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .live-dot {
+  background: #90EE90 !important;
+}
+
+html.dark[data-traditional] .card-chevron {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .card-rail.is-active {
+  background: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .bus-chip {
+  border: 1px solid rgba(0, 0, 0, 0.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark[data-traditional] .live-dot {
+  background: #5BAA38 !important;
+  box-shadow: none !important;
+}
+
+html.dark[data-traditional] .time-pill-live {
+  background: #5BAA38 !important;
+}
+
+html.dark[data-traditional] .time-pill-sched {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+  border: 1px solid var(--xp-border) !important;
 }
 
 .departure-card {

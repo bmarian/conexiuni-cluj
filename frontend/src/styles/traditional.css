@@ -44,6 +44,10 @@ html[data-traditional] .app-drawer .dist-badge,
 html[data-traditional] .app-drawer .route-legs-card,
 html[data-traditional] .app-drawer .leg-dot,
 html[data-traditional] .app-drawer .plan-placeholder,
+html[data-traditional] .app-drawer .bus-chip,
+html[data-traditional] .app-drawer .stat-chip,
+html[data-traditional] .app-drawer .card-rail,
+html[data-traditional] .app-drawer .plan-time-filter,
 /* settings button and popover */
 html[data-traditional] .settings-btn,
 html[data-traditional] .settings-popover,
@@ -216,6 +220,20 @@ html[data-traditional] .departure-card.is-selected {
 
 html[data-traditional] .departure-card.is-selected * {
   color: #FFFFFF !important;
+}
+
+html[data-traditional] .departure-card.is-selected .card-primary-time-live {
+  color: #90EE90 !important;
+}
+
+html[data-traditional] .departure-card.is-selected .live-dot {
+  background: #90EE90 !important;
+}
+
+html[data-traditional] .departure-card.is-selected .stat-chip-live {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #90EE90 !important;
+  border-color: rgba(144, 238, 144, 0.5) !important;
 }
 
 html[data-traditional] .departure-card.is-selected .time-pill-sched {
@@ -556,6 +574,20 @@ html.dark[data-traditional] .departure-card.is-selected {
 
 html.dark[data-traditional] .departure-card.is-selected * {
   color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .card-primary-time-live {
+  color: #90EE90 !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .live-dot {
+  background: #90EE90 !important;
+}
+
+html.dark[data-traditional] .departure-card.is-selected .stat-chip-live {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #90EE90 !important;
+  border-color: rgba(144, 238, 144, 0.4) !important;
 }
 
 html.dark[data-traditional] .departure-card.is-selected .time-pill-sched {
@@ -1420,6 +1452,178 @@ html.dark[data-traditional] .select-wrap::after {
 }
 
 /* RoutePlanningView */
+
+html[data-traditional] .departure-card .stat-chip {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-transfer {
+  background: var(--xp-btn) !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-live {
+  background: var(--xp-live) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #3D7E22 !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-duration {
+  background: var(--xp-btn) !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-next {
+  color: #404040 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-time {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .card-dest {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .card-arrow {
+  color: #404040 !important;
+}
+
+html[data-traditional] .departure-card .bus-chain-arrow {
+  color: #000000 !important;
+}
+
+html[data-traditional] .departure-card .card-arrival-time {
+  color: #404040 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .card-primary-time-sched {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .card-primary-time-live {
+  color: #006400 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .card-chevron {
+  color: var(--xp-blue) !important;
+}
+
+html[data-traditional] .departure-card .card-rail {
+  border-radius: 0 !important;
+}
+
+html[data-traditional] .departure-card .card-rail.is-active {
+  background: var(--xp-blue) !important;
+}
+
+html[data-traditional] .departure-card .bus-chip {
+  border: 1px solid rgba(0, 0, 0, 0.35) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  border-radius: 0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .departure-card .live-dot {
+  border-radius: 0 !important;
+  background: #3D7E22 !important;
+  box-shadow: none !important;
+}
+
+html[data-traditional] .departure-card .stat-chip-label {
+  font-family: var(--xp-font) !important;
+}
+
+/* Traditional dark – departure card sub-elements */
+html.dark[data-traditional] .departure-card .stat-chip {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .stat-chip-transfer {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .departure-card .stat-chip-live {
+  background: var(--xp-live) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #3D7E22 !important;
+}
+
+html.dark[data-traditional] .departure-card .stat-chip-duration {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .departure-card .stat-chip-next {
+  color: #8898B0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .stat-chip-time {
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-dest {
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-arrow {
+  color: #8898B0 !important;
+}
+
+html.dark[data-traditional] .departure-card .bus-chain-arrow {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-arrival-time {
+  color: #8898B0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-primary-time-sched {
+  color: var(--xp-text) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-primary-time-live {
+  color: #5BAA38 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-chevron {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .departure-card .card-rail.is-active {
+  background: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .departure-card .bus-chip {
+  border: 1px solid rgba(0, 0, 0, 0.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  border-radius: 0 !important;
+}
+
+html.dark[data-traditional] .departure-card .live-dot {
+  border-radius: 0 !important;
+  background: #5BAA38 !important;
+  box-shadow: none !important;
+}
 
 html[data-traditional] .route-legs-card {
   background: #FFFFFF !important;

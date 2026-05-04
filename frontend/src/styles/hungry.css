@@ -83,6 +83,20 @@ html[data-hungry] .departure-card.is-selected * {
   color: #78350f !important;
 }
 
+html[data-hungry] .departure-card.is-selected .card-primary-time-live {
+  color: #047857 !important;
+}
+
+html[data-hungry] .departure-card.is-selected .live-dot {
+  background: #10b981 !important;
+}
+
+html[data-hungry] .departure-card.is-selected .stat-chip-live {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
 html[data-hungry] .departure-card-fav {
   background: #fef3c7 !important;
   border-color: #fcd34d !important;
@@ -223,6 +237,20 @@ html.dark[data-hungry] .departure-card.is-selected {
 
 html.dark[data-hungry] .departure-card.is-selected * {
   color: #fde68a !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .card-primary-time-live {
+  color: #34d399 !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .live-dot {
+  background: #34d399 !important;
+}
+
+html.dark[data-hungry] .departure-card.is-selected .stat-chip-live {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
 }
 
 /* Must come after .departure-card — same specificity, last wins */
