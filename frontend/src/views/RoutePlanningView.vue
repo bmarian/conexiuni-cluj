@@ -339,7 +339,8 @@ function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; 
 
 function enrichWithAlternativesFromShapes(
   grouped: ReturnType<typeof groupPlans>,
-  shapesMap: Record<string, ShapeInfo>
+  shapesMap: Record<string, ShapeInfo>,
+  now: Date
 ): ReturnType<typeof groupPlans> {
   return grouped.map(plan => ({
     ...plan,
@@ -359,6 +360,10 @@ function enrichWithAlternativesFromShapes(
         const startIdx = stopTimes.findIndex(st => st.stop_id === leg.startStopId)
         const destIdx = stopTimes.findIndex(st => st.stop_id === leg.destStopId)
         if (startIdx === -1 || destIdx === -1 || destIdx <= startIdx) continue
+
+        // Reject if the route has no departure from the boarding stop within 30 min.
+        // This filters out routes that don't run today or not at this hour (e.g. night buses).
+        if (!getNextDepartures(shape, tripId, leg.startStopId, now, 1, 30).length) continue
 
         mergedRouteIds.push(routeId)
         mergedTripIds.push(tripId)
@@ -420,7 +425,7 @@ watch(planData, (data) => {
   const isArriveBy = timeMode.value === 'arrive'
   const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
 
-  const grouped = enrichWithAlternativesFromShapes(groupPlans(data.plans), data.shapes)
+  const grouped = enrichWithAlternativesFromShapes(groupPlans(data.plans), data.shapes, requestedTime)
   const results: RichPlan[] = []
   for (const plan of grouped) {
     const rich = buildRichPlan(plan, data.shapes, requestedTime, isArriveBy)
@@ -1349,13 +1354,13 @@ watch(timeValue, (val) => {
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">
                   {{ t('planBoarding') }}
-                  <template v-for="(routeId, rIdx) in ld.leg.routeIds" :key="routeId">
+                  <template v-for="(routeId, rIdx) in ld.leg.routeIds.slice(0, 4)" :key="routeId">
                     <RouterLink
                       class="leg-route-link"
                       :to="{ name: 'route', params: { routeId: routeId, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
                       @click.stop
-                    >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < ld.leg.routeIds.length - 1" class="leg-route-sep"> / </span>
-                  </template>
+                    >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < Math.min(ld.leg.routeIds.length, 4) - 1" class="leg-route-sep"> / </span>
+                  </template><span v-if="ld.leg.routeIds.length > 4" class="leg-route-overflow"> +{{ ld.leg.routeIds.length - 4 }}</span>
                   <span v-if="Math.max(0, Math.round(ld.leg.rideSeconds / 60)) > 0" class="leg-ride-time">
                     · {{ Math.max(0, Math.round(ld.leg.rideSeconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                   </span>
@@ -1582,7 +1587,7 @@ watch(timeValue, (val) => {
                       class="bus-chip"
                       :style="{ backgroundColor: shapes[String(leg.routeIds[0])]?.route_color }"
                       :title="leg.routeIds.map(id => shapes[String(id)]?.route_short_name).join(' / ')"
-                    ><template v-for="(routeId, rIdx) in leg.routeIds" :key="rIdx"><span class="bus-chip-name">{{ shapes[String(routeId)]?.route_short_name }}</span><span v-if="rIdx < leg.routeIds.length - 1" class="bus-chip-sep">/</span></template></span>
+                    ><template v-for="(routeId, rIdx) in leg.routeIds.slice(0, 3)" :key="rIdx"><span class="bus-chip-name">{{ shapes[String(routeId)]?.route_short_name }}</span><span v-if="rIdx < Math.min(leg.routeIds.length, 3) - 1" class="bus-chip-sep">/</span></template><span v-if="leg.routeIds.length > 3" class="bus-chip-overflow">+{{ leg.routeIds.length - 3 }}</span></span>
                     <svg v-if="lIdx < plan.legs.length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
                     </svg>
@@ -2743,6 +2748,17 @@ html.dark[data-traditional] .time-pill-sched {
   font-weight: 600;
 }
 
+.bus-chip-overflow {
+  margin-left: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.85;
+  background: rgba(0,0,0,0.25);
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.3rem;
+  line-height: 1;
+}
+
 .bus-chain-arrow {
   width: 0.95rem;
   height: 0.95rem;
@@ -3092,6 +3108,12 @@ html.dark[data-traditional] .time-pill-sched {
 
 .leg-route-sep {
   opacity: 0.6;
+}
+
+.leg-route-overflow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.65;
 }
 
 .fav-btn {
