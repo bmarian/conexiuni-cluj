@@ -337,6 +337,39 @@ function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; 
   return Array.from(groups.values())
 }
 
+function enrichWithAlternativesFromShapes(
+  grouped: ReturnType<typeof groupPlans>,
+  shapesMap: Record<string, ShapeInfo>
+): ReturnType<typeof groupPlans> {
+  return grouped.map(plan => ({
+    ...plan,
+    legs: plan.legs.map(leg => {
+      const dir = leg.tripIds[0]?.endsWith('_0') ? '0' : '1'
+      const mergedRouteIds = [...leg.routeIds]
+      const mergedTripIds = [...leg.tripIds]
+
+      for (const [routeIdStr, shape] of Object.entries(shapesMap)) {
+        const routeId = parseInt(routeIdStr)
+        if (isNaN(routeId) || mergedRouteIds.includes(routeId)) continue
+
+        const tripId = `${routeId}_${dir}`
+        const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tripId)
+        if (!stopTimes.length) continue
+
+        const startIdx = stopTimes.findIndex(st => st.stop_id === leg.startStopId)
+        const destIdx = stopTimes.findIndex(st => st.stop_id === leg.destStopId)
+        if (startIdx === -1 || destIdx === -1 || destIdx <= startIdx) continue
+
+        mergedRouteIds.push(routeId)
+        mergedTripIds.push(tripId)
+      }
+
+      if (mergedRouteIds.length === leg.routeIds.length) return leg
+      return { ...leg, routeIds: mergedRouteIds, tripIds: mergedTripIds }
+    })
+  }))
+}
+
 function buildRichPlan(
   plan: ReturnType<typeof groupPlans>[number],
   shapesMap: Record<string, ShapeInfo>,
@@ -365,13 +398,11 @@ function buildRichPlan(
 
 const streamTripIds = computed(() => {
   if (!isActive.value || timeMode.value !== 'now') return []
-  const data = planData.value
-  if (!data?.plans?.length) return []
-  // Derive all unique trip IDs directly from API response - no dependency on routesWithTimes rebuild
+  if (!routesWithTimes.value.length) return []
   const ids = new Set<string>()
-  for (const p of data.plans) {
+  for (const p of routesWithTimes.value) {
     for (const leg of p.legs) {
-      ids.add(leg.trip_id)
+      for (const tid of leg.tripIds) ids.add(tid)
     }
   }
   return [...ids]
@@ -389,12 +420,11 @@ watch(planData, (data) => {
   const isArriveBy = timeMode.value === 'arrive'
   const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
 
-  const grouped = groupPlans(data.plans)
+  const grouped = enrichWithAlternativesFromShapes(groupPlans(data.plans), data.shapes)
   const results: RichPlan[] = []
   for (const plan of grouped) {
     const rich = buildRichPlan(plan, data.shapes, requestedTime, isArriveBy)
     if (rich) {
-      // Adjust nextTimes to be relative to "now" (real current time)
       const offsetMin = (requestedTime.getTime() - now.getTime()) / 60_000
       rich.nextTimes = rich.nextTimes.map(t => ({ ...t, minutes: t.minutes + offsetMin }))
       results.push(rich)

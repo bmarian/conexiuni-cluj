@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -121,6 +122,9 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 		if !ok {
 			continue
 		}
+		sort.Slice(sts, func(i, j int) bool {
+			return sts[i].StopSequence < sts[j].StopSequence
+		})
 		tripShapes := shapesByID[t.ShapeID]
 		var prevStop *models.Stop
 		cumOffset := 0.0
@@ -150,7 +154,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	// Use Bucharest time to ensure calendar is valid for local day.
 	now := time.Now().In(tranzyClient.Location())
 	calStart := now.Format("20060102")
-	calEnd := now.AddDate(0, 0, 30).Format("20060102")
+	calEnd := now.AddDate(0, 0, 90).Format("20060102")
 
 	// Service IDs
 	const (
@@ -188,12 +192,16 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	for _, r := range routes {
 		color := strings.TrimPrefix(r.RouteColor, "#")
 		textColor := contrastTextColor(color)
+		desc := strings.TrimSpace(r.RouteDesc)
+		if desc == r.RouteLongName {
+			desc = ""
+		}
 		routeRows = append(routeRows, []string{
 			strconv.Itoa(r.RouteID),
 			"1",
 			r.RouteShortName,
 			r.RouteLongName,
-			r.RouteDesc,
+			desc,
 			strconv.Itoa(int(r.RouteType)),
 			color,
 			textColor,
@@ -232,6 +240,8 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	stRows := [][]string{
 		{"trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"},
 	}
+
+	usedShapeIDs := make(map[string]bool)
 
 	type serviceInfo struct {
 		serviceID  string
@@ -300,6 +310,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 					wheelchair,
 					bikes,
 				})
+				usedShapeIDs[trip.ShapeID] = true
 
 				for _, est := range enrichedStops {
 					arrSec := baseSec + int(est.OffsetSec)
@@ -329,6 +340,9 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 		{"shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence", "shape_dist_traveled"},
 	}
 	for _, s := range shapes {
+		if !usedShapeIDs[s.ShapeID] {
+			continue
+		}
 		distStr := ""
 		if s.ShapeDistTraveled >= 0 {
 			distStr = strconv.FormatFloat(s.ShapeDistTraveled, 'f', 4, 64)
@@ -347,8 +361,8 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 
 	// feed_info.txt
 	if err := writeCSV(zw, "feed_info.txt", [][]string{
-		{"feed_publisher_name", "feed_publisher_url", "feed_lang", "feed_start_date", "feed_end_date", "feed_version"},
-		{"CTP Cluj-Napoca", "https://ctpcj.ro", "ro", calStart, calEnd, now.Format("20060102T150405")},
+		{"feed_publisher_name", "feed_publisher_url", "feed_lang", "feed_start_date", "feed_end_date", "feed_version", "feed_contact_url"},
+		{"CTP Cluj-Napoca", "https://ctpcj.ro", "ro", calStart, calEnd, now.Format("20060102T150405"), "https://ctpcj.ro"},
 	}); err != nil {
 		return fmt.Errorf("gtfs: feed_info.txt: %w", err)
 	}

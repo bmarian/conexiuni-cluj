@@ -716,8 +716,8 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				transitSec += rideSec
 
 				tripID := ""
-				// Try to resolve trip direction from stop info.
-				if stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID}); stopInfo != nil {
+				stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID})
+				if stopInfo != nil {
 					target0 := strconv.Itoa(route.RouteID) + "_0"
 					target1 := strconv.Itoa(route.RouteID) + "_1"
 
@@ -742,6 +742,46 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				}
 				if tripID == "" {
 					tripID = strconv.Itoa(route.RouteID) + "_0"
+				}
+
+				// Use the already-fetched stopInfo to add alternative routes that
+				// cover the same start→dest pair in the same direction.
+				if stopInfo != nil {
+					suffix := "_0"
+					if strings.HasSuffix(tripID, "_1") {
+						suffix = "_1"
+					}
+					for _, si := range stopInfo.ShapesInfo {
+						key := strconv.Itoa(si.RouteId)
+						if _, exists := shapesMap[key]; exists {
+							continue
+						}
+						altTripID := strconv.Itoa(si.RouteId) + suffix
+						startIdx, destIdx := -1, -1
+						for i, st := range si.StopTimes {
+							if st.TripID == altTripID {
+								if st.StopID == startStop.StopID && startIdx == -1 {
+									startIdx = i
+								} else if st.StopID == destStop.StopID && startIdx != -1 {
+									destIdx = i
+									break
+								}
+							}
+						}
+						if startIdx == -1 || destIdx == -1 {
+							continue
+						}
+						t := si.Timetable
+						shapesMap[key] = shapeSlim{
+							RouteShortName: si.RouteShortName,
+							RouteLongName:  si.RouteLongName,
+							RouteID:        si.RouteId,
+							RouteType:      si.RouteType,
+							RouteColor:     models.ResolveRouteDisplayColor(si.RouteShortName),
+							StopTime:       si.StopTimes,
+							Timetable:      &t,
+						}
+					}
 				}
 
 				curLegs = append(curLegs, planLegResp{
