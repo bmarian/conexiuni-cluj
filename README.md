@@ -102,9 +102,3 @@ npm run build
 ```
 
 Output goes to `backend/dist/` — the Go server picks it up and serves it automatically.
-
----
-
-## License
-
-MIT
