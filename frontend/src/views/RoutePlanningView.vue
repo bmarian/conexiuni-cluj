@@ -910,6 +910,57 @@ watch(selectedPlanKey, (newKey) => {
   }
 })
 
+const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStore)
+
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const params = new URLSearchParams({
+      lat: lat.toString(),
+      lon: lon.toString(),
+      format: 'json',
+      'accept-language': 'ro',
+    })
+    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`)
+    if (resp.ok) {
+      const data = await resp.json()
+      return (data.display_name as string | undefined) ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+    }
+  } catch { /* ignore */ }
+  return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+}
+
+let destDragGen = 0
+watch(pinnedLocationDragged, async (dragged) => {
+  if (!dragged) return
+  const gen = ++destDragGen
+  const {lat, lng} = dragged
+  mapStore.clearPinnedLocationDragged()
+  const name = await reverseGeocode(lat, lng)
+  if (gen !== destDragGen) return
+
+  void router.replace({query: {...route.query, lat: lat.toString(), lon: lng.toString(), name}})
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  void calculateRoutes()
+})
+
+let originDragGen = 0
+watch(customOriginLocationDragged, async (dragged) => {
+  if (!dragged) return
+  const gen = ++originDragGen
+  const {lat, lng} = dragged
+  mapStore.clearCustomOriginLocationDragged()
+  const name = await reverseGeocode(lat, lng)
+  if (gen !== originDragGen) return
+
+  customOrigin.value = {name, lat, lon: lng}
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  void calculateRoutes()
+})
+
 async function performSearch() {
   const q = searchQuery.value.trim()
   if (q.length < 3) {

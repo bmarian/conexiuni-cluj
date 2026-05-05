@@ -658,9 +658,16 @@ watch([pinnedLocation, easterEggActive, traditionalActive], ([loc]) => {
     icon: makePinIcon(themeOpts()),
     zIndexOffset: 9000,
     interactive: true,
+    draggable: true,
   })
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
+  pinMarker.value.on('dragend', () => {
+    const newLatLng = pinMarker.value?.getLatLng()
+    if (newLatLng) {
+      mapStore.setPinnedLocationDragged(newLatLng.lat, newLatLng.lng)
+    }
+  })
 })
 
 watch([customOriginLocation, easterEggActive, traditionalActive], ([loc]) => {
@@ -680,9 +687,16 @@ watch([customOriginLocation, easterEggActive, traditionalActive], ([loc]) => {
     icon: makePinIcon(themeOpts(), '#22c55e'), // Green pin for origin
     zIndexOffset: 9000,
     interactive: true,
+    draggable: true,
   })
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
+  originMarker.value.on('dragend', () => {
+    const newLatLng = originMarker.value?.getLatLng()
+    if (newLatLng) {
+      mapStore.setCustomOriginLocationDragged(newLatLng.lat, newLatLng.lng)
+    }
+  })
 })
 
 onUnmounted(() => {
