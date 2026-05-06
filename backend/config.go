@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -85,7 +86,7 @@ func Load() *Config {
 		log.Fatal("No .env files found")
 	}
 
-	return &Config{
+	cfg := &Config{
 		Environment:               getEnv("ENV", "development"),
 		LogDir:                    getEnv("LOG_DIR", "../logs"),
 		LogRetentionDays:          getInt("LOG_RETENTION_DAYS", 5),
@@ -114,4 +115,18 @@ func Load() *Config {
 		VehicleMaxInterval:        getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
 		OtpMaxMemory:              getEnv("OTP_MX", "2G"),
 	}
+
+	if cfg.Environment == "development" {
+		neverExpire := time.Duration(math.MaxInt64)
+		cfg.ShapeCacheShelfLife = neverExpire
+		cfg.RouteCacheShelfLife = neverExpire
+		cfg.StopCacheShelfLife = neverExpire
+		cfg.TripCacheShelfLife = neverExpire
+		cfg.TimetableCacheShelfLife = neverExpire
+		cfg.StopTimeCacheShelfLife = neverExpire
+		cfg.APIStopTimeCacheShelfLife = neverExpire
+		cfg.StopInfoCacheShelfLife = neverExpire
+	}
+
+	return cfg
 }

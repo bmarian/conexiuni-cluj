@@ -14,6 +14,7 @@ const MAX_RECENT_PLANS = 10
 
 export interface FavoritePlan {
   name: string
+  label?: string
   lat: number
   lon: number
   originName?: string
@@ -155,6 +156,16 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistPlans()
   }
 
+  function renamePlanFavorite(lat: number, lon: number, originLat: number | undefined, originLon: number | undefined, label: string | undefined) {
+    const plan = favoritePlans.value.find(p =>
+      p.lat === lat && p.lon === lon && p.originLat === originLat && p.originLon === originLon
+    )
+    if (plan) {
+      plan.label = label || undefined
+      persistPlans()
+    }
+  }
+
   function reorderRouteIds(newIds: number[]) {
     favoriteRouteIds.value = newIds
     persistRoutes()
@@ -240,6 +251,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     toggleRouteFavorite,
     toggleStopFavorite,
     togglePlanFavorite,
+    renamePlanFavorite,
     reorderRouteIds,
     reorderStopIds,
     reorderPlans,

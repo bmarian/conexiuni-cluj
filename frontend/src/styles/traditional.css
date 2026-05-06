@@ -1019,6 +1019,59 @@ html.dark[data-traditional] .plan-view-container button[class*="text-slate-500"]
   border-color: var(--xp-blue) !important;
 }
 
+html[data-traditional] .rename-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #404080 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  border-radius: 3px !important;
+}
+
+html[data-traditional] .rename-btn:hover {
+  background: linear-gradient(to bottom, #D0E8FF 0%, #B8D4FF 100%) !important;
+  border-color: #4060C0 !important;
+  color: #2040A0 !important;
+}
+
+html[data-traditional] .rename-input {
+  font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
+  background: #ffffff !important;
+  border: 2px inset #7F9DB9 !important;
+  border-radius: 0 !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .rename-confirm-btn,
+html[data-traditional] .rename-cancel-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  border-radius: 3px !important;
+  color: #404040 !important;
+}
+
+html[data-traditional] .rename-confirm-btn:hover {
+  background: linear-gradient(to bottom, #C8EFC8 0%, #A8DFA8 100%) !important;
+  border-color: #407840 !important;
+  color: #206020 !important;
+}
+
+html[data-traditional] .rename-cancel-btn:hover {
+  background: linear-gradient(to bottom, #E8E8E8 0%, #D0D0D0 100%) !important;
+}
+
+html.dark[data-traditional] .rename-btn {
+  background: var(--xp-btn) !important;
+  border-color: var(--xp-border) !important;
+  color: #6A82A0 !important;
+}
+
+html.dark[data-traditional] .rename-btn:hover {
+  background: linear-gradient(to bottom, #1A2840 0%, #0A1828 100%) !important;
+  border-color: #4060C0 !important;
+  color: #6090FF !important;
+}
+
 html[data-traditional] .fav-btn {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;

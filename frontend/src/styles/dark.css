@@ -42,6 +42,42 @@ html.dark .fav-btn.is-fav:hover {
   background: rgb(244 63 94 / 0.2);
 }
 
+html.dark .rename-btn {
+  color: #64748b;
+}
+
+html.dark .rename-btn:hover {
+  background: rgb(59 130 246 / 0.15);
+  color: #60a5fa;
+}
+
+html.dark .rename-input {
+  color: #f1f5f9;
+  background: #1e293b;
+  border-color: #475569;
+}
+
+html.dark .rename-input:focus {
+  border-color: #3b82f6;
+  background: #0f172a;
+}
+
+html.dark .rename-confirm-btn {
+  color: #4ade80;
+}
+
+html.dark .rename-confirm-btn:hover {
+  background: rgb(22 163 74 / 0.15);
+}
+
+html.dark .rename-cancel-btn {
+  color: #94a3b8;
+}
+
+html.dark .rename-cancel-btn:hover {
+  background: rgb(51 65 85 / 0.5);
+}
+
 html.dark .fav-route-chip {
   border-color: rgb(51 65 85 / 0.5);
   background: rgb(30 41 59 / 0.6);

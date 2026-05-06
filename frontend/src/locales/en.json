@@ -110,5 +110,7 @@
     "planArrivalAt": "arrive by {time}",
     "planAtTime": "at {time}",
     "planInTime": "in {time}",
-    "planSearching": "Searching..."
+    "planSearching": "Searching...",
+    "renameFavorite": "Rename favorite",
+    "renameFavoritePlaceholder": "Route name..."
 }

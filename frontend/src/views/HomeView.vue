@@ -337,13 +337,19 @@ const planFavoritesModel = computed<FavoritePlan[]>({
                 </div>
                 <div class="flex-1 flex flex-col min-w-0">
                   <span
-                    v-if="plan.originName"
+                    v-if="plan.originName && !plan.label"
                     class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold leading-[1.3] mb-0.5 truncate">
                     {{ t('planFrom') }}: {{ plan.originName }}
                   </span>
                   <span
+                    v-if="!plan.label"
                     class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
                     <span v-if="plan.originName" class="text-slate-400 dark:text-slate-500 mr-1">{{ t('planTo') }}:</span>{{ plan.name }}
+                  </span>
+                  <span
+                    v-if="plan.label"
+                    class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
+                    {{ plan.label }}
                   </span>
                 </div>
                 <button

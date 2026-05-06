@@ -88,6 +88,11 @@ const isFavorite = computed(() => favoritesStore.isPlanFavorite(
   customOrigin.value?.lon
 ))
 
+const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
+  p.lat === destLat.value && p.lon === destLon.value &&
+  p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
+)?.label)
+
 function toggleFavorite() {
   if (isNaN(destLat.value) || isNaN(destLon.value)) return
   favoritesStore.togglePlanFavorite({
@@ -98,6 +103,33 @@ function toggleFavorite() {
     originLat: customOrigin.value?.lat,
     originLon: customOrigin.value?.lon
   })
+}
+
+const isRenaming = ref(false)
+const renameValue = ref('')
+
+function startRename() {
+  const stored = favoritesStore.favoritePlans.find(p =>
+    p.lat === destLat.value && p.lon === destLon.value &&
+    p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
+  )
+  renameValue.value = stored?.label ?? ''
+  isRenaming.value = true
+}
+
+function confirmRename() {
+  favoritesStore.renamePlanFavorite(
+    destLat.value,
+    destLon.value,
+    customOrigin.value?.lat,
+    customOrigin.value?.lon,
+    renameValue.value.trim() || undefined
+  )
+  isRenaming.value = false
+}
+
+function cancelRename() {
+  isRenaming.value = false
 }
 
 const allStops = ref<Stop[]>([])
@@ -1329,12 +1361,47 @@ watch(timeValue, (val) => {
           class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{
             t('planTitle')
           }}</span>
+        <div v-if="isRenaming" class="flex items-center gap-1.5 mt-0.5">
+          <input
+            v-model="renameValue"
+            class="rename-input"
+            :placeholder="t('renameFavoritePlaceholder')"
+            @keyup.enter="confirmRename"
+            @keyup.esc="cancelRename"
+            v-focus
+          />
+          <button class="rename-confirm-btn" type="button" :aria-label="t('renameFavorite')" @click="confirmRename">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </button>
+          <button class="rename-cancel-btn" type="button" aria-label="Cancel" @click="cancelRename">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
         <h1
+          v-else
           class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate"
-          :title="hasValidDest ? destName : t('planTitleGeneric')">
-          {{ hasValidDest ? destName : t('planTitleGeneric') }}
+          :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
+          {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
         </h1>
       </div>
+      <button
+        v-if="hasValidCoords && isFavorite && !isRenaming"
+        type="button"
+        class="rename-btn mt-1 shrink-0"
+        :title="t('renameFavorite')"
+        :aria-label="t('renameFavorite')"
+        @click="startRename"
+      >
+        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">✏️</span>
+        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
+        </svg>
+      </button>
       <button
         v-if="hasValidCoords"
         type="button"
@@ -3316,6 +3383,77 @@ html.dark[data-traditional] .time-pill-sched {
 
 .fav-btn.is-fav:hover {
   background: #fee2e2;
+}
+
+.rename-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.rename-btn:hover {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.rename-btn:active {
+  transform: scale(0.92);
+}
+
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1.5px solid #94a3b8;
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  outline: none;
+}
+
+.rename-input:focus {
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+.rename-confirm-btn,
+.rename-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rename-confirm-btn {
+  color: #16a34a;
+  background: transparent;
+}
+
+.rename-confirm-btn:hover {
+  background: #dcfce7;
+}
+
+.rename-cancel-btn {
+  color: #64748b;
+  background: transparent;
+}
+
+.rename-cancel-btn:hover {
+  background: #f1f5f9;
 }
 
 .plan-loading {
