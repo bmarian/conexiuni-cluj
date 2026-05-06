@@ -333,6 +333,13 @@ html[data-traditional] .geo-result-row:hover * {
   color: #FFFFFF !important;
 }
 
+html[data-traditional] .all-route-row:hover .dist-badge,
+html[data-traditional] .stop-result-row:hover .dist-badge,
+html[data-traditional] .geo-result-row:hover .dist-badge {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
 html[data-traditional] .section-label svg {
   color: var(--xp-blue) !important;
 }
@@ -662,6 +669,19 @@ html.dark[data-traditional] .all-route-row:hover,
 html.dark[data-traditional] .stop-result-row:hover,
 html.dark[data-traditional] .geo-result-row:hover {
   background: #2A508C !important;
+}
+
+html.dark[data-traditional] .all-route-row:hover *,
+html.dark[data-traditional] .stop-result-row:hover *,
+html.dark[data-traditional] .geo-result-row:hover * {
+  color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .all-route-row:hover .dist-badge,
+html.dark[data-traditional] .stop-result-row:hover .dist-badge,
+html.dark[data-traditional] .geo-result-row:hover .dist-badge {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 html.dark[data-traditional] .section-label svg {
