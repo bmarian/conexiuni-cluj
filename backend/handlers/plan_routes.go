@@ -45,7 +45,7 @@ func otpBaseURL() string {
 	if u := os.Getenv("OTP_URL"); u != "" {
 		return u
 	}
-	return "http://localhost:8080"
+	return "http://localhost:18080"
 }
 
 // otpTimeout is the maximum time an OTP request is allowed to take.
@@ -269,14 +269,14 @@ func stopOTPServer() {
 	}
 	otpMu.Unlock()
 
-	log.Printf("otp: stopping local server on port 8080 (fallback check) …")
+	log.Printf("otp: stopping local server on port 18080 (fallback check) …")
 
 	if runtime.GOOS == "windows" {
-		// On Windows, find the PID of the process listening on port 8080.
-		cmd := exec.Command("cmd", "/c", "netstat -ano | findstr :8080")
+		// On Windows, find the PID of the process listening on port 18080.
+		cmd := exec.Command("cmd", "/c", "netstat -ano | findstr :18080")
 		out, _ := cmd.Output()
 		if len(out) == 0 {
-			log.Printf("otp: no process found on port 8080")
+			log.Printf("otp: no process found on port 18080")
 			return
 		}
 
@@ -286,8 +286,8 @@ func stopOTPServer() {
 			if len(fields) < 5 {
 				continue
 			}
-			// Example: TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       1234
-			if !strings.Contains(fields[1], ":8080") || fields[3] != "LISTENING" {
+			// Example: TCP    0.0.0.0:18080           0.0.0.0:0              LISTENING       1234
+			if !strings.Contains(fields[1], ":18080") || fields[3] != "LISTENING" {
 				continue
 			}
 			pid := fields[4]
@@ -300,10 +300,10 @@ func stopOTPServer() {
 	} else {
 		// On Linux/macOS, find the PID of the process listening on port 8080 using fuser or lsof.
 		// fuser -k 8080/tcp is a common way, but let's try to be more surgical.
-		cmd := exec.Command("lsof", "-t", "-i:8080")
+		cmd := exec.Command("lsof", "-t", "-i:18080")
 		out, err := cmd.Output()
 		if err != nil || len(out) == 0 {
-			log.Printf("otp: no process found on port 8080 (or lsof failed)")
+			log.Printf("otp: no process found on port 18080 (or lsof failed)")
 			return
 		}
 
@@ -328,7 +328,7 @@ func startOTPServer() {
 	otpMu.RLock()
 	mx := otpMaxMem
 	otpMu.RUnlock()
-	cmd := exec.Command("java", "-Xmx"+mx, "-XX:+UseZGC", "-jar", jarPath, "--build", "--serve", dataDir)
+	cmd := exec.Command("java", "-Xmx"+mx, "-XX:+UseZGC", "-jar", jarPath, "--build", "--serve", "--port", "18080", dataDir)
 
 	if err := cmd.Start(); err != nil {
 		log.Printf("otp: failed to start server: %v", err)
