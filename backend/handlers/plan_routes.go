@@ -745,32 +745,47 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				}
 
 				// Use the already-fetched stopInfo to add alternative routes that
-				// cover the same start→dest pair in the same direction.
+				// cover the exact same stop sequence (start → all intermediates → dest)
+				// in the same direction. Routes that only share the endpoints but take
+				// a different path (e.g. a different route number) are excluded.
 				if stopInfo != nil {
 					suffix := "_0"
 					if strings.HasSuffix(tripID, "_1") {
 						suffix = "_1"
 					}
+
+					// Build the full ordered stop sequence the chosen leg must match.
+					required := make([]int, 0, len(intermediates)+2)
+					required = append(required, startStop.StopID)
+					required = append(required, intermediates...)
+					required = append(required, destStop.StopID)
+
 					for _, si := range stopInfo.ShapesInfo {
 						key := strconv.Itoa(si.RouteId)
 						if _, exists := shapesMap[key]; exists {
 							continue
 						}
 						altTripID := strconv.Itoa(si.RouteId) + suffix
-						startIdx, destIdx := -1, -1
-						for i, st := range si.StopTimes {
-							if st.TripID == altTripID {
-								if st.StopID == startStop.StopID && startIdx == -1 {
-									startIdx = i
-								} else if st.StopID == destStop.StopID && startIdx != -1 {
-									destIdx = i
+
+						// Walk the stop-times in order and match every required stop
+						// sequentially.  All required stops must appear in order.
+						reqIdx := 0
+						for _, st := range si.StopTimes {
+							if st.TripID != altTripID {
+								continue
+							}
+							if st.StopID == required[reqIdx] {
+								reqIdx++
+								if reqIdx == len(required) {
 									break
 								}
 							}
 						}
-						if startIdx == -1 || destIdx == -1 {
+						if reqIdx < len(required) {
+							// This route does not serve all stops in the correct order.
 							continue
 						}
+
 						t := si.Timetable
 						shapesMap[key] = shapeSlim{
 							RouteShortName: si.RouteShortName,

@@ -355,6 +355,10 @@ function enrichWithAlternativesFromShapes(
       const mergedRouteIds = [...leg.routeIds]
       const mergedTripIds = [...leg.tripIds]
 
+      // Build the full required stop sequence: start → intermediates → dest.
+      // A candidate route must visit every one of these stops in order.
+      const required = [leg.startStopId, ...(leg.intermediateStopIds ?? []), leg.destStopId]
+
       for (const [routeIdStr, shape] of Object.entries(shapesMap)) {
         const routeId = parseInt(routeIdStr)
         if (isNaN(routeId) || mergedRouteIds.includes(routeId)) continue
@@ -363,9 +367,15 @@ function enrichWithAlternativesFromShapes(
         const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tripId)
         if (!stopTimes.length) continue
 
-        const startIdx = stopTimes.findIndex(st => st.stop_id === leg.startStopId)
-        const destIdx = stopTimes.findIndex(st => st.stop_id === leg.destStopId)
-        if (startIdx === -1 || destIdx === -1 || destIdx <= startIdx) continue
+        // Verify all required stops appear in the correct sequential order.
+        let reqIdx = 0
+        for (const st of stopTimes) {
+          if (st.stop_id === required[reqIdx]) {
+            reqIdx++
+            if (reqIdx === required.length) break
+          }
+        }
+        if (reqIdx < required.length) continue
 
         // Reject if the route has no departure from the boarding stop within 30 min.
         // This filters out routes that don't run today or not at this hour (e.g. night buses).
