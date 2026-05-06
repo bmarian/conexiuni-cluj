@@ -116,7 +116,7 @@ function toggleLegExpansion(id: string) {
 
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
-const liveEtaByKey = ref<Map<string, number>>(new Map())
+const liveEtaByKey = ref<Map<string, { eta: number; ts: number }>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
 
@@ -476,14 +476,34 @@ watch(userTime, (uTime) => {
     // Adjust nextTimes to be relative to "now" (real current time)
     const adjustedTimes = newTimes.map(t => ({ ...t, minutes: t.minutes + offsetMin }))
 
-    const liveEta = liveEtaByKey.value.get(plan.key)
+    const stored = liveEtaByKey.value.get(plan.key)
+    // Decay the stored ETA by elapsed time so the displayed time counts down
+    // smoothly between SSE updates, and the catchability check stays stable.
+    const liveEta = stored !== undefined
+      ? stored.eta - (now.getTime() - stored.ts) / 60_000
+      : undefined
     const walkStartMin = plan.walkStartMeters / WALK_SPEED
     if (liveEta !== undefined && liveEta >= walkStartMin) {
       plan.isLive = true
       plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...adjustedTimes.slice(0, 2)]
     } else {
       plan.isLive = liveEta !== undefined // preserve LIVE pill if bus exists but isn't catchable yet
-      plan.nextTimes = adjustedTimes
+      // Guard: only overwrite nextTimes when we have fresh scheduled alternatives,
+      // to prevent the time block from transiently disappearing on empty timetable windows.
+      if (adjustedTimes.length > 0) {
+        plan.nextTimes = adjustedTimes
+      } else {
+        // No scheduled alternatives right now – drop any stale live entry but keep
+        // whatever scheduled entries are already present to avoid a blank display.
+        plan.nextTimes = plan.nextTimes.filter(t => !t.is_live)
+      }
+    }
+  }
+  // Keep the selected-plan live ETA counting down between SSE updates.
+  if (selectedPlan.value) {
+    const stored = liveEtaByKey.value.get(selectedPlan.value.key)
+    if (stored !== undefined) {
+      selectedRouteLiveEtaMin.value = stored.eta - (now.getTime() - stored.ts) / 60_000
     }
   }
 })
@@ -607,7 +627,7 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
   }
 
   const gen = ++vehicleTrackingGen
-  const newLiveEtas = new Map<string, number>()
+  const newLiveEtas = new Map<string, { eta: number; ts: number }>()
   const planUpdates = new Map<string, { isLive: boolean; bestEta: number | null }>()
 
   // Compute live ETA for every plan's first leg boarding stop
@@ -673,8 +693,12 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
       const walkStartMin = plan.walkStartMeters / WALK_SPEED
       const catchable = update.bestEta >= walkStartMin
       plan.isLive = true
+      // Always store the ETA (even when not yet catchable) so the userTime watcher
+      // can keep isLive = true on every clock tick via `liveEta !== undefined`.
+      // Storing a timestamp lets the clock tick watcher decay the ETA smoothly,
+      // avoiding oscillation when bus speed fluctuations flip the catchability check.
+      newLiveEtas.set(plan.key, { eta: update.bestEta, ts: Date.now() })
       if (catchable) {
-        newLiveEtas.set(plan.key, update.bestEta)
         plan.nextTimes = [
           { minutes: update.bestEta, is_live: true },
           ...plan.nextTimes.filter(t => !t.is_live).slice(0, 2)
@@ -690,9 +714,9 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
   // Update selected plan live state
   const plan = selectedPlan.value
   if (plan) {
-    const liveEta = newLiveEtas.get(plan.key)
+    const stored = newLiveEtas.get(plan.key)
     selectedRouteIsLive.value = plan.isLive
-    selectedRouteLiveEtaMin.value = liveEta ?? null
+    selectedRouteLiveEtaMin.value = stored?.eta ?? null
   } else {
     selectedRouteIsLive.value = false
     selectedRouteLiveEtaMin.value = null
