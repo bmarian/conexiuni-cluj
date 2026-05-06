@@ -112,5 +112,15 @@
     "planInTime": "in {time}",
     "planSearching": "Searching...",
     "renameFavorite": "Rename favorite",
-    "renameFavoritePlaceholder": "Route name..."
+    "renameFavoritePlaceholder": "Route name...",
+    "exportImport": "Export / Import",
+    "exportSettings": "Export",
+    "importSettings": "Import",
+    "exportCopyBtn": "Copy to clipboard",
+    "exportCopied": "Copied!",
+    "importPastePlaceholder": "Paste your JSON here...",
+    "importConfirm": "Import",
+    "importSuccess": "Imported!",
+    "importError": "Invalid JSON",
+    "cancel": "Cancel"
 }

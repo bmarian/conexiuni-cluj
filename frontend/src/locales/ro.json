@@ -112,5 +112,15 @@
     "planInTime": "în {time}",
     "planSearching": "Se caută...",
     "renameFavorite": "Redenumește favorita",
-    "renameFavoritePlaceholder": "Nume rută..."
+    "renameFavoritePlaceholder": "Nume rută...",
+    "exportImport": "Export / Import",
+    "exportSettings": "Export",
+    "importSettings": "Import",
+    "exportCopyBtn": "Copiază în clipboard",
+    "exportCopied": "Copiat!",
+    "importPastePlaceholder": "Lipește JSON-ul tău aici...",
+    "importConfirm": "Importă",
+    "importSuccess": "Importat!",
+    "importError": "JSON invalid",
+    "cancel": "Anulează"
 }

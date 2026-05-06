@@ -2,6 +2,7 @@
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
+import SettingsExportImport from '@/components/SettingsExportImport.vue'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -176,6 +177,8 @@ function setLocale(newLocale: 'ro' | 'en') {
           English
         </button>
       </div>
+
+      <SettingsExportImport />
 
     </div>
   </div>

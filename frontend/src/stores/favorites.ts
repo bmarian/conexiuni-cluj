@@ -208,6 +208,17 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistRecentPlans()
   }
 
+  function importAll(data: { routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown }) {
+    favoriteRouteIds.value = Array.isArray(data.routes) ? data.routes.filter((x): x is number => typeof x === 'number') : []
+    favoriteStopIds.value = Array.isArray(data.stops) ? data.stops.filter((x): x is number => typeof x === 'number') : []
+    favoritePlans.value = Array.isArray(data.plans) ? data.plans as FavoritePlan[] : []
+    recentPlans.value = Array.isArray(data.recentPlans) ? data.recentPlans as FavoritePlan[] : []
+    persistRoutes()
+    persistStops()
+    persistPlans()
+    persistRecentPlans()
+  }
+
   async function preloadFavorites() {
     const jobs: Promise<unknown>[] = []
 
@@ -257,6 +268,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     reorderPlans,
     addRecentPlan,
     removeRecentPlan,
+    importAll,
     preloadFavorites,
   }
 })
