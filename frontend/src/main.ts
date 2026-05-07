@@ -1,4 +1,5 @@
 import {createApp} from 'vue'
+import {createHead} from '@unhead/vue/client'
 import {createI18n} from 'vue-i18n'
 import {createPinia} from 'pinia'
 import {registerSW} from 'virtual:pwa-register'
@@ -35,6 +36,7 @@ const pinia = createPinia()
 app.use(i18n)
 app.use(pinia)
 app.use(router)
+app.use(createHead())
 
 const settingsStore = useSettingsStore(pinia)
 i18n.global.locale.value = settingsStore.locale

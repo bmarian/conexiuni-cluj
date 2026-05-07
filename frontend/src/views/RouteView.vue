@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect} from 'vue'
+import {useHead} from '@unhead/vue'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -65,6 +66,28 @@ const routeDisplayName = computed(() => {
   const tt = timetable.value
   if (!tt) return shapeInfo.value?.route_short_name || ''
   return isOutgoing.value ? tt.route_long_name : `${tt.out_stop_name} - ${tt.in_stop_name}`
+})
+
+useHead(() => {
+  const shortName = shapeInfo.value?.route_short_name ?? ''
+  const longName = timetable.value?.route_long_name ?? ''
+  const title = shortName
+    ? `Linia ${shortName}${longName ? ` - ${longName}` : ''} | Conexiuni Cluj`
+    : 'Conexiuni Cluj'
+  const description = shortName
+    ? `Traseu, opriri și orare pentru linia ${shortName} din Cluj-Napoca.`
+    : ''
+  const url = `https://bus.bmarian.online/route/${props.routeId}/${props.direction}`
+  return {
+    title,
+    meta: [
+      {name: 'description', content: description},
+      {property: 'og:title', content: title},
+      {property: 'og:description', content: description},
+      {property: 'og:url', content: url},
+    ],
+    link: [{rel: 'canonical', href: url}],
+  }
 })
 
 type DirectionShape = {

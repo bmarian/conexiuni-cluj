@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watchPostEffect} from 'vue'
+import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -17,6 +18,17 @@ import UniversalSearch from '@/components/UniversalSearch.vue'
 
 const {t} = useI18n()
 const router = useRouter()
+
+useHead({
+  title: 'Conexiuni Cluj - Busuri în timp real',
+  meta: [
+    {name: 'description', content: 'Urmărește busurile din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
+    {property: 'og:title', content: 'Conexiuni Cluj - Busuri în timp real'},
+    {property: 'og:description', content: 'Urmărește busurile din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
+    {property: 'og:url', content: 'https://bus.bmarian.online/'},
+  ],
+  link: [{rel: 'canonical', href: 'https://bus.bmarian.online/'}],
+})
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()

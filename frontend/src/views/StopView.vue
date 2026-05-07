@@ -2,6 +2,7 @@
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
 import {computed, onMounted, onUnmounted, ref, watch} from "vue"
+import {useHead} from '@unhead/vue'
 import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
@@ -55,6 +56,17 @@ const {userTime} = storeToRefs(userStore)
 const {zoomOut} = storeToRefs(mapStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
+
+useHead(() => ({
+  title: stopName.value ? `Stația ${stopName.value} | Conexiuni Cluj` : 'Conexiuni Cluj',
+  meta: [
+    {name: 'description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}, Cluj-Napoca.` : ''},
+    {property: 'og:title', content: stopName.value ? `Stația ${stopName.value} | Conexiuni Cluj` : 'Conexiuni Cluj'},
+    {property: 'og:description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}, Cluj-Napoca.` : ''},
+    {property: 'og:url', content: `https://bus.bmarian.online/stop/${props.stopId}`},
+  ],
+  link: [{rel: 'canonical', href: `https://bus.bmarian.online/stop/${props.stopId}`}],
+}))
 const isLoading = ref(false)
 const loadError = ref(false)
 const isComputingDepartures = ref(true)

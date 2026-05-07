@@ -6,6 +6,7 @@ export default {
 
 <script setup lang="ts">
 import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useHead} from '@unhead/vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
@@ -42,6 +43,17 @@ const WALK_SPEED = 80 // m/min
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
+
+useHead({
+  title: 'Planificare rută - Conexiuni Cluj',
+  meta: [
+    {name: 'description', content: 'Planifică-ți călătoria cu busul în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
+    {property: 'og:title', content: 'Planificare rută - Conexiuni Cluj'},
+    {property: 'og:description', content: 'Planifică-ți călătoria cu busul în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
+    {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
+  ],
+  link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
+})
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()

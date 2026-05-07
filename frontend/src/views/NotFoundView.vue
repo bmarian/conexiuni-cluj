@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted} from 'vue'
+import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
@@ -7,6 +8,11 @@ import {useSettingsStore} from '@/stores/settings'
 const router = useRouter()
 const {t} = useI18n()
 const settings = useSettingsStore()
+
+useHead({
+  title: 'Pagină negăsită - Conexiuni Cluj',
+  meta: [{name: 'robots', content: 'noindex'}],
+})
 
 function activateAndGo() {
   if (!settings.traditionalUnlocked) {
