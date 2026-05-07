@@ -126,6 +126,8 @@
     "display": "Afișaj",
     "weather": "Vreme",
     "news": "Știri",
+    "autoCenterOnMe": "Centrare pe locația mea",
+    "autoFitMap": "Potrivire hartă",
     "newsPopoverTitle": "Știri CTP",
     "newsLoading": "Se încarcă...",
     "newsEmpty": "Nicio știre disponibilă",

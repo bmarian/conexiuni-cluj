@@ -122,6 +122,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
   const showNews = ref(localStorage.getItem('settings.showNews') !== 'false')
+  const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
+  const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
 
   function setShowWeather(val: boolean) {
     showWeather.value = val
@@ -131,6 +133,16 @@ export const useSettingsStore = defineStore('settings', () => {
   function setShowNews(val: boolean) {
     showNews.value = val
     localStorage.setItem('settings.showNews', val ? 'true' : 'false')
+  }
+
+  function setAutoCenterOnMe(val: boolean) {
+    autoCenterOnMe.value = val
+    localStorage.setItem('settings.autoCenterOnMe', val ? 'true' : 'false')
+  }
+
+  function setAutoFitMap(val: boolean) {
+    autoFitMap.value = val
+    localStorage.setItem('settings.autoFitMap', val ? 'true' : 'false')
   }
 
   const toastMessage = ref<string | null>(null)
@@ -151,6 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
     traditionalUnlocked, traditionalActive, traditionalLowPerf,
     unlockTraditional, activateTraditional, deactivateTraditional, setTraditionalLowPerf,
     showWeather, showNews, setShowWeather, setShowNews,
+    autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     toastMessage, showToast,
   }
 })

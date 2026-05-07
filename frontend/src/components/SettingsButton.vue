@@ -179,27 +179,49 @@ function setLocale(newLocale: 'ro' | 'en') {
       </div>
 
       <p class="section-label">{{ t('display') }}</p>
-      <div class="option-group" role="group" :aria-label="t('display')">
+      <div class="option-group display-grid" role="group" :aria-label="t('display')">
         <button type="button" class="option-btn" :class="{ active: settings.showWeather }"
                 @click="settings.setShowWeather(!settings.showWeather)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true">
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
             <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
           </svg>
-          {{ t('weather') }}
+          <span class="btn-text">{{ t('weather') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.showNews }"
                 @click="settings.setShowNews(!settings.showNews)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true">
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
             <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
             <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
           </svg>
-          {{ t('news') }}
+          <span class="btn-text">{{ t('news') }}</span>
+        </button>
+        <button type="button" class="option-btn" :class="{ active: settings.autoCenterOnMe }"
+                @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
+          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <circle cx="12" cy="12" r="8"/>
+          </svg>
+          <span class="btn-text">{{ t('autoCenterOnMe') }}</span>
+        </button>
+        <button type="button" class="option-btn" :class="{ active: settings.autoFitMap }"
+                @click="settings.setAutoFitMap(!settings.autoFitMap)">
+          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+          </svg>
+          <span class="btn-text">{{ t('autoFitMap') }}</span>
         </button>
       </div>
 
@@ -301,6 +323,23 @@ function setLocale(newLocale: 'ro' | 'en') {
 .option-group {
   display: flex;
   gap: 0.25rem;
+}
+
+.display-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.display-grid .option-btn {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.display-grid .option-btn .btn-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .option-btn {

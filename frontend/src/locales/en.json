@@ -126,6 +126,8 @@
     "display": "Display",
     "weather": "Weather",
     "news": "News",
+    "autoCenterOnMe": "Center on my location",
+    "autoFitMap": "Fit map",
     "newsPopoverTitle": "CTP News",
     "newsLoading": "Loading...",
     "newsEmpty": "No news available",

@@ -27,6 +27,8 @@ function buildJson() {
       traditionalLowPerf: settings.traditionalLowPerf,
       showWeather: settings.showWeather,
       showNews: settings.showNews,
+      autoCenterOnMe: settings.autoCenterOnMe,
+      autoFitMap: settings.autoFitMap,
     },
     favorites: {
       routes: favs.favoriteRouteIds,
@@ -125,6 +127,8 @@ async function doImport() {
     settings.setTraditionalLowPerf(!!s.traditionalLowPerf)
     if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
     if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
+    if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
+    if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     favs.importAll(data.favorites ?? {})
     status.value = 'imported'
     setTimeout(cancel, 1500)

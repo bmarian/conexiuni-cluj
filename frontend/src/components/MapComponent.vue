@@ -326,7 +326,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   userStore.setHasLocationPermission(true)
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   if (isFirstLocationHandle) {
-    flyToVisible(e.latlng, DEFAULT_ZOOM)
+    if (settingsStore.autoCenterOnMe) flyToVisible(e.latlng, DEFAULT_ZOOM)
     isFirstLocationHandle = false
   }
 
@@ -524,6 +524,23 @@ watch([shapesToDisplay, easterEggActive, traditionalActive], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
+watch(shapesToDisplay, (newShapes) => {
+  if (!settingsStore.autoFitMap || !map.value) return
+  if (newShapes.length && mapStore.fitWalkingPolylines) return
+  if (newShapes.length) {
+    const bounds = shapeLayerGroup.value?.getBounds()
+    if (bounds?.isValid()) {
+      map.value.fitBounds(bounds, {
+        paddingTopLeft: [24, 24],
+        paddingBottomRight: [24, 24 + drawerBottomPx.value],
+        maxZoom: 16,
+        animate: true,
+        duration: 0.8,
+      })
+    }
+  }
+}, {deep: true})
+
 const renderWalkingPolylines = (polylines: [number, number][][]) => {
   if (!walkingLayerGroup.value) return
   walkingLayerGroup.value.clearLayers()
@@ -541,7 +558,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   let bounds = walkingLayerGroup.value.getBounds()
   const shapeBounds = shapeLayerGroup.value?.getBounds()
   if (shapeBounds?.isValid()) bounds = bounds.isValid() ? bounds.extend(shapeBounds) : shapeBounds
-  if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines) {
+  if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
     map.value.fitBounds(bounds, {
       paddingTopLeft: [24, 24],
       paddingBottomRight: [24, 24 + drawerBottomPx.value],
