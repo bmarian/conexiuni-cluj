@@ -22,6 +22,11 @@ export default defineConfig({
         background_color: '#0f172a',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
+        handle_links: 'preferred',
+        launch_handler: {
+          client_mode: ['navigate-existing', 'auto'],
+        },
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
