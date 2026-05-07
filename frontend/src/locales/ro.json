@@ -122,5 +122,12 @@
     "importConfirm": "Importă",
     "importSuccess": "Importat!",
     "importError": "JSON invalid",
-    "cancel": "Anulează"
+    "cancel": "Anulează",
+    "display": "Afișaj",
+    "weather": "Vreme",
+    "news": "Știri",
+    "newsPopoverTitle": "Știri CTP",
+    "newsLoading": "Se încarcă...",
+    "newsEmpty": "Nicio știre disponibilă",
+    "newsError": "Nu s-au putut încărca știrile"
 }

@@ -109,6 +109,19 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.traditionalLowPerf', val ? 'true' : 'false')
   }
 
+  const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
+  const showNews = ref(localStorage.getItem('settings.showNews') !== 'false')
+
+  function setShowWeather(val: boolean) {
+    showWeather.value = val
+    localStorage.setItem('settings.showWeather', val ? 'true' : 'false')
+  }
+
+  function setShowNews(val: boolean) {
+    showNews.value = val
+    localStorage.setItem('settings.showNews', val ? 'true' : 'false')
+  }
+
   const toastMessage = ref<string | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -126,6 +139,7 @@ export const useSettingsStore = defineStore('settings', () => {
     unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
     traditionalUnlocked, traditionalActive, traditionalLowPerf,
     unlockTraditional, activateTraditional, deactivateTraditional, setTraditionalLowPerf,
+    showWeather, showNews, setShowWeather, setShowNews,
     toastMessage, showToast,
   }
 })

@@ -4,14 +4,17 @@ import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import WeatherButton from "@/components/WeatherButton.vue"
+import NewsButton from "@/components/NewsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import EasterEggToast from "@/components/EasterEggToast.vue"
 import HungryTransition from "@/components/HungryTransition.vue"
 import {useMapStore} from "@/stores/map.ts"
+import {useSettingsStore} from "@/stores/settings.ts"
 
 const {t} = useI18n()
 const mapStore = useMapStore()
+const appSettings = useSettingsStore()
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -210,7 +213,15 @@ function toggleLandscapeDrawer() {
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
     <MapComponent class="app-map"/>
     <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
-    <WeatherButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
+    <NewsButton
+      v-if="appSettings.showNews"
+      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
+    />
+    <WeatherButton
+      v-if="appSettings.showWeather"
+      :top-offset="appSettings.showNews ? '6.25rem' : '3.5rem'"
+      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
+    />
     <EasterEggToast/>
     <button
       type="button"

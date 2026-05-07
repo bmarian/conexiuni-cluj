@@ -233,4 +233,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	})
 
 	api.Get("/gtfs.zip", HandleGTFSExport)
+
+	api.Get("/news", GetNews)
 }

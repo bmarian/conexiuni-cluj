@@ -25,6 +25,8 @@ function buildJson() {
       traditionalUnlocked: settings.traditionalUnlocked,
       traditionalActive: settings.traditionalActive,
       traditionalLowPerf: settings.traditionalLowPerf,
+      showWeather: settings.showWeather,
+      showNews: settings.showNews,
     },
     favorites: {
       routes: favs.favoriteRouteIds,
@@ -82,6 +84,8 @@ function doImport() {
     if (s.traditionalActive) settings.activateTraditional()
     else settings.deactivateTraditional()
     settings.setTraditionalLowPerf(!!s.traditionalLowPerf)
+    if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
+    if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     favs.importAll(data.favorites ?? {})
     status.value = 'imported'
     setTimeout(cancel, 1500)

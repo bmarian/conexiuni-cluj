@@ -122,5 +122,12 @@
     "importConfirm": "Import",
     "importSuccess": "Imported!",
     "importError": "Invalid JSON",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "display": "Display",
+    "weather": "Weather",
+    "news": "News",
+    "newsPopoverTitle": "CTP News",
+    "newsLoading": "Loading...",
+    "newsEmpty": "No news available",
+    "newsError": "Could not load news"
 }

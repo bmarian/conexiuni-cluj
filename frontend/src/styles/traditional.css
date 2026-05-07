@@ -60,6 +60,10 @@ html[data-traditional] .settings-popover .rounded-full,
 html[data-traditional] .settings-popover .option-btn,
 html[data-traditional] .settings-popover .theme-select,
 html[data-traditional] .settings-popover .select-wrap::after,
+/* news button and popover */
+html[data-traditional] .news-btn,
+html[data-traditional] .news-popover,
+html[data-traditional] .news-item,
 /* fixed chrome */
 html[data-traditional] .weather-pill,
 html[data-traditional] .landscape-drawer-toggle,
@@ -1833,4 +1837,235 @@ html.dark[data-traditional] .green-friday-close:hover {
   background: var(--xp-fav-active-hover) !important;
   border-color: #6B1010 !important;
   color: #FFFFFF !important;
+}
+
+/* ── News button ── */
+
+html[data-traditional] .news-btn {
+  background: var(--xp-orb) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.55),
+  inset 0 -2px 4px rgba(0, 0, 0, 0.20),
+  0 2px 4px rgba(0, 0, 0, 0.30) !important;
+  border: 1px solid #003C9C !important;
+}
+
+html[data-traditional] .news-btn:hover {
+  background: var(--xp-orb-hover) !important;
+  color: #FFFFFF !important;
+}
+
+html[data-traditional] .news-popover {
+  background: var(--xp-tan) !important;
+  border: 1px solid #003C9C !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF,
+  3px 3px 10px rgba(0, 0, 0, 0.32) !important;
+  font-family: var(--xp-font) !important;
+  padding-top: 28px !important;
+  overflow-y: auto !important;
+}
+
+html[data-traditional] .news-popover::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, #0058DA 0%, #2E84E8 6%, #1A6CD0 14%, #1056C0 50%, #0E54BE 51%, #1A66D0 95%, #0E4DAC 100%);
+  pointer-events: none;
+}
+
+html[data-traditional-lowperf] .news-popover::before {
+  background: var(--xp-blue) !important;
+}
+
+html[data-traditional] .news-popover-title {
+  color: var(--xp-blue) !important;
+  letter-spacing: 0.04em !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+html[data-traditional] .news-item {
+  border-bottom: 1px solid var(--xp-border) !important;
+}
+
+html[data-traditional] .news-item:hover {
+  background: #FFFCEA !important;
+}
+
+html[data-traditional] .news-date {
+  color: var(--xp-blue) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .news-title {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .news-state {
+  color: #555555 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .news-state-error {
+  color: #CC0000 !important;
+}
+
+/* dark news button */
+html.dark[data-traditional] .news-btn {
+  background: var(--xp-orb) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35),
+  inset 0 -2px 4px rgba(0, 0, 0, 0.30),
+  0 2px 4px rgba(0, 0, 0, 0.50) !important;
+  border: 1px solid #001E5C !important;
+}
+
+html.dark[data-traditional] .news-popover {
+  background: var(--xp-tan) !important;
+  border: 1px solid #001E5C !important;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05),
+  3px 3px 12px rgba(0, 0, 0, 0.55) !important;
+}
+
+html.dark[data-traditional] .news-popover::before {
+  background: linear-gradient(to bottom, #003478 0%, #1A6CD0 8%, #0F4FA8 50%, #0A3E90 51%, #1656B8 95%, #062A6C 100%);
+}
+
+html.dark[data-traditional] .news-item {
+  border-bottom-color: var(--xp-border) !important;
+}
+
+html.dark[data-traditional] .news-item:hover {
+  background: #1A2A50 !important;
+}
+
+html.dark[data-traditional] .news-date {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .news-title {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .news-state {
+  color: #8898B0 !important;
+}
+
+/* ── Export / Import (ei-*) XP fix ── */
+
+html[data-traditional] .ei-label {
+  color: var(--xp-blue) !important;
+  letter-spacing: 0.04em !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+html[data-traditional] .ei-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+html[data-traditional] .ei-btn:hover {
+  background: var(--xp-btn-hover) !important;
+  border-color: #D08020 !important;
+  color: #000000 !important;
+}
+
+html[data-traditional] .ei-btn.ei-btn-primary {
+  background: var(--xp-btn-active) !important;
+  color: #FFFFFF !important;
+  border-color: #003C9C !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+html[data-traditional] .ei-btn.ei-btn-primary:hover:not(:disabled) {
+  background: #1A52B8 !important;
+  color: #FFFFFF !important;
+  border-color: #003C9C !important;
+}
+
+html[data-traditional] .ei-btn:disabled {
+  opacity: 0.5 !important;
+  box-shadow: none !important;
+}
+
+html[data-traditional] .ei-textarea {
+  border: 1px solid var(--xp-border) !important;
+  border-top-color: #888880 !important;
+  border-left-color: #888880 !important;
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-traditional] .ei-textarea:focus {
+  border-color: var(--xp-blue) !important;
+  outline: none !important;
+}
+
+html[data-traditional] .ei-status.copied,
+html[data-traditional] .ei-status.imported {
+  color: #2E8C1A !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .ei-status.error {
+  color: #CC0000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+/* dark ei-* */
+html.dark[data-traditional] .ei-label {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .ei-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: var(--xp-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+html.dark[data-traditional] .ei-btn:hover {
+  background: var(--xp-btn-hover) !important;
+  border-color: var(--xp-blue) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .ei-btn.ei-btn-primary {
+  background: var(--xp-btn-active) !important;
+  color: #FFFFFF !important;
+  border-color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .ei-btn.ei-btn-primary:hover:not(:disabled) {
+  background: #3A7EC8 !important;
+  border-color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .ei-textarea {
+  border: 1px solid var(--xp-border) !important;
+  background: #0A1020 !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .ei-textarea:focus {
+  border-color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .ei-status.copied,
+html.dark[data-traditional] .ei-status.imported {
+  color: #4ADE80 !important;
+}
+
+html.dark[data-traditional] .ei-status.error {
+  color: #FF6060 !important;
 }
