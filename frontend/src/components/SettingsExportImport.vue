@@ -37,9 +37,46 @@ function buildJson() {
   })
 }
 
+async function compress(json: string): Promise<string> {
+  const stream = new CompressionStream('deflate-raw')
+  const writer = stream.writable.getWriter()
+  void writer.write(new TextEncoder().encode(json))
+  void writer.close()
+  const chunks: Uint8Array[] = []
+  const reader = stream.readable.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+  const buf = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0))
+  let off = 0
+  for (const chunk of chunks) { buf.set(chunk, off); off += chunk.length }
+  return btoa(String.fromCharCode(...buf))
+}
+
+async function decompress(b64: string): Promise<string> {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+  const stream = new DecompressionStream('deflate-raw')
+  const writer = stream.writable.getWriter()
+  void writer.write(bytes)
+  void writer.close()
+  const chunks: Uint8Array[] = []
+  const reader = stream.readable.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+  const buf = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0))
+  let off = 0
+  for (const chunk of chunks) { buf.set(chunk, off); off += chunk.length }
+  return new TextDecoder().decode(buf)
+}
+
 async function openExport() {
   mode.value = 'export'
-  text.value = buildJson()
+  text.value = await compress(buildJson())
   status.value = 'idle'
   await nextTick()
   textareaRef.value?.select()
@@ -67,9 +104,11 @@ function doCopy() {
   })
 }
 
-function doImport() {
+async function doImport() {
   try {
-    const data = JSON.parse(text.value)
+    let raw = text.value.trim()
+    try { raw = await decompress(raw) } catch { /* plain JSON fallback */ }
+    const data = JSON.parse(raw)
     if (!data || typeof data !== 'object') throw new Error()
     const s = data.settings ?? {}
     if (s.theme) settings.setTheme(s.theme)
@@ -260,7 +299,7 @@ function doImport() {
   font-size: 0.6875rem;
   font-family: ui-monospace, monospace;
   line-height: 1.5;
-  resize: vertical;
+  resize: none;
   outline: none;
   box-sizing: border-box;
   transition: border-color 120ms ease, background 120ms ease;

@@ -118,7 +118,7 @@
     "importSettings": "Import",
     "exportCopyBtn": "Copiază în clipboard",
     "exportCopied": "Copiat!",
-    "importPastePlaceholder": "Lipește JSON-ul tău aici...",
+    "importPastePlaceholder": "Lipește setările tale aici...",
     "importConfirm": "Importă",
     "importSuccess": "Importat!",
     "importError": "JSON invalid",

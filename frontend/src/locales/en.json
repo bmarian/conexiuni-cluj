@@ -118,7 +118,7 @@
     "importSettings": "Import",
     "exportCopyBtn": "Copy to clipboard",
     "exportCopied": "Copied!",
-    "importPastePlaceholder": "Paste your JSON here...",
+    "importPastePlaceholder": "Paste your settings here...",
     "importConfirm": "Import",
     "importSuccess": "Imported!",
     "importError": "Invalid JSON",
