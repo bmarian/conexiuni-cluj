@@ -3,16 +3,15 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import IconBack from '@/components/icons/IconBack.vue'
 import IconHome from '@/components/icons/IconHome.vue'
+import {computed} from "vue";
 
 const router = useRouter()
 const { t } = useI18n()
 
+const hasBack = computed(() => !!history.state?.back)
+
 const goBack = () => {
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.push('/')
-  }
+  router.back()
 }
 
 const goHome = () => {
@@ -21,8 +20,9 @@ const goHome = () => {
 </script>
 
 <template>
-  <div class="flex items-center justify-between w-full">
+  <div class="flex items-center w-full" :class="hasBack ? 'justify-between' : 'justify-end'">
     <button
+      v-if="hasBack"
       @click="goBack"
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       :title="t('back')"
