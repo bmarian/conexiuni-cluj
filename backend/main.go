@@ -156,6 +156,10 @@ func main() {
 			return c.SendFile("./dist/manifest.webmanifest")
 		})
 
+		app.Get("/route/:routeId/:direction", handlers.RouteOGHandler)
+		app.Get("/stop/:stopId", handlers.StopOGHandler)
+		app.Get("/plan", handlers.PlanOGHandler)
+
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
 		}))
