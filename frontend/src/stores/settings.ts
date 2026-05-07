@@ -11,7 +11,14 @@ export const useSettingsStore = defineStore('settings', () => {
   })
 
   const theme = ref<Theme>((localStorage.getItem('settings.theme') as Theme) ?? 'system')
-  const locale = ref<AppLocale>((localStorage.getItem('settings.locale') as AppLocale) ?? 'ro')
+
+  function detectInitialLocale(): AppLocale {
+    const saved = localStorage.getItem('settings.locale') as AppLocale | null
+    if (saved === 'ro' || saved === 'en') return saved
+    return navigator.language.toLowerCase().startsWith('en') ? 'en' : 'ro'
+  }
+
+  const locale = ref<AppLocale>(detectInitialLocale())
 
   const isDark = computed(() => {
     if (theme.value === 'dark') return true

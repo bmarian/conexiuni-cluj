@@ -72,11 +72,9 @@ useHead(() => {
   const shortName = shapeInfo.value?.route_short_name ?? ''
   const longName = timetable.value?.route_long_name ?? ''
   const title = shortName
-    ? `Linia ${shortName}${longName ? ` - ${longName}` : ''} | Conexiuni Cluj`
+    ? t('headRouteTitle', {shortName, longName: longName ? ` - ${longName}` : ''})
     : 'Conexiuni Cluj'
-  const description = shortName
-    ? `Traseu, opriri și orare pentru linia ${shortName} din Cluj-Napoca.`
-    : ''
+  const description = shortName ? t('headRouteDesc', {shortName}) : ''
   const url = `https://bus.bmarian.online/route/${props.routeId}/${props.direction}`
   return {
     title,

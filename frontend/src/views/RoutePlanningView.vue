@@ -44,16 +44,16 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-useHead({
-  title: 'Planifică-ți rută - Conexiuni Cluj',
+useHead(() => ({
+  title: t('headPlanTitle'),
   meta: [
-    {name: 'description', content: 'Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
-    {property: 'og:title', content: 'Planifică-ți rută - Conexiuni Cluj'},
-    {property: 'og:description', content: 'Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
+    {name: 'description', content: t('headPlanDesc')},
+    {property: 'og:title', content: t('headPlanTitle')},
+    {property: 'og:description', content: t('headPlanDesc')},
     {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
   ],
   link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
-})
+}))
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()

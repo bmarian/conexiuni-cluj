@@ -9,10 +9,10 @@ const router = useRouter()
 const {t} = useI18n()
 const settings = useSettingsStore()
 
-useHead({
-  title: 'Pagină negăsită - Conexiuni Cluj',
+useHead(() => ({
+  title: t('headNotFoundTitle'),
   meta: [{name: 'robots', content: 'noindex'}],
-})
+}))
 
 function activateAndGo() {
   if (!settings.traditionalUnlocked) {

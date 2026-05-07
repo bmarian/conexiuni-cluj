@@ -19,16 +19,16 @@ import UniversalSearch from '@/components/UniversalSearch.vue'
 const {t} = useI18n()
 const router = useRouter()
 
-useHead({
-  title: 'Conexiuni Cluj - Transport în comun în timp real',
+useHead(() => ({
+  title: t('headHomeTitle'),
   meta: [
-    {name: 'description', content: 'Urmărește transportul în comun din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
-    {property: 'og:title', content: 'Conexiuni Cluj - Transport în comun în timp real'},
-    {property: 'og:description', content: 'Urmărește transportul în comun din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
+    {name: 'description', content: t('headHomeDesc')},
+    {property: 'og:title', content: t('headHomeTitle')},
+    {property: 'og:description', content: t('headHomeDesc')},
     {property: 'og:url', content: 'https://bus.bmarian.online/'},
   ],
   link: [{rel: 'canonical', href: 'https://bus.bmarian.online/'}],
-})
+}))
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()

@@ -129,5 +129,14 @@
     "newsPopoverTitle": "Știri CTP",
     "newsLoading": "Se încarcă...",
     "newsEmpty": "Nicio știre disponibilă",
-    "newsError": "Nu s-au putut încărca știrile"
+    "newsError": "Nu s-au putut încărca știrile",
+    "headHomeTitle": "Conexiuni Cluj - Transport în comun în timp real",
+    "headHomeDesc": "Urmărește transportul în comun din Cluj-Napoca în timp real. Orare, rute și poziții live.",
+    "headPlanTitle": "Planifică-ți rută - Conexiuni Cluj",
+    "headPlanDesc": "Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.",
+    "headNotFoundTitle": "Pagină negăsită - Conexiuni Cluj",
+    "headRouteTitle": "Linia {shortName}{longName} | Conexiuni Cluj",
+    "headRouteDesc": "Traseu, opriri și orare pentru linia {shortName} din Cluj-Napoca.",
+    "headStopTitle": "Stația {stopName} | Conexiuni Cluj",
+    "headStopDesc": "Plecări în timp real de la stația {stopName}."
 }
