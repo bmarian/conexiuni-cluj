@@ -181,7 +181,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <p class="section-label">{{ t('display') }}</p>
       <div class="option-group display-grid" role="group" :aria-label="t('display')">
         <button type="button" class="option-btn" :class="{ active: settings.showWeather }"
-                @click="settings.setShowWeather(!settings.showWeather)">
+                :title="t('weather')" @click="settings.setShowWeather(!settings.showWeather)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -191,7 +191,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('weather') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.showNews }"
-                @click="settings.setShowNews(!settings.showNews)">
+                :title="t('news')" @click="settings.setShowNews(!settings.showNews)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -202,7 +202,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('news') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoCenterOnMe }"
-                @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
+                :title="t('autoCenterOnMe')" @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -214,7 +214,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('autoCenterOnMe') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoFitMap }"
-                @click="settings.setAutoFitMap(!settings.autoFitMap)">
+                :title="t('autoFitMap')" @click="settings.setAutoFitMap(!settings.autoFitMap)">
           <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
