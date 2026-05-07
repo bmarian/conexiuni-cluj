@@ -22,8 +22,6 @@ const newsItems = ref<NewsItem[]>([])
 const loading = ref(false)
 const error = ref(false)
 
-let timer: ReturnType<typeof setTimeout> | null = null
-
 async function fetchNews() {
   loading.value = true
   error.value = false
@@ -36,14 +34,10 @@ async function fetchNews() {
   } finally {
     loading.value = false
   }
-  timer = setTimeout(fetchNews, 8 * 60 * 60 * 1000)
 }
 
 function toggle() {
   isOpen.value = !isOpen.value
-  if (isOpen.value && newsItems.value.length === 0 && !loading.value) {
-    fetchNews()
-  }
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
@@ -59,7 +53,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
-  if (timer !== null) clearTimeout(timer)
 })
 
 const topValue = computed(() => props.topOffset)
@@ -172,8 +165,7 @@ const topValue = computed(() => props.topOffset)
   right: 0;
   min-width: 15rem;
   max-width: 22rem;
-  max-height: 20rem;
-  overflow-y: auto;
+  max-height: min(20rem, calc(100dvh - 7rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   background: #ffffff;
   border-radius: 0.875rem;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 1px 6px rgba(0, 0, 0, 0.08);
@@ -224,6 +216,8 @@ const topValue = computed(() => props.topOffset)
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .news-item {

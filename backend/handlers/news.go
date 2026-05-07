@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	newsCacheDur   = 8 * time.Hour
+	newsCacheDur   = 4 * time.Hour
 	ctpNewsPageURL = "https://www.ctpcj.ro/index.php/ro/despre-noi/stiri"
 )
 

@@ -266,6 +266,8 @@ function setLocale(newLocale: 'ro' | 'en') {
   top: calc(100% + 0.5rem);
   right: 0;
   min-width: 13rem;
+  max-height: calc(100dvh - 4rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
   background: #ffffff;
   border-radius: 0.875rem;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 1px 6px rgba(0, 0, 0, 0.08);
