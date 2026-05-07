@@ -36,6 +36,10 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.theme', newTheme)
   }
 
+  watch(locale, (lang) => {
+    document.documentElement.lang = lang
+  }, {immediate: true})
+
   function setLocale(newLocale: AppLocale) {
     locale.value = newLocale
     localStorage.setItem('settings.locale', newLocale)
