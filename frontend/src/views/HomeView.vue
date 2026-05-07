@@ -20,11 +20,11 @@ const {t} = useI18n()
 const router = useRouter()
 
 useHead({
-  title: 'Conexiuni Cluj - Busuri în timp real',
+  title: 'Conexiuni Cluj - Transport în comun în timp real',
   meta: [
-    {name: 'description', content: 'Urmărește busurile din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
-    {property: 'og:title', content: 'Conexiuni Cluj - Busuri în timp real'},
-    {property: 'og:description', content: 'Urmărește busurile din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
+    {name: 'description', content: 'Urmărește transportul în comun din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
+    {property: 'og:title', content: 'Conexiuni Cluj - Transport în comun în timp real'},
+    {property: 'og:description', content: 'Urmărește transportul în comun din Cluj-Napoca în timp real. Orare, rute și poziții live.'},
     {property: 'og:url', content: 'https://bus.bmarian.online/'},
   ],
   link: [{rel: 'canonical', href: 'https://bus.bmarian.online/'}],

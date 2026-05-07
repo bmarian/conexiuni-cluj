@@ -60,9 +60,9 @@ const stopName = computed(() => stopInfo.value?.stop_name)
 useHead(() => ({
   title: stopName.value ? `Stația ${stopName.value} | Conexiuni Cluj` : 'Conexiuni Cluj',
   meta: [
-    {name: 'description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}, Cluj-Napoca.` : ''},
+    {name: 'description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}.` : ''},
     {property: 'og:title', content: stopName.value ? `Stația ${stopName.value} | Conexiuni Cluj` : 'Conexiuni Cluj'},
-    {property: 'og:description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}, Cluj-Napoca.` : ''},
+    {property: 'og:description', content: stopName.value ? `Plecări în timp real de la stația ${stopName.value}.` : ''},
     {property: 'og:url', content: `https://bus.bmarian.online/stop/${props.stopId}`},
   ],
   link: [{rel: 'canonical', href: `https://bus.bmarian.online/stop/${props.stopId}`}],

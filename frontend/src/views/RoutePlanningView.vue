@@ -45,11 +45,11 @@ const route = useRoute()
 const router = useRouter()
 
 useHead({
-  title: 'Planificare rută - Conexiuni Cluj',
+  title: 'Planifică-ți rută - Conexiuni Cluj',
   meta: [
-    {name: 'description', content: 'Planifică-ți călătoria cu busul în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
-    {property: 'og:title', content: 'Planificare rută - Conexiuni Cluj'},
-    {property: 'og:description', content: 'Planifică-ți călătoria cu busul în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
+    {name: 'description', content: 'Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
+    {property: 'og:title', content: 'Planifică-ți rută - Conexiuni Cluj'},
+    {property: 'og:description', content: 'Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.'},
     {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
   ],
   link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
