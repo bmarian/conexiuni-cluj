@@ -9,6 +9,14 @@ interface NewsItem {
   title: string
 }
 
+interface NewsCache {
+  count: number
+  latestDate: string
+  latestTitle: string
+}
+
+const NEWS_CACHE_KEY = 'news-seen-cache'
+
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
 
 const {t} = useI18n()
@@ -21,6 +29,42 @@ const rootRef = ref<HTMLElement | null>(null)
 const newsItems = ref<NewsItem[]>([])
 const loading = ref(false)
 const error = ref(false)
+const isBlinking = ref(false)
+let blinkTimer: ReturnType<typeof setTimeout> | null = null
+
+function readCache(): NewsCache | null {
+  try {
+    const raw = localStorage.getItem(NEWS_CACHE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeCache(items: NewsItem[]) {
+  if (!items.length) return
+  try {
+    localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({
+      count: items.length,
+      latestDate: items[0]?.date!,
+      latestTitle: items[0]?.title!,
+    } satisfies NewsCache))
+  } catch {}
+}
+
+function startBlinking() {
+  isBlinking.value = true
+  blinkTimer = setTimeout(stopBlinking, 30_000)
+}
+
+function stopBlinking() {
+  isBlinking.value = false
+  if (blinkTimer !== null) {
+    clearTimeout(blinkTimer)
+    blinkTimer = null
+    writeCache(newsItems.value)
+  }
+}
 
 async function fetchNews() {
   loading.value = true
@@ -29,6 +73,18 @@ async function fetchNews() {
     const res = await fetch('/api/news')
     if (!res.ok) throw new Error()
     newsItems.value = await res.json()
+
+    if (newsItems.value.length > 0) {
+      const cache = readCache()
+      if (!cache) {
+        startBlinking()
+      } else {
+        const hasNew = newsItems.value.length !== cache.count
+          || newsItems.value[0]?.date !== cache.latestDate
+          || newsItems.value[0]?.title !== cache.latestTitle
+        if (hasNew) startBlinking()
+      }
+    }
   } catch {
     error.value = true
   } finally {
@@ -38,6 +94,9 @@ async function fetchNews() {
 
 function toggle() {
   isOpen.value = !isOpen.value
+  if (isOpen.value && isBlinking.value) {
+    stopBlinking()
+  }
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
@@ -53,6 +112,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  stopBlinking()
 })
 
 const topValue = computed(() => props.topOffset)
@@ -64,6 +124,7 @@ const topValue = computed(() => props.topOffset)
     <button
       type="button"
       class="news-btn"
+      :class="{'is-blinking': isBlinking}"
       :title="t('news')"
       :aria-label="t('news')"
       :aria-expanded="isOpen"
@@ -141,6 +202,16 @@ const topValue = computed(() => props.topOffset)
   box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease;
+  position: relative;
+}
+
+.news-btn::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  pointer-events: none;
 }
 
 .news-btn:hover {
@@ -271,5 +342,14 @@ const topValue = computed(() => props.topOffset)
 
 .news-root.is-dark .news-title {
   color: #93c5fd;
+}
+
+@keyframes news-blink-ring {
+  0%, 100% { border-color: transparent; }
+  50% { border-color: rgba(251, 146, 60, 0.8); }
+}
+
+.news-btn.is-blinking::after {
+  animation: news-blink-ring 1s ease-in-out infinite;
 }
 </style>
