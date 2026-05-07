@@ -4,37 +4,37 @@ import (
 	"conexiuni-cluj/database"
 	"fmt"
 	"html"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-var crawlerUserAgents = []string{
-	"Discordbot",
-	"Twitterbot",
-	"facebookexternalhit",
-	"LinkedInBot",
-	"Slackbot-LinkExpanding",
-	"TelegramBot",
-	"WhatsApp",
-	"Googlebot",
-	"bingbot",
-	"Applebot",
-	"iMessage",
-	"Iframely",
-}
+var (
+	reTitleEl  = regexp.MustCompile(`(?i)<title>[^<]*</title>`)
+	reMetaDesc = regexp.MustCompile(`(?i)<meta\s+name="description"\s+content="[^"]*"`)
+	reOGTitle  = regexp.MustCompile(`(?i)<meta\s+property="og:title"\s+content="[^"]*"`)
+	reOGDesc   = regexp.MustCompile(`(?i)<meta\s+property="og:description"\s+content="[^"]*"`)
+	reOGUrl    = regexp.MustCompile(`(?i)<meta\s+property="og:url"\s+content="[^"]*"`)
+	reTWTitle  = regexp.MustCompile(`(?i)<meta\s+name="twitter:title"\s+content="[^"]*"`)
+	reTWDesc   = regexp.MustCompile(`(?i)<meta\s+name="twitter:description"\s+content="[^"]*"`)
+	reLangAttr = regexp.MustCompile(`(<html[^>]*lang=")[^"]*(")`)
+)
 
-func isCrawler(ua string) bool {
-	for _, bot := range crawlerUserAgents {
-		if strings.Contains(ua, bot) {
-			return true
-		}
+var indexHTMLContent string
+
+func LoadIndexHTML() {
+	data, err := os.ReadFile("./dist/index.html")
+	if err != nil {
+		return
 	}
-	return false
+	indexHTMLContent = string(data)
 }
 
 type ogLocale struct {
+	lang          string
 	routeTitleFmt string // args: shortName, longName
 	routeDescFmt  string // args: shortName
 	stopTitleFmt  string // args: stopName
@@ -45,6 +45,7 @@ type ogLocale struct {
 
 var ogLocales = map[string]ogLocale{
 	"ro": {
+		lang:          "ro",
 		routeTitleFmt: "Linia %s — %s | Conexiuni Cluj",
 		routeDescFmt:  "Traseu, opriri și orare pentru linia %s din Cluj-Napoca.",
 		stopTitleFmt:  "Stația %s | Conexiuni Cluj",
@@ -53,6 +54,7 @@ var ogLocales = map[string]ogLocale{
 		planDesc:      "Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.",
 	},
 	"en": {
+		lang:          "en",
 		routeTitleFmt: "Line %s — %s | Conexiuni Cluj",
 		routeDescFmt:  "Route, stops and timetables for line %s in Cluj-Napoca.",
 		stopTitleFmt:  "Stop %s | Conexiuni Cluj",
@@ -83,39 +85,34 @@ func detectLocale(c fiber.Ctx) ogLocale {
 	return ogLocales["ro"]
 }
 
-func ogResponse(c fiber.Ctx, title, description string) error {
-	base := c.Protocol() + "://" + c.Hostname()
-	u := html.EscapeString(base + c.OriginalURL())
-	img := html.EscapeString(base + "/pwa-512x512.png")
-	t := html.EscapeString(title)
-	d := html.EscapeString(description)
-
-	c.Set("Content-Type", "text/html; charset=utf-8")
-	c.Set("Cache-Control", "public, max-age=300")
-	return c.SendString(`<!DOCTYPE html>` + "\n" +
-		`<html lang="ro"><head>` + "\n" +
-		`<meta charset="UTF-8">` + "\n" +
-		`<title>` + t + `</title>` + "\n" +
-		`<meta name="description" content="` + d + `">` + "\n" +
-		`<meta property="og:type" content="website">` + "\n" +
-		`<meta property="og:site_name" content="Conexiuni Cluj">` + "\n" +
-		`<meta property="og:title" content="` + t + `">` + "\n" +
-		`<meta property="og:description" content="` + d + `">` + "\n" +
-		`<meta property="og:url" content="` + u + `">` + "\n" +
-		`<meta property="og:image" content="` + img + `">` + "\n" +
-		`<meta name="twitter:card" content="summary">` + "\n" +
-		`<meta name="twitter:title" content="` + t + `">` + "\n" +
-		`<meta name="twitter:description" content="` + d + `">` + "\n" +
-		`<meta name="twitter:image" content="` + img + `">` + "\n" +
-		`</head><body></body></html>`,
-	)
-}
-
-func RouteOGHandler(c fiber.Ctx) error {
-	if !isCrawler(c.Get("User-Agent")) {
+func injectMeta(c fiber.Ctx, l ogLocale, title, description string) error {
+	if indexHTMLContent == "" {
 		return c.Next()
 	}
 
+	scheme := c.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		scheme = c.Protocol()
+	}
+	u := html.EscapeString(scheme + "://" + c.Hostname() + c.OriginalURL())
+	t := html.EscapeString(title)
+	d := html.EscapeString(description)
+
+	body := reTitleEl.ReplaceAllLiteralString(indexHTMLContent, "<title>"+t+"</title>")
+	body = reMetaDesc.ReplaceAllLiteralString(body, `<meta name="description" content="`+d+`"`)
+	body = reOGTitle.ReplaceAllLiteralString(body, `<meta property="og:title" content="`+t+`"`)
+	body = reOGDesc.ReplaceAllLiteralString(body, `<meta property="og:description" content="`+d+`"`)
+	body = reOGUrl.ReplaceAllLiteralString(body, `<meta property="og:url" content="`+u+`"`)
+	body = reTWTitle.ReplaceAllLiteralString(body, `<meta name="twitter:title" content="`+t+`"`)
+	body = reTWDesc.ReplaceAllLiteralString(body, `<meta name="twitter:description" content="`+d+`"`)
+	body = reLangAttr.ReplaceAllString(body, "${1}"+l.lang+"${2}")
+
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	c.Set("Cache-Control", "public, max-age=300")
+	return c.SendString(body)
+}
+
+func RouteOGHandler(c fiber.Ctx) error {
 	routeID, err := strconv.Atoi(c.Params("routeId"))
 	if err != nil {
 		return c.Next()
@@ -131,17 +128,13 @@ func RouteOGHandler(c fiber.Ctx) error {
 	}
 
 	l := detectLocale(c)
-	return ogResponse(c,
+	return injectMeta(c, l,
 		fmt.Sprintf(l.routeTitleFmt, shortName, longName),
 		fmt.Sprintf(l.routeDescFmt, shortName),
 	)
 }
 
 func StopOGHandler(c fiber.Ctx) error {
-	if !isCrawler(c.Get("User-Agent")) {
-		return c.Next()
-	}
-
 	stopID, err := strconv.Atoi(c.Params("stopId"))
 	if err != nil {
 		return c.Next()
@@ -157,16 +150,13 @@ func StopOGHandler(c fiber.Ctx) error {
 	}
 
 	l := detectLocale(c)
-	return ogResponse(c,
+	return injectMeta(c, l,
 		fmt.Sprintf(l.stopTitleFmt, stopName),
 		fmt.Sprintf(l.stopDescFmt, stopName),
 	)
 }
 
 func PlanOGHandler(c fiber.Ctx) error {
-	if !isCrawler(c.Get("User-Agent")) {
-		return c.Next()
-	}
 	l := detectLocale(c)
-	return ogResponse(c, l.planTitle, l.planDesc)
+	return injectMeta(c, l, l.planTitle, l.planDesc)
 }

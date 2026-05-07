@@ -133,6 +133,8 @@ func main() {
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
 
 	if _, err := os.Stat("./dist"); err == nil {
+		handlers.LoadIndexHTML()
+
 		app.Get("/robots.txt", func(c fiber.Ctx) error {
 			c.Set("Cache-Control", "public, max-age=86400")
 			return c.SendFile("./dist/robots.txt")
