@@ -133,6 +133,14 @@ func main() {
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
 
 	if _, err := os.Stat("./dist"); err == nil {
+		app.Get("/robots.txt", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "public, max-age=86400")
+			return c.SendFile("./dist/robots.txt")
+		})
+		app.Get("/sitemap.xml", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "public, max-age=3600")
+			return c.SendFile("./dist/sitemap.xml")
+		})
 		app.Get("/sw.js", func(c fiber.Ctx) error {
 			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			c.Set("Service-Worker-Allowed", "/")
