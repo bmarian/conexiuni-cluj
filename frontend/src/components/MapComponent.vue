@@ -538,7 +538,9 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
       lineCap: traditionalActive.value ? 'butt' : 'round',
     }).addTo(walkingLayerGroup.value)
   }
-  const bounds = walkingLayerGroup.value.getBounds()
+  let bounds = walkingLayerGroup.value.getBounds()
+  const shapeBounds = shapeLayerGroup.value?.getBounds()
+  if (shapeBounds?.isValid()) bounds = bounds.isValid() ? bounds.extend(shapeBounds) : shapeBounds
   if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines) {
     map.value.fitBounds(bounds, {
       paddingTopLeft: [24, 24],
