@@ -1890,11 +1890,6 @@ html[data-traditional] .news-popover-title {
   font-weight: 700 !important;
 }
 
-html[data-traditional] .news-list {
-  overflow-y: visible !important;
-  min-height: unset !important;
-}
-
 html[data-traditional] .news-item {
   border-bottom: 1px solid var(--xp-border) !important;
 }
