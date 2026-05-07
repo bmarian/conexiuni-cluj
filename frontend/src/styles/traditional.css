@@ -64,6 +64,9 @@ html[data-traditional] .settings-popover .select-wrap::after,
 html[data-traditional] .news-btn,
 html[data-traditional] .news-popover,
 html[data-traditional] .news-item,
+/* export/import buttons */
+html[data-traditional] .ei-btn,
+html[data-traditional] .ei-textarea,
 /* fixed chrome */
 html[data-traditional] .weather-pill,
 html[data-traditional] .landscape-drawer-toggle,
