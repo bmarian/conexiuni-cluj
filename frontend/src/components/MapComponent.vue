@@ -241,7 +241,9 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   })
   mapValue.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
-    userStore.setHasLocationPermission(false)
+    if (e.code === 1) {
+      userStore.setHasLocationPermission(false)
+    }
   })
 
   currentTileLayer.value = L.tileLayer(getTileLayerUrl(isDarkMode.value), {
@@ -256,7 +258,6 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     watch: true,
     enableHighAccuracy: false,
     maximumAge: 30000,
-    timeout: 10000
   })
 
   initLayerGroups(mapValue)
@@ -322,6 +323,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
     return
   }
 
+  userStore.setHasLocationPermission(true)
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   if (isFirstLocationHandle) {
     flyToVisible(e.latlng, DEFAULT_ZOOM)

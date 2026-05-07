@@ -5,7 +5,7 @@ import {useSettingsStore} from './settings'
 
 export const useUserStore = defineStore('user', () => {
   const userLocation = ref<UserLocation | null>(null)
-  const hasLocationPermission = ref(true)
+  const hasLocationPermission = ref(false)
   const positionWatchId = ref<number | null>(null)
   const setUserLocation = (lat: number, lon: number) => {
     userLocation.value = {
