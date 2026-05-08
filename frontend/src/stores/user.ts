@@ -6,6 +6,7 @@ import {useSettingsStore} from './settings'
 export const useUserStore = defineStore('user', () => {
   const userLocation = ref<UserLocation | null>(null)
   const hasLocationPermission = ref(false)
+  const isLocating = ref(false)
   const positionWatchId = ref<number | null>(null)
   const setUserLocation = (lat: number, lon: number) => {
     userLocation.value = {
@@ -15,6 +16,9 @@ export const useUserStore = defineStore('user', () => {
   }
   const setHasLocationPermission = (permission: boolean) => {
     hasLocationPermission.value = permission
+  }
+  const setIsLocating = (locating: boolean) => {
+    isLocating.value = locating
   }
   const clearUserLocation = () => {
     userLocation.value = null
@@ -34,12 +38,14 @@ export const useUserStore = defineStore('user', () => {
   return {
     userLocation,
     hasLocationPermission,
+    isLocating,
     userTime,
     isDarkMode,
 
     setUserLocation,
     clearUserLocation,
     setHasLocationPermission,
+    setIsLocating,
     startTimeTracker,
 
     positionWatchId,

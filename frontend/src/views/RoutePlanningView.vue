@@ -49,7 +49,7 @@ const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
-const {userLocation, hasLocationPermission, userTime} = storeToRefs(userStore)
+const {userLocation, hasLocationPermission, isLocating, userTime} = storeToRefs(userStore)
 const {timeMode, timeValue} = storeToRefs(plannerStore)
 
 interface PlanStop { stop_id: number; stop_name: string; stop_lat: number; stop_lon: number }
@@ -181,7 +181,6 @@ const currentQueryKey = ref<string | null>(null)
 const selectedPlanIndex = ref(0)
 const selectedPlanKey = ref<string | null>(null)
 const isCalculating = ref(false)
-const hasFlownToFallback = ref(false)
 const routesWithTimes = ref<RichPlan[]>([])
 const expandedLegs = ref<Record<string, boolean>>({})
 
@@ -1000,7 +999,7 @@ watch([selectedPlanSignature, selectedPlanLegsData, mapActivationKey], ([, legsD
 
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
-const isGpsResolving = computed(() => hasLocationPermission.value && !userLocation.value && !customOrigin.value)
+const isGpsResolving = computed(() => isLocating.value && !userLocation.value && !customOrigin.value)
 
 const originLabel = computed(() => {
   if (customOrigin.value) return customOrigin.value.name
@@ -1144,6 +1143,13 @@ function useCurrentLocation() {
   void calculateRoutes()
 }
 
+function closeActiveSearch() {
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+}
+
 function useCurrentLocationAsDestination() {
   if (!userLocation.value) return
   const newQuery = {
@@ -1202,7 +1208,6 @@ onMounted(async () => {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
     allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
     if (!hasLocationPermission.value && !customOrigin.value) {
-      mapStore.setFlyToLocation(destLat.value, destLon.value)
       activeSearchField.value = 'origin'
     }
   } else {
@@ -1258,17 +1263,6 @@ watch(routesWithTimes, (newRoutes) => {
   const targetIdx = !isNaN(urlPlan) && urlPlan >= 0 && urlPlan < newRoutes.length ? urlPlan : 0
   selectedPlanIndex.value = targetIdx
   selectedPlanKey.value = newRoutes[targetIdx]?.key ?? null
-})
-
-watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
-  if (calculating || routes.length > 0) {
-    hasFlownToFallback.value = false
-    return
-  }
-  if (routes.length === 0 && !isNaN(destLat.value) && !isNaN(destLon.value) && !hasFlownToFallback.value) {
-    mapStore.setFlyToLocation(destLat.value, destLon.value)
-    hasFlownToFallback.value = true
-  }
 })
 
 async function calculateRoutes() {
@@ -1347,6 +1341,7 @@ watch(customOrigin, async (newCO, oldCO) => {
 // Recalculate when GPS location first arrives (no custom origin, no plan yet)
 watch(userLocation, async (newLoc, oldLoc) => {
   if (!newLoc || oldLoc || customOrigin.value) return
+  if (activeSearchField.value === 'origin') closeActiveSearch()
   await calculateRoutes()
 })
 

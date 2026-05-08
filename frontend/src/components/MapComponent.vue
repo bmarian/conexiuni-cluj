@@ -168,6 +168,7 @@ const isStandaloneApp = () =>
 const beginLocationWatch = (setView = false, enableHighAccuracy = false) => {
   if (!map.value) return
 
+  userStore.setIsLocating(true)
   map.value.stopLocate()
   map.value.locate({
     watch: true,
@@ -191,6 +192,7 @@ const requestCurrentLocation = (setView = false, enableHighAccuracy = false) => 
       } as L.LocationEvent)
     },
     (error) => {
+      userStore.setIsLocating(false)
       if (error.code === error.PERMISSION_DENIED) {
         userStore.setHasLocationPermission(false)
         userStore.clearUserLocation()
@@ -294,6 +296,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   })
   mapValue.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
+    userStore.setIsLocating(false)
     if (e.code === 1) {
       userStore.setHasLocationPermission(false)
     }
@@ -358,6 +361,7 @@ const isInClujCounty = (lat: number, lng: number) => {
 const updateLiveLocation = (e: L.LocationEvent) => {
   if (!map.value) return
 
+  userStore.setIsLocating(false)
   if (!isInClujCounty(e.latlng.lat, e.latlng.lng)) {
     userStore.setHasLocationPermission(false)
     userStore.clearUserLocation()
