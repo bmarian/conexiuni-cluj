@@ -1350,12 +1350,20 @@ watch(userLocation, async (newLoc, oldLoc) => {
   await calculateRoutes()
 })
 
-function swapOriginDestination() {
+function isCurrentLocationName(name: string) {
+  return name === t('planOriginCurrentLocation')
+}
+
+async function swapOriginDestination() {
   if (isNaN(destLat.value) || isNaN(destLon.value)) return
   const newDestLat = customOrigin.value?.lat ?? userLocation.value?.latitude
   const newDestLon = customOrigin.value?.lon ?? userLocation.value?.longitude
-  const newDestName = customOrigin.value?.name ?? t('planOriginCurrentLocation')
   if (newDestLat === undefined || newDestLon === undefined) return
+
+  const newDestName = customOrigin.value?.name ?? await reverseGeocode(newDestLat, newDestLon)
+  const newOriginName = isCurrentLocationName(destName.value)
+    ? await reverseGeocode(destLat.value, destLon.value)
+    : destName.value
 
   void router.replace({
     query: {
@@ -1364,7 +1372,7 @@ function swapOriginDestination() {
       name: newDestName,
       originLat: String(destLat.value),
       originLon: String(destLon.value),
-      originName: destName.value,
+      originName: newOriginName,
     }
   })
 }
