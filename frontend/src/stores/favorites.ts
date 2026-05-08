@@ -8,7 +8,6 @@ const ROUTES_KEY = 'favorites:routes'
 const STOPS_KEY = 'favorites:stops'
 const PLANS_KEY = 'favorites:plans'
 const RECENT_PLANS_KEY = 'recents:plans'
-const IDB_MIGRATION_KEY = 'favorites:idb-migrated'
 
 const MAX_RECENT_PLANS = 10
 
@@ -22,56 +21,6 @@ export interface FavoritePlan {
   originLon?: number
 }
 
-function idbGet(store: IDBObjectStore, key: string): Promise<unknown> {
-  return new Promise((resolve) => {
-    const req = store.get(key)
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => resolve(undefined)
-  })
-}
-
-async function migrateFromIdb(): Promise<void> {
-  if (localStorage.getItem(IDB_MIGRATION_KEY)) return
-
-  try {
-    const db = await new Promise<IDBDatabase | null>((resolve) => {
-      const req = indexedDB.open('keyval-store')
-      let isNew = false
-      req.onupgradeneeded = () => {
-        isNew = true
-      }
-      req.onsuccess = () => {
-        if (isNew) {
-          req.result.close()
-          resolve(null)
-        } else {
-          resolve(req.result)
-        }
-      }
-      req.onerror = () => resolve(null)
-    })
-
-    if (db && db.objectStoreNames.contains('keyval')) {
-      const tx = db.transaction('keyval', 'readonly')
-      const store = tx.objectStore('keyval')
-      const [routes, stops] = await Promise.all([idbGet(store, ROUTES_KEY), idbGet(store, STOPS_KEY)])
-      db.close()
-
-      if (Array.isArray(routes) && routes.length > 0) {
-        localStorage.setItem(ROUTES_KEY, JSON.stringify(routes))
-      }
-      if (Array.isArray(stops) && stops.length > 0) {
-        localStorage.setItem(STOPS_KEY, JSON.stringify(stops))
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to migrate favorites from IndexedDB:', err)
-    return
-  }
-
-  localStorage.setItem(IDB_MIGRATION_KEY, '1')
-}
-
 export const useFavoritesStore = defineStore('favorites', () => {
   const favoriteRouteIds = ref<number[]>([])
   const favoriteStopIds = ref<number[]>([])
@@ -80,7 +29,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const isHydrated = ref(false)
 
   async function hydrate() {
-    await migrateFromIdb()
     try {
       const routes = JSON.parse(localStorage.getItem(ROUTES_KEY) ?? 'null')
       const stops = JSON.parse(localStorage.getItem(STOPS_KEY) ?? 'null')
