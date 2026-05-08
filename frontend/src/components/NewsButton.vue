@@ -130,7 +130,7 @@ const topValue = computed(() => props.topOffset)
       :aria-expanded="isOpen"
       @click="toggle"
     >
-      <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">📰</span>
+      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">📰</span>
       <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">

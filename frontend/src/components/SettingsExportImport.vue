@@ -25,10 +25,10 @@ function buildJson() {
     settings: {
       theme: settings.theme,
       locale: settings.locale,
-      easterEggUnlocked: settings.easterEggUnlocked,
-      easterEggActive: settings.easterEggActive,
-      traditionalUnlocked: settings.traditionalUnlocked,
-      traditionalActive: settings.traditionalActive,
+      arcadeUnlocked: settings.arcadeUnlocked,
+      arcadeActive: settings.arcadeActive,
+      legacyBlueUnlocked: settings.legacyBlueUnlocked,
+      legacyBlueActive: settings.legacyBlueActive,
       showWeather: settings.showWeather,
       showNews: settings.showNews,
       autoCenterOnMe: settings.autoCenterOnMe,
@@ -139,12 +139,12 @@ async function doImport() {
       settings.setLocale(s.locale)
       locale.value = s.locale
     }
-    if (s.easterEggUnlocked) settings.unlockEasterEgg()
-    if (s.easterEggActive) settings.activateEasterEgg()
-    else settings.deactivateEasterEgg()
-    if (s.traditionalUnlocked) settings.unlockTraditional()
-    if (s.traditionalActive) settings.activateTraditional()
-    else settings.deactivateTraditional()
+    if (s.arcadeUnlocked) settings.unlockArcade()
+    if (s.arcadeActive) settings.activateArcade()
+    else settings.deactivateArcade()
+    if (s.legacyBlueUnlocked) settings.unlockLegacyBlue()
+    if (s.legacyBlueActive) settings.activateLegacyBlue()
+    else settings.deactivateLegacyBlue()
     if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
     if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
@@ -165,11 +165,11 @@ async function doImport() {
 </script>
 
 <template>
-  <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-chomper': settings.easterEggActive, 'is-traditional': settings.traditionalActive }">
+  <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive }">
     <p class="ei-label">{{ t('exportImport') }}</p>
     <div class="ei-group">
       <button type="button" class="ei-btn" @click="openExport">
-        <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
@@ -179,7 +179,7 @@ async function doImport() {
         {{ t('exportSettings') }}
       </button>
       <button type="button" class="ei-btn" @click="openImport">
-        <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📂</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📂</span>
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
@@ -214,7 +214,7 @@ async function doImport() {
           @click="doExportShare"
         >
           <template v-if="exportDone">
-            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
             <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
@@ -233,14 +233,14 @@ async function doImport() {
           @click="doImport"
         >
           <template v-if="importState === 'success'">
-            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
             <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
             {{ t('importSuccess') }}
           </template>
           <template v-else-if="importState === 'error'">
-            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
             <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -274,8 +274,8 @@ async function doImport() {
 }
 
 .ei-root.is-dark .ei-label { color: #64748b; }
-.ei-root.is-chomper .ei-label { color: #b45309; }
-.ei-root.is-chomper.is-dark .ei-label { color: #d97706; }
+.ei-root.is-arcade .ei-label { color: #b45309; }
+.ei-root.is-arcade.is-dark .ei-label { color: #d97706; }
 
 /* ── button group ── */
 .ei-group {
@@ -336,33 +336,33 @@ async function doImport() {
 .ei-root.is-dark .ei-btn.ei-btn-success { background: #052e16; color: #4ade80; border-color: #14532d; }
 .ei-root.is-dark .ei-btn.ei-btn-error { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
 
-/* chomper light */
-.ei-root.is-chomper .ei-btn { color: #92400e; }
-.ei-root.is-chomper .ei-btn:hover { background: #fef9c3; color: #78350f; }
-.ei-root.is-chomper .ei-btn.ei-btn-primary { background: #fef9c3; color: #92400e; border-color: #fcd34d; }
-.ei-root.is-chomper .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #fef08a; color: #78350f; border-color: #f59e0b; }
+/* arcade light */
+.ei-root.is-arcade .ei-btn { color: #92400e; }
+.ei-root.is-arcade .ei-btn:hover { background: #fef9c3; color: #78350f; }
+.ei-root.is-arcade .ei-btn.ei-btn-primary { background: #fef9c3; color: #92400e; border-color: #fcd34d; }
+.ei-root.is-arcade .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #fef08a; color: #78350f; border-color: #f59e0b; }
 
-/* chomper dark */
-.ei-root.is-chomper.is-dark .ei-btn { color: #d97706; }
-.ei-root.is-chomper.is-dark .ei-btn:hover { background: #422006; color: #fde68a; }
-.ei-root.is-chomper.is-dark .ei-btn.ei-btn-primary { background: #422006; color: #fde68a; border-color: #d97706; }
-.ei-root.is-chomper.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #5c2d06; color: #fef08a; border-color: #f59e0b; }
+/* arcade dark */
+.ei-root.is-arcade.is-dark .ei-btn { color: #d97706; }
+.ei-root.is-arcade.is-dark .ei-btn:hover { background: #422006; color: #fde68a; }
+.ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary { background: #422006; color: #fde68a; border-color: #d97706; }
+.ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #5c2d06; color: #fef08a; border-color: #f59e0b; }
 
-/* traditional light */
-.ei-root.is-traditional .ei-btn { color: #4A6FA5; }
-.ei-root.is-traditional .ei-btn:hover { background: #EEF3FF; color: #1A3A8C; }
-.ei-root.is-traditional .ei-btn.ei-btn-primary { background: #EEF3FF; color: #1A3A8C; border-color: #245EDC; }
-.ei-root.is-traditional .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #D8E4FF; color: #0F2870; border-color: #1A3A8C; }
-.ei-root.is-traditional .ei-btn.ei-btn-success { background: #EEF8EE; color: #1A6A2A; border-color: #4CAF50; }
-.ei-root.is-traditional .ei-btn.ei-btn-error { background: #FEF0EE; color: #8A1A1A; border-color: #DC4444; }
+/* legacy blue light */
+.ei-root.is-legacy-blue .ei-btn { color: #4A6FA5; }
+.ei-root.is-legacy-blue .ei-btn:hover { background: #EEF3FF; color: #1A3A8C; }
+.ei-root.is-legacy-blue .ei-btn.ei-btn-primary { background: #EEF3FF; color: #1A3A8C; border-color: #245EDC; }
+.ei-root.is-legacy-blue .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #D8E4FF; color: #0F2870; border-color: #1A3A8C; }
+.ei-root.is-legacy-blue .ei-btn.ei-btn-success { background: #EEF8EE; color: #1A6A2A; border-color: #4CAF50; }
+.ei-root.is-legacy-blue .ei-btn.ei-btn-error { background: #FEF0EE; color: #8A1A1A; border-color: #DC4444; }
 
-/* traditional dark */
-.ei-root.is-traditional.is-dark .ei-btn { color: #90B4E0; }
-.ei-root.is-traditional.is-dark .ei-btn:hover { background: #172040; color: #B8D4F0; }
-.ei-root.is-traditional.is-dark .ei-btn.ei-btn-primary { background: #10193A; color: #90B4E0; border-color: #2A508C; }
-.ei-root.is-traditional.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1a2d5a; color: #B8D4F0; border-color: #3d70c0; }
-.ei-root.is-traditional.is-dark .ei-btn.ei-btn-success { background: #0A2010; color: #4ADE80; border-color: #1A6A2A; }
-.ei-root.is-traditional.is-dark .ei-btn.ei-btn-error { background: #200A0A; color: #F87171; border-color: #6A1A1A; }
+/* legacy blue dark */
+.ei-root.is-legacy-blue.is-dark .ei-btn { color: #90B4E0; }
+.ei-root.is-legacy-blue.is-dark .ei-btn:hover { background: #172040; color: #B8D4F0; }
+.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-primary { background: #10193A; color: #90B4E0; border-color: #2A508C; }
+.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1a2d5a; color: #B8D4F0; border-color: #3d70c0; }
+.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-success { background: #0A2010; color: #4ADE80; border-color: #1A6A2A; }
+.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-error { background: #200A0A; color: #F87171; border-color: #6A1A1A; }
 
 /* ── textarea ── */
 .ei-textarea {
@@ -388,21 +388,21 @@ async function doImport() {
 .ei-root.is-dark .ei-textarea { border-color: #334155; background: #0f172a; color: #cbd5e1; }
 .ei-root.is-dark .ei-textarea:focus { border-color: #3b82f6; background: #0f172a; }
 
-/* chomper light */
-.ei-root.is-chomper .ei-textarea { border-color: #fcd34d; background: #fefce8; color: #78350f; }
-.ei-root.is-chomper .ei-textarea:focus { border-color: #f59e0b; background: #fefce8; }
+/* arcade light */
+.ei-root.is-arcade .ei-textarea { border-color: #fcd34d; background: #fefce8; color: #78350f; }
+.ei-root.is-arcade .ei-textarea:focus { border-color: #f59e0b; background: #fefce8; }
 
-/* chomper dark */
-.ei-root.is-chomper.is-dark .ei-textarea { border-color: #d97706; background: #1c0a00; color: #fde68a; }
-.ei-root.is-chomper.is-dark .ei-textarea:focus { border-color: #f59e0b; background: #1c0a00; }
+/* arcade dark */
+.ei-root.is-arcade.is-dark .ei-textarea { border-color: #d97706; background: #1c0a00; color: #fde68a; }
+.ei-root.is-arcade.is-dark .ei-textarea:focus { border-color: #f59e0b; background: #1c0a00; }
 
-/* traditional light */
-.ei-root.is-traditional .ei-textarea { border-color: #B8CAEE; background: #F5F8FF; color: #1A3A8C; }
-.ei-root.is-traditional .ei-textarea:focus { border-color: #245EDC; background: #fff; }
+/* legacy blue light */
+.ei-root.is-legacy-blue .ei-textarea { border-color: #B8CAEE; background: #F5F8FF; color: #1A3A8C; }
+.ei-root.is-legacy-blue .ei-textarea:focus { border-color: #245EDC; background: #fff; }
 
-/* traditional dark */
-.ei-root.is-traditional.is-dark .ei-textarea { border-color: #2A508C; background: #0A1020; color: #90B4E0; }
-.ei-root.is-traditional.is-dark .ei-textarea:focus { border-color: #3d70c0; background: #0A1020; }
+/* legacy blue dark */
+.ei-root.is-legacy-blue.is-dark .ei-textarea { border-color: #2A508C; background: #0A1020; color: #90B4E0; }
+.ei-root.is-legacy-blue.is-dark .ei-textarea:focus { border-color: #3d70c0; background: #0A1020; }
 
 /* ── actions row ── */
 .ei-actions {

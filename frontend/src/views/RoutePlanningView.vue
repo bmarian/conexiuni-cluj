@@ -1511,7 +1511,7 @@ watch(timeValue, (val) => {
     <header class="flex items-center gap-3">
       <div
         class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-        <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
         <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
              stroke="currentColor"
              stroke-width="2">
@@ -1559,7 +1559,7 @@ watch(timeValue, (val) => {
         :aria-label="t('renameFavorite')"
         @click="startRename"
       >
-        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">✏️</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">✏️</span>
         <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
@@ -1603,7 +1603,7 @@ watch(timeValue, (val) => {
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
-              <span v-if="settings.traditionalActive" class="text-sm">📍</span>
+              <span v-if="settings.legacyBlueActive" class="text-sm">📍</span>
               <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="6"/>
               </svg>
@@ -1745,7 +1745,7 @@ watch(timeValue, (val) => {
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-dest">
-              <span v-if="settings.traditionalActive" class="text-sm">🏁</span>
+              <span v-if="settings.legacyBlueActive" class="text-sm">🏁</span>
               <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
@@ -1890,8 +1890,8 @@ watch(timeValue, (val) => {
         <!-- GPS resolving: waiting for device location -->
         <div v-if="isGpsResolving" class="plan-loading">
           <div class="bus-loader-container">
-            <span v-if="settings.traditionalActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
-            <span v-else-if="settings.easterEggActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
+            <span v-else-if="settings.arcadeActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
             <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round"
@@ -1904,8 +1904,8 @@ watch(timeValue, (val) => {
         <!-- Route calculation in progress -->
         <div v-else-if="isCalculating" class="plan-loading">
           <div class="bus-loader-container">
-            <span v-if="settings.traditionalActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
-            <span v-else-if="settings.easterEggActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
+            <span v-else-if="settings.arcadeActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
             <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round"
@@ -2023,20 +2023,20 @@ watch(timeValue, (val) => {
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-html[data-hungry] .section-label {
+html[data-arcade] .section-label {
   color: #92400E;
 }
 
-html.dark[data-hungry] .section-label {
+html.dark[data-arcade] .section-label {
   color: #fde68a;
 }
 
-html[data-hungry] .route-legs-card {
+html[data-arcade] .route-legs-card {
   background: #fffbeb;
   border: 2px solid #fde68a;
 }
 
-html.dark[data-hungry] .route-legs-card {
+html.dark[data-arcade] .route-legs-card {
   background: #1c1608;
   border-color: #78350f;
 }
@@ -2106,33 +2106,33 @@ html.dark[data-hungry] .route-legs-card {
 }
 
 
-html[data-hungry] .trip-summary-stat-label {
+html[data-arcade] .trip-summary-stat-label {
   color: #92400e;
   font-family: inherit;
 }
 
-html.dark[data-hungry] .trip-summary {
+html.dark[data-arcade] .trip-summary {
   background: linear-gradient(135deg, #1c1608 0%, #211a05 100%);
   border-color: #78350f;
 }
 
-html.dark[data-hungry] .trip-summary-stat:not(:last-child) {
+html.dark[data-arcade] .trip-summary-stat:not(:last-child) {
   border-right-color: #78350f;
 }
 
-html.dark[data-hungry] .trip-summary-stat-value {
+html.dark[data-arcade] .trip-summary-stat-value {
   color: #fde68a;
 }
 
-html.dark[data-hungry] .trip-summary-stat-value.is-live {
+html.dark[data-arcade] .trip-summary-stat-value.is-live {
   color: #34d399;
 }
 
-html.dark[data-hungry] .trip-summary-stat-label {
+html.dark[data-arcade] .trip-summary-stat-label {
   color: #d97706;
 }
 
-html[data-traditional] .trip-summary {
+html[data-legacy-blue] .trip-summary {
   background: #ECE9D8;
   border: 2px solid #919B9C;
   border-radius: 0;
@@ -2140,212 +2140,212 @@ html[data-traditional] .trip-summary {
   padding: 0.5rem;
 }
 
-html[data-traditional] .trip-summary-stat:not(:last-child) {
+html[data-legacy-blue] .trip-summary-stat:not(:last-child) {
   border-right: 1px solid #919B9C;
 }
 
-html[data-traditional] .trip-summary-stat-value {
+html[data-legacy-blue] .trip-summary-stat-value {
   color: #000000;
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
 }
 
-html[data-traditional] .trip-summary-stat-value.is-live {
+html[data-legacy-blue] .trip-summary-stat-value.is-live {
   color: #006400;
 }
 
-html[data-traditional] .trip-summary-stat-label {
+html[data-legacy-blue] .trip-summary-stat-label {
   color: #404040;
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
 }
 
-html[data-hungry] .trip-summary {
+html[data-arcade] .trip-summary {
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border-color: #fde68a;
 }
 
-html[data-hungry] .trip-summary-stat-value {
+html[data-arcade] .trip-summary-stat-value {
   color: #92400e;
 }
 
-html[data-hungry] .trip-summary-stat-label {
+html[data-arcade] .trip-summary-stat-label {
   color: #b45309;
 }
 
-html[data-hungry] .trip-summary-stat:not(:last-child) {
+html[data-arcade] .trip-summary-stat:not(:last-child) {
   border-right-color: #fde68a;
 }
 
-/* ----------- Chomper (Hungry) – departure card sub-elements ----------- */
-html[data-hungry] .card-dest {
+/* ----------- Arcade – departure card sub-elements ----------- */
+html[data-arcade] .card-dest {
   color: #78350f !important;
 }
 
-html[data-hungry] .card-arrow {
+html[data-arcade] .card-arrow {
   color: #b45309 !important;
 }
 
-html[data-hungry] .bus-chain-arrow {
+html[data-arcade] .bus-chain-arrow {
   color: #92400e !important;
 }
 
-html[data-hungry] .bus-chip-overflow {
+html[data-arcade] .bus-chip-overflow {
   background: #fde68a !important;
   color: #92400e !important;
   border-color: #f59e0b !important;
 }
 
-html[data-hungry] .card-arrival-time {
+html[data-arcade] .card-arrival-time {
   color: #b45309 !important;
 }
 
-html[data-hungry] .card-primary-time-sched {
+html[data-arcade] .card-primary-time-sched {
   color: #78350f !important;
 }
 
-html[data-hungry] .card-primary-time-live {
+html[data-arcade] .card-primary-time-live {
   color: #047857 !important;
 }
 
-html[data-hungry] .departure-card.is-selected .card-primary-time-live {
+html[data-arcade] .departure-card.is-selected .card-primary-time-live {
   color: #047857 !important;
 }
 
-html[data-hungry] .departure-card.is-selected .live-dot {
+html[data-arcade] .departure-card.is-selected .live-dot {
   background: #10b981 !important;
 }
 
-html[data-hungry] .card-chevron {
+html[data-arcade] .card-chevron {
   color: #d97706 !important;
 }
 
-html[data-hungry] .departure-card:hover .card-chevron {
+html[data-arcade] .departure-card:hover .card-chevron {
   color: #92400e !important;
 }
 
-html[data-hungry] .departure-card.is-selected .card-chevron {
+html[data-arcade] .departure-card.is-selected .card-chevron {
   color: #78350f !important;
 }
 
-html[data-hungry] .card-rail.is-active {
+html[data-arcade] .card-rail.is-active {
   background: #f59e0b !important;
 }
 
-html[data-hungry] .stat-chip {
+html[data-arcade] .stat-chip {
   background: #fef3c7 !important;
   color: #92400e !important;
 }
 
-html[data-hungry] .stat-chip-transfer {
+html[data-arcade] .stat-chip-transfer {
   background: #fde68a !important;
   color: #78350f !important;
 }
 
-html[data-hungry] .stat-chip-live {
+html[data-arcade] .stat-chip-live {
   background: #ecfdf5 !important;
   color: #047857 !important;
 }
 
-html[data-hungry] .stat-chip-duration {
+html[data-arcade] .stat-chip-duration {
   background: #fef3c7 !important;
   color: #92400e !important;
 }
 
-html[data-hungry] .stat-chip-next {
+html[data-arcade] .stat-chip-next {
   color: #b45309 !important;
 }
 
-html[data-hungry] .stat-chip-time {
+html[data-arcade] .stat-chip-time {
   color: #78350f !important;
 }
 
-html[data-hungry] .stat-chip-label {
+html[data-arcade] .stat-chip-label {
   color: #b45309 !important;
 }
 
-/* Chomper dark – departure card sub-elements */
-html.dark[data-hungry] .card-dest {
+/* Arcade dark – departure card sub-elements */
+html.dark[data-arcade] .card-dest {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .card-arrow {
+html.dark[data-arcade] .card-arrow {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .bus-chain-arrow {
+html.dark[data-arcade] .bus-chain-arrow {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .bus-chip-overflow {
+html.dark[data-arcade] .bus-chip-overflow {
   background: #451a03 !important;
   color: #fde68a !important;
   border-color: #d97706 !important;
 }
 
-html.dark[data-hungry] .card-arrival-time {
+html.dark[data-arcade] .card-arrival-time {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .card-primary-time-sched {
+html.dark[data-arcade] .card-primary-time-sched {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .card-primary-time-live {
+html.dark[data-arcade] .card-primary-time-live {
   color: #34d399 !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .card-primary-time-live {
+html.dark[data-arcade] .departure-card.is-selected .card-primary-time-live {
   color: #34d399 !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .live-dot {
+html.dark[data-arcade] .departure-card.is-selected .live-dot {
   background: #34d399 !important;
 }
 
-html.dark[data-hungry] .card-chevron {
+html.dark[data-arcade] .card-chevron {
   color: #78350f !important;
 }
 
-html.dark[data-hungry] .departure-card:hover .card-chevron {
+html.dark[data-arcade] .departure-card:hover .card-chevron {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .card-chevron {
+html.dark[data-arcade] .departure-card.is-selected .card-chevron {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .card-rail.is-active {
+html.dark[data-arcade] .card-rail.is-active {
   background: #d97706 !important;
 }
 
-html.dark[data-hungry] .stat-chip {
+html.dark[data-arcade] .stat-chip {
   background: #451a03 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .stat-chip-transfer {
+html.dark[data-arcade] .stat-chip-transfer {
   background: #78350f !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .stat-chip-live {
+html.dark[data-arcade] .stat-chip-live {
   background: rgba(16, 185, 129, 0.15) !important;
   color: #34d399 !important;
 }
 
-html.dark[data-hungry] .stat-chip-duration {
+html.dark[data-arcade] .stat-chip-duration {
   background: #451a03 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .stat-chip-next {
+html.dark[data-arcade] .stat-chip-next {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .stat-chip-time {
+html.dark[data-arcade] .stat-chip-time {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .stat-chip-label {
+html.dark[data-arcade] .stat-chip-label {
   color: #d97706 !important;
 }
 
@@ -2411,41 +2411,41 @@ html.dark[data-hungry] .stat-chip-label {
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
 }
 
-/* Hungry Theme Overrides */
-html[data-hungry] .leg-dot-origin {
+/* Arcade Theme Overrides */
+html[data-arcade] .leg-dot-origin {
   background: #f59e0b;
   box-shadow: 0 0 0 3px #fef3c7;
 }
 
-html[data-hungry] .leg-dot-dest {
+html[data-arcade] .leg-dot-dest {
   background: #b45309;
   box-shadow: 0 0 0 3px #fde68a;
 }
 
-html[data-hungry] .leg-type-badge {
+html[data-arcade] .leg-type-badge {
   color: #d97706;
 }
 
-/* Traditional Theme Overrides */
-html[data-traditional] .leg-dot-origin,
-html[data-traditional] .leg-dot-dest {
+/* Legacy Blue Theme Overrides */
+html[data-legacy-blue] .leg-dot-origin,
+html[data-legacy-blue] .leg-dot-dest {
   background: transparent !important;
   box-shadow: none !important;
 }
 
-html[data-traditional] .boarding-dot {
+html[data-legacy-blue] .boarding-dot {
   border-radius: 0;
 }
 
-html[data-traditional] .intermediate-dot {
+html[data-legacy-blue] .intermediate-dot {
   border-radius: 0;
 }
 
-html[data-traditional] .intermediate-dot div {
+html[data-legacy-blue] .intermediate-dot div {
   border-radius: 0;
 }
 
-html[data-traditional] .dot-inner {
+html[data-legacy-blue] .dot-inner {
   border-radius: 0;
 }
 
@@ -2651,17 +2651,17 @@ html[data-traditional] .dot-inner {
   color: #fcd34d;
 }
 
-html[data-traditional] .transfer-block-icon,
-html[data-traditional] .transfer-block-content {
+html[data-legacy-blue] .transfer-block-icon,
+html[data-legacy-blue] .transfer-block-content {
   border-radius: 0;
 }
 
-/* ----------- Traditional – departure card sub-elements ----------- */
-html[data-traditional] .departure-card {
+/* ----------- Legacy Blue – departure card sub-elements ----------- */
+html[data-legacy-blue] .departure-card {
   border-radius: 0;
 }
 
-html[data-traditional] .stat-chip {
+html[data-legacy-blue] .stat-chip {
   border-radius: 0 !important;
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -2669,92 +2669,92 @@ html[data-traditional] .stat-chip {
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .stat-chip-transfer {
+html[data-legacy-blue] .stat-chip-transfer {
   background: var(--xp-btn) !important;
   color: #000000 !important;
 }
 
-html[data-traditional] .stat-chip-live {
+html[data-legacy-blue] .stat-chip-live {
   background: var(--xp-live) !important;
   color: #FFFFFF !important;
   border: 1px solid #3D7E22 !important;
 }
 
-html[data-traditional] .stat-chip-duration {
+html[data-legacy-blue] .stat-chip-duration {
   background: var(--xp-btn) !important;
   color: #000000 !important;
 }
 
-html[data-traditional] .stat-chip-next {
+html[data-legacy-blue] .stat-chip-next {
   color: #404040 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .stat-chip-time {
+html[data-legacy-blue] .stat-chip-time {
   color: #000000 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .stat-chip-label {
+html[data-legacy-blue] .stat-chip-label {
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .card-dest {
+html[data-legacy-blue] .card-dest {
   color: #000000 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .card-arrow {
+html[data-legacy-blue] .card-arrow {
   color: #404040 !important;
 }
 
-html[data-traditional] .bus-chain-arrow {
+html[data-legacy-blue] .bus-chain-arrow {
   color: #000000 !important;
 }
 
-html[data-traditional] .card-arrival-time {
+html[data-legacy-blue] .card-arrival-time {
   color: #404040 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .card-primary-time-sched {
+html[data-legacy-blue] .card-primary-time-sched {
   color: #000000 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .card-primary-time-live {
+html[data-legacy-blue] .card-primary-time-live {
   color: #006400 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .departure-card.is-selected .card-primary-time-live {
+html[data-legacy-blue] .departure-card.is-selected .card-primary-time-live {
   color: #90EE90 !important;
 }
 
-html[data-traditional] .departure-card.is-selected .live-dot {
+html[data-legacy-blue] .departure-card.is-selected .live-dot {
   background: #90EE90 !important;
 }
 
-html[data-traditional] .card-chevron {
+html[data-legacy-blue] .card-chevron {
   color: var(--xp-blue) !important;
 }
 
-html[data-traditional] .card-rail {
+html[data-legacy-blue] .card-rail {
   border-radius: 0 !important;
 }
 
-html[data-traditional] .card-rail.is-active {
+html[data-legacy-blue] .card-rail.is-active {
   background: var(--xp-blue) !important;
 }
 
-html[data-traditional] .bus-chip {
+html[data-legacy-blue] .bus-chip {
   border: 1px solid rgba(0, 0, 0, 0.35) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
   border-radius: 0 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-traditional] .bus-chip-overflow {
+html[data-legacy-blue] .bus-chip-overflow {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
   border-radius: 0 !important;
@@ -2764,128 +2764,128 @@ html[data-traditional] .bus-chip-overflow {
   padding: 0 0.35rem !important;
 }
 
-html[data-traditional] .bus-chip-overflow:hover {
+html[data-legacy-blue] .bus-chip-overflow:hover {
   background: var(--xp-btn-hover) !important;
 }
 
-html[data-traditional] .bus-chip-overflow:active {
+html[data-legacy-blue] .bus-chip-overflow:active {
   background: var(--xp-btn-active) !important;
   color: white !important;
 }
 
-html[data-traditional] .live-dot {
+html[data-legacy-blue] .live-dot {
   border-radius: 0 !important;
   background: #3D7E22 !important;
   box-shadow: none !important;
 }
 
-html[data-traditional] .time-pill {
+html[data-legacy-blue] .time-pill {
   border-radius: 0 !important;
 }
 
-html[data-traditional] .time-pill-live {
+html[data-legacy-blue] .time-pill-live {
   background: #3D7E22 !important;
 }
 
-html[data-traditional] .time-pill-sched {
+html[data-legacy-blue] .time-pill-sched {
   background: var(--xp-btn) !important;
   color: #000000 !important;
   border: 1px solid var(--xp-border) !important;
 }
 
-/* Traditional dark – departure card sub-elements */
-html.dark[data-traditional] .stat-chip {
+/* Legacy Blue dark – departure card sub-elements */
+html.dark[data-legacy-blue] .stat-chip {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .stat-chip-transfer {
+html.dark[data-legacy-blue] .stat-chip-transfer {
   background: var(--xp-btn) !important;
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .stat-chip-live {
+html.dark[data-legacy-blue] .stat-chip-live {
   background: linear-gradient(to bottom, #7EC860 0%, #6FB452 50%, #5BAA38 100%) !important;
   color: #FFFFFF !important;
   border: 1px solid #5BAA38 !important;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4) !important;
 }
 
-html.dark[data-traditional] .stat-chip-duration {
+html.dark[data-legacy-blue] .stat-chip-duration {
   background: var(--xp-btn) !important;
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .stat-chip-next {
+html.dark[data-legacy-blue] .stat-chip-next {
   color: #8898B0 !important;
 }
 
-html.dark[data-traditional] .stat-chip-time {
+html.dark[data-legacy-blue] .stat-chip-time {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .card-dest {
+html.dark[data-legacy-blue] .card-dest {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .card-arrow {
+html.dark[data-legacy-blue] .card-arrow {
   color: #8898B0 !important;
 }
 
-html.dark[data-traditional] .bus-chain-arrow {
+html.dark[data-legacy-blue] .bus-chain-arrow {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .card-arrival-time {
+html.dark[data-legacy-blue] .card-arrival-time {
   color: #8898B0 !important;
 }
 
-html.dark[data-traditional] .card-primary-time-sched {
+html.dark[data-legacy-blue] .card-primary-time-sched {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .card-primary-time-live {
+html.dark[data-legacy-blue] .card-primary-time-live {
   color: #5BAA38 !important;
 }
 
-html.dark[data-traditional] .departure-card.is-selected .card-primary-time-live {
+html.dark[data-legacy-blue] .departure-card.is-selected .card-primary-time-live {
   color: #90EE90 !important;
 }
 
-html.dark[data-traditional] .departure-card.is-selected .live-dot {
+html.dark[data-legacy-blue] .departure-card.is-selected .live-dot {
   background: #90EE90 !important;
 }
 
-html.dark[data-traditional] .card-chevron {
+html.dark[data-legacy-blue] .card-chevron {
   color: var(--xp-blue) !important;
 }
 
-html.dark[data-traditional] .card-rail.is-active {
+html.dark[data-legacy-blue] .card-rail.is-active {
   background: var(--xp-blue) !important;
 }
 
-html.dark[data-traditional] .bus-chip {
+html.dark[data-legacy-blue] .bus-chip {
   border: 1px solid rgba(0, 0, 0, 0.5) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
-html.dark[data-traditional] .bus-chip-overflow {
+html.dark[data-legacy-blue] .bus-chip-overflow {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
   color: var(--xp-text) !important;
 }
 
-html.dark[data-traditional] .live-dot {
+html.dark[data-legacy-blue] .live-dot {
   background: #5BAA38 !important;
   box-shadow: none !important;
 }
 
-html.dark[data-traditional] .time-pill-live {
+html.dark[data-legacy-blue] .time-pill-live {
   background: #5BAA38 !important;
 }
 
-html.dark[data-traditional] .time-pill-sched {
+html.dark[data-legacy-blue] .time-pill-sched {
   background: var(--xp-btn) !important;
   color: var(--xp-text) !important;
   border: 1px solid var(--xp-border) !important;
@@ -3534,7 +3534,7 @@ html.dark[data-traditional] .time-pill-sched {
   justify-content: center;
 }
 
-html[data-traditional] .bus-loader-container {
+html[data-legacy-blue] .bus-loader-container {
   width: auto;
   overflow: visible;
 }
@@ -3553,38 +3553,38 @@ html[data-traditional] .bus-loader-container {
   color: #94a3b8;
 }
 
-/* Hungry Theme */
-html[data-hungry] .plan-loading {
+/* Arcade Theme */
+html[data-arcade] .plan-loading {
   background: #fffbeb;
   border-color: #fde68a;
 }
 
-html[data-hungry] .loading-text {
+html[data-arcade] .loading-text {
   color: #d97706;
 }
 
-html.dark[data-hungry] .plan-loading {
+html.dark[data-arcade] .plan-loading {
   background: #1c1608;
   border-color: #78350f;
 }
 
-html.dark[data-hungry] .loading-text {
+html.dark[data-arcade] .loading-text {
   color: #fde68a;
 }
 
-/* Traditional Theme */
-html[data-traditional] .plan-loading {
+/* Legacy Blue Theme */
+html[data-legacy-blue] .plan-loading {
   background: var(--xp-tan, #ECE9D8);
   border: 2px solid var(--xp-border, #919B9C);
   border-radius: 0;
   box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
 }
 
-html.dark[data-traditional] .plan-loading {
+html.dark[data-legacy-blue] .plan-loading {
   box-shadow: inset -1px -1px 1px #444a5c, inset 1px 1px 1px #000000;
 }
 
-html[data-traditional] .loading-text {
+html[data-legacy-blue] .loading-text {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
   color: var(--xp-text, #000000);
   animation: none !important;
@@ -3595,13 +3595,13 @@ html[data-traditional] .loading-text {
   border-color: #334155;
 }
 
-html[data-hungry] .plan-placeholder {
+html[data-arcade] .plan-placeholder {
   background: #fffbeb;
   border-color: #fde68a;
   border-style: solid;
 }
 
-html[data-traditional] .plan-placeholder {
+html[data-legacy-blue] .plan-placeholder {
   background: var(--xp-tan, #ECE9D8);
   border: 2px solid var(--xp-border, #919B9C);
   border-radius: 0;
@@ -3609,7 +3609,7 @@ html[data-traditional] .plan-placeholder {
   border-style: solid;
 }
 
-html.dark[data-traditional] .plan-placeholder {
+html.dark[data-legacy-blue] .plan-placeholder {
   box-shadow: inset -1px -1px 1px #444a5c, inset 1px 1px 1px #000000;
 }
 
@@ -3799,186 +3799,186 @@ html.dark .current-loc-option:hover {
   background: #334155;
 }
 
-html[data-traditional] .search-results {
+html[data-legacy-blue] .search-results {
   background: #ECE9D8;
   border: 1px solid #919B9C;
   border-radius: 0;
   box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
 }
 
-html[data-traditional] .search-result-item {
+html[data-legacy-blue] .search-result-item {
   border-bottom: 1px solid #919B9C;
   font-family: 'Tahoma', sans-serif;
 }
 
-html[data-traditional] .search-result-item:hover {
+html[data-legacy-blue] .search-result-item:hover {
   background: #316AC5;
 }
 
-html[data-traditional] .search-result-item:hover .res-main,
-html[data-traditional] .search-result-item:hover .res-sub {
+html[data-legacy-blue] .search-result-item:hover .res-main,
+html[data-legacy-blue] .search-result-item:hover .res-sub {
   color: #FFFFFF !important;
 }
 
-html[data-traditional] .res-main {
+html[data-legacy-blue] .res-main {
   color: #000000;
 }
 
-html[data-traditional] .res-sub {
+html[data-legacy-blue] .res-sub {
   color: #444444;
 }
 
-html[data-traditional] .current-loc-option {
+html[data-legacy-blue] .current-loc-option {
   background: #ECE9D8;
   font-style: italic;
 }
 
-html[data-traditional] .current-loc-option:hover {
+html[data-legacy-blue] .current-loc-option:hover {
   background: #316AC5;
 }
 
-html[data-traditional] .mini-spinner {
+html[data-legacy-blue] .mini-spinner {
   border-top-color: #316AC5;
 }
 
-/* Traditional Dark */
-html.dark[data-traditional] .search-results {
+/* Legacy Blue Dark */
+html.dark[data-legacy-blue] .search-results {
   background: #2A2D38;
   border-color: #444A5C;
 }
 
-html.dark[data-traditional] .search-result-item {
+html.dark[data-legacy-blue] .search-result-item {
   border-bottom-color: #444A5C;
 }
 
-html.dark[data-traditional] .res-main {
+html.dark[data-legacy-blue] .res-main {
   color: #E0E6F2;
 }
 
-html.dark[data-traditional] .res-sub {
+html.dark[data-legacy-blue] .res-sub {
   color: #94A3B8;
 }
 
-html.dark[data-traditional] .current-loc-option {
+html.dark[data-legacy-blue] .current-loc-option {
   background: #2A2D38;
   border-bottom-color: #444A5C;
 }
 
-html.dark[data-traditional] .current-loc-option:hover {
+html.dark[data-legacy-blue] .current-loc-option:hover {
   background: #316AC5;
 }
 
-html[data-hungry] .origin-clickable:hover .edit-icon {
+html[data-arcade] .origin-clickable:hover .edit-icon {
   color: #F59E0B;
 }
 
-html[data-hungry] .search-wrap {
+html[data-arcade] .search-wrap {
   background: #FFFBEB;
   border-color: #F59E0B;
 }
 
-html[data-hungry] .search-wrap:focus-within {
+html[data-arcade] .search-wrap:focus-within {
   border-color: #D97706;
 }
 
-html[data-hungry] .search-input {
+html[data-arcade] .search-input {
   color: #92400E;
 }
 
-html[data-hungry] .search-cancel:hover {
+html[data-arcade] .search-cancel:hover {
   background: #FEF3C7;
   color: #92400E;
 }
 
-html[data-hungry] .search-results {
+html[data-arcade] .search-results {
   background: #FFFBEB;
   border: 2px solid #F59E0B;
   border-radius: 0.5rem;
 }
 
-html[data-hungry] .search-result-item {
+html[data-arcade] .search-result-item {
   border-bottom-color: #FEF3C7;
 }
 
-html[data-hungry] .search-result-item:hover {
+html[data-arcade] .search-result-item:hover {
   background: #FEF3C7;
 }
 
-html[data-hungry] .res-main {
+html[data-arcade] .res-main {
   color: #92400E;
 }
 
-html[data-hungry] .res-sub {
+html[data-arcade] .res-sub {
   color: #B45309;
 }
 
-html[data-hungry] .current-loc-option {
+html[data-arcade] .current-loc-option {
   background: #FFFBEB;
   border-bottom-color: #FEF3C7;
 }
 
-html[data-hungry] .current-loc-option:hover {
+html[data-arcade] .current-loc-option:hover {
   background: #FEF3C7;
 }
 
-html[data-hungry] .mini-spinner {
+html[data-arcade] .mini-spinner {
   border-top-color: #F59E0B;
 }
 
-/* Chomper Dark */
-html.dark[data-hungry] .origin-clickable:hover .edit-icon {
+/* Arcade Dark */
+html.dark[data-arcade] .origin-clickable:hover .edit-icon {
   color: #d97706;
 }
 
-html.dark[data-hungry] .search-wrap {
+html.dark[data-arcade] .search-wrap {
   background: #211a05;
   border-color: #78350f;
 }
 
-html.dark[data-hungry] .search-wrap:focus-within {
+html.dark[data-arcade] .search-wrap:focus-within {
   border-color: #d97706;
 }
 
-html.dark[data-hungry] .search-input {
+html.dark[data-arcade] .search-input {
   color: #fde68a;
 }
 
-html.dark[data-hungry] .search-cancel:hover {
+html.dark[data-arcade] .search-cancel:hover {
   background: #2a2006;
   color: #fde68a;
 }
 
-html.dark[data-hungry] .search-results {
+html.dark[data-arcade] .search-results {
   background: #1c1608;
   border-color: #78350f;
 }
 
-html.dark[data-hungry] .search-result-item {
+html.dark[data-arcade] .search-result-item {
   border-bottom-color: #451a03;
 }
 
-html.dark[data-hungry] .search-result-item:hover {
+html.dark[data-arcade] .search-result-item:hover {
   background: #2a2006;
 }
 
-html.dark[data-hungry] .res-main {
+html.dark[data-arcade] .res-main {
   color: #fde68a;
 }
 
-html.dark[data-hungry] .res-sub {
+html.dark[data-arcade] .res-sub {
   color: #d97706;
 }
 
-html.dark[data-hungry] .current-loc-option {
+html.dark[data-arcade] .current-loc-option {
   background: #211a05;
   border-bottom-color: #451a03;
 }
 
-html.dark[data-hungry] .current-loc-option:hover {
+html.dark[data-arcade] .current-loc-option:hover {
   background: #2a2006;
 }
 
-html.dark[data-hungry] .mini-spinner {
+html.dark[data-arcade] .mini-spinner {
   border-top-color: #d97706;
 }
 
@@ -4104,90 +4104,90 @@ html.dark[data-hungry] .mini-spinner {
   border-color: #38bdf8;
 }
 
-/* ----------- Hungry (Chomper) Theme ----------- */
-html[data-hungry] .plan-time-filter {
+/* ----------- Arcade Theme ----------- */
+html[data-arcade] .plan-time-filter {
   background: #FFFBEB;
   border: 2px solid #F59E0B;
   border-radius: 0.5rem;
 }
 
-html[data-hungry] .plan-time-select,
-html[data-hungry] .plan-time-datetime {
+html[data-arcade] .plan-time-select,
+html[data-arcade] .plan-time-datetime {
   background: white;
   border: 2px solid #F59E0B;
   border-radius: 0.5rem;
   color: #92400E;
 }
 
-html[data-hungry] .plan-time-select:hover,
-html[data-hungry] .plan-time-select:focus,
-html[data-hungry] .plan-time-datetime:hover,
-html[data-hungry] .plan-time-datetime:focus {
+html[data-arcade] .plan-time-select:hover,
+html[data-arcade] .plan-time-select:focus,
+html[data-arcade] .plan-time-datetime:hover,
+html[data-arcade] .plan-time-datetime:focus {
   border-color: #D97706;
   color: #92400E;
 }
 
-html[data-hungry] .plan-time-chevron {
+html[data-arcade] .plan-time-chevron {
   color: #B45309;
 }
 
-html.dark[data-hungry] .plan-time-filter {
+html.dark[data-arcade] .plan-time-filter {
   background: #1c1608;
   border-color: #78350f;
 }
 
-html.dark[data-hungry] .plan-time-select,
-html.dark[data-hungry] .plan-time-datetime {
+html.dark[data-arcade] .plan-time-select,
+html.dark[data-arcade] .plan-time-datetime {
   background: #211a05;
   border-color: #78350f;
   color: #fde68a;
   color-scheme: dark;
 }
 
-html.dark[data-hungry] .plan-time-select:hover,
-html.dark[data-hungry] .plan-time-select:focus,
-html.dark[data-hungry] .plan-time-datetime:hover,
-html.dark[data-hungry] .plan-time-datetime:focus {
+html.dark[data-arcade] .plan-time-select:hover,
+html.dark[data-arcade] .plan-time-select:focus,
+html.dark[data-arcade] .plan-time-datetime:hover,
+html.dark[data-arcade] .plan-time-datetime:focus {
   border-color: #d97706;
   color: #fde68a;
 }
 
-html.dark[data-hungry] .plan-time-chevron {
+html.dark[data-arcade] .plan-time-chevron {
   color: #d97706;
 }
 
-html[data-hungry] .refresh-btn,
-html[data-hungry] .swap-btn {
+html[data-arcade] .refresh-btn,
+html[data-arcade] .swap-btn {
   color: #B45309;
 }
 
-html[data-hungry] .refresh-btn:hover,
-html[data-hungry] .swap-btn:hover {
+html[data-arcade] .refresh-btn:hover,
+html[data-arcade] .swap-btn:hover {
   background: #FEF3C7;
   color: #92400E;
 }
 
-html.dark[data-hungry] .refresh-btn,
-html.dark[data-hungry] .swap-btn {
+html.dark[data-arcade] .refresh-btn,
+html.dark[data-arcade] .swap-btn {
   color: #d97706;
 }
 
-html.dark[data-hungry] .refresh-btn:hover,
-html.dark[data-hungry] .swap-btn:hover {
+html.dark[data-arcade] .refresh-btn:hover,
+html.dark[data-arcade] .swap-btn:hover {
   background: #211a05;
   color: #fde68a;
 }
 
-/* ----------- Traditional (Windows XP Luna) Theme ----------- */
-html[data-traditional] .plan-time-filter {
+/* ----------- Legacy Blue (Windows XP Luna) Theme ----------- */
+html[data-legacy-blue] .plan-time-filter {
   background: #ECE9D8;
   border: 1px solid #7F9DB9;
   border-radius: 0;
   padding: 0.4rem 0.5rem;
 }
 
-html[data-traditional] .plan-time-select,
-html[data-traditional] .plan-time-datetime {
+html[data-legacy-blue] .plan-time-select,
+html[data-legacy-blue] .plan-time-datetime {
   background: white;
   border: 1px solid #7F9DB9;
   border-radius: 0 !important;
@@ -4197,36 +4197,36 @@ html[data-traditional] .plan-time-datetime {
   padding: 0.25rem 0.5rem;
 }
 
-html[data-traditional] .plan-time-select {
+html[data-legacy-blue] .plan-time-select {
   padding-right: 1.6rem;
 }
 
-html[data-traditional] .plan-time-select:hover,
-html[data-traditional] .plan-time-select:focus,
-html[data-traditional] .plan-time-datetime:hover,
-html[data-traditional] .plan-time-datetime:focus {
+html[data-legacy-blue] .plan-time-select:hover,
+html[data-legacy-blue] .plan-time-select:focus,
+html[data-legacy-blue] .plan-time-datetime:hover,
+html[data-legacy-blue] .plan-time-datetime:focus {
   border-color: #245EDC;
   color: #000;
 }
 
-html[data-traditional] .plan-time-chevron {
+html[data-legacy-blue] .plan-time-chevron {
   color: #245EDC;
 }
 
-html.dark[data-traditional] .plan-time-filter {
+html.dark[data-legacy-blue] .plan-time-filter {
   background: #1a2540;
   border-color: #3a4f7a;
 }
 
-html.dark[data-traditional] .plan-time-select,
-html.dark[data-traditional] .plan-time-datetime {
+html.dark[data-legacy-blue] .plan-time-select,
+html.dark[data-legacy-blue] .plan-time-datetime {
   background: #0a1228;
   border-color: #3a4f7a;
   color: #e2e8f0;
   color-scheme: dark;
 }
 
-html.dark[data-traditional] .plan-time-chevron {
+html.dark[data-legacy-blue] .plan-time-chevron {
   color: #8aa9d4;
 }
 
@@ -4280,37 +4280,37 @@ html.dark[data-traditional] .plan-time-chevron {
   color: #94a3b8;
 }
 
-/* Hungry */
-html[data-hungry] .plan-time-search-btn {
+/* Arcade */
+html[data-arcade] .plan-time-search-btn {
   background: #D97706;
   border: 2px solid #B45309;
   border-radius: 0.5rem;
   color: #FFFBEB;
 }
 
-html[data-hungry] .plan-time-search-btn:hover {
+html[data-arcade] .plan-time-search-btn:hover {
   background: #B45309;
   border-color: #92400E;
 }
 
-html[data-hungry] .plan-time-search-btn:disabled {
+html[data-arcade] .plan-time-search-btn:disabled {
   background: #FCD34D;
   border-color: #FCD34D;
   color: #92400E;
 }
 
-html.dark[data-hungry] .plan-time-search-btn {
+html.dark[data-arcade] .plan-time-search-btn {
   background: #d97706;
   border-color: #92400E;
   color: #fde68a;
 }
 
-html.dark[data-hungry] .plan-time-search-btn:hover {
+html.dark[data-arcade] .plan-time-search-btn:hover {
   background: #b45309;
 }
 
-/* Traditional (Windows XP Luna) */
-html[data-traditional] .plan-time-search-btn {
+/* Legacy Blue (Windows XP Luna) */
+html[data-legacy-blue] .plan-time-search-btn {
   background: linear-gradient(to bottom, #FFFFFF 0%, #ECE9D8 50%, #D7D2BC 100%);
   border: 1px solid #003C74;
   border-radius: 0 !important;
@@ -4320,25 +4320,25 @@ html[data-traditional] .plan-time-search-btn {
   padding: 0.25rem 0.65rem;
 }
 
-html[data-traditional] .plan-time-search-btn:hover {
+html[data-legacy-blue] .plan-time-search-btn:hover {
   background: linear-gradient(to bottom, #FFFFFF 0%, #FFE9A0 50%, #F5C75A 100%);
   border-color: #003C74;
   color: #000;
 }
 
-html[data-traditional] .plan-time-search-btn:disabled {
+html[data-legacy-blue] .plan-time-search-btn:disabled {
   background: #ECE9D8;
   color: #7F7F7F;
   border-color: #A0A0A0;
 }
 
-html.dark[data-traditional] .plan-time-search-btn {
+html.dark[data-legacy-blue] .plan-time-search-btn {
   background: linear-gradient(to bottom, #2a3a5c 0%, #1a2540 50%, #0a1228 100%);
   border-color: #3a4f7a;
   color: #e2e8f0;
 }
 
-html.dark[data-traditional] .plan-time-search-btn:hover {
+html.dark[data-legacy-blue] .plan-time-search-btn:hover {
   background: linear-gradient(to bottom, #3a4f7a 0%, #2a3a5c 50%, #1a2540 100%);
 }
 </style>

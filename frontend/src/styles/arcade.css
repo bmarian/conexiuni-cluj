@@ -1,4 +1,4 @@
-@keyframes hungry-chomp {
+@keyframes arcade-chomp {
   0%, 100% {
     clip-path: polygon(50% 50%, 100% 25%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 75%);
   }
@@ -7,11 +7,11 @@
   }
 }
 
-.hungry-chomp {
-  animation: hungry-chomp 0.35s linear infinite;
+.arcade-chomp {
+  animation: arcade-chomp 0.35s linear infinite;
 }
 
-@keyframes hungry-route-travel {
+@keyframes arcade-route-travel {
   0% {
     top: 6px;
     opacity: 1;
@@ -34,670 +34,670 @@
   }
 }
 
-.hungry-eater {
+.arcade-eater {
   position: absolute;
   left: 2px;
   z-index: 30;
   width: 16px;
   height: 16px;
-  animation: hungry-route-travel 5s linear infinite;
+  animation: arcade-route-travel 5s linear infinite;
 }
 
-html[data-hungry] .app-shell {
+html[data-arcade] .app-shell {
   background-color: #fef9c3 !important;
 }
 
-html[data-hungry] .app-drawer {
+html[data-arcade] .app-drawer {
   background-color: #fefce8 !important;
 }
 
-html[data-hungry] .drawer-grip {
+html[data-arcade] .drawer-grip {
   background: #f59e0b !important;
 }
 
-html[data-hungry] .stop-view-container,
-html[data-hungry] .route-view-container,
-html[data-hungry] .home-view-container,
-html[data-hungry] .plan-view-container {
+html[data-arcade] .stop-view-container,
+html[data-arcade] .route-view-container,
+html[data-arcade] .home-view-container,
+html[data-arcade] .plan-view-container {
   background-color: #fefce8 !important;
 }
 
-html[data-hungry] .departure-card {
+html[data-arcade] .departure-card {
   background: #fffbeb !important;
   border-color: #fde68a !important;
 }
 
-html[data-hungry] .departure-card:hover {
+html[data-arcade] .departure-card:hover {
   background: #fef9c3 !important;
   border-color: #fbbf24 !important;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15) !important;
 }
 
-html[data-hungry] .departure-card.is-selected {
+html[data-arcade] .departure-card.is-selected {
   background: #fef3c7 !important;
   border-color: #f59e0b !important;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
 }
 
-html[data-hungry] .departure-card.is-selected .card-primary-time-live {
+html[data-arcade] .departure-card.is-selected .card-primary-time-live {
   color: #047857 !important;
 }
 
-html[data-hungry] .departure-card.is-selected .live-dot {
+html[data-arcade] .departure-card.is-selected .live-dot {
   background: #10b981 !important;
 }
 
-html[data-hungry] .departure-card.is-selected .stat-chip-live {
+html[data-arcade] .departure-card.is-selected .stat-chip-live {
   background: #ecfdf5 !important;
   color: #047857 !important;
   border-color: #a7f3d0 !important;
 }
 
-html[data-hungry] .departure-card-fav {
+html[data-arcade] .departure-card-fav {
   background: #fef3c7 !important;
   border-color: #fcd34d !important;
 }
 
-html[data-hungry] .departure-card-fav:hover {
+html[data-arcade] .departure-card-fav:hover {
   background: #fde68a !important;
   border-color: #f59e0b !important;
 }
 
-html[data-hungry] .stop-row-selected {
+html[data-arcade] .stop-row-selected {
   background: #fef9c3 !important;
 }
 
-html[data-hungry] .stop-row-nearest {
+html[data-arcade] .stop-row-nearest {
   background: #fef3c7 !important;
 }
 
-html[data-hungry] .stop-row-fav {
+html[data-arcade] .stop-row-fav {
   background: #fef9c3 !important;
 }
 
-html[data-hungry] .fav-route-chip {
+html[data-arcade] .fav-route-chip {
   background: #fffbeb !important;
   border-color: #fde68a !important;
 }
 
-html[data-hungry] .all-route-row:hover,
-html[data-hungry] .fav-stop-row:hover,
-html[data-hungry] .fav-route-chip:hover,
-html[data-hungry] .geo-result-row:hover,
-html[data-hungry] .stop-result-row:hover {
+html[data-arcade] .all-route-row:hover,
+html[data-arcade] .fav-stop-row:hover,
+html[data-arcade] .fav-route-chip:hover,
+html[data-arcade] .geo-result-row:hover,
+html[data-arcade] .stop-result-row:hover {
   background: #fef9c3 !important;
   color: #78350f !important;
 }
 
-html[data-hungry] .search-wrap {
+html[data-arcade] .search-wrap {
   border-color: #fde68a !important;
   background: #fffbeb !important;
 }
 
-html[data-hungry] .search-wrap:focus-within {
+html[data-arcade] .search-wrap:focus-within {
   border-color: #f59e0b !important;
   background: #fefce8 !important;
 }
 
-html[data-hungry] .search-input {
+html[data-arcade] .search-input {
   color: #78350f !important;
 }
 
-html[data-hungry] .search-input::placeholder {
+html[data-arcade] .search-input::placeholder {
   color: #b45309 !important;
 }
 
-html[data-hungry] .direction-toggle-wrap {
+html[data-arcade] .direction-toggle-wrap {
   background: #fde68a !important;
 }
 
-html[data-hungry] .dir-btn-active {
+html[data-arcade] .dir-btn-active {
   background: #ffffff !important;
   color: #78350f !important;
 }
 
-html[data-hungry] .dir-btn-inactive {
+html[data-arcade] .dir-btn-inactive {
   color: #b45309 !important;
 }
 
-html[data-hungry] .settings-btn {
+html[data-arcade] .settings-btn {
   background: #facc15 !important;
   color: #78350f !important;
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .settings-btn:hover {
+html[data-arcade] .settings-btn:hover {
   background: #fde047 !important;
   color: #451a03 !important;
 }
 
-html[data-hungry] .weather-pill {
+html[data-arcade] .weather-pill {
   background: #facc15 !important;
   color: #78350f !important;
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .weather-pill:hover {
+html[data-arcade] .weather-pill:hover {
   background: #fde047 !important;
   color: #451a03 !important;
 }
 
-html[data-hungry] .weather-popover {
+html[data-arcade] .weather-popover {
   background: #fffbeb !important;
   color: #78350f !important;
   box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .weather-popover-title,
-html[data-hungry] .weather-stat-label,
-html[data-hungry] .weather-sun {
+html[data-arcade] .weather-popover-title,
+html[data-arcade] .weather-stat-label,
+html[data-arcade] .weather-sun {
   color: #b45309 !important;
 }
 
-html[data-hungry] .weather-condition,
-html[data-hungry] .weather-popover-temp,
-html[data-hungry] .weather-stat-value {
+html[data-arcade] .weather-condition,
+html[data-arcade] .weather-popover-temp,
+html[data-arcade] .weather-stat-value {
   color: #78350f !important;
 }
 
-html[data-hungry] .weather-range,
-html[data-hungry] .weather-stat {
+html[data-arcade] .weather-range,
+html[data-arcade] .weather-stat {
   background: #fef9c3 !important;
   border-color: #fde68a !important;
 }
 
-html[data-hungry] .settings-popover {
+html[data-arcade] .settings-popover {
   background: #fffbeb !important;
   box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .option-btn:hover {
+html[data-arcade] .option-btn:hover {
   background: #fef9c3 !important;
   color: #78350f !important;
 }
 
-html[data-hungry] .option-btn.active {
+html[data-arcade] .option-btn.active {
   background: #fef3c7 !important;
   color: #92400e !important;
   border-color: #fbbf24 !important;
 }
 
-html[data-hungry] .news-btn {
+html[data-arcade] .news-btn {
   background: #facc15 !important;
   color: #78350f !important;
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .news-btn:hover {
+html[data-arcade] .news-btn:hover {
   background: #fde047 !important;
   color: #451a03 !important;
 }
 
-html[data-hungry] .news-popover {
+html[data-arcade] .news-popover {
   background: #fffbeb !important;
   box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .news-popover-title {
+html[data-arcade] .news-popover-title {
   color: #b45309 !important;
 }
 
-html[data-hungry] .news-item {
+html[data-arcade] .news-item {
   border-bottom-color: #fde68a !important;
 }
 
-html[data-hungry] .news-item:hover {
+html[data-arcade] .news-item:hover {
   background: #fef9c3 !important;
 }
 
-html[data-hungry] .news-date {
+html[data-arcade] .news-date {
   color: #b45309 !important;
 }
 
-html[data-hungry] .news-title {
+html[data-arcade] .news-title {
   color: #92400e !important;
 }
 
-html[data-hungry] .landscape-drawer-toggle {
+html[data-arcade] .landscape-drawer-toggle {
   background: #facc15 !important;
   color: #78350f !important;
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-hungry] .landscape-drawer-toggle:hover {
+html[data-arcade] .landscape-drawer-toggle:hover {
   background: #fde047 !important;
   color: #451a03 !important;
 }
 
-html.dark[data-hungry] .app-shell,
-html.dark[data-hungry] .app-drawer,
-html.dark[data-hungry] .stop-view-container,
-html.dark[data-hungry] .route-view-container,
-html.dark[data-hungry] .home-view-container,
-html.dark[data-hungry] .plan-view-container {
+html.dark[data-arcade] .app-shell,
+html.dark[data-arcade] .app-drawer,
+html.dark[data-arcade] .stop-view-container,
+html.dark[data-arcade] .route-view-container,
+html.dark[data-arcade] .home-view-container,
+html.dark[data-arcade] .plan-view-container {
   background-color: #1c1608 !important;
 }
 
-html.dark[data-hungry] .departure-card {
+html.dark[data-arcade] .departure-card {
   background: #211a05 !important;
   border-color: #78350f !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .departure-card:hover {
+html.dark[data-arcade] .departure-card:hover {
   background: #2a2006 !important;
   border-color: #b45309 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected {
+html.dark[data-arcade] .departure-card.is-selected {
   background: #3d2b08 !important;
   border-color: #d97706 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected * {
+html.dark[data-arcade] .departure-card.is-selected * {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .card-primary-time-live {
+html.dark[data-arcade] .departure-card.is-selected .card-primary-time-live {
   color: #34d399 !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .live-dot {
+html.dark[data-arcade] .departure-card.is-selected .live-dot {
   background: #34d399 !important;
 }
 
-html.dark[data-hungry] .departure-card.is-selected .stat-chip-live {
+html.dark[data-arcade] .departure-card.is-selected .stat-chip-live {
   background: rgba(16, 185, 129, 0.15) !important;
   color: #34d399 !important;
   border-color: rgba(52, 211, 153, 0.4) !important;
 }
 
 /* Must come after .departure-card — same specificity, last wins */
-html.dark[data-hungry] .departure-card-fav {
+html.dark[data-arcade] .departure-card-fav {
   background: #2a1205 !important;
   border-color: #9a3412 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .departure-card-fav:hover {
+html.dark[data-arcade] .departure-card-fav:hover {
   background: #3d1a06 !important;
   border-color: #c2470a !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .stop-row-selected,
-html.dark[data-hungry] .stop-row-nearest,
-html.dark[data-hungry] .stop-row-fav {
+html.dark[data-arcade] .stop-row-selected,
+html.dark[data-arcade] .stop-row-nearest,
+html.dark[data-arcade] .stop-row-fav {
   background: #2a2006 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .fav-route-chip {
+html.dark[data-arcade] .fav-route-chip {
   background: #211a05 !important;
   border-color: #78350f !important;
 }
 
-html.dark[data-hungry] .all-route-row:hover,
-html.dark[data-hungry] .fav-stop-row:hover,
-html.dark[data-hungry] .fav-route-chip:hover,
-html.dark[data-hungry] .geo-result-row:hover,
-html.dark[data-hungry] .stop-result-row:hover {
+html.dark[data-arcade] .all-route-row:hover,
+html.dark[data-arcade] .fav-stop-row:hover,
+html.dark[data-arcade] .fav-route-chip:hover,
+html.dark[data-arcade] .geo-result-row:hover,
+html.dark[data-arcade] .stop-result-row:hover {
   background: #2a2006 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .search-wrap {
+html.dark[data-arcade] .search-wrap {
   border-color: #78350f !important;
   background: #211a05 !important;
 }
 
-html.dark[data-hungry] .search-wrap:focus-within {
+html.dark[data-arcade] .search-wrap:focus-within {
   border-color: #d97706 !important;
   background: #1c1608 !important;
 }
 
-html.dark[data-hungry] .search-input {
+html.dark[data-arcade] .search-input {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .search-input::placeholder {
+html.dark[data-arcade] .search-input::placeholder {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .direction-toggle-wrap {
+html.dark[data-arcade] .direction-toggle-wrap {
   background: #451a03 !important;
 }
 
-html.dark[data-hungry] .dir-btn-active {
+html.dark[data-arcade] .dir-btn-active {
   background: #1c1608 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .dir-btn-inactive {
+html.dark[data-arcade] .dir-btn-inactive {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .settings-btn {
+html.dark[data-arcade] .settings-btn {
   background: #854d0e !important;
   color: #fde68a !important;
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
 
-html.dark[data-hungry] .settings-btn:hover {
+html.dark[data-arcade] .settings-btn:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-html.dark[data-hungry] .weather-pill {
+html.dark[data-arcade] .weather-pill {
   background: #854d0e !important;
   color: #fde68a !important;
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
 
-html.dark[data-hungry] .weather-pill:hover {
+html.dark[data-arcade] .weather-pill:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-html.dark[data-hungry] .weather-popover {
+html.dark[data-arcade] .weather-popover {
   background: #1c1608 !important;
   color: #fde68a !important;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
 }
 
-html.dark[data-hungry] .weather-popover-title,
-html.dark[data-hungry] .weather-stat-label,
-html.dark[data-hungry] .weather-sun {
+html.dark[data-arcade] .weather-popover-title,
+html.dark[data-arcade] .weather-stat-label,
+html.dark[data-arcade] .weather-sun {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .weather-condition,
-html.dark[data-hungry] .weather-popover-temp,
-html.dark[data-hungry] .weather-stat-value {
+html.dark[data-arcade] .weather-condition,
+html.dark[data-arcade] .weather-popover-temp,
+html.dark[data-arcade] .weather-stat-value {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .weather-range,
-html.dark[data-hungry] .weather-stat {
+html.dark[data-arcade] .weather-range,
+html.dark[data-arcade] .weather-stat {
   background: #2a2006 !important;
   border-color: #78350f !important;
 }
 
-html.dark[data-hungry] .settings-popover {
+html.dark[data-arcade] .settings-popover {
   background: #1c1608 !important;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
 }
 
-html.dark[data-hungry] .option-btn:hover {
+html.dark[data-arcade] .option-btn:hover {
   background: #2a2006 !important;
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .option-btn.active {
+html.dark[data-arcade] .option-btn.active {
   background: #422006 !important;
   color: #fde68a !important;
   border-color: #d97706 !important;
 }
 
-html.dark[data-hungry] .news-btn {
+html.dark[data-arcade] .news-btn {
   background: #854d0e !important;
   color: #fde68a !important;
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
 
-html.dark[data-hungry] .news-btn:hover {
+html.dark[data-arcade] .news-btn:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-html.dark[data-hungry] .news-popover {
+html.dark[data-arcade] .news-popover {
   background: #1c1608 !important;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
 }
 
-html.dark[data-hungry] .news-popover-title {
+html.dark[data-arcade] .news-popover-title {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .news-item {
+html.dark[data-arcade] .news-item {
   border-bottom-color: #2a2006 !important;
 }
 
-html.dark[data-hungry] .news-item:hover {
+html.dark[data-arcade] .news-item:hover {
   background: #2a2006 !important;
 }
 
-html.dark[data-hungry] .news-date {
+html.dark[data-arcade] .news-date {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .news-title {
+html.dark[data-arcade] .news-title {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .landscape-drawer-toggle {
+html.dark[data-arcade] .landscape-drawer-toggle {
   background: #854d0e !important;
   color: #fde68a !important;
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(234, 179, 8, 0.2) !important;
 }
 
-html.dark[data-hungry] .landscape-drawer-toggle:hover {
+html.dark[data-arcade] .landscape-drawer-toggle:hover {
   background: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-html[data-hungry] .not-found-container {
+html[data-arcade] .not-found-container {
   background-color: #fefce8 !important;
 }
 
-html[data-hungry] .not-found-horse-wagon,
-html[data-hungry] .not-found-text {
+html[data-arcade] .not-found-horse-wagon,
+html[data-arcade] .not-found-text {
   color: #92400e !important;
 }
 
-html.dark[data-hungry] .not-found-container {
+html.dark[data-arcade] .not-found-container {
   background-color: #1c1608 !important;
 }
 
-html.dark[data-hungry] .not-found-horse-wagon,
-html.dark[data-hungry] .not-found-text {
+html.dark[data-arcade] .not-found-horse-wagon,
+html.dark[data-arcade] .not-found-text {
   color: #fbbf24 !important;
 }
 
-html[data-hungry] .ves-illus {
+html[data-arcade] .ves-illus {
   color: #d97706;
 }
 
-html[data-hungry] .ves-title {
+html[data-arcade] .ves-title {
   color: #78350f;
 }
 
-html[data-hungry] .ves-desc {
+html[data-arcade] .ves-desc {
   color: #92400e;
 }
 
-html[data-hungry] .ves-back-btn {
+html[data-arcade] .ves-back-btn {
   background: #d97706;
   color: #fff7ed;
 }
 
-html[data-hungry] .ves-back-btn:hover {
+html[data-arcade] .ves-back-btn:hover {
   background: #b45309;
 }
 
-html.dark[data-hungry] .ves-illus {
+html.dark[data-arcade] .ves-illus {
   color: #f59e0b;
 }
 
-html.dark[data-hungry] .ves-title {
+html.dark[data-arcade] .ves-title {
   color: #fde68a;
 }
 
-html.dark[data-hungry] .ves-desc {
+html.dark[data-arcade] .ves-desc {
   color: #fbbf24;
 }
 
-html.dark[data-hungry] .ves-back-btn {
+html.dark[data-arcade] .ves-back-btn {
   background: #b45309;
   color: #fef9c3;
 }
 
-html.dark[data-hungry] .ves-back-btn:hover {
+html.dark[data-arcade] .ves-back-btn:hover {
   background: #d97706;
 }
 
-html[data-hungry] .offline-pill {
+html[data-arcade] .offline-pill {
   background: #78350f;
   color: #fef9c3;
   box-shadow: 0 2px 8px rgba(120, 53, 15, 0.40);
 }
 
-html.dark[data-hungry] .offline-pill {
+html.dark[data-arcade] .offline-pill {
   background: #92400e;
   color: #fef9c3;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
-html[data-hungry] .dist-badge {
+html[data-arcade] .dist-badge {
   background: #fef3c7 !important;
   color: #92400e !important;
 }
 
-html.dark[data-hungry] .dist-badge {
+html.dark[data-arcade] .dist-badge {
   background: #2a2006 !important;
   color: #fbbf24 !important;
 }
 
-html[data-hungry] .geo-loading-dot {
+html[data-arcade] .geo-loading-dot {
   background: #d97706 !important;
 }
 
-html.dark[data-hungry] .geo-loading-dot {
+html.dark[data-arcade] .geo-loading-dot {
   background: #fbbf24 !important;
 }
 
 /* RoutePlanningView */
 
-html[data-hungry] .route-legs-card {
+html[data-arcade] .route-legs-card {
   background: #fffbeb !important;
   border-color: #fde68a !important;
 }
 
-html[data-hungry] .leg-dot-origin,
-html[data-hungry] .leg-dot-dest {
+html[data-arcade] .leg-dot-origin,
+html[data-arcade] .leg-dot-dest {
   background: #f59e0b !important;
   box-shadow: 0 0 0 3px #fef3c7 !important;
 }
 
-html[data-hungry] .leg-line {
+html[data-arcade] .leg-line {
   background: repeating-linear-gradient(to bottom, #f59e0b 0, #f59e0b 4px, transparent 4px, transparent 8px) !important;
   opacity: 0.5 !important;
 }
 
-html[data-hungry] .leg-type-badge,
-html[data-hungry] .leg-type-badge-dest {
+html[data-arcade] .leg-type-badge,
+html[data-arcade] .leg-type-badge-dest {
   color: #b45309 !important;
 }
 
-html[data-hungry] .leg-name {
+html[data-arcade] .leg-name {
   color: #78350f !important;
 }
 
-html[data-hungry] .plan-placeholder {
+html[data-arcade] .plan-placeholder {
   background: #fef9c3 !important;
   border-color: #fde68a !important;
 }
 
-html.dark[data-hungry] .route-legs-card {
+html.dark[data-arcade] .route-legs-card {
   background: #211a05 !important;
   border-color: #78350f !important;
 }
 
-html.dark[data-hungry] .leg-dot-origin,
-html.dark[data-hungry] .leg-dot-dest {
+html.dark[data-arcade] .leg-dot-origin,
+html.dark[data-arcade] .leg-dot-dest {
   background: #d97706 !important;
   box-shadow: 0 0 0 3px #451a03 !important;
 }
 
-html.dark[data-hungry] .leg-line {
+html.dark[data-arcade] .leg-line {
   background: repeating-linear-gradient(to bottom, #d97706 0, #d97706 4px, transparent 4px, transparent 8px) !important;
   opacity: 0.5 !important;
 }
 
-html.dark[data-hungry] .leg-type-badge,
-html.dark[data-hungry] .leg-type-badge-dest {
+html.dark[data-arcade] .leg-type-badge,
+html.dark[data-arcade] .leg-type-badge-dest {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .leg-name {
+html.dark[data-arcade] .leg-name {
   color: #fde68a !important;
 }
 
-html.dark[data-hungry] .plan-placeholder {
+html.dark[data-arcade] .plan-placeholder {
   background: #1c1608 !important;
   border-color: #78350f !important;
 }
 
-html[data-hungry] .green-friday-banner {
+html[data-arcade] .green-friday-banner {
   background: linear-gradient(135deg, #fef9c3, #fef3c7) !important;
   border-bottom-color: #fde68a !important;
 }
 
-html[data-hungry] .green-friday-desc {
+html[data-arcade] .green-friday-desc {
   color: #92400e !important;
 }
 
-html[data-hungry] .green-friday-close {
+html[data-arcade] .green-friday-close {
   color: #d97706 !important;
 }
 
-html[data-hungry] .green-friday-close:hover {
+html[data-arcade] .green-friday-close:hover {
   background: rgba(245, 158, 11, 0.15) !important;
 }
 
-html.dark[data-hungry] .green-friday-banner {
+html.dark[data-arcade] .green-friday-banner {
   background: linear-gradient(135deg, #2a2006, #211a05) !important;
   border-bottom-color: #78350f !important;
 }
 
-html.dark[data-hungry] .green-friday-desc {
+html.dark[data-arcade] .green-friday-desc {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .green-friday-close {
+html.dark[data-arcade] .green-friday-close {
   color: #d97706 !important;
 }
 
-html.dark[data-hungry] .green-friday-close:hover {
+html.dark[data-arcade] .green-friday-close:hover {
   background: rgba(217, 119, 6, 0.2) !important;
 }
 
-html[data-hungry] .plan-view-container > header > div:first-child {
+html[data-arcade] .plan-view-container > header > div:first-child {
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
 }
 
-html[data-hungry] .plan-view-container .text-sky-600,
-html[data-hungry] .plan-view-container .text-sky-400 {
+html[data-arcade] .plan-view-container .text-sky-600,
+html[data-arcade] .plan-view-container .text-sky-400 {
   color: #b45309 !important;
 }
 
-html[data-hungry] .plan-view-container .bg-sky-500 {
+html[data-arcade] .plan-view-container .bg-sky-500 {
   background: #f59e0b !important;
 }
 
-html.dark[data-hungry] .plan-view-container > header > div:first-child {
+html.dark[data-arcade] .plan-view-container > header > div:first-child {
   background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
 }
 
-html.dark[data-hungry] .plan-view-container .text-sky-600,
-html.dark[data-hungry] .plan-view-container .text-sky-400 {
+html.dark[data-arcade] .plan-view-container .text-sky-600,
+html.dark[data-arcade] .plan-view-container .text-sky-400 {
   color: #fbbf24 !important;
 }
 
-html.dark[data-hungry] .plan-view-container .bg-sky-500 {
+html.dark[data-arcade] .plan-view-container .bg-sky-500 {
   background: #d97706 !important;
 }

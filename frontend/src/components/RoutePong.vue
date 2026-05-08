@@ -12,13 +12,13 @@ const props = defineProps<{
 const emit = defineEmits<{ exit: [] }>()
 
 const {t} = useI18n()
-const {easterEggActive, traditionalActive} = storeToRefs(useSettingsStore())
+const {arcadeActive, legacyBlueActive} = storeToRefs(useSettingsStore())
 const {isDarkMode} = storeToRefs(useUserStore())
 
 // canvasTheme and overlayTheme are computed so draw() always reads the current theme each rAF frame.
 const canvasTheme = computed(() => {
-  const h = easterEggActive.value
-  const x = traditionalActive.value
+  const h = arcadeActive.value
+  const x = legacyBlueActive.value
   const d = isDarkMode.value
   if (x && d) return {
     court: '#1A2030',
@@ -83,8 +83,8 @@ const canvasTheme = computed(() => {
 })
 
 const overlayTheme = computed(() => {
-  const h = easterEggActive.value
-  const x = traditionalActive.value
+  const h = arcadeActive.value
+  const x = legacyBlueActive.value
   const d = isDarkMode.value
   if (x && d) return {
     bg: '#1A2030',
@@ -135,7 +135,7 @@ const overlayTheme = computed(() => {
 })
 
 const exitBtnStyle = computed(() => {
-  if (traditionalActive.value) {
+  if (legacyBlueActive.value) {
     return {
       background: 'linear-gradient(to bottom, #F88080, #D04040 50%, #A82020)',
       color: '#FFFFFF',
@@ -416,11 +416,11 @@ onUnmounted(() => {
 <template>
   <div
     class="pong-wrap"
-    :class="{ 'is-xp': traditionalActive }"
+    :class="{ 'is-xp': legacyBlueActive }"
     @pointermove="onPointerMove"
     @touchmove.prevent="onTouchMove"
   >
-    <div v-if="traditionalActive" class="pong-titlebar">
+    <div v-if="legacyBlueActive" class="pong-titlebar">
       <span class="pong-titlebar-text">🎮 Pong — {{ props.routeShortName }}</span>
     </div>
 
@@ -436,15 +436,15 @@ onUnmounted(() => {
       <div class="pong-over-actions">
         <button
           class="pong-over-btn"
-          :class="{ 'pong-over-btn-primary': true, 'is-xp': traditionalActive }"
-          :style="!traditionalActive && overlayTheme.btnBg ? { background: overlayTheme.btnBg, color: overlayTheme.btnFg } : undefined"
+          :class="{ 'pong-over-btn-primary': true, 'is-xp': legacyBlueActive }"
+          :style="!legacyBlueActive && overlayTheme.btnBg ? { background: overlayTheme.btnBg, color: overlayTheme.btnFg } : undefined"
           @click="restart"
         >{{ t('pongPlayAgain') }}
         </button>
         <button
           class="pong-over-btn"
-          :class="{ 'is-xp': traditionalActive }"
-          :style="!traditionalActive && overlayTheme.ghBg ? { background: overlayTheme.ghBg, color: overlayTheme.ghFg } : undefined"
+          :class="{ 'is-xp': legacyBlueActive }"
+          :style="!legacyBlueActive && overlayTheme.ghBg ? { background: overlayTheme.ghBg, color: overlayTheme.ghFg } : undefined"
           @click="emit('exit')"
         >{{ t('pongExit') }}
         </button>
@@ -454,7 +454,7 @@ onUnmounted(() => {
     <button
       v-else
       class="pong-exit"
-      :class="{ 'is-xp': traditionalActive }"
+      :class="{ 'is-xp': legacyBlueActive }"
       :style="exitBtnStyle"
       @click="emit('exit')"
       title="Exit (Esc)"
@@ -481,7 +481,7 @@ onUnmounted(() => {
   margin: 0.75rem 0 1.25rem;
 }
 
-:global(html.dark[data-traditional]) .pong-wrap.is-xp {
+:global(html.dark[data-legacy-blue]) .pong-wrap.is-xp {
   border-color: #001E5C;
   box-shadow: 1px 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.5);
 }
@@ -504,7 +504,7 @@ onUnmounted(() => {
   border-bottom: 1px solid #003C9C;
 }
 
-:global(html.dark[data-traditional]) .pong-titlebar {
+:global(html.dark[data-legacy-blue]) .pong-titlebar {
   background: linear-gradient(
     to bottom,
     #003478 0%,
@@ -649,25 +649,25 @@ onUnmounted(() => {
   border-color: #003C9C;
 }
 
-:global(html.dark[data-traditional]) .pong-over-btn.is-xp {
+:global(html.dark[data-legacy-blue]) .pong-over-btn.is-xp {
   background: linear-gradient(to bottom, #2A2F40 0%, #1F2230 50%, #14182A 100%);
   color: #E0E6F2;
   border-color: #444A5C;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-:global(html.dark[data-traditional]) .pong-over-btn.is-xp:hover {
+:global(html.dark[data-legacy-blue]) .pong-over-btn.is-xp:hover {
   background: linear-gradient(to bottom, #3A4055 0%, #2A2F40 50%, #1F2230 100%);
   border-color: #4E88D8;
 }
 
-:global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary {
+:global(html.dark[data-legacy-blue]) .pong-over-btn.is-xp.pong-over-btn-primary {
   background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%);
   color: #FFFFFF;
   border-color: #1B3E78;
 }
 
-:global(html.dark[data-traditional]) .pong-over-btn.is-xp.pong-over-btn-primary:hover {
+:global(html.dark[data-legacy-blue]) .pong-over-btn.is-xp.pong-over-btn-primary:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%);
 }
 
@@ -686,7 +686,7 @@ onUnmounted(() => {
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
 }
 
-:global(html.dark[data-traditional]) .pong-wrap.is-xp .pong-over {
+:global(html.dark[data-legacy-blue]) .pong-wrap.is-xp .pong-over {
   background: #1A2030 !important;
 }
 </style>

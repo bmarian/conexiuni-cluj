@@ -178,7 +178,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 
       <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
         <h2 class="section-label">
-          <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">❤️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">❤️</span>
           <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
                viewBox="0 0 24 24">
             <path
@@ -276,7 +276,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
                 </svg>
                 <div
                   class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-                  <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                  <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                         aria-hidden="true">📍</span>
                   <svg v-else class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"
                        viewBox="0 0 24 24" fill="currentColor">
@@ -339,7 +339,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
                 </svg>
                 <div
                   class="w-7 h-7 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-                  <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                  <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                         aria-hidden="true">🗺️</span>
                   <svg v-else class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
                        viewBox="0 0 24 24" fill="currentColor">
@@ -397,7 +397,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
             >
               <div
                 class="w-7 h-7 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center">
-                <span v-if="settings.traditionalActive" class="emoji-icon-md"
+                <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                       aria-hidden="true">🕒</span>
                 <svg v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
                      viewBox="0 0 24 24" fill="currentColor">
@@ -440,7 +440,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 
       <section class="flex flex-col gap-3 pb-6">
         <h2 class="section-label">
-          <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🗺️</span>
           <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"

@@ -16,25 +16,25 @@
   border-top-color: #ffffff !important;
 }
 
-.hungry-theme .stop-name-tooltip {
+.arcade-theme .stop-name-tooltip {
   background-color: #fffbeb !important;
   color: #78350f !important;
   border: 1px solid #fde68a !important;
   box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.2), 0 1px 4px rgba(0, 0, 0, 0.08) !important;
 }
 
-.hungry-theme .stop-name-tooltip::before {
+.arcade-theme .stop-name-tooltip::before {
   border-top-color: #fffbeb !important;
 }
 
-:root.dark .hungry-theme .stop-name-tooltip {
+:root.dark .arcade-theme .stop-name-tooltip {
   background-color: #211a05 !important;
   color: #fde68a !important;
   border-color: #78350f !important;
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.5) !important;
 }
 
-:root.dark .hungry-theme .stop-name-tooltip::before {
+:root.dark .arcade-theme .stop-name-tooltip::before {
   border-top-color: #211a05 !important;
 }
 
@@ -79,37 +79,37 @@
   color: #94a3b8;
 }
 
-.hungry-theme .pin-tooltip {
+.arcade-theme .pin-tooltip {
   background-color: #fffbeb !important;
   color: #78350f !important;
   border: 1px solid #fde68a !important;
   box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.2), 0 1px 4px rgba(0, 0, 0, 0.08) !important;
 }
 
-.hungry-theme .pin-tooltip::before {
+.arcade-theme .pin-tooltip::before {
   border-top-color: #fffbeb !important;
 }
 
-.hungry-theme .pin-tip-sub {
+.arcade-theme .pin-tip-sub {
   color: #b45309;
 }
 
-:root.dark .hungry-theme .pin-tooltip {
+:root.dark .arcade-theme .pin-tooltip {
   background-color: #211a05 !important;
   color: #fde68a !important;
   border-color: #78350f !important;
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.5) !important;
 }
 
-:root.dark .hungry-theme .pin-tooltip::before {
+:root.dark .arcade-theme .pin-tooltip::before {
   border-top-color: #211a05 !important;
 }
 
-:root.dark .hungry-theme .pin-tip-sub {
+:root.dark .arcade-theme .pin-tip-sub {
   color: #d97706;
 }
 
-.traditional-theme .pin-tooltip {
+.legacy-blue-theme .pin-tooltip {
   background: #FFFFE0 !important;
   border: 1px solid #000000 !important;
   border-radius: 0 !important;
@@ -117,21 +117,21 @@
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
 }
 
-.traditional-theme .pin-tooltip::before {
+.legacy-blue-theme .pin-tooltip::before {
   display: none !important;
 }
 
-.traditional-theme .pin-tip-sub {
+.legacy-blue-theme .pin-tip-sub {
   color: #404040;
 }
 
-:root.dark .traditional-theme .pin-tooltip {
+:root.dark .legacy-blue-theme .pin-tooltip {
   background: #1A2030 !important;
   border-color: #444A5C !important;
   color: #E0E6F2 !important;
 }
 
-:root.dark .traditional-theme .pin-tip-sub {
+:root.dark .legacy-blue-theme .pin-tip-sub {
   color: #94a3b8;
 }
 
@@ -308,98 +308,98 @@
 }
 
 
-/* hungry-theme uses one extra class so it always wins over the base rules above */
+/* arcade-theme uses one extra class so it always wins over the base rules above */
 
-.hungry-theme .leaflet-bar {
+.arcade-theme .leaflet-bar {
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-.hungry-theme .leaflet-bar a,
-.hungry-theme .leaflet-bar a:visited {
+.arcade-theme .leaflet-bar a,
+.arcade-theme .leaflet-bar a:visited {
   background-color: #facc15 !important;
   color: #78350f !important;
 }
 
-.hungry-theme .leaflet-bar a:hover {
+.arcade-theme .leaflet-bar a:hover {
   background-color: #fde047 !important;
   color: #451a03 !important;
 }
 
-.hungry-theme .leaflet-bar a:not(:last-child) {
+.arcade-theme .leaflet-bar a:not(:last-child) {
   border-bottom-color: rgba(120, 53, 15, 0.2) !important;
 }
 
-.hungry-theme .leaflet-bar a.leaflet-disabled,
-.hungry-theme .leaflet-bar a.leaflet-disabled:hover {
+.arcade-theme .leaflet-bar a.leaflet-disabled,
+.arcade-theme .leaflet-bar a.leaflet-disabled:hover {
   background-color: #fef9c3 !important;
   color: #b45309 !important;
 }
 
-:root.dark .hungry-theme .leaflet-bar {
+:root.dark .arcade-theme .leaflet-bar {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(234, 179, 8, 0.15) !important;
 }
 
-:root.dark .hungry-theme .leaflet-bar a,
-:root.dark .hungry-theme .leaflet-bar a:visited {
+:root.dark .arcade-theme .leaflet-bar a,
+:root.dark .arcade-theme .leaflet-bar a:visited {
   background-color: #854d0e !important;
   color: #fde68a !important;
 }
 
-:root.dark .hungry-theme .leaflet-bar a:hover {
+:root.dark .arcade-theme .leaflet-bar a:hover {
   background-color: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-:root.dark .hungry-theme .leaflet-bar a:not(:last-child) {
+:root.dark .arcade-theme .leaflet-bar a:not(:last-child) {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-:root.dark .hungry-theme .leaflet-bar a.leaflet-disabled,
-:root.dark .hungry-theme .leaflet-bar a.leaflet-disabled:hover {
+:root.dark .arcade-theme .leaflet-bar a.leaflet-disabled,
+:root.dark .arcade-theme .leaflet-bar a.leaflet-disabled:hover {
   background-color: #1c1608 !important;
   color: #78350f !important;
 }
 
-/* traditional-theme: Luna blue gradient, square corners, no green chrome */
+/* legacy-blue-theme: Luna blue gradient, square corners, no green chrome */
 
-.traditional-theme .leaflet-bar {
+.legacy-blue-theme .leaflet-bar {
   box-shadow: 0 2px 10px -1px rgba(36, 94, 220, 0.40), 0 1px 3px rgba(0, 0, 0, 0.10) !important;
   border-radius: 0 !important;
 }
 
-.traditional-theme .leaflet-bar a,
-.traditional-theme .leaflet-bar a:visited {
+.legacy-blue-theme .leaflet-bar a,
+.legacy-blue-theme .leaflet-bar a:visited {
   background: linear-gradient(to bottom, #4A88E8 0%, #245EDC 50%, #1A52B8 100%) !important;
   color: #FFFFFF !important;
   border-radius: 0 !important;
 }
 
 
-.traditional-theme .leaflet-bar a:hover {
+.legacy-blue-theme .leaflet-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%) !important;
   color: #FFFFFF !important;
 }
 
 
-.traditional-theme .leaflet-bar a:not(:last-child) {
+.legacy-blue-theme .leaflet-bar a:not(:last-child) {
   border-bottom-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-.traditional-theme .leaflet-bar a:first-child,
-.traditional-theme .leaflet-bar a:last-child,
-.traditional-theme .leaflet-bar a:only-child {
+.legacy-blue-theme .leaflet-bar a:first-child,
+.legacy-blue-theme .leaflet-bar a:last-child,
+.legacy-blue-theme .leaflet-bar a:only-child {
   border-radius: 0 !important;
 }
 
-.traditional-theme .leaflet-bar a.leaflet-disabled,
-.traditional-theme .leaflet-bar a.leaflet-disabled:hover {
+.legacy-blue-theme .leaflet-bar a.leaflet-disabled,
+.legacy-blue-theme .leaflet-bar a.leaflet-disabled:hover {
   background: #B0C8E8 !important;
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-.traditional-theme .leaflet-popup-content-wrapper,
-.traditional-theme .leaflet-popup-tip,
-.traditional-theme .stop-name-tooltip {
+.legacy-blue-theme .leaflet-popup-content-wrapper,
+.legacy-blue-theme .leaflet-popup-tip,
+.legacy-blue-theme .stop-name-tooltip {
   background: #FFFFE0 !important;
   color: #000000 !important;
   border: 1px solid #000000 !important;
@@ -408,61 +408,61 @@
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
 }
 
-.traditional-theme .stop-name-tooltip::before {
+.legacy-blue-theme .stop-name-tooltip::before {
   display: none !important;
 }
 
-:root.dark .traditional-theme .stop-name-tooltip {
+:root.dark .legacy-blue-theme .stop-name-tooltip {
   background: #1A2030 !important;
   color: #E0E6F2 !important;
   border-color: #444A5C !important;
 }
 
-.traditional-theme .leaflet-control-zoom-in,
-.traditional-theme .leaflet-control-zoom-out {
+.legacy-blue-theme .leaflet-control-zoom-in,
+.legacy-blue-theme .leaflet-control-zoom-out {
   font-size: 20px !important;
   font-weight: 700 !important;
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
 }
 
 /* Replace SVGs in our custom bar (not zoom, not geosearch) with emojis */
-.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a svg {
+.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a svg {
   display: none !important;
 }
 
-.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(1)::before {
+.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(1)::before {
   content: '🎯';
   font-size: 18px;
   line-height: 1;
 }
 
-.traditional-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(2)::before {
+.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(2)::before {
   content: '🗺️';
   font-size: 16px;
   line-height: 1;
 }
 
-:root.dark .traditional-theme .leaflet-bar {
+:root.dark .legacy-blue-theme .leaflet-bar {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.45), 0 1px 4px rgba(36, 94, 220, 0.30) !important;
 }
 
-:root.dark .traditional-theme .leaflet-bar a,
-:root.dark .traditional-theme .leaflet-bar a:visited {
+:root.dark .legacy-blue-theme .leaflet-bar a,
+:root.dark .legacy-blue-theme .leaflet-bar a:visited {
   background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%) !important;
   color: #E0E6F2 !important;
 }
 
-:root.dark .traditional-theme .leaflet-bar a:hover {
+:root.dark .legacy-blue-theme .leaflet-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%) !important;
   color: #FFFFFF !important;
 }
 
-:root.dark .traditional-theme .leaflet-bar a:not(:last-child) {
+:root.dark .legacy-blue-theme .leaflet-bar a:not(:last-child) {
   border-bottom-color: rgba(0, 0, 0, 0.35) !important;
 }
 
-:root.dark .traditional-theme .leaflet-bar a.leaflet-disabled,
-:root.dark .traditional-theme .leaflet-bar a.leaflet-disabled:hover {
+:root.dark .legacy-blue-theme .leaflet-bar a.leaflet-disabled,
+:root.dark .legacy-blue-theme .leaflet-bar a.leaflet-disabled:hover {
   background: #1A2F5A !important;
   color: rgba(224, 230, 242, 0.40) !important;
 }

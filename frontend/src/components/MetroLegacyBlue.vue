@@ -7,7 +7,7 @@ const props = defineProps<{ search: string }>()
 const {t, locale} = useI18n()
 const router = useRouter()
 
-function onEggClick() {
+function onMetroClick() {
   router.push({name: 'not-found'})
 }
 
@@ -22,7 +22,7 @@ const QUOTES_EN = [
   'Project status: wishful thinking',
 ]
 
-const showEgg = computed(() => {
+const showMetro = computed(() => {
   const q = props.search.trim().toLowerCase()
   if (q.length < 2) return false
   return 'metrou'.startsWith(q) || q === 'm1'
@@ -35,32 +35,32 @@ const quote = computed(() => {
 </script>
 
 <template>
-  <div v-if="showEgg" class="egg-wrap">
+  <div v-if="showMetro" class="metro-legacy-wrap">
     <div
-      class="egg-row"
+      class="metro-legacy-row"
       role="button"
       tabindex="0"
-      :aria-label="t('metroEggLine')"
-      @click="onEggClick"
-      @keydown.enter.space.prevent="onEggClick"
+      :aria-label="t('metroLegacyLine')"
+      @click="onMetroClick"
+      @keydown.enter.space.prevent="onMetroClick"
     >
-      <div class="egg-badge">M1</div>
-      <div class="egg-text">
-        <span class="egg-name">{{ t('metroEggLine') }}</span>
-        <span class="egg-quote">{{ quote }}</span>
+      <div class="metro-legacy-badge">M1</div>
+      <div class="metro-legacy-text">
+        <span class="metro-legacy-name">{{ t('metroLegacyLine') }}</span>
+        <span class="metro-legacy-quote">{{ quote }}</span>
       </div>
-      <span class="egg-icon">🚧</span>
+      <span class="metro-legacy-icon">🚧</span>
     </div>
   </div>
 </template>
 
 <style scoped>
 
-.egg-wrap {
+.metro-legacy-wrap {
   margin-top: 0.25rem;
 }
 
-.egg-row {
+.metro-legacy-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -72,16 +72,16 @@ const quote = computed(() => {
   transition: opacity 120ms ease, background 120ms ease;
 }
 
-.egg-row:hover {
+.metro-legacy-row:hover {
   opacity: 1;
 }
 
-.egg-row:focus-visible {
+.metro-legacy-row:focus-visible {
   outline: 2px solid #94a3b8;
   outline-offset: 2px;
 }
 
-.egg-badge {
+.metro-legacy-badge {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,7 +96,7 @@ const quote = computed(() => {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
-.egg-text {
+.metro-legacy-text {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -104,7 +104,7 @@ const quote = computed(() => {
   min-width: 0;
 }
 
-.egg-name {
+.metro-legacy-name {
   font-size: 0.875rem;
   font-weight: 600;
   color: #64748b;
@@ -113,11 +113,11 @@ const quote = computed(() => {
   text-overflow: ellipsis;
 }
 
-:global(.dark) .egg-name {
+:global(.dark) .metro-legacy-name {
   color: #475569;
 }
 
-.egg-quote {
+.metro-legacy-quote {
   font-size: 0.7rem;
   font-style: italic;
   color: #94a3b8;
@@ -126,11 +126,11 @@ const quote = computed(() => {
   text-overflow: ellipsis;
 }
 
-:global(.dark) .egg-quote {
+:global(.dark) .metro-legacy-quote {
   color: #334155;
 }
 
-.egg-icon {
+.metro-legacy-icon {
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;

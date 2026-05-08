@@ -10,7 +10,7 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
-import MetroEasterEgg from '@/components/MetroEasterEgg.vue'
+import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 
 interface GeoResult {
   place_id: number
@@ -76,7 +76,7 @@ const searchRouteResults = computed<Route[]>(() => {
     .slice(0, 3)
 })
 
-const metroEggVisible = computed(() => {
+const metroLegacyVisible = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (q.length < 2) return false
   return 'metrou'.startsWith(q) || q === 'm1'
@@ -213,7 +213,7 @@ function navigateToStop(stop: Stop) {
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
     <div class="search-wrap">
-      <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🔍</span>
+      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🔍</span>
       <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round"
@@ -263,7 +263,7 @@ function navigateToStop(stop: Stop) {
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-              <span v-if="settings.traditionalActive" class="emoji-icon-md"
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                     aria-hidden="true">📍</span>
               <svg v-else class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24"
                    fill="currentColor">
@@ -343,7 +343,7 @@ function navigateToStop(stop: Stop) {
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-              <span v-if="settings.traditionalActive" class="emoji-icon-md"
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                     aria-hidden="true">🚏</span>
               <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
                    viewBox="0 0 24 24" fill="currentColor">
@@ -366,10 +366,10 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <MetroEasterEgg :search="search"/>
+      <MetroLegacyBlue :search="search"/>
 
       <p
-        v-if="!metroEggVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
+        v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
         class="no-results"
       >{{ t('noResults') }}</p>
 

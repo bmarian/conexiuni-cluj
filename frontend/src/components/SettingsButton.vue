@@ -13,19 +13,19 @@ const isDark = computed(() => settings.isDark)
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 
-let eggClickCount = 0
+let arcadeClickCount = 0
 
 function toggle() {
   isOpen.value = !isOpen.value
 
-  if (!settings.easterEggUnlocked) {
-    eggClickCount++
-    if (eggClickCount === 5) {
-      settings.showToast('are you hungry?')
-    } else if (eggClickCount === 10) {
-      settings.showToast('me too')
-      settings.unlockEasterEgg()
-      settings.activateEasterEgg()
+  if (!settings.arcadeUnlocked) {
+    arcadeClickCount++
+    if (arcadeClickCount === 5) {
+      settings.showToast('Insert more coins!')
+    } else if (arcadeClickCount === 10) {
+      settings.showToast('Game start  👻')
+      settings.unlockArcade()
+      settings.activateArcade()
       isOpen.value = false
     }
   }
@@ -45,18 +45,18 @@ function setTheme(theme: Theme) {
 }
 
 const activeSpecialTheme = computed(() => {
-  if (settings.easterEggActive) return 'chomper'
-  if (settings.traditionalActive) return 'traditional'
+  if (settings.arcadeActive) return 'arcade'
+  if (settings.legacyBlueActive) return 'legacy-blue'
   return 'default'
 })
 
 function onSpecialThemeChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value
-  if (val === 'chomper') settings.activateEasterEgg()
-  else if (val === 'traditional') settings.activateTraditional()
+  if (val === 'arcade') settings.activateArcade()
+  else if (val === 'legacy-blue') settings.activateLegacyBlue()
   else {
-    settings.deactivateEasterEgg();
-    settings.deactivateTraditional()
+    settings.deactivateArcade();
+    settings.deactivateLegacyBlue()
   }
 }
 
@@ -77,7 +77,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       :aria-expanded="isOpen"
       @click="toggle"
     >
-      <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">⚙️</span>
+      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">⚙️</span>
       <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">
@@ -92,7 +92,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <div class="option-group" role="group" :aria-label="t('theme')">
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }"
                 @click="setTheme('light')">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">☀️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☀️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
@@ -104,7 +104,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }"
                 @click="setTheme('dark')">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🌙</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🌙</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
@@ -114,7 +114,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }"
                 @click="setTheme('system')">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🖥️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🖥️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
@@ -125,21 +125,21 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
       </div>
 
-      <div v-if="settings.easterEggUnlocked || settings.traditionalUnlocked" class="select-wrap">
+      <div v-if="settings.arcadeUnlocked || settings.legacyBlueUnlocked" class="select-wrap">
         <select
           class="theme-select"
           :value="activeSpecialTheme"
           :class="{
-              'is-chomper': settings.easterEggActive,
-              'is-traditional': settings.traditionalActive,
+              'is-arcade': settings.arcadeActive,
+              'is-legacy-blue': settings.legacyBlueActive,
             }"
           @change="onSpecialThemeChange"
           :aria-label="t('theme')"
         >
           <option value="default">{{ t('themeDefault') }}</option>
-          <option v-if="settings.easterEggUnlocked" value="chomper">{{ t('chomperTheme') }}</option>
-          <option v-if="settings.traditionalUnlocked" value="traditional">{{
-              t('traditionalTheme')
+          <option v-if="settings.arcadeUnlocked" value="arcade">{{ t('arcadeTheme') }}</option>
+          <option v-if="settings.legacyBlueUnlocked" value="legacy-blue">{{
+              t('legacyBlueTheme')
             }}
           </option>
         </select>
@@ -174,7 +174,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <div class="option-group display-grid" role="group" :aria-label="t('display')">
         <button type="button" class="option-btn" :class="{ active: settings.showWeather }"
                 :title="t('weather')" @click="settings.setShowWeather(!settings.showWeather)">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true" style="flex-shrink:0">
@@ -184,7 +184,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.showNews }"
                 :title="t('news')" @click="settings.setShowNews(!settings.showNews)">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true" style="flex-shrink:0">
@@ -195,7 +195,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoCenterOnMe }"
                 :title="t('autoCenterOnMe')" @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true" style="flex-shrink:0">
@@ -207,7 +207,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoFitMap }"
                 :title="t('autoFitMap')" @click="settings.setAutoFitMap(!settings.autoFitMap)">
-          <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true" style="flex-shrink:0">
@@ -409,13 +409,13 @@ function setLocale(newLocale: 'ro' | 'en') {
   border-color: #94a3b8;
 }
 
-.theme-select.is-chomper {
+.theme-select.is-arcade {
   border-color: #fcd34d;
   background: #fef9c3;
   color: #92400e;
 }
 
-.theme-select.is-traditional {
+.theme-select.is-legacy-blue {
   border-color: #245EDC;
   background: #EEF3FF;
   color: #1A3A8C;
@@ -437,18 +437,18 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #cbd5e1;
 }
 
-.settings-root.is-dark .theme-select.is-chomper {
+.settings-root.is-dark .theme-select.is-arcade {
   border-color: #d97706;
   background: #422006;
   color: #fde68a;
 }
 
-.settings-root.is-dark .theme-select.is-chomper option {
+.settings-root.is-dark .theme-select.is-arcade option {
   background: #422006;
   color: #fde68a;
 }
 
-.settings-root.is-dark .theme-select.is-traditional {
+.settings-root.is-dark .theme-select.is-legacy-blue {
   border-color: #2A508C;
   background: #10193A;
   color: #90B4E0;

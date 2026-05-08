@@ -7,8 +7,8 @@ import WeatherButton from "@/components/WeatherButton.vue"
 import NewsButton from "@/components/NewsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
-import EasterEggToast from "@/components/EasterEggToast.vue"
-import HungryTransition from "@/components/HungryTransition.vue"
+import ArcadeToast from "@/components/ArcadeToast.vue"
+import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 
@@ -222,7 +222,7 @@ function toggleLandscapeDrawer() {
       :top-offset="appSettings.showNews ? '6.25rem' : '3.5rem'"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
     />
-    <EasterEggToast/>
+    <ArcadeToast/>
     <button
       type="button"
       class="landscape-drawer-toggle"
@@ -270,7 +270,7 @@ function toggleLandscapeDrawer() {
       </div>
     </aside>
   </main>
-  <HungryTransition/>
+  <ArcadeTransition/>
 </template>
 
 <style scoped>

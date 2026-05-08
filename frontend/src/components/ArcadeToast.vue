@@ -5,15 +5,15 @@ const settings = useSettingsStore()
 </script>
 
 <template>
-  <Transition name="egg-toast">
-    <div v-if="settings.toastMessage" class="egg-toast" role="status" aria-live="polite">
+  <Transition name="arcade-toast">
+    <div v-if="settings.toastMessage" class="arcade-toast" role="status" aria-live="polite">
       {{ settings.toastMessage }}
     </div>
   </Transition>
 </template>
 
 <style scoped>
-.egg-toast {
+.arcade-toast {
   position: fixed;
   bottom: 42%;
   left: 50%;
@@ -31,17 +31,17 @@ const settings = useSettingsStore()
   white-space: nowrap;
 }
 
-.egg-toast-enter-active,
-.egg-toast-leave-active {
+.arcade-toast-enter-active,
+.arcade-toast-leave-active {
   transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.egg-toast-enter-from {
+.arcade-toast-enter-from {
   opacity: 0;
   transform: translateX(-50%) scale(0.75);
 }
 
-.egg-toast-leave-to {
+.arcade-toast-leave-to {
   opacity: 0;
   transform: translateX(-50%) scale(0.9) translateY(-10px);
 }

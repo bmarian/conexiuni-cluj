@@ -352,7 +352,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
     <header class="flex items-start gap-4">
       <div
         class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
-        <span v-if="settings.traditionalActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
         <StopIcon v-else class="w-7 h-7 text-white"/>
       </div>
       <div class="flex-1 min-w-0">
@@ -469,7 +469,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
 
     <section class="pb-6">
       <h2 class="section-label">
-        <span v-if="settings.traditionalActive" class="emoji-icon" aria-hidden="true">🗺️</span>
+        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🗺️</span>
         <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
              viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"

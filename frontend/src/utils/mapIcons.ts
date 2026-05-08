@@ -8,8 +8,8 @@ export type DisplayVehicle = Vehicle & {
 }
 
 export interface IconThemeOptions {
-  easterEggActive: boolean
-  traditionalActive: boolean
+  arcadeActive: boolean
+  legacyBlueActive: boolean
 }
 
 const BUS_STOP_PATH =
@@ -52,7 +52,7 @@ export const defaultStopIcon = L.divIcon({
 })
 
 export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon {
-  if (opts.easterEggActive) {
+  if (opts.arcadeActive) {
     const body = isFav ? '#f43f5e' : '#94a3b8'
     const pupil = isFav ? '#881337' : '#334155'
     return L.divIcon({
@@ -72,7 +72,7 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon 
     })
   }
 
-  if (opts.traditionalActive) {
+  if (opts.legacyBlueActive) {
     const wire = isFav ? '#E89C2A' : '#9CA3AF'
     const wireDark = isFav ? '#A06010' : '#5C6470'
     return L.divIcon({
@@ -90,7 +90,7 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon 
 }
 
 export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
-  if (opts.easterEggActive) {
+  if (opts.arcadeActive) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
@@ -106,7 +106,7 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
     })
   }
 
-  if (opts.traditionalActive) {
+  if (opts.legacyBlueActive) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `<div class="animate-bounce" style="width:34px;height:42px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.45));">
@@ -140,7 +140,7 @@ export function makeHighlightIcon(
           : color === 'amber' ? '#f59e0b'
             : '#64748b'
 
-  if (opts.easterEggActive) {
+  if (opts.arcadeActive) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `<div style="width:24px;height:30px;display:flex;align-items:flex-end;justify-content:center;">
@@ -157,7 +157,7 @@ export function makeHighlightIcon(
     })
   }
 
-  if (opts.traditionalActive) {
+  if (opts.legacyBlueActive) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `<div style="width:28px;height:34px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.4));">
@@ -179,7 +179,7 @@ export function makeHighlightIcon(
 }
 
 export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): L.DivIcon {
-  if (opts.easterEggActive) {
+  if (opts.arcadeActive) {
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
       html: `<div style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
@@ -194,7 +194,7 @@ export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): 
     })
   }
 
-  if (opts.traditionalActive) {
+  if (opts.legacyBlueActive) {
     const emoji = color === '#0ea5e9' ? '🏁' : '📍'
     return L.divIcon({
       className: 'bg-transparent border-none !overflow-visible',
@@ -232,16 +232,16 @@ export function getVehicleMarkerHtml(
   const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
   const heading = vehicle.heading || 0
 
-  if (opts.easterEggActive) {
+  if (opts.arcadeActive) {
     const rotation = heading - 90
-    const chomper = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
-      <div class="hungry-chomp" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
+    const arcade = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
+      <div class="arcade-chomp" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
     </div>`
 
     if (isStopView) {
       return `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
-          ${chomper}
+          ${arcade}
           <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
           ${showStopInfo ? `
             <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
@@ -254,7 +254,7 @@ export function getVehicleMarkerHtml(
 
     return `
       <div style="position:relative;display:flex;align-items:center;">
-        ${chomper}
+        ${arcade}
         <div class="absolute" style="left:40px;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
           <span style="font-weight:700;font-size:14px;">${titleText}</span>
           <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
@@ -262,7 +262,7 @@ export function getVehicleMarkerHtml(
       </div>`
   }
 
-  if (opts.traditionalActive) {
+  if (opts.legacyBlueActive) {
     const sz = isStopView ? 36 : 32
     const cursorRotation = heading + 45
 

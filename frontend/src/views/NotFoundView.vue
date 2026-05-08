@@ -15,9 +15,9 @@ useHead(() => ({
 }))
 
 function activateAndGo() {
-  if (!settings.traditionalUnlocked) {
-    settings.unlockTraditional()
-    settings.activateTraditional()
+  if (!settings.legacyBlueUnlocked) {
+    settings.unlockLegacyBlue()
+    settings.activateLegacyBlue()
   }
   router.push({name: 'home'})
 }

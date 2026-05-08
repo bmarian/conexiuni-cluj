@@ -67,7 +67,7 @@ onUnmounted(() => {
       >
         <div
           class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-          <span v-if="settings.traditionalActive" class="emoji-icon-md"
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
                 aria-hidden="true">🚏</span>
           <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
                viewBox="0 0 24 24" fill="currentColor">

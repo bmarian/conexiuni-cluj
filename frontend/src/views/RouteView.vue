@@ -440,7 +440,7 @@ async function loadShapeInfoFromApi(): Promise<boolean> {
   }
 }
 
-// Pong easter egg: spam the direction toggle 5× within 2 s to activate
+// Pong secret: spam the direction toggle 5× within 2 s to activate
 const pongActive = ref(false)
 const dirTapTimes: number[] = []
 
@@ -457,7 +457,7 @@ function onDirClick(dir: '0' | '1') {
   }
 }
 
-// Easter egg: chomp animation for the route badge
+// Secret: chomp animation for the route badge
 const mouthOpen = ref(true)
 let chompTimer: ReturnType<typeof setInterval> | null = null
 
@@ -476,7 +476,7 @@ function stopChomp() {
   mouthOpen.value = true
 }
 
-watch(() => settings.easterEggActive, (active) => {
+watch(() => settings.arcadeActive, (active) => {
   if (active) startChomp()
   else stopChomp()
 }, {immediate: true})
@@ -635,8 +635,8 @@ onUnmounted(() => {
       <div class="relative">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
-        <div v-if="settings.easterEggActive" class="hungry-eater" aria-hidden="true">
-          <div class="hungry-chomp"
+        <div v-if="settings.arcadeActive" class="arcade-eater" aria-hidden="true">
+          <div class="arcade-chomp"
                style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
         </div>
 
@@ -650,7 +650,7 @@ onUnmounted(() => {
           ]"
         >
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-            <template v-if="settings.easterEggActive">
+            <template v-if="settings.arcadeActive">
               <svg viewBox="0 0 12 16"
                    :width="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
                    :height="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
@@ -663,7 +663,7 @@ onUnmounted(() => {
                 <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
               </svg>
             </template>
-            <template v-else-if="settings.traditionalActive">
+            <template v-else-if="settings.legacyBlueActive">
               <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
               <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
               <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
@@ -695,7 +695,7 @@ onUnmounted(() => {
               'font-medium text-slate-500 dark:text-slate-400'
             ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}
             </router-link>
-            <template v-if="!settings.traditionalActive">
+            <template v-if="!settings.legacyBlueActive">
               <svg v-if="String(stop.stop_id) === fromStopId"
                    class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
                    fill="currentColor">
@@ -800,7 +800,7 @@ onUnmounted(() => {
               ]"
             >
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-                <template v-if="settings.easterEggActive">
+                <template v-if="settings.arcadeActive">
                   <svg viewBox="0 0 12 16"
                        :width="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
                        :height="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
@@ -813,7 +813,7 @@ onUnmounted(() => {
                     <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
                   </svg>
                 </template>
-                <template v-else-if="settings.traditionalActive">
+                <template v-else-if="settings.legacyBlueActive">
                   <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
                   <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
                   <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
@@ -844,7 +844,7 @@ onUnmounted(() => {
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
                 ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}</router-link>
-                <template v-if="!settings.traditionalActive">
+                <template v-if="!settings.legacyBlueActive">
                   <svg v-if="String(stop.stop_id) === fromStopId"
                        class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
                        fill="currentColor">

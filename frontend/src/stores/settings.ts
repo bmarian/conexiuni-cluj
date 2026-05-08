@@ -45,59 +45,63 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.locale', newLocale)
   }
 
-  const easterEggUnlocked = ref(localStorage.getItem('settings.easterEggUnlocked') === 'true')
-  const easterEggActive = ref(localStorage.getItem('settings.easterEggActive') === 'true')
+  function persistedBool(key: string) {
+    return localStorage.getItem(key) === 'true'
+  }
 
-  watch(easterEggActive, (active) => {
+  const arcadeUnlocked = ref(persistedBool('settings.arcadeUnlocked'))
+  const arcadeActive = ref(persistedBool('settings.arcadeActive'))
+
+  watch(arcadeActive, (active) => {
     if (active) {
-      document.documentElement.setAttribute('data-hungry', '')
+      document.documentElement.setAttribute('data-arcade', '')
     } else {
-      document.documentElement.removeAttribute('data-hungry')
+      document.documentElement.removeAttribute('data-arcade')
     }
   }, {immediate: true})
 
-  function unlockEasterEgg() {
-    easterEggUnlocked.value = true
-    localStorage.setItem('settings.easterEggUnlocked', 'true')
+  function unlockArcade() {
+    arcadeUnlocked.value = true
+    localStorage.setItem('settings.arcadeUnlocked', 'true')
   }
 
-  function activateEasterEgg() {
-    deactivateTraditional()
-    easterEggActive.value = true
-    localStorage.setItem('settings.easterEggActive', 'true')
+  function activateArcade() {
+    deactivateLegacyBlue()
+    arcadeActive.value = true
+    localStorage.setItem('settings.arcadeActive', 'true')
   }
 
-  function deactivateEasterEgg() {
-    easterEggActive.value = false
-    localStorage.setItem('settings.easterEggActive', 'false')
+  function deactivateArcade() {
+    arcadeActive.value = false
+    localStorage.setItem('settings.arcadeActive', 'false')
   }
 
-  const traditionalUnlocked = ref(localStorage.getItem('settings.traditionalUnlocked') === 'true')
-  const traditionalActive = ref(localStorage.getItem('settings.traditionalActive') === 'true')
+  const legacyBlueUnlocked = ref(persistedBool('settings.legacyBlueUnlocked'))
+  const legacyBlueActive = ref(persistedBool('settings.legacyBlueActive'))
 
-  watch(traditionalActive, (active) => {
+  watch(legacyBlueActive, (active) => {
     if (active) {
-      document.documentElement.setAttribute('data-traditional', '')
+      document.documentElement.setAttribute('data-legacy-blue', '')
     } else {
-      document.documentElement.removeAttribute('data-traditional')
+      document.documentElement.removeAttribute('data-legacy-blue')
     }
   }, {immediate: true})
 
-  function unlockTraditional() {
-    if (traditionalUnlocked.value) return
-    traditionalUnlocked.value = true
-    localStorage.setItem('settings.traditionalUnlocked', 'true')
+  function unlockLegacyBlue() {
+    if (legacyBlueUnlocked.value) return
+    legacyBlueUnlocked.value = true
+    localStorage.setItem('settings.legacyBlueUnlocked', 'true')
   }
 
-  function activateTraditional() {
-    deactivateEasterEgg()
-    traditionalActive.value = true
-    localStorage.setItem('settings.traditionalActive', 'true')
+  function activateLegacyBlue() {
+    deactivateArcade()
+    legacyBlueActive.value = true
+    localStorage.setItem('settings.legacyBlueActive', 'true')
   }
 
-  function deactivateTraditional() {
-    traditionalActive.value = false
-    localStorage.setItem('settings.traditionalActive', 'false')
+  function deactivateLegacyBlue() {
+    legacyBlueActive.value = false
+    localStorage.setItem('settings.legacyBlueActive', 'false')
   }
 
   const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
@@ -138,10 +142,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     theme, locale, isDark, setTheme, setLocale,
-    easterEggUnlocked, easterEggActive,
-    unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
-    traditionalUnlocked, traditionalActive,
-    unlockTraditional, activateTraditional, deactivateTraditional,
+    arcadeUnlocked, arcadeActive,
+    unlockArcade, activateArcade, deactivateArcade,
+    legacyBlueUnlocked, legacyBlueActive,
+    unlockLegacyBlue, activateLegacyBlue, deactivateLegacyBlue,
     showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     toastMessage, showToast,

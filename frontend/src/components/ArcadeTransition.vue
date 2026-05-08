@@ -2,7 +2,7 @@
 import {computed, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
-import HungryGhostIcon from './icons/HungryGhostIcon.vue'
+import ArcadeGhostIcon from './icons/ArcadeGhostIcon.vue'
 
 type Direction = 'ltr' | 'rtl' | 'ttb' | 'btt'
 
@@ -32,8 +32,8 @@ const ghosts = computed(() => hunted.value ? HUNTED_GHOSTS : HUNTER_GHOSTS)
 
 const isVertical = computed(() => direction.value === 'ttb' || direction.value === 'btt')
 
-// RTL reverses visual order so chomper needs to be at the back (not front) to stay trailing.
-const chomperFirst = computed(() =>
+// RTL reverses visual order so arcade needs to be at the back (not front) to stay trailing.
+const arcadeFirst = computed(() =>
   direction.value === 'rtl' ? hunted.value : !hunted.value
 )
 
@@ -43,15 +43,15 @@ const ghostLookRight = computed(() => {
   return hunted.value === (direction.value === 'ltr')
 })
 
-const chomperRotateClass = computed(() => ({
-  'chase-chomper-flip': direction.value === 'rtl',
-  'chase-chomper-down': direction.value === 'ttb',
-  'chase-chomper-up': direction.value === 'btt',
+const arcadeRotateClass = computed(() => ({
+  'chase-arcade-flip': direction.value === 'rtl',
+  'chase-arcade-down': direction.value === 'ttb',
+  'chase-arcade-up': direction.value === 'btt',
 }))
 
 const removeGuard = router.beforeEach((to, from) => {
   if (from.matched.length === 0) return
-  if (!settings.easterEggActive) return
+  if (!settings.arcadeActive) return
 
   const dirs: Direction[] = ['ltr', 'rtl', 'ttb', 'btt']
   direction.value = dirs[Math.floor(Math.random() * dirs.length)]!
@@ -84,9 +84,9 @@ onUnmounted(() => {
       aria-hidden="true"
     >
       <div class="chase-row" :class="`chase-${direction}`">
-        <template v-if="chomperFirst">
-          <div class="chase-chomper hungry-chomp" :class="chomperRotateClass"></div>
-          <HungryGhostIcon
+        <template v-if="arcadeFirst">
+          <div class="chase-arcade arcade-chomp" :class="arcadeRotateClass"></div>
+          <ArcadeGhostIcon
             v-for="(g, i) in ghosts"
             :key="i"
             class="chase-ghost"
@@ -97,7 +97,7 @@ onUnmounted(() => {
           />
         </template>
         <template v-else>
-          <HungryGhostIcon
+          <ArcadeGhostIcon
             v-for="(g, i) in ghosts"
             :key="i"
             class="chase-ghost"
@@ -106,7 +106,7 @@ onUnmounted(() => {
             :pupil-color="g.pupilColor"
             :look-right="ghostLookRight"
           />
-          <div class="chase-chomper hungry-chomp" :class="chomperRotateClass"></div>
+          <div class="chase-arcade arcade-chomp" :class="arcadeRotateClass"></div>
         </template>
       </div>
     </div>
@@ -170,7 +170,7 @@ onUnmounted(() => {
   animation: ghost-bob 0.4s ease-in-out calc(var(--gi, 0) * 0.13s) infinite alternate;
 }
 
-.chase-chomper {
+.chase-arcade {
   width: 34px;
   height: 34px;
   background: #facc15;
@@ -179,15 +179,15 @@ onUnmounted(() => {
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
 }
 
-.chase-chomper-flip {
+.chase-arcade-flip {
   transform: scaleX(-1);
 }
 
-.chase-chomper-down {
+.chase-arcade-down {
   transform: rotate(90deg);
 }
 
-.chase-chomper-up {
+.chase-arcade-up {
   transform: rotate(-90deg);
 }
 
