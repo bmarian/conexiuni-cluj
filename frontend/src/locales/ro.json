@@ -140,5 +140,9 @@
     "headRouteTitle": "Linia {shortName}{longName} | Conexiuni Cluj",
     "headRouteDesc": "Traseu, opriri și orare pentru linia {shortName} din Cluj-Napoca.",
     "headStopTitle": "Stația {stopName} | Conexiuni Cluj",
-    "headStopDesc": "Plecări în timp real de la stația {stopName}."
+    "headStopDesc": "Plecări în timp real de la stația {stopName}.",
+    "headPlanToTitle": "Rută la {dest} | Conexiuni Cluj",
+    "headPlanToDesc": "Planifică-ți călătoria la {dest} cu transportul în comun din Cluj-Napoca.",
+    "headPlanFromToTitle": "Rută de la {origin} la {dest} | Conexiuni Cluj",
+    "headPlanFromToDesc": "Planifică-ți călătoria de la {origin} la {dest} cu transportul în comun din Cluj-Napoca."
 }

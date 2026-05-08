@@ -44,16 +44,6 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-useHead(() => ({
-  title: t('headPlanTitle'),
-  meta: [
-    {name: 'description', content: t('headPlanDesc')},
-    {property: 'og:title', content: t('headPlanTitle')},
-    {property: 'og:description', content: t('headPlanDesc')},
-    {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
-  ],
-  link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
-}))
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
@@ -92,6 +82,48 @@ const vFocus = {
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
 const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
 const destLon = computed(() => parseFloat((route.query.lon as string) ?? 'NaN'))
+
+function shortPlaceName(name: string): string {
+  const i = name.indexOf(',')
+  return i > 0 ? name.slice(0, i).trim() : name
+}
+
+useHead(() => {
+  if (!destName.value) {
+    return {
+      title: t('headPlanTitle'),
+      meta: [
+        {name: 'description', content: t('headPlanDesc')},
+        {property: 'og:title', content: t('headPlanTitle')},
+        {property: 'og:description', content: t('headPlanDesc')},
+        {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
+      ],
+      link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
+    }
+  }
+
+  const shortDest = shortPlaceName(destName.value)
+  const originName = customOrigin.value?.name ?? ''
+  const params: Record<string, string> = originName
+    ? {origin: shortPlaceName(originName), dest: shortDest}
+    : {dest: shortDest}
+  const titleKey = originName ? 'headPlanFromToTitle' : 'headPlanToTitle'
+  const descKey = originName ? 'headPlanFromToDesc' : 'headPlanToDesc'
+  const title = t(titleKey, params)
+  const desc = t(descKey, params)
+  const url = 'https://bus.bmarian.online' + route.fullPath
+
+  return {
+    title,
+    meta: [
+      {name: 'description', content: desc},
+      {property: 'og:title', content: title},
+      {property: 'og:description', content: desc},
+      {property: 'og:url', content: url},
+    ],
+    link: [{rel: 'canonical', href: url}],
+  }
+})
 
 const isFavorite = computed(() => favoritesStore.isPlanFavorite(
   destLat.value,

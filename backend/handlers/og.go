@@ -34,33 +34,45 @@ func LoadIndexHTML() {
 }
 
 type ogLocale struct {
-	lang          string
-	routeTitleFmt string // args: shortName, longName
-	routeDescFmt  string // args: shortName
-	stopTitleFmt  string // args: stopName
-	stopDescFmt   string // args: stopName
-	planTitle     string
-	planDesc      string
+	lang               string
+	routeTitleFmt      string // args: shortName, longName
+	routeDescFmt       string // args: shortName
+	stopTitleFmt       string // args: stopName
+	stopDescFmt        string // args: stopName
+	planTitle          string
+	planDesc           string
+	planToTitleFmt     string // args: dest
+	planToDescFmt      string // args: dest
+	planFromToTitleFmt string // args: origin, dest
+	planFromToDescFmt  string // args: origin, dest
 }
 
 var ogLocales = map[string]ogLocale{
 	"ro": {
-		lang:          "ro",
-		routeTitleFmt: "Linia %s — %s | Conexiuni Cluj",
-		routeDescFmt:  "Traseu, opriri și orare pentru linia %s din Cluj-Napoca.",
-		stopTitleFmt:  "Stația %s | Conexiuni Cluj",
-		stopDescFmt:   "Plecări în timp real de la stația %s.",
-		planTitle:     "Planifică-ți ruta - Conexiuni Cluj",
-		planDesc:      "Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.",
+		lang:               "ro",
+		routeTitleFmt:      "Linia %s — %s | Conexiuni Cluj",
+		routeDescFmt:       "Traseu, opriri și orare pentru linia %s din Cluj-Napoca.",
+		stopTitleFmt:       "Stația %s | Conexiuni Cluj",
+		stopDescFmt:        "Plecări în timp real de la stația %s.",
+		planTitle:          "Planifică-ți ruta - Conexiuni Cluj",
+		planDesc:           "Planifică-ți călătoria cu transportul în comun în Cluj-Napoca. Găsește rute, orare și conexiuni.",
+		planToTitleFmt:     "Rută la %s | Conexiuni Cluj",
+		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din Cluj-Napoca.",
+		planFromToTitleFmt: "Rută de la %s la %s | Conexiuni Cluj",
+		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din Cluj-Napoca.",
 	},
 	"en": {
-		lang:          "en",
-		routeTitleFmt: "Line %s — %s | Conexiuni Cluj",
-		routeDescFmt:  "Route, stops and timetables for line %s in Cluj-Napoca.",
-		stopTitleFmt:  "Stop %s | Conexiuni Cluj",
-		stopDescFmt:   "Real-time departures from stop %s.",
-		planTitle:     "Plan your route - Conexiuni Cluj",
-		planDesc:      "Plan your journey with public transport in Cluj-Napoca. Find routes, timetables and connections.",
+		lang:               "en",
+		routeTitleFmt:      "Line %s — %s | Conexiuni Cluj",
+		routeDescFmt:       "Route, stops and timetables for line %s in Cluj-Napoca.",
+		stopTitleFmt:       "Stop %s | Conexiuni Cluj",
+		stopDescFmt:        "Real-time departures from stop %s.",
+		planTitle:          "Plan your route - Conexiuni Cluj",
+		planDesc:           "Plan your journey with public transport in Cluj-Napoca. Find routes, timetables and connections.",
+		planToTitleFmt:     "Trip to %s | Conexiuni Cluj",
+		planToDescFmt:      "Plan your trip to %s with public transport in Cluj-Napoca.",
+		planFromToTitleFmt: "Trip from %s to %s | Conexiuni Cluj",
+		planFromToDescFmt:  "Plan your trip from %s to %s with public transport in Cluj-Napoca.",
 	},
 }
 
@@ -156,7 +168,35 @@ func StopOGHandler(c fiber.Ctx) error {
 	)
 }
 
+// shortPlaceName returns the first comma-delimited segment of a geocoded address.
+// "The Office Wine Bar, 77, Bulevardul 21 Decembrie..." → "The Office Wine Bar"
+func shortPlaceName(name string) string {
+	if i := strings.IndexByte(name, ','); i > 0 {
+		return strings.TrimSpace(name[:i])
+	}
+	return name
+}
+
 func PlanOGHandler(c fiber.Ctx) error {
 	l := detectLocale(c)
-	return injectMeta(c, l, l.planTitle, l.planDesc)
+
+	dest := c.Query("name")
+	if dest == "" {
+		return injectMeta(c, l, l.planTitle, l.planDesc)
+	}
+
+	shortDest := shortPlaceName(dest)
+	origin := c.Query("originName")
+
+	var title, desc string
+	if origin != "" {
+		shortOrigin := shortPlaceName(origin)
+		title = fmt.Sprintf(l.planFromToTitleFmt, shortOrigin, shortDest)
+		desc = fmt.Sprintf(l.planFromToDescFmt, shortOrigin, shortDest)
+	} else {
+		title = fmt.Sprintf(l.planToTitleFmt, shortDest)
+		desc = fmt.Sprintf(l.planToDescFmt, shortDest)
+	}
+
+	return injectMeta(c, l, title, desc)
 }
