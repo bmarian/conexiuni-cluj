@@ -214,6 +214,13 @@ function selectPlanAt(idx: number) {
   const p = routesWithTimes.value[idx]
   selectedPlanKey.value = p ? p.key : null
   mapStore.fitWalkingPolylines = true
+  const newQuery = {...route.query}
+  if (idx === 0) {
+    delete newQuery.plan
+  } else {
+    newQuery.plan = String(idx)
+  }
+  void router.replace({query: newQuery})
 }
 
 // --- Timetable helpers ---
@@ -1003,12 +1010,12 @@ function getQueryKey() {
   return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}&t=${tk}`
 }
 
-watch(selectedPlanKey, (newKey) => {
-  const qk = getQueryKey()
-  if (qk && newKey) {
-    plannerStore.setSelectedRouteKey(qk, newKey)
-  }
-})
+function clearPlanSelection() {
+  if (route.query.plan === undefined) return
+  const newQuery = {...route.query}
+  delete newQuery.plan
+  void router.replace({query: newQuery})
+}
 
 const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStore)
 
@@ -1039,6 +1046,7 @@ watch(pinnedLocationDragged, async (dragged) => {
   if (gen !== destDragGen) return
 
   void router.replace({query: {...route.query, lat: lat.toString(), lon: lng.toString(), name}})
+  clearPlanSelection()
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
@@ -1055,6 +1063,7 @@ watch(customOriginLocationDragged, async (dragged) => {
   if (gen !== originDragGen) return
 
   customOrigin.value = {name, lat, lon: lng}
+  clearPlanSelection()
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
@@ -1096,6 +1105,7 @@ function selectOrigin(res: NominatimResult) {
     lat: parseFloat(res.lat),
     lon: parseFloat(res.lon)
   }
+  clearPlanSelection()
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
@@ -1118,6 +1128,7 @@ function selectDestination(res: NominatimResult) {
 
 function useCurrentLocation() {
   customOrigin.value = null
+  clearPlanSelection()
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
@@ -1233,17 +1244,10 @@ watch(routesWithTimes, (newRoutes) => {
     selectedPlanKey.value = null
     return
   }
-  if (selectedPlanKey.value) {
-    const idx = newRoutes.findIndex(r => r.key === selectedPlanKey.value)
-    if (idx >= 0) {
-      selectedPlanIndex.value = idx
-      return
-    }
-  }
-  if (selectedPlanIndex.value >= newRoutes.length) {
-    selectedPlanIndex.value = 0
-  }
-  selectedPlanKey.value = newRoutes[selectedPlanIndex.value]?.key ?? null
+  const urlPlan = parseInt(route.query.plan as string)
+  const targetIdx = !isNaN(urlPlan) && urlPlan >= 0 && urlPlan < newRoutes.length ? urlPlan : 0
+  selectedPlanIndex.value = targetIdx
+  selectedPlanKey.value = newRoutes[targetIdx]?.key ?? null
 })
 
 watch([isCalculating, routesWithTimes], ([calculating, routes]) => {
@@ -1274,7 +1278,6 @@ async function calculateRoutes() {
 
   isCalculating.value = true
   try {
-    if (qk) selectedPlanKey.value = plannerStore.getSelectedRouteKey(qk)
 
     const fromLat = 'latitude' in origin ? origin.latitude : (origin as {lat: number}).lat
     const fromLng = 'longitude' in origin ? origin.longitude : (origin as {lon: number}).lon
@@ -1315,6 +1318,7 @@ async function calculateRoutes() {
 // Recalculate when destination changes
 watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
   if (newLat === oldLat && newLon === oldLon) return
+  if (!isNaN(oldLat!)) clearPlanSelection()
   routesWithTimes.value = []
   planData.value = null
   currentQueryKey.value = null
@@ -1324,7 +1328,10 @@ watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]
 
 // Recalculate when custom origin changes
 watch(customOrigin, async (newCO, oldCO) => {
-  if (newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon) await calculateRoutes()
+  if (newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon) {
+    clearPlanSelection()
+    await calculateRoutes()
+  }
 })
 
 // Recalculate when GPS location first arrives (no custom origin, no plan yet)
@@ -1354,6 +1361,7 @@ function swapOriginDestination() {
 
 async function refreshRoutes() {
   if (isCalculating.value) return
+  clearPlanSelection()
   selectedPlanIndex.value = 0
   selectedPlanKey.value = null
   routesWithTimes.value = []
