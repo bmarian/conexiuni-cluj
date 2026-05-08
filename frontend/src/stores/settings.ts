@@ -74,27 +74,12 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const traditionalUnlocked = ref(localStorage.getItem('settings.traditionalUnlocked') === 'true')
   const traditionalActive = ref(localStorage.getItem('settings.traditionalActive') === 'true')
-  const traditionalLowPerf = ref(localStorage.getItem('settings.traditionalLowPerf') === 'true')
 
   watch(traditionalActive, (active) => {
     if (active) {
       document.documentElement.setAttribute('data-traditional', '')
-      if (traditionalLowPerf.value) {
-        document.documentElement.setAttribute('data-traditional-lowperf', '')
-      }
     } else {
       document.documentElement.removeAttribute('data-traditional')
-      document.documentElement.removeAttribute('data-traditional-lowperf')
-    }
-  }, {immediate: true})
-
-  watch(traditionalLowPerf, (lowPerf) => {
-    if (lowPerf) {
-      if (traditionalActive.value) {
-        document.documentElement.setAttribute('data-traditional-lowperf', '')
-      }
-    } else {
-      document.documentElement.removeAttribute('data-traditional-lowperf')
     }
   }, {immediate: true})
 
@@ -113,11 +98,6 @@ export const useSettingsStore = defineStore('settings', () => {
   function deactivateTraditional() {
     traditionalActive.value = false
     localStorage.setItem('settings.traditionalActive', 'false')
-  }
-
-  function setTraditionalLowPerf(val: boolean) {
-    traditionalLowPerf.value = val
-    localStorage.setItem('settings.traditionalLowPerf', val ? 'true' : 'false')
   }
 
   const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
@@ -160,8 +140,8 @@ export const useSettingsStore = defineStore('settings', () => {
     theme, locale, isDark, setTheme, setLocale,
     easterEggUnlocked, easterEggActive,
     unlockEasterEgg, activateEasterEgg, deactivateEasterEgg,
-    traditionalUnlocked, traditionalActive, traditionalLowPerf,
-    unlockTraditional, activateTraditional, deactivateTraditional, setTraditionalLowPerf,
+    traditionalUnlocked, traditionalActive,
+    unlockTraditional, activateTraditional, deactivateTraditional,
     showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     toastMessage, showToast,

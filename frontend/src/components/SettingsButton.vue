@@ -149,14 +149,6 @@ function setLocale(newLocale: 'ro' | 'en') {
         </svg>
       </div>
 
-      <div v-if="settings.traditionalActive" class="option-group" style="margin-top: 0.25rem">
-        <button type="button" class="option-btn"
-                :class="{ active: settings.traditionalLowPerf }"
-                @click="settings.setTraditionalLowPerf(!settings.traditionalLowPerf)">
-          <span class="emoji-icon-sm" aria-hidden="true">⚡</span>
-          {{ t('traditionalLowPerf') }}
-        </button>
-      </div>
 
       <p class="section-label">{{ t('language') }}</p>
       <div class="option-group" role="group" :aria-label="t('language')">

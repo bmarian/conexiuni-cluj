@@ -24,7 +24,6 @@ function buildJson() {
       easterEggActive: settings.easterEggActive,
       traditionalUnlocked: settings.traditionalUnlocked,
       traditionalActive: settings.traditionalActive,
-      traditionalLowPerf: settings.traditionalLowPerf,
       showWeather: settings.showWeather,
       showNews: settings.showNews,
       autoCenterOnMe: settings.autoCenterOnMe,
@@ -124,7 +123,6 @@ async function doImport() {
     if (s.traditionalUnlocked) settings.unlockTraditional()
     if (s.traditionalActive) settings.activateTraditional()
     else settings.deactivateTraditional()
-    settings.setTraditionalLowPerf(!!s.traditionalLowPerf)
     if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
     if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
