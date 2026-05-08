@@ -1124,6 +1124,20 @@ function useCurrentLocation() {
   void calculateRoutes()
 }
 
+function useCurrentLocationAsDestination() {
+  if (!userLocation.value) return
+  const newQuery = {
+    ...route.query,
+    lat: userLocation.value.latitude.toString(),
+    lon: userLocation.value.longitude.toString(),
+    name: t('planOriginCurrentLocation')
+  }
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  void router.replace({query: newQuery})
+}
+
 watch(customOrigin, (val) => {
   const newQuery = {...route.query}
   let changed = false
@@ -1300,7 +1314,12 @@ async function calculateRoutes() {
 
 // Recalculate when destination changes
 watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
-  if (newLat !== oldLat || newLon !== oldLon) await calculateRoutes()
+  if (newLat === oldLat && newLon === oldLon) return
+  routesWithTimes.value = []
+  planData.value = null
+  currentQueryKey.value = null
+  mapStore.clearWalkingPolylines()
+  await calculateRoutes()
 }, {immediate: true})
 
 // Recalculate when custom origin changes
@@ -1654,12 +1673,19 @@ watch(timeValue, (val) => {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation)">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
               </div>
               <template v-else>
+                <div
+                  v-if="hasLocationPermission && userLocation"
+                  class="search-result-item current-loc-option"
+                  @click="useCurrentLocationAsDestination"
+                >
+                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
+                </div>
                 <div
                   v-for="res in searchResults"
                   :key="res.place_id"

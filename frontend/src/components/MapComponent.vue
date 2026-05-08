@@ -63,6 +63,7 @@ const originMarker = shallowRef<L.Marker>()
 const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
+let hasFittedForContent = false
 let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
@@ -326,7 +327,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   userStore.setHasLocationPermission(true)
   userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
   if (isFirstLocationHandle) {
-    if (settingsStore.autoCenterOnMe) flyToVisible(e.latlng, DEFAULT_ZOOM)
+    if (settingsStore.autoCenterOnMe && !hasFittedForContent) flyToVisible(e.latlng, DEFAULT_ZOOM)
     isFirstLocationHandle = false
   }
 
@@ -537,6 +538,7 @@ watch(shapesToDisplay, (newShapes) => {
         animate: true,
         duration: 0.8,
       })
+      hasFittedForContent = true
     }
   }
 }, {deep: true})
@@ -567,6 +569,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
       duration: 0.8,
     })
     mapStore.fitWalkingPolylines = false
+    hasFittedForContent = true
   }
 }
 
