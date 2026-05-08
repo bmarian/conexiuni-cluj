@@ -8,6 +8,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {useOnline} from '@/composables/useOnline.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
@@ -49,6 +50,7 @@ const settings = useSettingsStore()
 const userStore = useUserStore()
 const favoritesStore = useFavoritesStore()
 const {fetchShapeInfo} = useRouteShapeInfoApi()
+const {isOnline} = useOnline()
 
 const search = ref('')
 const navigatingRouteId = ref<number | null>(null)
@@ -94,6 +96,11 @@ const searchStopResults = computed<Stop[]>(() => {
 })
 
 async function fetchGeo(q: string) {
+  if (!isOnline.value) {
+    geoResults.value = []
+    geoLoading.value = false
+    return
+  }
   geoLoading.value = true
   try {
     const params = new URLSearchParams({
@@ -121,6 +128,10 @@ async function fetchGeo(q: string) {
 watch(search, (q) => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
   geoResults.value = []
+  if (!isOnline.value) {
+    geoLoading.value = false
+    return
+  }
   const trimmed = q.trim()
   if (trimmed.length < 3) {
     geoResults.value = []
@@ -249,7 +260,7 @@ function navigateToStop(stop: Stop) {
         <span class="geo-loading-dot"></span>
       </div>
 
-      <div v-if="enrichedGeoResults.length" class="result-group">
+      <div v-if="isOnline && enrichedGeoResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div

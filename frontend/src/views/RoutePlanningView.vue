@@ -23,6 +23,7 @@ import {apiRequest} from "@/utils/request_cache.ts"
 import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
+import {useOnline} from "@/composables/useOnline.ts"
 
 import {useVehicleStream} from "@/composables/useVehicleStream.ts"
 import type {DisplayShape} from "@/stores/map.ts"
@@ -55,6 +56,7 @@ const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
+const {isOnline} = useOnline()
 const {userLocation, hasLocationPermission, isLocating, userTime} = storeToRefs(userStore)
 const {timeMode, timeValue} = storeToRefs(plannerStore)
 
@@ -153,6 +155,7 @@ const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
 )?.label)
 
 function toggleFavorite() {
+  if (!isOnline.value) return
   if (isNaN(destLat.value) || isNaN(destLon.value)) return
   favoritesStore.togglePlanFavorite({
     name: destName.value || t('planTitleGeneric'),
@@ -168,6 +171,7 @@ const isRenaming = ref(false)
 const renameValue = ref('')
 
 function startRename() {
+  if (!isOnline.value) return
   const stored = favoritesStore.favoritePlans.find(p =>
     p.lat === destLat.value && p.lon === destLon.value &&
     p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
@@ -177,6 +181,7 @@ function startRename() {
 }
 
 function confirmRename() {
+  if (!isOnline.value) return
   favoritesStore.renamePlanFavorite(
     destLat.value,
     destLon.value,
@@ -1166,6 +1171,11 @@ watch(customOriginLocationDragged, async (dragged) => {
 })
 
 async function performSearch() {
+  if (!isOnline.value && activeSearchField.value === 'destination') {
+    searchResults.value = []
+    isSearching.value = false
+    return
+  }
   const q = searchQuery.value.trim()
   if (q.length < 3) {
     searchResults.value = []
@@ -1208,6 +1218,7 @@ function selectOrigin(res: NominatimResult) {
 }
 
 function selectDestination(res: NominatimResult) {
+  if (!isOnline.value) return
   const newQuery = {
     ...route.query,
     lat: res.lat,
@@ -1238,6 +1249,7 @@ function closeActiveSearch() {
 }
 
 function useCurrentLocationAsDestination() {
+  if (!isOnline.value) return
   if (!userLocation.value) return
   const newQuery = {
     ...route.query,
@@ -1392,14 +1404,16 @@ async function calculateRoutes() {
 
     if (data.plans.length) {
       mapStore.fitWalkingPolylines = true
-      favoritesStore.addRecentPlan({
-        name: destName.value || t('planTitleGeneric'),
-        lat,
-        lon,
-        originName: customOrigin.value?.name,
-        originLat: customOrigin.value?.lat,
-        originLon: customOrigin.value?.lon
-      })
+      if (isOnline.value) {
+        favoritesStore.addRecentPlan({
+          name: destName.value || t('planTitleGeneric'),
+          lat,
+          lon,
+          originName: customOrigin.value?.name,
+          originLat: customOrigin.value?.lat,
+          originLon: customOrigin.value?.lon
+        })
+      }
     }
   } finally {
     isCalculating.value = false
@@ -1554,7 +1568,7 @@ watch(timeValue, (val) => {
         </h1>
       </div>
       <button
-        v-if="hasValidCoords && isFavorite && !isRenaming"
+        v-if="isOnline && hasValidCoords && isFavorite && !isRenaming"
         type="button"
         class="rename-btn mt-1 shrink-0"
         :title="t('renameFavorite')"
@@ -1576,6 +1590,7 @@ watch(timeValue, (val) => {
         :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
+        :disabled="!isOnline"
         @click="toggleFavorite"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
@@ -1755,7 +1770,11 @@ watch(timeValue, (val) => {
             </div>
           </div>
           <div class="leg-label-col" v-if="activeSearchField !== 'destination'">
-            <div class="origin-clickable" @click="activeSearchField = 'destination'; searchResults = []; searchQuery = ''">
+            <div
+              class="origin-clickable"
+              :class="{ 'opacity-60 pointer-events-none': !isOnline }"
+              @click="if (isOnline) { activeSearchField = 'destination'; searchResults = []; searchQuery = '' }"
+            >
               <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
               <div class="leg-name-wrap">
                 <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
@@ -1772,6 +1791,7 @@ watch(timeValue, (val) => {
                 v-model="searchQuery"
                 class="search-input"
                 :placeholder="t('planDestSearchPlaceholder')"
+                :disabled="!isOnline"
                 @keyup.enter="performSearch"
                 @keyup.esc="activeSearchField = null"
                 v-focus
@@ -1782,7 +1802,7 @@ watch(timeValue, (val) => {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation)">
+            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation))">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}

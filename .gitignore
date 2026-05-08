@@ -8,6 +8,7 @@ keys.env
 conexiuni-cluj.db*
 api-tests/tranzy-api-docs.json
 .output.txt
+backend/.gocache
 backend/dist
 backend/services/mobroute/
 backend/services/otp/otp.jar

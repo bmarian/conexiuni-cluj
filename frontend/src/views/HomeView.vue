@@ -13,6 +13,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {useOnline} from '@/composables/useOnline.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import UniversalSearch from '@/components/UniversalSearch.vue'
 
@@ -38,6 +39,7 @@ const {favoriteRouteIds, favoriteStopIds, favoritePlans, recentPlans, isHydrated
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
 const {fetchShapeInfo} = useRouteShapeInfoApi()
+const {isOnline} = useOnline()
 
 const isSearchMode = ref(false)
 const navigatingRouteId = ref<number | null>(null)
@@ -77,7 +79,11 @@ const favoriteStops = computed<Stop[]>(() => {
     .filter((s): s is Stop => !!s)
 })
 
-const hasFavorites = computed(() => favoriteRouteIds.value.length > 0 || favoriteStopIds.value.length > 0 || favoritePlans.value.length > 0)
+const hasFavorites = computed(() =>
+  favoriteRouteIds.value.length > 0 ||
+  favoriteStopIds.value.length > 0 ||
+  (isOnline.value && favoritePlans.value.length > 0)
+)
 
 const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
   return recentPlans.value
@@ -111,6 +117,7 @@ function navigateToStop(stop: Stop) {
 }
 
 function navigateToPlan(plan: FavoritePlan) {
+  if (!isOnline.value) return
   const query: Record<string, string> = {
     lat: String(plan.lat),
     lon: String(plan.lon),
@@ -138,11 +145,13 @@ function removeFavoriteStop(stop: Stop, ev: Event) {
 }
 
 function removeFavoritePlan(plan: FavoritePlan, ev: Event) {
+  if (!isOnline.value) return
   ev.stopPropagation()
   favoritesStore.togglePlanFavorite(plan)
 }
 
 function dismissRecentPlan(plan: FavoritePlan, ev: Event) {
+  if (!isOnline.value) return
   ev.stopPropagation()
   favoritesStore.removeRecentPlan(plan)
 }
@@ -310,7 +319,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </Draggable>
         </div>
 
-        <div v-if="favoritePlans.length" class="flex flex-col gap-2">
+        <div v-if="isOnline && favoritePlans.length" class="flex flex-col gap-2">
           <h3 class="sub-label">{{ t('favoritePlans') }}</h3>
           <Draggable
             v-model="planFavoritesModel"
@@ -386,7 +395,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </Draggable>
         </div>
 
-        <div v-if="recentNonFavoritePlans.length" class="flex flex-col gap-2">
+        <div v-if="isOnline && recentNonFavoritePlans.length" class="flex flex-col gap-2">
           <h3 class="sub-label">{{ t('recentDestinations') }}</h3>
           <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
             <div
@@ -450,7 +459,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
         </h2>
 
         <p v-if="isHydrated && !hasFavorites"
-           class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed -mt-1 mb-1">
+           class="no-favorites-hint text-xs leading-relaxed -mt-1 mb-1">
           {{ t('noFavorites') }}
         </p>
 
@@ -540,6 +549,22 @@ const planFavoritesModel = computed<FavoritePlan[]>({
   font-size: 0.7rem;
   font-weight: 600;
   color: #94a3b8;
+}
+
+.no-favorites-hint {
+  color: #64748b;
+}
+
+:root.dark .no-favorites-hint {
+  color: #94a3b8;
+}
+
+html[data-legacy-blue] .no-favorites-hint {
+  color: #3b4d63;
+}
+
+html.dark[data-legacy-blue] .no-favorites-hint {
+  color: #4f5f73;
 }
 
 .favorite-routes-grid {

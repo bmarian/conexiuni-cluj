@@ -11,10 +11,12 @@ import ArcadeToast from "@/components/ArcadeToast.vue"
 import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
+import {useOnline} from "@/composables/useOnline.ts"
 
 const {t} = useI18n()
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
+const {isOnline} = useOnline()
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -214,12 +216,12 @@ function toggleLandscapeDrawer() {
     <MapComponent class="app-map"/>
     <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
     <NewsButton
-      v-if="appSettings.showNews"
+      v-if="appSettings.showNews && isOnline"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
     />
     <WeatherButton
-      v-if="appSettings.showWeather"
-      :top-offset="appSettings.showNews ? '6.25rem' : '3.5rem'"
+      v-if="appSettings.showWeather && isOnline"
+      :top-offset="appSettings.showNews && isOnline ? '6.25rem' : '3.5rem'"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
     />
     <ArcadeToast/>
