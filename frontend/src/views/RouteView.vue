@@ -33,6 +33,7 @@ import ViewErrorState from '@/components/ViewErrorState.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
+import ShareButton from '@/components/ShareButton.vue'
 import RoutePong from '@/components/RoutePong.vue'
 import {useRouter} from "vue-router";
 
@@ -569,6 +570,7 @@ onUnmounted(() => {
           {{ t('from', {name: fromStopName}) }}
         </p>
       </div>
+      <ShareButton class="mt-1"/>
       <button
         type="button"
         class="fav-btn mt-1 shrink-0"

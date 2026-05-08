@@ -145,5 +145,7 @@
     "headPlanToTitle": "Rută la {dest} | Conexiuni Cluj",
     "headPlanToDesc": "Planifică-ți călătoria la {dest} cu transportul în comun din Cluj-Napoca.",
     "headPlanFromToTitle": "Rută de la {origin} la {dest} | Conexiuni Cluj",
-    "headPlanFromToDesc": "Planifică-ți călătoria de la {origin} la {dest} cu transportul în comun din Cluj-Napoca."
+    "headPlanFromToDesc": "Planifică-ți călătoria de la {origin} la {dest} cu transportul în comun din Cluj-Napoca.",
+    "shareUrl": "Distribuie link",
+    "urlCopied": "Link copiat!"
 }

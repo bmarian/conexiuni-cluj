@@ -39,7 +39,8 @@ import {
   getShapeStopTimes,
   getTripIdForRouteAtStop
 } from "@/utils/trips.ts";
-import {useSettingsStore} from "@/stores/settings.ts";
+import {useSettingsStore} from "@/stores/settings.ts"
+import ShareButton from "@/components/ShareButton.vue";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -369,6 +370,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
           {{ stopName }}
         </h1>
       </div>
+      <ShareButton class="mt-1"/>
       <button
         type="button"
         class="fav-btn mt-1 shrink-0"

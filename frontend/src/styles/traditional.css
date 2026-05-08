@@ -1145,6 +1145,44 @@ html.dark[data-traditional] .fav-btn.is-fav:hover {
   color: #FFFFFF !important;
 }
 
+html[data-traditional] .share-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #404080 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  border-radius: 3px !important;
+}
+
+html[data-traditional] .share-btn:hover {
+  background: linear-gradient(to bottom, #D0E8FF 0%, #B8D4FF 100%) !important;
+  border-color: #4060C0 !important;
+  color: #2040A0 !important;
+}
+
+html[data-traditional] .share-btn.is-copied {
+  background: linear-gradient(to bottom, #D0FFE8 0%, #B8FFD4 100%) !important;
+  border-color: #00A040 !important;
+  color: #006020 !important;
+}
+
+html.dark[data-traditional] .share-btn {
+  background: var(--xp-btn) !important;
+  border-color: var(--xp-border) !important;
+  color: #6A6A82 !important;
+}
+
+html.dark[data-traditional] .share-btn:hover {
+  background: linear-gradient(to bottom, #1A2840 0%, #0A1828 100%) !important;
+  border-color: #4060C0 !important;
+  color: #6090FF !important;
+}
+
+html.dark[data-traditional] .share-btn.is-copied {
+  background: linear-gradient(to bottom, #003820 0%, #002010 100%) !important;
+  border-color: #00A040 !important;
+  color: #40FF80 !important;
+}
+
 html[data-traditional] .route-view-container .bg-emerald-500 {
   background: #5BAA38 !important;
 }

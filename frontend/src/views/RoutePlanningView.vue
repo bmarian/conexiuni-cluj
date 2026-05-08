@@ -17,6 +17,7 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
+import ShareButton from "@/components/ShareButton.vue"
 import {haversineMeters} from "@/utils/geo.ts"
 import {apiRequest} from "@/utils/request_cache.ts"
 import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
@@ -1476,6 +1477,7 @@ watch(timeValue, (val) => {
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
         </svg>
       </button>
+      <ShareButton v-if="hasValidCoords && !isRenaming" class="mt-1"/>
       <button
         v-if="hasValidCoords"
         type="button"
