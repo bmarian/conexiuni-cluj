@@ -6,17 +6,22 @@ const {t} = useI18n()
 const isFriday = computed(() => new Date().getDay() === 5)
 const todayKey = new Date().toISOString().slice(0, 10)
 const dismissed = ref(localStorage.getItem('greenFridayDismissed') === todayKey)
+const animationKey = ref(0)
 
 function dismiss() {
   localStorage.setItem('greenFridayDismissed', todayKey)
   dismissed.value = true
+}
+
+function replayAnimation() {
+  animationKey.value += 1
 }
 </script>
 
 <template>
   <div v-if="isFriday && !dismissed" class="green-friday-banner">
 
-    <div class="gf-icon" aria-hidden="true">
+    <div :key="animationKey" class="gf-icon" aria-hidden="true" @click="replayAnimation">
       <svg class="gf-svg" viewBox="0 0 115 75" fill="none" overflow="visible">
         <defs>
           <linearGradient id="gf-card-grad" x1="0%" y1="0%" x2="70%" y2="100%">
@@ -115,6 +120,7 @@ function dismiss() {
   flex-shrink: 0;
   width: 4.75rem;
   height: 4rem;
+  cursor: pointer;
 }
 
 .gf-svg {
@@ -126,51 +132,51 @@ function dismiss() {
 .gf-card-grp {
   transform-box: fill-box;
   transform-origin: center;
-  animation: gf-card-pay 5.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation: gf-card-pay 11.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .gf-terminal {
   transform-box: fill-box;
   transform-origin: center;
-  animation: gf-terminal-confirm 5.8s ease-in-out infinite;
+  animation: gf-terminal-confirm 11.6s ease-in-out forwards;
 }
 
 @keyframes gf-card-pay {
-  0%, 14% {
+  0%, 7% {
     transform: translate(0, 0) rotate(0deg);
   }
-  42%, 78% {
+  21%, 38% {
     transform: translate(-66px, 1px) rotate(-7deg);
   }
-  88% {
-    transform: translate(4px, 0) rotate(1deg);
-  }
-  96%, 100% {
+  48%, 52% {
     transform: translate(0, 0) rotate(0deg);
+  }
+  66%, 100% {
+    transform: translate(-66px, 1px) rotate(-7deg);
   }
 }
 
 @keyframes gf-terminal-confirm {
-  0%, 42%, 61%, 100% {
+  0%, 21%, 31%, 48%, 66%, 76%, 100% {
     filter: none;
     transform: scale(1);
   }
-  48%, 56% {
+  24%, 28%, 69%, 73% {
     filter: drop-shadow(0 0 4px rgb(34 197 94 / 0.65));
     transform: scale(1.03);
   }
 }
 
 .gf-nfc {
-  animation: gf-nfc-confirm 5.8s ease-in-out infinite;
+  animation: gf-nfc-confirm 11.6s ease-in-out forwards;
 }
 
 @keyframes gf-nfc-confirm {
-  0%, 40%, 61%, 100% {
+  0%, 20%, 31%, 48%, 65%, 76%, 100% {
     opacity: 0.7;
     filter: none;
   }
-  45%, 58% {
+  23%, 29%, 68%, 74% {
     opacity: 1;
     filter: drop-shadow(0 0 3px #22c55e);
   }
@@ -191,7 +197,7 @@ function dismiss() {
   top: 50%;
   left: 50%;
   width: 100%;
-  height: 0.6rem;
+  height: 0.28rem;
   border-radius: 9999px;
   background: #dc2626;
   box-shadow: 0 0.12rem 0.25rem rgb(127 29 29 / 0.22);
@@ -201,40 +207,40 @@ function dismiss() {
 
 .gf-x-bar-a {
   transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
-  animation: gf-x-bar-a 5.8s ease-in-out infinite;
+  animation: gf-x-bar-a 11.6s ease-in-out forwards;
 }
 
 .gf-x-bar-b {
   transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
-  animation: gf-x-bar-b 5.8s ease-in-out infinite;
+  animation: gf-x-bar-b 11.6s ease-in-out forwards;
 }
 
 @keyframes gf-x-bar-a {
-  0%, 60% {
+  0%, 30%, 52%, 80% {
     transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
     opacity: 0;
   }
-  66%, 84% {
+  34%, 40%, 84%, 100% {
     transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
     opacity: 1;
   }
-  92%, 100% {
-    transform: translate(-50%, -50%) rotate(45deg) scaleX(0.95);
+  48% {
+    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
     opacity: 0;
   }
 }
 
 @keyframes gf-x-bar-b {
-  0%, 66% {
+  0%, 34%, 52%, 84% {
     transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
     opacity: 0;
   }
-  72%, 84% {
+  38%, 40%, 88%, 100% {
     transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
     opacity: 1;
   }
-  92%, 100% {
-    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0.95);
+  48% {
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
     opacity: 0;
   }
 }
