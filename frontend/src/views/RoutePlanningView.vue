@@ -616,7 +616,9 @@ function applyPlanTimingFromSchedule(now: Date) {
         .filter(entry => hasScheduledConnection(plan, entry, data.shapes, now))
       : []
 
-    plan.isLive = liveEntries.length > 0
+    const walkStartMin = plan.walkStartMeters / WALK_SPEED
+    const catchableLiveEntries = liveEntries.filter(entry => entry.minutes >= walkStartMin)
+    plan.isLive = catchableLiveEntries.length > 0
     if (scheduled.length > 0 || liveEntries.length > 0) {
       plan.nextTimes = mergeLiveAndScheduled(plan, liveEntries, scheduled)
     } else {
@@ -638,7 +640,7 @@ function updateSelectedLiveState(now: Date = userTime.value || new Date()) {
   const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const liveEntries = getDecayedLiveEntries(liveEtaByKey.value.get(plan.key), now)
   const catchable = liveEntries.find(entry => entry.minutes >= walkStartMin)
-  selectedRouteIsLive.value = liveEntries.length > 0
+  selectedRouteIsLive.value = catchable !== undefined
   selectedRouteLiveEtaMin.value = catchable?.minutes ?? null
 }
 
@@ -2678,6 +2680,7 @@ html[data-legacy-blue] .stat-chip-live {
   background: var(--xp-live) !important;
   color: #FFFFFF !important;
   border: 1px solid #3D7E22 !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35) !important;
 }
 
 html[data-legacy-blue] .stat-chip-duration {
@@ -2735,6 +2738,26 @@ html[data-legacy-blue] .departure-card.is-selected .live-dot {
   background: #90EE90 !important;
 }
 
+html[data-legacy-blue] .departure-card.is-selected .card-dest,
+html[data-legacy-blue] .departure-card.is-selected .card-arrow,
+html[data-legacy-blue] .departure-card.is-selected .bus-chain-arrow,
+html[data-legacy-blue] .departure-card.is-selected .card-arrival-time,
+html[data-legacy-blue] .departure-card.is-selected .card-primary-time-sched,
+html[data-legacy-blue] .departure-card.is-selected .stat-chip-next,
+html[data-legacy-blue] .departure-card.is-selected .stat-chip-label,
+html[data-legacy-blue] .departure-card.is-selected .stat-chip-time,
+html[data-legacy-blue] .departure-card.is-selected .card-chevron {
+  color: #FFFFFF !important;
+}
+
+html[data-legacy-blue] .departure-card.is-selected .stat-chip,
+html[data-legacy-blue] .departure-card.is-selected .stat-chip-transfer,
+html[data-legacy-blue] .departure-card.is-selected .stat-chip-duration {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  color: #FFFFFF !important;
+}
+
 html[data-legacy-blue] .card-chevron {
   color: var(--xp-blue) !important;
 }
@@ -2775,8 +2798,18 @@ html[data-legacy-blue] .bus-chip-overflow:active {
 
 html[data-legacy-blue] .live-dot {
   border-radius: 0 !important;
-  background: #3D7E22 !important;
+  background: #6FD75A !important;
   box-shadow: none !important;
+}
+
+html[data-legacy-blue] .departure-card:not(.is-selected) .stat-chip-live {
+  background: linear-gradient(to bottom, #7DCB5E 0%, #5BAA38 52%, #46892C 100%) !important;
+  border-color: #3D7E22 !important;
+  color: #FFFFFF !important;
+}
+
+html[data-legacy-blue] .departure-card:not(.is-selected) .stat-chip-live .live-dot {
+  background: #5AAE42 !important;
 }
 
 html[data-legacy-blue] .time-pill {
@@ -2810,6 +2843,15 @@ html.dark[data-legacy-blue] .stat-chip-live {
   color: #FFFFFF !important;
   border: 1px solid #5BAA38 !important;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark[data-legacy-blue] .departure-card:not(.is-selected) .stat-chip-live {
+  background: linear-gradient(to bottom, #78C65C 0%, #58A737 55%, #3F8228 100%) !important;
+  border-color: #3A7A23 !important;
+}
+
+html.dark[data-legacy-blue] .departure-card:not(.is-selected) .stat-chip-live .live-dot {
+  background: #6ACF58 !important;
 }
 
 html.dark[data-legacy-blue] .stat-chip-duration {
