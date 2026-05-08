@@ -29,25 +29,27 @@ function dismiss() {
           </linearGradient>
         </defs>
 
-        <rect x="4" y="5" width="30" height="65" rx="5" fill="#1e293b"/>
-        <rect x="4" y="5" width="5" height="65" rx="4" fill="rgba(255,255,255,0.055)"/>
-        <rect x="7" y="8" width="24" height="18" rx="2.5" fill="#0f172a"/>
-        <rect x="10" y="11" width="9" height="2" rx="1" fill="#22c55e" opacity="0.9"/>
-        <rect x="10" y="15" width="16" height="2" rx="1" fill="#22c55e" opacity="0.5"/>
-        <rect x="10" y="19" width="12" height="2" rx="1" fill="#22c55e" opacity="0.3"/>
-        <line x1="4" y1="29" x2="34" y2="29" stroke="#334155" stroke-width="0.75"/>
-        <rect x="7" y="31" width="24" height="26" rx="2.5" fill="#0f172a" opacity="0.4"/>
-        <g class="gf-nfc">
-          <circle cx="13" cy="44" r="2.5" fill="#22c55e"/>
-          <path d="M17.5 40.5 Q20.5 44 17.5 47.5" stroke="#22c55e" fill="none" stroke-width="2.25"
-                stroke-linecap="round"/>
-          <path d="M21.5 37.5 Q26   44 21.5 50.5" stroke="#22c55e" fill="none" stroke-width="2"
-                stroke-linecap="round"/>
-          <path d="M25.5 34.5 Q31.5 44 25.5 53.5" stroke="#22c55e" fill="none" stroke-width="1.5"
-                stroke-linecap="round"/>
+        <g class="gf-terminal">
+          <rect x="4" y="5" width="30" height="65" rx="5" fill="#1e293b"/>
+          <rect x="4" y="5" width="5" height="65" rx="4" fill="rgba(255,255,255,0.055)"/>
+          <rect x="7" y="8" width="24" height="18" rx="2.5" fill="#0f172a"/>
+          <rect x="10" y="11" width="9" height="2" rx="1" fill="#22c55e" opacity="0.9"/>
+          <rect x="10" y="15" width="16" height="2" rx="1" fill="#22c55e" opacity="0.5"/>
+          <rect x="10" y="19" width="12" height="2" rx="1" fill="#22c55e" opacity="0.3"/>
+          <line x1="4" y1="29" x2="34" y2="29" stroke="#334155" stroke-width="0.75"/>
+          <rect x="7" y="31" width="24" height="26" rx="2.5" fill="#0f172a" opacity="0.4"/>
+          <g class="gf-nfc">
+            <circle cx="13" cy="44" r="2.5" fill="#22c55e"/>
+            <path d="M17.5 40.5 Q20.5 44 17.5 47.5" stroke="#22c55e" fill="none" stroke-width="2.25"
+                  stroke-linecap="round"/>
+            <path d="M21.5 37.5 Q26   44 21.5 50.5" stroke="#22c55e" fill="none" stroke-width="2"
+                  stroke-linecap="round"/>
+            <path d="M25.5 34.5 Q31.5 44 25.5 53.5" stroke="#22c55e" fill="none" stroke-width="1.5"
+                  stroke-linecap="round"/>
+          </g>
+          <circle cx="19" cy="64" r="2.5" fill="#22c55e" opacity="0.85"/>
+          <circle cx="19" cy="64" r="1.5" fill="#4ade80"/>
         </g>
-        <circle cx="19" cy="64" r="2.5" fill="#22c55e" opacity="0.85"/>
-        <circle cx="19" cy="64" r="1.5" fill="#4ade80"/>
 
         <g class="gf-card-grp">
           <rect x="75" y="22" width="27" height="42" rx="4" fill="url(#gf-card-grad)"/>
@@ -78,13 +80,9 @@ function dismiss() {
 
       </svg>
 
-      <div class="gf-stamp">
-        <svg viewBox="0 0 100 100" fill="none">
-          <circle cx="50" cy="50" r="46" fill="rgba(220,38,38,0.93)"/>
-          <circle cx="50" cy="50" r="46" fill="none" stroke="white" stroke-width="7"/>
-          <line x1="17" y1="17" x2="83" y2="83" stroke="white" stroke-width="14"
-                stroke-linecap="round"/>
-        </svg>
+      <div class="gf-x-mark" aria-hidden="true">
+        <span class="gf-x-bar gf-x-bar-a"></span>
+        <span class="gf-x-bar gf-x-bar-b"></span>
       </div>
     </div>
 
@@ -106,7 +104,7 @@ function dismiss() {
 .green-friday-banner {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.35rem;
   padding: 0.5rem 1rem;
   background: linear-gradient(135deg, #dcfce7, #d1fae5);
   border-bottom: 1px solid #a7f3d0;
@@ -115,7 +113,7 @@ function dismiss() {
 .gf-icon {
   position: relative;
   flex-shrink: 0;
-  width: 5.75rem;
+  width: 4.75rem;
   height: 4rem;
 }
 
@@ -128,107 +126,115 @@ function dismiss() {
 .gf-card-grp {
   transform-box: fill-box;
   transform-origin: center;
-  animation: gf-tap 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: gf-card-pay 5.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
-@keyframes gf-tap {
-  0% {
-    transform: translateX(0) rotate(0deg);
+.gf-terminal {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gf-terminal-confirm 5.8s ease-in-out infinite;
+}
+
+@keyframes gf-card-pay {
+  0%, 14% {
+    transform: translate(0, 0) rotate(0deg);
   }
-  25% {
-    transform: translateX(0) rotate(0deg);
+  42%, 78% {
+    transform: translate(-66px, 1px) rotate(-7deg);
   }
-  44% {
-    transform: translateX(-32px) rotate(-12deg);
+  88% {
+    transform: translate(4px, 0) rotate(1deg);
   }
-  48% {
-    transform: translateX(-26px) rotate(-7deg);
+  96%, 100% {
+    transform: translate(0, 0) rotate(0deg);
   }
-  53% {
-    transform: translateX(-30px) rotate(-9deg);
+}
+
+@keyframes gf-terminal-confirm {
+  0%, 42%, 61%, 100% {
+    filter: none;
+    transform: scale(1);
   }
-  62% {
-    transform: translateX(-30px) rotate(-9deg);
-  }
-  74% {
-    transform: translateX(0) rotate(0deg);
-  }
-  100% {
-    transform: translateX(0) rotate(0deg);
+  48%, 56% {
+    filter: drop-shadow(0 0 4px rgb(34 197 94 / 0.65));
+    transform: scale(1.03);
   }
 }
 
 .gf-nfc {
-  animation: gf-nfc-pulse 5s ease-in-out infinite;
+  animation: gf-nfc-confirm 5.8s ease-in-out infinite;
 }
 
-@keyframes gf-nfc-pulse {
-  0% {
-    opacity: 0.7;
-  }
-  43% {
-    opacity: 0.7;
-  }
-  46% {
-    opacity: 1;
-    filter: drop-shadow(0 0 3px #22c55e);
-  }
-  52% {
-    opacity: 1;
-    filter: drop-shadow(0 0 3px #22c55e);
-  }
-  56% {
+@keyframes gf-nfc-confirm {
+  0%, 40%, 61%, 100% {
     opacity: 0.7;
     filter: none;
   }
-  100% {
-    opacity: 0.7;
+  45%, 58% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px #22c55e);
   }
 }
 
-.gf-stamp {
+.gf-x-mark {
+  position: absolute;
+  top: 50%;
+  left: 1.15rem;
+  width: 4.45rem;
+  height: 4.45rem;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.gf-x-bar {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 4.25rem;
-  height: 4.25rem;
-  pointer-events: none;
-  animation: gf-stamp 5s ease-in-out infinite;
-}
-
-.gf-stamp svg {
   width: 100%;
-  height: 100%;
-  display: block;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: #dc2626;
+  box-shadow: 0 0.12rem 0.25rem rgb(127 29 29 / 0.22);
+  opacity: 0;
+  transform-origin: center;
 }
 
-@keyframes gf-stamp {
-  0% {
-    transform: translate(-50%, -70%) scale(0.2);
+.gf-x-bar-a {
+  transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
+  animation: gf-x-bar-a 5.8s ease-in-out infinite;
+}
+
+.gf-x-bar-b {
+  transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
+  animation: gf-x-bar-b 5.8s ease-in-out infinite;
+}
+
+@keyframes gf-x-bar-a {
+  0%, 60% {
+    transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
     opacity: 0;
   }
-  74% {
-    transform: translate(-50%, -70%) scale(0.2);
+  66%, 84% {
+    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
+    opacity: 1;
+  }
+  92%, 100% {
+    transform: translate(-50%, -50%) rotate(45deg) scaleX(0.95);
     opacity: 0;
   }
-  82% {
-    transform: translate(-50%, -50%) scale(1.25);
-    opacity: 1;
-  }
-  87% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  93% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  99% {
-    transform: translate(-50%, -50%) scale(0.9);
+}
+
+@keyframes gf-x-bar-b {
+  0%, 66% {
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
     opacity: 0;
   }
-  100% {
-    transform: translate(-50%, -70%) scale(0.2);
+  72%, 84% {
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
+    opacity: 1;
+  }
+  92%, 100% {
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0.95);
     opacity: 0;
   }
 }
@@ -274,5 +280,27 @@ function dismiss() {
 .green-friday-close svg {
   width: 0.75rem;
   height: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gf-card-grp,
+  .gf-terminal,
+  .gf-nfc,
+  .gf-x-bar-a,
+  .gf-x-bar-b {
+    animation: none;
+  }
+
+  .gf-x-bar {
+    opacity: 1;
+  }
+
+  .gf-x-bar-a {
+    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
+  }
+
+  .gf-x-bar-b {
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
+  }
 }
 </style>
