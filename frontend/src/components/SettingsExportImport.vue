@@ -11,8 +11,13 @@ const favs = useFavoritesStore()
 type Mode = 'export' | 'import' | null
 const mode = ref<Mode>(null)
 const text = ref('')
-const status = ref<'idle' | 'copied' | 'imported' | 'error'>('idle')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const exportDone = ref(false)
+const importState = ref<'idle' | 'success' | 'error'>('idle')
+let exportTimer: ReturnType<typeof setTimeout> | null = null
+let importTimer: ReturnType<typeof setTimeout> | null = null
+
+const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
 function buildJson() {
   return JSON.stringify({
@@ -78,31 +83,48 @@ async function decompress(b64: string): Promise<string> {
 async function openExport() {
   mode.value = 'export'
   text.value = await compress(buildJson())
-  status.value = 'idle'
+  exportDone.value = false
   await nextTick()
   textareaRef.value?.select()
-  navigator.clipboard?.writeText(text.value).then(() => {
-    status.value = 'copied'
-    setTimeout(() => { if (status.value === 'copied') status.value = 'idle' }, 2500)
-  })
 }
 
 function openImport() {
   mode.value = 'import'
   text.value = ''
-  status.value = 'idle'
+  importState.value = 'idle'
 }
 
 function cancel() {
   mode.value = null
-  status.value = 'idle'
+  exportDone.value = false
+  importState.value = 'idle'
 }
 
-function doCopy() {
-  navigator.clipboard?.writeText(text.value).then(() => {
-    status.value = 'copied'
-    setTimeout(() => { if (status.value === 'copied') status.value = 'idle' }, 2500)
-  })
+async function doExportShare() {
+  if (canShare) {
+    try {
+      await navigator.share({text: text.value})
+      markExportDone()
+    } catch {
+      // user cancelled
+    }
+  } else {
+    try {
+      await navigator.clipboard.writeText(text.value)
+      markExportDone()
+    } catch {
+      // clipboard unavailable
+    }
+  }
+}
+
+function markExportDone() {
+  exportDone.value = true
+  if (exportTimer) clearTimeout(exportTimer)
+  exportTimer = setTimeout(() => {
+    exportDone.value = false
+    exportTimer = null
+  }, 2000)
 }
 
 async function doImport() {
@@ -128,10 +150,16 @@ async function doImport() {
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     favs.importAll(data.favorites ?? {})
-    status.value = 'imported'
-    setTimeout(cancel, 1500)
+    importState.value = 'success'
+    if (importTimer) clearTimeout(importTimer)
+    importTimer = setTimeout(cancel, 1500)
   } catch {
-    status.value = 'error'
+    importState.value = 'error'
+    if (importTimer) clearTimeout(importTimer)
+    importTimer = setTimeout(() => {
+      importState.value = 'idle'
+      importTimer = null
+    }, 2000)
   }
 }
 </script>
@@ -177,25 +205,53 @@ async function doImport() {
         autocapitalize="off"
       />
       <div class="ei-actions">
-        <button v-if="mode === 'export'" type="button" class="ei-btn ei-btn-primary" @click="doCopy">
-          {{ t('exportCopyBtn') }}
+        <button
+          v-if="mode === 'export'"
+          type="button"
+          class="ei-btn ei-btn-primary"
+          :class="{'ei-btn-success': exportDone}"
+          :disabled="exportDone"
+          @click="doExportShare"
+        >
+          <template v-if="exportDone">
+            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+            {{ t('exportCopied') }}
+          </template>
+          <template v-else>
+            {{ canShare ? t('share') : t('exportCopyBtn') }}
+          </template>
         </button>
         <button
           v-if="mode === 'import'"
           type="button"
           class="ei-btn ei-btn-primary"
-          :disabled="!text.trim()"
+          :class="{'ei-btn-success': importState === 'success', 'ei-btn-error': importState === 'error'}"
+          :disabled="!text.trim() || importState !== 'idle'"
           @click="doImport"
         >
-          {{ t('importConfirm') }}
+          <template v-if="importState === 'success'">
+            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+            {{ t('importSuccess') }}
+          </template>
+          <template v-else-if="importState === 'error'">
+            <span v-if="settings.traditionalActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
+            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            {{ t('importError') }}
+          </template>
+          <template v-else>
+            {{ t('importConfirm') }}
+          </template>
         </button>
         <button type="button" class="ei-btn" @click="cancel">{{ t('cancel') }}</button>
       </div>
-      <p v-if="status !== 'idle'" class="ei-status" :class="status">
-        <template v-if="status === 'copied'">{{ t('exportCopied') }}</template>
-        <template v-else-if="status === 'imported'">{{ t('importSuccess') }}</template>
-        <template v-else-if="status === 'error'">{{ t('importError') }}</template>
-      </p>
     </template>
   </div>
 </template>
@@ -260,11 +316,25 @@ async function doImport() {
   border-color: #93c5fd;
 }
 
+.ei-btn.ei-btn-success {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.ei-btn.ei-btn-error {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
 /* default dark */
 .ei-root.is-dark .ei-btn { color: #64748b; }
 .ei-root.is-dark .ei-btn:hover { background: #334155; color: #e2e8f0; }
 .ei-root.is-dark .ei-btn.ei-btn-primary { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
 .ei-root.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1e40af; color: #bfdbfe; border-color: #3b82f6; }
+.ei-root.is-dark .ei-btn.ei-btn-success { background: #052e16; color: #4ade80; border-color: #14532d; }
+.ei-root.is-dark .ei-btn.ei-btn-error { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
 
 /* chomper light */
 .ei-root.is-chomper .ei-btn { color: #92400e; }
@@ -283,12 +353,16 @@ async function doImport() {
 .ei-root.is-traditional .ei-btn:hover { background: #EEF3FF; color: #1A3A8C; }
 .ei-root.is-traditional .ei-btn.ei-btn-primary { background: #EEF3FF; color: #1A3A8C; border-color: #245EDC; }
 .ei-root.is-traditional .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #D8E4FF; color: #0F2870; border-color: #1A3A8C; }
+.ei-root.is-traditional .ei-btn.ei-btn-success { background: #EEF8EE; color: #1A6A2A; border-color: #4CAF50; }
+.ei-root.is-traditional .ei-btn.ei-btn-error { background: #FEF0EE; color: #8A1A1A; border-color: #DC4444; }
 
-/* traditional dark — higher specificity (.is-traditional.is-dark) wins over both single-class variants */
+/* traditional dark */
 .ei-root.is-traditional.is-dark .ei-btn { color: #90B4E0; }
 .ei-root.is-traditional.is-dark .ei-btn:hover { background: #172040; color: #B8D4F0; }
 .ei-root.is-traditional.is-dark .ei-btn.ei-btn-primary { background: #10193A; color: #90B4E0; border-color: #2A508C; }
 .ei-root.is-traditional.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1a2d5a; color: #B8D4F0; border-color: #3d70c0; }
+.ei-root.is-traditional.is-dark .ei-btn.ei-btn-success { background: #0A2010; color: #4ADE80; border-color: #1A6A2A; }
+.ei-root.is-traditional.is-dark .ei-btn.ei-btn-error { background: #200A0A; color: #F87171; border-color: #6A1A1A; }
 
 /* ── textarea ── */
 .ei-textarea {
@@ -335,38 +409,4 @@ async function doImport() {
   display: flex;
   gap: 0.25rem;
 }
-
-/* ── status message ── */
-.ei-status {
-  margin: 0.1rem 0 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-align: center;
-}
-
-.ei-status.copied, .ei-status.imported { color: #16a34a; }
-.ei-status.error { color: #dc2626; }
-
-/* default dark */
-.ei-root.is-dark .ei-status.copied,
-.ei-root.is-dark .ei-status.imported { color: #4ade80; }
-.ei-root.is-dark .ei-status.error { color: #f87171; }
-
-/* chomper light */
-.ei-root.is-chomper .ei-status.copied,
-.ei-root.is-chomper .ei-status.imported { color: #92400e; }
-
-/* chomper dark */
-.ei-root.is-chomper.is-dark .ei-status.copied,
-.ei-root.is-chomper.is-dark .ei-status.imported { color: #fde68a; }
-.ei-root.is-chomper.is-dark .ei-status.error { color: #fca5a5; }
-
-/* traditional light */
-.ei-root.is-traditional .ei-status.copied,
-.ei-root.is-traditional .ei-status.imported { color: #245EDC; }
-
-/* traditional dark */
-.ei-root.is-traditional.is-dark .ei-status.copied,
-.ei-root.is-traditional.is-dark .ei-status.imported { color: #90B4E0; }
-.ei-root.is-traditional.is-dark .ei-status.error { color: #f87171; }
 </style>
