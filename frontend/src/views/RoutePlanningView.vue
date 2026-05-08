@@ -18,10 +18,8 @@ import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts"
-import {apiRequest} from "@/utils/request_cache.ts"
-import type {Stop, TimeEntry, ShapeInfo, Shape, Vehicle} from "@/types/tranzy.ts"
+import type {TimeEntry, ShapeInfo, Shape, Vehicle} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
-import ClosestStopsList from "@/components/ClosestStopsList.vue"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 
 import {useVehicleStream} from "@/composables/useVehicleStream.ts"
@@ -176,7 +174,6 @@ function cancelRename() {
   isRenaming.value = false
 }
 
-const allStops = ref<Stop[]>([])
 const planData = ref<ApiResp | null>(null)
 const currentQueryKey = ref<string | null>(null)
 const selectedPlanIndex = ref(0)
@@ -196,18 +193,10 @@ const liveEtaByKey = ref<Map<string, { eta: number; ts: number }>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
 
-const allStopsMap = computed(() => {
-  const m = new Map<number, Stop>()
-  for (const s of allStops.value) {
-    m.set(s.stop_id, s)
-  }
-  return m
-})
-
-function getStop(id: number | string | undefined): Stop | PlanStop | undefined {
+function getStop(id: number | string | undefined): PlanStop | undefined {
   if (id === undefined) return undefined
   const numId = typeof id === 'string' ? parseInt(id) : id
-  return allStopsMap.value.get(numId) ?? stops.value[String(numId)]
+  return stops.value[String(numId)]
 }
 
 function getStopName(id: number | string | undefined): string {
@@ -995,6 +984,7 @@ watch([selectedPlanSignature, selectedPlanLegsData, mapActivationKey], ([, legsD
 
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
+const isGpsResolving = computed(() => hasLocationPermission.value && !userLocation.value && !customOrigin.value)
 
 const originLabel = computed(() => {
   if (customOrigin.value) return customOrigin.value.name
@@ -1172,14 +1162,13 @@ watch(() => route.query, (newQuery) => {
   }
 }, {immediate: true})
 
-onMounted(async () => {
+onMounted(() => {
   isActive.value = true
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
-    allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
-
     if (!hasLocationPermission.value && !customOrigin.value) {
       mapStore.setFlyToLocation(destLat.value, destLon.value)
+      activeSearchField.value = 'origin'
     }
   } else {
     activeSearchField.value = 'destination'
@@ -1461,8 +1450,8 @@ watch(timeValue, (val) => {
       </button>
     </header>
 
-    <div v-if="hasLocationPermission || customOrigin">
-      <section v-if="!isCalculating && selectedPlan" class="trip-summary">
+    <div>
+      <section v-if="selectedPlan && !isCalculating" class="trip-summary">
         <div class="trip-summary-stat" v-if="timeMode === 'now'">
           <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
           <span class="trip-summary-stat-label">{{ t('planTripTotal') }}</span>
@@ -1478,7 +1467,8 @@ watch(timeValue, (val) => {
           <span class="trip-summary-stat-label">{{ selectedPlan.legs.length - 1 === 1 ? t('planChange') : t('planChanges') }}</span>
         </div>
       </section>
-      <section v-if="isCalculating || routesWithTimes.length > 0" class="route-legs-card">
+      <!-- From/To card — always shown -->
+      <section class="route-legs-card">
         <div class="leg-row">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
@@ -1679,7 +1669,8 @@ watch(timeValue, (val) => {
           </div>
         </div>
       </section>
-      <section class="flex flex-col gap-3 pb-8!">
+      <!-- Routes section — always shown -->
+      <section class="flex flex-col gap-3 pb-8">
         <div class="plan-section-head">
           <h2 class="section-label">
             <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
@@ -1758,7 +1749,22 @@ watch(timeValue, (val) => {
           </div>
         </div>
 
-        <div v-if="isCalculating" class="plan-loading">
+        <!-- GPS resolving: waiting for device location -->
+        <div v-if="isGpsResolving" class="plan-loading">
+          <div class="bus-loader-container">
+            <span v-if="settings.traditionalActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
+            <span v-else-if="settings.easterEggActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
+            <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+            </svg>
+          </div>
+          <p class="loading-text animate-pulse">{{ t('planLocating') }}</p>
+        </div>
+
+        <!-- Route calculation in progress -->
+        <div v-else-if="isCalculating" class="plan-loading">
           <div class="bus-loader-container">
             <span v-if="settings.traditionalActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
             <span v-else-if="settings.easterEggActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
@@ -1771,6 +1777,7 @@ watch(timeValue, (val) => {
           <p class="loading-text animate-pulse">{{ t('planCalculating') }}</p>
         </div>
 
+        <!-- Results -->
         <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
           <div
             v-for="(plan, index) in routesWithTimes"
@@ -1844,161 +1851,27 @@ watch(timeValue, (val) => {
           </div>
         </div>
 
-        <div v-else class="flex flex-col gap-4">
-          <div class="plan-placeholder">
-            <template v-if="planData && planData.plans.length > 0">
-              <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-              </svg>
-              <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
-                {{ t('planNoBusesNextHour') }}</p>
-            </template>
-            <template v-else>
-              <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-              </svg>
-              <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
-                {{ t('planNoResults') }}</p>
-            </template>
-          </div>
-
-          <ClosestStopsList :stops="allStops" :center-lat="destLat" :center-lon="destLon"/>
+        <!-- No results -->
+        <div v-else class="plan-placeholder">
+          <template v-if="planData && planData.plans.length > 0">
+            <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+            </svg>
+            <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+              {{ t('planNoBusesNextHour') }}</p>
+          </template>
+          <template v-else>
+            <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+            </svg>
+            <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
+              {{ t('planNoResults') }}</p>
+          </template>
         </div>
-      </section>
-    </div>
-
-    <div v-else>
-      <section class="route-legs-card mb-4">
-        <div class="leg-row">
-          <div class="leg-icon-col">
-            <div class="leg-dot leg-dot-origin">
-              <span v-if="settings.traditionalActive" class="text-sm">📍</span>
-              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="6"/>
-              </svg>
-            </div>
-            <div class="leg-line"></div>
-          </div>
-          <div class="leg-label-col" v-if="activeSearchField !== 'origin' && (activeSearchField !== null || routesWithTimes.length > 0)">
-            <div class="origin-clickable" @click="activeSearchField = 'origin'; searchResults = []; searchQuery = ''">
-              <span class="leg-type-badge">{{ t('planFrom') }}</span>
-              <div class="leg-name-wrap">
-                <span class="leg-name">{{ originLabel }}</span>
-                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="leg-label-col search-active-col" v-else>
-            <div class="search-wrap">
-              <input
-                type="text"
-                v-model="searchQuery"
-                class="search-input"
-                :placeholder="t('planSearchPlaceholder')"
-                @keyup.enter="performSearch"
-                @keyup.esc="activeSearchField = null"
-                v-focus
-              />
-              <button class="search-cancel" @click="activeSearchField = null" v-if="activeSearchField === 'origin'">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission">
-              <div v-if="isSearching" class="search-loading">
-                <div class="mini-spinner"></div>
-                {{ t('planSearching') }}
-              </div>
-              <template v-else>
-                <div
-                  v-if="hasLocationPermission"
-                  class="search-result-item current-loc-option"
-                  @click="useCurrentLocation"
-                >
-                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
-                </div>
-                <div
-                  v-for="res in searchResults"
-                  :key="res.place_id"
-                  class="search-result-item"
-                  @click="selectOrigin(res)"
-                >
-                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
-                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <div class="leg-row">
-          <div class="leg-icon-col">
-            <div class="leg-dot leg-dot-dest">
-              <span v-if="settings.traditionalActive" class="text-sm">🏁</span>
-              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-              </svg>
-            </div>
-          </div>
-          <div class="leg-label-col" v-if="activeSearchField !== 'destination'">
-            <div class="origin-clickable" @click="activeSearchField = 'destination'; searchResults = []; searchQuery = ''">
-              <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-              <div class="leg-name-wrap">
-                <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
-                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="leg-label-col search-active-col" v-else>
-            <div class="search-wrap">
-              <input
-                type="text"
-                v-model="searchQuery"
-                class="search-input"
-                :placeholder="t('planDestSearchPlaceholder')"
-                @keyup.enter="performSearch"
-                @keyup.esc="activeSearchField = null"
-                v-focus
-              />
-              <button class="search-cancel" @click="activeSearchField = null">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching">
-              <div v-if="isSearching" class="search-loading">
-                <div class="mini-spinner"></div>
-                {{ t('planSearching') }}
-              </div>
-              <template v-else>
-                <div
-                  v-for="res in searchResults"
-                  :key="res.place_id"
-                  class="search-result-item"
-                  @click="selectDestination(res)"
-                >
-                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
-                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="flex flex-col gap-3 pb-8">
-        <ClosestStopsList :stops="allStops" :center-lat="destLat" :center-lon="destLon"/>
       </section>
     </div>
   </div>
@@ -2044,7 +1917,6 @@ html.dark[data-hungry] .route-legs-card {
   display: flex;
   align-items: stretch;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
   padding: 0.75rem;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border: 1px solid #bae6fd;
