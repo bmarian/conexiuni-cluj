@@ -7,6 +7,7 @@ import (
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -48,8 +49,13 @@ func otpBaseURL() string {
 	return "http://localhost:18080"
 }
 
-// otpTimeout is the maximum time an OTP request is allowed to take.
-const otpTimeout = 30 * time.Second
+const (
+	// otpTimeout is the maximum time an OTP request is allowed to take.
+	otpTimeout = 30 * time.Second
+	// otpReadyRequestWait is how long a route-planning request can wait for a
+	// server that is already starting up.
+	otpReadyRequestWait = 45 * time.Second
+)
 
 // OTP GraphQL API response types
 
@@ -208,6 +214,49 @@ func callOTP(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bo
 	}
 
 	return gqlResp.Data.Plan, nil
+}
+
+type plannerUnavailableError struct {
+	err error
+}
+
+func (e plannerUnavailableError) Error() string {
+	return e.err.Error()
+}
+
+func (e plannerUnavailableError) Unwrap() error {
+	return e.err
+}
+
+func isOTPReady() bool {
+	otpMu.RLock()
+	defer otpMu.RUnlock()
+	return otpReady
+}
+
+func waitForOTPReady(timeout time.Duration) bool {
+	if isOTPReady() {
+		return true
+	}
+
+	InitOTP()
+
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-deadline.C:
+			return isOTPReady()
+		case <-ticker.C:
+			if isOTPReady() {
+				return true
+			}
+		}
+	}
 }
 
 // InitOTP checks that the OTP server is reachable and marks the planner as ready.
@@ -419,12 +468,12 @@ type shapeSlim struct {
 }
 
 func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
-	otpMu.RLock()
-	ready := otpReady
-	otpMu.RUnlock()
-
-	if !ready {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "planner not ready"})
+	if !waitForOTPReady(otpReadyRequestWait) {
+		c.Set("Retry-After", "10")
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error":               "planner still starting",
+			"retry_after_seconds": 10,
+		})
 	}
 
 	fromLat, fromLng, toLat, toLng, err := parsePlanCoords(c)
@@ -470,7 +519,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 			}
 			plan, err := callOTP(fromLat, fromLng, toLat, toLng, reqTime, arriveBy)
 			if err != nil {
-				return planResp{}, err
+				return planResp{}, plannerUnavailableError{err: err}
 			}
 
 			if len(plan.Itineraries) == 0 {
@@ -493,6 +542,14 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 
 	if err != nil {
 		log.Printf("plan_routes: failed: %v", err)
+		var plannerErr plannerUnavailableError
+		if errors.As(err, &plannerErr) {
+			c.Set("Retry-After", "10")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":               "planner unavailable",
+				"retry_after_seconds": 10,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
