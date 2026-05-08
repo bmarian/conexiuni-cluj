@@ -69,6 +69,9 @@ html[data-traditional] .ei-btn,
 html[data-traditional] .ei-textarea,
 /* fixed chrome */
 html[data-traditional] .weather-pill,
+html[data-traditional] .weather-popover,
+html[data-traditional] .weather-range,
+html[data-traditional] .weather-stat,
 html[data-traditional] .landscape-drawer-toggle,
 html[data-traditional] .offline-pill,
 html[data-traditional] .egg-toast,
@@ -405,6 +408,56 @@ html[data-traditional] .weather-pill {
   border: 1px solid #003C9C !important;
 }
 
+html[data-traditional] .weather-pill:hover {
+  background: var(--xp-orb-hover) !important;
+  color: #FFFFFF !important;
+}
+
+html[data-traditional] .weather-popover {
+  background: var(--xp-tan) !important;
+  border: 1px solid #003C9C !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF,
+  3px 3px 10px rgba(0, 0, 0, 0.32) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  padding-top: 34px !important;
+}
+
+html[data-traditional] .weather-popover::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, #0058DA 0%, #2E84E8 6%, #1A6CD0 14%, #1056C0 50%, #0E54BE 51%, #1A66D0 95%, #0E4DAC 100%);
+  pointer-events: none;
+}
+
+html[data-traditional] .weather-popover-title,
+html[data-traditional] .weather-stat-label,
+html[data-traditional] .weather-sun {
+  color: var(--xp-blue) !important;
+  font-family: var(--xp-font) !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 700 !important;
+}
+
+html[data-traditional] .weather-condition,
+html[data-traditional] .weather-popover-temp,
+html[data-traditional] .weather-stat-value {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-traditional] .weather-range,
+html[data-traditional] .weather-stat {
+  background: #FFFFFF !important;
+  border: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.75) !important;
+  color: #000000 !important;
+}
+
 html[data-traditional] .settings-popover {
   background: var(--xp-tan) !important;
   border: 1px solid #003C9C !important;
@@ -715,6 +768,43 @@ html.dark[data-traditional] .weather-pill {
   color: #E0E6F2 !important;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.30), 0 2px 8px rgba(0, 0, 0, 0.50) !important;
   border: 1px solid #001E5C !important;
+}
+
+html.dark[data-traditional] .weather-pill:hover {
+  background: var(--xp-orb-hover) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark[data-traditional] .weather-popover {
+  background: var(--xp-tan) !important;
+  border: 1px solid #001E5C !important;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05),
+  3px 3px 12px rgba(0, 0, 0, 0.55) !important;
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .weather-popover::before {
+  background: linear-gradient(to bottom, #003478 0%, #1A6CD0 8%, #0F4FA8 50%, #0A3E90 51%, #1656B8 95%, #062A6C 100%);
+}
+
+html.dark[data-traditional] .weather-popover-title,
+html.dark[data-traditional] .weather-stat-label,
+html.dark[data-traditional] .weather-sun {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-traditional] .weather-condition,
+html.dark[data-traditional] .weather-popover-temp,
+html.dark[data-traditional] .weather-stat-value {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-traditional] .weather-range,
+html.dark[data-traditional] .weather-stat {
+  background: #1A2030 !important;
+  border-color: var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05) !important;
+  color: var(--xp-text) !important;
 }
 
 html.dark[data-traditional] .settings-popover {
