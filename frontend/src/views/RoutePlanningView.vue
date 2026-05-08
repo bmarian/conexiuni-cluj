@@ -18,7 +18,8 @@ import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {haversineMeters} from "@/utils/geo.ts"
-import type {TimeEntry, ShapeInfo, Shape, Vehicle} from "@/types/tranzy.ts"
+import {apiRequest} from "@/utils/request_cache.ts"
+import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 
@@ -192,11 +193,18 @@ const selectedRouteLiveEtaMin = ref<number | null>(null)
 const liveEtaByKey = ref<Map<string, { eta: number; ts: number }>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
+const allStops = ref<Stop[]>([])
 
-function getStop(id: number | string | undefined): PlanStop | undefined {
+const allStopsMap = computed(() => {
+  const m = new Map<number, Stop>()
+  for (const s of allStops.value) { m.set(s.stop_id, s) }
+  return m
+})
+
+function getStop(id: number | string | undefined): Stop | PlanStop | undefined {
   if (id === undefined) return undefined
   const numId = typeof id === 'string' ? parseInt(id) : id
-  return stops.value[String(numId)]
+  return allStopsMap.value.get(numId) ?? stops.value[String(numId)]
 }
 
 function getStopName(id: number | string | undefined): string {
@@ -1187,10 +1195,11 @@ watch(() => route.query, (newQuery) => {
   }
 }, {immediate: true})
 
-onMounted(() => {
+onMounted(async () => {
   isActive.value = true
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
+    allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
     if (!hasLocationPermission.value && !customOrigin.value) {
       mapStore.setFlyToLocation(destLat.value, destLon.value)
       activeSearchField.value = 'origin'
