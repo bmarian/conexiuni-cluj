@@ -26,7 +26,7 @@ Good examples:
 conexiuni-cluj/
 ├── AGENTS.md                 Agent guide. Keep this current when architecture shifts.
 ├── README.md                 User-facing project overview and run instructions.
-├── update.sh                 Production update script: pull, npm install, build, Go build, OTP setup, service restart.
+├── update.sh                 Deployment-server-only script. Do not run during local agent work.
 ├── .env / keys.env           Runtime config and secrets. Never commit real secrets.
 ├── backend/
 │   ├── main.go               Boot, logging, DB, clients, Fiber middleware, routes, static frontend serving.
@@ -60,7 +60,7 @@ conexiuni-cluj/
 └── api-tests/                Bruno collection for manual API checks.
 ```
 
-There is no `build.sh` or `dev.sh` now. Use the commands in README and `update.sh`.
+There is no `build.sh` or `dev.sh` now. Use the local commands in README. Do not use `update.sh` except on the deployment server.
 
 ## Backend
 
@@ -247,14 +247,14 @@ npm run build
 
 This writes to `backend/dist`, which the Go server serves automatically.
 
-Production update helper:
+Deployment server only:
 
 ```bash
 ./update.sh
 ./update.sh --update-pbf
 ```
 
-`update.sh` pulls, installs frontend deps, builds frontend, builds the Go binary, copies env files into `backend/`, prepares OTP/Osmosis assets, optionally refreshes/crops PBF data, and restarts the `conexiuni-cluj` systemd service.
+`update.sh` pulls, installs frontend deps, builds frontend, builds the Go binary, copies env files into `backend/`, prepares OTP/Osmosis assets, optionally refreshes/crops PBF data, and restarts the `conexiuni-cluj` systemd service. It is for the deployment host only. Agents should not run it in local development.
 
 ## Testing And Verification
 
