@@ -1253,6 +1253,11 @@ async function calculateRoutes() {
   const qk = getQueryKey()
   if (qk && qk === currentQueryKey.value && planData.value?.plans.length) return
 
+  routesWithTimes.value = []
+  planData.value = null
+  currentQueryKey.value = null
+  mapStore.clearWalkingPolylines()
+
   isCalculating.value = true
   try {
     if (qk) selectedPlanKey.value = plannerStore.getSelectedRouteKey(qk)
