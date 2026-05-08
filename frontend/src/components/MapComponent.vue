@@ -66,6 +66,7 @@ let isFirstLocationHandle = true
 let hasFittedForContent = false
 let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
+let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
 const STOP_ZOOM_THRESHOLD = 16
 const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
@@ -74,6 +75,7 @@ const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_N
 const MIN_ZOOM = 9
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
+const LOCATION_RETRY_DELAY_MS = 1200
 
 type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
 type GroupedStart = {
@@ -160,6 +162,53 @@ const scheduleInvalidateMapSize = () => {
   }, 280)
 }
 
+const isStandaloneApp = () =>
+  window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+
+const beginLocationWatch = (setView = false, enableHighAccuracy = false) => {
+  if (!map.value) return
+
+  map.value.stopLocate()
+  map.value.locate({
+    watch: true,
+    setView,
+    enableHighAccuracy,
+    maximumAge: 30000,
+    timeout: enableHighAccuracy ? 15000 : 6000,
+  })
+}
+
+const requestCurrentLocation = (setView = false, enableHighAccuracy = false) => {
+  beginLocationWatch(setView, enableHighAccuracy)
+
+  if (!navigator.geolocation) return
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      if (!map.value) return
+      updateLiveLocation({
+        latlng: L.latLng(position.coords.latitude, position.coords.longitude),
+        accuracy: position.coords.accuracy,
+      } as L.LocationEvent)
+    },
+    (error) => {
+      if (error.code === error.PERMISSION_DENIED) {
+        userStore.setHasLocationPermission(false)
+        userStore.clearUserLocation()
+      }
+    },
+    {
+      enableHighAccuracy,
+      maximumAge: 30000,
+      timeout: enableHighAccuracy ? 15000 : 6000,
+    },
+  )
+}
+
+const retryLocationForStandaloneApp = () => {
+  if (!isStandaloneApp() || document.visibilityState !== 'visible' || userStore.userLocation) return
+  requestCurrentLocation(false, false)
+}
+
 const createCenterControl = (mapValue: L.Map) => {
   const control = new L.Control({position: 'topleft'})
   control.onAdd = () => {
@@ -181,7 +230,10 @@ const createCenterControl = (mapValue: L.Map) => {
     L.DomEvent.on(centerBtn, 'click', (e) => {
       e.preventDefault()
       const location = userDot.value?.getLatLng()
-      if (!location) return
+      if (!location) {
+        requestCurrentLocation(true, true)
+        return
+      }
       flyToVisible(location, DEFAULT_ZOOM)
     })
 
@@ -255,11 +307,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   }).addTo(mapValue)
 
   mapValue.addControl(createCenterControl(mapValue))
-  mapValue.locate({
-    watch: true,
-    enableHighAccuracy: false,
-    maximumAge: 30000,
-  })
+  beginLocationWatch()
 
   initLayerGroups(mapValue)
   mapContainer.value?.classList.toggle('hungry-theme', easterEggActive.value)
@@ -360,9 +408,12 @@ onMounted(() => {
 
   window.addEventListener('resize', scheduleInvalidateMapSize, {passive: true})
   window.addEventListener('orientationchange', scheduleInvalidateMapSize)
+  window.addEventListener('pageshow', retryLocationForStandaloneApp)
+  document.addEventListener('visibilitychange', retryLocationForStandaloneApp)
   window.visualViewport?.addEventListener('resize', scheduleInvalidateMapSize)
 
   scheduleInvalidateMapSize()
+  locationRetryTimer = setTimeout(retryLocationForStandaloneApp, LOCATION_RETRY_DELAY_MS)
 })
 
 watch(() => route.params.stopId, (newId) => {
@@ -728,10 +779,13 @@ onUnmounted(() => {
   mapStore.clearCustomOriginLocation()
   window.removeEventListener('resize', scheduleInvalidateMapSize)
   window.removeEventListener('orientationchange', scheduleInvalidateMapSize)
+  window.removeEventListener('pageshow', retryLocationForStandaloneApp)
+  document.removeEventListener('visibilitychange', retryLocationForStandaloneApp)
   window.visualViewport?.removeEventListener('resize', scheduleInvalidateMapSize)
 
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
   if (resizeTimer) clearTimeout(resizeTimer)
+  if (locationRetryTimer) clearTimeout(locationRetryTimer)
 
   if (map.value) {
     map.value.stopLocate()

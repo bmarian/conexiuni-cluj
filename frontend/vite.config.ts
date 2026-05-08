@@ -15,11 +15,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['bus.svg', 'favicon.ico', '404.png', 'apple-touch-icon-180x180.png'],
       manifest: {
+        id: '/',
         name: 'Conexiuni Cluj',
         short_name: 'Conexiuni',
         description: 'Transport public Cluj-Napoca în timp real',
         theme_color: '#0f172a',
         background_color: '#0f172a',
+        display_override: ['standalone', 'minimal-ui', 'browser'],
         display: 'standalone',
         start_url: '/',
         scope: '/',
