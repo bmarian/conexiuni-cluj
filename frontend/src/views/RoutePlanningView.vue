@@ -981,19 +981,17 @@ function getJourneyDuration(plan: RichPlan): number {
 }
 
 function getRelativeDepartureFormatted(plan: RichPlan, entry: TimeEntry) {
-  const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const approx = entry.is_live ? '' : '~'
 
   const now = userTime.value || new Date()
   const departureAtStop = new Date(now.getTime() + entry.minutes * 60_000)
-  const departureFromOrigin = new Date(departureAtStop.getTime() - walkStartMin * 60_000)
 
   if (timeMode.value !== 'now') {
-    const timeStr = departureFromOrigin.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    const timeStr = departureAtStop.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     return t('planAtTime', { time: approx + timeStr })
   }
 
-  const waitMin = (departureFromOrigin.getTime() - now.getTime()) / 60_000
+  const waitMin = (departureAtStop.getTime() - now.getTime()) / 60_000
   const rounded = Math.round(waitMin)
   if (rounded <= 0) return t('now')
 
