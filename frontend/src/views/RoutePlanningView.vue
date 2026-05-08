@@ -35,8 +35,14 @@ import {
   type IndexedVehicle,
   type ShapeIndex
 } from "@/composables/useVehicleTracking.ts"
-import {formatMinutesFromNow} from "@/utils/time.ts"
+import {
+  formatMinutesFromNow,
+  getMinutesFromDate,
+  getTimetableForDay,
+  timeStringToMinutes
+} from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
+import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
 
 const MAX_MINUTES = 60
 const WALK_SPEED = 80 // m/min
@@ -58,8 +64,17 @@ interface ApiLeg { route_id: number; trip_id: string; start_stop_id: number; des
 interface ApiPlan { legs: ApiLeg[]; is_direct: boolean; walk_start_meters: number; walk_end_meters: number; walk_transfer_meters: number; transit_duration_sec: number; total_distance: number; walk_segments?: PlanWalkSeg[] }
 interface ApiResp { plans: ApiPlan[]; stops: Record<string, PlanStop>; shapes: Record<string, ShapeInfo> }
 
+type PlannedTimeEntry = TimeEntry & {
+  routeId?: number
+  tripId?: string
+  transferRouteId?: number
+  transferTripId?: string
+}
+
+type StoredLiveEta = PlannedTimeEntry & { ts: number }
+
 interface RichLeg { routeIds: number[]; tripIds: string[]; startStopId: number; destStopId: number; rideSeconds: number; intermediateStopIds: number[] }
-interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: TimeEntry[]; isLive: boolean; key: string }
+interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: PlannedTimeEntry[]; isLive: boolean; key: string }
 
 interface NominatimResult {
   place_id: number
@@ -190,7 +205,7 @@ function toggleLegExpansion(id: string) {
 
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
-const liveEtaByKey = ref<Map<string, { eta: number; ts: number }>>(new Map())
+const liveEtaByKey = ref<Map<string, StoredLiveEta[]>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
 const allStops = ref<Stop[]>([])
@@ -232,43 +247,47 @@ function selectPlanAt(idx: number) {
 }
 
 // --- Timetable helpers ---
-function getNextDepartures(shape: ShapeInfo, tripId: string, boardingStopId: number, now: Date, limit = 3, maxMinutes = 60, arriveBy = false): TimeEntry[] {
+function getScheduleDiffs(arrivalAtStopMinutes: number, referenceMinutes: number, maxMinutes: number, arriveBy: boolean): number[] {
+  const offsets = arriveBy ? [-1440, 0] : [0, 1440]
+  return offsets
+    .map(offset => arrivalAtStopMinutes + offset - referenceMinutes)
+    .filter(diff => arriveBy ? diff <= 0 && diff >= -maxMinutes : diff >= 0 && diff <= maxMinutes)
+}
+
+function getTripDeparturesAtStop(
+  shape: ShapeInfo,
+  tripId: string,
+  routeId: number,
+  boardingStopId: number,
+  now: Date,
+  limit = 3,
+  maxMinutes = MAX_MINUTES,
+  arriveBy = false
+): PlannedTimeEntry[] {
   const timetable = shape.timetable
   if (!timetable) return []
 
   const isOutgoing = tripId.endsWith('_0')
-  const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tripId)
-
-  // Sum offset_arrival_time/60 for stops before boarding stop to get terminus->boarding offset
-  let offsetMin = 0
-  for (const st of stopTimes) {
-    if (st.stop_id === boardingStopId) break
-    offsetMin += st.offset_arrival_time / 60
-  }
-
-  const dayOfWeek = now.getDay()
-  const daySchedule = dayOfWeek === 0 ? timetable.sunday : dayOfWeek === 6 ? timetable.saturday : timetable.weekdays
+  const stopTimes = getShapeStopTimes(shape)
+  const offsetMin = getTimeOffsetToStop(stopTimes, tripId, boardingStopId)
+  const daySchedule = getTimetableForDay(timetable, now)
   if (!daySchedule?.entries) return []
 
-  const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
-  const results: TimeEntry[] = []
+  const nowMins = getMinutesFromDate(now)
+  const results: PlannedTimeEntry[] = []
 
   for (const entry of daySchedule.entries) {
     const timeStr = isOutgoing ? entry.departure_in : entry.departure_out
-    if (!timeStr) continue
-    const [hStr, mStr] = timeStr.split(':')
-    const terminusMinutes = parseInt(hStr ?? '0') * 60 + parseInt(mStr ?? '0')
+    const terminusMinutes = timeStringToMinutes(timeStr)
+    if (terminusMinutes === null) continue
     const arrivalAtBoardingMin = terminusMinutes + offsetMin
-    const diff = arrivalAtBoardingMin - nowMins
-
-    if (arriveBy) {
-      if (diff > 0) continue
-      if (diff < -maxMinutes) continue
-      results.push({ minutes: Math.round(diff), is_live: false })
-    } else {
-      if (diff < 0) continue
-      if (diff > maxMinutes) break
-      results.push({ minutes: Math.round(diff), is_live: false })
+    for (const diff of getScheduleDiffs(arrivalAtBoardingMin, nowMins, maxMinutes, arriveBy)) {
+      results.push({
+        minutes: Math.round(diff),
+        is_live: false,
+        routeId,
+        tripId,
+      })
     }
   }
 
@@ -276,108 +295,104 @@ function getNextDepartures(shape: ShapeInfo, tripId: string, boardingStopId: num
     return results.sort((a, b) => b.minutes - a.minutes).slice(0, limit).sort((a, b) => a.minutes - b.minutes)
   }
 
-  return results
+  return results.sort((a, b) => a.minutes - b.minutes).slice(0, limit)
 }
 
-function computeNextTimesForPlan(plan: { legs: RichLeg[], isDirect: boolean, walkStartMeters: number, walkEndMeters: number }, shapesMap: Record<string, ShapeInfo>, now: Date, arriveBy = false): TimeEntry[] {
+function getLegDepartures(
+  leg: RichLeg,
+  shapesMap: Record<string, ShapeInfo>,
+  now: Date,
+  limit = 3,
+  maxMinutes = MAX_MINUTES,
+  arriveBy = false
+): PlannedTimeEntry[] {
+  const times: PlannedTimeEntry[] = []
+  for (let i = 0; i < leg.routeIds.length; i++) {
+    const routeId = leg.routeIds[i]
+    const tripId = leg.tripIds[i]
+    if (routeId === undefined || !tripId) continue
+    const shape = shapesMap[String(routeId)]
+    if (!shape) continue
+    times.push(...getTripDeparturesAtStop(shape, tripId, routeId, leg.startStopId, now, limit, maxMinutes, arriveBy))
+  }
+  return times.sort((a, b) => arriveBy ? b.minutes - a.minutes : a.minutes - b.minutes).slice(0, limit)
+}
+
+function getRideMinutes(leg: RichLeg, shapesMap: Record<string, ShapeInfo>, tripId?: string): number {
+  const selectedTripId = tripId ?? leg.tripIds[0]
+  if (!selectedTripId) return Math.ceil(leg.rideSeconds / 60)
+  const routeId = leg.routeIds[leg.tripIds.indexOf(selectedTripId)] ?? leg.routeIds[0]
+  const shape = routeId !== undefined ? shapesMap[String(routeId)] : undefined
+  const fromStopTimes = shape ? getShapeStopTimes(shape) : []
+  const fromStopTimesRide = fromStopTimes.length
+    ? getRideMinutesBetweenStops(fromStopTimes, selectedTripId, leg.startStopId, leg.destStopId)
+    : 0
+  return fromStopTimesRide || Math.ceil(leg.rideSeconds / 60)
+}
+
+function hasScheduledConnection(
+  plan: { legs: RichLeg[], isDirect: boolean, walkTransferMeters: number },
+  firstDeparture: PlannedTimeEntry,
+  shapesMap: Record<string, ShapeInfo>,
+  now: Date,
+): boolean {
+  if (plan.isDirect || plan.legs.length < 2) return true
+  const leg1 = plan.legs[0]!
+  const leg2 = plan.legs[1]!
+  const transferWalkMin = plan.walkTransferMeters / WALK_SPEED
+  const leg1RideMin = getRideMinutes(leg1, shapesMap, firstDeparture.tripId)
+  const readyForLeg2 = new Date(now.getTime() + (firstDeparture.minutes + leg1RideMin + transferWalkMin) * 60_000)
+  return getLegDepartures(leg2, shapesMap, readyForLeg2, 1, MAX_MINUTES, false).length > 0
+}
+
+function computeNextTimesForPlan(
+  plan: { legs: RichLeg[], isDirect: boolean, walkStartMeters: number, walkEndMeters: number, walkTransferMeters: number },
+  shapesMap: Record<string, ShapeInfo>,
+  now: Date,
+  arriveBy = false
+): PlannedTimeEntry[] {
   const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const walkEndMin = plan.walkEndMeters / WALK_SPEED
   if (plan.isDirect) {
     const leg = plan.legs[0]!
-    const times: TimeEntry[] = []
-    for (let i = 0; i < leg.routeIds.length; i++) {
-      const shape = shapesMap[String(leg.routeIds[i]!)]
-      const tripId = leg.tripIds[i]
-      if (!shape || !tripId) continue
-
-      // For arriveBy, the "now" is the requested arrival time at destination.
-      // We must arrive at boarding stop by now - rideTime - walkEnd.
-      const refTime = arriveBy ? new Date(now.getTime() - (leg.rideSeconds / 60 + walkEndMin) * 60_000) : now
-      const deps = getNextDepartures(shape, tripId, leg.startStopId, refTime, 4, MAX_MINUTES, arriveBy)
-      const offset = (refTime.getTime() - now.getTime()) / 60_000
-      times.push(...deps.map(t => ({ ...t, minutes: t.minutes + offset }))
-        .filter(t => arriveBy || t.minutes >= walkStartMin))
-    }
+    // For arriveBy, the reference is the latest time the rider can board.
+    const rideMin = getRideMinutes(leg, shapesMap)
+    const refTime = arriveBy ? new Date(now.getTime() - (rideMin + walkEndMin) * 60_000) : now
+    const offset = (refTime.getTime() - now.getTime()) / 60_000
+    const times = getLegDepartures(leg, shapesMap, refTime, 6, MAX_MINUTES, arriveBy)
+      .map(t => ({ ...t, minutes: t.minutes + offset }))
+      .filter(t => arriveBy || t.minutes >= walkStartMin)
     return times.sort((a, b) => a.minutes - b.minutes).slice(0, 3)
   } else {
     const leg1 = plan.legs[0]!
     const leg2 = plan.legs[1]!
-    const shape1 = shapesMap[String(leg1.routeIds[0]!)]
-    const tripId1 = leg1.tripIds[0]
-    if (!shape1 || !tripId1) return []
 
     if (arriveBy) {
-      // ArriveBy for transfers:
-      // 1. Find leg2 departures that arrive before (now - walkEnd)
-      // 2. Find leg1 departures that arrive before leg2 departure
-      const walkEndMin = plan.walkEndMeters / WALK_SPEED
-      const refTime2Base = new Date(now.getTime() - walkEndMin * 60_000 - (leg2.rideSeconds / 60) * 60_000)
-
-      const allLeg2Deps: Array<TimeEntry & { routeId: number, tripId: string }> = []
-      for (let i = 0; i < leg2.routeIds.length; i++) {
-        const rid = leg2.routeIds[i]!
-        const tid = leg2.tripIds[i]!
-        const shape = shapesMap[String(rid)]
-        if (!shape) continue
-        const deps = getNextDepartures(shape, tid, leg2.startStopId, refTime2Base, 5, MAX_MINUTES, true)
-        allLeg2Deps.push(...deps.map(t => ({ ...t, routeId: rid, tripId: tid })))
-      }
-      const leg2Deps = allLeg2Deps.sort((a, b) => b.minutes - a.minutes).slice(0, 5)
-
-      const valid: TimeEntry[] = []
+      const refTime2Base = new Date(now.getTime() - walkEndMin * 60_000 - getRideMinutes(leg2, shapesMap) * 60_000)
+      const leg2Deps = getLegDepartures(leg2, shapesMap, refTime2Base, 8, MAX_MINUTES, true)
+      const valid: PlannedTimeEntry[] = []
       for (const t2 of leg2Deps) {
-        const arrivalAtTransfer = new Date(refTime2Base.getTime() + t2.minutes * 60_000)
-        const refTime1Base = new Date(arrivalAtTransfer.getTime() - (leg1.rideSeconds / 60) * 60_000)
-
-        let bestT1: TimeEntry | null = null
-        for (let i = 0; i < leg1.routeIds.length; i++) {
-          const rid = leg1.routeIds[i]!
-          const tid = leg1.tripIds[i]!
-          const shape = shapesMap[String(rid)]
-          if (!shape) continue
-          const leg1Deps = getNextDepartures(shape, tid, leg1.startStopId, refTime1Base, 1, 30, true)
-          if (leg1Deps.length > 0) {
-            const t = leg1Deps[0]!
-            if (!bestT1 || t.minutes > bestT1.minutes) {
-              bestT1 = t
-            }
-          }
-        }
+        const leg2BoardTime = new Date(refTime2Base.getTime() + t2.minutes * 60_000)
+        const refTime1Base = new Date(leg2BoardTime.getTime() - (getRideMinutes(leg1, shapesMap) + plan.walkTransferMeters / WALK_SPEED) * 60_000)
+        const bestT1 = getLegDepartures(leg1, shapesMap, refTime1Base, 1, MAX_MINUTES, true)[0]
 
         if (bestT1) {
           valid.push({
+            ...bestT1,
             minutes: bestT1.minutes + (refTime1Base.getTime() - now.getTime()) / 60_000,
-            is_live: false
+            is_live: false,
+            transferRouteId: t2.routeId,
+            transferTripId: t2.tripId,
           })
         }
       }
       return valid.sort((a, b) => b.minutes - a.minutes).slice(0, 3).sort((a, b) => a.minutes - b.minutes)
     } else {
-      const allLeg1Deps: TimeEntry[] = []
-      for (let i = 0; i < leg1.routeIds.length; i++) {
-        const rid = leg1.routeIds[i]!
-        const tid = leg1.tripIds[i]!
-        const shape = shapesMap[String(rid)]
-        if (!shape) continue
-        allLeg1Deps.push(...getNextDepartures(shape, tid, leg1.startStopId, now, 5, MAX_MINUTES, false)
-          .filter(t => t.minutes >= walkStartMin))
-      }
-      const leg1Deps = allLeg1Deps.sort((a, b) => a.minutes - b.minutes).slice(0, 10)
-
-      const valid: TimeEntry[] = []
+      const leg1Deps = getLegDepartures(leg1, shapesMap, now, 12, MAX_MINUTES, false)
+        .filter(t => t.minutes >= walkStartMin)
+      const valid: PlannedTimeEntry[] = []
       for (const t1 of leg1Deps) {
-        const arrivalAtTransfer = new Date(now.getTime() + (t1.minutes + Math.ceil(leg1.rideSeconds / 60)) * 60_000)
-        let hasConnection = false
-        for (let j = 0; j < leg2.routeIds.length; j++) {
-          const shape2 = shapesMap[String(leg2.routeIds[j]!)]
-          const tripId2 = leg2.tripIds[j]
-          if (!shape2 || !tripId2) continue
-          if (getNextDepartures(shape2, tripId2, leg2.startStopId, arrivalAtTransfer, 1, 30, false).length > 0) {
-            hasConnection = true
-            break
-          }
-        }
-        if (hasConnection) valid.push(t1)
+        if (hasScheduledConnection(plan, t1, shapesMap, now)) valid.push(t1)
       }
       return valid.sort((a, b) => a.minutes - b.minutes).slice(0, 3)
     }
@@ -423,6 +438,55 @@ function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; 
   return Array.from(groups.values())
 }
 
+function stopSequenceIndex(shape: ShapeInfo, tripId: string, stopId: number): number {
+  return getShapeStopTimes(shape).find(st => st.trip_id === tripId && st.stop_id === stopId)?.stop_sequence ?? -1
+}
+
+function resolveTripIdForLeg(routeId: number, fallbackTripId: string, startStopId: number, destStopId: number, shape: ShapeInfo | undefined): string {
+  if (!shape) return fallbackTripId
+
+  const candidates = [`${routeId}_0`, `${routeId}_1`]
+  for (const tripId of candidates) {
+    const startSeq = stopSequenceIndex(shape, tripId, startStopId)
+    const destSeq = stopSequenceIndex(shape, tripId, destStopId)
+    if (startSeq >= 0 && destSeq > startSeq) return tripId
+  }
+
+  return fallbackTripId
+}
+
+function normalizeLegDirections(
+  grouped: ReturnType<typeof groupPlans>,
+  shapesMap: Record<string, ShapeInfo>,
+): ReturnType<typeof groupPlans> {
+  return grouped.map(plan => ({
+    ...plan,
+    legs: plan.legs.map(leg => {
+      const routeIds: number[] = []
+      const tripIds: string[] = []
+
+      for (let i = 0; i < leg.routeIds.length; i++) {
+        const routeId = leg.routeIds[i]
+        const tripId = leg.tripIds[i]
+        if (routeId === undefined || !tripId) continue
+
+        const normalizedTripId = resolveTripIdForLeg(
+          routeId,
+          tripId,
+          leg.startStopId,
+          leg.destStopId,
+          shapesMap[String(routeId)],
+        )
+        if (routeIds.includes(routeId)) continue
+        routeIds.push(routeId)
+        tripIds.push(normalizedTripId)
+      }
+
+      return {...leg, routeIds, tripIds}
+    })
+  }))
+}
+
 function enrichWithAlternativesFromShapes(
   grouped: ReturnType<typeof groupPlans>,
   shapesMap: Record<string, ShapeInfo>,
@@ -443,7 +507,7 @@ function enrichWithAlternativesFromShapes(
         const routeId = parseInt(routeIdStr)
         if (isNaN(routeId) || mergedRouteIds.includes(routeId)) continue
 
-        const tripId = `${routeId}_${dir}`
+        const tripId = resolveTripIdForLeg(routeId, `${routeId}_${dir}`, leg.startStopId, leg.destStopId, shape)
         const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tripId)
         if (!stopTimes.length) continue
 
@@ -459,7 +523,7 @@ function enrichWithAlternativesFromShapes(
 
         // Reject if the route has no departure from the boarding stop within 30 min.
         // This filters out routes that don't run today or not at this hour (e.g. night buses).
-        if (!getNextDepartures(shape, tripId, leg.startStopId, now, 1, 30).length) continue
+        if (!getTripDeparturesAtStop(shape, tripId, routeId, leg.startStopId, now, 1, 30).length) continue
 
         mergedRouteIds.push(routeId)
         mergedTripIds.push(tripId)
@@ -497,6 +561,87 @@ function buildRichPlan(
   }
 }
 
+function getDecayedLiveEntries(entries: StoredLiveEta[] | undefined, now: Date): PlannedTimeEntry[] {
+  if (!entries?.length) return []
+  return entries
+    .map(({ts, ...entry}) => ({
+      ...entry,
+      minutes: entry.minutes - (now.getTime() - ts) / 60_000,
+    }))
+    .filter(entry => entry.minutes > 0 && entry.minutes <= MAX_MINUTES)
+    .sort((a, b) => a.minutes - b.minutes)
+}
+
+function mergeLiveAndScheduled(
+  plan: RichPlan,
+  liveEntries: PlannedTimeEntry[],
+  scheduledEntries: PlannedTimeEntry[],
+): PlannedTimeEntry[] {
+  const walkStartMin = plan.walkStartMeters / WALK_SPEED
+  const catchableLive = liveEntries.filter(entry => entry.minutes >= walkStartMin)
+  const liveTripKeys = new Set(catchableLive.map(entry => `${entry.routeId ?? ''}:${entry.tripId ?? ''}`))
+  const scheduledWithoutLive = scheduledEntries.filter(entry => !liveTripKeys.has(`${entry.routeId ?? ''}:${entry.tripId ?? ''}`))
+  const merged: PlannedTimeEntry[] = []
+  const seen = new Set<string>()
+
+  // When a live vehicle exists for this plan, make it the primary displayed
+  // value. Static alternatives stay visible in the secondary "then" slots.
+  const entries = catchableLive.length
+    ? [...catchableLive.sort((a, b) => a.minutes - b.minutes), ...scheduledWithoutLive.sort((a, b) => a.minutes - b.minutes)]
+    : scheduledEntries.sort((a, b) => a.minutes - b.minutes)
+
+  for (const entry of entries) {
+    const key = `${entry.is_live ? 'L' : 'S'}:${entry.routeId ?? ''}:${entry.tripId ?? ''}:${Math.round(entry.minutes)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(entry)
+    if (merged.length >= 3) break
+  }
+
+  return merged.length ? merged : scheduledEntries.slice(0, 3)
+}
+
+function applyPlanTimingFromSchedule(now: Date) {
+  const data = planData.value
+  if (!data?.shapes || !routesWithTimes.value.length) return
+  const isArriveBy = timeMode.value === 'arrive'
+  const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
+  const offsetMin = (requestedTime.getTime() - now.getTime()) / 60_000
+
+  for (const plan of routesWithTimes.value) {
+    const scheduled = computeNextTimesForPlan(plan, data.shapes, requestedTime, isArriveBy)
+      .map(t => ({ ...t, minutes: t.minutes + offsetMin }))
+    const liveEntries = timeMode.value === 'now'
+      ? getDecayedLiveEntries(liveEtaByKey.value.get(plan.key), now)
+        .filter(entry => hasScheduledConnection(plan, entry, data.shapes, now))
+      : []
+
+    plan.isLive = liveEntries.length > 0
+    if (scheduled.length > 0 || liveEntries.length > 0) {
+      plan.nextTimes = mergeLiveAndScheduled(plan, liveEntries, scheduled)
+    } else {
+      plan.nextTimes = plan.nextTimes.filter(t => !t.is_live)
+    }
+  }
+
+  updateSelectedLiveState(now)
+}
+
+function updateSelectedLiveState(now: Date = userTime.value || new Date()) {
+  const plan = selectedPlan.value
+  if (!plan) {
+    selectedRouteIsLive.value = false
+    selectedRouteLiveEtaMin.value = null
+    return
+  }
+
+  const walkStartMin = plan.walkStartMeters / WALK_SPEED
+  const liveEntries = getDecayedLiveEntries(liveEtaByKey.value.get(plan.key), now)
+  const catchable = liveEntries.find(entry => entry.minutes >= walkStartMin)
+  selectedRouteIsLive.value = liveEntries.length > 0
+  selectedRouteLiveEtaMin.value = catchable?.minutes ?? null
+}
+
 const streamTripIds = computed(() => {
   if (!isActive.value || timeMode.value !== 'now') return []
   if (!routesWithTimes.value.length) return []
@@ -521,7 +666,11 @@ watch(planData, (data) => {
   const isArriveBy = timeMode.value === 'arrive'
   const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
 
-  const grouped = enrichWithAlternativesFromShapes(groupPlans(data.plans), data.shapes, requestedTime)
+  const grouped = enrichWithAlternativesFromShapes(
+    normalizeLegDirections(groupPlans(data.plans), data.shapes),
+    data.shapes,
+    requestedTime,
+  )
   const results: RichPlan[] = []
   for (const plan of grouped) {
     const rich = buildRichPlan(plan, data.shapes, requestedTime, isArriveBy)
@@ -544,72 +693,36 @@ watch(planData, (data) => {
 
 // Update departure times in-place on every clock tick — no re-sort, no DOM churn
 watch(userTime, (uTime) => {
-  const data = planData.value
-  if (!data?.shapes || !routesWithTimes.value.length) return
-  const now = uTime || new Date()
-  const isArriveBy = timeMode.value === 'arrive'
-  const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
-  const offsetMin = (requestedTime.getTime() - now.getTime()) / 60_000
-
-  for (const plan of routesWithTimes.value) {
-    const newTimes = computeNextTimesForPlan(plan, data.shapes, requestedTime, isArriveBy)
-    // Adjust nextTimes to be relative to "now" (real current time)
-    const adjustedTimes = newTimes.map(t => ({ ...t, minutes: t.minutes + offsetMin }))
-
-    const stored = liveEtaByKey.value.get(plan.key)
-    // Decay the stored ETA by elapsed time so the displayed time counts down
-    // smoothly between SSE updates, and the catchability check stays stable.
-    const liveEta = stored !== undefined
-      ? stored.eta - (now.getTime() - stored.ts) / 60_000
-      : undefined
-    const walkStartMin = plan.walkStartMeters / WALK_SPEED
-    if (liveEta !== undefined && liveEta >= walkStartMin) {
-      plan.isLive = true
-      plan.nextTimes = [{ minutes: liveEta, is_live: true }, ...adjustedTimes.slice(0, 2)]
-    } else {
-      plan.isLive = liveEta !== undefined // preserve LIVE pill if bus exists but isn't catchable yet
-      // Guard: only overwrite nextTimes when we have fresh scheduled alternatives,
-      // to prevent the time block from transiently disappearing on empty timetable windows.
-      if (adjustedTimes.length > 0) {
-        plan.nextTimes = adjustedTimes
-      } else {
-        // No scheduled alternatives right now – drop any stale live entry but keep
-        // whatever scheduled entries are already present to avoid a blank display.
-        plan.nextTimes = plan.nextTimes.filter(t => !t.is_live)
-      }
-    }
-  }
-  // Keep the selected-plan live ETA counting down between SSE updates.
-  if (selectedPlan.value) {
-    const stored = liveEtaByKey.value.get(selectedPlan.value.key)
-    if (stored !== undefined) {
-      selectedRouteLiveEtaMin.value = stored.eta - (now.getTime() - stored.ts) / 60_000
-    }
-  }
+  applyPlanTimingFromSchedule(uTime || new Date())
 })
 
 const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
 const currentVehicles = ref<IndexedVehicle[]>([])
 
-// === SINGLE shape geometry fetch: load ALL trip shapes once when planData arrives ===
-watch([planData, mapActivationKey], async ([data]) => {
-  if (!data?.plans?.length) {
+// === SINGLE shape geometry fetch: load ALL trip shapes once when route options are known ===
+watch([routesWithTimes, mapActivationKey], async ([plans]) => {
+  if (!plans.length) {
     shapeIndicesByTripId.value = new Map()
     mapStore.setLoadedShapes([])
     return
   }
 
-  // Build trip_id → route_id mapping from the plans (plan_routes already gives us this)
+  // Build trip_id → route_id mapping from the displayed plans, including
+  // alternatives inferred from plan_routes.shapes.
   const tripToRouteId = new Map<string, number>()
-  for (const p of data.plans) {
+  for (const p of plans) {
     for (const leg of p.legs) {
-      tripToRouteId.set(leg.trip_id, leg.route_id)
+      for (let i = 0; i < leg.tripIds.length; i++) {
+        const tid = leg.tripIds[i]
+        const routeId = leg.routeIds[i]
+        if (tid && routeId !== undefined) tripToRouteId.set(tid, routeId)
+      }
     }
   }
 
   const toRequest: DisplayShape[] = []
   for (const [tid, routeId] of tripToRouteId) {
-    const s = data.shapes[String(routeId)]
+    const s = shapes.value[String(routeId)]
     if (!s) continue
     toRequest.push({
       trip_id: tid,
@@ -707,15 +820,15 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
   }
 
   const gen = ++vehicleTrackingGen
-  const newLiveEtas = new Map<string, { eta: number; ts: number }>()
-  const planUpdates = new Map<string, { isLive: boolean; bestEta: number | null }>()
+  const newLiveEtas = new Map<string, StoredLiveEta[]>()
+  const now = userTime.value || new Date()
 
-  // Compute live ETA for every plan's first leg boarding stop
+  // Compute live ETA for every plan's first leg boarding stop, route by route.
   for (const plan of routesWithTimes.value) {
     const leg = plan.legs[0]
     if (!leg) continue
 
-    let bestEta: number | null = null
+    const liveEntries: StoredLiveEta[] = []
 
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
@@ -749,8 +862,14 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
 
         const eta = etaForStop(boardingIdx, indexed, shapeIndex)
         if (eta && eta.etaMinutes <= MAX_MINUTES) {
-          if (bestEta === null || eta.etaMinutes < bestEta) {
-            bestEta = eta.etaMinutes
+          const entry: PlannedTimeEntry = {
+            minutes: eta.etaMinutes,
+            is_live: true,
+            routeId,
+            tripId: tid,
+          }
+          if (hasScheduledConnection(plan, entry, shapes.value, now)) {
+            liveEntries.push({...entry, ts: Date.now()})
           }
         }
       } catch (e) {
@@ -758,49 +877,16 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
       }
     }
 
-    planUpdates.set(plan.key, { isLive: bestEta !== null, bestEta })
+    if (liveEntries.length) {
+      newLiveEtas.set(plan.key, liveEntries.sort((a, b) => a.minutes - b.minutes).slice(0, 3))
+    }
   }
 
   // Discard if a newer computation has started
   if (gen !== vehicleTrackingGen) return
 
-  // Apply all ETA updates atomically (no flickering)
-  for (const plan of routesWithTimes.value) {
-    const update = planUpdates.get(plan.key)
-    if (!update) continue
-
-    if (update.bestEta !== null) {
-      const walkStartMin = plan.walkStartMeters / WALK_SPEED
-      const catchable = update.bestEta >= walkStartMin
-      plan.isLive = true
-      // Always store the ETA (even when not yet catchable) so the userTime watcher
-      // can keep isLive = true on every clock tick via `liveEta !== undefined`.
-      // Storing a timestamp lets the clock tick watcher decay the ETA smoothly,
-      // avoiding oscillation when bus speed fluctuations flip the catchability check.
-      newLiveEtas.set(plan.key, { eta: update.bestEta, ts: Date.now() })
-      if (catchable) {
-        plan.nextTimes = [
-          { minutes: update.bestEta, is_live: true },
-          ...plan.nextTimes.filter(t => !t.is_live).slice(0, 2)
-        ]
-      }
-    } else {
-      plan.isLive = false
-    }
-  }
-
   liveEtaByKey.value = newLiveEtas
-
-  // Update selected plan live state
-  const plan = selectedPlan.value
-  if (plan) {
-    const stored = newLiveEtas.get(plan.key)
-    selectedRouteIsLive.value = plan.isLive
-    selectedRouteLiveEtaMin.value = stored?.eta ?? null
-  } else {
-    selectedRouteIsLive.value = false
-    selectedRouteLiveEtaMin.value = null
-  }
+  applyPlanTimingFromSchedule(now)
 
   // Compute vehicles for selected plan's map display
   updateMapVehicles(byTrip, indices)
@@ -811,6 +897,7 @@ watch(selectedPlanSignature, () => {
   // Clear old vehicles immediately to avoid stale markers
   currentVehicles.value = []
   mapStore.setVehiclesToDisplay([])
+  updateSelectedLiveState()
   // Then recompute for new plan
   updateMapVehicles(vehiclesByTrip.value, shapeIndicesByTripId.value)
 })
