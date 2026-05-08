@@ -308,6 +308,18 @@ onUnmounted(() => {
   top: calc(100% + 0.5rem);
   right: 0;
   width: min(19rem, calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  max-height: calc(
+    100dvh -
+    (
+      v-bind(topValue) +
+      env(safe-area-inset-top) +
+      2.25rem +
+      0.5rem +
+      env(safe-area-inset-bottom) +
+      0.75rem
+    )
+  );
+  overflow-y: auto;
   background: #ffffff;
   border-radius: 0.875rem;
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 1px 6px rgba(0, 0, 0, 0.08);
