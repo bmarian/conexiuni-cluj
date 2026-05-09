@@ -458,7 +458,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           {{ t('allRoutes') }}
         </h2>
 
-        <p v-if="isHydrated && !hasFavorites"
+        <p v-if="isHydrated && !hasFavorites && !(isOnline && recentNonFavoritePlans.length)"
            class="no-favorites-hint text-xs leading-relaxed -mt-1 mb-1">
           {{ t('noFavorites') }}
         </p>
