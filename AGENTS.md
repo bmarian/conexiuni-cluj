@@ -110,7 +110,7 @@ All routes are registered in `backend/handlers/register.go`.
 | `GET /api/vehicles/stream?trip_ids=a,b` | `vehicle_stream.go` | SSE stream, adaptive polling from `vehicle_interval.go`. |
 | `GET /api/plan_routes?...` | `plan_routes.go` | Route planner backed by OpenTripPlanner. |
 | `GET /api/gtfs.zip` | `gtfs_export.go` | Generated GTFS for OTP from cached Tranzy/CTP data. |
-| `GET /api/news` | `news.go` | Scraped CTP news with in-memory cache. |
+| `GET /api/news` | `news.go` | Scraped CTP news; database-backed cache with TTL expiration, serves stale on fetch failure. |
 
 Static-ish endpoints set `Cache-Control: max-age=3600, stale-while-revalidate=86400`; live vehicles use `no-store`; SSE uses `no-cache`.
 
@@ -252,9 +252,11 @@ Deployment server only:
 ```bash
 ./update.sh
 ./update.sh --update-pbf
+./update.sh --delete-db
+./update.sh --delete-logs
 ```
 
-`update.sh` pulls, installs frontend deps, builds frontend, builds the Go binary, copies env files into `backend/`, prepares OTP/Osmosis assets, optionally refreshes/crops PBF data, and restarts the `conexiuni-cluj` systemd service. It is for the deployment host only. Agents should not run it in local development.
+`update.sh` pulls, installs frontend deps, builds frontend, builds the Go binary, copies env files into `backend/`, prepares OTP/Osmosis assets, optionally refreshes/crops PBF data, and restarts the `conexiuni-cluj` systemd service. `--delete-db` removes `conexiuni-cluj.db` before restart; `--delete-logs` removes the `logs/` directory. It is for the deployment host only. Agents should not run it in local development.
 
 ## Testing And Verification
 
