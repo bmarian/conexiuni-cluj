@@ -884,6 +884,14 @@ html[data-legacy-blue] .route-view-container header > div:first-child {
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
 }
 
+html[data-legacy-blue] .route-view-container .route-header-label {
+  color: var(--xp-blue) !important;
+}
+
+html.dark[data-legacy-blue] .route-view-container .route-header-label {
+  color: var(--xp-blue) !important;
+}
+
 html[data-legacy-blue] .stop-view-container .text-emerald-600,
 html[data-legacy-blue] .stop-view-container .text-emerald-400,
 html[data-legacy-blue] .stop-view-container .text-emerald-500 {

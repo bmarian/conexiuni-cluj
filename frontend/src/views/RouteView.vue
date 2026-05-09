@@ -558,7 +558,7 @@ onUnmounted(() => {
       </div>
       <div class="flex-1 min-w-0">
         <div
-          class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
+          class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
           {{ t('route') }}
         </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
