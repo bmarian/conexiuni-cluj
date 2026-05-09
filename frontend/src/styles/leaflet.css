@@ -45,7 +45,9 @@
   border-radius: 0.5rem !important;
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.10) !important;
   padding: 6px 10px !important;
-  max-width: 200px !important;
+  width: max-content !important;
+  min-width: 170px !important;
+  max-width: min(320px, calc(100vw - 48px)) !important;
   white-space: normal !important;
 }
 
@@ -57,12 +59,14 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 .pin-tip-sub {
   font-size: 11px;
   color: #64748b;
   margin-top: 1px;
+  overflow-wrap: break-word;
 }
 
 :root.dark .pin-tooltip {
@@ -466,5 +470,4 @@
   background: #1A2F5A !important;
   color: rgba(224, 230, 242, 0.40) !important;
 }
-
 

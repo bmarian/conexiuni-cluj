@@ -729,7 +729,7 @@ watch([pinnedLocation, arcadeActive, legacyBlueActive], ([loc]) => {
   const {lat, lng, label} = loc as {lat: number; lng: number; label: string}
   const parts = label.split(',').map((p: string) => p.trim())
   const main = parts[0] ?? label
-  const sub = parts.slice(1, 3).join(', ')
+  const sub = parts.slice(1).join(', ')
   const tooltipHtml = sub
     ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
     : `<div class="pin-tip-main">${main}</div>`
@@ -758,7 +758,7 @@ watch([customOriginLocation, arcadeActive, legacyBlueActive], ([loc]) => {
   const {lat, lng, label} = loc as {lat: number; lng: number; label: string}
   const parts = label.split(',').map((p: string) => p.trim())
   const main = parts[0] ?? label
-  const sub = parts.slice(1, 3).join(', ')
+  const sub = parts.slice(1).join(', ')
   const tooltipHtml = sub
     ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
     : `<div class="pin-tip-main">${main}</div>`

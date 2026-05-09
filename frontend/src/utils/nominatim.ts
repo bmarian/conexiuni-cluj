@@ -65,7 +65,7 @@ function formatStreetLabel(geocoding: GeocodingData | undefined, fallback: strin
 }
 
 function makeFallbackLabel(lat: string, lon: string): string {
-  return `${lat}, ${lon}`
+  return `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`
 }
 
 function mapFeatureToPlace(feature: GeocodeJsonFeature, index: number): NominatimPlace | null {

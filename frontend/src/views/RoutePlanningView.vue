@@ -1116,9 +1116,9 @@ const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStor
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
     const result = await reverseNominatimPlace(lat, lon, locale.value)
-    return result?.label ?? `${lat}, ${lon}`
+    return result?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   } catch { /* ignore */ }
-  return `${lat}, ${lon}`
+  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 }
 
 let destDragGen = 0
@@ -1360,10 +1360,10 @@ async function calculateRoutes() {
     const fromLat = 'latitude' in origin ? origin.latitude : (origin as {lat: number}).lat
     const fromLng = 'longitude' in origin ? origin.longitude : (origin as {lon: number}).lon
     const params = new URLSearchParams({
-      from_lat: fromLat.toString(),
-      from_lng: fromLng.toString(),
-      to_lat: lat.toString(),
-      to_lng: lon.toString(),
+      from_lat: fromLat.toFixed(4),
+      from_lng: fromLng.toFixed(4),
+      to_lat: lat.toFixed(4),
+      to_lng: lon.toFixed(4),
     })
     if (timeMode.value !== 'now' && timeValue.value) {
       params.set('time', timeValue.value)
