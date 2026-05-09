@@ -7,7 +7,7 @@ export default {
 <script setup lang="ts">
 import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
-import {RouterLink, useRoute, useRouter} from 'vue-router'
+import {RouterLink, useRoute, useRouter, type LocationQueryRaw} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
@@ -1145,7 +1145,7 @@ watch(pinnedLocationDragged, async (dragged) => {
   const name = await reverseGeocode(lat, lng)
   if (gen !== destDragGen) return
 
-  const newQuery = {...route.query, lat: lat.toString(), lon: lng.toString(), name}
+  const newQuery: LocationQueryRaw = {...route.query, lat: lat.toString(), lon: lng.toString(), name}
   delete newQuery.plan
   await router.replace({query: newQuery})
   activeSearchField.value = null
