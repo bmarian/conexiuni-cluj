@@ -228,6 +228,15 @@ const todayTab = computed((): TimetableTab => getTimetableDayKey(userTime.value 
 
 const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
 
+const timetableTabOrder: Record<TimetableTab, number> = {
+  weekdays: 0,
+  saturday: 1,
+  sunday: 2,
+}
+
+const isPastTab = (tab: TimetableTab): boolean =>
+  timetableTabOrder[tab] < timetableTabOrder[todayTab.value]
+
 const availableTabs = computed(() => {
   const tt = timetable.value
   if (!tt) return []
@@ -249,6 +258,7 @@ const timetableEntries = computed((): TimetableChip[] => {
         tt.weekdays
   if (!sched?.entries?.length) return []
   const isToday = selectedTimetableTab.value === todayTab.value
+  const selectedTabIsPast = isPastTab(selectedTimetableTab.value)
   const now = currentMinutes.value
   return sched.entries
     .map((entry): TimetableChip | null => {
@@ -256,7 +266,11 @@ const timetableEntries = computed((): TimetableChip[] => {
       if (!raw) return null
       const absMin = timeStringToMinutes(raw)
       if (absMin === null) return {time: raw, isPast: false, isSuspended: true}
-      return {time: raw, isPast: isToday && absMin < now, isSuspended: false}
+      return {
+        time: raw,
+        isPast: selectedTabIsPast || (isToday && absMin < now),
+        isSuspended: false,
+      }
     })
     .filter((e): e is TimetableChip => e !== null)
 })
@@ -755,7 +769,11 @@ onUnmounted(() => {
             v-for="tab in availableTabs"
             :key="tab.key"
             @click="selectedTimetableTab = tab.key"
-            :class="['tt-tab', selectedTimetableTab === tab.key ? 'tt-tab-active' : 'tt-tab-inactive']"
+            :class="[
+              'tt-tab',
+              selectedTimetableTab === tab.key ? 'tt-tab-active' : 'tt-tab-inactive',
+              isPastTab(tab.key) ? 'tt-tab-past' : '',
+            ]"
           >
             {{ tab.label }}
             <span v-if="tab.key === todayTab" class="tt-today-dot"></span>
@@ -1030,6 +1048,10 @@ onUnmounted(() => {
   background: #f8fafc;
   color: #334155;
   border-color: #cbd5e1;
+}
+
+.tt-tab-past {
+  opacity: 0.55;
 }
 
 .tt-today-dot {
