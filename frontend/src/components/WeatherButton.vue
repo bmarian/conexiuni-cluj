@@ -247,8 +247,27 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
+  .weather-root {
+    top: calc(0.75rem + env(safe-area-inset-top));
+    right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+  }
+
   .weather-root.landscape-open {
-    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
+    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+  }
+
+  .weather-popover {
+    max-height: calc(
+      100dvh -
+      (
+        0.75rem +
+        env(safe-area-inset-top) +
+        2.25rem +
+        0.5rem +
+        env(safe-area-inset-bottom) +
+        0.75rem
+      )
+    ) !important;
   }
 }
 

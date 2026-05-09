@@ -233,8 +233,13 @@ function setLocale(newLocale: 'ro' | 'en') {
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
+  .settings-root {
+    top: calc(0.75rem + env(safe-area-inset-top));
+    right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+  }
+
   .settings-root.landscape-open {
-    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
+    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
   }
 }
 

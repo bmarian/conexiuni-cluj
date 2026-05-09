@@ -178,8 +178,13 @@ const topValue = computed(() => props.topOffset)
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
+  .news-root {
+    top: calc(0.75rem + env(safe-area-inset-top));
+    right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+  }
+
   .news-root.landscape-open {
-    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
+    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
   }
 }
 

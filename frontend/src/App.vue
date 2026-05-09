@@ -215,15 +215,20 @@ function toggleLandscapeDrawer() {
   <main class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
     <MapComponent class="app-map"/>
-    <SettingsButton :class="{ 'landscape-open': isLandscapeDrawerOpen }"/>
+    <SettingsButton
+      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
+      :style="{ '--controls-row-index': 0 }"
+    />
     <NewsButton
       v-if="appSettings.showNews && isOnline"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
+      :style="{ '--controls-row-index': 1 }"
     />
     <WeatherButton
       v-if="appSettings.showWeather && isOnline"
       :top-offset="appSettings.showNews && isOnline ? '6.25rem' : '3.5rem'"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
+      :style="{ '--controls-row-index': appSettings.showNews && isOnline ? 2 : 1 }"
     />
     <ArcadeToast/>
     <button
