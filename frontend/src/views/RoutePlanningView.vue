@@ -44,10 +44,11 @@ import {
 } from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
 import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
+import {reverseNominatimPlace, searchNominatimPlaces, type NominatimPlace} from "@/utils/nominatim.ts"
 
 const MAX_MINUTES = 60
 const WALK_SPEED = 80 // m/min
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -78,17 +79,10 @@ type StoredLiveEta = PlannedTimeEntry & { ts: number }
 interface RichLeg { routeIds: number[]; tripIds: string[]; startStopId: number; destStopId: number; rideSeconds: number; intermediateStopIds: number[] }
 interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: PlannedTimeEntry[]; isLive: boolean; key: string }
 
-interface NominatimResult {
-  place_id: number
-  display_name: string
-  lat: string
-  lon: string
-}
-
 const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
 const activeSearchField = ref<'origin' | 'destination' | null>(null)
 const searchQuery = ref('')
-const searchResults = ref<NominatimResult[]>([])
+const searchResults = ref<NominatimPlace[]>([])
 const isSearching = ref(false)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -1121,19 +1115,10 @@ const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStor
 
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      lon: lon.toString(),
-      format: 'json',
-      'accept-language': 'ro',
-    })
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`)
-    if (resp.ok) {
-      const data = await resp.json()
-      return (data.display_name as string | undefined) ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`
-    }
+    const result = await reverseNominatimPlace(lat, lon, locale.value)
+    return result?.label ?? `${lat}, ${lon}`
   } catch { /* ignore */ }
-  return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+  return `${lat}, ${lon}`
 }
 
 let destDragGen = 0
@@ -1183,17 +1168,7 @@ async function performSearch() {
   }
   isSearching.value = true
   try {
-    const params = new URLSearchParams({
-      q,
-      format: 'json',
-      countrycodes: 'ro',
-      viewbox: '22.75,47.50,24.27,46.38',
-      bounded: '1',
-      limit: '5',
-      'accept-language': 'ro',
-    })
-    const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
-    searchResults.value = resp.ok ? await resp.json() : []
+    searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
   } finally {
     isSearching.value = false
   }
@@ -1204,9 +1179,9 @@ watch(searchQuery, () => {
   searchTimeout = setTimeout(performSearch, 500)
 })
 
-function selectOrigin(res: NominatimResult) {
+function selectOrigin(res: NominatimPlace) {
   customOrigin.value = {
-    name: res.display_name,
+    name: res.label,
     lat: parseFloat(res.lat),
     lon: parseFloat(res.lon)
   }
@@ -1217,13 +1192,13 @@ function selectOrigin(res: NominatimResult) {
   void calculateRoutes()
 }
 
-function selectDestination(res: NominatimResult) {
+function selectDestination(res: NominatimPlace) {
   if (!isOnline.value) return
   const newQuery = {
     ...route.query,
     lat: res.lat,
     lon: res.lon,
-    name: res.display_name
+    name: res.label
   }
   activeSearchField.value = null
   searchQuery.value = ''
@@ -1385,10 +1360,10 @@ async function calculateRoutes() {
     const fromLat = 'latitude' in origin ? origin.latitude : (origin as {lat: number}).lat
     const fromLng = 'longitude' in origin ? origin.longitude : (origin as {lon: number}).lon
     const params = new URLSearchParams({
-      from_lat: fromLat.toFixed(5),
-      from_lng: fromLng.toFixed(5),
-      to_lat: lat.toFixed(5),
-      to_lng: lon.toFixed(5),
+      from_lat: fromLat.toString(),
+      from_lng: fromLng.toString(),
+      to_lat: lat.toString(),
+      to_lng: lon.toString(),
     })
     if (timeMode.value !== 'now' && timeValue.value) {
       params.set('time', timeValue.value)
@@ -1670,12 +1645,11 @@ watch(timeValue, (val) => {
                 </div>
                 <div
                   v-for="res in searchResults"
-                  :key="res.place_id"
+                  :key="res.id"
                   class="search-result-item"
                   @click="selectOrigin(res)"
                 >
-                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
-                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                  <span class="res-main">{{ res.label }}</span>
                 </div>
               </template>
             </div>
@@ -1817,12 +1791,11 @@ watch(timeValue, (val) => {
                 </div>
                 <div
                   v-for="res in searchResults"
-                  :key="res.place_id"
+                  :key="res.id"
                   class="search-result-item"
                   @click="selectDestination(res)"
                 >
-                  <span class="res-main">{{ res.display_name.split(',')[0] }}</span>
-                  <span class="res-sub">{{ res.display_name.split(',').slice(1).join(',').trim() }}</span>
+                  <span class="res-main">{{ res.label }}</span>
                 </div>
               </template>
             </div>

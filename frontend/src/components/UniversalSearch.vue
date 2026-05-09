@@ -11,16 +11,10 @@ import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
+import {searchNominatimPlaces, type NominatimPlace} from '@/utils/nominatim.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 
-interface GeoResult {
-  place_id: number
-  display_name: string
-  lat: string
-  lon: string
-}
-
-interface EnrichedGeoResult extends GeoResult {
+interface EnrichedGeoResult extends NominatimPlace {
   parsedLat: number
   parsedLon: number
   dist: string | null
@@ -54,7 +48,7 @@ const {isOnline} = useOnline()
 
 const search = ref('')
 const navigatingRouteId = ref<number | null>(null)
-const geoResults = ref<GeoResult[]>([])
+const geoResults = ref<NominatimPlace[]>([])
 const geoLoading = ref(false)
 
 let geoDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -103,17 +97,7 @@ async function fetchGeo(q: string) {
   }
   geoLoading.value = true
   try {
-    const params = new URLSearchParams({
-      q,
-      format: 'json',
-      countrycodes: 'ro',
-      viewbox: '22.75,47.50,24.27,46.38',
-      bounded: '1',
-      limit: '3',
-      'accept-language': locale.value,
-    })
-    const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
-    const results: GeoResult[] = resp.ok ? await resp.json() : []
+    const results = await searchNominatimPlaces(q, locale.value, 3)
     const loc = userStore.userLocation
     geoResults.value = loc && results.length > 1
       ? sortByDistance(results, loc.latitude, loc.longitude, r => parseFloat(r.lat), r => parseFloat(r.lon))
@@ -156,14 +140,13 @@ const enrichedGeoResults = computed<EnrichedGeoResult[]>(() =>
   geoResults.value.map(r => {
     const parsedLat = parseFloat(r.lat)
     const parsedLon = parseFloat(r.lon)
-    const parts = r.display_name.split(',').map(p => p.trim())
     return {
       ...r,
       parsedLat,
       parsedLon,
       dist: distanceFrom(parsedLat, parsedLon),
-      main: parts[0] ?? r.display_name,
-      sub: parts.slice(1, 3).join(', '),
+      main: r.label,
+      sub: '',
     }
   })
 )
@@ -175,13 +158,13 @@ const stopResultsWithDist = computed<StopWithDist[]>(() =>
   }))
 )
 
-function navigateToPlan(result: GeoResult) {
+function navigateToPlan(result: NominatimPlace) {
   search.value = ''
 
   const lat = parseFloat(result.lat)
   const lon = parseFloat(result.lon)
   if (!isNaN(lat) && !isNaN(lon)) {
-    favoritesStore.addRecentPlan({name: result.display_name, lat, lon})
+    favoritesStore.addRecentPlan({name: result.label, lat, lon})
   }
 
   void router.push({
@@ -189,7 +172,7 @@ function navigateToPlan(result: GeoResult) {
     query: {
       lat: result.lat,
       lon: result.lon,
-      name: result.display_name,
+      name: result.label,
     },
   })
 }
@@ -265,7 +248,7 @@ function navigateToStop(stop: Stop) {
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div
             v-for="result in enrichedGeoResults"
-            :key="result.place_id"
+            :key="result.id"
             class="geo-result-row group"
             role="button"
             tabindex="0"
