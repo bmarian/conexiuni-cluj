@@ -94,6 +94,22 @@ const themeOpts = (): IconThemeOptions => ({
   legacyBlueActive: legacyBlueActive.value,
 })
 
+const useTouchDragLift = () =>
+  typeof window !== 'undefined'
+  && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
+
+const togglePlannerDragLift = (marker: L.Marker, active: boolean) => {
+  const el = marker.getElement()
+  if (!el) return
+  el.classList.toggle('planner-drag-lift', active)
+}
+
+const attachPlannerDragLift = (marker: L.Marker) => {
+  if (!useTouchDragLift()) return
+  marker.on('dragstart', () => togglePlannerDragLift(marker, true))
+  marker.on('dragend', () => togglePlannerDragLift(marker, false))
+}
+
 const stopIconForId = (stopId: string) =>
   makeStopIcon(favoritesStore.isStopFavorite(parseInt(stopId)), themeOpts())
 
@@ -739,6 +755,8 @@ watch([pinnedLocation, arcadeActive, legacyBlueActive], ([loc]) => {
     interactive: true,
     draggable: true,
   })
+  attachPlannerDragLift(pinMarker.value)
+  pinMarker.value
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
   pinMarker.value.on('dragend', () => {
@@ -768,6 +786,8 @@ watch([customOriginLocation, arcadeActive, legacyBlueActive], ([loc]) => {
     interactive: true,
     draggable: true,
   })
+  attachPlannerDragLift(originMarker.value)
+  originMarker.value
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
   originMarker.value.on('dragend', () => {

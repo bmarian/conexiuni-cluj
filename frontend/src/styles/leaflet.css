@@ -471,3 +471,24 @@
   color: rgba(224, 230, 242, 0.40) !important;
 }
 
+@media (pointer: coarse) {
+  .leaflet-marker-icon.planner-drag-lift {
+    position: relative;
+    margin-top: -34px !important;
+  }
+
+  .leaflet-marker-icon.planner-drag-lift::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -28px;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-radius: 9999px;
+    background: #0f172a;
+    border: 1px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+  }
+}
