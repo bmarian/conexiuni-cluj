@@ -172,10 +172,58 @@ const otpPlanQuery = `{
   }
 }`
 
-// callOTP makes a trip planning request to the local OTP GraphQL API.
-func callOTP(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bool) (*otpPlan, error) {
+// otpWalkOnlyPlanQuery asks OTP for a walking-only itinerary so the frontend
+// can always show a walk alternative.
+const otpWalkOnlyPlanQuery = `{
+  plan(
+    from: { lat: %f, lon: %f }
+    to:   { lat: %f, lon: %f }
+    date: "%s"
+    time: "%s"
+    arriveBy: %t
+    numItineraries: 1
+    transportModes: [{ mode: WALK }]
+  ) {
+    itineraries {
+      duration
+      walkTime
+      walkDistance
+      legs {
+        mode
+        duration
+        distance
+        from {
+          name
+          lat
+          lon
+          stop { gtfsId }
+        }
+        to {
+          name
+          lat
+          lon
+          stop { gtfsId }
+        }
+        route {
+          gtfsId
+          shortName
+          longName
+        }
+        intermediateStops {
+          name
+          lat
+          lon
+          gtfsId
+        }
+        legGeometry { points length }
+      }
+    }
+  }
+}`
+
+func callOTPWithQuery(queryTpl string, fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bool) (*otpPlan, error) {
 	base := otpBaseURL()
-	query := fmt.Sprintf(otpPlanQuery, fromLat, fromLng, toLat, toLng,
+	query := fmt.Sprintf(queryTpl, fromLat, fromLng, toLat, toLng,
 		when.Format("2006-01-02"), when.Format("15:04"), arriveBy)
 
 	payload, err := json.Marshal(map[string]string{"query": query})
@@ -213,6 +261,16 @@ func callOTP(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bo
 	}
 
 	return gqlResp.Data.Plan, nil
+}
+
+// callOTP makes a mixed transit+walk trip planning request.
+func callOTP(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bool) (*otpPlan, error) {
+	return callOTPWithQuery(otpPlanQuery, fromLat, fromLng, toLat, toLng, when, arriveBy)
+}
+
+// callOTPWalkOnly makes a walking-only request used as a guaranteed fallback.
+func callOTPWalkOnly(fromLat, fromLng, toLat, toLng float64, when time.Time, arriveBy bool) (*otpPlan, error) {
+	return callOTPWithQuery(otpWalkOnlyPlanQuery, fromLat, fromLng, toLat, toLng, when, arriveBy)
 }
 
 type plannerUnavailableError struct {
@@ -504,7 +562,18 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
-	if len(plan.Itineraries) == 0 {
+	itineraries := make([]otpItinerary, 0, len(plan.Itineraries)+1)
+	itineraries = append(itineraries, plan.Itineraries...)
+
+	// Try to force-include a walk-only alternative; if it fails, keep transit results.
+	walkOnlyPlan, walkErr := callOTPWalkOnly(fromLat, fromLng, toLat, toLng, reqTime, arriveBy)
+	if walkErr != nil {
+		log.Printf("plan_routes: walk-only fallback failed: %v", walkErr)
+	} else if walkOnlyPlan != nil && len(walkOnlyPlan.Itineraries) > 0 {
+		itineraries = append(itineraries, walkOnlyPlan.Itineraries...)
+	}
+
+	if len(itineraries) == 0 {
 		c.Set("Cache-Control", "public, max-age=300")
 		return c.JSON(planResp{
 			Plans:  []planRouteResp{},
@@ -513,7 +582,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		})
 	}
 
-	resp, err := enrichOTPResponse(plan.Itineraries, tranzyClient, ctpCjClient, cacheTimes)
+	resp, err := enrichOTPResponse(itineraries, tranzyClient, ctpCjClient, cacheTimes)
 	if err != nil {
 		log.Printf("plan_routes: enrich failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
@@ -850,6 +919,27 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				WalkTransferMeters: walkTransfer,
 				TransitDurationSec: transitSec,
 				TotalDistance:      totalDist,
+				WalkSegments:       walkSegments,
+			})
+		} else {
+			walkOnlyMeters := walkStart + walkEnd + walkTransfer
+			if walkOnlyMeters <= 0 {
+				continue
+			}
+			planKey := fmt.Sprintf("walk:%d", int(math.Round(walkOnlyMeters)))
+			if _, seen := seenPlans[planKey]; seen {
+				continue
+			}
+			seenPlans[planKey] = struct{}{}
+
+			plans = append(plans, planRouteResp{
+				Legs:               []planLegResp{},
+				IsDirect:           true,
+				WalkStartMeters:    walkStart,
+				WalkEndMeters:      walkEnd,
+				WalkTransferMeters: walkTransfer,
+				TransitDurationSec: 0,
+				TotalDistance:      walkOnlyMeters,
 				WalkSegments:       walkSegments,
 			})
 		}

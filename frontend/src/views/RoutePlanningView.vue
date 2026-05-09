@@ -345,11 +345,18 @@ function hasScheduledConnection(
 }
 
 function computeNextTimesForPlan(
-  plan: { legs: RichLeg[], isDirect: boolean, walkStartMeters: number, walkEndMeters: number, walkTransferMeters: number },
+  plan: { legs: RichLeg[], isDirect: boolean, walkStartMeters: number, walkEndMeters: number, walkTransferMeters: number, walkSegments?: PlanWalkSeg[] },
   shapesMap: Record<string, ShapeInfo>,
   now: Date,
   arriveBy = false
 ): PlannedTimeEntry[] {
+  if (plan.legs.length === 0) {
+    const walkTotalMin = getWalkMinutes(plan)
+    return [{
+      minutes: arriveBy ? -walkTotalMin : 0,
+      is_live: false,
+    }]
+  }
   const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const walkEndMin = plan.walkEndMeters / WALK_SPEED
   if (plan.isDirect) {
@@ -540,10 +547,14 @@ function buildRichPlan(
   now: Date,
   arriveBy = false
 ): RichPlan | null {
-  const makeKey = (p: typeof plan) =>
-    (p.isDirect ? 'D' : `C${p.legs.length}`) + ':' + p.legs.map(l =>
+  const makeKey = (p: typeof plan) => {
+    if (p.legs.length === 0) {
+      return `W:${Math.round(p.walkStartMeters + p.walkTransferMeters + p.walkEndMeters)}`
+    }
+    return (p.isDirect ? 'D' : `C${p.legs.length}`) + ':' + p.legs.map(l =>
       `${l.routeIds[0] ?? 'x'}/${l.tripIds[0]?.endsWith('_0') ? '0' : '1'}@${l.startStopId}>${l.destStopId}`
     ).join('|')
+  }
 
   const nextTimes = computeNextTimesForPlan(plan, shapesMap, now, arriveBy)
   if (!nextTimes.length) return null
@@ -682,6 +693,9 @@ watch(planData, (data) => {
     }
   }
   results.sort((a, b) => {
+    const walkOnlyA = a.legs.length === 0
+    const walkOnlyB = b.legs.length === 0
+    if (walkOnlyA !== walkOnlyB) return walkOnlyA ? 1 : -1
     const totalA = computeTotalMinutes(a)
     const totalB = computeTotalMinutes(b)
     if (totalA !== totalB) return totalA - totalB
@@ -967,14 +981,24 @@ async function updateMapVehicles(byTrip: Map<string, Vehicle[]>, indices: Map<st
 
 function computeTotalMinutes(plan: RichPlan): number {
   if (!plan.nextTimes.length) return Infinity
+  if (plan.legs.length === 0) {
+    const walkTotalMin = getWalkMinutes(plan)
+    return Math.round((plan.nextTimes[0]?.minutes ?? 0) + walkTotalMin)
+  }
   const rideMin = plan.legs.reduce((s, l) => s + l.rideSeconds / 60, 0)
   const transferPenalty = (plan.legs.length - 1) * 5
   const walkEndMin = plan.walkEndMeters / WALK_SPEED
   return Math.round((plan.nextTimes[0]?.minutes ?? 0) + rideMin + transferPenalty + walkEndMin)
 }
 
+function getWalkMinutes(plan: { walkStartMeters: number, walkTransferMeters: number, walkEndMeters: number, walkSegments?: PlanWalkSeg[] }): number {
+  const fromSegments = (plan.walkSegments ?? []).reduce((sum, seg) => sum + (seg.duration_sec || 0), 0) / 60
+  if (fromSegments > 0) return fromSegments
+  return (plan.walkStartMeters + plan.walkTransferMeters + plan.walkEndMeters) / WALK_SPEED
+}
+
 function getJourneyDuration(plan: RichPlan): number {
-  const walkTime = (plan.walkStartMeters + plan.walkTransferMeters + plan.walkEndMeters) / WALK_SPEED
+  const walkTime = getWalkMinutes(plan)
   const rideTime = plan.legs.reduce((acc, l) => acc + l.rideSeconds / 60, 0)
   // Approximate transfer wait time if not direct
   const transferWait = plan.isDirect ? 0 : (plan.legs.length - 1) * 2
@@ -1007,10 +1031,11 @@ function getRelativeDepartureFormatted(plan: RichPlan, entry: TimeEntry) {
 function getArrivalTimeFormatted(plan: RichPlan, entry: TimeEntry) {
   const approx = entry.is_live ? '' : '~'
   const now = userTime.value || new Date()
-  const departureAtStop = new Date(now.getTime() + entry.minutes * 60_000)
-  const walkStartMin = plan.walkStartMeters / WALK_SPEED
   const duration = getJourneyDuration(plan)
-  const arrivalDate = new Date(departureAtStop.getTime() + (duration - walkStartMin) * 60_000)
+  const departureAtStop = new Date(now.getTime() + entry.minutes * 60_000)
+  const arrivalDate = plan.legs.length === 0
+    ? new Date(departureAtStop.getTime() + duration * 60_000)
+    : new Date(departureAtStop.getTime() + (duration - plan.walkStartMeters / WALK_SPEED) * 60_000)
 
   const timeStr = arrivalDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   return t('planArrivalAt', { time: approx + timeStr })
@@ -1025,10 +1050,10 @@ const totalTripMinutes = computed(() => {
 
 const formatMinutes = (m: number): string => {
   const rounded = Math.round(m)
-  if (rounded < 60) return `${rounded}m`
+  if (rounded < 60) return `${rounded} min`
   const h = Math.floor(rounded / 60)
   const rem = rounded % 60
-  return rem === 0 ? `${h}h` : `${h}h ${rem}m`
+  return rem === 0 ? `${h} h` : `${h} h ${rem} min`
 }
 
 const getTransferWalkMeters = (legIdx: number): number => {
@@ -1121,6 +1146,14 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 }
 
+function clampCoord4(v: number): number {
+  return Number(v.toFixed(4))
+}
+
+function coordQueryString(v: number): string {
+  return clampCoord4(v).toFixed(4)
+}
+
 let destDragGen = 0
 watch(pinnedLocationDragged, async (dragged) => {
   if (!dragged) return
@@ -1130,7 +1163,12 @@ watch(pinnedLocationDragged, async (dragged) => {
   const name = await reverseGeocode(lat, lng)
   if (gen !== destDragGen) return
 
-  const newQuery: LocationQueryRaw = {...route.query, lat: lat.toString(), lon: lng.toString(), name}
+  const newQuery: LocationQueryRaw = {
+    ...route.query,
+    lat: coordQueryString(lat),
+    lon: coordQueryString(lng),
+    name
+  }
   delete newQuery.plan
   await router.replace({query: newQuery})
   activeSearchField.value = null
@@ -1147,7 +1185,7 @@ watch(customOriginLocationDragged, async (dragged) => {
   const name = await reverseGeocode(lat, lng)
   if (gen !== originDragGen) return
 
-  customOrigin.value = {name, lat, lon: lng}
+  customOrigin.value = {name, lat: clampCoord4(lat), lon: clampCoord4(lng)}
   clearPlanSelection()
   activeSearchField.value = null
   searchQuery.value = ''
@@ -1242,9 +1280,11 @@ watch(customOrigin, (val) => {
   const newQuery = {...route.query}
   let changed = false
   if (val) {
-    if (newQuery.originLat !== val.lat.toString() || newQuery.originLon !== val.lon.toString() || newQuery.originName !== val.name) {
-      newQuery.originLat = val.lat.toString()
-      newQuery.originLon = val.lon.toString()
+    const originLat = coordQueryString(val.lat)
+    const originLon = coordQueryString(val.lon)
+    if (newQuery.originLat !== originLat || newQuery.originLon !== originLon || newQuery.originName !== val.name) {
+      newQuery.originLat = originLat
+      newQuery.originLon = originLon
       newQuery.originName = val.name
       changed = true
     }
@@ -1657,6 +1697,18 @@ watch(timeValue, (val) => {
         </div>
 
         <template v-if="selectedPlan">
+          <div v-if="selectedPlan.legs.length === 0" class="leg-row">
+            <div class="leg-icon-col">
+              <div class="leg-dot intermediate-dot">
+                <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+              </div>
+              <div class="leg-line leg-line-dashed"></div>
+            </div>
+            <div class="leg-label-col">
+              <span class="leg-type-badge">{{ t('planWalk') }}</span>
+              <span class="leg-name">{{ formatMinutes(getJourneyDuration(selectedPlan)) }}</span>
+            </div>
+          </div>
           <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx">
             <div class="leg-row">
               <div class="leg-icon-col">
@@ -1924,6 +1976,9 @@ watch(timeValue, (val) => {
             <div class="card-body">
               <div class="card-row-primary">
                 <div class="bus-chain">
+                  <span v-if="plan.legs.length === 0" class="bus-chip">
+                    <span class="bus-chip-name">{{ t('planWalk') }}</span>
+                  </span>
                   <template v-for="(leg, lIdx) in plan.legs" :key="lIdx">
                     <span
                       class="bus-chip"
@@ -1940,7 +1995,7 @@ watch(timeValue, (val) => {
                 <div v-if="plan.nextTimes[0]"
                   class="card-primary-time"
                   :class="plan.nextTimes[0].is_live ? 'card-primary-time-live' : 'card-primary-time-sched'">
-                  <div class="card-relative-time">
+                  <div v-if="plan.legs.length > 0" class="card-relative-time">
                     <span v-if="plan.nextTimes[0].is_live" class="live-dot"></span>
                     {{ getRelativeDepartureFormatted(plan, plan.nextTimes[0]) }}
                   </div>
@@ -1956,7 +2011,9 @@ watch(timeValue, (val) => {
 
               <div class="card-row-meta">
                 <span class="card-arrow">→</span>
-                <span class="card-dest" :title="getStopName(plan.legs[plan.legs.length-1]?.destStopId)">{{ getStopName(plan.legs[plan.legs.length-1]?.destStopId) }}</span>
+                <span class="card-dest" :title="plan.legs.length ? getStopName(plan.legs[plan.legs.length-1]?.destStopId) : destName">
+                  {{ plan.legs.length ? getStopName(plan.legs[plan.legs.length-1]?.destStopId) : destName }}
+                </span>
               </div>
 
               <div class="card-row-stats">
