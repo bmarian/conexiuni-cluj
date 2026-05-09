@@ -31,6 +31,7 @@ type Config struct {
 	CtpCjRateLimit            time.Duration
 	TranzyRateLimit           time.Duration
 	StopInfoCacheShelfLife    time.Duration
+	NewsCacheShelfLife        time.Duration
 	TranzyVehiclesDailyQuota  int
 	TranzyDefaultDailyQuota   int
 	VehicleSchedule           string
@@ -105,6 +106,7 @@ func Load() *Config {
 		StopTimeCacheShelfLife:    getDuration("STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
 		APIStopTimeCacheShelfLife: getDuration("API_STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
 		StopInfoCacheShelfLife:    getDuration("STOP_INFO_CACHE_SHELF_LIFE", 24*time.Hour),
+		NewsCacheShelfLife:        getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
 		CtpCjRateLimit:            getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TranzyRateLimit:           getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
 		TranzyVehiclesDailyQuota:  getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),

@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"conexiuni-cluj/database"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -16,44 +16,71 @@ type NewsItem struct {
 	Title string `json:"title"`
 }
 
-var (
-	newsMu        sync.RWMutex
-	newsCached    []NewsItem
-	newsFetchedAt time.Time
-)
+const ctpNewsPageURL = "https://www.ctpcj.ro/index.php/ro/despre-noi/stiri"
 
-const (
-	newsCacheDur   = 4 * time.Hour
-	ctpNewsPageURL = "https://www.ctpcj.ro/index.php/ro/despre-noi/stiri"
-)
-
-func GetNews(c fiber.Ctx) error {
-	newsMu.RLock()
-	age := time.Since(newsFetchedAt)
-	cached := newsCached
-	newsMu.RUnlock()
-
-	if age < newsCacheDur && cached != nil {
-		c.Set("Cache-Control", "max-age=1800, stale-while-revalidate=3600")
-		return c.JSON(cached)
+func GetNews(c fiber.Ctx, shelfLife time.Duration) error {
+	if database.IsCacheValid("news") {
+		if items, err := loadNewsFromDB(); err == nil && len(items) > 0 {
+			c.Set("Cache-Control", "max-age=1800, stale-while-revalidate=3600")
+			return c.JSON(items)
+		}
 	}
 
 	fresh, err := fetchNewsFromCTP()
 	if err != nil {
-		if cached != nil {
+		if stale, dbErr := loadNewsFromDB(); dbErr == nil && len(stale) > 0 {
 			c.Set("Cache-Control", "max-age=60")
-			return c.JSON(cached)
+			return c.JSON(stale)
 		}
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "news unavailable"})
 	}
 
-	newsMu.Lock()
-	newsCached = fresh
-	newsFetchedAt = time.Now()
-	newsMu.Unlock()
+	_ = saveNewsToDB(fresh)
+	_ = database.UpdateCache("news", shelfLife.Milliseconds())
 
 	c.Set("Cache-Control", "max-age=1800, stale-while-revalidate=3600")
 	return c.JSON(fresh)
+}
+
+func saveNewsToDB(items []NewsItem) error {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM news_cache`); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	stmt, err := tx.Prepare(`INSERT INTO news_cache (url, date, title) VALUES (?, ?, ?)`)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+	for _, item := range items {
+		if _, err := stmt.Exec(item.URL, item.Date, item.Title); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func loadNewsFromDB() ([]NewsItem, error) {
+	rows, err := database.DB.Query(`SELECT url, date, title FROM news_cache`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NewsItem
+	for rows.Next() {
+		var item NewsItem
+		if err := rows.Scan(&item.URL, &item.Date, &item.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }
 
 func fetchNewsFromCTP() ([]NewsItem, error) {
@@ -81,7 +108,7 @@ func fetchNewsFromCTP() ([]NewsItem, error) {
 		title string
 		date  string
 	}
-	var pending []rawItem // items with url+title, awaiting a date
+	var pending []rawItem
 	var items []NewsItem
 
 	var walk func(*html.Node)

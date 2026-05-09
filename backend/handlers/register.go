@@ -234,5 +234,5 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 
 	api.Get("/gtfs.zip", HandleGTFSExport)
 
-	api.Get("/news", GetNews)
+	api.Get("/news", func(c fiber.Ctx) error { return GetNews(c, cacheTimes.NewsCacheShelfLife) })
 }

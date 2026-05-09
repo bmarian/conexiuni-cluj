@@ -174,6 +174,13 @@ func InitSchemas() error {
             name      TEXT PRIMARY KEY,
             count     INTEGER NOT NULL,
             reset_at  INTEGER NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS news_cache
+        (
+            url   TEXT PRIMARY KEY,
+            date  TEXT NOT NULL,
+            title TEXT NOT NULL
         )
     `
 	_, err := DB.Exec(schema)

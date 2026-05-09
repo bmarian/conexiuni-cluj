@@ -127,6 +127,7 @@ func main() {
 		APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
 		StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
 		TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
+		NewsCacheShelfLife:        config.NewsCacheShelfLife,
 	}
 
 	api := app.Group("/api")
