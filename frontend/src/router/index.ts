@@ -1,10 +1,10 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
-import StopView from '@/views/StopView.vue'
-import RouteView from '@/views/RouteView.vue'
-import NotFoundView from '@/views/NotFoundView.vue'
 
+const StopView = () => import('@/views/StopView.vue')
+const RouteView = () => import('@/views/RouteView.vue')
 const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
+const NotFoundView = () => import('@/views/NotFoundView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
