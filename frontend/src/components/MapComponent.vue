@@ -68,15 +68,15 @@ let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
-const MAX_ZOOM = 20
 const DEFAULT_CENTER: L.LatLngTuple = [46.7712, 23.6236]
 const STOP_ZOOM_THRESHOLD = 16
 const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
 const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
 const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
 const MIN_ZOOM = 9
-const MAP_VIEW_STORAGE_KEY = 'map.lastView'
+const MAX_ZOOM = 20
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
+const MAP_VIEW_STORAGE_KEY = 'map.lastView'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 
@@ -93,10 +93,39 @@ type SavedMapView = {
   zoom: number
 }
 
-const getTileLayerUrl = (useDarkMode: boolean) => {
-  return `https://{s}.basemaps.cartocdn.com/${useDarkMode ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`
+const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlue: boolean): string => {
+  if (isArcade) {
+    // TODO: Change when you find a better theme that fits
+    return useDarkMode
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
+      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
+  }
+
+  if (isLegacyBlue) {
+    // TODO: Change when you find a better theme that fits
+    return useDarkMode
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
+      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
+  }
+
+  return useDarkMode
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
+    : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
 }
 
+const replaceTileLayer = () => {
+  if (!map.value) return
+  const tileUrl = getTileLayerConfig(isDarkMode.value, arcadeActive.value, legacyBlueActive.value)
+  if (currentTileLayer.value) {
+    map.value.removeLayer(currentTileLayer.value)
+  }
+  currentTileLayer.value = L.tileLayer(tileUrl, {
+    attribution: TILE_LAYER_ATTRIBUTION,
+    maxZoom: MAX_ZOOM,
+    minZoom: MIN_ZOOM,
+    bounds: CLUJ_COUNTY_BOUNDS,
+  }).addTo(map.value)
+}
 
 const themeOpts = (): IconThemeOptions => ({
   arcadeActive: arcadeActive.value,
@@ -339,12 +368,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     }
   })
 
-  currentTileLayer.value = L.tileLayer(getTileLayerUrl(isDarkMode.value), {
-    attribution: TILE_LAYER_ATTRIBUTION,
-    maxZoom: 20,
-    minZoom: MIN_ZOOM,
-    bounds: CLUJ_COUNTY_BOUNDS,
-  }).addTo(mapValue)
+  replaceTileLayer()
 
   mapValue.addControl(createCenterControl(mapValue))
   beginLocationWatch()
@@ -511,10 +535,14 @@ watch(legacyBlueActive, (active) => {
   }
 })
 
-watch(isDarkMode, (newValue) => {
-  if (!currentTileLayer.value) return
+watch(isDarkMode, () => {
+  if (!map.value) return
+  replaceTileLayer()
+})
 
-  currentTileLayer.value.setUrl(getTileLayerUrl(newValue))
+watch([arcadeActive, legacyBlueActive], () => {
+  if (!map.value) return
+  replaceTileLayer()
 })
 
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
