@@ -123,6 +123,21 @@ const stopsForDirection = computed((): IndexedStop[] => {
   })
 })
 
+const directionTerminals = computed(() => {
+  const byTrip = (tripId: string): { first: string; last: string } => {
+    const tripStops = rawStops.value
+      .filter((st) => st.trip_id === tripId)
+      .sort((a, b) => a.stop_sequence - b.stop_sequence)
+    const first = tripStops[0]?.stop_headsign?.trim() ?? ''
+    const last = tripStops[tripStops.length - 1]?.stop_headsign?.trim() ?? ''
+    return {first, last}
+  }
+  return {
+    outgoing: byTrip(`${props.routeId}${OUTGOING_SUFFIX}`),
+    incoming: byTrip(`${props.routeId}${INCOMING_SUFFIX}`),
+  }
+})
+
 const hasOutgoing = computed(() =>
   rawStops.value.some((st) => st.trip_id === `${props.routeId}${OUTGOING_SUFFIX}`)
 )
@@ -204,9 +219,6 @@ function getHeaderTimes(): string[] {
 }
 
 function getStopLabel(idx: number, stop: IndexedStop): string {
-  const last = stopsForDirection.value.length - 1
-  if (idx === 0) return isOutgoing.value ? (timetable.value?.in_stop_name ?? '') : (timetable.value?.out_stop_name ?? '')
-  if (idx === last) return isOutgoing.value ? (timetable.value?.out_stop_name ?? '') : (timetable.value?.in_stop_name ?? '')
   return stop.stop_headsign || `Stop ${idx + 1}`
 }
 
@@ -598,11 +610,11 @@ onUnmounted(() => {
              stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
-        <span class="truncate">{{ timetable?.out_stop_name }}</span>
+        <span class="truncate">{{ directionTerminals.outgoing.last || timetable?.out_stop_name }}</span>
       </button>
       <button :disabled="!hasIncoming" @click="onDirClick('1')"
               :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
-        <span class="truncate">{{ timetable?.in_stop_name }}</span>
+        <span class="truncate">{{ directionTerminals.incoming.last || timetable?.in_stop_name }}</span>
         <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24"
              stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
