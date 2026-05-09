@@ -470,3 +470,45 @@
   background: #1A2F5A !important;
   color: rgba(224, 230, 242, 0.40) !important;
 }
+
+@media (pointer: coarse) {
+  .leaflet-marker-icon .planner-pin-visual {
+    transition: transform 90ms linear;
+    transform-origin: 50% 100%;
+  }
+
+  .leaflet-marker-icon.planner-drag-active .planner-pin-visual {
+    transform: translateY(-38px);
+  }
+
+  .leaflet-marker-icon .planner-pin-visual::before,
+  .leaflet-marker-icon .planner-pin-visual::after {
+    content: '';
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .leaflet-marker-icon.planner-drag-active .planner-pin-visual::before {
+    left: 50%;
+    top: calc(100% + 2px);
+    width: 2px;
+    height: 24px;
+    margin-left: -1px;
+    background: rgba(15, 23, 42, 0.55);
+    opacity: 1;
+  }
+
+  .leaflet-marker-icon.planner-drag-active .planner-pin-visual::after {
+    left: 50%;
+    top: calc(100% + 26px);
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    border-radius: 9999px;
+    background: #0f172a;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    opacity: 1;
+  }
+}

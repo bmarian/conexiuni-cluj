@@ -17,7 +17,6 @@ import {
   getVehicleMarkerHtml,
   type IconThemeOptions,
   makeHighlightIcon,
-  makePinDragIcon,
   makePinIcon,
   makeSelectedStopIcon,
   makeStopIcon,
@@ -108,10 +107,19 @@ const useTouchDragLift = () =>
   typeof window !== 'undefined'
   && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
 
+const togglePlannerDragLift = (marker: L.Marker, active: boolean) => {
+  const el = marker.getElement()
+  if (!el) return
+  el.classList.toggle('planner-drag-active', active)
+}
+
 const attachPlannerDragLift = (marker: L.Marker, color: string) => {
   if (!useTouchDragLift()) return
-  marker.on('dragstart', () => marker.setIcon(makePinDragIcon(themeOpts(), color)))
-  marker.on('dragend', () => marker.setIcon(makePinIcon(themeOpts(), color)))
+  marker.on('dragstart', () => togglePlannerDragLift(marker, true))
+  marker.on('dragend', () => {
+    togglePlannerDragLift(marker, false)
+    marker.setIcon(makePinIcon(themeOpts(), color))
+  })
 }
 
 const stopIconForId = (stopId: string) =>
