@@ -2,7 +2,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import StopView from '@/views/StopView.vue'
 import RouteView from '@/views/RouteView.vue'
-import RoutePlanningView from '@/views/RoutePlanningView.vue'
+const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const router = createRouter({
