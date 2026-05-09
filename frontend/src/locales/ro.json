@@ -62,6 +62,8 @@
   "funMode": "Arcade",
   "funModeOn": "Activ",
   "funModeOff": "Inactiv",
+  "arcadeInsertCoinToast": "Mai bagă un jeton... 🕹️",
+  "arcadeGameStartToast": "Jucătorul 1 e gata. Vin fantomele! 👻",
   "themeDefault": "Default",
   "arcadeTheme": "Arcade",
   "legacyBlueTheme": "Legacy Blue",

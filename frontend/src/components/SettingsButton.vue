@@ -21,9 +21,9 @@ function toggle() {
   if (!settings.arcadeUnlocked) {
     arcadeClickCount++
     if (arcadeClickCount === 5) {
-      settings.showToast('Insert more coins!')
+      settings.showToast(t('arcadeInsertCoinToast'))
     } else if (arcadeClickCount === 10) {
-      settings.showToast('Game start  👻')
+      settings.showToast(t('arcadeGameStartToast'))
       settings.unlockArcade()
       settings.activateArcade()
       isOpen.value = false

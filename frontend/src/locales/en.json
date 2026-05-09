@@ -62,6 +62,8 @@
   "funMode": "Arcade",
   "funModeOn": "On",
   "funModeOff": "Off",
+  "arcadeInsertCoinToast": "Insert coin to continue... 🕹️",
+  "arcadeGameStartToast": "Player 1 ready. Ghosts incoming! 👻",
   "themeDefault": "Default",
   "arcadeTheme": "Arcade",
   "legacyBlueTheme": "Legacy Blue",
