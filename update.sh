@@ -3,11 +3,17 @@
 set -e
 
 UPDATE_PBF=false
+DELETE_DB=false
+DELETE_LOGS=false
 
 # Parse arguments
 for arg in "$@"; do
   if [ "$arg" == "--update-pbf" ]; then
     UPDATE_PBF=true
+  elif [ "$arg" == "--delete-db" ]; then
+    DELETE_DB=true
+  elif [ "$arg" == "--delete-logs" ]; then
+    DELETE_LOGS=true
   fi
 done
 
@@ -84,6 +90,18 @@ if [ "$UPDATE_PBF" = true ]; then
 fi
 
 cd ../../../
+
+if [ "$DELETE_DB" = true ]; then
+  echo ""
+  echo "🗑️ Deleting database..."
+  rm -f conexiuni-cluj.db
+fi
+
+if [ "$DELETE_LOGS" = true ]; then
+  echo ""
+  echo "🗑️ Deleting logs folder..."
+  rm -rf logs
+fi
 
 echo ""
 echo "⚙️ Reloading systemd and restarting service..."

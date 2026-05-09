@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
@@ -481,65 +480,17 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		return err
 	}
 
-	// Round to ~5 meters precision to increase cache hits for nearby requests.
-	const step = 0.000045
-	rFromLat := math.Round(fromLat/step) * step
-	rFromLng := math.Round(fromLng/step) * step
-	rToLat := math.Round(toLat/step) * step
-	rToLng := math.Round(toLng/step) * step
-
 	when, arriveBy, err := parsePlanTime(c, tranzyClient.Location())
 	if err != nil {
 		return err
 	}
 
-	// For "now" requests, round to current minute bucket so cache hits are sane.
-	// For specific times, include the full timestamp so different times don't collide.
-	timeKey := "NOW"
-	if !when.IsZero() {
-		dir := "D"
-		if arriveBy {
-			dir = "A"
-		}
-		timeKey = fmt.Sprintf("%s_%s", dir, when.Format("20060102T1504"))
+	reqTime := when
+	if reqTime.IsZero() {
+		reqTime = time.Now().In(tranzyClient.Location())
 	}
 
-	cacheID := fmt.Sprintf("PLAN_%.5f_%.5f_%.5f_%.5f_%s", rFromLat, rFromLng, rToLat, rToLng, timeKey)
-	shelfLife := 5 * time.Minute
-
-	resp, err := HandleCached(cacheID, shelfLife,
-		func() (planResp, error) { return getPlanFromDB(cacheID) },
-		func() (planResp, error) {
-			// Query OTP to discover all route options the user could take.
-			// We MUST use the transit agency's timezone (Europe/Bucharest)
-			// otherwise servers in UTC will request plans for the wrong time of day.
-			reqTime := when
-			if reqTime.IsZero() {
-				reqTime = time.Now().In(tranzyClient.Location())
-			}
-			plan, err := callOTP(fromLat, fromLng, toLat, toLng, reqTime, arriveBy)
-			if err != nil {
-				return planResp{}, plannerUnavailableError{err: err}
-			}
-
-			if len(plan.Itineraries) == 0 {
-				return planResp{
-					Plans:  []planRouteResp{},
-					Stops:  map[string]models.Stop{},
-					Shapes: map[string]shapeSlim{},
-				}, nil
-			}
-
-			r, err := enrichOTPResponse(plan.Itineraries, tranzyClient, ctpCjClient, cacheTimes)
-			if err != nil {
-				return planResp{}, err
-			}
-			return *r, nil
-		},
-		func(data planResp) error { return storePlanInDB(cacheID, data) },
-		CacheOpts[planResp]{},
-	)
-
+	plan, err := callOTP(fromLat, fromLng, toLat, toLng, reqTime, arriveBy)
 	if err != nil {
 		log.Printf("plan_routes: failed: %v", err)
 		var plannerErr plannerUnavailableError
@@ -553,35 +504,23 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
+	if len(plan.Itineraries) == 0 {
+		c.Set("Cache-Control", "public, max-age=300")
+		return c.JSON(planResp{
+			Plans:  []planRouteResp{},
+			Stops:  map[string]models.Stop{},
+			Shapes: map[string]shapeSlim{},
+		})
+	}
+
+	resp, err := enrichOTPResponse(plan.Itineraries, tranzyClient, ctpCjClient, cacheTimes)
+	if err != nil {
+		log.Printf("plan_routes: enrich failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
+	}
+
 	c.Set("Cache-Control", "public, max-age=300")
 	return c.JSON(resp)
-}
-
-func getPlanFromDB(cacheID string) (planResp, error) {
-	var dataStr string
-	err := database.DB.QueryRow(`SELECT data FROM directions WHERE id = ?`, cacheID).Scan(&dataStr)
-	if err != nil {
-		return planResp{}, err
-	}
-
-	var data planResp
-	if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
-		return planResp{}, fmt.Errorf("failed to unmarshal plan from DB: %w", err)
-	}
-	return data, nil
-}
-
-func storePlanInDB(cacheID string, data planResp) error {
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal plan for DB: %w", err)
-	}
-
-	_, err = database.DB.Exec(`
-		INSERT OR REPLACE INTO directions (id, data)
-		VALUES (?, ?)
-	`, cacheID, string(dataBytes))
-	return err
 }
 
 func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err error) {
