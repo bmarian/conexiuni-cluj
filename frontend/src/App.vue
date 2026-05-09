@@ -42,22 +42,66 @@ const attributionHtml = '<a href="https://leafletjs.com" title="A JavaScript lib
 const isPortraitMobile = ref(false)
 let mqlLandscape: MediaQueryList | null = null
 let mqlDesktop: MediaQueryList | null = null
+let keyboardOpen = false
+let maxViewportHeight = 0
+let vvResizeHandler: (() => void) | null = null
 
-const updatePortraitMobile = () => {
+const addMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
+  mql.addEventListener('change', listener)
+  ;(mql as unknown as { addListener?: (cb: () => void) => void }).addListener?.(listener)
+}
+
+const removeMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
+  mql.removeEventListener('change', listener)
+  ;(mql as unknown as { removeListener?: (cb: () => void) => void }).removeListener?.(listener)
+}
+
+const updatePortraitMobile = (force = false) => {
+  if (!force && keyboardOpen) return
   isPortraitMobile.value = !(mqlLandscape?.matches || mqlDesktop?.matches)
 }
 
 onMounted(() => {
   mqlLandscape = window.matchMedia('(max-width: 1023px) and (orientation: landscape)')
   mqlDesktop = window.matchMedia('(min-width: 1024px)')
-  mqlLandscape.addEventListener('change', updatePortraitMobile)
-  mqlDesktop.addEventListener('change', updatePortraitMobile)
+  addMqlChangeListener(mqlLandscape, updatePortraitMobile)
+  addMqlChangeListener(mqlDesktop, updatePortraitMobile)
+
+  const vv = window.visualViewport
+  if (vv) {
+    maxViewportHeight = vv.height
+    vvResizeHandler = () => {
+      const mobile = !mqlDesktop?.matches
+      if (!mobile) {
+        keyboardOpen = false
+        maxViewportHeight = vv.height
+        updatePortraitMobile(true)
+        return
+      }
+      maxViewportHeight = Math.max(maxViewportHeight, vv.height)
+      const shrink = maxViewportHeight - vv.height
+      keyboardOpen = shrink > Math.max(160, maxViewportHeight * 0.22)
+      if (!keyboardOpen) {
+        maxViewportHeight = vv.height
+        updatePortraitMobile(true)
+      }
+    }
+    vv.addEventListener('resize', vvResizeHandler, {passive: true})
+  }
+
   updatePortraitMobile()
 })
 
 onUnmounted(() => {
-  mqlLandscape?.removeEventListener('change', updatePortraitMobile)
-  mqlDesktop?.removeEventListener('change', updatePortraitMobile)
+  if (mqlLandscape) {
+    removeMqlChangeListener(mqlLandscape, updatePortraitMobile)
+  }
+  if (mqlDesktop) {
+    removeMqlChangeListener(mqlDesktop, updatePortraitMobile)
+  }
+  if (vvResizeHandler) {
+    window.visualViewport?.removeEventListener('resize', vvResizeHandler)
+  }
 })
 
 const drawerStyle = computed(() => {
