@@ -1963,7 +1963,7 @@ watch(timeValue, (val) => {
         </div>
 
         <!-- Results -->
-        <div v-else-if="routesWithTimes.length > 0" class="flex flex-col gap-2.5">
+        <div v-else-if="routesWithTimes.length > 0" class="route-results-list flex flex-col gap-2.5">
           <div
             v-for="(plan, index) in routesWithTimes"
             :key="plan.key"
@@ -3068,20 +3068,21 @@ html.dark[data-legacy-blue] .time-pill-sched {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem 0.55rem;
+  padding: 0 0.55rem;
   min-width: 2.25rem;
+  min-height: 1.9rem;
+  height: 1.9rem;
   border-radius: 0.5rem;
   font-weight: 800;
   font-size: 0.78rem;
+  line-height: 1;
   letter-spacing: 0.01em;
   color: white;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   white-space: nowrap;
-
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex-shrink: 0;
   max-width: 100%;
-  height: auto;
 }
 
 .bus-chip.is-expanded {
@@ -3107,7 +3108,8 @@ html.dark[data-legacy-blue] .time-pill-sched {
 .bus-chip-overflow {
   display: inline-flex;
   align-items: center;
-  height: 1.75rem;
+  min-height: 1.9rem;
+  height: 1.9rem;
   padding: 0 0.45rem;
   font-size: 0.72rem;
   font-weight: 700;
@@ -3234,6 +3236,10 @@ html.dark[data-legacy-blue] .time-pill-sched {
 
 .dark .departure-card.is-selected .card-chevron {
   color: #38bdf8;
+}
+
+.route-results-list {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 .card-row-meta {
