@@ -219,6 +219,59 @@ export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): 
   })
 }
 
+export function makePinDragIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): L.DivIcon {
+  if (opts.arcadeActive) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:32px;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;pointer-events:none;">
+        <div style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
+          <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="${color}" stroke="white" stroke-width="1.5"/>
+            <path d="M10 10 L15.2 7 A6 6 0 1 0 15.2 13 Z" fill="#fff8e1"/>
+          </svg>
+        </div>
+        <div style="width:2px;height:22px;background:rgba(15,23,42,0.45);margin-top:2px;"></div>
+        <div style="width:8px;height:8px;border-radius:9999px;background:#0f172a;border:1px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.35);margin-top:2px;"></div>
+      </div>`,
+      iconSize: [32, 66],
+      iconAnchor: [16, 64],
+      popupAnchor: [0, -64],
+    })
+  }
+
+  if (opts.legacyBlueActive) {
+    const emoji = color === '#0ea5e9' ? '🏁' : '📍'
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div style="width:36px;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;pointer-events:none;">
+        <div style="font-size:28px;line-height:1;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.4));display:block;">${emoji}</div>
+        <div style="width:2px;height:24px;background:rgba(0,0,0,0.45);margin-top:2px;"></div>
+        <div style="width:8px;height:8px;border-radius:9999px;background:#0f172a;border:1px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.35);margin-top:2px;"></div>
+      </div>`,
+      iconSize: [36, 66],
+      iconAnchor: [18, 64],
+      popupAnchor: [0, -64],
+    })
+  }
+
+  return L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: `<div style="width:32px;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;pointer-events:none;">
+      <div style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
+        <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="${color}" stroke="white" stroke-width="1.5"/>
+          <circle cx="10" cy="10" r="3.5" fill="white" opacity="0.9"/>
+        </svg>
+      </div>
+      <div style="width:2px;height:22px;background:rgba(15,23,42,0.45);margin-top:2px;"></div>
+      <div style="width:8px;height:8px;border-radius:9999px;background:#0f172a;border:1px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.35);margin-top:2px;"></div>
+    </div>`,
+    iconSize: [32, 66],
+    iconAnchor: [16, 64],
+    popupAnchor: [0, -64],
+  })
+}
+
 export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,

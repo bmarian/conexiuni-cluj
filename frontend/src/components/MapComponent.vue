@@ -17,6 +17,7 @@ import {
   getVehicleMarkerHtml,
   type IconThemeOptions,
   makeHighlightIcon,
+  makePinDragIcon,
   makePinIcon,
   makeSelectedStopIcon,
   makeStopIcon,
@@ -68,11 +69,14 @@ let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
+const MAX_ZOOM = 20
+const DEFAULT_CENTER: L.LatLngTuple = [46.7712, 23.6236]
 const STOP_ZOOM_THRESHOLD = 16
 const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
 const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
 const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
 const MIN_ZOOM = 9
+const MAP_VIEW_STORAGE_KEY = 'map.lastView'
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
@@ -82,6 +86,12 @@ type GroupedStart = {
   lat: number
   lng: number
   routes: { name: string, color: string }[]
+}
+
+type SavedMapView = {
+  lat: number
+  lng: number
+  zoom: number
 }
 
 const getTileLayerUrl = (useDarkMode: boolean) => {
@@ -98,16 +108,10 @@ const useTouchDragLift = () =>
   typeof window !== 'undefined'
   && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
 
-const togglePlannerDragLift = (marker: L.Marker, active: boolean) => {
-  const el = marker.getElement()
-  if (!el) return
-  el.classList.toggle('planner-drag-lift', active)
-}
-
-const attachPlannerDragLift = (marker: L.Marker) => {
+const attachPlannerDragLift = (marker: L.Marker, color: string) => {
   if (!useTouchDragLift()) return
-  marker.on('dragstart', () => togglePlannerDragLift(marker, true))
-  marker.on('dragend', () => togglePlannerDragLift(marker, false))
+  marker.on('dragstart', () => marker.setIcon(makePinDragIcon(themeOpts(), color)))
+  marker.on('dragend', () => marker.setIcon(makePinIcon(themeOpts(), color)))
 }
 
 const stopIconForId = (stopId: string) =>
@@ -306,6 +310,15 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   }).setView([lat, lon], zoom)
 
   map.value = mapValue
+  mapValue.on('moveend', () => {
+    const center = mapValue.getCenter()
+    const view: SavedMapView = {
+      lat: Number(center.lat.toFixed(6)),
+      lng: Number(center.lng.toFixed(6)),
+      zoom: Number(mapValue.getZoom().toFixed(2)),
+    }
+    localStorage.setItem(MAP_VIEW_STORAGE_KEY, JSON.stringify(view))
+  })
   mapValue.on('locationfound', updateLiveLocation)
   mapValue.on('click', () => {
     selectedStopVehicleId.value = null
@@ -423,7 +436,33 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 }
 
 onMounted(() => {
-  mapInit(46.7712, 23.6236, DEFAULT_ZOOM)
+  let initialView: SavedMapView | null = null
+  const raw = localStorage.getItem(MAP_VIEW_STORAGE_KEY)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<SavedMapView>
+      if (
+        Number.isFinite(parsed.lat)
+        && Number.isFinite(parsed.lng)
+        && Number.isFinite(parsed.zoom)
+        && isInClujCounty(parsed.lat as number, parsed.lng as number)
+      ) {
+        initialView = {
+          lat: parsed.lat as number,
+          lng: parsed.lng as number,
+          zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, parsed.zoom as number)),
+        }
+      }
+    } catch {
+      initialView = null
+    }
+  }
+
+  if (initialView) {
+    mapInit(initialView.lat, initialView.lng, initialView.zoom)
+  } else {
+    mapInit(DEFAULT_CENTER[0], DEFAULT_CENTER[1], DEFAULT_ZOOM)
+  }
   void stopsInit()
 
   window.addEventListener('resize', scheduleInvalidateMapSize, {passive: true})
@@ -755,7 +794,7 @@ watch([pinnedLocation, arcadeActive, legacyBlueActive], ([loc]) => {
     interactive: true,
     draggable: true,
   })
-  attachPlannerDragLift(pinMarker.value)
+  attachPlannerDragLift(pinMarker.value, '#0ea5e9')
   pinMarker.value
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
@@ -786,7 +825,7 @@ watch([customOriginLocation, arcadeActive, legacyBlueActive], ([loc]) => {
     interactive: true,
     draggable: true,
   })
-  attachPlannerDragLift(originMarker.value)
+  attachPlannerDragLift(originMarker.value, '#22c55e')
   originMarker.value
     .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
     .addTo(map.value)
