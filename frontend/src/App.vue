@@ -391,7 +391,6 @@ function toggleLandscapeDrawer() {
 
 .app-drawer.is-dragging {
   transition: none;
-  will-change: transform;
 }
 
 .is-dragging .drawer-scroll {
