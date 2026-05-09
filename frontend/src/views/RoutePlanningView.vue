@@ -1145,12 +1145,12 @@ watch(pinnedLocationDragged, async (dragged) => {
   const name = await reverseGeocode(lat, lng)
   if (gen !== destDragGen) return
 
-  void router.replace({query: {...route.query, lat: lat.toString(), lon: lng.toString(), name}})
-  clearPlanSelection()
+  const newQuery = {...route.query, lat: lat.toString(), lon: lng.toString(), name}
+  delete newQuery.plan
+  await router.replace({query: newQuery})
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []
-  void calculateRoutes()
 })
 
 let originDragGen = 0
