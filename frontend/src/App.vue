@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
+import {computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
-import WeatherButton from "@/components/WeatherButton.vue"
-import NewsButton from "@/components/NewsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import ArcadeToast from "@/components/ArcadeToast.vue"
@@ -12,6 +10,9 @@ import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
+
+const WeatherButton = defineAsyncComponent(() => import("@/components/WeatherButton.vue"))
+const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
 
 const {t} = useI18n()
 const mapStore = useMapStore()
