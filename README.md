@@ -32,7 +32,7 @@ The official CTP site works, but it doesn't have all the features that I want. I
 - **Vite 7** for bundling
 - **Vue Router 5** + **Pinia 3** for routing and state
 - **vue-i18n 11** for localisation
-- **Leaflet 1.9** with leaflet.markercluster for the interactive map
+- **Leaflet 1.9** for the interactive map
 - **vuedraggable** for reorderable favorites
 - **@meteocons/svg** for weather icons
 - **Tailwind CSS 4** for utility styling
