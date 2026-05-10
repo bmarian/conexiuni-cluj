@@ -1875,39 +1875,20 @@ watch(timeValue, (val) => {
         </div>
 
         <div class="plan-time-filter" role="group" :aria-label="t('planTimeFilterLabel')">
-          <div class="plan-time-filter-inputs">
-            <label class="plan-time-mode">
-              <select
-                v-model="timeMode"
-                class="plan-time-select"
-                :aria-label="t('planTimeFilterLabel')"
-              >
-                <option value="now">{{ t('planTimeLeaveNow') }}</option>
-                <option value="leave">{{ t('planTimeLeaveAt') }}</option>
-                <option value="arrive">{{ t('planTimeArriveBy') }}</option>
-              </select>
-              <svg class="plan-time-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
-              </svg>
-            </label>
-            <VueDatePicker
-              v-if="timeMode !== 'now'"
-              v-model="timeValue"
-              :min-date="minDateObj"
-              model-type="yyyy-MM-dd'T'HH:mm"
-              format="dd/MM/yyyy HH:mm"
-              :is24="true"
-              :enable-seconds="false"
-              :minutes-increment="1"
-              :clearable="false"
-              :auto-apply="false"
-              :teleport="false"
-              :dark="isDarkTheme"
-              text-input
-              class="plan-time-datetime"
-              :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
-            />
-          </div>
+          <label class="plan-time-mode">
+            <select
+              v-model="timeMode"
+              class="plan-time-select"
+              :aria-label="t('planTimeFilterLabel')"
+            >
+              <option value="now">{{ t('planTimeLeaveNow') }}</option>
+              <option value="leave">{{ t('planTimeLeaveAt') }}</option>
+              <option value="arrive">{{ t('planTimeArriveBy') }}</option>
+            </select>
+            <svg class="plan-time-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+            </svg>
+          </label>
           <div class="plan-time-filter-actions">
             <button
               v-if="timeMode !== 'now'"
@@ -1952,6 +1933,24 @@ watch(timeValue, (val) => {
               </svg>
             </button>
           </div>
+          <VueDatePicker
+            v-if="timeMode !== 'now'"
+            v-model="timeValue"
+            :min-date="minDateObj"
+            model-type="yyyy-MM-dd'T'HH:mm"
+            format="dd/MM/yyyy HH:mm"
+            :is24="true"
+            :enable-seconds="false"
+            :minutes-increment="1"
+            :auto-apply="false"
+            :teleport="true"
+            :floating="{ arrow: false, strategy: 'fixed' }"
+            :input-attrs="{ clearable: false, alwaysClearable: false, inputmode: 'none' }"
+            :dark="isDarkTheme"
+            text-input
+            class="plan-time-datetime"
+            :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
+          />
         </div>
 
         <!-- GPS resolving: waiting for device location -->
@@ -4136,36 +4135,35 @@ html.dark[data-arcade] .mini-spinner {
   --pt-dp-scroll-bg: #f1f5f9;
   --pt-dp-scroll: #cbd5e1;
   --pt-dp-preview-size: 0.85rem;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "mode actions"
+    "datetime datetime";
   align-items: center;
   gap: 0.5rem;
   padding: var(--pt-padding);
   background: var(--pt-surface);
   border: var(--pt-border-width) solid var(--pt-border);
   border-radius: var(--pt-filter-radius);
-  flex-wrap: wrap;
-}
-
-.plan-time-filter-inputs {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-wrap: wrap;
 }
 
 .plan-time-filter-actions {
+  grid-area: actions;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 0.25rem;
-  margin-left: auto;
 }
 
 .plan-time-mode {
+  grid-area: mode;
   position: relative;
   display: inline-flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .plan-time-select {
@@ -4186,6 +4184,7 @@ html.dark[data-arcade] .mini-spinner {
   cursor: pointer;
   outline: none;
   transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+  width: 100%;
 }
 
 .plan-time-select option {
@@ -4217,8 +4216,9 @@ html.dark[data-arcade] .mini-spinner {
 }
 
 .plan-time-datetime {
+  grid-area: datetime;
   min-width: 0;
-  flex: 1 1 11rem;
+  width: 100%;
   font-family: var(--pt-font-family);
   color-scheme: var(--pt-color-scheme);
 }
