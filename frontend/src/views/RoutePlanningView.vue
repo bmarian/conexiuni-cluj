@@ -1156,6 +1156,12 @@ function coordQueryString(v: number): string {
   return clampCoord4(v).toFixed(4)
 }
 
+function singleQueryString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
+  return undefined
+}
+
 let destDragGen = 0
 watch(pinnedLocationDragged, async (dragged) => {
   if (!dragged) return
@@ -1316,7 +1322,50 @@ watch(() => route.query, (newQuery) => {
       customOrigin.value = null
     }
   }
+
+  const queryTime = singleQueryString(newQuery.time)
+  const queryArriveBy = singleQueryString(newQuery.arrive_by) === 'true'
+  if (queryTime) {
+    const nextMode = queryArriveBy ? 'arrive' : 'leave'
+    if (timeValue.value !== queryTime) {
+      timeValue.value = queryTime
+    }
+    if (timeMode.value !== nextMode) {
+      timeMode.value = nextMode
+    }
+  } else if (timeMode.value !== 'now') {
+    timeMode.value = 'now'
+  }
 }, {immediate: true})
+
+watch([timeMode, timeValue], ([mode, value]) => {
+  const newQuery = {...route.query}
+  let changed = false
+
+  if (mode === 'now') {
+    if (newQuery.time !== undefined || newQuery.arrive_by !== undefined) {
+      delete newQuery.time
+      delete newQuery.arrive_by
+      changed = true
+    }
+  } else if (value) {
+    const currentTime = singleQueryString(newQuery.time)
+    const currentArriveBy = singleQueryString(newQuery.arrive_by)
+    const nextArriveBy = mode === 'arrive' ? 'true' : 'false'
+    if (currentTime !== value) {
+      newQuery.time = value
+      changed = true
+    }
+    if (currentArriveBy !== nextArriveBy) {
+      newQuery.arrive_by = nextArriveBy
+      changed = true
+    }
+  }
+
+  if (changed) {
+    void router.replace({query: newQuery})
+  }
+})
 
 onMounted(async () => {
   isActive.value = true
@@ -1478,16 +1527,17 @@ async function swapOriginDestination() {
     ? await reverseGeocode(destLat.value, destLon.value)
     : destName.value
 
-  void router.replace({
-    query: {
-      lat: String(newDestLat),
-      lon: String(newDestLon),
-      name: newDestName,
-      originLat: String(destLat.value),
-      originLon: String(destLon.value),
-      originName: newOriginName,
-    }
-  })
+  const newQuery: LocationQueryRaw = {
+    ...route.query,
+    lat: String(newDestLat),
+    lon: String(newDestLon),
+    name: newDestName,
+    originLat: String(destLat.value),
+    originLon: String(destLon.value),
+    originName: newOriginName,
+  }
+  delete newQuery.plan
+  void router.replace({query: newQuery})
 }
 
 function openSearchField(field: 'origin' | 'destination') {
