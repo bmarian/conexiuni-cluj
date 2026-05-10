@@ -2054,7 +2054,7 @@ watch(timeValue, (val) => {
             :teleport="true"
             :floating="{ arrow: false, strategy: 'fixed', offset: 0, placement: 'bottom-start' }"
             :ui="{ menu: 'plan-time-menu' }"
-            :input-attrs="{ clearable: false, alwaysClearable: false, inputmode: 'none' }"
+            :input-attrs="{ clearable: true, alwaysClearable: true, inputmode: 'none' }"
             :dark="isDarkTheme"
             text-input
             class="plan-time-datetime"
@@ -4327,7 +4327,7 @@ html.dark[data-arcade] .mini-spinner {
 .plan-time-datetime {
   grid-area: datetime;
   min-width: 0;
-  width: 100%;
+  max-width: 80%;
   font-family: var(--pt-font-family);
   color-scheme: var(--pt-color-scheme);
 }
