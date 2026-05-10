@@ -28,10 +28,15 @@ export const useMapStore = defineStore('map', () => {
   const pinnedLocationDragged = ref<{lat: number; lng: number} | null>(null)
   const customOriginLocationDragged = ref<{lat: number; lng: number} | null>(null)
   const drawerBottomPx = ref(0)
+  const drawerRightPx = ref(0)
   const fitWalkingPolylines = ref(false)
 
   const setDrawerBottomPx = (px: number) => {
     drawerBottomPx.value = px
+  }
+
+  const setDrawerRightPx = (px: number) => {
+    drawerRightPx.value = px
   }
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
@@ -147,6 +152,8 @@ export const useMapStore = defineStore('map', () => {
     clearWalkingPolylines,
     drawerBottomPx,
     setDrawerBottomPx,
+    drawerRightPx,
+    setDrawerRightPx,
     fitWalkingPolylines,
 
     requestShapes,

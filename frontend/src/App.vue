@@ -35,6 +35,8 @@ const drawerEl = ref<HTMLElement | null>(null)
 const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(false)
 const isDragging = ref(false)
+let mapInsetRaf = 0
+let mapInsetTimer: ReturnType<typeof setTimeout> | null = null
 
 const attributionHtml = '<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" class="leaflet-attribution-flag"><path fill="#4C7BE1" d="M0 0h12v4H0z"></path><path fill="#FFD500" d="M0 4h12v3H0z"></path><path fill="#E0BC00" d="M0 7h12v1H0z"></path></svg> Leaflet</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
 
@@ -76,6 +78,7 @@ onMounted(() => {
         keyboardOpen = false
         maxViewportHeight = vv.height
         updatePortraitMobile(true)
+        scheduleMapInsetSync()
         return
       }
       maxViewportHeight = Math.max(maxViewportHeight, vv.height)
@@ -85,11 +88,14 @@ onMounted(() => {
         maxViewportHeight = vv.height
         updatePortraitMobile(true)
       }
+      scheduleMapInsetSync()
     }
     vv.addEventListener('resize', vvResizeHandler, {passive: true})
   }
 
   updatePortraitMobile()
+  scheduleMapInsetSync()
+  window.addEventListener('resize', scheduleMapInsetSync, {passive: true})
 })
 
 onUnmounted(() => {
@@ -102,6 +108,9 @@ onUnmounted(() => {
   if (vvResizeHandler) {
     window.visualViewport?.removeEventListener('resize', vvResizeHandler)
   }
+  window.removeEventListener('resize', scheduleMapInsetSync)
+  if (mapInsetRaf) cancelAnimationFrame(mapInsetRaf)
+  if (mapInsetTimer) clearTimeout(mapInsetTimer)
 })
 
 const drawerStyle = computed(() => {
@@ -125,11 +134,10 @@ watch([drawerState, isDragging], async ([, dragging]) => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
 
-watch([drawerState, isPortraitMobile], () => {
-  mapStore.setDrawerBottomPx(isPortraitMobile.value ? getDrawerVisibleHeight() : 0)
-}, {immediate: true})
+watch([drawerState, isPortraitMobile], scheduleMapInsetSync, {immediate: true})
 
 watch(isLandscapeDrawerOpen, () => {
+  scheduleMapInsetSync()
   window.dispatchEvent(new Event('resize'))
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
@@ -152,6 +160,39 @@ function getDrawerVisibleHeight(): number {
   if (drawerState.value === 'minimized') return MINIMIZED_PX
   if (drawerState.value === 'fullscreen') return vh
   return SNAP_FRAC[drawerState.value] * vh
+}
+
+function updateMapInsets() {
+  mapStore.setDrawerBottomPx(isPortraitMobile.value ? getDrawerVisibleHeight() : 0)
+
+  if (isPortraitMobile.value) {
+    mapStore.setDrawerRightPx(0)
+    return
+  }
+
+  const drawer = drawerEl.value
+  const mapEl = document.querySelector('.app-map') as HTMLElement | null
+  if (!drawer || !mapEl) {
+    mapStore.setDrawerRightPx(0)
+    return
+  }
+
+  const mapRect = mapEl.getBoundingClientRect()
+  const drawerRect = drawer.getBoundingClientRect()
+  const verticalOverlap = Math.max(0, Math.min(mapRect.bottom, drawerRect.bottom) - Math.max(mapRect.top, drawerRect.top))
+  const horizontalOverlap = Math.max(0, Math.min(mapRect.right, drawerRect.right) - Math.max(mapRect.left, drawerRect.left))
+  mapStore.setDrawerRightPx(verticalOverlap > 0 && horizontalOverlap > 2 ? horizontalOverlap : 0)
+}
+
+function scheduleMapInsetSync() {
+  if (mapInsetRaf) cancelAnimationFrame(mapInsetRaf)
+  mapInsetRaf = requestAnimationFrame(() => {
+    updateMapInsets()
+    mapInsetRaf = 0
+  })
+
+  if (mapInsetTimer) clearTimeout(mapInsetTimer)
+  mapInsetTimer = setTimeout(updateMapInsets, 280)
 }
 
 function onPointerDown(e: PointerEvent) {

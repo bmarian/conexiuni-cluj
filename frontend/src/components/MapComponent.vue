@@ -38,6 +38,7 @@ const {
   vehiclesToDisplay,
   highlightedStops,
   drawerBottomPx,
+  drawerRightPx,
 } = storeToRefs(mapStore)
 const {arcadeActive, legacyBlueActive} = storeToRefs(settingsStore)
 const router = useRouter()
@@ -192,17 +193,23 @@ const invalidateMapSize = () => {
   map.value.invalidateSize({pan: false, animate: false})
 }
 
-// Offset the latlng so flyTo centres the point in the visible map area above the drawer.
+const fitBoundsPadding = () => ({
+  paddingTopLeft: [24, 24] as [number, number],
+  paddingBottomRight: [24 + drawerRightPx.value, 24 + drawerBottomPx.value] as [number, number],
+})
+
+// Offset the latlng so flyTo centres the point in the currently visible map area.
 const flyToVisible = (latlng: L.LatLng, zoom: number, duration = 1) => {
   const m = map.value
   if (!m) return
-  const offset = drawerBottomPx.value / 2
-  if (offset < 4) {
+  const xOffset = drawerRightPx.value / 2
+  const yOffset = drawerBottomPx.value / 2
+  if (xOffset < 4 && yOffset < 4) {
     m.flyTo(latlng, zoom, {duration})
     return
   }
   const projected = m.project(latlng, zoom)
-  const adjusted = m.unproject(projected.add([0, offset]), zoom)
+  const adjusted = m.unproject(projected.add([xOffset, yOffset]), zoom)
   m.flyTo(adjusted, zoom, {duration})
 }
 
@@ -313,8 +320,7 @@ const createCenterControl = (mapValue: L.Map) => {
       const bounds = shapeLayerGroup.value?.getBounds()
       if (!bounds || !bounds.isValid()) return
       mapValue.fitBounds(bounds, {
-        paddingTopLeft: [24, 24],
-        paddingBottomRight: [24, 24 + drawerBottomPx.value],
+        ...fitBoundsPadding(),
         maxZoom: 16,
         animate: true,
         duration: 0.8,
@@ -678,8 +684,7 @@ watch(shapesToDisplay, (newShapes) => {
     const bounds = shapeLayerGroup.value?.getBounds()
     if (bounds?.isValid()) {
       map.value.fitBounds(bounds, {
-        paddingTopLeft: [24, 24],
-        paddingBottomRight: [24, 24 + drawerBottomPx.value],
+        ...fitBoundsPadding(),
         maxZoom: 16,
         animate: true,
         duration: 0.8,
@@ -708,8 +713,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   if (shapeBounds?.isValid()) bounds = bounds.isValid() ? bounds.extend(shapeBounds) : shapeBounds
   if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
     map.value.fitBounds(bounds, {
-      paddingTopLeft: [24, 24],
-      paddingBottomRight: [24, 24 + drawerBottomPx.value],
+      ...fitBoundsPadding(),
       maxZoom: 16,
       animate: true,
       duration: 0.8,
