@@ -1,6 +1,6 @@
 import {OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
-import {apiRequest} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/api.ts'
 
 const pending = new Map<number, Promise<ShapeInfo>>()
 

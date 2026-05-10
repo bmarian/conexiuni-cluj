@@ -41,15 +41,6 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
-            urlPattern: /\/api\/(routes|stops|stop_info|stop_times|shapes|timetable)(\?|$)/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'api-static',
-              cacheableResponse: { statuses: [200] },
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 },
-            },
-          },
-          {
             urlPattern: /^https:\/\/[a-z0-9]+\.basemaps\.cartocdn\.com\/.*/,
             handler: 'CacheFirst',
             options: {

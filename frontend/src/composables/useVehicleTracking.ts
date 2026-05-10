@@ -1,4 +1,4 @@
-import {apiRequest} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/api.ts'
 import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
 import type {Shape, StopTime, Vehicle} from '@/types/tranzy.ts'
 

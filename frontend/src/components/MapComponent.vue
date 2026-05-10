@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
-import {apiRequest} from "@/utils/request_cache.ts";
+import {apiRequest} from "@/utils/api.ts";
 import type {Stop} from "@/types/tranzy.ts";
 import {useRoute, useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";

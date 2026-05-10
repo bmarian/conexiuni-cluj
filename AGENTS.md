@@ -52,7 +52,7 @@ conexiuni-cluj/
 │   │   ├── stores/           Pinia stores: settings, favorites, map, route, user, planner.
 │   │   ├── composables/      API and browser side-effect hooks.
 │   │   ├── styles/           dark.css, leaflet.css, arcade.css, legacy-blue.css.
-│   │   ├── utils/            map icons, request cache, time/trip/geo helpers.
+│   │   ├── utils/            map icons, API fetch helper, time/trip/geo helpers.
 │   │   ├── types/            Tranzy, CTP, and map DTO types.
 │   │   └── locales/          ro.json and en.json.
 │   ├── package.json          Vite 7, Vue beta, Pinia 3, Router 5, Tailwind 4.
@@ -87,6 +87,9 @@ LOG_IP_HASH_SALT               recommended in production
 TRANZY_BASE_URL                default https://api.tranzy.ai/v1/opendata
 CLUJ_AGENCY_ID                 default 2
 CTP_CSV_BASE_URL               default https://ctpcj.ro/orare/csv
+TRANZY_DEFAULT_DAILY_QUOTA     default 144; Tranzy shelf life = 24h * 6 / quota
+TIMETABLE_CACHE_SHELF_LIFE     default 24h
+NEWS_CACHE_SHELF_LIFE          default 4h
 OTP_URL                        optional external OTP server. Defaults to local http://localhost:18080
 OTP_MX                         Java max heap for local OTP. Default 2G
 VEHICLE_SCHEDULE               weekday adaptive polling slots
@@ -109,10 +112,9 @@ All routes are registered in `backend/handlers/register.go`.
 | `GET /api/vehicles?route_id=...&trip_id=...&trip_ids=a,b` | `vehicle.go` | Single-shot live vehicles, `Cache-Control: no-store`. |
 | `GET /api/vehicles/stream?trip_ids=a,b` | `vehicle_stream.go` | SSE stream, adaptive polling from `vehicle_interval.go`. |
 | `GET /api/plan_routes?...` | `plan_routes.go` | Route planner backed by OpenTripPlanner. |
-| `GET /api/gtfs.zip` | `gtfs_export.go` | Generated GTFS for OTP from cached Tranzy/CTP data. |
 | `GET /api/news` | `news.go` | Scraped CTP news; database-backed cache with TTL expiration, serves stale on fetch failure. |
 
-Static-ish endpoints set `Cache-Control: max-age=3600, stale-while-revalidate=86400`; live vehicles use `no-store`; SSE uses `no-cache`.
+Cached API endpoints send `Cache-Control: max-age=...` based on configured shelf lives (`TRANZY_DEFAULT_DAILY_QUOTA`, `TIMETABLE_CACHE_SHELF_LIFE`, `NEWS_CACHE_SHELF_LIFE`). `plan_routes` uses `max-age=300`; live vehicles use `no-store`; SSE uses `no-cache`.
 
 ### OTP And Planning
 
@@ -146,7 +148,7 @@ Main data flow:
 
 API helpers:
 
-- `utils/request_cache.ts` wraps `fetch` with in-flight deduping and soft cache.
+- `utils/api.ts` wraps `/api` fetch calls without frontend-side response caching.
 - `composables/useRoutesApi.ts`, `useStopsApi.ts`, `useStopInfoApi.ts`, and `useRouteShapeInfoApi.ts` are the main data hooks.
 - `composables/useVehicleStream.ts` wraps `EventSource`.
 - `composables/useVehicleTracking.ts` projects vehicles onto route shapes for ETA math.

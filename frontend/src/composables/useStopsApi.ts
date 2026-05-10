@@ -1,6 +1,6 @@
 import {ref} from 'vue'
 import type {Stop} from '@/types/tranzy.ts'
-import {apiRequest} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/api.ts'
 
 let pending: Promise<Stop[]> | null = null
 

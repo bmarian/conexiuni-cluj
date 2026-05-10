@@ -1,6 +1,6 @@
 import type {StopInfo} from "@/types/tranzy.ts";
 import {ref} from "vue";
-import {apiRequest} from "@/utils/request_cache.ts";
+import {apiRequest} from "@/utils/api.ts";
 
 const pendingRequests = new Map<string, Promise<StopInfo>>()
 

@@ -1,5 +1,5 @@
 import type {ShapeInfo, Stop, StopInfo, StopTime, TimeEntry} from '@/types/tranzy.ts'
-import {apiRequest} from '@/utils/request_cache.ts'
+import {apiRequest} from '@/utils/api.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 
 export const WALKING_SPEED_M_PER_MIN = 80
@@ -148,8 +148,7 @@ export const findRoutes = async (
 ): Promise<PlannedRoute[]> => {
   const round = (n: number) => n.toFixed(5)
   const resp = await apiRequest(
-    `plan_routes?from_lat=${round(userLat)}&from_lng=${round(userLon)}&to_lat=${round(destLat)}&to_lng=${round(destLon)}`,
-    5 * 60 * 1000
+    `plan_routes?from_lat=${round(userLat)}&from_lng=${round(userLon)}&to_lat=${round(destLat)}&to_lng=${round(destLon)}`
   ) as PlanResp
 
   if (!resp?.plans?.length) return []

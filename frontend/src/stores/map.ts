@@ -2,7 +2,7 @@ import type {Shape, Vehicle} from "@/types/tranzy";
 import type {RouteType} from "@/types/tranzy";
 import {defineStore} from 'pinia'
 import {ref} from "vue";
-import {apiRequest} from "@/utils/request_cache.ts";
+import {apiRequest} from "@/utils/api.ts";
 
 export type DisplayShape = {
   trip_id: string,
