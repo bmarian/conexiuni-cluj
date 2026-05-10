@@ -32,17 +32,17 @@ func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, fil
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
-	routes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
+	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
 	if err != nil || len(routes) == 0 {
 		return nil, err
 	}
 
-	trips, err := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{RouteID: &routes[0].RouteID})
+	trips, err := GetTrips(tranzyClient, cacheTimes.TranzyCacheShelfLife, TripFilter{RouteID: &routes[0].RouteID})
 	if err != nil || len(trips) == 0 {
 		return nil, err
 	}
 
-	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		for id := range shapeIDsSeen {
 			shapeIDs = append(shapeIDs, id)
 		}
-		if allShapes, err := GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{ShapeIDs: shapeIDs}); err == nil {
+		if allShapes, err := GetShapes(tranzyClient, cacheTimes.TranzyCacheShelfLife, ShapeFilter{ShapeIDs: shapeIDs}); err == nil {
 			for _, s := range allShapes {
 				shapesByID[s.ShapeID] = append(shapesByID[s.ShapeID], s)
 			}
@@ -78,7 +78,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 	}
 
 	// Fetch all stops at once and index by ID
-	allStops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
+	allStops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
 	if err != nil {
 		return nil, err
 	}

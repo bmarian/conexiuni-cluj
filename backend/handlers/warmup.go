@@ -44,7 +44,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	Availability.ResetForNewPass()
 
 	phase := time.Now()
-	routes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
 	if err != nil {
 		log.Printf("warmup: routes failed, aborting: %v", err)
 		return
@@ -52,7 +52,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	log.Printf("warmup: routes loaded (%d) in %s", len(routes), time.Since(phase).Round(time.Millisecond))
 
 	phase = time.Now()
-	stops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
+	stops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
 	if err != nil {
 		log.Printf("warmup: stops failed, aborting: %v", err)
 		return
@@ -60,7 +60,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	log.Printf("warmup: stops loaded (%d) in %s", len(stops), time.Since(phase).Round(time.Millisecond))
 
 	phase = time.Now()
-	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
 	if err != nil {
 		log.Printf("warmup: api_stop_times failed, aborting: %v", err)
 		return

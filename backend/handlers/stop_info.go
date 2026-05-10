@@ -27,7 +27,7 @@ func GetStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 	}
 
 	cacheID := fmt.Sprintf("%s_%d", StopInfoCacheId, *filter.StopID)
-	return HandleCached(cacheID, cacheTimes.StopInfoCacheShelfLife,
+	return HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
 		func() (*models.StopInfo, error) {
 			return getStopInfoFromDB(tranzyClient, ctpCjClient, cacheTimes, filter)
 		},
@@ -41,7 +41,7 @@ func GetStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, filter StopFilter) (*models.StopInfo, error) {
 	var stopInfo models.StopInfo
 
-	stops, errStops := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: filter.StopID})
+	stops, errStops := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{StopID: filter.StopID})
 	if errStops != nil || len(stops) == 0 {
 		return nil, errStops
 	}
@@ -55,7 +55,7 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 	stopInfo.LocationType = stop.LocationType
 	stopInfo.StopCode = stop.StopCode
 
-	apiStopTimes, errApiStopTimes := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	apiStopTimes, errApiStopTimes := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
 	if errApiStopTimes != nil || len(apiStopTimes) == 0 {
 		return nil, errApiStopTimes
 	}
@@ -84,7 +84,7 @@ func requestStopInfo(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 	slices.Sort(incomingTripIds)
 	stopInfo.IncomingTripIds = slices.Compact(incomingTripIds)
 
-	allRoutes, errAll := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+	allRoutes, errAll := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
 	if errAll != nil {
 		return nil, errAll
 	}
@@ -215,7 +215,7 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	header.Add(2)
 	go func() {
 		defer header.Done()
-		stops, e := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{StopID: &stopInfo.StopID})
+		stops, e := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{StopID: &stopInfo.StopID})
 		if e != nil {
 			stopErr = e
 			return
@@ -228,7 +228,7 @@ func getStopInfoFromDB(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 	}()
 	go func() {
 		defer header.Done()
-		allRoutes, allRoutesErr = GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+		allRoutes, allRoutesErr = GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
 	}()
 	header.Wait()
 

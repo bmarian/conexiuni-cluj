@@ -11,34 +11,29 @@ import (
 )
 
 type Config struct {
-	Environment               string
-	LogDir                    string
-	LogRetentionDays          int
-	LogIPHashSalt             string
-	TranzyBaseUrl             string
-	ClujAgencyId              string
-	CtpCsvBaseUrl             string
-	Port                      string
-	DatabasePath              string
-	TranzyApiKey              string
-	ShapeCacheShelfLife       time.Duration
-	RouteCacheShelfLife       time.Duration
-	TripCacheShelfLife        time.Duration
-	StopCacheShelfLife        time.Duration
-	TimetableCacheShelfLife   time.Duration
-	StopTimeCacheShelfLife    time.Duration
-	APIStopTimeCacheShelfLife time.Duration
-	CtpCjRateLimit            time.Duration
-	TranzyRateLimit           time.Duration
-	StopInfoCacheShelfLife    time.Duration
-	NewsCacheShelfLife        time.Duration
-	TranzyVehiclesDailyQuota  int
-	TranzyDefaultDailyQuota   int
-	VehicleSchedule           string
-	VehicleScheduleWeekend    string
-	VehicleMinInterval        time.Duration
-	VehicleMaxInterval        time.Duration
-	OtpMaxMemory              string
+	Environment              string
+	LogDir                   string
+	LogRetentionDays         int
+	LogIPHashSalt            string
+	TranzyBaseUrl            string
+	ClujAgencyId             string
+	CtpCsvBaseUrl            string
+	Port                     string
+	DatabasePath             string
+	TranzyApiKey             string
+	TranzyCacheShelfLife     time.Duration
+	TimetableCacheShelfLife  time.Duration
+	StopTimeCacheShelfLife   time.Duration
+	NewsCacheShelfLife       time.Duration
+	CtpCjRateLimit           time.Duration
+	TranzyRateLimit          time.Duration
+	TranzyVehiclesDailyQuota int
+	TranzyDefaultDailyQuota  int
+	VehicleSchedule          string
+	VehicleScheduleWeekend   string
+	VehicleMinInterval       time.Duration
+	VehicleMaxInterval       time.Duration
+	OtpMaxMemory             string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -87,47 +82,41 @@ func Load() *Config {
 		log.Fatal("No .env files found")
 	}
 
+	tranzyDefaultDailyQuota := getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144)
+	// 6 distinct Tranzy endpoint caches share the quota equally
+	tranzyCacheShelfLife := 24 * time.Hour * 6 / time.Duration(tranzyDefaultDailyQuota)
+
 	cfg := &Config{
-		Environment:               getEnv("ENV", "development"),
-		LogDir:                    getEnv("LOG_DIR", "../logs"),
-		LogRetentionDays:          getInt("LOG_RETENTION_DAYS", 5),
-		LogIPHashSalt:             getEnv("LOG_IP_HASH_SALT", ""),
-		TranzyBaseUrl:             getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
-		ClujAgencyId:              getEnv("CLUJ_AGENCY_ID", "2"),
-		CtpCsvBaseUrl:             getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
-		Port:                      getEnv("PORT", "6698"),
-		DatabasePath:              getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
-		TranzyApiKey:              getEnv("TRANZY_API_KEY", ""),
-		ShapeCacheShelfLife:       getDuration("SHAPE_CACHE_SHELF_LIFE", 24*time.Hour),
-		RouteCacheShelfLife:       getDuration("ROUTE_CACHE_SHELF_LIFE", 24*time.Hour),
-		TripCacheShelfLife:        getDuration("TRIP_CACHE_SHELF_LIFE", 24*time.Hour),
-		StopCacheShelfLife:        getDuration("STOP_CACHE_SHELF_LIFE", 24*time.Hour),
-		TimetableCacheShelfLife:   getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
-		StopTimeCacheShelfLife:    getDuration("STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
-		APIStopTimeCacheShelfLife: getDuration("API_STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
-		StopInfoCacheShelfLife:    getDuration("STOP_INFO_CACHE_SHELF_LIFE", 24*time.Hour),
-		NewsCacheShelfLife:        getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
-		CtpCjRateLimit:            getDuration("CTP_CJ_RATE_LIMIT", time.Second),
-		TranzyRateLimit:           getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
-		TranzyVehiclesDailyQuota:  getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),
-		TranzyDefaultDailyQuota:   getInt("TRANZY_DEFAULT_DAILY_QUOTA", 500),
-		VehicleSchedule:           getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
-		VehicleScheduleWeekend:    getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
-		VehicleMinInterval:        getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
-		VehicleMaxInterval:        getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
-		OtpMaxMemory:              getEnv("OTP_MX", "2G"),
+		Environment:              getEnv("ENV", "development"),
+		LogDir:                   getEnv("LOG_DIR", "../logs"),
+		LogRetentionDays:         getInt("LOG_RETENTION_DAYS", 5),
+		LogIPHashSalt:            getEnv("LOG_IP_HASH_SALT", ""),
+		TranzyBaseUrl:            getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
+		ClujAgencyId:             getEnv("CLUJ_AGENCY_ID", "2"),
+		CtpCsvBaseUrl:            getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
+		Port:                     getEnv("PORT", "6698"),
+		DatabasePath:             getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
+		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
+		TranzyCacheShelfLife:     tranzyCacheShelfLife,
+		TimetableCacheShelfLife:  getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
+		StopTimeCacheShelfLife:   getDuration("STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
+		NewsCacheShelfLife:       getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
+		CtpCjRateLimit:           getDuration("CTP_CJ_RATE_LIMIT", time.Second),
+		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
+		TranzyVehiclesDailyQuota: getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),
+		TranzyDefaultDailyQuota:  tranzyDefaultDailyQuota,
+		VehicleSchedule:          getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
+		VehicleScheduleWeekend:   getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
+		VehicleMinInterval:       getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
+		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
+		OtpMaxMemory:             getEnv("OTP_MX", "2G"),
 	}
 
 	if cfg.Environment == "development" {
 		neverExpire := time.Duration(math.MaxInt64)
-		cfg.ShapeCacheShelfLife = neverExpire
-		cfg.RouteCacheShelfLife = neverExpire
-		cfg.StopCacheShelfLife = neverExpire
-		cfg.TripCacheShelfLife = neverExpire
+		cfg.TranzyCacheShelfLife = neverExpire
 		cfg.TimetableCacheShelfLife = neverExpire
 		cfg.StopTimeCacheShelfLife = neverExpire
-		cfg.APIStopTimeCacheShelfLife = neverExpire
-		cfg.StopInfoCacheShelfLife = neverExpire
 	}
 
 	return cfg

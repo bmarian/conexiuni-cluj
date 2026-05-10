@@ -37,27 +37,27 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	start := time.Now()
 	log.Println("gtfs: building GTFS zip from cached data")
 
-	routes, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, RouteFilter{})
+	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
 	if err != nil {
 		return fmt.Errorf("gtfs: failed to get routes: %w", err)
 	}
 
-	stops, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, StopFilter{})
+	stops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
 	if err != nil {
 		return fmt.Errorf("gtfs: failed to get stops: %w", err)
 	}
 
-	trips, err := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, TripFilter{})
+	trips, err := GetTrips(tranzyClient, cacheTimes.TranzyCacheShelfLife, TripFilter{})
 	if err != nil {
 		return fmt.Errorf("gtfs: failed to get trips: %w", err)
 	}
 
-	shapes, err := GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, ShapeFilter{})
+	shapes, err := GetShapes(tranzyClient, cacheTimes.TranzyCacheShelfLife, ShapeFilter{})
 	if err != nil {
 		return fmt.Errorf("gtfs: failed to get shapes: %w", err)
 	}
 
-	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.APIStopTimeCacheShelfLife, APIStopTimeFilter{})
+	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
 	if err != nil {
 		return fmt.Errorf("gtfs: failed to get api_stop_times: %w", err)
 	}

@@ -29,7 +29,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if s := c.Query("route_short_name"); s != "" {
 			filter.RouteShortName = &s
 		}
-		data, err := GetRoutes(tranzyClient, cacheTimes.RouteCacheShelfLife, filter)
+		data, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -55,7 +55,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 			}
 			filter.StopID = &id
 		}
-		data, err := GetStops(tranzyClient, cacheTimes.StopCacheShelfLife, filter)
+		data, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -84,7 +84,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 				}
 			}
 		}
-		data, err := GetShapes(tranzyClient, cacheTimes.ShapeCacheShelfLife, filter)
+		data, err := GetShapes(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -180,7 +180,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if s := c.Query("trip_id"); s != "" {
 			filter.TripID = &s
 		}
-		data, err := GetTrips(tranzyClient, cacheTimes.TripCacheShelfLife, filter)
+		data, err := GetTrips(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

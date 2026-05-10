@@ -119,15 +119,10 @@ func main() {
 	}))
 
 	cacheTimes := models.CacheTimes{
-		ShapeCacheShelfLife:       config.ShapeCacheShelfLife,
-		RouteCacheShelfLife:       config.RouteCacheShelfLife,
-		TripCacheShelfLife:        config.TripCacheShelfLife,
-		StopCacheShelfLife:        config.StopCacheShelfLife,
-		StopTimeCacheShelfLife:    config.StopTimeCacheShelfLife,
-		APIStopTimeCacheShelfLife: config.APIStopTimeCacheShelfLife,
-		StopInfoCacheShelfLife:    config.StopInfoCacheShelfLife,
-		TimetableCacheShelfLife:   config.TimetableCacheShelfLife,
-		NewsCacheShelfLife:        config.NewsCacheShelfLife,
+		TranzyCacheShelfLife:    config.TranzyCacheShelfLife,
+		TimetableCacheShelfLife: config.TimetableCacheShelfLife,
+		StopTimeCacheShelfLife:  config.StopTimeCacheShelfLife,
+		NewsCacheShelfLife:      config.NewsCacheShelfLife,
 	}
 
 	api := app.Group("/api")
