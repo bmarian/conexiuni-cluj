@@ -4118,6 +4118,7 @@ html.dark[data-arcade] .mini-spinner {
   --pt-text: #334155;
   --pt-muted: #94a3b8;
   --pt-input-bg: transparent;
+  --pt-input-bg-hover: #f8fafc;
   --pt-option-bg: #ffffff;
   --pt-option-text: #334155;
   --pt-option-selected-bg: #f1f5f9;
@@ -4201,6 +4202,7 @@ html.dark[data-arcade] .mini-spinner {
 .plan-time-select:focus,
 .plan-time-select:focus-visible {
   border-color: var(--pt-border-hover);
+  background: var(--pt-input-bg-hover);
 }
 
 .plan-time-chevron {
@@ -4259,13 +4261,39 @@ html.dark[data-arcade] .mini-spinner {
   font-size: var(--pt-font-size);
   font-weight: var(--pt-font-weight);
   border-width: var(--pt-input-border-width);
+  border-color: var(--pt-border);
   background: var(--pt-input-bg);
   color: var(--pt-text);
   padding: 0 0.625rem 0 var(--dp-input-icon-padding);
 }
 
+.plan-time-datetime :deep(.dp__input:hover),
+.plan-time-datetime :deep(.dp__input:focus),
+.plan-time-datetime :deep(.dp__input:focus-visible),
+.plan-time-datetime :deep(.dp__input_focus),
+.plan-time-datetime :deep(.dp__input_wrap:focus-within .dp__input) {
+  border-color: var(--pt-border-hover) !important;
+}
+
+.plan-time-datetime :deep(.dp__input_wrap .dp__input) {
+  border-color: var(--pt-border) !important;
+}
+
 .plan-time-datetime :deep(.dp__menu) {
   border-width: var(--pt-input-border-width);
+  border-radius: var(--pt-input-radius);
+}
+
+.plan-time-datetime :deep(.dp__menu_inner),
+.plan-time-datetime :deep(.dp__calendar),
+.plan-time-datetime :deep(.dp__calendar_wrap),
+.plan-time-datetime :deep(.dp__action_row),
+.plan-time-datetime :deep(.dp__action_extra),
+.plan-time-datetime :deep(.dp__input_wrap),
+.plan-time-datetime :deep(.dp__inner_nav),
+.plan-time-datetime :deep(.dp__action_button),
+.plan-time-datetime :deep(.dp__cell_inner) {
+  border-radius: var(--pt-cell-radius);
 }
 
 .plan-time-datetime :deep(.dp__month_year_wrap),
@@ -4317,9 +4345,10 @@ html.dark[data-arcade] .mini-spinner {
   --pt-border-hover: #475569;
   --pt-text: #cbd5e1;
   --pt-muted: #64748b;
-  --pt-option-bg: #0f172a;
+  --pt-input-bg-hover: #1e293b;
+  --pt-option-bg: #1e293b;
   --pt-option-text: #cbd5e1;
-  --pt-option-selected-bg: #1e293b;
+  --pt-option-selected-bg: #475569;
   --pt-option-selected-text: #f1f5f9;
   --pt-color-scheme: dark;
   --pt-dp-bg: #0f172a;
@@ -4346,6 +4375,7 @@ html[data-arcade] .plan-time-filter {
   --pt-text: #92400e;
   --pt-muted: #b45309;
   --pt-input-bg: #ffffff;
+  --pt-input-bg-hover: #ffffff;
   --pt-option-bg: #ffffff;
   --pt-option-text: #92400e;
   --pt-option-selected-bg: #fef3c7;
@@ -4368,6 +4398,7 @@ html.dark[data-arcade] .plan-time-filter {
   --pt-text: #fde68a;
   --pt-muted: #d97706;
   --pt-input-bg: #211a05;
+  --pt-input-bg-hover: #211a05;
   --pt-option-bg: #1c1608;
   --pt-option-text: #fde68a;
   --pt-option-selected-bg: #2a2006;
@@ -4421,6 +4452,7 @@ html[data-legacy-blue] .plan-time-filter {
   --pt-text: #000000;
   --pt-muted: #245edc;
   --pt-input-bg: #ffffff;
+  --pt-input-bg-hover: #ffffff;
   --pt-option-bg: #ffffff;
   --pt-option-text: #000000;
   --pt-option-selected-bg: #dce9f8;
@@ -4443,6 +4475,7 @@ html.dark[data-legacy-blue] .plan-time-filter {
   --pt-text: #e2e8f0;
   --pt-muted: #8aa9d4;
   --pt-input-bg: #0a1228;
+  --pt-input-bg-hover: #0a1228;
   --pt-option-bg: #0a1228;
   --pt-option-text: #e2e8f0;
   --pt-option-selected-bg: #243254;
@@ -4457,6 +4490,20 @@ html.dark[data-legacy-blue] .plan-time-filter {
   --pt-dp-secondary: #8aa9d4;
   --pt-dp-disabled: #0a1228;
   --pt-dp-icon: #8aa9d4;
+}
+
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu_inner),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__calendar),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__calendar_wrap),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__action_row),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__month_year_wrap),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__inner_nav),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__action_button),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__cell_inner),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__input),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__input_wrap) {
+  border-radius: 0 !important;
 }
 
 /* ============================================================
