@@ -45,6 +45,8 @@ import {
 import {decodePolyline} from "@/utils/geo.ts"
 import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
 import {reverseNominatimPlace, searchNominatimPlaces, type NominatimPlace} from "@/utils/nominatim.ts"
+import { VueDatePicker } from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
 
 const MAX_MINUTES = 60
 const WALK_SPEED = 80 // m/min
@@ -1012,7 +1014,7 @@ function getRelativeDepartureFormatted(plan: RichPlan, entry: TimeEntry) {
   const departureAtStop = new Date(now.getTime() + entry.minutes * 60_000)
 
   if (timeMode.value !== 'now') {
-    const timeStr = departureAtStop.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    const timeStr = departureAtStop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
     return t('planAtTime', { time: approx + timeStr })
   }
 
@@ -1037,7 +1039,7 @@ function getArrivalTimeFormatted(plan: RichPlan, entry: TimeEntry) {
     ? new Date(departureAtStop.getTime() + duration * 60_000)
     : new Date(departureAtStop.getTime() + (duration - plan.walkStartMeters / WALK_SPEED) * 60_000)
 
-  const timeStr = arrivalDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const timeStr = arrivalDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
   return t('planArrivalAt', { time: approx + timeStr })
 }
 
@@ -1511,6 +1513,8 @@ const formatLocalDateTime = (d: Date) => {
 // Minimum selectable datetime (current local time) — recomputed on clock tick
 // so users cannot pick a moment in the past.
 const minDateTime = computed(() => formatLocalDateTime(userTime.value || new Date()))
+const minDateObj = computed(() => userTime.value || new Date())
+const isDarkTheme = computed(() => settings.isDark)
 watch(timeMode, (mode) => {
   if (mode !== 'now' && !timeValue.value) {
     timeValue.value = formatLocalDateTime(new Date())
@@ -1879,11 +1883,20 @@ watch(timeValue, (val) => {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
               </svg>
             </label>
-            <input
+            <VueDatePicker
               v-if="timeMode !== 'now'"
-              type="datetime-local"
               v-model="timeValue"
-              :min="minDateTime"
+              :min-date="minDateObj"
+              model-type="yyyy-MM-dd'T'HH:mm"
+              format="dd/MM/yyyy HH:mm"
+              :is24="true"
+              :enable-seconds="false"
+              :minutes-increment="1"
+              :clearable="false"
+              :auto-apply="false"
+              :teleport="false"
+              :dark="isDarkTheme"
+              text-input
               class="plan-time-datetime"
               :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
             />
@@ -4119,22 +4132,25 @@ html.dark[data-arcade] .mini-spinner {
 .plan-time-select {
   appearance: none;
   -webkit-appearance: none;
-  background: white;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 9999px;
-  color: #0f172a;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #334155;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   padding: 0.4rem 1.85rem 0.4rem 0.95rem;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  outline: none;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
-.plan-time-select:hover,
+.plan-time-select:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
 .plan-time-select:focus {
-  border-color: #0ea5e9;
-  color: #0ea5e9;
-  outline: none;
+  border-color: #94a3b8;
 }
 
 .plan-time-chevron {
@@ -4144,28 +4160,47 @@ html.dark[data-arcade] .mini-spinner {
   width: 0.85rem;
   height: 0.85rem;
   transform: translateY(-50%);
-  color: #64748b;
+  color: #94a3b8;
   pointer-events: none;
 }
 
 .plan-time-datetime {
-  background: white;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 0.625rem;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 500;
-  padding: 0.4rem 0.6rem;
   min-width: 0;
-  flex: 1 1 9rem;
-  cursor: pointer;
-  transition: border-color 0.15s;
+  flex: 1 1 11rem;
 }
 
-.plan-time-datetime:hover,
-.plan-time-datetime:focus {
-  border-color: #0ea5e9;
-  outline: none;
+/* Apply our CSS vars at the picker root AND on .dp__theme_* (which the
+   picker re-defines on the menu element with higher source order than
+   our wrapper). Selector specificity (0,2,0) wins over .dp__theme_* (0,1,0). */
+.plan-time-datetime :deep(.dp__main),
+.plan-time-datetime :deep(.dp__theme_light),
+.plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-font-family: inherit;
+  --dp-border-radius: 0.5rem;
+  --dp-input-padding: 0.4rem 0.625rem;
+  --dp-font-size: 0.85rem;
+  --dp-input-icon-padding: 2rem;
+  --dp-background-color: #ffffff;
+  --dp-text-color: #0f172a;
+  --dp-border-color: #e2e8f0;
+  --dp-border-color-hover: #94a3b8;
+  --dp-border-color-focus: #94a3b8;
+  --dp-icon-color: #94a3b8;
+  --dp-primary-color: #0ea5e9;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #f1f5f9;
+  --dp-hover-text-color: #0f172a;
+  --dp-menu-border-color: #e2e8f0;
+  --dp-secondary-color: #94a3b8;
+  --dp-success-color: #0ea5e9;
+  --dp-disabled-color: #f1f5f9;
+  --dp-scroll-bar-background: #f1f5f9;
+  --dp-scroll-bar-color: #cbd5e1;
+}
+
+.plan-time-datetime :deep(.dp__input) {
+  font-weight: 500;
+  background: transparent;
 }
 
 /* ----------- Default Dark ----------- */
@@ -4175,31 +4210,52 @@ html.dark[data-arcade] .mini-spinner {
 }
 
 .dark .plan-time-select {
-  background: #0f172a;
+  background: transparent;
   border-color: #334155;
-  color: #e2e8f0;
+  color: #cbd5e1;
 }
 
-.dark .plan-time-select:hover,
+.dark .plan-time-select:hover {
+  border-color: #475569;
+  background: #1e293b;
+}
+
 .dark .plan-time-select:focus {
-  border-color: #38bdf8;
-  color: #38bdf8;
+  border-color: #475569;
+}
+
+.dark .plan-time-select option {
+  background: #1e293b;
+  color: #cbd5e1;
 }
 
 .dark .plan-time-chevron {
-  color: #94a3b8;
+  color: #475569;
 }
 
 .dark .plan-time-datetime {
-  background: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
   color-scheme: dark;
 }
 
-.dark .plan-time-datetime:hover,
-.dark .plan-time-datetime:focus {
-  border-color: #38bdf8;
+.dark .plan-time-datetime :deep(.dp__main),
+.dark .plan-time-datetime :deep(.dp__theme_light),
+.dark .plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-background-color: #0f172a;
+  --dp-text-color: #e2e8f0;
+  --dp-border-color: #334155;
+  --dp-border-color-hover: #475569;
+  --dp-border-color-focus: #475569;
+  --dp-icon-color: #94a3b8;
+  --dp-primary-color: #38bdf8;
+  --dp-primary-text-color: #0f172a;
+  --dp-hover-color: #1e293b;
+  --dp-hover-text-color: #f1f5f9;
+  --dp-menu-border-color: #334155;
+  --dp-secondary-color: #64748b;
+  --dp-success-color: #38bdf8;
+  --dp-disabled-color: #1e293b;
+  --dp-scroll-bar-background: #1e293b;
+  --dp-scroll-bar-color: #475569;
 }
 
 /* ----------- Arcade Theme ----------- */
@@ -4209,8 +4265,7 @@ html[data-arcade] .plan-time-filter {
   border-radius: 0.5rem;
 }
 
-html[data-arcade] .plan-time-select,
-html[data-arcade] .plan-time-datetime {
+html[data-arcade] .plan-time-select {
   background: white;
   border: 2px solid #F59E0B;
   border-radius: 0.5rem;
@@ -4218,11 +4273,34 @@ html[data-arcade] .plan-time-datetime {
 }
 
 html[data-arcade] .plan-time-select:hover,
-html[data-arcade] .plan-time-select:focus,
-html[data-arcade] .plan-time-datetime:hover,
-html[data-arcade] .plan-time-datetime:focus {
+html[data-arcade] .plan-time-select:focus {
   border-color: #D97706;
   color: #92400E;
+}
+
+html[data-arcade] .plan-time-datetime :deep(.dp__main),
+html[data-arcade] .plan-time-datetime :deep(.dp__theme_light),
+html[data-arcade] .plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-background-color: #FFFBEB;
+  --dp-text-color: #92400E;
+  --dp-border-color: #F59E0B;
+  --dp-border-color-hover: #D97706;
+  --dp-border-color-focus: #D97706;
+  --dp-icon-color: #B45309;
+  --dp-primary-color: #D97706;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #FEF3C7;
+  --dp-hover-text-color: #92400E;
+  --dp-menu-border-color: #F59E0B;
+  --dp-secondary-color: #B45309;
+  --dp-success-color: #D97706;
+  --dp-disabled-color: #FEF3C7;
+  --dp-border-radius: 0.5rem;
+}
+
+html[data-arcade] .plan-time-datetime :deep(.dp__input) {
+  border-width: 2px;
+  background: white;
 }
 
 html[data-arcade] .plan-time-chevron {
@@ -4234,8 +4312,7 @@ html.dark[data-arcade] .plan-time-filter {
   border-color: #78350f;
 }
 
-html.dark[data-arcade] .plan-time-select,
-html.dark[data-arcade] .plan-time-datetime {
+html.dark[data-arcade] .plan-time-select {
   background: #211a05;
   border-color: #78350f;
   color: #fde68a;
@@ -4243,11 +4320,36 @@ html.dark[data-arcade] .plan-time-datetime {
 }
 
 html.dark[data-arcade] .plan-time-select:hover,
-html.dark[data-arcade] .plan-time-select:focus,
-html.dark[data-arcade] .plan-time-datetime:hover,
-html.dark[data-arcade] .plan-time-datetime:focus {
+html.dark[data-arcade] .plan-time-select:focus {
   border-color: #d97706;
   color: #fde68a;
+}
+
+html.dark[data-arcade] .plan-time-datetime {
+  color-scheme: dark;
+}
+
+html.dark[data-arcade] .plan-time-datetime :deep(.dp__main),
+html.dark[data-arcade] .plan-time-datetime :deep(.dp__theme_light),
+html.dark[data-arcade] .plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-background-color: #1c1608;
+  --dp-text-color: #fde68a;
+  --dp-border-color: #78350f;
+  --dp-border-color-hover: #d97706;
+  --dp-border-color-focus: #d97706;
+  --dp-icon-color: #d97706;
+  --dp-primary-color: #d97706;
+  --dp-primary-text-color: #1c1608;
+  --dp-hover-color: #2a2006;
+  --dp-hover-text-color: #fde68a;
+  --dp-menu-border-color: #78350f;
+  --dp-secondary-color: #d97706;
+  --dp-success-color: #d97706;
+  --dp-disabled-color: #211a05;
+}
+
+html.dark[data-arcade] .plan-time-datetime :deep(.dp__input) {
+  background: #211a05;
 }
 
 html.dark[data-arcade] .plan-time-chevron {
@@ -4284,27 +4386,51 @@ html[data-legacy-blue] .plan-time-filter {
   padding: 0.4rem 0.5rem;
 }
 
-html[data-legacy-blue] .plan-time-select,
-html[data-legacy-blue] .plan-time-datetime {
+html[data-legacy-blue] .plan-time-select {
   background: white;
   border: 1px solid #7F9DB9;
   border-radius: 0 !important;
   color: #000;
   font-family: Tahoma, Geneva, sans-serif;
   font-size: 0.8rem;
-  padding: 0.25rem 0.5rem;
-}
-
-html[data-legacy-blue] .plan-time-select {
-  padding-right: 1.6rem;
+  padding: 0.25rem 1.6rem 0.25rem 0.5rem;
 }
 
 html[data-legacy-blue] .plan-time-select:hover,
-html[data-legacy-blue] .plan-time-select:focus,
-html[data-legacy-blue] .plan-time-datetime:hover,
-html[data-legacy-blue] .plan-time-datetime:focus {
+html[data-legacy-blue] .plan-time-select:focus {
   border-color: #245EDC;
   color: #000;
+}
+
+html[data-legacy-blue] .plan-time-datetime {
+  font-family: Tahoma, Geneva, sans-serif;
+}
+
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__main),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_light),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-background-color: #ECE9D8;
+  --dp-text-color: #000;
+  --dp-border-color: #7F9DB9;
+  --dp-border-color-hover: #245EDC;
+  --dp-border-color-focus: #245EDC;
+  --dp-icon-color: #245EDC;
+  --dp-primary-color: #245EDC;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #DCE9F8;
+  --dp-hover-text-color: #000;
+  --dp-menu-border-color: #7F9DB9;
+  --dp-secondary-color: #245EDC;
+  --dp-success-color: #245EDC;
+  --dp-disabled-color: #D4D0C8;
+  --dp-border-radius: 0;
+  --dp-font-size: 0.8rem;
+  --dp-input-padding: 0.25rem 0.5rem;
+  --dp-font-family: Tahoma, Geneva, sans-serif;
+}
+
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__input) {
+  background: white;
 }
 
 html[data-legacy-blue] .plan-time-chevron {
@@ -4316,12 +4442,41 @@ html.dark[data-legacy-blue] .plan-time-filter {
   border-color: #3a4f7a;
 }
 
-html.dark[data-legacy-blue] .plan-time-select,
-html.dark[data-legacy-blue] .plan-time-datetime {
+html.dark[data-legacy-blue] .plan-time-select {
   background: #0a1228;
   border-color: #3a4f7a;
   color: #e2e8f0;
   color-scheme: dark;
+}
+
+html.dark[data-legacy-blue] .plan-time-datetime {
+  font-family: Tahoma, Geneva, sans-serif;
+  color-scheme: dark;
+}
+
+html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__main),
+html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_light),
+html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_dark) {
+  --dp-background-color: #1a2540;
+  --dp-text-color: #e2e8f0;
+  --dp-border-color: #3a4f7a;
+  --dp-border-color-hover: #5a78b8;
+  --dp-border-color-focus: #5a78b8;
+  --dp-icon-color: #8aa9d4;
+  --dp-primary-color: #5a78b8;
+  --dp-primary-text-color: #0a1228;
+  --dp-hover-color: #243254;
+  --dp-hover-text-color: #ffffff;
+  --dp-menu-border-color: #3a4f7a;
+  --dp-secondary-color: #8aa9d4;
+  --dp-success-color: #5a78b8;
+  --dp-disabled-color: #0a1228;
+  --dp-border-radius: 0;
+  --dp-font-family: Tahoma, Geneva, sans-serif;
+}
+
+html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__input) {
+  background: #0a1228;
 }
 
 html.dark[data-legacy-blue] .plan-time-chevron {

@@ -135,9 +135,10 @@ function roundOrNull(value: unknown): number | null {
 
 function formatTime(value: string | null): string {
   if (!value) return '—'
-  return new Intl.DateTimeFormat(locale.value === 'en' ? 'en-US' : 'ro-RO', {
+  return new Intl.DateTimeFormat(locale.value === 'en' ? 'en-GB' : 'ro-RO', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   }).format(new Date(value))
 }
 
