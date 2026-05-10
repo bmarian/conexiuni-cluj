@@ -79,9 +79,22 @@ export default defineConfig({
   build: {
     outDir: '../backend/dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 650,
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('/node_modules/@vueuse/core/dist/index.js')) {
+          return
+        }
+        warn(warning)
+      },
       output: {
         manualChunks(id: string) {
+          if (id.includes('/node_modules/vue/') || id.includes('/node_modules/pinia/') || id.includes('/node_modules/vue-router/') || id.includes('/node_modules/vue-i18n/') || id.includes('/node_modules/@unhead/')) {
+            return 'vue-vendor'
+          }
+          if (id.includes('/node_modules/@vuepic/vue-datepicker/') || id.includes('/node_modules/@vueuse/') || id.includes('/node_modules/date-fns/') || id.includes('/node_modules/vuedraggable/')) {
+            return 'ui-vendor'
+          }
           if (id.includes('/node_modules/leaflet') || id.includes('/node_modules/leaflet-geosearch')) {
             return 'leaflet-vendor'
           }
