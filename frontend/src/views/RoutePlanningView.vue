@@ -255,6 +255,56 @@ function getScheduleDiffs(arrivalAtStopMinutes: number, referenceMinutes: number
     .filter(diff => arriveBy ? diff <= 0 && diff >= -maxMinutes : diff >= 0 && diff <= maxMinutes)
 }
 
+function normalizeStopLabelForMatch(label: string): string {
+  return label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function stopLabelsMatch(a: string, b: string): boolean {
+  const na = normalizeStopLabelForMatch(a)
+  const nb = normalizeStopLabelForMatch(b)
+  if (!na || !nb) return false
+  return na === nb || na.includes(nb) || nb.includes(na)
+}
+
+function tripUsesDepartureIn(shape: ShapeInfo, tripId: string): boolean {
+  const timetable = shape.timetable
+  if (!timetable) return tripId.endsWith('_0')
+
+  const tripStops = getShapeStopTimes(shape).filter(st => st.trip_id === tripId)
+  const firstStopId = tripStops[0]?.stop_id
+  const firstStopName = firstStopId !== undefined ? getStop(firstStopId)?.stop_name : undefined
+  if (!firstStopName) return tripId.endsWith('_0')
+
+  if (stopLabelsMatch(firstStopName, timetable.in_stop_name)) return true
+  if (stopLabelsMatch(firstStopName, timetable.out_stop_name)) return false
+  return tripId.endsWith('_0')
+}
+
+function parsePlannerDateTime(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const localMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (localMatch) {
+    const [, y, m, d, hh, mm, ss] = localMatch
+    return new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss ?? '0'),
+      0,
+    )
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 function getTripDeparturesAtStop(
   shape: ShapeInfo,
   tripId: string,
@@ -268,7 +318,7 @@ function getTripDeparturesAtStop(
   const timetable = shape.timetable
   if (!timetable) return []
 
-  const isOutgoing = tripId.endsWith('_0')
+  const isOutgoing = tripUsesDepartureIn(shape, tripId)
   const stopTimes = getShapeStopTimes(shape)
   const offsetMin = getTimeOffsetToStop(stopTimes, tripId, boardingStopId)
   const daySchedule = getTimetableForDay(timetable, now)
@@ -617,7 +667,9 @@ function applyPlanTimingFromSchedule(now: Date) {
   const data = planData.value
   if (!data?.shapes || !routesWithTimes.value.length) return
   const isArriveBy = timeMode.value === 'arrive'
-  const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
+  const requestedTime = (timeMode.value !== 'now' && timeValue.value)
+    ? (parsePlannerDateTime(timeValue.value) ?? now)
+    : now
   const offsetMin = (requestedTime.getTime() - now.getTime()) / 60_000
 
   for (const plan of routesWithTimes.value) {
@@ -678,7 +730,9 @@ watch(planData, (data) => {
   }
   const now = userTime.value || new Date()
   const isArriveBy = timeMode.value === 'arrive'
-  const requestedTime = (timeMode.value !== 'now' && timeValue.value) ? new Date(timeValue.value) : now
+  const requestedTime = (timeMode.value !== 'now' && timeValue.value)
+    ? (parsePlannerDateTime(timeValue.value) ?? now)
+    : now
 
   const grouped = enrichWithAlternativesFromShapes(
     normalizeLegDirections(groupPlans(data.plans), data.shapes),
@@ -1437,6 +1491,10 @@ async function calculateRoutes() {
   const origin = customOrigin.value ?? (hasLocationPermission.value ? userLocation.value : null)
   if (!origin || isNaN(lat) || isNaN(lon)) return
 
+  if (!allStops.value.length) {
+    allStops.value = await apiRequest('stops') as Stop[]
+  }
+
   const qk = getQueryKey()
   if (qk && qk === currentQueryKey.value && planData.value?.plans.length) return
 
@@ -1994,7 +2052,8 @@ watch(timeValue, (val) => {
             :minutes-increment="1"
             :auto-apply="false"
             :teleport="true"
-            :floating="{ arrow: false, strategy: 'fixed' }"
+            :floating="{ arrow: false, strategy: 'fixed', offset: 0, placement: 'bottom-start' }"
+            :ui="{ menu: 'plan-time-menu' }"
             :input-attrs="{ clearable: false, alwaysClearable: false, inputmode: 'none' }"
             :dark="isDarkTheme"
             text-input
@@ -4542,6 +4601,173 @@ html.dark[data-legacy-blue] .plan-time-filter {
   --pt-dp-icon: #8aa9d4;
 }
 
+:global(.plan-time-menu) {
+  --dp-font-family: inherit;
+  --dp-font-size: 1rem;
+  --dp-border-radius: 0.5rem;
+  --dp-cell-border-radius: 0.5rem;
+  --dp-menu-min-width: 260px;
+  --dp-action-button-height: 28px;
+  --dp-action-buttons-padding: 4px 12px;
+  --dp-preview-font-size: 0.85rem;
+  --dp-background-color: #ffffff;
+  --dp-text-color: #0f172a;
+  --dp-border-color: #e2e8f0;
+  --dp-menu-border-color: #e2e8f0;
+  --dp-border-color-hover: #94a3b8;
+  --dp-border-color-focus: #94a3b8;
+  --dp-icon-color: #94a3b8;
+  --dp-primary-color: #0ea5e9;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #f1f5f9;
+  --dp-hover-text-color: #0f172a;
+  --dp-secondary-color: #94a3b8;
+  --dp-success-color: #0ea5e9;
+  --dp-disabled-color: #f1f5f9;
+  --dp-scroll-bar-background: #f1f5f9;
+  --dp-scroll-bar-color: #cbd5e1;
+  --plan-time-menu-border-width: 1px;
+  border-width: var(--plan-time-menu-border-width);
+  border-radius: var(--dp-border-radius);
+}
+
+:global(html.dark .plan-time-menu) {
+  --dp-background-color: #0f172a;
+  --dp-text-color: #e2e8f0;
+  --dp-border-color: #334155;
+  --dp-menu-border-color: #334155;
+  --dp-border-color-hover: #475569;
+  --dp-border-color-focus: #475569;
+  --dp-icon-color: #94a3b8;
+  --dp-primary-color: #38bdf8;
+  --dp-primary-text-color: #0f172a;
+  --dp-hover-color: #1e293b;
+  --dp-hover-text-color: #f1f5f9;
+  --dp-secondary-color: #64748b;
+  --dp-disabled-color: #1e293b;
+  --dp-scroll-bar-background: #1e293b;
+  --dp-scroll-bar-color: #475569;
+}
+
+:global(html[data-arcade] .plan-time-menu) {
+  --dp-background-color: #fffbeb;
+  --dp-text-color: #92400e;
+  --dp-border-color: #f59e0b;
+  --dp-menu-border-color: #f59e0b;
+  --dp-border-color-hover: #d97706;
+  --dp-border-color-focus: #d97706;
+  --dp-icon-color: #b45309;
+  --dp-primary-color: #d97706;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #fef3c7;
+  --dp-hover-text-color: #92400e;
+  --dp-secondary-color: #b45309;
+  --dp-disabled-color: #fef3c7;
+  --plan-time-menu-border-width: 2px;
+}
+
+:global(html.dark[data-arcade] .plan-time-menu) {
+  --dp-background-color: #1c1608;
+  --dp-text-color: #fde68a;
+  --dp-border-color: #78350f;
+  --dp-menu-border-color: #78350f;
+  --dp-border-color-hover: #d97706;
+  --dp-border-color-focus: #d97706;
+  --dp-icon-color: #d97706;
+  --dp-primary-color: #d97706;
+  --dp-primary-text-color: #1c1608;
+  --dp-hover-color: #2a2006;
+  --dp-hover-text-color: #fde68a;
+  --dp-secondary-color: #d97706;
+  --dp-disabled-color: #211a05;
+}
+
+:global(html[data-legacy-blue] .plan-time-menu) {
+  --dp-font-family: Tahoma, Geneva, sans-serif;
+  --dp-font-size: 0.8rem;
+  --dp-border-radius: 0;
+  --dp-cell-border-radius: 0;
+  --dp-background-color: #ece9d8;
+  --dp-text-color: #000000;
+  --dp-border-color: #7f9db9;
+  --dp-menu-border-color: #7f9db9;
+  --dp-border-color-hover: #245edc;
+  --dp-border-color-focus: #245edc;
+  --dp-icon-color: #245edc;
+  --dp-primary-color: #245edc;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: #dce9f8;
+  --dp-hover-text-color: #000000;
+  --dp-secondary-color: #245edc;
+  --dp-disabled-color: #d4d0c8;
+  --plan-time-menu-border-width: 1px;
+}
+
+:global(html.dark[data-legacy-blue] .plan-time-menu) {
+  --dp-background-color: #1a2540;
+  --dp-text-color: #e2e8f0;
+  --dp-border-color: #3a4f7a;
+  --dp-menu-border-color: #3a4f7a;
+  --dp-border-color-hover: #5a78b8;
+  --dp-border-color-focus: #5a78b8;
+  --dp-icon-color: #8aa9d4;
+  --dp-primary-color: #5a78b8;
+  --dp-primary-text-color: #0a1228;
+  --dp-hover-color: #243254;
+  --dp-hover-text-color: #ffffff;
+  --dp-secondary-color: #8aa9d4;
+  --dp-disabled-color: #0a1228;
+}
+
+:global(.plan-time-menu .dp__menu_inner),
+:global(.plan-time-menu .dp__calendar),
+:global(.plan-time-menu .dp__calendar_wrap),
+:global(.plan-time-menu .dp__action_row),
+:global(.plan-time-menu .dp__action_extra),
+:global(.plan-time-menu .dp__inner_nav),
+:global(.plan-time-menu .dp__action_button),
+:global(.plan-time-menu .dp__cell_inner) {
+  border-radius: var(--dp-cell-border-radius);
+}
+
+:global(.plan-time-menu .dp__month_year_wrap),
+:global(.plan-time-menu .dp__calendar_header),
+:global(.plan-time-menu .dp__calendar_header_item),
+:global(.plan-time-menu .dp__inner_nav),
+:global(.plan-time-menu .dp__action_row) {
+  color: var(--dp-text-color);
+}
+
+:global(.plan-time-menu .dp__calendar_header_separator) {
+  border-color: var(--dp-border-color);
+}
+
+:global(.plan-time-menu .dp__arrow_top) {
+  border-left-color: var(--dp-menu-border-color);
+  border-top-color: var(--dp-menu-border-color);
+}
+
+:global(.plan-time-menu .dp__action_select) {
+  background: var(--dp-primary-color);
+  color: var(--dp-primary-text-color);
+  font-weight: 600;
+}
+
+:global(.plan-time-menu .dp__action_select:hover) {
+  filter: brightness(1.08);
+}
+
+:global(.plan-time-menu .dp__action_cancel) {
+  color: var(--dp-text-color);
+  border: 1px solid var(--dp-border-color);
+  background: transparent;
+}
+
+:global(.plan-time-menu .dp__action_cancel:hover) {
+  border-color: var(--dp-border-color-hover);
+  background: var(--dp-hover-color);
+}
+
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu),
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu_inner),
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__calendar),
@@ -4552,7 +4778,18 @@ html[data-legacy-blue] .plan-time-datetime :deep(.dp__inner_nav),
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__action_button),
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__cell_inner),
 html[data-legacy-blue] .plan-time-datetime :deep(.dp__input),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__input_wrap) {
+html[data-legacy-blue] .plan-time-datetime :deep(.dp__input_wrap),
+:global(html[data-legacy-blue] .plan-time-menu),
+:global(html[data-legacy-blue] .plan-time-menu .dp__menu_inner),
+:global(html[data-legacy-blue] .plan-time-menu .dp__calendar),
+:global(html[data-legacy-blue] .plan-time-menu .dp__calendar_wrap),
+:global(html[data-legacy-blue] .plan-time-menu .dp__action_row),
+:global(html[data-legacy-blue] .plan-time-menu .dp__month_year_wrap),
+:global(html[data-legacy-blue] .plan-time-menu .dp__inner_nav),
+:global(html[data-legacy-blue] .plan-time-menu .dp__action_button),
+:global(html[data-legacy-blue] .plan-time-menu .dp__cell_inner),
+:global(html[data-legacy-blue] .plan-time-menu .dp__input),
+:global(html[data-legacy-blue] .plan-time-menu .dp__input_wrap) {
   border-radius: 0 !important;
 }
 
