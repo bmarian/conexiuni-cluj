@@ -285,6 +285,16 @@ function tripUsesDepartureIn(shape: ShapeInfo, tripId: string): boolean {
   return tripId.endsWith('_0')
 }
 
+// "Last today" cutoff — the next 03:00 in local time. Picks up post-midnight runs
+// (Cluj weekday last buses run until ~00:30) when service has already crossed midnight.
+function lastTransitCutoffString(now: Date): string {
+  const cutoff = new Date(now)
+  cutoff.setHours(3, 0, 0, 0)
+  if (cutoff <= now) cutoff.setDate(cutoff.getDate() + 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${cutoff.getFullYear()}-${pad(cutoff.getMonth() + 1)}-${pad(cutoff.getDate())}T${pad(cutoff.getHours())}:${pad(cutoff.getMinutes())}`
+}
+
 function parsePlannerDateTime(value: string | null | undefined): Date | null {
   if (!value) return null
   const localMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/)
@@ -614,12 +624,25 @@ function buildRichPlan(
     ).join('|')
   }
 
-  const nextTimes = computeNextTimesForPlan(plan, shapesMap, now, arriveBy)
-  if (!nextTimes.length) return null
+  let nextTimes = computeNextTimesForPlan(plan, shapesMap, now, arriveBy)
 
-  // For key generation and initial leg filtering, we still need to know which routes were valid
-  // but computeNextTimesForPlan already did the heavy lifting.
-  // We'll just return the plan with the calculated nextTimes.
+  // Local timetable can miss valid departures when the reference day differs
+  // from the actual service day (e.g., "last today" cutoff at 03:00 next morning
+  // pulls the next day's schedule, but the matching trip is on yesterday's
+  // late-night service). Fall back to OTP's authoritative startTimeMs, since
+  // OTP already validated the plan against the deadline.
+  if (!nextTimes.length && plan.startTimeMs > 0) {
+    const walkStartMin = plan.walkStartMeters / WALK_SPEED
+    const boardingMs = plan.legs.length > 0
+      ? plan.startTimeMs + walkStartMin * 60_000
+      : plan.startTimeMs
+    nextTimes = [{
+      minutes: (boardingMs - now.getTime()) / 60_000,
+      is_live: false,
+    }]
+  }
+
+  if (!nextTimes.length) return null
 
   return {
     ...plan,
@@ -672,10 +695,12 @@ function mergeLiveAndScheduled(
 function applyPlanTimingFromSchedule(now: Date) {
   const data = planData.value
   if (!data?.shapes || !routesWithTimes.value.length) return
-  const isArriveBy = timeMode.value === 'arrive'
-  const requestedTime = (timeMode.value !== 'now' && timeValue.value)
-    ? (parsePlannerDateTime(timeValue.value) ?? now)
-    : now
+  const isArriveBy = timeMode.value === 'arrive' || timeMode.value === 'last'
+  const requestedTime = timeMode.value === 'last'
+    ? (parsePlannerDateTime(lastTransitCutoffString(now)) ?? now)
+    : (timeMode.value !== 'now' && timeValue.value)
+      ? (parsePlannerDateTime(timeValue.value) ?? now)
+      : now
   const offsetMin = (requestedTime.getTime() - now.getTime()) / 60_000
 
   for (const plan of routesWithTimes.value) {
@@ -735,10 +760,12 @@ watch(planData, (data) => {
     return
   }
   const now = userTime.value || new Date()
-  const isArriveBy = timeMode.value === 'arrive'
-  const requestedTime = (timeMode.value !== 'now' && timeValue.value)
-    ? (parsePlannerDateTime(timeValue.value) ?? now)
-    : now
+  const isArriveBy = timeMode.value === 'arrive' || timeMode.value === 'last'
+  const requestedTime = timeMode.value === 'last'
+    ? (parsePlannerDateTime(lastTransitCutoffString(now)) ?? now)
+    : (timeMode.value !== 'now' && timeValue.value)
+      ? (parsePlannerDateTime(timeValue.value) ?? now)
+      : now
 
   const grouped = enrichWithAlternativesFromShapes(
     normalizeLegDirections(groupPlans(data.plans), data.shapes),
@@ -757,10 +784,14 @@ watch(planData, (data) => {
   // Use OTP's own ranking (generalizedCost): lower cost = preferred. OTP already
   // accounts for ride time, transfer count, walking, and wait reluctance, so this
   // gives the "fewer changes / less walking" ordering directly. Walk-only stays last.
+  // In "last today" mode, the user wants the literally last viable trip, so sort by
+  // arrival time descending instead.
+  const isLastMode = timeMode.value === 'last'
   results.sort((a, b) => {
     const walkOnlyA = a.legs.length === 0
     const walkOnlyB = b.legs.length === 0
     if (walkOnlyA !== walkOnlyB) return walkOnlyA ? 1 : -1
+    if (isLastMode) return b.endTimeMs - a.endTimeMs
     return a.generalizedCost - b.generalizedCost
   })
   const transitTrimmed = results.filter(p => p.legs.length > 0).slice(0, 6)
@@ -1188,7 +1219,11 @@ function getQueryKey() {
     ? {latitude: customOrigin.value.lat, longitude: customOrigin.value.lon}
     : (hasLocationPermission.value ? userLocation.value : null)
   if (!ul || isNaN(lat) || isNaN(lon)) return null
-  const tk = timeMode.value === 'now' ? 'now' : `${timeMode.value}:${timeValue.value}`
+  const tk = timeMode.value === 'now'
+    ? 'now'
+    : timeMode.value === 'last'
+      ? `last:${lastTransitCutoffString(new Date())}`
+      : `${timeMode.value}:${timeValue.value}`
   return `plan_routes?from_lat=${ul.latitude}&from_lng=${ul.longitude}&to_lat=${lat}&to_lng=${lon}&t=${tk}`
 }
 
@@ -1386,7 +1421,10 @@ watch(() => route.query, (newQuery) => {
 
   const queryTime = singleQueryString(newQuery.time)
   const queryArriveBy = singleQueryString(newQuery.arrive_by) === 'true'
-  if (queryTime) {
+  const queryLast = singleQueryString(newQuery.last) === 'true'
+  if (queryLast) {
+    if (timeMode.value !== 'last') timeMode.value = 'last'
+  } else if (queryTime) {
     const nextMode = queryArriveBy ? 'arrive' : 'leave'
     if (timeValue.value !== queryTime) {
       timeValue.value = queryTime
@@ -1404,9 +1442,17 @@ watch([timeMode, timeValue], ([mode, value]) => {
   let changed = false
 
   if (mode === 'now') {
-    if (newQuery.time !== undefined || newQuery.arrive_by !== undefined) {
+    if (newQuery.time !== undefined || newQuery.arrive_by !== undefined || newQuery.last !== undefined) {
       delete newQuery.time
       delete newQuery.arrive_by
+      delete newQuery.last
+      changed = true
+    }
+  } else if (mode === 'last') {
+    if (newQuery.last !== 'true' || newQuery.time !== undefined || newQuery.arrive_by !== undefined) {
+      delete newQuery.time
+      delete newQuery.arrive_by
+      newQuery.last = 'true'
       changed = true
     }
   } else if (value) {
@@ -1419,6 +1465,10 @@ watch([timeMode, timeValue], ([mode, value]) => {
     }
     if (currentArriveBy !== nextArriveBy) {
       newQuery.arrive_by = nextArriveBy
+      changed = true
+    }
+    if (newQuery.last !== undefined) {
+      delete newQuery.last
       changed = true
     }
   }
@@ -1521,7 +1571,10 @@ async function calculateRoutes() {
       to_lat: lat.toFixed(4),
       to_lng: lon.toFixed(4),
     })
-    if (timeMode.value !== 'now' && timeValue.value) {
+    if (timeMode.value === 'last') {
+      params.set('time', lastTransitCutoffString(new Date()))
+      params.set('arrive_by', 'true')
+    } else if (timeMode.value !== 'now' && timeValue.value) {
       params.set('time', timeValue.value)
       params.set('arrive_by', timeMode.value === 'arrive' ? 'true' : 'false')
     }
@@ -1638,10 +1691,10 @@ const minDateTime = computed(() => formatLocalDateTime(userTime.value || new Dat
 const minDateObj = computed(() => userTime.value || new Date())
 const isDarkTheme = computed(() => settings.isDark)
 watch(timeMode, (mode) => {
-  if (mode !== 'now' && !timeValue.value) {
+  if (mode !== 'now' && mode !== 'last' && !timeValue.value) {
     timeValue.value = formatLocalDateTime(new Date())
   }
-  if (mode === 'now') {
+  if (mode === 'now' || mode === 'last') {
     void refreshRoutes()
   }
 })
@@ -1999,6 +2052,7 @@ watch(timeValue, (val) => {
               <option value="now">{{ t('planTimeLeaveNow') }}</option>
               <option value="leave">{{ t('planTimeLeaveAt') }}</option>
               <option value="arrive">{{ t('planTimeArriveBy') }}</option>
+              <option value="last">{{ t('planTimeLast') }}</option>
             </select>
             <svg class="plan-time-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
@@ -2006,7 +2060,7 @@ watch(timeValue, (val) => {
           </label>
           <div class="plan-time-filter-actions">
             <button
-              v-if="timeMode !== 'now'"
+              v-if="timeMode !== 'now' && timeMode !== 'last'"
               type="button"
               class="plan-time-search-btn shrink-0"
               :title="t('planTimeSearchAria')"
@@ -2049,7 +2103,7 @@ watch(timeValue, (val) => {
             </button>
           </div>
           <VueDatePicker
-            v-if="timeMode !== 'now'"
+            v-if="timeMode !== 'now' && timeMode !== 'last'"
             v-model="timeValue"
             :min-date="minDateObj"
             model-type="yyyy-MM-dd'T'HH:mm"

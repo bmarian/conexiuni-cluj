@@ -2,7 +2,7 @@ import {defineStore} from 'pinia'
 import {ref} from 'vue'
 import type {PlannedRoute} from '@/utils/trips.ts'
 
-export type PlanTimeMode = 'now' | 'leave' | 'arrive'
+export type PlanTimeMode = 'now' | 'leave' | 'arrive' | 'last'
 
 export const usePlannerStore = defineStore('planner', () => {
   const lastSelectedRouteKeys = ref<Record<string, string>>({})
@@ -24,7 +24,7 @@ export const usePlannerStore = defineStore('planner', () => {
 
   function setTimeMode(mode: PlanTimeMode) {
     timeMode.value = mode
-    if (mode !== 'now' && !timeValue.value) {
+    if (mode !== 'now' && mode !== 'last' && !timeValue.value) {
       // Default to current local time, rounded to the next minute.
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')

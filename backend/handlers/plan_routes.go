@@ -129,6 +129,9 @@ type otpEncodedPoly struct {
 }
 
 // otpPlanQuery is the GraphQL query sent to the OTP GTFS API.
+// searchWindow is set to 6h so that late-night "arrive by" queries
+// (e.g. "last bus today" with a 03:00 cutoff) don't get pruned by
+// OTP's dynamicSearchWindow when the deadline is far from any transit.
 const otpPlanQuery = `{
   plan(
     from: { lat: %f, lon: %f }
@@ -137,6 +140,7 @@ const otpPlanQuery = `{
     time: "%s"
     arriveBy: %t
     numItineraries: 12
+    searchWindow: 21600
     transportModes: [{ mode: WALK }, { mode: TRANSIT }]
   ) {
     itineraries {
