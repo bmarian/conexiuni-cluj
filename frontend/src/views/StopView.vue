@@ -73,6 +73,8 @@ const loadError = ref(false)
 const isComputingDepartures = ref(true)
 const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 const initialZoomAppliedStopId = ref<string | null>(null)
+const cachedShapeKey = ref('')
+const cachedShapesWithTrip = ref<Array<[DisplayShape, Shape[]]>>([])
 
 const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
   const loadedStopId = stopInfo.value?.stop_id?.toString()
@@ -143,6 +145,8 @@ watch(() => props.stopId, async (newValue) => {
   loadError.value = false
   isComputingDepartures.value = true
   shapesComingToTheStopBasedOnVehiclePositions.value = []
+  cachedShapeKey.value = ''
+  cachedShapesWithTrip.value = []
   await fetchStopData(newValue)
   if (!stopInfo.value) loadError.value = true
   isLoading.value = false
@@ -158,7 +162,12 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   }
 
   const displayShapes = getShapesDisplay(busesWithAvailableTimetables.value)
-  const displayShapesWithTrip = await mapStore.requestShapes(displayShapes)
+  const shapeKey = displayShapes.map(d => d.trip_id).sort().join(',')
+  if (shapeKey !== cachedShapeKey.value) {
+    cachedShapesWithTrip.value = await mapStore.requestShapes(displayShapes)
+    cachedShapeKey.value = shapeKey
+  }
+  const displayShapesWithTrip = cachedShapesWithTrip.value
   if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
     mapStore.setVehiclesToDisplay([])
