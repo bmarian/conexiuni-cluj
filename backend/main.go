@@ -121,7 +121,6 @@ func main() {
 	cacheTimes := models.CacheTimes{
 		TranzyCacheShelfLife:    config.TranzyCacheShelfLife,
 		TimetableCacheShelfLife: config.TimetableCacheShelfLife,
-		StopTimeCacheShelfLife:  config.StopTimeCacheShelfLife,
 		NewsCacheShelfLife:      config.NewsCacheShelfLife,
 	}
 

@@ -1322,7 +1322,7 @@ onMounted(async () => {
   isActive.value = true
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
-    allStops.value = await apiRequest('stops', 60 * 60 * 1000) as Stop[]
+    allStops.value = await apiRequest('stops') as Stop[]
     if (!hasLocationPermission.value && !customOrigin.value) {
       activeSearchField.value = 'origin'
     }

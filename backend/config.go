@@ -23,7 +23,6 @@ type Config struct {
 	TranzyApiKey             string
 	TranzyCacheShelfLife     time.Duration
 	TimetableCacheShelfLife  time.Duration
-	StopTimeCacheShelfLife   time.Duration
 	NewsCacheShelfLife       time.Duration
 	CtpCjRateLimit           time.Duration
 	TranzyRateLimit          time.Duration
@@ -99,7 +98,6 @@ func Load() *Config {
 		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
 		TranzyCacheShelfLife:     tranzyCacheShelfLife,
 		TimetableCacheShelfLife:  getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
-		StopTimeCacheShelfLife:   getDuration("STOP_TIME_CACHE_SHELF_LIFE", 24*time.Hour),
 		NewsCacheShelfLife:       getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
 		CtpCjRateLimit:           getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
@@ -116,7 +114,6 @@ func Load() *Config {
 		neverExpire := time.Duration(math.MaxInt64)
 		cfg.TranzyCacheShelfLife = neverExpire
 		cfg.TimetableCacheShelfLife = neverExpire
-		cfg.StopTimeCacheShelfLife = neverExpire
 	}
 
 	return cfg

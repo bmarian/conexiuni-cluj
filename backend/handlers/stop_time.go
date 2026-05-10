@@ -23,7 +23,7 @@ func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, fil
 		return nil, fmt.Errorf("route_short_name is required")
 	}
 	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
-	return HandleCached(cacheID, cacheTimes.StopTimeCacheShelfLife,
+	return HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
 		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
 		storeStopTimesInDB,
