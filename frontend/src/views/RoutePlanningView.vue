@@ -1490,6 +1490,13 @@ async function swapOriginDestination() {
   })
 }
 
+function openSearchField(field: 'origin' | 'destination') {
+  if (field === 'destination' && !isOnline.value) return
+  activeSearchField.value = field
+  searchResults.value = []
+  searchQuery.value = ''
+}
+
 async function refreshRoutes() {
   if (isCalculating.value) return
   clearPlanSelection()
@@ -1647,7 +1654,7 @@ watch(timeValue, (val) => {
             <div class="leg-line"></div>
           </div>
           <div class="leg-label-col" v-if="activeSearchField !== 'origin'">
-            <div class="origin-clickable" @click="activeSearchField = 'origin'; searchResults = []; searchQuery = ''">
+            <div class="origin-clickable" @click="openSearchField('origin')">
               <span class="leg-type-badge">{{ t('planFrom') }}</span>
               <div class="leg-name-wrap">
                 <span class="leg-name">{{ originLabel }}</span>
@@ -1803,7 +1810,7 @@ watch(timeValue, (val) => {
             <div
               class="origin-clickable"
               :class="{ 'opacity-60 pointer-events-none': !isOnline }"
-              @click="if (isOnline) { activeSearchField = 'destination'; searchResults = []; searchQuery = '' }"
+              @click="openSearchField('destination')"
             >
               <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
               <div class="leg-name-wrap">
@@ -4093,17 +4100,48 @@ html.dark[data-arcade] .mini-spinner {
   border-top-color: #d97706;
 }
 
-/* ============================================================
-   Plan time filter (Google-style "Leave / Arrive" + actions)
-   ============================================================ */
+/* Plan time filter (dropdown + datetime picker) */
 .plan-time-filter {
+  --pt-font-family: inherit;
+  --pt-font-size: 1rem;
+  --pt-font-weight: 500;
+  --pt-filter-radius: 0.875rem;
+  --pt-input-radius: 0.5rem;
+  --pt-cell-radius: 0.5rem;
+  --pt-border-width: 1.5px;
+  --pt-input-border-width: 1px;
+  --pt-input-height: 2.375rem;
+  --pt-padding: 0.5rem 0.625rem;
+  --pt-surface: #f8fafc;
+  --pt-border: #e2e8f0;
+  --pt-border-hover: #94a3b8;
+  --pt-text: #334155;
+  --pt-muted: #94a3b8;
+  --pt-input-bg: transparent;
+  --pt-option-bg: #ffffff;
+  --pt-option-text: #334155;
+  --pt-option-selected-bg: #f1f5f9;
+  --pt-option-selected-text: #0f172a;
+  --pt-color-scheme: light;
+  --pt-dp-bg: #ffffff;
+  --pt-dp-text: #0f172a;
+  --pt-dp-primary: #0ea5e9;
+  --pt-dp-primary-text: #ffffff;
+  --pt-dp-hover: #f1f5f9;
+  --pt-dp-hover-text: #0f172a;
+  --pt-dp-secondary: #94a3b8;
+  --pt-dp-disabled: #f1f5f9;
+  --pt-dp-icon: #94a3b8;
+  --pt-dp-scroll-bg: #f1f5f9;
+  --pt-dp-scroll: #cbd5e1;
+  --pt-dp-preview-size: 0.85rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 0.875rem;
+  padding: var(--pt-padding);
+  background: var(--pt-surface);
+  border: var(--pt-border-width) solid var(--pt-border);
+  border-radius: var(--pt-filter-radius);
   flex-wrap: wrap;
 }
 
@@ -4132,25 +4170,37 @@ html.dark[data-arcade] .mini-spinner {
 .plan-time-select {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  color: #334155;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.4rem 1.85rem 0.4rem 0.95rem;
+  color-scheme: var(--pt-color-scheme);
+  box-sizing: border-box;
+  height: var(--pt-input-height);
+  background: var(--pt-input-bg);
+  border: var(--pt-input-border-width) solid var(--pt-border);
+  border-radius: var(--pt-input-radius);
+  color: var(--pt-text);
+  font-family: var(--pt-font-family);
+  font-size: var(--pt-font-size);
+  font-weight: var(--pt-font-weight);
+  line-height: 1.5;
+  padding: 0 1.85rem 0 0.95rem;
   cursor: pointer;
   outline: none;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
 
-.plan-time-select:hover {
-  border-color: #94a3b8;
-  background: #f8fafc;
+.plan-time-select option {
+  background: var(--pt-option-bg);
+  color: var(--pt-option-text);
 }
 
-.plan-time-select:focus {
-  border-color: #94a3b8;
+.plan-time-select option:checked {
+  background: var(--pt-option-selected-bg);
+  color: var(--pt-option-selected-text);
+}
+
+.plan-time-select:hover,
+.plan-time-select:focus,
+.plan-time-select:focus-visible {
+  border-color: var(--pt-border-hover);
 }
 
 .plan-time-chevron {
@@ -4160,200 +4210,178 @@ html.dark[data-arcade] .mini-spinner {
   width: 0.85rem;
   height: 0.85rem;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--pt-muted);
   pointer-events: none;
 }
 
 .plan-time-datetime {
   min-width: 0;
   flex: 1 1 11rem;
+  font-family: var(--pt-font-family);
+  color-scheme: var(--pt-color-scheme);
 }
 
-/* Apply our CSS vars at the picker root AND on .dp__theme_* (which the
-   picker re-defines on the menu element with higher source order than
-   our wrapper). Selector specificity (0,2,0) wins over .dp__theme_* (0,1,0). */
 .plan-time-datetime :deep(.dp__main),
 .plan-time-datetime :deep(.dp__theme_light),
 .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-font-family: inherit;
-  --dp-border-radius: 0.5rem;
+  --dp-font-family: var(--pt-font-family);
+  --dp-font-size: var(--pt-font-size);
+  --dp-border-radius: var(--pt-input-radius);
+  --dp-cell-border-radius: var(--pt-cell-radius);
   --dp-input-padding: 0.4rem 0.625rem;
-  --dp-font-size: 0.85rem;
   --dp-input-icon-padding: 2rem;
-  --dp-background-color: #ffffff;
-  --dp-text-color: #0f172a;
-  --dp-border-color: #e2e8f0;
-  --dp-border-color-hover: #94a3b8;
-  --dp-border-color-focus: #94a3b8;
-  --dp-icon-color: #94a3b8;
-  --dp-primary-color: #0ea5e9;
-  --dp-primary-text-color: #ffffff;
-  --dp-hover-color: #f1f5f9;
-  --dp-hover-text-color: #0f172a;
-  --dp-menu-border-color: #e2e8f0;
-  --dp-secondary-color: #94a3b8;
-  --dp-success-color: #0ea5e9;
-  --dp-disabled-color: #f1f5f9;
-  --dp-scroll-bar-background: #f1f5f9;
-  --dp-scroll-bar-color: #cbd5e1;
+  --dp-menu-min-width: 260px;
+  --dp-action-button-height: 28px;
+  --dp-action-buttons-padding: 4px 12px;
+  --dp-preview-font-size: var(--pt-dp-preview-size);
+  --dp-background-color: var(--pt-dp-bg);
+  --dp-text-color: var(--pt-dp-text);
+  --dp-border-color: var(--pt-border);
+  --dp-menu-border-color: var(--pt-border);
+  --dp-border-color-hover: var(--pt-border-hover);
+  --dp-border-color-focus: var(--pt-border-hover);
+  --dp-icon-color: var(--pt-dp-icon);
+  --dp-primary-color: var(--pt-dp-primary);
+  --dp-primary-text-color: var(--pt-dp-primary-text);
+  --dp-hover-color: var(--pt-dp-hover);
+  --dp-hover-text-color: var(--pt-dp-hover-text);
+  --dp-secondary-color: var(--pt-dp-secondary);
+  --dp-success-color: var(--pt-dp-primary);
+  --dp-disabled-color: var(--pt-dp-disabled);
+  --dp-scroll-bar-background: var(--pt-dp-scroll-bg);
+  --dp-scroll-bar-color: var(--pt-dp-scroll);
 }
 
 .plan-time-datetime :deep(.dp__input) {
-  font-weight: 500;
+  box-sizing: border-box;
+  height: var(--pt-input-height);
+  font-family: var(--pt-font-family);
+  font-size: var(--pt-font-size);
+  font-weight: var(--pt-font-weight);
+  border-width: var(--pt-input-border-width);
+  background: var(--pt-input-bg);
+  color: var(--pt-text);
+  padding: 0 0.625rem 0 var(--dp-input-icon-padding);
+}
+
+.plan-time-datetime :deep(.dp__menu) {
+  border-width: var(--pt-input-border-width);
+}
+
+.plan-time-datetime :deep(.dp__month_year_wrap),
+.plan-time-datetime :deep(.dp__calendar_header),
+.plan-time-datetime :deep(.dp__calendar_header_item),
+.plan-time-datetime :deep(.dp__inner_nav),
+.plan-time-datetime :deep(.dp__action_row) {
+  color: var(--pt-dp-text);
+}
+
+.plan-time-datetime :deep(.dp__calendar_header_separator) {
+  border-color: var(--pt-border);
+}
+
+.plan-time-datetime :deep(.dp__arrow_top) {
+  border-left-color: var(--pt-border);
+  border-top-color: var(--pt-border);
+}
+
+.plan-time-datetime :deep(.dp--clear-btn),
+.plan-time-datetime :deep(.dp__input_icons) {
+  color: var(--pt-dp-icon);
+}
+
+.plan-time-datetime :deep(.dp__action_select) {
+  background: var(--pt-dp-primary);
+  color: var(--pt-dp-primary-text);
+  font-weight: 600;
+}
+
+.plan-time-datetime :deep(.dp__action_select:hover) {
+  filter: brightness(1.08);
+}
+
+.plan-time-datetime :deep(.dp__action_cancel) {
+  color: var(--pt-dp-text);
+  border: 1px solid var(--pt-border);
   background: transparent;
 }
 
-/* ----------- Default Dark ----------- */
+.plan-time-datetime :deep(.dp__action_cancel:hover) {
+  border-color: var(--pt-border-hover);
+  background: var(--pt-dp-hover);
+}
+
 .dark .plan-time-filter {
-  background: #1e293b;
-  border-color: #334155;
+  --pt-surface: #1e293b;
+  --pt-border: #334155;
+  --pt-border-hover: #475569;
+  --pt-text: #cbd5e1;
+  --pt-muted: #64748b;
+  --pt-option-bg: #0f172a;
+  --pt-option-text: #cbd5e1;
+  --pt-option-selected-bg: #1e293b;
+  --pt-option-selected-text: #f1f5f9;
+  --pt-color-scheme: dark;
+  --pt-dp-bg: #0f172a;
+  --pt-dp-text: #e2e8f0;
+  --pt-dp-primary: #38bdf8;
+  --pt-dp-primary-text: #0f172a;
+  --pt-dp-hover: #1e293b;
+  --pt-dp-hover-text: #f1f5f9;
+  --pt-dp-secondary: #64748b;
+  --pt-dp-disabled: #1e293b;
+  --pt-dp-icon: #94a3b8;
+  --pt-dp-scroll-bg: #1e293b;
+  --pt-dp-scroll: #475569;
 }
 
-.dark .plan-time-select {
-  background: transparent;
-  border-color: #334155;
-  color: #cbd5e1;
-}
-
-.dark .plan-time-select:hover {
-  border-color: #475569;
-  background: #1e293b;
-}
-
-.dark .plan-time-select:focus {
-  border-color: #475569;
-}
-
-.dark .plan-time-select option {
-  background: #1e293b;
-  color: #cbd5e1;
-}
-
-.dark .plan-time-chevron {
-  color: #475569;
-}
-
-.dark .plan-time-datetime {
-  color-scheme: dark;
-}
-
-.dark .plan-time-datetime :deep(.dp__main),
-.dark .plan-time-datetime :deep(.dp__theme_light),
-.dark .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-background-color: #0f172a;
-  --dp-text-color: #e2e8f0;
-  --dp-border-color: #334155;
-  --dp-border-color-hover: #475569;
-  --dp-border-color-focus: #475569;
-  --dp-icon-color: #94a3b8;
-  --dp-primary-color: #38bdf8;
-  --dp-primary-text-color: #0f172a;
-  --dp-hover-color: #1e293b;
-  --dp-hover-text-color: #f1f5f9;
-  --dp-menu-border-color: #334155;
-  --dp-secondary-color: #64748b;
-  --dp-success-color: #38bdf8;
-  --dp-disabled-color: #1e293b;
-  --dp-scroll-bar-background: #1e293b;
-  --dp-scroll-bar-color: #475569;
-}
-
-/* ----------- Arcade Theme ----------- */
 html[data-arcade] .plan-time-filter {
-  background: #FFFBEB;
-  border: 2px solid #F59E0B;
-  border-radius: 0.5rem;
-}
-
-html[data-arcade] .plan-time-select {
-  background: white;
-  border: 2px solid #F59E0B;
-  border-radius: 0.5rem;
-  color: #92400E;
-}
-
-html[data-arcade] .plan-time-select:hover,
-html[data-arcade] .plan-time-select:focus {
-  border-color: #D97706;
-  color: #92400E;
-}
-
-html[data-arcade] .plan-time-datetime :deep(.dp__main),
-html[data-arcade] .plan-time-datetime :deep(.dp__theme_light),
-html[data-arcade] .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-background-color: #FFFBEB;
-  --dp-text-color: #92400E;
-  --dp-border-color: #F59E0B;
-  --dp-border-color-hover: #D97706;
-  --dp-border-color-focus: #D97706;
-  --dp-icon-color: #B45309;
-  --dp-primary-color: #D97706;
-  --dp-primary-text-color: #ffffff;
-  --dp-hover-color: #FEF3C7;
-  --dp-hover-text-color: #92400E;
-  --dp-menu-border-color: #F59E0B;
-  --dp-secondary-color: #B45309;
-  --dp-success-color: #D97706;
-  --dp-disabled-color: #FEF3C7;
-  --dp-border-radius: 0.5rem;
-}
-
-html[data-arcade] .plan-time-datetime :deep(.dp__input) {
-  border-width: 2px;
-  background: white;
-}
-
-html[data-arcade] .plan-time-chevron {
-  color: #B45309;
+  --pt-filter-radius: 0.5rem;
+  --pt-input-radius: 0.5rem;
+  --pt-border-width: 2px;
+  --pt-input-border-width: 2px;
+  --pt-surface: #fffbeb;
+  --pt-border: #f59e0b;
+  --pt-border-hover: #d97706;
+  --pt-text: #92400e;
+  --pt-muted: #b45309;
+  --pt-input-bg: #ffffff;
+  --pt-option-bg: #ffffff;
+  --pt-option-text: #92400e;
+  --pt-option-selected-bg: #fef3c7;
+  --pt-option-selected-text: #92400e;
+  --pt-dp-bg: #fffbeb;
+  --pt-dp-text: #92400e;
+  --pt-dp-primary: #d97706;
+  --pt-dp-primary-text: #ffffff;
+  --pt-dp-hover: #fef3c7;
+  --pt-dp-hover-text: #92400e;
+  --pt-dp-secondary: #b45309;
+  --pt-dp-disabled: #fef3c7;
+  --pt-dp-icon: #b45309;
 }
 
 html.dark[data-arcade] .plan-time-filter {
-  background: #1c1608;
-  border-color: #78350f;
-}
-
-html.dark[data-arcade] .plan-time-select {
-  background: #211a05;
-  border-color: #78350f;
-  color: #fde68a;
-  color-scheme: dark;
-}
-
-html.dark[data-arcade] .plan-time-select:hover,
-html.dark[data-arcade] .plan-time-select:focus {
-  border-color: #d97706;
-  color: #fde68a;
-}
-
-html.dark[data-arcade] .plan-time-datetime {
-  color-scheme: dark;
-}
-
-html.dark[data-arcade] .plan-time-datetime :deep(.dp__main),
-html.dark[data-arcade] .plan-time-datetime :deep(.dp__theme_light),
-html.dark[data-arcade] .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-background-color: #1c1608;
-  --dp-text-color: #fde68a;
-  --dp-border-color: #78350f;
-  --dp-border-color-hover: #d97706;
-  --dp-border-color-focus: #d97706;
-  --dp-icon-color: #d97706;
-  --dp-primary-color: #d97706;
-  --dp-primary-text-color: #1c1608;
-  --dp-hover-color: #2a2006;
-  --dp-hover-text-color: #fde68a;
-  --dp-menu-border-color: #78350f;
-  --dp-secondary-color: #d97706;
-  --dp-success-color: #d97706;
-  --dp-disabled-color: #211a05;
-}
-
-html.dark[data-arcade] .plan-time-datetime :deep(.dp__input) {
-  background: #211a05;
-}
-
-html.dark[data-arcade] .plan-time-chevron {
-  color: #d97706;
+  --pt-surface: #1c1608;
+  --pt-border: #78350f;
+  --pt-border-hover: #d97706;
+  --pt-text: #fde68a;
+  --pt-muted: #d97706;
+  --pt-input-bg: #211a05;
+  --pt-option-bg: #1c1608;
+  --pt-option-text: #fde68a;
+  --pt-option-selected-bg: #2a2006;
+  --pt-option-selected-text: #fde68a;
+  --pt-color-scheme: dark;
+  --pt-dp-bg: #1c1608;
+  --pt-dp-text: #fde68a;
+  --pt-dp-primary: #d97706;
+  --pt-dp-primary-text: #1c1608;
+  --pt-dp-hover: #2a2006;
+  --pt-dp-hover-text: #fde68a;
+  --pt-dp-secondary: #d97706;
+  --pt-dp-disabled: #211a05;
+  --pt-dp-icon: #d97706;
 }
 
 html[data-arcade] .refresh-btn,
@@ -4378,109 +4406,57 @@ html.dark[data-arcade] .swap-btn:hover {
   color: #fde68a;
 }
 
-/* ----------- Legacy Blue (Windows XP Luna) Theme ----------- */
 html[data-legacy-blue] .plan-time-filter {
-  background: #ECE9D8;
-  border: 1px solid #7F9DB9;
-  border-radius: 0;
-  padding: 0.4rem 0.5rem;
-}
-
-html[data-legacy-blue] .plan-time-select {
-  background: white;
-  border: 1px solid #7F9DB9;
-  border-radius: 0 !important;
-  color: #000;
-  font-family: Tahoma, Geneva, sans-serif;
-  font-size: 0.8rem;
-  padding: 0.25rem 1.6rem 0.25rem 0.5rem;
-}
-
-html[data-legacy-blue] .plan-time-select:hover,
-html[data-legacy-blue] .plan-time-select:focus {
-  border-color: #245EDC;
-  color: #000;
-}
-
-html[data-legacy-blue] .plan-time-datetime {
-  font-family: Tahoma, Geneva, sans-serif;
-}
-
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__main),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_light),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-background-color: #ECE9D8;
-  --dp-text-color: #000;
-  --dp-border-color: #7F9DB9;
-  --dp-border-color-hover: #245EDC;
-  --dp-border-color-focus: #245EDC;
-  --dp-icon-color: #245EDC;
-  --dp-primary-color: #245EDC;
-  --dp-primary-text-color: #ffffff;
-  --dp-hover-color: #DCE9F8;
-  --dp-hover-text-color: #000;
-  --dp-menu-border-color: #7F9DB9;
-  --dp-secondary-color: #245EDC;
-  --dp-success-color: #245EDC;
-  --dp-disabled-color: #D4D0C8;
-  --dp-border-radius: 0;
-  --dp-font-size: 0.8rem;
-  --dp-input-padding: 0.25rem 0.5rem;
-  --dp-font-family: Tahoma, Geneva, sans-serif;
-}
-
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__input) {
-  background: white;
-}
-
-html[data-legacy-blue] .plan-time-chevron {
-  color: #245EDC;
+  --pt-font-family: Tahoma, Geneva, sans-serif;
+  --pt-font-size: 0.8rem;
+  --pt-filter-radius: 0;
+  --pt-input-radius: 0;
+  --pt-cell-radius: 0;
+  --pt-border-width: 1px;
+  --pt-input-border-width: 1px;
+  --pt-padding: 0.4rem 0.5rem;
+  --pt-surface: #ece9d8;
+  --pt-border: #7f9db9;
+  --pt-border-hover: #245edc;
+  --pt-text: #000000;
+  --pt-muted: #245edc;
+  --pt-input-bg: #ffffff;
+  --pt-option-bg: #ffffff;
+  --pt-option-text: #000000;
+  --pt-option-selected-bg: #dce9f8;
+  --pt-option-selected-text: #000000;
+  --pt-dp-bg: #ece9d8;
+  --pt-dp-text: #000000;
+  --pt-dp-primary: #245edc;
+  --pt-dp-primary-text: #ffffff;
+  --pt-dp-hover: #dce9f8;
+  --pt-dp-hover-text: #000000;
+  --pt-dp-secondary: #245edc;
+  --pt-dp-disabled: #d4d0c8;
+  --pt-dp-icon: #245edc;
 }
 
 html.dark[data-legacy-blue] .plan-time-filter {
-  background: #1a2540;
-  border-color: #3a4f7a;
-}
-
-html.dark[data-legacy-blue] .plan-time-select {
-  background: #0a1228;
-  border-color: #3a4f7a;
-  color: #e2e8f0;
-  color-scheme: dark;
-}
-
-html.dark[data-legacy-blue] .plan-time-datetime {
-  font-family: Tahoma, Geneva, sans-serif;
-  color-scheme: dark;
-}
-
-html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__main),
-html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_light),
-html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__theme_dark) {
-  --dp-background-color: #1a2540;
-  --dp-text-color: #e2e8f0;
-  --dp-border-color: #3a4f7a;
-  --dp-border-color-hover: #5a78b8;
-  --dp-border-color-focus: #5a78b8;
-  --dp-icon-color: #8aa9d4;
-  --dp-primary-color: #5a78b8;
-  --dp-primary-text-color: #0a1228;
-  --dp-hover-color: #243254;
-  --dp-hover-text-color: #ffffff;
-  --dp-menu-border-color: #3a4f7a;
-  --dp-secondary-color: #8aa9d4;
-  --dp-success-color: #5a78b8;
-  --dp-disabled-color: #0a1228;
-  --dp-border-radius: 0;
-  --dp-font-family: Tahoma, Geneva, sans-serif;
-}
-
-html.dark[data-legacy-blue] .plan-time-datetime :deep(.dp__input) {
-  background: #0a1228;
-}
-
-html.dark[data-legacy-blue] .plan-time-chevron {
-  color: #8aa9d4;
+  --pt-surface: #1a2540;
+  --pt-border: #3a4f7a;
+  --pt-border-hover: #5a78b8;
+  --pt-text: #e2e8f0;
+  --pt-muted: #8aa9d4;
+  --pt-input-bg: #0a1228;
+  --pt-option-bg: #0a1228;
+  --pt-option-text: #e2e8f0;
+  --pt-option-selected-bg: #243254;
+  --pt-option-selected-text: #ffffff;
+  --pt-color-scheme: dark;
+  --pt-dp-bg: #1a2540;
+  --pt-dp-text: #e2e8f0;
+  --pt-dp-primary: #5a78b8;
+  --pt-dp-primary-text: #0a1228;
+  --pt-dp-hover: #243254;
+  --pt-dp-hover-text: #ffffff;
+  --pt-dp-secondary: #8aa9d4;
+  --pt-dp-disabled: #0a1228;
+  --pt-dp-icon: #8aa9d4;
 }
 
 /* ============================================================
