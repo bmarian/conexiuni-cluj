@@ -76,10 +76,14 @@ type otpPlan struct {
 }
 
 type otpItinerary struct {
-	Duration     int64    `json:"duration"`
-	WalkTime     int64    `json:"walkTime"`
-	WalkDistance float64  `json:"walkDistance"`
-	Legs         []otpLeg `json:"legs"`
+	Duration          int64    `json:"duration"`
+	WalkTime          int64    `json:"walkTime"`
+	WalkDistance      float64  `json:"walkDistance"`
+	GeneralizedCost   int64    `json:"generalizedCost"`
+	NumberOfTransfers int      `json:"numberOfTransfers"`
+	StartTime         int64    `json:"startTime"`
+	EndTime           int64    `json:"endTime"`
+	Legs              []otpLeg `json:"legs"`
 }
 
 type otpLeg struct {
@@ -132,13 +136,17 @@ const otpPlanQuery = `{
     date: "%s"
     time: "%s"
     arriveBy: %t
-    numItineraries: 6
+    numItineraries: 12
     transportModes: [{ mode: WALK }, { mode: TRANSIT }]
   ) {
     itineraries {
       duration
       walkTime
       walkDistance
+      generalizedCost
+      numberOfTransfers
+      startTime
+      endTime
       legs {
         mode
         duration
@@ -188,6 +196,10 @@ const otpWalkOnlyPlanQuery = `{
       duration
       walkTime
       walkDistance
+      generalizedCost
+      numberOfTransfers
+      startTime
+      endTime
       legs {
         mode
         duration
@@ -505,6 +517,10 @@ type planRouteResp struct {
 	WalkTransferMeters float64           `json:"walk_transfer_meters"`
 	TransitDurationSec float64           `json:"transit_duration_sec"`
 	TotalDistance      float64           `json:"total_distance"`
+	GeneralizedCost    int64             `json:"generalized_cost"`
+	NumberOfTransfers  int               `json:"number_of_transfers"`
+	StartTimeMs        int64             `json:"start_time_ms"`
+	EndTimeMs          int64             `json:"end_time_ms"`
 	WalkSegments       []planWalkSegment `json:"walk_segments,omitzero"`
 }
 
@@ -919,6 +935,10 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				WalkTransferMeters: walkTransfer,
 				TransitDurationSec: transitSec,
 				TotalDistance:      totalDist,
+				GeneralizedCost:    itin.GeneralizedCost,
+				NumberOfTransfers:  itin.NumberOfTransfers,
+				StartTimeMs:        itin.StartTime,
+				EndTimeMs:          itin.EndTime,
 				WalkSegments:       walkSegments,
 			})
 		} else {
@@ -940,6 +960,10 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				WalkTransferMeters: walkTransfer,
 				TransitDurationSec: 0,
 				TotalDistance:      walkOnlyMeters,
+				GeneralizedCost:    itin.GeneralizedCost,
+				NumberOfTransfers:  itin.NumberOfTransfers,
+				StartTimeMs:        itin.StartTime,
+				EndTimeMs:          itin.EndTime,
 				WalkSegments:       walkSegments,
 			})
 		}

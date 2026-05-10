@@ -66,7 +66,7 @@ const {timeMode, timeValue} = storeToRefs(plannerStore)
 interface PlanStop { stop_id: number; stop_name: string; stop_lat: number; stop_lon: number }
 interface PlanWalkSeg { geometry: string; distance_m: number; duration_sec: number }
 interface ApiLeg { route_id: number; trip_id: string; start_stop_id: number; dest_stop_id: number; ride_seconds: number; intermediate_stop_ids?: number[] }
-interface ApiPlan { legs: ApiLeg[]; is_direct: boolean; walk_start_meters: number; walk_end_meters: number; walk_transfer_meters: number; transit_duration_sec: number; total_distance: number; walk_segments?: PlanWalkSeg[] }
+interface ApiPlan { legs: ApiLeg[]; is_direct: boolean; walk_start_meters: number; walk_end_meters: number; walk_transfer_meters: number; transit_duration_sec: number; total_distance: number; generalized_cost?: number; number_of_transfers?: number; start_time_ms?: number; end_time_ms?: number; walk_segments?: PlanWalkSeg[] }
 interface ApiResp { plans: ApiPlan[]; stops: Record<string, PlanStop>; shapes: Record<string, ShapeInfo> }
 
 type PlannedTimeEntry = TimeEntry & {
@@ -79,7 +79,7 @@ type PlannedTimeEntry = TimeEntry & {
 type StoredLiveEta = PlannedTimeEntry & { ts: number }
 
 interface RichLeg { routeIds: number[]; tripIds: string[]; startStopId: number; destStopId: number; rideSeconds: number; intermediateStopIds: number[] }
-interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: PlannedTimeEntry[]; isLive: boolean; key: string }
+interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: PlannedTimeEntry[]; isLive: boolean; key: string; generalizedCost: number; numberOfTransfers: number; startTimeMs: number; endTimeMs: number }
 
 const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
 const activeSearchField = ref<'origin' | 'destination' | null>(null)
@@ -457,8 +457,8 @@ function computeNextTimesForPlan(
   }
 }
 
-function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[] }[] {
-  const groups = new Map<string, { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[] }>()
+function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; generalizedCost: number; numberOfTransfers: number; startTimeMs: number; endTimeMs: number }[] {
+  const groups = new Map<string, { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; generalizedCost: number; numberOfTransfers: number; startTimeMs: number; endTimeMs: number }>()
 
   for (const p of rawPlans) {
     const key = p.legs.map(l => `${l.start_stop_id}>${l.dest_stop_id}@${l.trip_id.endsWith('_0') ? '0' : '1'}`).join('|')
@@ -474,6 +474,8 @@ function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; 
           richLeg.tripIds.push(apiLeg.trip_id)
         }
       }
+      const incomingCost = p.generalized_cost ?? Infinity
+      if (incomingCost < existing.generalizedCost) existing.generalizedCost = incomingCost
     } else {
       groups.set(key, {
         legs: p.legs.map(l => ({
@@ -489,6 +491,10 @@ function groupPlans(rawPlans: ApiPlan[]): { legs: RichLeg[]; isDirect: boolean; 
         walkEndMeters: p.walk_end_meters,
         walkTransferMeters: p.walk_transfer_meters,
         walkSegments: p.walk_segments ?? [],
+        generalizedCost: p.generalized_cost ?? Infinity,
+        numberOfTransfers: p.number_of_transfers ?? Math.max(0, p.legs.length - 1),
+        startTimeMs: p.start_time_ms ?? 0,
+        endTimeMs: p.end_time_ms ?? 0,
       })
     }
   }
@@ -748,17 +754,18 @@ watch(planData, (data) => {
       results.push(rich)
     }
   }
+  // Use OTP's own ranking (generalizedCost): lower cost = preferred. OTP already
+  // accounts for ride time, transfer count, walking, and wait reluctance, so this
+  // gives the "fewer changes / less walking" ordering directly. Walk-only stays last.
   results.sort((a, b) => {
     const walkOnlyA = a.legs.length === 0
     const walkOnlyB = b.legs.length === 0
     if (walkOnlyA !== walkOnlyB) return walkOnlyA ? 1 : -1
-    const totalA = computeTotalMinutes(a)
-    const totalB = computeTotalMinutes(b)
-    if (totalA !== totalB) return totalA - totalB
-    if (a.walkEndMeters !== b.walkEndMeters) return a.walkEndMeters - b.walkEndMeters
-    return a.legs.length - b.legs.length
+    return a.generalizedCost - b.generalizedCost
   })
-  routesWithTimes.value = results
+  const transitTrimmed = results.filter(p => p.legs.length > 0).slice(0, 6)
+  const walkOnlyPlans = results.filter(p => p.legs.length === 0)
+  routesWithTimes.value = [...transitTrimmed, ...walkOnlyPlans]
   liveEtaByKey.value = new Map()
 }, {immediate: true})
 

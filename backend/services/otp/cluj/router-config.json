@@ -1,7 +1,7 @@
 {
   "routingDefaults" : {
     "numItineraries" : 6,
-    "transferPenalty" : 0,
+    "transferPenalty" : 600,
     "turnReluctance" : 1.0,
     "elevator" : {
       "boardCost" : 15,
@@ -11,7 +11,7 @@
     },
     "walk" : {
       "speed" : 1.3,
-      "reluctance" : 4.0,
+      "reluctance" : 6.0,
       "stairsReluctance" : 1.65,
       "boardCost" : 600,
       "escalator" : {
@@ -23,7 +23,7 @@
     "otherThanPreferredRoutesPenalty" : 300,
     "transferSlack" : "2m",
     "accessEgress" : {
-      "maxDuration" : "45m",
+      "maxDuration" : "15m",
       "maxStopCount" : 500,
       "penalty" : {
         "FLEXIBLE" : {
