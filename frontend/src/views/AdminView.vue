@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
+import {useSettingsStore} from '@/stores/settings.ts'
 
 useHead(() => ({
   title: 'Admin',
@@ -67,6 +68,7 @@ type SortMode = 'count_desc' | 'count_asc' | 'alpha'
 type StatusKind = 'ok' | 'redirect' | 'client' | 'server' | 'other'
 
 const tokenInput = ref('')
+const settings = useSettingsStore()
 const authState = ref<AuthState>('loading')
 const errorMessage = ref('')
 const stats = ref<StatsResponse | null>(null)
@@ -288,6 +290,12 @@ const quotaBarPercent = (count: number) => {
   return `${(count / tranzyQuotaPeak.value) * 100}%`
 }
 
+const usedPercent = (used: number, limit: number) => {
+  if (!Number.isFinite(used) || !Number.isFinite(limit) || limit <= 0) return '0%'
+  const pct = Math.max(0, Math.min(100, (used / limit) * 100))
+  return `${pct}%`
+}
+
 const applyTopFilter = (list: TopEntry[], search: string, sort: SortMode) => {
   const q = search.trim().toLowerCase()
   const filtered = q ? list.filter(e => e.key.toLowerCase().includes(q)) : list
@@ -389,12 +397,21 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="admin-shell">
-      <!-- Login -->
+    <div
+      class="admin-shell"
+      :class="{
+        'is-dark': settings.isDark,
+        'is-arcade': settings.arcadeActive,
+        'is-legacy-blue': settings.legacyBlueActive,
+      }"
+    >
       <div v-if="authState === 'login'" class="admin-login">
         <form class="admin-login-card" @submit.prevent="submitLogin">
-          <div class="admin-login-title">conexiuni-cluj · admin</div>
-          <div class="admin-login-sub">Enter access token</div>
+          <div class="admin-login-mark">cc</div>
+          <div>
+            <div class="admin-login-title">conexiuni-cluj</div>
+            <div class="admin-login-sub">Admin access</div>
+          </div>
           <input
             type="text"
             name="username"
@@ -420,18 +437,25 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <!-- Dashboard -->
       <div v-else class="admin-dash">
         <header class="admin-header">
           <div class="admin-header-left">
-            <span class="admin-pulse" :class="{'admin-pulse-idle': !livePolling}"></span>
-            <span class="admin-title">conexiuni-cluj · admin</span>
+            <span class="admin-brand-mark">cc</span>
+            <div class="admin-title-stack">
+              <span class="admin-title">conexiuni-cluj</span>
+              <span class="admin-section">admin console</span>
+            </div>
+            <span class="admin-status-pill">
+              <span class="admin-pulse" :class="{'admin-pulse-idle': !livePolling}"></span>
+              {{ livePolling ? 'live polling' : 'manual refresh' }}
+            </span>
             <span v-if="stats" class="admin-generated">
               updated {{ new Date(stats.generated_at).toLocaleTimeString() }}
             </span>
           </div>
           <div class="admin-header-right">
             <button
+              type="button"
               class="admin-button admin-button-live"
               :class="{'admin-button-live-on': livePolling}"
               @click="toggleLive"
@@ -439,10 +463,18 @@ onBeforeUnmount(() => {
               <span class="admin-live-dot"></span>
               {{ livePolling ? 'Live' : 'Go live' }}
             </button>
-            <button class="admin-button" :disabled="authState === 'loading'" @click="refreshAll">
+            <button type="button" class="admin-button" :disabled="authState === 'loading'" @click="refreshAll">
+              <svg class="admin-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2m.5 3v-4h-4"/>
+              </svg>
               {{ authState === 'loading' ? '…' : 'Refresh' }}
             </button>
-            <button class="admin-button-ghost" @click="logout">Logout</button>
+            <button type="button" class="admin-button-ghost" @click="logout">
+              <svg class="admin-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4m-6-4 5-5-5-5m5 5H3"/>
+              </svg>
+              Logout
+            </button>
           </div>
         </header>
 
@@ -452,7 +484,6 @@ onBeforeUnmount(() => {
         </div>
 
         <template v-if="stats">
-          <!-- KPI cards -->
           <section class="admin-kpis">
             <div class="admin-kpi admin-kpi-accent">
               <div class="admin-kpi-label">Active now</div>
@@ -486,6 +517,9 @@ onBeforeUnmount(() => {
                 used today · {{ formatNumber(stats.tranzy_quota.vehicles_remaining) }} left of
                 {{ formatNumber(stats.tranzy_quota.vehicles_limit) }}
               </div>
+              <div class="admin-kpi-meter">
+                <span :style="{width: usedPercent(stats.tranzy_quota.vehicles_used, stats.tranzy_quota.vehicles_limit)}"></span>
+              </div>
             </div>
             <div class="admin-kpi">
               <div class="admin-kpi-label">Tranzy · default</div>
@@ -494,18 +528,20 @@ onBeforeUnmount(() => {
                 used today · {{ formatNumber(stats.tranzy_quota.default_remaining) }} left of
                 {{ formatNumber(stats.tranzy_quota.default_limit) }}
               </div>
+              <div class="admin-kpi-meter admin-kpi-meter-alt">
+                <span :style="{width: usedPercent(stats.tranzy_quota.default_used, stats.tranzy_quota.default_limit)}"></span>
+              </div>
             </div>
           </section>
 
-          <!-- Visitor sparkline -->
           <section class="admin-card">
             <div class="admin-card-head">
               <h2>Daily unique visitors</h2>
               <div class="admin-spark-controls">
                 <div class="admin-chip-group">
-                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 7}" @click="sparkRangeDays = 7">7d</button>
-                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 14}" @click="sparkRangeDays = 14">14d</button>
-                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 30}" @click="sparkRangeDays = 30">30d</button>
+                  <button type="button" class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 7}" @click="sparkRangeDays = 7">7d</button>
+                  <button type="button" class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 14}" @click="sparkRangeDays = 14">14d</button>
+                  <button type="button" class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 30}" @click="sparkRangeDays = 30">30d</button>
                 </div>
                 <span class="admin-card-meta">
                   total {{ formatNumber(rangeTotal) }} · peak {{ formatNumber(sparklinePath.max) }}
@@ -614,7 +650,6 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <!-- Top lists grid -->
           <section class="admin-grid">
             <div class="admin-card">
               <div class="admin-card-head">
@@ -695,7 +730,6 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <!-- Logs -->
           <section class="admin-card">
             <div class="admin-card-head">
               <h2>Access logs</h2>
@@ -704,7 +738,7 @@ onBeforeUnmount(() => {
                   tail
                   <input v-model.number="logTail" type="number" min="10" max="1000" step="10" class="admin-input admin-input-sm"/>
                 </label>
-                <button class="admin-button" :disabled="logsLoading" @click="loadLogs">
+                <button type="button" class="admin-button" :disabled="logsLoading" @click="loadLogs">
                   {{ logsLoading ? '…' : 'Reload' }}
                 </button>
               </div>
@@ -715,27 +749,32 @@ onBeforeUnmount(() => {
                 <button
                   class="admin-chip admin-chip-ok"
                   :class="{'admin-chip-on': logStatusEnabled.ok}"
+                  type="button"
                   @click="toggleStatus('ok')"
                 >2xx <span class="admin-chip-n">{{ statusCounts.ok }}</span></button>
                 <button
                   class="admin-chip admin-chip-redirect"
                   :class="{'admin-chip-on': logStatusEnabled.redirect}"
+                  type="button"
                   @click="toggleStatus('redirect')"
                 >3xx <span class="admin-chip-n">{{ statusCounts.redirect }}</span></button>
                 <button
                   class="admin-chip admin-chip-client"
                   :class="{'admin-chip-on': logStatusEnabled.client}"
+                  type="button"
                   @click="toggleStatus('client')"
                 >4xx <span class="admin-chip-n">{{ statusCounts.client }}</span></button>
                 <button
                   class="admin-chip admin-chip-server"
                   :class="{'admin-chip-on': logStatusEnabled.server}"
+                  type="button"
                   @click="toggleStatus('server')"
                 >5xx <span class="admin-chip-n">{{ statusCounts.server }}</span></button>
                 <button
                   v-if="statusCounts.other"
                   class="admin-chip"
                   :class="{'admin-chip-on': logStatusEnabled.other}"
+                  type="button"
                   @click="toggleStatus('other')"
                 >other <span class="admin-chip-n">{{ statusCounts.other }}</span></button>
               </div>
@@ -750,10 +789,10 @@ onBeforeUnmount(() => {
                 spellcheck="false"
                 class="admin-input admin-input-sm admin-log-search"
               />
-              <button class="admin-button-ghost admin-button-sm" @click="logOrderNewest = !logOrderNewest" title="Toggle order">
+              <button type="button" class="admin-button-ghost admin-button-sm" @click="logOrderNewest = !logOrderNewest" title="Toggle order">
                 {{ logOrderNewest ? 'newest ↓' : 'oldest ↑' }}
               </button>
-              <button class="admin-button-ghost admin-button-sm" @click="clearLogFilters">clear</button>
+              <button type="button" class="admin-button-ghost admin-button-sm" @click="clearLogFilters">clear</button>
               <span class="admin-card-meta admin-log-count">{{ filteredLogs.length }}/{{ logs.length }}</span>
             </div>
 
@@ -1225,6 +1264,7 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   color: #e6edf3;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .admin-timing-bars li {
@@ -1476,5 +1516,636 @@ onBeforeUnmount(() => {
 .admin-log-count {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+
+.admin-shell {
+  --admin-bg: #f8fafc;
+  --admin-bg-soft: #eef2f7;
+  --admin-surface: rgba(255, 255, 255, 0.94);
+  --admin-surface-strong: #ffffff;
+  --admin-subtle: rgba(241, 245, 249, 0.82);
+  --admin-input: #ffffff;
+  --admin-border: rgba(203, 213, 225, 0.74);
+  --admin-border-strong: #94a3b8;
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-faint: #94a3b8;
+  --admin-track: #e2e8f0;
+  --admin-terminal: #08111f;
+  --admin-accent: #0284c7;
+  --admin-accent-soft: rgba(14, 165, 233, 0.13);
+  --admin-focus: rgba(14, 165, 233, 0.2);
+  --admin-radius: 0.875rem;
+  --admin-radius-sm: 0.625rem;
+  --admin-shadow: 0 18px 48px -34px rgba(15, 23, 42, 0.42);
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 28rem),
+    linear-gradient(180deg, var(--admin-bg-soft) 0%, var(--admin-bg) 18rem);
+  color: var(--admin-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.admin-shell.is-dark {
+  --admin-bg: #0f172a;
+  --admin-bg-soft: #111827;
+  --admin-surface: rgba(15, 23, 42, 0.92);
+  --admin-surface-strong: #111827;
+  --admin-subtle: rgba(30, 41, 59, 0.58);
+  --admin-input: #0b1220;
+  --admin-border: rgba(51, 65, 85, 0.72);
+  --admin-border-strong: #475569;
+  --admin-text: #f1f5f9;
+  --admin-muted: #94a3b8;
+  --admin-faint: #64748b;
+  --admin-track: #070e1c;
+  --admin-terminal: #020817;
+  --admin-accent: #38bdf8;
+  --admin-accent-soft: rgba(56, 189, 248, 0.13);
+  --admin-focus: rgba(56, 189, 248, 0.2);
+  --admin-shadow: 0 20px 54px -36px rgba(0, 0, 0, 0.78);
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 28rem),
+    linear-gradient(180deg, var(--admin-bg-soft) 0%, var(--admin-bg) 18rem);
+}
+
+.admin-shell.is-arcade {
+  --admin-accent: #f59e0b;
+  --admin-accent-soft: rgba(245, 158, 11, 0.14);
+  --admin-focus: rgba(245, 158, 11, 0.2);
+}
+
+.admin-shell.is-legacy-blue {
+  --admin-accent: #245edc;
+  --admin-accent-soft: rgba(36, 94, 220, 0.14);
+  --admin-focus: rgba(36, 94, 220, 0.2);
+  --admin-radius: 0.375rem;
+  --admin-radius-sm: 0.25rem;
+  font-family: Tahoma, Verdana, ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-dash {
+  width: min(100%, 1500px);
+  max-width: none;
+  padding: clamp(0.875rem, 2vw, 1.5rem) clamp(0.875rem, 3vw, 2rem) 3rem;
+}
+
+.admin-header {
+  align-items: center;
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-header-left {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.admin-header-right {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-brand-mark,
+.admin-login-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  border-radius: 0.8rem;
+  background: linear-gradient(135deg, var(--admin-accent), #10b981);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  box-shadow: 0 8px 18px -12px var(--admin-accent);
+}
+
+.admin-shell.is-legacy-blue .admin-brand-mark,
+.admin-shell.is-legacy-blue .admin-login-mark {
+  border-radius: 0.25rem;
+  background: linear-gradient(180deg, #4b8cf7, #245edc 48%, #1941a5);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.admin-title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.admin-title {
+  color: var(--admin-text);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.admin-section {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.8rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-subtle);
+  color: var(--admin-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-generated {
+  margin-left: 0;
+  color: var(--admin-faint);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-login-card,
+.admin-card,
+.admin-kpi {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-login {
+  background:
+    radial-gradient(circle at 50% 28%, var(--admin-accent-soft), transparent 22rem),
+    transparent;
+}
+
+.admin-login-card {
+  max-width: 23rem;
+  padding: 1.5rem;
+  gap: 0.85rem;
+}
+
+.admin-login-title {
+  color: var(--admin-text);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.admin-login-sub {
+  color: var(--admin-muted);
+  margin: 0.15rem 0 0.25rem;
+}
+
+.admin-button-primary,
+.admin-button,
+.admin-button-ghost {
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  border-radius: var(--admin-radius-sm);
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.admin-button-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+}
+
+.admin-button-primary {
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.admin-button-primary:hover {
+  background: #0ea5e9;
+  border-color: #0ea5e9;
+}
+
+.admin-button {
+  background: var(--admin-subtle);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+.admin-button:hover:not(:disabled) {
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+}
+
+.admin-button-ghost {
+  color: var(--admin-muted);
+}
+
+.admin-button-ghost:hover {
+  background: var(--admin-subtle);
+  color: var(--admin-text);
+}
+
+.admin-button-live-on {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.42);
+  color: #059669;
+}
+
+.admin-shell.is-dark .admin-button-live-on {
+  color: #86efac;
+}
+
+.admin-input,
+.admin-select {
+  background: var(--admin-input);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+  border-radius: var(--admin-radius-sm);
+}
+
+.admin-input::placeholder {
+  color: var(--admin-faint);
+}
+
+.admin-input:focus,
+.admin-select:focus {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-focus);
+}
+
+.admin-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.75rem), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-kpi {
+  --kpi-accent: var(--admin-accent);
+  position: relative;
+  min-height: 8.1rem;
+  overflow: hidden;
+  padding: 0.95rem;
+}
+
+.admin-kpi:nth-child(2) { --kpi-accent: #10b981; }
+.admin-kpi:nth-child(3) { --kpi-accent: #06b6d4; }
+.admin-kpi:nth-child(4) { --kpi-accent: #8b5cf6; }
+.admin-kpi:nth-child(5) { --kpi-accent: #f43f5e; }
+.admin-kpi:nth-child(6) { --kpi-accent: #0ea5e9; }
+.admin-kpi:nth-child(7) { --kpi-accent: #a855f7; }
+
+.admin-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--kpi-accent);
+}
+
+.admin-kpi:hover {
+  border-color: var(--admin-border-strong);
+  transform: translateY(-1px);
+}
+
+.admin-kpi-accent {
+  background:
+    linear-gradient(135deg, var(--admin-accent-soft), transparent 72%),
+    var(--admin-surface);
+  border-color: color-mix(in srgb, var(--admin-accent) 45%, var(--admin-border));
+}
+
+.admin-kpi-label {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.admin-kpi-value {
+  color: var(--admin-text);
+  font-size: clamp(1.55rem, 2.1vw, 2.15rem);
+  font-weight: 800;
+}
+
+.admin-kpi-accent .admin-kpi-value {
+  color: var(--admin-accent);
+}
+
+.admin-kpi-sub {
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.admin-kpi-meter {
+  height: 0.35rem;
+  margin-top: auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--admin-track);
+}
+
+.admin-kpi-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #10b981);
+  transition: width 0.35s ease;
+}
+
+.admin-kpi-meter-alt span {
+  background: linear-gradient(90deg, #a78bfa, #f472b6);
+}
+
+.admin-card {
+  padding: clamp(1rem, 1.35vw, 1.25rem);
+  margin-bottom: 1rem;
+}
+
+.admin-card-head {
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+
+.admin-card-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--admin-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.admin-card-head h2::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-soft);
+}
+
+.admin-card-meta,
+.admin-empty {
+  color: var(--admin-faint);
+}
+
+.admin-spark {
+  color: var(--admin-accent);
+  padding: 0.35rem 0.25rem 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background:
+    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--admin-border) calc(100% - 1px)),
+    var(--admin-subtle);
+}
+
+.admin-spark-svg {
+  height: clamp(132px, 12vw, 174px);
+}
+
+.admin-spark-tip {
+  background: var(--admin-surface-strong);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-spark-axis {
+  color: var(--admin-faint);
+}
+
+.admin-grid {
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-grid .admin-card {
+  height: auto;
+}
+
+.admin-bars {
+  gap: 0.42rem;
+}
+
+.admin-bars li,
+.admin-quota-bars li {
+  min-height: 1.75rem;
+  color: var(--admin-text);
+}
+
+.admin-bar-rank {
+  color: var(--admin-faint);
+}
+
+.admin-bar-label,
+.admin-bar-count {
+  color: var(--admin-text);
+}
+
+.admin-bar-mono,
+.admin-quota-date {
+  color: var(--admin-muted);
+}
+
+.admin-bar-track,
+.admin-quota-track {
+  background: var(--admin-track);
+}
+
+.admin-bar-track {
+  height: 0.46rem;
+}
+
+.admin-bar-fill {
+  background: linear-gradient(90deg, #38bdf8, #60a5fa);
+}
+
+.admin-bar-fill-latency {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.admin-quota-track {
+  height: 0.65rem;
+}
+
+.admin-legend {
+  color: var(--admin-muted);
+}
+
+.admin-chip {
+  min-height: 1.72rem;
+  border-color: var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-muted);
+}
+
+.admin-chip:hover {
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text);
+}
+
+.admin-chip-on {
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+  color: var(--admin-text);
+}
+
+.admin-chip-n,
+.admin-chip-on .admin-chip-n {
+  color: var(--admin-faint);
+}
+
+.admin-delta {
+  border-radius: var(--admin-radius-sm);
+}
+
+.admin-log-controls {
+  color: var(--admin-muted);
+}
+
+.admin-log-filters {
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-subtle);
+}
+
+.admin-logs {
+  max-height: min(52vh, 520px);
+  background: var(--admin-terminal);
+  border-color: var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.admin-log-line {
+  border-left-width: 2px;
+}
+
+.admin-error-box {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+@media (max-width: 760px) {
+  .admin-dash {
+    padding: 0.75rem 0.75rem 2rem;
+  }
+
+  .admin-header {
+    align-items: stretch;
+  }
+
+  .admin-header-left,
+  .admin-header-right,
+  .admin-log-controls {
+    width: 100%;
+  }
+
+  .admin-header-right .admin-button,
+  .admin-header-right .admin-button-ghost {
+    flex: 1 1 auto;
+  }
+
+  .admin-status-pill,
+  .admin-generated {
+    order: 3;
+  }
+
+  .admin-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-kpi {
+    min-height: 7.4rem;
+  }
+
+  .admin-card-head,
+  .admin-top-controls,
+  .admin-spark-controls {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .admin-top-controls .admin-input-sm {
+    flex: 1 1 9rem;
+    width: auto;
+  }
+
+  .admin-bars li {
+    grid-template-columns: 1.65rem minmax(0, 1fr) auto;
+  }
+
+  .admin-bars li .admin-bar-track {
+    grid-column: 2 / 4;
+  }
+
+  .admin-timing-bars li {
+    grid-template-columns: 1.65rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "rank label count"
+      ". track track";
+    row-gap: 0.35rem;
+  }
+
+  .admin-timing-bars .admin-bar-rank {
+    grid-area: rank;
+    align-self: start;
+  }
+
+  .admin-timing-bars .admin-bar-label {
+    grid-area: label;
+  }
+
+  .admin-timing-bars .admin-bar-track {
+    grid-area: track;
+    grid-column: auto;
+  }
+
+  .admin-timing-bars .admin-bar-count {
+    grid-area: count;
+    align-self: start;
+  }
+
+  .admin-log-count {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-quota-bars li {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+
+  .admin-quota-bars .admin-bar-count {
+    grid-column: 2;
+  }
 }
 </style>
