@@ -6,15 +6,14 @@ import (
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
-	"crypto/hmac"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -22,26 +21,15 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
-func clientIPForLog(c fiber.Ctx) string {
-	for forwardedIP := range strings.SplitSeq(c.Get(fiber.HeaderXForwardedFor), ",") {
-		ip := strings.TrimSpace(forwardedIP)
-		if ip != "" {
-			return ip
-		}
-	}
-
-	return c.IP()
-}
-
 func clientIDForLog(c fiber.Ctx, salt string) string {
-	ip := clientIPForLog(c)
-	if ip == "" {
+	if cached := handlers.ClientHashFromLocals(c); cached != "" {
+		return cached
+	}
+	hash := handlers.ComputeClientHash(c, salt)
+	if hash == "" {
 		return "-"
 	}
-
-	hasher := hmac.New(sha256.New, []byte(salt))
-	_, _ = hasher.Write([]byte(ip))
-	return hex.EncodeToString(hasher.Sum(nil)[:8])
+	return hash
 }
 
 func main() {
@@ -49,6 +37,9 @@ func main() {
 	config := Load()
 	logHashSalt := config.LogIPHashSalt
 	if logHashSalt == "" {
+		if config.Environment == "production" {
+			log.Fatal("LOG_IP_HASH_SALT must be set in production")
+		}
 		logHashSalt = "conexiuni-cluj-default-salt"
 		log.Printf("Warning: LOG_IP_HASH_SALT not set, using default salt; set LOG_IP_HASH_SALT for stronger pseudonymization")
 	}
@@ -77,6 +68,19 @@ func main() {
 	}
 	database.StartVacuumScheduler()
 	database.StartDSTCacheInvalidationScheduler()
+	database.StartStatsFlusher()
+	defer func() {
+		if err := database.FlushStats(); err != nil {
+			log.Printf("Final stats flush failed: %v", err)
+		}
+	}()
+
+	if config.AdminToken == "" {
+		if config.Environment == "production" {
+			log.Fatal("ADMIN_TOKEN must be set in production")
+		}
+		log.Printf("Warning: ADMIN_TOKEN not set; /api/admin routes are disabled")
+	}
 
 	tranzyAPIKey := config.TranzyApiKey
 	if tranzyAPIKey == "" {
@@ -105,6 +109,7 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
 	})
+	app.Use(handlers.StatsMiddleware(logHashSalt))
 	app.Use(logger.New(logger.Config{
 		Stream: logs.accessOut,
 		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
@@ -126,6 +131,7 @@ func main() {
 
 	api := app.Group("/api")
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
+	handlers.RegisterAdminRoutes(api, config.AdminToken, config.LogDir, tranzyClient, config.Environment == "production")
 
 	if _, err := os.Stat("./dist"); err == nil {
 		handlers.LoadIndexHTML()
@@ -183,6 +189,17 @@ func main() {
 	if config.Environment == "development" && runtime.GOOS == "windows" {
 		listenAddr = "0.0.0.0:" + config.Port
 	}
+	shutdownSignals := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-shutdownSignals
+		log.Printf("Received %s, shutting down", sig)
+		if err := app.Shutdown(); err != nil {
+			log.Printf("Server shutdown failed: %v", err)
+		}
+	}()
 	log.Printf("Server listening on http://%s", listenAddr)
-	log.Fatal(app.Listen(listenAddr))
+	if err := app.Listen(listenAddr); err != nil {
+		log.Printf("Server stopped: %v", err)
+	}
 }

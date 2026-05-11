@@ -15,6 +15,7 @@ type Config struct {
 	LogDir                   string
 	LogRetentionDays         int
 	LogIPHashSalt            string
+	AdminToken               string
 	TranzyBaseUrl            string
 	ClujAgencyId             string
 	CtpCsvBaseUrl            string
@@ -90,6 +91,7 @@ func Load() *Config {
 		LogDir:                   getEnv("LOG_DIR", "../logs"),
 		LogRetentionDays:         getInt("LOG_RETENTION_DAYS", 5),
 		LogIPHashSalt:            getEnv("LOG_IP_HASH_SALT", ""),
+		AdminToken:               getEnv("ADMIN_TOKEN", ""),
 		TranzyBaseUrl:            getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
 		ClujAgencyId:             getEnv("CLUJ_AGENCY_ID", "2"),
 		CtpCsvBaseUrl:            getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),

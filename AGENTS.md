@@ -68,10 +68,10 @@ Boot order in `backend/main.go`:
 
 1. Force Europe/Bucharest timezone, then load `.env` and `keys.env` from the current or parent directory.
 2. Set up rotated app/access logs. Access logs use an HMAC-pseudonymized client id from `LOG_IP_HASH_SALT`.
-3. Connect SQLite, initialize schemas, start vacuum scheduling and DST cache invalidation.
+3. Connect SQLite, initialize schemas, start vacuum scheduling, DST cache invalidation, and buffered stats flushing.
 4. Create Tranzy and CTP clients. Tranzy vehicle quota is persisted in SQLite because upstream daily quota does not reset when this process restarts.
 5. Parse adaptive vehicle polling schedules and initialize the SSE vehicle hub.
-6. Configure Fiber logger, CORS, and all `/api` routes.
+6. Configure stats middleware, Fiber logger, CORS, and all `/api` routes.
 7. If `backend/dist` exists, load `index.html`, install OG metadata handlers, serve PWA files with safe cache headers, serve static assets, and use SPA fallback.
 8. Start cache warmup and defer OTP cleanup.
 
@@ -83,7 +83,8 @@ ENV                            development by default; development makes static 
 PORT                           default 6698
 DATABASE_PATH                  default ../conexiuni-cluj.db
 LOG_DIR                        default ../logs
-LOG_IP_HASH_SALT               recommended in production
+LOG_IP_HASH_SALT               required in production; used for pseudonymized visitor/log ids
+ADMIN_TOKEN                    required in production; exchanged for an HttpOnly admin session cookie
 TRANZY_BASE_URL                default https://api.tranzy.ai/v1/opendata
 CLUJ_AGENCY_ID                 default 2
 CTP_CSV_BASE_URL               default https://ctpcj.ro/orare/csv
@@ -113,6 +114,9 @@ All routes are registered in `backend/handlers/register.go`.
 | `GET /api/vehicles/stream?trip_ids=a,b` | `vehicle_stream.go` | SSE stream, adaptive polling from `vehicle_interval.go`. |
 | `GET /api/plan_routes?...` | `plan_routes.go` | Route planner backed by OpenTripPlanner. |
 | `GET /api/news` | `news.go` | Scraped CTP news; database-backed cache with TTL expiration, serves stale on fetch failure. |
+| `POST /api/stats/event` | `register.go` | Same-origin first-party PWA install events. |
+| `POST /api/admin/login` / `logout` | `admin.go` | Admin token login/logout. Login sets an HttpOnly cookie. |
+| `GET /api/admin/stats` / `logs` | `admin.go` | Token-protected admin stats and access-log tail. |
 
 Cached API endpoints send `Cache-Control: max-age=...` based on configured shelf lives (`TRANZY_DEFAULT_DAILY_QUOTA`, `TIMETABLE_CACHE_SHELF_LIFE`, `NEWS_CACHE_SHELF_LIFE`). `plan_routes` uses `max-age=300`; live vehicles use `no-store`; SSE uses `no-cache`.
 
@@ -135,6 +139,7 @@ Routes:
 /stop/:stopId             StopView
 /route/:routeId/:direction RouteView
 /plan                     RoutePlanningView
+/admin                    AdminView
 /*                        NotFoundView
 ```
 
@@ -145,6 +150,7 @@ Main data flow:
 - `RouteView` uses selected route context from the route store, renders stops/timetable, updates map shapes, and can launch `RoutePong`.
 - `RoutePlanningView` calls `/api/plan_routes`, renders itineraries, walking polylines, transfer details, and favorite destinations.
 - `MapComponent` owns all Leaflet objects. It renders map controls, base tiles, user location, pins, stops, route shapes, walking polylines, highlighted stops, and vehicles.
+- `main.ts` sends a same-origin aggregate stat when the browser fires `appinstalled`.
 
 API helpers:
 

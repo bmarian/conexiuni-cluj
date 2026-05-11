@@ -94,6 +94,14 @@ func (c *Client) VehiclesQuotaLimit() int {
 	return c.vehiclesQuota.limit
 }
 
+func (c *Client) DefaultQuotaRemaining() int {
+	return c.defaultQuota.remaining()
+}
+
+func (c *Client) DefaultQuotaLimit() int {
+	return c.defaultQuota.limit
+}
+
 func (c *Client) Location() *time.Location {
 	return c.vehiclesQuota.loc
 }

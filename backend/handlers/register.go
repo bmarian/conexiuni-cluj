@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"bufio"
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -23,9 +25,49 @@ var (
 	timetableCacheControl string
 )
 
+type statsEventRequest struct {
+	Metric string `json:"metric"`
+	Key    string `json:"key"`
+}
+
+func sameOriginRequest(c fiber.Ctx) bool {
+	switch c.Get("Sec-Fetch-Site") {
+	case "same-origin", "same-site", "none":
+		return true
+	}
+	origin := c.Get(fiber.HeaderOrigin)
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	return err == nil && strings.EqualFold(u.Host, c.Hostname())
+}
+
+func validStatsEvent(metric, key string) bool {
+	return metric == "pwa_install" && key == "appinstalled"
+}
+
 func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
 	tranzyCacheControl = fmt.Sprintf("max-age=%d", int(cacheTimes.TranzyCacheShelfLife.Seconds()))
 	timetableCacheControl = fmt.Sprintf("max-age=%d", int(cacheTimes.TimetableCacheShelfLife.Seconds()))
+	api.Post("/stats/event", func(c fiber.Ctx) error {
+		if !sameOriginRequest(c) {
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+		var req statsEventRequest
+		if err := c.Bind().Body(&req); err != nil {
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+		req.Metric = strings.TrimSpace(req.Metric)
+		req.Key = strings.TrimSpace(req.Key)
+		if !validStatsEvent(req.Metric, req.Key) {
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+		database.RecordEvent(ClientHashFromLocals(c), req.Metric, req.Key)
+		c.Set("Cache-Control", "no-store")
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
 	api.Get("/routes", func(c fiber.Ctx) error {
 		filter := RouteFilter{}
 		if s := c.Query("route_id"); s != "" {

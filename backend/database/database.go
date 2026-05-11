@@ -175,6 +175,29 @@ func InitSchemas() error {
             url   TEXT PRIMARY KEY,
             date  TEXT NOT NULL,
             title TEXT NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS stats_visitors
+        (
+            client_hash TEXT PRIMARY KEY,
+            first_seen  TEXT NOT NULL,
+            last_seen   TEXT NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS stats_visitors_daily
+        (
+            date        TEXT NOT NULL,
+            client_hash TEXT NOT NULL,
+            PRIMARY KEY (date, client_hash)
+        );
+
+		CREATE TABLE IF NOT EXISTS stats_daily
+        (
+            date   TEXT    NOT NULL,
+            metric TEXT    NOT NULL,
+            key    TEXT    NOT NULL,
+            count  INTEGER NOT NULL,
+            PRIMARY KEY (date, metric, key)
         )
     `
 	_, err := DB.Exec(schema)
@@ -208,6 +231,11 @@ func InitSchemas() error {
 		-- StopTimes indexes
 		CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
 		CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
+
+		-- Stats indexes
+		CREATE INDEX IF NOT EXISTS idx_stats_visitors_last_seen ON stats_visitors(last_seen);
+		CREATE INDEX IF NOT EXISTS idx_stats_visitors_daily_date ON stats_visitors_daily(date);
+		CREATE INDEX IF NOT EXISTS idx_stats_daily_metric_count ON stats_daily(metric, count DESC);
 	`
 
 	_, err = DB.Exec(indexes)

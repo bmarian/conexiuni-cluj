@@ -51,6 +51,12 @@ func (h *vehicleHub) CurrentInterval() time.Duration {
 	return h.intervalFor(n)
 }
 
+func (h *vehicleHub) SubscriberCount() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.subscribers)
+}
+
 func (h *vehicleHub) Subscribe(tripIDs []string) (*vehicleSubscriber, int64) {
 	set := make(map[string]struct{}, len(tripIDs))
 	for _, id := range tripIDs {

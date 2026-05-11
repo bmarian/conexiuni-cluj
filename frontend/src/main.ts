@@ -18,6 +18,20 @@ import en from './locales/en.json'
 
 registerSW({immediate: true})
 
+const sendPWAInstallEvent = () => {
+  const body = JSON.stringify({metric: 'pwa_install', key: 'appinstalled'})
+  const blob = new Blob([body], {type: 'application/json'})
+  if (navigator.sendBeacon?.('/api/stats/event', blob)) return
+  void fetch('/api/stats/event', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body,
+    keepalive: true,
+  }).catch(() => {})
+}
+
+window.addEventListener('appinstalled', sendPWAInstallEvent)
+
 void apiRequest('routes')
 void apiRequest('stops')
 
