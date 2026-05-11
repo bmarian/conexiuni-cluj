@@ -183,6 +183,23 @@ func normalizeTopRouteKeys(entries []database.TopEntry) []database.TopEntry {
 	return out
 }
 
+func normalizeTopStopKeys(entries []database.TopEntry) []database.TopEntry {
+	out := make([]database.TopEntry, len(entries))
+	copy(out, entries)
+	for i := range out {
+		id, err := strconv.Atoi(out[i].Key)
+		if err != nil {
+			continue
+		}
+		var name string
+		err = database.DB.QueryRow(`SELECT stop_name FROM stops WHERE stop_id = ?`, id).Scan(&name)
+		if err == nil && strings.TrimSpace(name) != "" {
+			out[i].Key = name
+		}
+	}
+	return out
+}
+
 func RegisterAdminRoutes(api fiber.Router, token, logDir string, tranzyClient *tranzy.Client, secureCookies bool) {
 	if token == "" {
 		return
@@ -226,6 +243,7 @@ func RegisterAdminRoutes(api fiber.Router, token, logDir string, tranzyClient *t
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		topStops = normalizeTopStopKeys(topStops)
 		topAPI, err := database.GetTopMetric("api_call", 25)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

@@ -72,6 +72,22 @@ func isSuccessfulStatus(status int) bool {
 	return status >= fiber.StatusOK && status < fiber.StatusBadRequest
 }
 
+// recordEntityView derives route_view / stop_view metrics from the query
+// parameters of API requests that already carry the identity of the entity
+// being viewed. Cheaper than a separate beacon and avoids a frontend round-trip.
+func recordEntityView(c fiber.Ctx, hash string) {
+	switch c.Path() {
+	case "/api/stop_times":
+		if rsn := strings.TrimSpace(c.Query("route_short_name")); rsn != "" {
+			database.RecordEvent(hash, "route_view", rsn)
+		}
+	case "/api/stop_info":
+		if id := strings.TrimSpace(c.Query("stop_id")); id != "" {
+			database.RecordEvent(hash, "stop_view", id)
+		}
+	}
+}
+
 // StatsMiddleware computes the client hash once and records a stats event for
 // the request. Must be registered before the access logger so the logger can
 // reuse the cached hash via ClientHashFromLocals.
@@ -94,6 +110,7 @@ func StatsMiddleware(salt string) fiber.Handler {
 					database.RecordEndpointTiming(hash, key, time.Since(start))
 				}
 			}
+			recordEntityView(c, hash)
 		}
 		return err
 	}
