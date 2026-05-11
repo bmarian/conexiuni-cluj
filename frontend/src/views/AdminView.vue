@@ -46,6 +46,8 @@ type LogsResponse = {
 }
 
 type AuthState = 'login' | 'loading' | 'ready' | 'error'
+type SortMode = 'count_desc' | 'count_asc' | 'alpha'
+type StatusKind = 'ok' | 'redirect' | 'client' | 'server' | 'other'
 
 const tokenInput = ref('')
 const authState = ref<AuthState>('loading')
@@ -57,6 +59,29 @@ const logsLoading = ref(false)
 const activeNow = ref(0)
 const livePolling = ref(false)
 let activePollTimer: ReturnType<typeof setInterval> | null = null
+
+// Top-list filter/sort state (one entry per kind)
+const routesSearch = ref('')
+const routesSort = ref<SortMode>('count_desc')
+const stopsSearch = ref('')
+const stopsSort = ref<SortMode>('count_desc')
+const apiSearch = ref('')
+const apiSort = ref<SortMode>('count_desc')
+
+// Log filter state
+const logSearch = ref('')
+const logStatusEnabled = ref<Record<StatusKind, boolean>>({
+  ok: true,
+  redirect: true,
+  client: true,
+  server: true,
+  other: true,
+})
+const logMethodFilter = ref<string>('all')
+const logOrderNewest = ref(true)
+
+// Sparkline range (days). Backend currently returns 30, we slice client-side.
+const sparkRangeDays = ref(30)
 
 const stopLivePolling = () => {
   if (activePollTimer) {
@@ -184,7 +209,7 @@ const refreshAll = async () => {
 const formatNumber = (n: number) => n.toLocaleString('en-US')
 
 const sparklinePath = computed(() => {
-  const points = stats.value?.daily_visits ?? []
+  const points = sparkVisits.value
   const empty = {line: '', area: '', max: 0, points: [] as Array<{x: number; y: number; v: DailyVisit}>}
   if (points.length === 0) return empty
   const width = 720
@@ -224,7 +249,84 @@ const barPercent = (count: number, list: TopEntry[]) => {
   return `${(count / top) * 100}%`
 }
 
-const reversedLogs = computed(() => [...logs.value].reverse())
+const applyTopFilter = (list: TopEntry[], search: string, sort: SortMode) => {
+  const q = search.trim().toLowerCase()
+  const filtered = q ? list.filter(e => e.key.toLowerCase().includes(q)) : list
+  const sorted = [...filtered]
+  if (sort === 'count_asc') sorted.sort((a, b) => a.count - b.count)
+  else if (sort === 'alpha') sorted.sort((a, b) => a.key.localeCompare(b.key))
+  // count_desc is the backend default; keep order.
+  return sorted
+}
+
+const filteredTopRoutes = computed(() =>
+  applyTopFilter(stats.value?.top_routes ?? [], routesSearch.value, routesSort.value),
+)
+const filteredTopStops = computed(() =>
+  applyTopFilter(stats.value?.top_stops ?? [], stopsSearch.value, stopsSort.value),
+)
+const filteredTopAPI = computed(() =>
+  applyTopFilter(stats.value?.top_api ?? [], apiSearch.value, apiSort.value),
+)
+
+const extractMethod = (line: string): string => {
+  const m = line.match(/method=(\w+)/)
+  return m && m[1] ? m[1] : ''
+}
+
+const availableMethods = computed(() => {
+  const set = new Set<string>()
+  for (const line of logs.value) {
+    const m = extractMethod(line)
+    if (m) set.add(m)
+  }
+  return [...set].sort()
+})
+
+const statusCounts = computed(() => {
+  const counts: Record<StatusKind, number> = {ok: 0, redirect: 0, client: 0, server: 0, other: 0}
+  for (const line of logs.value) counts[classifyStatus(line)]++
+  return counts
+})
+
+const filteredLogs = computed(() => {
+  const q = logSearch.value.trim().toLowerCase()
+  const method = logMethodFilter.value
+  const out: string[] = []
+  for (const line of logs.value) {
+    if (!logStatusEnabled.value[classifyStatus(line)]) continue
+    if (method !== 'all' && extractMethod(line) !== method) continue
+    if (q && !line.toLowerCase().includes(q)) continue
+    out.push(line)
+  }
+  return logOrderNewest.value ? out.reverse() : out
+})
+
+const toggleStatus = (kind: StatusKind) => {
+  logStatusEnabled.value[kind] = !logStatusEnabled.value[kind]
+}
+
+const clearLogFilters = () => {
+  logSearch.value = ''
+  logMethodFilter.value = 'all'
+  logStatusEnabled.value = {ok: true, redirect: true, client: true, server: true, other: true}
+}
+
+const sparkVisits = computed(() => {
+  const all = stats.value?.daily_visits ?? []
+  return all.slice(-sparkRangeDays.value)
+})
+
+const wowDelta = computed<number | null>(() => {
+  const all = stats.value?.daily_visits ?? []
+  if (all.length < 14) return null
+  const last7 = all.slice(-7).reduce((s, d) => s + d.count, 0)
+  const prev7 = all.slice(-14, -7).reduce((s, d) => s + d.count, 0)
+  if (prev7 === 0) return null
+  return ((last7 - prev7) / prev7) * 100
+})
+
+const rangeTotal = computed(() => sparkVisits.value.reduce((s, d) => s + d.count, 0))
 
 onMounted(async () => {
   await loadStats(true)
@@ -346,7 +448,24 @@ onBeforeUnmount(() => {
           <section class="admin-card">
             <div class="admin-card-head">
               <h2>Daily unique visitors</h2>
-              <span class="admin-card-meta">last 30 days · peak {{ formatNumber(sparklinePath.max) }}</span>
+              <div class="admin-spark-controls">
+                <div class="admin-chip-group">
+                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 7}" @click="sparkRangeDays = 7">7d</button>
+                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 14}" @click="sparkRangeDays = 14">14d</button>
+                  <button class="admin-chip" :class="{'admin-chip-on': sparkRangeDays === 30}" @click="sparkRangeDays = 30">30d</button>
+                </div>
+                <span class="admin-card-meta">
+                  total {{ formatNumber(rangeTotal) }} · peak {{ formatNumber(sparklinePath.max) }}
+                </span>
+                <span
+                  v-if="wowDelta !== null"
+                  class="admin-delta"
+                  :class="wowDelta >= 0 ? 'admin-delta-up' : 'admin-delta-down'"
+                  title="Last 7d total vs. previous 7d"
+                >
+                  WoW {{ wowDelta >= 0 ? '+' : '' }}{{ wowDelta.toFixed(1) }}%
+                </span>
+              </div>
             </div>
             <div class="admin-spark">
               <svg viewBox="0 0 720 160" preserveAspectRatio="none" class="admin-spark-svg">
@@ -384,8 +503,8 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="admin-spark-axis">
-              <span>{{ stats.daily_visits[0]?.date }}</span>
-              <span>{{ stats.daily_visits[stats.daily_visits.length - 1]?.date }}</span>
+              <span>{{ sparkVisits[0]?.date }}</span>
+              <span>{{ sparkVisits[sparkVisits.length - 1]?.date }}</span>
             </div>
           </section>
 
@@ -394,10 +513,18 @@ onBeforeUnmount(() => {
             <div class="admin-card">
               <div class="admin-card-head">
                 <h2>Top routes</h2>
-                <span class="admin-card-meta">by page view</span>
+                <div class="admin-top-controls">
+                  <input v-model="routesSearch" type="text" placeholder="filter…" class="admin-input admin-input-sm" spellcheck="false"/>
+                  <select v-model="routesSort" class="admin-select">
+                    <option value="count_desc">most → least</option>
+                    <option value="count_asc">least → most</option>
+                    <option value="alpha">A → Z</option>
+                  </select>
+                  <span class="admin-card-meta">{{ filteredTopRoutes.length }}/{{ stats.top_routes.length }}</span>
+                </div>
               </div>
-              <ul v-if="stats.top_routes.length" class="admin-bars">
-                <li v-for="(r, i) in stats.top_routes" :key="r.key">
+              <ul v-if="filteredTopRoutes.length" class="admin-bars">
+                <li v-for="(r, i) in filteredTopRoutes" :key="r.key">
                   <span class="admin-bar-rank">#{{ i + 1 }}</span>
                   <span class="admin-bar-label">{{ r.key }}</span>
                   <span class="admin-bar-track">
@@ -406,16 +533,24 @@ onBeforeUnmount(() => {
                   <span class="admin-bar-count">{{ formatNumber(r.count) }}</span>
                 </li>
               </ul>
-              <div v-else class="admin-empty">No data yet</div>
+              <div v-else class="admin-empty">{{ stats.top_routes.length ? 'No matches' : 'No data yet' }}</div>
             </div>
 
             <div class="admin-card">
               <div class="admin-card-head">
                 <h2>Top stops</h2>
-                <span class="admin-card-meta">by page view</span>
+                <div class="admin-top-controls">
+                  <input v-model="stopsSearch" type="text" placeholder="filter…" class="admin-input admin-input-sm" spellcheck="false"/>
+                  <select v-model="stopsSort" class="admin-select">
+                    <option value="count_desc">most → least</option>
+                    <option value="count_asc">least → most</option>
+                    <option value="alpha">A → Z</option>
+                  </select>
+                  <span class="admin-card-meta">{{ filteredTopStops.length }}/{{ stats.top_stops.length }}</span>
+                </div>
               </div>
-              <ul v-if="stats.top_stops.length" class="admin-bars">
-                <li v-for="(s, i) in stats.top_stops" :key="s.key">
+              <ul v-if="filteredTopStops.length" class="admin-bars">
+                <li v-for="(s, i) in filteredTopStops" :key="s.key">
                   <span class="admin-bar-rank">#{{ i + 1 }}</span>
                   <span class="admin-bar-label">Stop {{ s.key }}</span>
                   <span class="admin-bar-track">
@@ -424,16 +559,24 @@ onBeforeUnmount(() => {
                   <span class="admin-bar-count">{{ formatNumber(s.count) }}</span>
                 </li>
               </ul>
-              <div v-else class="admin-empty">No data yet</div>
+              <div v-else class="admin-empty">{{ stats.top_stops.length ? 'No matches' : 'No data yet' }}</div>
             </div>
 
             <div class="admin-card">
               <div class="admin-card-head">
                 <h2>Top API endpoints</h2>
-                <span class="admin-card-meta">by call count</span>
+                <div class="admin-top-controls">
+                  <input v-model="apiSearch" type="text" placeholder="filter…" class="admin-input admin-input-sm" spellcheck="false"/>
+                  <select v-model="apiSort" class="admin-select">
+                    <option value="count_desc">most → least</option>
+                    <option value="count_asc">least → most</option>
+                    <option value="alpha">A → Z</option>
+                  </select>
+                  <span class="admin-card-meta">{{ filteredTopAPI.length }}/{{ stats.top_api.length }}</span>
+                </div>
               </div>
-              <ul v-if="stats.top_api.length" class="admin-bars">
-                <li v-for="(a, i) in stats.top_api" :key="a.key">
+              <ul v-if="filteredTopAPI.length" class="admin-bars">
+                <li v-for="(a, i) in filteredTopAPI" :key="a.key">
                   <span class="admin-bar-rank">#{{ i + 1 }}</span>
                   <span class="admin-bar-label admin-bar-mono">{{ a.key }}</span>
                   <span class="admin-bar-track">
@@ -442,7 +585,7 @@ onBeforeUnmount(() => {
                   <span class="admin-bar-count">{{ formatNumber(a.count) }}</span>
                 </li>
               </ul>
-              <div v-else class="admin-empty">No data yet</div>
+              <div v-else class="admin-empty">{{ stats.top_api.length ? 'No matches' : 'No data yet' }}</div>
             </div>
           </section>
 
@@ -460,10 +603,59 @@ onBeforeUnmount(() => {
                 </button>
               </div>
             </div>
+
+            <div class="admin-log-filters">
+              <div class="admin-chip-group">
+                <button
+                  class="admin-chip admin-chip-ok"
+                  :class="{'admin-chip-on': logStatusEnabled.ok}"
+                  @click="toggleStatus('ok')"
+                >2xx <span class="admin-chip-n">{{ statusCounts.ok }}</span></button>
+                <button
+                  class="admin-chip admin-chip-redirect"
+                  :class="{'admin-chip-on': logStatusEnabled.redirect}"
+                  @click="toggleStatus('redirect')"
+                >3xx <span class="admin-chip-n">{{ statusCounts.redirect }}</span></button>
+                <button
+                  class="admin-chip admin-chip-client"
+                  :class="{'admin-chip-on': logStatusEnabled.client}"
+                  @click="toggleStatus('client')"
+                >4xx <span class="admin-chip-n">{{ statusCounts.client }}</span></button>
+                <button
+                  class="admin-chip admin-chip-server"
+                  :class="{'admin-chip-on': logStatusEnabled.server}"
+                  @click="toggleStatus('server')"
+                >5xx <span class="admin-chip-n">{{ statusCounts.server }}</span></button>
+                <button
+                  v-if="statusCounts.other"
+                  class="admin-chip"
+                  :class="{'admin-chip-on': logStatusEnabled.other}"
+                  @click="toggleStatus('other')"
+                >other <span class="admin-chip-n">{{ statusCounts.other }}</span></button>
+              </div>
+              <select v-model="logMethodFilter" class="admin-select">
+                <option value="all">all methods</option>
+                <option v-for="m in availableMethods" :key="m" :value="m">{{ m }}</option>
+              </select>
+              <input
+                v-model="logSearch"
+                type="text"
+                placeholder="search…"
+                spellcheck="false"
+                class="admin-input admin-input-sm admin-log-search"
+              />
+              <button class="admin-button-ghost admin-button-sm" @click="logOrderNewest = !logOrderNewest" title="Toggle order">
+                {{ logOrderNewest ? 'newest ↓' : 'oldest ↑' }}
+              </button>
+              <button class="admin-button-ghost admin-button-sm" @click="clearLogFilters">clear</button>
+              <span class="admin-card-meta admin-log-count">{{ filteredLogs.length }}/{{ logs.length }}</span>
+            </div>
+
             <div v-if="logs.length === 0 && !logsLoading" class="admin-empty">No log lines</div>
+            <div v-else-if="filteredLogs.length === 0" class="admin-empty">No log lines match the filters</div>
             <pre v-else class="admin-logs">
 <span
-  v-for="(line, i) in reversedLogs"
+  v-for="(line, i) in filteredLogs"
   :key="i"
   class="admin-log-line"
   :class="`admin-log-${classifyStatus(line)}`"
@@ -964,4 +1156,131 @@ onBeforeUnmount(() => {
 .admin-log-client   { color: #fcd34d; border-left-color: #d97706; }
 .admin-log-server   { color: #fca5a5; border-left-color: #b91c1c; }
 .admin-log-other    { color: #cbd5e1; border-left-color: #475569; }
+
+/* Shared select */
+.admin-select {
+  background: #0b1220;
+  border: 1px solid #233052;
+  color: #e6edf3;
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.admin-select:focus {
+  border-color: #38bdf8;
+}
+
+/* Compact button variant */
+.admin-button-sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+  border-radius: 6px;
+}
+
+/* Chip groups (sparkline range, status filters) */
+.admin-chip-group {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-chip {
+  background: transparent;
+  border: 1px solid #233052;
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.admin-chip:hover {
+  border-color: #2a3a5e;
+  color: #e6edf3;
+}
+
+.admin-chip-on {
+  background: #1c2942;
+  border-color: #38bdf8;
+  color: #e6edf3;
+}
+
+.admin-chip-n {
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.admin-chip-on .admin-chip-n {
+  color: #94a3b8;
+}
+
+.admin-chip-ok.admin-chip-on       { border-color: #16a34a; }
+.admin-chip-redirect.admin-chip-on { border-color: #2563eb; }
+.admin-chip-client.admin-chip-on   { border-color: #d97706; }
+.admin-chip-server.admin-chip-on   { border-color: #b91c1c; }
+
+/* Sparkline controls */
+.admin-spark-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.admin-delta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.admin-delta-up   { color: #86efac; background: rgba(22, 163, 74, 0.12); }
+.admin-delta-down { color: #fca5a5; background: rgba(185, 28, 28, 0.12); }
+
+/* Top-list controls */
+.admin-top-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.admin-top-controls .admin-input-sm {
+  width: 7rem;
+}
+
+/* Log filters */
+.admin-log-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed #1f2a44;
+}
+
+.admin-log-search {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+}
+
+.admin-log-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
 </style>

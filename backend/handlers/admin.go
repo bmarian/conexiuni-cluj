@@ -182,16 +182,16 @@ func RegisterAdminRoutes(api fiber.Router, token, logDir string, tranzyClient *t
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		topRoutes, err := database.GetTopMetric("route_view", 10)
+		topRoutes, err := database.GetTopMetric("route_view", 25)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		topRoutes = normalizeTopRouteKeys(topRoutes)
-		topStops, err := database.GetTopMetric("stop_view", 10)
+		topStops, err := database.GetTopMetric("stop_view", 25)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		topAPI, err := database.GetTopMetric("api_call", 10)
+		topAPI, err := database.GetTopMetric("api_call", 25)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
