@@ -131,7 +131,7 @@ func main() {
 
 	api := app.Group("/api")
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
-	handlers.RegisterAdminRoutes(api, config.AdminToken, config.LogDir, tranzyClient, config.Environment == "production")
+	handlers.RegisterAdminRoutes(api, config.AdminToken, tranzyClient, config.Environment == "production")
 
 	if _, err := os.Stat("./dist"); err == nil {
 		handlers.LoadIndexHTML()

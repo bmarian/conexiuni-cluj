@@ -58,14 +58,8 @@ type StatsResponse = {
   generated_at: string
 }
 
-type LogsResponse = {
-  lines: string[]
-  count: number
-}
-
 type AuthState = 'login' | 'loading' | 'ready' | 'error'
 type SortMode = 'count_desc' | 'count_asc' | 'alpha'
-type StatusKind = 'ok' | 'redirect' | 'client' | 'server' | 'other'
 
 const AUTH_FLAG_KEY = 'admin:authed'
 const hasAuthFlag = () => {
@@ -80,9 +74,6 @@ const settings = useSettingsStore()
 const authState = ref<AuthState>(hasAuthFlag() ? 'loading' : 'login')
 const errorMessage = ref('')
 const stats = ref<StatsResponse | null>(null)
-const logs = ref<string[]>([])
-const logTail = ref(200)
-const logsLoading = ref(false)
 const activeNow = ref(0)
 const livePolling = ref(false)
 let activePollTimer: ReturnType<typeof setInterval> | null = null
@@ -94,18 +85,6 @@ const stopsSearch = ref('')
 const stopsSort = ref<SortMode>('count_desc')
 const apiSearch = ref('')
 const apiSort = ref<SortMode>('count_desc')
-
-// Log filter state
-const logSearch = ref('')
-const logStatusEnabled = ref<Record<StatusKind, boolean>>({
-  ok: true,
-  redirect: true,
-  client: true,
-  server: true,
-  other: true,
-})
-const logMethodFilter = ref<string>('all')
-const logOrderNewest = ref(true)
 
 // Sparkline range (days). Backend currently returns 30, we slice client-side.
 const sparkRangeDays = ref(30)
@@ -173,20 +152,6 @@ const pollActive = async () => {
   }
 }
 
-const loadLogs = async () => {
-  logsLoading.value = true
-  try {
-    const data = (await authedFetch(`/api/admin/logs?tail=${logTail.value}`)) as LogsResponse
-    logs.value = data.lines
-  } catch (err) {
-    if ((err as Error).message !== 'unauthorized') {
-      errorMessage.value = (err as Error).message
-    }
-  } finally {
-    logsLoading.value = false
-  }
-}
-
 const submitLogin = async () => {
   const t = tokenInput.value.trim()
   if (!t) return
@@ -211,9 +176,6 @@ const submitLogin = async () => {
   tokenInput.value = ''
   setAuthFlag(true)
   await loadStats()
-  if ((authState.value as AuthState) === 'ready') {
-    await loadLogs()
-  }
 }
 
 const logout = async () => {
@@ -224,16 +186,12 @@ const logout = async () => {
   }).catch(() => {})
   setAuthFlag(false)
   stats.value = null
-  logs.value = []
   authState.value = 'login'
   errorMessage.value = ''
 }
 
 const refreshAll = async () => {
   await loadStats()
-  if (authState.value === 'ready') {
-    await loadLogs()
-  }
 }
 
 const formatNumber = (n: number) => n.toLocaleString('en-US')
@@ -275,17 +233,6 @@ const sparklinePath = computed(() => {
 })
 
 const hoveredPoint = ref<{x: number; y: number; v: DailyVisit} | null>(null)
-
-const classifyStatus = (line: string): 'ok' | 'redirect' | 'client' | 'server' | 'other' => {
-  const m = line.match(/status=(\d+)/)
-  if (!m || !m[1]) return 'other'
-  const code = parseInt(m[1], 10)
-  if (code >= 500) return 'server'
-  if (code >= 400) return 'client'
-  if (code >= 300) return 'redirect'
-  if (code >= 200) return 'ok'
-  return 'other'
-}
 
 const barPercent = (count: number, list: TopEntry[]) => {
   const top = list[0]?.count ?? 1
@@ -335,49 +282,6 @@ const recentTranzyQuotaTotal = computed(() => recentTranzyQuota.value.reduce((su
 
 const endpointResponseTimes = computed(() => stats.value?.endpoint_response_times ?? [])
 
-const extractMethod = (line: string): string => {
-  const m = line.match(/method=(\w+)/)
-  return m && m[1] ? m[1] : ''
-}
-
-const availableMethods = computed(() => {
-  const set = new Set<string>()
-  for (const line of logs.value) {
-    const m = extractMethod(line)
-    if (m) set.add(m)
-  }
-  return [...set].sort()
-})
-
-const statusCounts = computed(() => {
-  const counts: Record<StatusKind, number> = {ok: 0, redirect: 0, client: 0, server: 0, other: 0}
-  for (const line of logs.value) counts[classifyStatus(line)]++
-  return counts
-})
-
-const filteredLogs = computed(() => {
-  const q = logSearch.value.trim().toLowerCase()
-  const method = logMethodFilter.value
-  const out: string[] = []
-  for (const line of logs.value) {
-    if (!logStatusEnabled.value[classifyStatus(line)]) continue
-    if (method !== 'all' && extractMethod(line) !== method) continue
-    if (q && !line.toLowerCase().includes(q)) continue
-    out.push(line)
-  }
-  return logOrderNewest.value ? out.reverse() : out
-})
-
-const toggleStatus = (kind: StatusKind) => {
-  logStatusEnabled.value[kind] = !logStatusEnabled.value[kind]
-}
-
-const clearLogFilters = () => {
-  logSearch.value = ''
-  logMethodFilter.value = 'all'
-  logStatusEnabled.value = {ok: true, redirect: true, client: true, server: true, other: true}
-}
-
 const sparkVisits = computed(() => {
   const all = stats.value?.daily_visits ?? []
   return all.slice(-sparkRangeDays.value)
@@ -397,9 +301,6 @@ const rangeTotal = computed(() => sparkVisits.value.reduce((s, d) => s + d.count
 onMounted(async () => {
   if (!hasAuthFlag()) return
   await loadStats(true)
-  if (authState.value === 'ready') {
-    await loadLogs()
-  }
 })
 
 onBeforeUnmount(() => {
@@ -740,83 +641,6 @@ onBeforeUnmount(() => {
               </ul>
               <div v-else class="admin-empty">{{ stats.top_api.length ? 'No matches' : 'No data yet' }}</div>
             </div>
-          </section>
-
-          <section class="admin-card">
-            <div class="admin-card-head">
-              <h2>Access logs</h2>
-              <div class="admin-log-controls">
-                <label>
-                  tail
-                  <input v-model.number="logTail" type="number" min="10" max="1000" step="10" class="admin-input admin-input-sm"/>
-                </label>
-                <button type="button" class="admin-button" :disabled="logsLoading" @click="loadLogs">
-                  {{ logsLoading ? '…' : 'Reload' }}
-                </button>
-              </div>
-            </div>
-
-            <div class="admin-log-filters">
-              <div class="admin-chip-group">
-                <button
-                  class="admin-chip admin-chip-ok"
-                  :class="{'admin-chip-on': logStatusEnabled.ok}"
-                  type="button"
-                  @click="toggleStatus('ok')"
-                >2xx <span class="admin-chip-n">{{ statusCounts.ok }}</span></button>
-                <button
-                  class="admin-chip admin-chip-redirect"
-                  :class="{'admin-chip-on': logStatusEnabled.redirect}"
-                  type="button"
-                  @click="toggleStatus('redirect')"
-                >3xx <span class="admin-chip-n">{{ statusCounts.redirect }}</span></button>
-                <button
-                  class="admin-chip admin-chip-client"
-                  :class="{'admin-chip-on': logStatusEnabled.client}"
-                  type="button"
-                  @click="toggleStatus('client')"
-                >4xx <span class="admin-chip-n">{{ statusCounts.client }}</span></button>
-                <button
-                  class="admin-chip admin-chip-server"
-                  :class="{'admin-chip-on': logStatusEnabled.server}"
-                  type="button"
-                  @click="toggleStatus('server')"
-                >5xx <span class="admin-chip-n">{{ statusCounts.server }}</span></button>
-                <button
-                  v-if="statusCounts.other"
-                  class="admin-chip"
-                  :class="{'admin-chip-on': logStatusEnabled.other}"
-                  type="button"
-                  @click="toggleStatus('other')"
-                >other <span class="admin-chip-n">{{ statusCounts.other }}</span></button>
-              </div>
-              <select v-model="logMethodFilter" class="admin-select">
-                <option value="all">all methods</option>
-                <option v-for="m in availableMethods" :key="m" :value="m">{{ m }}</option>
-              </select>
-              <input
-                v-model="logSearch"
-                type="text"
-                placeholder="search…"
-                spellcheck="false"
-                class="admin-input admin-input-sm admin-log-search"
-              />
-              <button type="button" class="admin-button-ghost admin-button-sm" @click="logOrderNewest = !logOrderNewest" title="Toggle order">
-                {{ logOrderNewest ? 'newest ↓' : 'oldest ↑' }}
-              </button>
-              <button type="button" class="admin-button-ghost admin-button-sm" @click="clearLogFilters">clear</button>
-              <span class="admin-card-meta admin-log-count">{{ filteredLogs.length }}/{{ logs.length }}</span>
-            </div>
-
-            <div v-if="logs.length === 0 && !logsLoading" class="admin-empty">No log lines</div>
-            <div v-else-if="filteredLogs.length === 0" class="admin-empty">No log lines match the filters</div>
-            <pre v-else class="admin-logs">
-<span
-  v-for="(line, i) in filteredLogs"
-  :key="i"
-  class="admin-log-line"
-  :class="`admin-log-${classifyStatus(line)}`"
->{{ line }}</span></pre>
           </section>
         </template>
       </div>
@@ -1359,50 +1183,6 @@ onBeforeUnmount(() => {
   background: #a78bfa;
 }
 
-/* Logs */
-.admin-log-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: #94a3b8;
-  font-size: 0.8rem;
-}
-
-.admin-log-controls label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.admin-logs {
-  background: #0b1220;
-  border: 1px solid #1f2a44;
-  border-radius: 8px;
-  margin: 0;
-  padding: 0.75rem;
-  max-height: 480px;
-  overflow: auto;
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.72rem;
-  line-height: 1.5;
-  white-space: pre;
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-log-line {
-  display: block;
-  padding: 0.05rem 0;
-  border-left: 3px solid transparent;
-  padding-left: 0.5rem;
-}
-
-.admin-log-ok       { color: #86efac; border-left-color: #16a34a; }
-.admin-log-redirect { color: #93c5fd; border-left-color: #2563eb; }
-.admin-log-client   { color: #fcd34d; border-left-color: #d97706; }
-.admin-log-server   { color: #fca5a5; border-left-color: #b91c1c; }
-.admin-log-other    { color: #cbd5e1; border-left-color: #475569; }
-
 /* Shared select */
 .admin-select {
   background: #0b1220;
@@ -1473,11 +1253,6 @@ onBeforeUnmount(() => {
   color: #94a3b8;
 }
 
-.admin-chip-ok.admin-chip-on       { border-color: #16a34a; }
-.admin-chip-redirect.admin-chip-on { border-color: #2563eb; }
-.admin-chip-client.admin-chip-on   { border-color: #d97706; }
-.admin-chip-server.admin-chip-on   { border-color: #b91c1c; }
-
 /* Sparkline controls */
 .admin-spark-controls {
   display: flex;
@@ -1507,27 +1282,6 @@ onBeforeUnmount(() => {
 
 .admin-top-controls .admin-input-sm {
   width: 7rem;
-}
-
-/* Log filters */
-.admin-log-filters {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px dashed #1f2a44;
-}
-
-.admin-log-search {
-  flex: 1 1 12rem;
-  min-width: 8rem;
-}
-
-.admin-log-count {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
 }
 
 .admin-shell {
@@ -2033,29 +1787,6 @@ onBeforeUnmount(() => {
   border-radius: var(--admin-radius-sm);
 }
 
-.admin-log-controls {
-  color: var(--admin-muted);
-}
-
-.admin-log-filters {
-  padding: 0.75rem;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-subtle);
-}
-
-.admin-logs {
-  max-height: min(52vh, 520px);
-  background: var(--admin-terminal);
-  border-color: var(--admin-border);
-  border-radius: var(--admin-radius-sm);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.admin-log-line {
-  border-left-width: 2px;
-}
-
 .admin-error-box {
   border-color: rgba(239, 68, 68, 0.42);
   background: rgba(239, 68, 68, 0.1);
@@ -2225,7 +1956,6 @@ onBeforeUnmount(() => {
 
 .admin-shell.is-arcade .admin-input,
 .admin-shell.is-arcade .admin-select,
-.admin-shell.is-arcade .admin-log-filters,
 .admin-shell.is-arcade .admin-spark {
   border: 2px solid var(--admin-border);
   box-shadow: inset 2px 2px 0 rgba(146, 64, 14, 0.16);
@@ -2251,12 +1981,6 @@ onBeforeUnmount(() => {
 .admin-shell.is-arcade .admin-quota-default,
 .admin-shell.is-arcade .admin-kpi-meter-alt span {
   background: repeating-linear-gradient(90deg, #a78bfa 0 0.9rem, #f472b6 0.9rem 1.8rem);
-}
-
-.admin-shell.is-arcade .admin-logs {
-  border: 2px solid var(--admin-border);
-  color: #fde68a;
-  text-shadow: 0 0 4px rgba(251, 191, 36, 0.28);
 }
 
 .admin-shell.is-legacy-blue {
@@ -2357,7 +2081,6 @@ onBeforeUnmount(() => {
 .admin-shell.is-legacy-blue .admin-login-card,
 .admin-shell.is-legacy-blue .admin-card,
 .admin-shell.is-legacy-blue .admin-kpi,
-.admin-shell.is-legacy-blue .admin-log-filters,
 .admin-shell.is-legacy-blue .admin-spark {
   border: 1px solid var(--admin-border);
   border-radius: 0;
@@ -2509,18 +2232,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(to bottom, #c4b5fd 0%, #7c3aed 55%, #4c1d95 100%);
 }
 
-.admin-shell.is-legacy-blue .admin-logs {
-  border: 2px inset var(--xp-border, #aca899);
-  border-radius: 0;
-  background: #000000;
-  color: #00ff66;
-  box-shadow: none;
-}
-
-.admin-shell.is-dark.is-legacy-blue .admin-logs {
-  background: #050914;
-}
-
 @media (max-width: 760px) {
   .admin-dash {
     padding: 0.75rem 0.75rem 2rem;
@@ -2531,8 +2242,7 @@ onBeforeUnmount(() => {
   }
 
   .admin-header-left,
-  .admin-header-right,
-  .admin-log-controls {
+  .admin-header-right {
     width: 100%;
   }
 
@@ -2599,10 +2309,6 @@ onBeforeUnmount(() => {
   .admin-timing-bars .admin-bar-count {
     grid-area: count;
     align-self: start;
-  }
-
-  .admin-log-count {
-    margin-left: 0;
   }
 }
 
