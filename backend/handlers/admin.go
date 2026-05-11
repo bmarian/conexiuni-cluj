@@ -115,7 +115,25 @@ type adminStatsResponse struct {
 	TranzyQuota           tranzyQuotaSnapshot              `json:"tranzy_quota"`
 	DailyTranzyQuota      []database.DailyTranzyQuotaPoint `json:"daily_tranzy_quota"`
 	EndpointResponseTimes []database.EndpointTimingEntry   `json:"endpoint_response_times"`
+	CacheGroups           []cacheGroupSnapshot             `json:"cache_groups"`
+	Warmup                warmupSnapshotResponse           `json:"warmup"`
 	GeneratedAt           string                           `json:"generated_at"`
+}
+
+type cacheGroupSnapshot struct {
+	Prefix            string `json:"prefix"`
+	Count             int    `json:"count"`
+	ExpiredCount      int    `json:"expired_count"`
+	EarliestExpiresAt string `json:"earliest_expires_at"`
+	LatestExpiresAt   string `json:"latest_expires_at"`
+	LifespanMs        int64  `json:"lifespan_ms"`
+}
+
+type warmupSnapshotResponse struct {
+	LastStartedAt   string `json:"last_started_at,omitempty"`
+	LastCompletedAt string `json:"last_completed_at,omitempty"`
+	LastDurationMs  int64  `json:"last_duration_ms,omitempty"`
+	NextScheduledAt string `json:"next_scheduled_at"`
 }
 
 type tranzyQuotaSnapshot struct {
@@ -156,6 +174,96 @@ func mergeTodayTranzyQuotaUsage(points []database.DailyTranzyQuotaPoint, loc *ti
 		Default:  defaultUsed,
 		Total:    vehiclesUsed + defaultUsed,
 	})
+}
+
+// Longest prefixes first so "API_STOP_TIMES" matches before "STOP_TIMES".
+var knownCachePrefixes = []string{
+	"API_STOP_TIMES",
+	"STOP_TIMES",
+	"STOP_INFO",
+	"TIMETABLE",
+	"ROUTES",
+	"STOPS",
+	"SHAPES",
+	"TRIPS",
+	"VEHICLES",
+	"news",
+}
+
+func cachePrefix(id string) string {
+	for _, p := range knownCachePrefixes {
+		if id == p || strings.HasPrefix(id, p+"_") {
+			return p
+		}
+	}
+	return id
+}
+
+func buildCacheGroups(entries []database.CacheEntry, now time.Time) []cacheGroupSnapshot {
+	type agg struct {
+		count       int
+		expired     int
+		earliestExp int64
+		latestExp   int64
+		lifespan    int64
+		hasEarliest bool
+		hasLatest   bool
+	}
+	groups := make(map[string]*agg)
+	order := make([]string, 0)
+	nowMs := now.UnixMilli()
+	for _, e := range entries {
+		prefix := cachePrefix(e.ID)
+		g, ok := groups[prefix]
+		if !ok {
+			g = &agg{}
+			groups[prefix] = g
+			order = append(order, prefix)
+		}
+		g.count++
+		exp := e.Timestamp + e.Lifespan
+		if exp < nowMs {
+			g.expired++
+		}
+		if !g.hasEarliest || exp < g.earliestExp {
+			g.earliestExp = exp
+			g.hasEarliest = true
+		}
+		if !g.hasLatest || exp > g.latestExp {
+			g.latestExp = exp
+			g.hasLatest = true
+		}
+		if g.lifespan == 0 {
+			g.lifespan = e.Lifespan
+		}
+	}
+	out := make([]cacheGroupSnapshot, 0, len(order))
+	for _, prefix := range order {
+		g := groups[prefix]
+		out = append(out, cacheGroupSnapshot{
+			Prefix:            prefix,
+			Count:             g.count,
+			ExpiredCount:      g.expired,
+			EarliestExpiresAt: time.UnixMilli(g.earliestExp).UTC().Format(time.RFC3339),
+			LatestExpiresAt:   time.UnixMilli(g.latestExp).UTC().Format(time.RFC3339),
+			LifespanMs:        g.lifespan,
+		})
+	}
+	return out
+}
+
+func buildWarmupResponse(s WarmupSnapshot) warmupSnapshotResponse {
+	resp := warmupSnapshotResponse{
+		NextScheduledAt: s.NextScheduledAt.UTC().Format(time.RFC3339),
+	}
+	if !s.LastStartedAt.IsZero() {
+		resp.LastStartedAt = s.LastStartedAt.UTC().Format(time.RFC3339)
+	}
+	if !s.LastCompletedAt.IsZero() {
+		resp.LastCompletedAt = s.LastCompletedAt.UTC().Format(time.RFC3339)
+		resp.LastDurationMs = s.LastDuration.Milliseconds()
+	}
+	return resp
 }
 
 func normalizeTopRouteKeys(entries []database.TopEntry) []database.TopEntry {
@@ -259,6 +367,12 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 		vehiclesUsed := quotaUsed(vehiclesLimit, vehiclesRemaining)
 		defaultUsed := quotaUsed(defaultLimit, defaultRemaining)
 		dailyTranzyQuota = mergeTodayTranzyQuotaUsage(dailyTranzyQuota, tranzyClient.Location(), vehiclesUsed, defaultUsed)
+		cacheEntries, err := database.ListCacheEntries()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		cacheGroups := buildCacheGroups(cacheEntries, time.Now())
+		warmup := buildWarmupResponse(WarmupState.Snapshot())
 
 		resp := adminStatsResponse{
 			Visitors:    visitors,
@@ -278,6 +392,8 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 			},
 			DailyTranzyQuota:      dailyTranzyQuota,
 			EndpointResponseTimes: endpointResponseTimes,
+			CacheGroups:           cacheGroups,
+			Warmup:                warmup,
 			GeneratedAt:           time.Now().UTC().Format(time.RFC3339),
 		}
 		c.Set("Cache-Control", "no-store")

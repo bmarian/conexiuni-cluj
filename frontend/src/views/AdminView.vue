@@ -37,6 +37,22 @@ type EndpointTiming = {
   avg_ms: number
 }
 
+type CacheGroup = {
+  prefix: string
+  count: number
+  expired_count: number
+  earliest_expires_at: string
+  latest_expires_at: string
+  lifespan_ms: number
+}
+
+type WarmupSnapshot = {
+  last_started_at?: string
+  last_completed_at?: string
+  last_duration_ms?: number
+  next_scheduled_at: string
+}
+
 type StatsResponse = {
   visitors: VisitorTotals
   daily_visits: DailyVisit[]
@@ -55,6 +71,8 @@ type StatsResponse = {
   }
   daily_tranzy_quota: DailyTranzyQuota[]
   endpoint_response_times: EndpointTiming[]
+  cache_groups: CacheGroup[]
+  warmup: WarmupSnapshot
   generated_at: string
 }
 
@@ -146,6 +164,7 @@ const pollActive = async () => {
   if (authState.value !== 'ready') return
   try {
     const data = (await authedFetch('/api/admin/stats')) as StatsResponse
+    stats.value = data
     activeNow.value = data.active_now
   } catch {
     /* swallow — caller will surface auth errors */
@@ -207,6 +226,47 @@ const formatMs = (ms: number) => {
   if (!Number.isFinite(ms)) return '0 ms'
   if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)} s`
   return `${Math.round(ms)} ms`
+}
+
+const nowTick = ref(Date.now())
+let nowTimer: ReturnType<typeof setInterval> | null = null
+
+const formatDuration = (ms: number) => {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+  const sec = Math.round(ms / 1000)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m ${sec % 60}s`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h}h ${min % 60}m`
+  const d = Math.floor(h / 24)
+  return `${d}d ${h % 24}h`
+}
+
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000
+
+const formatRelative = (iso?: string) => {
+  if (!iso) return '—'
+  const t = new Date(iso).getTime()
+  if (!Number.isFinite(t)) return '—'
+  const delta = t - nowTick.value
+  if (Math.abs(delta) > YEAR_MS) return delta > 0 ? 'never' : 'long ago'
+  if (Math.abs(delta) < 5_000) return 'now'
+  if (delta > 0) return `in ${formatDuration(delta)}`
+  return `${formatDuration(-delta)} ago`
+}
+
+const formatLifespan = (ms: number) => {
+  if (!Number.isFinite(ms) || ms <= 0) return '—'
+  if (ms > YEAR_MS) return '∞'
+  return formatDuration(ms)
+}
+
+const formatDateTime = (iso?: string) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString()
 }
 
 const sparklinePath = computed(() => {
@@ -282,6 +342,17 @@ const recentTranzyQuotaTotal = computed(() => recentTranzyQuota.value.reduce((su
 
 const endpointResponseTimes = computed(() => stats.value?.endpoint_response_times ?? [])
 
+const cacheGroups = computed(() => stats.value?.cache_groups ?? [])
+
+const warmupInfo = computed(() => stats.value?.warmup ?? null)
+
+const cacheHealthyCount = computed(() =>
+  cacheGroups.value.reduce((n, g) => n + (g.count - g.expired_count), 0),
+)
+const cacheExpiredCount = computed(() =>
+  cacheGroups.value.reduce((n, g) => n + g.expired_count, 0),
+)
+
 const sparkVisits = computed(() => {
   const all = stats.value?.daily_visits ?? []
   return all.slice(-sparkRangeDays.value)
@@ -299,12 +370,17 @@ const wowDelta = computed<number | null>(() => {
 const rangeTotal = computed(() => sparkVisits.value.reduce((s, d) => s + d.count, 0))
 
 onMounted(async () => {
+  nowTimer = setInterval(() => { nowTick.value = Date.now() }, 1000)
   if (!hasAuthFlag()) return
   await loadStats(true)
 })
 
 onBeforeUnmount(() => {
   stopLivePolling()
+  if (nowTimer) {
+    clearInterval(nowTimer)
+    nowTimer = null
+  }
 })
 </script>
 
@@ -444,6 +520,77 @@ onBeforeUnmount(() => {
               <div class="admin-kpi-meter admin-kpi-meter-alt">
                 <span :style="{width: usedPercent(stats.tranzy_quota.default_used, stats.tranzy_quota.default_limit)}"></span>
               </div>
+            </div>
+          </section>
+
+          <section class="admin-grid admin-grid-two">
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Warmup</h2>
+                <span class="admin-card-meta">daily pass · 04:00 Europe/Bucharest</span>
+              </div>
+              <div v-if="warmupInfo" class="admin-warmup">
+                <div class="admin-warmup-row">
+                  <span class="admin-warmup-label">Next pass</span>
+                  <span class="admin-warmup-value">
+                    {{ formatRelative(warmupInfo.next_scheduled_at) }}
+                    <span class="admin-warmup-sub">{{ formatDateTime(warmupInfo.next_scheduled_at) }}</span>
+                  </span>
+                </div>
+                <div class="admin-warmup-row">
+                  <span class="admin-warmup-label">Last completed</span>
+                  <span class="admin-warmup-value">
+                    {{ formatRelative(warmupInfo.last_completed_at) }}
+                    <span class="admin-warmup-sub">{{ formatDateTime(warmupInfo.last_completed_at) }}</span>
+                  </span>
+                </div>
+                <div class="admin-warmup-row">
+                  <span class="admin-warmup-label">Last duration</span>
+                  <span class="admin-warmup-value">
+                    {{ warmupInfo.last_duration_ms ? formatDuration(warmupInfo.last_duration_ms) : '—' }}
+                  </span>
+                </div>
+              </div>
+              <div v-else class="admin-empty">No warmup recorded yet</div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Cache expiration</h2>
+                <span class="admin-card-meta">
+                  {{ formatNumber(cacheHealthyCount) }} fresh
+                  <span v-if="cacheExpiredCount" class="admin-cache-stale">· {{ formatNumber(cacheExpiredCount) }} expired</span>
+                </span>
+              </div>
+              <table v-if="cacheGroups.length" class="admin-cache-table">
+                <thead>
+                  <tr>
+                    <th>Cache</th>
+                    <th class="admin-cache-num">Entries</th>
+                    <th>Expires</th>
+                    <th class="admin-cache-num">Lifespan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="g in cacheGroups" :key="g.prefix">
+                    <td class="admin-cache-prefix">{{ g.prefix.toUpperCase() }}</td>
+                    <td class="admin-cache-num">{{ formatNumber(g.count) }}</td>
+                    <td class="admin-cache-expiry">
+                      <span :class="{'admin-cache-stale': g.expired_count >= g.count}">
+                        {{ formatRelative(g.earliest_expires_at) }}
+                      </span>
+                      <span v-if="g.count > 1" class="admin-cache-range">
+                        → {{ formatRelative(g.latest_expires_at) }}
+                      </span>
+                      <span v-if="g.expired_count && g.expired_count < g.count" class="admin-cache-stale admin-cache-tag">
+                        {{ g.expired_count }} stale
+                      </span>
+                    </td>
+                    <td class="admin-cache-num admin-cache-life">{{ formatLifespan(g.lifespan_ms) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="admin-empty">No cached entries</div>
             </div>
           </section>
 
@@ -976,6 +1123,117 @@ onBeforeUnmount(() => {
   color: #64748b;
   font-size: 0.85rem;
   padding: 0.5rem 0;
+}
+
+/* Warmup + cache */
+.admin-warmup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.admin-warmup-row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+}
+
+.admin-warmup-label {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-warmup-value {
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  align-items: baseline;
+}
+
+.admin-warmup-sub {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.admin-cache-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.admin-cache-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 0 0.75rem 0.5rem 0;
+  border-bottom: 1px solid #1f2a44;
+  white-space: nowrap;
+}
+
+.admin-cache-table th:last-child,
+.admin-cache-table td:last-child {
+  padding-right: 0;
+}
+
+.admin-cache-table td {
+  padding: 0.45rem 0.75rem 0.45rem 0;
+  border-bottom: 1px dashed #1f2a44;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.admin-cache-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-cache-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-cache-prefix {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  letter-spacing: 0.02em;
+}
+
+.admin-cache-expiry {
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-cache-range {
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-left: 0.25rem;
+}
+
+.admin-cache-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(252, 165, 165, 0.12);
+  font-size: 0.72rem;
+}
+
+.admin-cache-life {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.admin-cache-stale {
+  color: #fca5a5;
 }
 
 /* Sparkline */
@@ -1776,6 +2034,40 @@ onBeforeUnmount(() => {
   background: var(--admin-accent-soft);
   border-color: var(--admin-accent);
   color: var(--admin-text);
+}
+
+.admin-warmup-label {
+  color: var(--admin-muted);
+}
+
+.admin-warmup-value {
+  color: var(--admin-text);
+}
+
+.admin-warmup-sub {
+  color: var(--admin-faint);
+}
+
+.admin-cache-table th {
+  color: var(--admin-muted);
+  border-bottom-color: var(--admin-border);
+}
+
+.admin-cache-table td {
+  border-bottom-color: var(--admin-border);
+}
+
+.admin-cache-prefix {
+  color: var(--admin-text);
+}
+
+.admin-cache-expiry {
+  color: var(--admin-text);
+}
+
+.admin-cache-range,
+.admin-cache-life {
+  color: var(--admin-faint);
 }
 
 .admin-chip-n,

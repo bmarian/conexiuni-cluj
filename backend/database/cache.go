@@ -44,3 +44,27 @@ func InvalidateAllCaches() error {
 	_, err := DB.Exec(`DELETE FROM cache_times`)
 	return err
 }
+
+type CacheEntry struct {
+	ID        string
+	Timestamp int64
+	Lifespan  int64
+}
+
+func ListCacheEntries() ([]CacheEntry, error) {
+	rows, err := DB.Query(`SELECT id, timestamp, lifespan FROM cache_times ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []CacheEntry
+	for rows.Next() {
+		var e CacheEntry
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Lifespan); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}

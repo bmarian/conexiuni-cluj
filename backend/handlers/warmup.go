@@ -11,8 +11,60 @@ import (
 	"time"
 )
 
+type WarmupSnapshot struct {
+	LastStartedAt   time.Time
+	LastCompletedAt time.Time
+	LastDuration    time.Duration
+	NextScheduledAt time.Time
+}
+
+type warmupState struct {
+	mu              sync.RWMutex
+	loc             *time.Location
+	lastStartedAt   time.Time
+	lastCompletedAt time.Time
+	lastDuration    time.Duration
+}
+
+var WarmupState = &warmupState{}
+
+func (w *warmupState) setLocation(loc *time.Location) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.loc = loc
+}
+
+func (w *warmupState) markStart(t time.Time) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastStartedAt = t
+}
+
+func (w *warmupState) markComplete(start time.Time) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastCompletedAt = time.Now()
+	w.lastDuration = w.lastCompletedAt.Sub(start)
+}
+
+func (w *warmupState) Snapshot() WarmupSnapshot {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	loc := w.loc
+	if loc == nil {
+		loc = time.Local
+	}
+	return WarmupSnapshot{
+		LastStartedAt:   w.lastStartedAt,
+		LastCompletedAt: w.lastCompletedAt,
+		LastDuration:    w.lastDuration,
+		NextScheduledAt: nextWarmupAt(time.Now().In(loc)),
+	}
+}
+
 func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
 	loc := tranzyClient.Location()
+	WarmupState.setLocation(loc)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -39,6 +91,8 @@ func nextWarmupAt(now time.Time) time.Time {
 
 func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
 	start := time.Now()
+	WarmupState.markStart(start)
+	defer WarmupState.markComplete(start)
 	log.Println("warmup: starting")
 
 	Availability.ResetForNewPass()
