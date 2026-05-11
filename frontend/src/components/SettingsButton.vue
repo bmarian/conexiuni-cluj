@@ -1,22 +1,30 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 
 type Theme = 'light' | 'dark' | 'system'
 
 const {t, locale} = useI18n()
+const router = useRouter()
 const settings = useSettingsStore()
 const isDark = computed(() => settings.isDark)
 
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
+const isAdminAuthed = ref(false)
+
+const readAdminAuthed = () => {
+  try { isAdminAuthed.value = localStorage.getItem('admin:authed') === '1' } catch { isAdminAuthed.value = false }
+}
 
 let arcadeClickCount = 0
 
 function toggle() {
   isOpen.value = !isOpen.value
+  if (isOpen.value) readAdminAuthed()
 
   if (!settings.arcadeUnlocked) {
     arcadeClickCount++
@@ -29,6 +37,11 @@ function toggle() {
       isOpen.value = false
     }
   }
+}
+
+function goToAdmin() {
+  isOpen.value = false
+  void router.push('/admin')
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
@@ -218,6 +231,21 @@ function setLocale(newLocale: 'ro' | 'en') {
       </div>
 
       <SettingsExportImport />
+
+      <template v-if="isAdminAuthed">
+        <p class="section-label">Admin</p>
+        <div class="option-group">
+          <button type="button" class="option-btn" @click="goToAdmin">
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🛡️</span>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 width="13" height="13" aria-hidden="true">
+              <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+            </svg>
+            Admin dashboard
+          </button>
+        </div>
+      </template>
 
     </div>
   </div>
