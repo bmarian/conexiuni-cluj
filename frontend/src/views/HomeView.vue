@@ -27,6 +27,8 @@ useHead(() => ({
     {property: 'og:title', content: t('headHomeTitle')},
     {property: 'og:description', content: t('headHomeDesc')},
     {property: 'og:url', content: 'https://bus.bmarian.online/'},
+    {name: 'twitter:title', content: t('headHomeTitle')},
+    {name: 'twitter:description', content: t('headHomeDesc')},
   ],
   link: [{rel: 'canonical', href: 'https://bus.bmarian.online/'}],
 }))

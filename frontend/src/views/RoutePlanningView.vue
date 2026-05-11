@@ -110,6 +110,8 @@ useHead(() => {
         {property: 'og:title', content: t('headPlanTitle')},
         {property: 'og:description', content: t('headPlanDesc')},
         {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
+        {name: 'twitter:title', content: t('headPlanTitle')},
+        {name: 'twitter:description', content: t('headPlanDesc')},
       ],
       link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
     }
@@ -133,6 +135,8 @@ useHead(() => {
       {property: 'og:title', content: title},
       {property: 'og:description', content: desc},
       {property: 'og:url', content: url},
+      {name: 'twitter:title', content: title},
+      {name: 'twitter:description', content: desc},
     ],
     link: [{rel: 'canonical', href: url}],
   }

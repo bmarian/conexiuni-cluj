@@ -58,16 +58,26 @@ const {zoomOut} = storeToRefs(mapStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
 const stopName = computed(() => stopInfo.value?.stop_name)
 
-useHead(() => ({
-  title: stopName.value ? t('headStopTitle', {stopName: stopName.value}) : 'Conexiuni Cluj',
-  meta: [
-    {name: 'description', content: stopName.value ? t('headStopDesc', {stopName: stopName.value}) : ''},
-    {property: 'og:title', content: stopName.value ? t('headStopTitle', {stopName: stopName.value}) : 'Conexiuni Cluj'},
-    {property: 'og:description', content: stopName.value ? t('headStopDesc', {stopName: stopName.value}) : ''},
-    {property: 'og:url', content: `https://bus.bmarian.online/stop/${props.stopId}`},
-  ],
-  link: [{rel: 'canonical', href: `https://bus.bmarian.online/stop/${props.stopId}`}],
-}))
+useHead(() => {
+  // Don't override server-injected meta until stop data has loaded — otherwise
+  // a crawler snapshot taken pre-fetch sees a stale "Conexiuni Cluj" title.
+  if (!stopName.value) return {}
+  const title = t('headStopTitle', {stopName: stopName.value})
+  const description = t('headStopDesc', {stopName: stopName.value})
+  const url = `https://bus.bmarian.online/stop/${props.stopId}`
+  return {
+    title,
+    meta: [
+      {name: 'description', content: description},
+      {property: 'og:title', content: title},
+      {property: 'og:description', content: description},
+      {property: 'og:url', content: url},
+      {name: 'twitter:title', content: title},
+      {name: 'twitter:description', content: description},
+    ],
+    link: [{rel: 'canonical', href: url}],
+  }
+})
 const isLoading = ref(false)
 const loadError = ref(false)
 const isComputingDepartures = ref(true)

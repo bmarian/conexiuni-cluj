@@ -71,11 +71,12 @@ const routeDisplayName = computed(() => {
 
 useHead(() => {
   const shortName = shapeInfo.value?.route_short_name ?? ''
+  // Don't override server-injected meta until route data has loaded — otherwise
+  // a crawler snapshot taken pre-fetch sees a stale "Conexiuni Cluj" title.
+  if (!shortName) return {}
   const longName = timetable.value?.route_long_name ?? ''
-  const title = shortName
-    ? t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
-    : 'Conexiuni Cluj'
-  const description = shortName ? t('headRouteDesc', {shortName}) : ''
+  const title = t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
+  const description = t('headRouteDesc', {shortName})
   const url = `https://bus.bmarian.online/route/${props.routeId}/${props.direction}`
   return {
     title,
@@ -84,6 +85,8 @@ useHead(() => {
       {property: 'og:title', content: title},
       {property: 'og:description', content: description},
       {property: 'og:url', content: url},
+      {name: 'twitter:title', content: title},
+      {name: 'twitter:description', content: description},
     ],
     link: [{rel: 'canonical', href: url}],
   }
