@@ -146,6 +146,8 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	Availability.MarkReady()
 	log.Printf("warmup: availability registry ready (routes-with-timetable + stops-with-buses now filter /api/routes and /api/stops)")
 
+	InvalidateSitemap()
+
 	if err := BuildGTFSZip(tranzyClient, ctpCjClient, cacheTimes); err != nil {
 		log.Printf("warmup: GTFS zip build failed: %v", err)
 	}
