@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
+	"time"
 
 	"conexiuni-cluj/database"
 
@@ -25,6 +26,10 @@ var trackedAPIPaths = map[string]struct{}{
 	"/api/vehicles/stream": {},
 	"/api/plan_routes":     {},
 	"/api/news":            {},
+}
+
+var streamedAPIPaths = map[string]struct{}{
+	"/api/vehicles/stream": {},
 }
 
 // ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client IP
@@ -86,6 +91,7 @@ func isSuccessfulStatus(status int) bool {
 // reuse the cached hash via ClientHashFromLocals.
 func StatsMiddleware(salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		start := time.Now()
 		hash := ComputeClientHash(c, salt)
 		c.Locals(clientHashLocalKey, hash)
 
@@ -96,7 +102,11 @@ func StatsMiddleware(salt string) fiber.Handler {
 			}
 			metric, key := classifyURL(c.Method(), c.Path())
 			if metric != "" {
-				database.RecordEvent(hash, metric, key)
+				if _, streamed := streamedAPIPaths[key]; streamed {
+					database.RecordEvent(hash, metric, key)
+				} else {
+					database.RecordEndpointTiming(hash, key, time.Since(start))
+				}
 			}
 		}
 		return err

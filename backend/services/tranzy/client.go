@@ -21,6 +21,10 @@ type QuotaPersister interface {
 	Save(name string, count int, resetAt time.Time) error
 }
 
+type QuotaUsageRecorder interface {
+	RecordUsage(name string)
+}
+
 type dailyQuota struct {
 	mutex     sync.Mutex
 	name      string
@@ -33,16 +37,22 @@ type dailyQuota struct {
 
 func (quota *dailyQuota) check() error {
 	quota.mutex.Lock()
-	defer quota.mutex.Unlock()
 
 	quota.rolloverLocked()
 
 	if quota.count >= quota.limit {
+		quota.mutex.Unlock()
 		return errors.New("tranzy: daily quota exceeded for endpoint")
 	}
 
 	quota.count++
 	quota.persistLocked()
+	recorder, _ := quota.persister.(QuotaUsageRecorder)
+	name := quota.name
+	quota.mutex.Unlock()
+	if recorder != nil {
+		recorder.RecordUsage(name)
+	}
 	return nil
 }
 

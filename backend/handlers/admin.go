@@ -113,22 +113,57 @@ func RequireAdminSession(token string) fiber.Handler {
 }
 
 type adminStatsResponse struct {
-	Visitors    database.VisitorTotals       `json:"visitors"`
-	DailyVisits []database.DailyVisitorPoint `json:"daily_visits"`
-	ActiveNow   int                          `json:"active_now"`
-	TopRoutes   []database.TopEntry          `json:"top_routes"`
-	TopStops    []database.TopEntry          `json:"top_stops"`
-	TopAPI      []database.TopEntry          `json:"top_api"`
-	PWAInstalls int                          `json:"pwa_installs"`
-	TranzyQuota tranzyQuotaSnapshot          `json:"tranzy_quota"`
-	GeneratedAt string                       `json:"generated_at"`
+	Visitors              database.VisitorTotals           `json:"visitors"`
+	DailyVisits           []database.DailyVisitorPoint     `json:"daily_visits"`
+	ActiveNow             int                              `json:"active_now"`
+	TopRoutes             []database.TopEntry              `json:"top_routes"`
+	TopStops              []database.TopEntry              `json:"top_stops"`
+	TopAPI                []database.TopEntry              `json:"top_api"`
+	PWAInstalls           int                              `json:"pwa_installs"`
+	TranzyQuota           tranzyQuotaSnapshot              `json:"tranzy_quota"`
+	DailyTranzyQuota      []database.DailyTranzyQuotaPoint `json:"daily_tranzy_quota"`
+	EndpointResponseTimes []database.EndpointTimingEntry   `json:"endpoint_response_times"`
+	GeneratedAt           string                           `json:"generated_at"`
 }
 
 type tranzyQuotaSnapshot struct {
 	VehiclesRemaining int `json:"vehicles_remaining"`
 	VehiclesLimit     int `json:"vehicles_limit"`
+	VehiclesUsed      int `json:"vehicles_used"`
 	DefaultRemaining  int `json:"default_remaining"`
 	DefaultLimit      int `json:"default_limit"`
+	DefaultUsed       int `json:"default_used"`
+}
+
+func quotaUsed(limit, remaining int) int {
+	used := limit - remaining
+	if used < 0 {
+		return 0
+	}
+	return used
+}
+
+func mergeTodayTranzyQuotaUsage(points []database.DailyTranzyQuotaPoint, loc *time.Location, vehiclesUsed, defaultUsed int) []database.DailyTranzyQuotaPoint {
+	today := time.Now().In(loc).Format("2006-01-02")
+	for i := range points {
+		if points[i].Date != today {
+			continue
+		}
+		if points[i].Vehicles < vehiclesUsed {
+			points[i].Vehicles = vehiclesUsed
+		}
+		if points[i].Default < defaultUsed {
+			points[i].Default = defaultUsed
+		}
+		points[i].Total = points[i].Vehicles + points[i].Default
+		return points
+	}
+	return append(points, database.DailyTranzyQuotaPoint{
+		Date:     today,
+		Vehicles: vehiclesUsed,
+		Default:  defaultUsed,
+		Total:    vehiclesUsed + defaultUsed,
+	})
 }
 
 func normalizeTopRouteKeys(entries []database.TopEntry) []database.TopEntry {
@@ -199,6 +234,21 @@ func RegisterAdminRoutes(api fiber.Router, token, logDir string, tranzyClient *t
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		dailyTranzyQuota, err := database.GetDailyTranzyQuotaUsage(30)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		endpointResponseTimes, err := database.GetEndpointResponseTimes(25)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		vehiclesRemaining := tranzyClient.VehiclesQuotaRemaining()
+		vehiclesLimit := tranzyClient.VehiclesQuotaLimit()
+		defaultRemaining := tranzyClient.DefaultQuotaRemaining()
+		defaultLimit := tranzyClient.DefaultQuotaLimit()
+		vehiclesUsed := quotaUsed(vehiclesLimit, vehiclesRemaining)
+		defaultUsed := quotaUsed(defaultLimit, defaultRemaining)
+		dailyTranzyQuota = mergeTodayTranzyQuotaUsage(dailyTranzyQuota, tranzyClient.Location(), vehiclesUsed, defaultUsed)
 
 		resp := adminStatsResponse{
 			Visitors:    visitors,
@@ -209,12 +259,16 @@ func RegisterAdminRoutes(api fiber.Router, token, logDir string, tranzyClient *t
 			TopAPI:      topAPI,
 			PWAInstalls: pwaInstalls,
 			TranzyQuota: tranzyQuotaSnapshot{
-				VehiclesRemaining: tranzyClient.VehiclesQuotaRemaining(),
-				VehiclesLimit:     tranzyClient.VehiclesQuotaLimit(),
-				DefaultRemaining:  tranzyClient.DefaultQuotaRemaining(),
-				DefaultLimit:      tranzyClient.DefaultQuotaLimit(),
+				VehiclesRemaining: vehiclesRemaining,
+				VehiclesLimit:     vehiclesLimit,
+				VehiclesUsed:      vehiclesUsed,
+				DefaultRemaining:  defaultRemaining,
+				DefaultLimit:      defaultLimit,
+				DefaultUsed:       defaultUsed,
 			},
-			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+			DailyTranzyQuota:      dailyTranzyQuota,
+			EndpointResponseTimes: endpointResponseTimes,
+			GeneratedAt:           time.Now().UTC().Format(time.RFC3339),
 		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(resp)

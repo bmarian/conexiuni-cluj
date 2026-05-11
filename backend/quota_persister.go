@@ -14,3 +14,7 @@ func (dbQuotaPersister) Load(name string) (int, time.Time, error) {
 func (dbQuotaPersister) Save(name string, count int, resetAt time.Time) error {
 	return database.SaveTranzyQuota(name, count, resetAt)
 }
+
+func (dbQuotaPersister) RecordUsage(name string) {
+	database.RecordTranzyQuotaUsage(name)
+}

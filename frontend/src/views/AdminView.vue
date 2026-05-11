@@ -18,9 +18,22 @@ type DailyVisit = {
   count: number
 }
 
+type DailyTranzyQuota = {
+  date: string
+  vehicles: number
+  default: number
+  total: number
+}
+
 type TopEntry = {
   key: string
   count: number
+}
+
+type EndpointTiming = {
+  key: string
+  count: number
+  avg_ms: number
 }
 
 type StatsResponse = {
@@ -34,9 +47,13 @@ type StatsResponse = {
   tranzy_quota: {
     vehicles_remaining: number
     vehicles_limit: number
+    vehicles_used: number
     default_remaining: number
     default_limit: number
+    default_used: number
   }
+  daily_tranzy_quota: DailyTranzyQuota[]
+  endpoint_response_times: EndpointTiming[]
   generated_at: string
 }
 
@@ -208,6 +225,19 @@ const refreshAll = async () => {
 
 const formatNumber = (n: number) => n.toLocaleString('en-US')
 
+const formatRoDay = (date?: string) => {
+  if (!date) return ''
+  const [, month, day] = date.split('-')
+  if (!month || !day) return date
+  return `${day}-${month}`
+}
+
+const formatMs = (ms: number) => {
+  if (!Number.isFinite(ms)) return '0 ms'
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)} s`
+  return `${Math.round(ms)} ms`
+}
+
 const sparklinePath = computed(() => {
   const points = sparkVisits.value
   const empty = {line: '', area: '', max: 0, points: [] as Array<{x: number; y: number; v: DailyVisit}>}
@@ -249,6 +279,15 @@ const barPercent = (count: number, list: TopEntry[]) => {
   return `${(count / top) * 100}%`
 }
 
+const latencyBarPercent = (ms: number) => {
+  const top = endpointResponseTimes.value[0]?.avg_ms ?? 1
+  return `${(ms / top) * 100}%`
+}
+
+const quotaBarPercent = (count: number) => {
+  return `${(count / tranzyQuotaPeak.value) * 100}%`
+}
+
 const applyTopFilter = (list: TopEntry[], search: string, sort: SortMode) => {
   const q = search.trim().toLowerCase()
   const filtered = q ? list.filter(e => e.key.toLowerCase().includes(q)) : list
@@ -268,6 +307,14 @@ const filteredTopStops = computed(() =>
 const filteredTopAPI = computed(() =>
   applyTopFilter(stats.value?.top_api ?? [], apiSearch.value, apiSort.value),
 )
+
+const recentTranzyQuota = computed(() => (stats.value?.daily_tranzy_quota ?? []).filter(d => d.total > 0).slice(-14))
+
+const tranzyQuotaPeak = computed(() => Math.max(...recentTranzyQuota.value.map(d => d.total), 1))
+
+const recentTranzyQuotaTotal = computed(() => recentTranzyQuota.value.reduce((sum, d) => sum + d.total, 0))
+
+const endpointResponseTimes = computed(() => stats.value?.endpoint_response_times ?? [])
 
 const extractMethod = (line: string): string => {
   const m = line.match(/method=(\w+)/)
@@ -434,13 +481,19 @@ onBeforeUnmount(() => {
             </div>
             <div class="admin-kpi">
               <div class="admin-kpi-label">Tranzy · vehicles</div>
-              <div class="admin-kpi-value">{{ formatNumber(stats.tranzy_quota.vehicles_remaining) }}</div>
-              <div class="admin-kpi-sub">of {{ formatNumber(stats.tranzy_quota.vehicles_limit) }} left today</div>
+              <div class="admin-kpi-value">{{ formatNumber(stats.tranzy_quota.vehicles_used) }}</div>
+              <div class="admin-kpi-sub">
+                used today · {{ formatNumber(stats.tranzy_quota.vehicles_remaining) }} left of
+                {{ formatNumber(stats.tranzy_quota.vehicles_limit) }}
+              </div>
             </div>
             <div class="admin-kpi">
               <div class="admin-kpi-label">Tranzy · default</div>
-              <div class="admin-kpi-value">{{ formatNumber(stats.tranzy_quota.default_remaining) }}</div>
-              <div class="admin-kpi-sub">of {{ formatNumber(stats.tranzy_quota.default_limit) }} left today</div>
+              <div class="admin-kpi-value">{{ formatNumber(stats.tranzy_quota.default_used) }}</div>
+              <div class="admin-kpi-sub">
+                used today · {{ formatNumber(stats.tranzy_quota.default_remaining) }} left of
+                {{ formatNumber(stats.tranzy_quota.default_limit) }}
+              </div>
             </div>
           </section>
 
@@ -498,13 +551,66 @@ onBeforeUnmount(() => {
                 </g>
               </svg>
               <div v-if="hoveredPoint" class="admin-spark-tip" :style="{left: `${(hoveredPoint.x / 720) * 100}%`}">
-                <div class="admin-spark-tip-date">{{ hoveredPoint.v.date }}</div>
+                <div class="admin-spark-tip-date">{{ formatRoDay(hoveredPoint.v.date) }}</div>
                 <div class="admin-spark-tip-count">{{ formatNumber(hoveredPoint.v.count) }} visitors</div>
               </div>
             </div>
             <div class="admin-spark-axis">
-              <span>{{ sparkVisits[0]?.date }}</span>
-              <span>{{ sparkVisits[sparkVisits.length - 1]?.date }}</span>
+              <span>{{ formatRoDay(sparkVisits[0]?.date) }}</span>
+              <span>{{ formatRoDay(sparkVisits[sparkVisits.length - 1]?.date) }}</span>
+            </div>
+          </section>
+
+          <section class="admin-grid admin-grid-two">
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Tranzy quota usage</h2>
+                <span class="admin-card-meta">
+                  {{ recentTranzyQuota.length }} day{{ recentTranzyQuota.length === 1 ? '' : 's' }} ·
+                  total {{ formatNumber(recentTranzyQuotaTotal) }}
+                </span>
+              </div>
+              <ul v-if="recentTranzyQuota.length" class="admin-quota-bars">
+                <li v-for="d in recentTranzyQuota" :key="d.date">
+                  <span class="admin-quota-date">{{ formatRoDay(d.date) }}</span>
+                  <span class="admin-quota-track">
+                    <span
+                      v-if="d.vehicles"
+                      class="admin-quota-fill admin-quota-vehicles"
+                      :style="{width: quotaBarPercent(d.vehicles)}"
+                    ></span>
+                    <span
+                      v-if="d.default"
+                      class="admin-quota-fill admin-quota-default"
+                      :style="{width: quotaBarPercent(d.default)}"
+                    ></span>
+                  </span>
+                  <span class="admin-bar-count">{{ formatNumber(d.total) }}</span>
+                </li>
+              </ul>
+              <div v-else class="admin-empty">No quota usage yet</div>
+              <div class="admin-legend">
+                <span><i class="admin-legend-vehicles"></i>vehicles</span>
+                <span><i class="admin-legend-default"></i>default</span>
+              </div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Slowest API averages</h2>
+                <span class="admin-card-meta">{{ endpointResponseTimes.length }} endpoints</span>
+              </div>
+              <ul v-if="endpointResponseTimes.length" class="admin-bars admin-timing-bars">
+                <li v-for="(a, i) in endpointResponseTimes" :key="a.key">
+                  <span class="admin-bar-rank">#{{ i + 1 }}</span>
+                  <span class="admin-bar-label admin-bar-mono">{{ a.key }}</span>
+                  <span class="admin-bar-track">
+                    <span class="admin-bar-fill admin-bar-fill-latency" :style="{width: latencyBarPercent(a.avg_ms)}"></span>
+                  </span>
+                  <span class="admin-bar-count">{{ formatMs(a.avg_ms) }} · {{ formatNumber(a.count) }}</span>
+                </li>
+              </ul>
+              <div v-else class="admin-empty">No response-time data yet</div>
             </div>
           </section>
 
@@ -1050,6 +1156,10 @@ onBeforeUnmount(() => {
   margin-bottom: 1.25rem;
 }
 
+.admin-grid-two {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+}
+
 .admin-grid .admin-card {
   margin-bottom: 0;
 }
@@ -1107,10 +1217,94 @@ onBeforeUnmount(() => {
   transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.admin-bar-fill-latency {
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+}
+
 .admin-bar-count {
   font-variant-numeric: tabular-nums;
   color: #e6edf3;
   font-weight: 500;
+}
+
+.admin-timing-bars li {
+  grid-template-columns: 2rem minmax(0, 1.2fr) minmax(4rem, 1fr) auto;
+}
+
+.admin-quota-bars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-quota-bars li {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.admin-quota-date {
+  color: #94a3b8;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-quota-track {
+  height: 10px;
+  background: #0b1220;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+}
+
+.admin-quota-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.admin-quota-vehicles {
+  background: #38bdf8;
+}
+
+.admin-quota-default {
+  background: #a78bfa;
+}
+
+.admin-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.admin-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-legend i {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.admin-legend-vehicles {
+  background: #38bdf8;
+}
+
+.admin-legend-default {
+  background: #a78bfa;
 }
 
 /* Logs */

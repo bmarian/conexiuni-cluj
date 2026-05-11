@@ -85,6 +85,7 @@ const shapesComingToTheStopBasedOnVehiclePositions = ref<VehiclesInStop[]>([])
 const initialZoomAppliedStopId = ref<string | null>(null)
 const cachedShapeKey = ref('')
 const cachedShapesWithTrip = ref<Array<[DisplayShape, Shape[]]>>([])
+const displayedFavoriteShapeKey = ref<string | null>(null)
 
 const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
   const loadedStopId = stopInfo.value?.stop_id?.toString()
@@ -94,6 +95,13 @@ const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
 
   zoomOut.value = true
   initialZoomAppliedStopId.value = props.stopId
+}
+
+const setFavoriteRouteShapes = (entries: Array<[DisplayShape, Shape[]]>) => {
+  const key = entries.map(([displayShape]) => displayShape.trip_id).sort().join(',')
+  if (key === displayedFavoriteShapeKey.value) return
+  displayedFavoriteShapeKey.value = key
+  mapStore.setLoadedShapes(entries)
 }
 
 const streamTripIds = computed<string[]>(() => {
@@ -157,6 +165,7 @@ watch(() => props.stopId, async (newValue) => {
   shapesComingToTheStopBasedOnVehiclePositions.value = []
   cachedShapeKey.value = ''
   cachedShapesWithTrip.value = []
+  displayedFavoriteShapeKey.value = null
   await fetchStopData(newValue)
   if (!stopInfo.value) loadError.value = true
   isLoading.value = false
@@ -166,7 +175,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = []
     mapStore.setVehiclesToDisplay([])
-    mapStore.setLoadedShapes([])
+    setFavoriteRouteShapes([])
     isComputingDepartures.value = false
     return
   }
@@ -181,7 +190,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
     mapStore.setVehiclesToDisplay([])
-    mapStore.setLoadedShapes([])
+    setFavoriteRouteShapes([])
     isComputingDepartures.value = false
     return
   }
@@ -251,9 +260,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   const highlightedShapes = displayShapesWithTrip.filter(([displayShape, shapePoints]) =>
     favoriteTripIds.has(displayShape.trip_id) && Array.isArray(shapePoints) && shapePoints.length > 0,
   )
-  mapStore.setLoadedShapes(
-    highlightedShapes,
-  )
+  setFavoriteRouteShapes(highlightedShapes)
   applyInitialZoomOutForCurrentStop(highlightedShapes.length > 0)
   mapStore.setVehiclesToDisplay(favoriteVehicles as unknown as Vehicle[])
   isComputingDepartures.value = false

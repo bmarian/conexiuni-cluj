@@ -45,7 +45,14 @@ func todayKey() string {
 // RecordEvent buffers a single request observation in memory.
 // Safe to call from hot paths — only a mutex + map writes.
 func RecordEvent(clientHash, metric, key string) {
+	RecordCount(clientHash, metric, key, 1)
+}
+
+func RecordCount(clientHash, metric, key string, count int) {
 	if clientHash == "" && metric == "" {
+		return
+	}
+	if metric != "" && count <= 0 {
 		return
 	}
 	statsMu.Lock()
@@ -53,14 +60,39 @@ func RecordEvent(clientHash, metric, key string) {
 		statsBuf.visitors[clientHash] = struct{}{}
 	}
 	if metric != "" {
-		bucket, ok := statsBuf.counters[metric]
-		if !ok {
-			bucket = make(map[string]int)
-			statsBuf.counters[metric] = bucket
-		}
-		bucket[key]++
+		incrementCounterLocked(metric, key, count)
 	}
 	statsMu.Unlock()
+}
+
+func RecordEndpointTiming(clientHash, key string, duration time.Duration) {
+	if key == "" {
+		return
+	}
+	ms := int(duration / time.Millisecond)
+	if duration > 0 && ms == 0 {
+		ms = 1
+	}
+	statsMu.Lock()
+	if clientHash != "" {
+		statsBuf.visitors[clientHash] = struct{}{}
+	}
+	incrementCounterLocked("api_call", key, 1)
+	incrementCounterLocked("api_response_ms", key, ms)
+	statsMu.Unlock()
+}
+
+func RecordTranzyQuotaUsage(name string) {
+	RecordEvent("", "tranzy_quota", name)
+}
+
+func incrementCounterLocked(metric, key string, count int) {
+	bucket, ok := statsBuf.counters[metric]
+	if !ok {
+		bucket = make(map[string]int)
+		statsBuf.counters[metric] = bucket
+	}
+	bucket[key] += count
 }
 
 func swapBuffer() *statsBuffer {
@@ -237,6 +269,68 @@ func GetDailyVisitors(days int) ([]DailyVisitorPoint, error) {
 	return out, nil
 }
 
+type DailyTranzyQuotaPoint struct {
+	Date     string `json:"date"`
+	Vehicles int    `json:"vehicles"`
+	Default  int    `json:"default"`
+	Total    int    `json:"total"`
+}
+
+func GetDailyTranzyQuotaUsage(days int) ([]DailyTranzyQuotaPoint, error) {
+	if days <= 0 {
+		days = 30
+	}
+	start := time.Now().In(statsLocation()).AddDate(0, 0, -(days - 1)).Format("2006-01-02")
+	rows, err := DB.Query(`
+		SELECT date, key, SUM(count)
+		FROM stats_daily
+		WHERE metric = 'tranzy_quota' AND date >= ?
+		GROUP BY date, key
+		ORDER BY date ASC
+	`, start)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	byDate := make(map[string]*DailyTranzyQuotaPoint)
+	for rows.Next() {
+		var date, key string
+		var count int
+		if err := rows.Scan(&date, &key, &count); err != nil {
+			return nil, err
+		}
+		point := byDate[date]
+		if point == nil {
+			point = &DailyTranzyQuotaPoint{Date: date}
+			byDate[date] = point
+		}
+		switch key {
+		case "vehicles":
+			point.Vehicles = count
+		case "default":
+			point.Default = count
+		}
+		point.Total += count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]DailyTranzyQuotaPoint, 0, days)
+	loc := statsLocation()
+	startDate := time.Now().In(loc).AddDate(0, 0, -(days - 1))
+	for i := 0; i < days; i++ {
+		date := startDate.AddDate(0, 0, i).Format("2006-01-02")
+		if point := byDate[date]; point != nil {
+			out = append(out, *point)
+		} else {
+			out = append(out, DailyTranzyQuotaPoint{Date: date})
+		}
+	}
+	return out, nil
+}
+
 type TopEntry struct {
 	Key   string `json:"key"`
 	Count int    `json:"count"`
@@ -282,4 +376,50 @@ func GetMetricTotal(metric, key string) (int, error) {
 		WHERE metric = ? AND key = ?
 	`, metric, key).Scan(&total)
 	return total, err
+}
+
+type EndpointTimingEntry struct {
+	Key   string  `json:"key"`
+	Count int     `json:"count"`
+	AvgMS float64 `json:"avg_ms"`
+}
+
+func GetEndpointResponseTimes(limit int) ([]EndpointTimingEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := DB.Query(`
+		SELECT calls.key, SUM(calls.count) AS total_count, SUM(latency.count) AS total_ms
+		FROM stats_daily calls
+		JOIN stats_daily latency
+			ON latency.date = calls.date
+			AND latency.key = calls.key
+			AND latency.metric = 'api_response_ms'
+		WHERE calls.metric = 'api_call'
+			AND calls.key NOT LIKE '/api/admin%'
+			AND calls.key != '/api/vehicles/stream'
+		GROUP BY calls.key
+		HAVING SUM(calls.count) > 0
+		ORDER BY (CAST(SUM(latency.count) AS REAL) / SUM(calls.count)) DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make([]EndpointTimingEntry, 0, limit)
+	for rows.Next() {
+		var key string
+		var count, totalMS int
+		if err := rows.Scan(&key, &count, &totalMS); err != nil {
+			return nil, err
+		}
+		out = append(out, EndpointTimingEntry{
+			Key:   key,
+			Count: count,
+			AvgMS: float64(totalMS) / float64(count),
+		})
+	}
+	return out, rows.Err()
 }
