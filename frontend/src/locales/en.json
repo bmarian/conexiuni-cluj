@@ -87,6 +87,8 @@
     "planWalk": "Walk",
     "planLocating": "Calculating your location...",
     "planCalculating": "Calculating your route...",
+    "loadingRoute": "Loading line...",
+    "loadingStop": "Loading stop...",
     "planNoBusesNextHour": "No buses are available in the next hour",
     "planChanges": "changes",
     "planChange": "change",

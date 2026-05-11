@@ -23,6 +23,7 @@ import {apiRequest} from "@/utils/api.ts"
 import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
+import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import {useOnline} from "@/composables/useOnline.ts"
 
 import {useVehicleStream} from "@/composables/useVehicleStream.ts"
@@ -2128,32 +2129,10 @@ watch(timeValue, (val) => {
         </div>
 
         <!-- GPS resolving: waiting for device location -->
-        <div v-if="isGpsResolving" class="plan-loading">
-          <div class="bus-loader-container">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
-            <span v-else-if="settings.arcadeActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
-            <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-            </svg>
-          </div>
-          <p class="loading-text animate-pulse">{{ t('planLocating') }}</p>
-        </div>
+        <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')"/>
 
         <!-- Route calculation in progress -->
-        <div v-else-if="isCalculating" class="plan-loading">
-          <div class="bus-loader-container">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🚌</span>
-            <span v-else-if="settings.arcadeActive" class="emoji-icon-xl animate-bus-run" aria-hidden="true">🍔</span>
-            <svg v-else class="w-12 h-12 text-sky-500 animate-bus-run" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-            </svg>
-          </div>
-          <p class="loading-text animate-pulse">{{ t('planCalculating') }}</p>
-        </div>
+        <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
 
         <!-- Results -->
         <div v-else-if="routesWithTimes.length > 0" class="route-results-list flex flex-col gap-2.5">
@@ -3801,86 +3780,6 @@ html.dark[data-legacy-blue] .time-pill-sched {
   background: #f1f5f9;
 }
 
-.plan-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
-  gap: 1rem;
-  background: #f8fafc;
-  border-radius: 1rem;
-  border: 1.5px solid #e2e8f0;
-}
-
-.dark .plan-loading {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-.bus-loader-container {
-  overflow: hidden;
-  width: 100px;
-  display: flex;
-  justify-content: center;
-}
-
-html[data-legacy-blue] .bus-loader-container {
-  width: auto;
-  overflow: visible;
-}
-
-.animate-bus-run {
-  animation: bus-run 1.2s infinite linear;
-}
-
-.loading-text {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.dark .loading-text {
-  color: #94a3b8;
-}
-
-/* Arcade Theme */
-html[data-arcade] .plan-loading {
-  background: #fffbeb;
-  border-color: #fde68a;
-}
-
-html[data-arcade] .loading-text {
-  color: #d97706;
-}
-
-html.dark[data-arcade] .plan-loading {
-  background: #1c1608;
-  border-color: #78350f;
-}
-
-html.dark[data-arcade] .loading-text {
-  color: #fde68a;
-}
-
-/* Legacy Blue Theme */
-html[data-legacy-blue] .plan-loading {
-  background: var(--xp-tan, #ECE9D8);
-  border: 2px solid var(--xp-border, #919B9C);
-  border-radius: 0;
-  box-shadow: inset -1px -1px 1px #ffffff, inset 1px 1px 1px #000000;
-}
-
-html.dark[data-legacy-blue] .plan-loading {
-  box-shadow: inset -1px -1px 1px #444a5c, inset 1px 1px 1px #000000;
-}
-
-html[data-legacy-blue] .loading-text {
-  font-family: 'Tahoma', 'Trebuchet MS', sans-serif;
-  color: var(--xp-text, #000000);
-  animation: none !important;
-}
-
 .dark .plan-placeholder {
   background: #1e293b;
   border-color: #334155;
@@ -4968,14 +4867,5 @@ html.dark[data-legacy-blue] .plan-time-search-btn {
 
 html.dark[data-legacy-blue] .plan-time-search-btn:hover {
   background: linear-gradient(to bottom, #3a4f7a 0%, #2a3a5c 50%, #1a2540 100%);
-}
-</style>
-
-<style>
-@keyframes bus-run {
-  0% { transform: translateX(-50px); opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateX(50px); opacity: 0; }
 }
 </style>

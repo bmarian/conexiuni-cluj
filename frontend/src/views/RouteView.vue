@@ -29,7 +29,7 @@ import {
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
-import ViewErrorState from '@/components/ViewErrorState.vue'
+import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
@@ -566,7 +566,7 @@ onUnmounted(() => {
   </div>
 
   <div v-else-if="!shapeInfo" class="route-view-container flex flex-col">
-    <ViewErrorState/>
+    <LoadingIndicator :text="t('loadingRoute')"/>
   </div>
 
   <div v-else

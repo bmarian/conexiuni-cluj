@@ -7,7 +7,7 @@ import {useI18n} from "vue-i18n"
 import {useStopInfoApi} from "@/composables/useStopInfoApi.ts"
 import StopIcon from "@/assets/stop.svg"
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
-import ViewErrorState from "@/components/ViewErrorState.vue"
+import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {
   OUTGOING_SUFFIX,
@@ -358,7 +358,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
 
   <div v-else-if="loadError"
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <ViewErrorState/>
+    <LoadingIndicator :text="t('loadingStop')"/>
   </div>
 
   <div v-else

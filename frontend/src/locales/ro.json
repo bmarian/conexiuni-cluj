@@ -87,6 +87,8 @@
   "planWalk": "Mers pe jos",
   "planLocating": "Se determină locația ta...",
   "planCalculating": "Se calculează ruta...",
+  "loadingRoute": "Se încarcă linia...",
+  "loadingStop": "Se încarcă stația...",
   "planNoBusesNextHour": "Nu sunt autobuze disponibile în următoarea oră.",
   "planChanges": "schimbări",
   "planChange": "schimbare",
