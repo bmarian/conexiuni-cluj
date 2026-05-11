@@ -67,9 +67,17 @@ type AuthState = 'login' | 'loading' | 'ready' | 'error'
 type SortMode = 'count_desc' | 'count_asc' | 'alpha'
 type StatusKind = 'ok' | 'redirect' | 'client' | 'server' | 'other'
 
+const AUTH_FLAG_KEY = 'admin:authed'
+const hasAuthFlag = () => {
+  try { return localStorage.getItem(AUTH_FLAG_KEY) === '1' } catch { return false }
+}
+const setAuthFlag = (v: boolean) => {
+  try { v ? localStorage.setItem(AUTH_FLAG_KEY, '1') : localStorage.removeItem(AUTH_FLAG_KEY) } catch { /* noop */ }
+}
+
 const tokenInput = ref('')
 const settings = useSettingsStore()
-const authState = ref<AuthState>('loading')
+const authState = ref<AuthState>(hasAuthFlag() ? 'loading' : 'login')
 const errorMessage = ref('')
 const stats = ref<StatsResponse | null>(null)
 const logs = ref<string[]>([])
@@ -127,6 +135,7 @@ const authedFetch = async (path: string) => {
     credentials: 'same-origin',
   })
   if (res.status === 401) {
+    setAuthFlag(false)
     authState.value = 'login'
     throw new Error('unauthorized')
   }
@@ -200,6 +209,7 @@ const submitLogin = async () => {
     return
   }
   tokenInput.value = ''
+  setAuthFlag(true)
   await loadStats()
   if ((authState.value as AuthState) === 'ready') {
     await loadLogs()
@@ -212,6 +222,7 @@ const logout = async () => {
     method: 'POST',
     credentials: 'same-origin',
   }).catch(() => {})
+  setAuthFlag(false)
   stats.value = null
   logs.value = []
   authState.value = 'login'
@@ -384,6 +395,7 @@ const wowDelta = computed<number | null>(() => {
 const rangeTotal = computed(() => sparkVisits.value.reduce((s, d) => s + d.count, 0))
 
 onMounted(async () => {
+  if (!hasAuthFlag()) return
   await loadStats(true)
   if (authState.value === 'ready') {
     await loadLogs()

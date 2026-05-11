@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
+import {useRoute} from "vue-router"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
@@ -18,6 +19,8 @@ const {t} = useI18n()
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const {isOnline} = useOnline()
+const route = useRoute()
+const isAdminRoute = computed(() => route.name === 'admin')
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -297,7 +300,8 @@ function toggleLandscapeDrawer() {
 </script>
 
 <template>
-  <main class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+  <RouterView v-if="isAdminRoute"/>
+  <main v-else class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
     <MapComponent class="app-map"/>
     <SettingsButton

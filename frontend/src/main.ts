@@ -32,8 +32,12 @@ const sendPWAInstallEvent = () => {
 
 window.addEventListener('appinstalled', sendPWAInstallEvent)
 
-void apiRequest('routes')
-void apiRequest('stops')
+const isAdminPath = window.location.pathname.startsWith('/admin')
+
+if (!isAdminPath) {
+  void apiRequest('routes')
+  void apiRequest('stops')
+}
 
 const i18n = createI18n({
   legacy: false,
@@ -59,6 +63,8 @@ const userStore = useUserStore(pinia)
 userStore.startTimeTracker()
 
 const favoritesStore = useFavoritesStore(pinia)
-void favoritesStore.hydrate().then(() => favoritesStore.preloadFavorites())
+void favoritesStore.hydrate().then(() => {
+  if (!isAdminPath) favoritesStore.preloadFavorites()
+})
 
-app.mount('#app')
+void router.isReady().then(() => app.mount('#app'))
