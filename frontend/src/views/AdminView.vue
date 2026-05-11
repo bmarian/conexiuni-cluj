@@ -2050,6 +2050,465 @@ onBeforeUnmount(() => {
   color: #ef4444;
 }
 
+.admin-shell.is-arcade {
+  --admin-bg: #fef3c7;
+  --admin-bg-soft: #facc15;
+  --admin-surface: #fffbeb;
+  --admin-surface-strong: #fefce8;
+  --admin-subtle: #fef9c3;
+  --admin-input: #fff7ed;
+  --admin-border: #f59e0b;
+  --admin-border-strong: #78350f;
+  --admin-text: #451a03;
+  --admin-muted: #92400e;
+  --admin-faint: #b45309;
+  --admin-track: #451a03;
+  --admin-terminal: #1c1608;
+  --admin-accent: #f59e0b;
+  --admin-accent-soft: rgba(245, 158, 11, 0.2);
+  --admin-focus: rgba(245, 158, 11, 0.28);
+  --admin-radius: 0.35rem;
+  --admin-radius-sm: 0.18rem;
+  --admin-shadow: 4px 4px 0 rgba(146, 64, 14, 0.42);
+  background:
+    repeating-linear-gradient(45deg, rgba(120, 53, 15, 0.08) 0 1px, transparent 1px 10px),
+    linear-gradient(180deg, #facc15 0, #fef3c7 15rem, #fefce8 100%);
+  font-family: 'Trebuchet MS', ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-shell.is-dark.is-arcade {
+  --admin-bg: #1c1608;
+  --admin-bg-soft: #211a05;
+  --admin-surface: #211a05;
+  --admin-surface-strong: #2a2006;
+  --admin-subtle: #2a2006;
+  --admin-input: #1c1608;
+  --admin-border: #b45309;
+  --admin-border-strong: #f59e0b;
+  --admin-text: #fde68a;
+  --admin-muted: #fbbf24;
+  --admin-faint: #d97706;
+  --admin-track: #050403;
+  --admin-terminal: #090602;
+  --admin-accent: #fbbf24;
+  --admin-accent-soft: rgba(217, 119, 6, 0.24);
+  --admin-focus: rgba(251, 191, 36, 0.24);
+  --admin-shadow: 4px 4px 0 rgba(0, 0, 0, 0.56);
+  background:
+    repeating-linear-gradient(45deg, rgba(251, 191, 36, 0.07) 0 1px, transparent 1px 10px),
+    linear-gradient(180deg, #2a2006 0, #1c1608 15rem, #130f05 100%);
+}
+
+.admin-shell.is-arcade::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 5px);
+  opacity: 0.32;
+}
+
+.admin-shell.is-dark.is-arcade::before {
+  background: repeating-linear-gradient(to bottom, rgba(251, 191, 36, 0.1) 0 1px, transparent 1px 5px);
+  opacity: 0.28;
+}
+
+.admin-shell.is-arcade .admin-header {
+  border: 2px solid #451a03;
+  background: linear-gradient(180deg, #fde047, #facc15 55%, #f59e0b);
+  box-shadow: 4px 4px 0 #92400e;
+}
+
+.admin-shell.is-dark.is-arcade .admin-header {
+  border-color: #f59e0b;
+  background: linear-gradient(180deg, #422006, #2a2006 55%, #1c1608);
+  box-shadow: 4px 4px 0 #050403;
+}
+
+.admin-shell.is-arcade .admin-header::after {
+  content: '';
+  flex-basis: 100%;
+  height: 0.32rem;
+  background: repeating-linear-gradient(90deg, #ef4444 0 1rem, #facc15 1rem 2rem, #22c55e 2rem 3rem, #38bdf8 3rem 4rem);
+  border: 1px solid rgba(69, 26, 3, 0.4);
+}
+
+.admin-shell.is-arcade .admin-brand-mark,
+.admin-shell.is-arcade .admin-login-mark {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #451a03;
+  border-radius: 999px;
+  background: #facc15;
+  color: transparent;
+  box-shadow: inset -5px -5px 0 #f59e0b, 3px 3px 0 #451a03;
+}
+
+.admin-shell.is-arcade .admin-brand-mark::after,
+.admin-shell.is-arcade .admin-login-mark::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  width: 58%;
+  height: 58%;
+  background: #451a03;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  transform: translateY(-50%);
+}
+
+.admin-shell.is-arcade .admin-login-card,
+.admin-shell.is-arcade .admin-card,
+.admin-shell.is-arcade .admin-kpi {
+  border: 2px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-shell.is-arcade .admin-kpi::before {
+  height: 0.34rem;
+  background: repeating-linear-gradient(90deg, var(--kpi-accent) 0 0.9rem, #451a03 0.9rem 1.15rem);
+}
+
+.admin-shell.is-arcade .admin-kpi-value,
+.admin-shell.is-arcade .admin-card-head h2,
+.admin-shell.is-arcade .admin-title {
+  font-weight: 900;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.admin-shell.is-dark.is-arcade .admin-kpi-value,
+.admin-shell.is-dark.is-arcade .admin-card-head h2,
+.admin-shell.is-dark.is-arcade .admin-title {
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.admin-shell.is-arcade .admin-card-head h2::before {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 0;
+  box-shadow: 0 0 0 2px #fde68a;
+}
+
+.admin-shell.is-arcade .admin-button-primary,
+.admin-shell.is-arcade .admin-button,
+.admin-shell.is-arcade .admin-button-ghost,
+.admin-shell.is-arcade .admin-chip {
+  border: 2px solid #451a03;
+  box-shadow: 2px 2px 0 rgba(69, 26, 3, 0.42);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-shell.is-arcade .admin-button-primary,
+.admin-shell.is-arcade .admin-chip-on {
+  background: #facc15;
+  color: #451a03;
+}
+
+.admin-shell.is-dark.is-arcade .admin-button-primary,
+.admin-shell.is-dark.is-arcade .admin-chip-on {
+  background: #854d0e;
+  color: #fde68a;
+}
+
+.admin-shell.is-arcade .admin-input,
+.admin-shell.is-arcade .admin-select,
+.admin-shell.is-arcade .admin-log-filters,
+.admin-shell.is-arcade .admin-spark {
+  border: 2px solid var(--admin-border);
+  box-shadow: inset 2px 2px 0 rgba(146, 64, 14, 0.16);
+}
+
+.admin-shell.is-arcade .admin-bar-track,
+.admin-shell.is-arcade .admin-quota-track,
+.admin-shell.is-arcade .admin-kpi-meter {
+  border: 1px solid #451a03;
+  border-radius: 0;
+}
+
+.admin-shell.is-arcade .admin-bar-fill,
+.admin-shell.is-arcade .admin-quota-vehicles,
+.admin-shell.is-arcade .admin-kpi-meter span {
+  background: repeating-linear-gradient(90deg, #38bdf8 0 0.9rem, #60a5fa 0.9rem 1.8rem);
+}
+
+.admin-shell.is-arcade .admin-bar-fill-latency {
+  background: repeating-linear-gradient(90deg, #f59e0b 0 0.9rem, #ef4444 0.9rem 1.8rem);
+}
+
+.admin-shell.is-arcade .admin-quota-default,
+.admin-shell.is-arcade .admin-kpi-meter-alt span {
+  background: repeating-linear-gradient(90deg, #a78bfa 0 0.9rem, #f472b6 0.9rem 1.8rem);
+}
+
+.admin-shell.is-arcade .admin-logs {
+  border: 2px solid var(--admin-border);
+  color: #fde68a;
+  text-shadow: 0 0 4px rgba(251, 191, 36, 0.28);
+}
+
+.admin-shell.is-legacy-blue {
+  --admin-bg: var(--xp-tan, #ece9d8);
+  --admin-bg-soft: #ffffff;
+  --admin-surface: #ffffff;
+  --admin-surface-strong: #ffffff;
+  --admin-subtle: var(--xp-tan, #ece9d8);
+  --admin-input: #ffffff;
+  --admin-border: var(--xp-border, #aca899);
+  --admin-border-strong: var(--xp-blue, #245edc);
+  --admin-text: var(--xp-text, #000000);
+  --admin-muted: #3b4d63;
+  --admin-faint: #606060;
+  --admin-track: #d4d0c8;
+  --admin-terminal: #000000;
+  --admin-accent: var(--xp-blue, #245edc);
+  --admin-accent-soft: rgba(36, 94, 220, 0.16);
+  --admin-focus: rgba(36, 94, 220, 0.25);
+  --admin-radius: 0;
+  --admin-radius-sm: 0;
+  --admin-shadow: inset 1px 1px 0 #ffffff, 1px 1px 0 rgba(0, 0, 0, 0.18);
+  background: var(--xp-bliss, linear-gradient(to bottom, #4a86c8 0%, #8fb3dc 30%, #b8c8b0 46%, #84b348 56%, #4e8c2e 100%));
+  font-family: var(--xp-font, Tahoma, Verdana, sans-serif);
+}
+
+.admin-shell.is-dark.is-legacy-blue {
+  --admin-surface: #1a2030;
+  --admin-surface-strong: #22283a;
+  --admin-subtle: #2a2d38;
+  --admin-input: #0a1020;
+  --admin-muted: #8898b0;
+  --admin-faint: #708098;
+  --admin-track: #14182a;
+  --admin-terminal: #050914;
+  --admin-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05), 1px 1px 0 rgba(0, 0, 0, 0.48);
+}
+
+.admin-shell.is-legacy-blue .admin-header {
+  position: relative;
+  align-items: center;
+  padding: 2.25rem 0.65rem 0.65rem;
+  border: 1px solid #003c9c;
+  border-radius: 0;
+  background: var(--xp-tan, #ece9d8);
+  box-shadow: inset 1px 1px 0 #ffffff, 3px 3px 10px rgba(0, 0, 0, 0.28);
+}
+
+.admin-shell.is-dark.is-legacy-blue .admin-header {
+  border-color: #001e5c;
+  background: #2a2d38;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.06), 3px 3px 12px rgba(0, 0, 0, 0.55);
+}
+
+.admin-shell.is-legacy-blue .admin-header::before {
+  content: '🚌  conexiuni-cluj · admin';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 1.7rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.55rem;
+  background: linear-gradient(to bottom, #0058da 0%, #2e84e8 6%, #1a6cd0 14%, #1056c0 50%, #0e54be 51%, #1a66d0 95%, #0e4dac 100%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.admin-shell.is-dark.is-legacy-blue .admin-header::before {
+  background: linear-gradient(to bottom, #003478 0%, #1a6cd0 8%, #0f4fa8 50%, #0a3e90 51%, #1656b8 95%, #062a6c 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-brand-mark,
+.admin-shell.is-legacy-blue .admin-login-mark {
+  position: relative;
+  border: 1px solid #003c9c;
+  border-radius: 0;
+  background: var(--xp-orb, radial-gradient(circle at 30% 30%, #6ba1f0, #245edc 55%, #1a4fb8 100%));
+  color: transparent;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.admin-shell.is-legacy-blue .admin-brand-mark::before,
+.admin-shell.is-legacy-blue .admin-login-mark::before {
+  content: '🚌';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 1.05rem;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.admin-shell.is-legacy-blue .admin-login-card,
+.admin-shell.is-legacy-blue .admin-card,
+.admin-shell.is-legacy-blue .admin-kpi,
+.admin-shell.is-legacy-blue .admin-log-filters,
+.admin-shell.is-legacy-blue .admin-spark {
+  border: 1px solid var(--admin-border);
+  border-radius: 0;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-shell.is-legacy-blue .admin-login-card {
+  padding-top: 2.35rem;
+  position: relative;
+}
+
+.admin-shell.is-legacy-blue .admin-login-card::before {
+  content: 'Admin Login';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 1.55rem;
+  display: flex;
+  align-items: center;
+  padding-left: 0.5rem;
+  background: linear-gradient(to bottom, #0058da 0%, #2e84e8 8%, #1056c0 50%, #0e54be 51%, #0e4dac 100%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.admin-shell.is-legacy-blue .admin-kpi {
+  padding-top: 1.95rem;
+}
+
+.admin-shell.is-legacy-blue .admin-kpi::before {
+  height: 1.35rem;
+  background: linear-gradient(to bottom, #4a88e8 0%, #245edc 50%, #1a52b8 100%);
+  border-bottom: 1px solid #003c9c;
+}
+
+.admin-shell.is-dark.is-legacy-blue .admin-kpi::before {
+  background: linear-gradient(to bottom, #4a88d8 0%, #2a66b8 50%, #1b4f90 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-card-head {
+  margin: -0.35rem -0.35rem 0.9rem;
+  padding: 0.35rem 0.45rem;
+  background: linear-gradient(to bottom, #ffffff 0%, var(--xp-tan, #ece9d8) 100%);
+  border: 1px solid var(--admin-border);
+  box-shadow: inset 1px 1px 0 #ffffff;
+}
+
+.admin-shell.is-dark.is-legacy-blue .admin-card-head {
+  background: linear-gradient(to bottom, #2a3045 0%, #1a2030 100%);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.admin-shell.is-legacy-blue .admin-card-head h2 {
+  color: var(--xp-blue, #245edc);
+  font-family: var(--xp-font, Tahoma, Verdana, sans-serif);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+}
+
+.admin-shell.is-legacy-blue .admin-card-head h2::before {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 0;
+  background: var(--xp-blue, #245edc);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.admin-shell.is-legacy-blue .admin-title,
+.admin-shell.is-legacy-blue .admin-section,
+.admin-shell.is-legacy-blue .admin-kpi-label,
+.admin-shell.is-legacy-blue .admin-kpi-value,
+.admin-shell.is-legacy-blue .admin-kpi-sub {
+  font-family: var(--xp-font, Tahoma, Verdana, sans-serif);
+}
+
+.admin-shell.is-legacy-blue .admin-button-primary,
+.admin-shell.is-legacy-blue .admin-button,
+.admin-shell.is-legacy-blue .admin-button-ghost,
+.admin-shell.is-legacy-blue .admin-chip {
+  border: 1px solid var(--xp-border, #aca899);
+  border-radius: 0;
+  background: var(--xp-btn, linear-gradient(to bottom, #fdfdfb 0%, #ece9d8 50%, #d6d2c0 100%));
+  color: var(--xp-text, #000000);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.75), inset -1px -1px 0 rgba(64, 64, 64, 0.35);
+  font-family: var(--xp-font, Tahoma, Verdana, sans-serif);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.admin-shell.is-legacy-blue .admin-button-primary,
+.admin-shell.is-legacy-blue .admin-chip-on {
+  background: var(--xp-btn-active, linear-gradient(to bottom, #4a90e0 0%, #2470d4 50%, #1a52b8 100%));
+  border-color: #003c9c;
+  color: #ffffff;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.admin-shell.is-legacy-blue .admin-button:hover:not(:disabled),
+.admin-shell.is-legacy-blue .admin-button-ghost:hover,
+.admin-shell.is-legacy-blue .admin-chip:hover {
+  background: var(--xp-btn-hover, linear-gradient(to bottom, #fff5c8 0%, #ffe07a 50%, #f3c94e 100%));
+  border-color: #d08020;
+  color: #000000;
+  text-shadow: none;
+}
+
+.admin-shell.is-legacy-blue .admin-button-live-on {
+  background: var(--xp-live, linear-gradient(to bottom, #6fb452 0%, #5baa38 50%, #3d7e22 100%));
+  border-color: #3d7e22;
+  color: #ffffff;
+}
+
+.admin-shell.is-legacy-blue .admin-status-pill,
+.admin-shell.is-legacy-blue .admin-input,
+.admin-shell.is-legacy-blue .admin-select {
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  background: var(--admin-input);
+  color: var(--admin-text);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.18), inset -1px -1px 0 rgba(255, 255, 255, 0.55);
+  font-family: var(--xp-font, Tahoma, Verdana, sans-serif);
+}
+
+.admin-shell.is-legacy-blue .admin-bar-track,
+.admin-shell.is-legacy-blue .admin-quota-track,
+.admin-shell.is-legacy-blue .admin-kpi-meter {
+  border: 1px solid #808080;
+  border-radius: 0;
+  background: var(--admin-track);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.admin-shell.is-legacy-blue .admin-bar-fill,
+.admin-shell.is-legacy-blue .admin-quota-vehicles,
+.admin-shell.is-legacy-blue .admin-kpi-meter span {
+  background: linear-gradient(to bottom, #6ba1f0 0%, #245edc 55%, #1a4fb8 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-bar-fill-latency {
+  background: linear-gradient(to bottom, #ffcf63 0%, #f3a536 50%, #d56b18 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-quota-default,
+.admin-shell.is-legacy-blue .admin-kpi-meter-alt span {
+  background: linear-gradient(to bottom, #c4b5fd 0%, #7c3aed 55%, #4c1d95 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-logs {
+  border: 2px inset var(--xp-border, #aca899);
+  border-radius: 0;
+  background: #000000;
+  color: #00ff66;
+  box-shadow: none;
+}
+
+.admin-shell.is-dark.is-legacy-blue .admin-logs {
+  background: #050914;
+}
+
 @media (max-width: 760px) {
   .admin-dash {
     padding: 0.75rem 0.75rem 2rem;
