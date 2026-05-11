@@ -2,11 +2,41 @@ package database
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
 
 const statsFlushInterval = 2 * time.Minute
+
+var trackedAPIStatsKeys = []string{
+	"/api/routes",
+	"/api/stops",
+	"/api/shapes",
+	"/api/trips",
+	"/api/stop_times",
+	"/api/timetable",
+	"/api/stop_info",
+	"/api/vehicles",
+	"/api/vehicles/stream",
+	"/api/plan_routes",
+	"/api/news",
+}
+
+var trackedAPIStatsKeySet = func() map[string]string {
+	keys := make(map[string]string, len(trackedAPIStatsKeys))
+	for _, key := range trackedAPIStatsKeys {
+		keys[key] = key
+	}
+	return keys
+}()
+
+func CanonicalAPIStatsKey(path string) string {
+	if key, ok := trackedAPIStatsKeySet[path]; ok {
+		return key
+	}
+	return ""
+}
 
 type statsBuffer struct {
 	visitors map[string]struct{}
@@ -55,6 +85,17 @@ func RecordCount(clientHash, metric, key string, count int) {
 	if metric != "" && count <= 0 {
 		return
 	}
+	if metric != "" {
+		canonicalKey, ok := canonicalStatsKey(metric, key)
+		if !ok {
+			metric = ""
+		} else {
+			key = canonicalKey
+		}
+	}
+	if clientHash == "" && metric == "" {
+		return
+	}
 	statsMu.Lock()
 	if clientHash != "" {
 		statsBuf.visitors[clientHash] = struct{}{}
@@ -66,6 +107,7 @@ func RecordCount(clientHash, metric, key string, count int) {
 }
 
 func RecordEndpointTiming(clientHash, key string, duration time.Duration) {
+	key = CanonicalAPIStatsKey(key)
 	if key == "" {
 		return
 	}
@@ -80,6 +122,16 @@ func RecordEndpointTiming(clientHash, key string, duration time.Duration) {
 	incrementCounterLocked("api_call", key, 1)
 	incrementCounterLocked("api_response_ms", key, ms)
 	statsMu.Unlock()
+}
+
+func canonicalStatsKey(metric, key string) (string, bool) {
+	switch metric {
+	case "api_call", "api_response_ms":
+		key = CanonicalAPIStatsKey(key)
+		return key, key != ""
+	default:
+		return strings.Clone(key), true
+	}
 }
 
 func RecordTranzyQuotaUsage(name string) {
@@ -340,10 +392,14 @@ func GetTopMetric(metric string, limit int) ([]TopEntry, error) {
 	if limit <= 0 {
 		limit = 10
 	}
+	queryArgs := []any{metric}
 	extraWhere := ""
 	if metric == "api_call" {
-		extraWhere = " AND key NOT LIKE '/api/admin%'"
+		filter, args := apiStatsKeyFilter("key")
+		extraWhere = " AND " + filter
+		queryArgs = append(queryArgs, args...)
 	}
+	queryArgs = append(queryArgs, limit)
 	rows, err := DB.Query(`
 		SELECT key, SUM(count) AS total
 		FROM stats_daily
@@ -351,7 +407,7 @@ func GetTopMetric(metric string, limit int) ([]TopEntry, error) {
 		GROUP BY key
 		ORDER BY total DESC
 		LIMIT ?
-	`, metric, limit)
+	`, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +444,8 @@ func GetEndpointResponseTimes(limit int) ([]EndpointTimingEntry, error) {
 	if limit <= 0 {
 		limit = 10
 	}
+	apiFilter, apiArgs := apiStatsKeyFilter("calls.key")
+	queryArgs := append(apiArgs, limit)
 	rows, err := DB.Query(`
 		SELECT calls.key, SUM(calls.count) AS total_count, SUM(latency.count) AS total_ms
 		FROM stats_daily calls
@@ -396,13 +454,13 @@ func GetEndpointResponseTimes(limit int) ([]EndpointTimingEntry, error) {
 			AND latency.key = calls.key
 			AND latency.metric = 'api_response_ms'
 		WHERE calls.metric = 'api_call'
-			AND calls.key NOT LIKE '/api/admin%'
+			AND `+apiFilter+`
 			AND calls.key != '/api/vehicles/stream'
 		GROUP BY calls.key
 		HAVING SUM(calls.count) > 0
 		ORDER BY (CAST(SUM(latency.count) AS REAL) / SUM(calls.count)) DESC
 		LIMIT ?
-	`, limit)
+	`, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -422,4 +480,14 @@ func GetEndpointResponseTimes(limit int) ([]EndpointTimingEntry, error) {
 		})
 	}
 	return out, rows.Err()
+}
+
+func apiStatsKeyFilter(column string) (string, []any) {
+	placeholders := make([]string, len(trackedAPIStatsKeys))
+	args := make([]any, len(trackedAPIStatsKeys))
+	for i, key := range trackedAPIStatsKeys {
+		placeholders[i] = "?"
+		args[i] = key
+	}
+	return column + " IN (" + strings.Join(placeholders, ",") + ")", args
 }

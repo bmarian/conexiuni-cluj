@@ -14,20 +14,6 @@ import (
 
 const clientHashLocalKey = "client_hash"
 
-var trackedAPIPaths = map[string]struct{}{
-	"/api/routes":          {},
-	"/api/stops":           {},
-	"/api/shapes":          {},
-	"/api/trips":           {},
-	"/api/stop_times":      {},
-	"/api/timetable":       {},
-	"/api/stop_info":       {},
-	"/api/vehicles":        {},
-	"/api/vehicles/stream": {},
-	"/api/plan_routes":     {},
-	"/api/news":            {},
-}
-
 var streamedAPIPaths = map[string]struct{}{
 	"/api/vehicles/stream": {},
 }
@@ -76,8 +62,8 @@ func classifyURL(method, path string) (metric, key string) {
 	if method != "GET" || skipStatsPath(path) {
 		return "", ""
 	}
-	if _, ok := trackedAPIPaths[path]; ok {
-		return "api_call", path
+	if key := database.CanonicalAPIStatsKey(path); key != "" {
+		return "api_call", key
 	}
 	return "", ""
 }
