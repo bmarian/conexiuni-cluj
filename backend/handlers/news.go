@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"conexiuni-cluj/database"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -20,11 +19,9 @@ type NewsItem struct {
 const ctpNewsPageURL = "https://www.ctpcj.ro/index.php/ro/despre-noi/stiri"
 
 func GetNews(c fiber.Ctx, shelfLife time.Duration) error {
-	cacheControl := fmt.Sprintf("max-age=%d", int(shelfLife.Seconds()))
-
 	if database.IsCacheValid("news") {
 		if items, err := loadNewsFromDB(); err == nil && len(items) > 0 {
-			c.Set("Cache-Control", cacheControl)
+			c.Set("Cache-Control", revalidateCacheControl)
 			return c.JSON(items)
 		}
 	}
@@ -32,7 +29,7 @@ func GetNews(c fiber.Ctx, shelfLife time.Duration) error {
 	fresh, err := fetchNewsFromCTP()
 	if err != nil {
 		if stale, dbErr := loadNewsFromDB(); dbErr == nil && len(stale) > 0 {
-			c.Set("Cache-Control", "no-cache")
+			c.Set("Cache-Control", revalidateCacheControl)
 			return c.JSON(stale)
 		}
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "news unavailable"})
@@ -41,7 +38,7 @@ func GetNews(c fiber.Ctx, shelfLife time.Duration) error {
 	_ = saveNewsToDB(fresh)
 	_ = database.UpdateCache("news", shelfLife.Milliseconds())
 
-	c.Set("Cache-Control", cacheControl)
+	c.Set("Cache-Control", revalidateCacheControl)
 	return c.JSON(fresh)
 }
 

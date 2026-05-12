@@ -1583,9 +1583,7 @@ async function calculateRoutes() {
       params.set('time', timeValue.value)
       params.set('arrive_by', timeMode.value === 'arrive' ? 'true' : 'false')
     }
-    const resp = await fetch(`/api/plan_routes?${params.toString()}`)
-    if (!resp.ok) throw new Error('fetch failed')
-    const data = await resp.json() as ApiResp
+    const data = await apiRequest<ApiResp>(`plan_routes?${params.toString()}`)
 
     routesWithTimes.value = []
     planData.value = data

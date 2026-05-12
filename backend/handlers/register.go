@@ -16,14 +16,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// Cache-Control headers, set at registration time so they track the
-// configured shelf lives (which derive from TRANZY_DEFAULT_DAILY_QUOTA).
-// No stale-while-revalidate: the whole point of the hourly refresh is that
-// when Tranzy ships bad data we recover within the shelf life, not 24h later.
-var (
-	tranzyCacheControl    string
-	timetableCacheControl string
-)
+// "no-cache" forces ETag revalidation on every request so backend fixes
+// reach clients on the next round-trip. Unchanged bodies short-circuit to
+// 304 via the etag middleware on the /api group.
+const revalidateCacheControl = "no-cache"
 
 type statsEventRequest struct {
 	Metric string `json:"metric"`
@@ -48,8 +44,6 @@ func validStatsEvent(metric, key string) bool {
 }
 
 func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
-	tranzyCacheControl = fmt.Sprintf("max-age=%d", int(cacheTimes.TranzyCacheShelfLife.Seconds()))
-	timetableCacheControl = fmt.Sprintf("max-age=%d", int(cacheTimes.TimetableCacheShelfLife.Seconds()))
 	api.Post("/stats/event", func(c fiber.Ctx) error {
 		if !sameOriginRequest(c) {
 			return c.SendStatus(fiber.StatusNoContent)
@@ -93,7 +87,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 			}
 			data = filtered
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -119,7 +113,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 			}
 			data = filtered
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -139,7 +133,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -235,7 +229,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -248,7 +242,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -265,7 +259,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		c.Set("Cache-Control", tranzyCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 
@@ -275,7 +269,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		c.Set("Cache-Control", timetableCacheControl)
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
 

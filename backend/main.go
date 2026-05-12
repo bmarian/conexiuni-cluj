@@ -17,6 +17,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/etag"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
@@ -130,6 +131,11 @@ func main() {
 	}
 
 	api := app.Group("/api")
+	api.Use(etag.New(etag.Config{
+		Next: func(c fiber.Ctx) bool {
+			return c.Path() == "/api/vehicles/stream"
+		},
+	}))
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
 	handlers.RegisterAdminRoutes(api, config.AdminToken, tranzyClient, config.Environment == "production")
 

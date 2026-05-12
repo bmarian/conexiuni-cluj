@@ -594,7 +594,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 	}
 
 	if len(itineraries) == 0 {
-		c.Set("Cache-Control", "public, max-age=300")
+		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(planResp{
 			Plans:  []planRouteResp{},
 			Stops:  map[string]models.Stop{},

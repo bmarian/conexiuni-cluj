@@ -412,7 +412,7 @@ func HandleGTFSExport(c fiber.Ctx) error {
 
 	c.Set("Content-Type", "application/zip")
 	c.Set("Content-Disposition", "attachment; filename=gtfs.zip")
-	c.Set("Cache-Control", tranzyCacheControl)
+	c.Set("Cache-Control", revalidateCacheControl)
 	return c.SendFile(p)
 }
 

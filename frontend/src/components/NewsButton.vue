@@ -2,6 +2,7 @@
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
+import {apiRequest} from '@/utils/api'
 
 interface NewsItem {
   url: string
@@ -70,9 +71,7 @@ async function fetchNews() {
   loading.value = true
   error.value = false
   try {
-    const res = await fetch('/api/news')
-    if (!res.ok) throw new Error()
-    newsItems.value = await res.json()
+    newsItems.value = await apiRequest<NewsItem[]>('news')
 
     if (newsItems.value.length > 0) {
       const cache = readCache()
