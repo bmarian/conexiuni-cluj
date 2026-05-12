@@ -12,6 +12,7 @@ import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map
 import type {ShapePoint} from "@/types/map.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
+import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
 import {
   type DisplayVehicle,
   getVehicleMarkerHtml,
@@ -37,6 +38,7 @@ const {
   zoomOut,
   vehiclesToDisplay,
   highlightedStops,
+  directionArrowAtStart,
   drawerBottomPx,
   drawerRightPx,
 } = storeToRefs(mapStore)
@@ -583,6 +585,66 @@ const addGroupedStart = (
   }
 }
 
+const computeStartBearing = (latLngs: L.LatLngTuple[]): number | null => {
+  if (latLngs.length < 2) return null
+  const [startLat, startLng] = latLngs[0]!
+  for (let i = 1; i < Math.min(latLngs.length, 20); i++) {
+    const [lat, lng] = latLngs[i]!
+    if (haversineMeters(startLat, startLng, lat, lng) >= 30) {
+      return calculateBearing(startLat, startLng, lat, lng)
+    }
+  }
+  const [nextLat, nextLng] = latLngs[1]!
+  return calculateBearing(startLat, startLng, nextLat, nextLng)
+}
+
+const addDirectionArrowMarker = (
+  layerGroup: L.FeatureGroup,
+  startPoint: L.LatLngTuple,
+  bearing: number,
+) => {
+  const isLegacyBlue = legacyBlueActive.value
+  const isArcade = arcadeActive.value
+  const arrowSvg = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${bearing}deg); display:block;">
+    <path d="M12 3 L20 19 L12 15 L4 19 Z" fill="white" stroke="white" stroke-width="1" stroke-linejoin="round"/>
+  </svg>`
+
+  let html: string
+  if (isLegacyBlue) {
+    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+      <div style="width:22px;height:22px;background:#000000;border:2px solid #FFFFFF;box-shadow:1px 1px 0 rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+        ${arrowSvg}
+      </div>
+      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #000000;margin-top:-1px;"></div>
+    </div>`
+  } else if (isArcade) {
+    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+      <div style="width:22px;height:22px;border-radius:50%;background:#0f172a;border:2px solid #FACC15;display:flex;align-items:center;justify-content:center;">
+        ${arrowSvg}
+      </div>
+      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #0f172a;margin-top:-1px;"></div>
+    </div>`
+  } else {
+    const arrowSvgThemed = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
+      <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
+    </svg>`
+    html = `<div class="flex flex-col items-center pointer-events-none" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
+      <div class="flex items-center justify-center w-[22px] h-[22px] rounded-full border-2 border-white dark:border-[#0f172a] bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
+        ${arrowSvgThemed}
+      </div>
+      <div class="dir-arrow-tail"></div>
+    </div>`
+  }
+
+  const icon = L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html,
+    iconSize: [22, 32],
+    iconAnchor: [11, 44],
+  })
+  L.marker(startPoint, {icon, zIndexOffset: 1500, interactive: false}).addTo(layerGroup)
+}
+
 const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, routeColor: string) => {
   const isLegacyBlue = legacyBlueActive.value
   const endMarkerIcon = L.divIcon({
@@ -658,6 +720,13 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       lineCap: legacyBlueActive.value ? 'butt' : 'round'
     }).addTo(layerGroup)
 
+    if (directionArrowAtStart.value && latLngs.length >= 2) {
+      const bearing = computeStartBearing(latLngs)
+      if (bearing !== null) {
+        addDirectionArrowMarker(layerGroup, latLngs[0]!, bearing)
+      }
+    }
+
     if (hasHighlights) continue
 
     const startPoint = latLngs[0]
@@ -673,7 +742,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, arcadeActive, legacyBlueActive], ([newShapes]) => {
+watch([shapesToDisplay, arcadeActive, legacyBlueActive, directionArrowAtStart], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 

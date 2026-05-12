@@ -512,3 +512,16 @@
     opacity: 1;
   }
 }
+
+.dir-arrow-tail {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #0f172a;
+  margin-top: -1px;
+}
+
+:root.dark .dir-arrow-tail {
+  border-top-color: #f1f5f9;
+}

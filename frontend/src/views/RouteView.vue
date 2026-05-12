@@ -519,6 +519,7 @@ function ghostFill(stop: IndexedStop, idx: number): string {
 }
 
 onMounted(async () => {
+  mapStore.directionArrowAtStart = true
   const storeRouteId = shapeInfo.value?.route_id
   if (!shapeInfo.value || storeRouteId !== Number(props.routeId)) {
     isInitialLoading.value = true
@@ -533,6 +534,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  mapStore.directionArrowAtStart = false
   mapStore.setHighlightedStops([])
   mapStore.setShapesToDisplay([])
   mapStore.setVehiclesToDisplay([])

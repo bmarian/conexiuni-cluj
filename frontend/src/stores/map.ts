@@ -21,6 +21,7 @@ export const useMapStore = defineStore('map', () => {
   const walkingPolylines = ref<[number, number][][]>([])
   const vehicleColor = ref<string | null>(null)
   const zoomOut = ref(false)
+  const directionArrowAtStart = ref(false)
   const centerOnUser = ref(false)
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
@@ -133,6 +134,7 @@ export const useMapStore = defineStore('map', () => {
     vehiclesToDisplay,
     highlightedStops,
     vehicleColor,
+    directionArrowAtStart,
 
     setShapesToDisplay,
     setLoadedShapes,
