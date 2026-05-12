@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,13 +79,29 @@ func isSuccessfulStatus(status int) bool {
 func recordEntityView(c fiber.Ctx, hash string) {
 	switch c.Path() {
 	case "/api/stop_times":
-		if rsn := strings.TrimSpace(c.Query("route_short_name")); rsn != "" {
-			database.RecordEvent(hash, "route_view", rsn)
+		rsn := strings.TrimSpace(c.Query("route_short_name"))
+		if rsn == "" {
+			return
 		}
+		// Mirrors the /api/routes filter: only count routes we'd actually
+		// surface in the UI. Keeps bots probing retired short names from
+		// polluting top-routes stats.
+		if Availability.IsReady() && !Availability.RouteHasTimetable(rsn) {
+			return
+		}
+		database.RecordEvent(hash, "route_view", rsn)
 	case "/api/stop_info":
-		if id := strings.TrimSpace(c.Query("stop_id")); id != "" {
-			database.RecordEvent(hash, "stop_view", id)
+		id := strings.TrimSpace(c.Query("stop_id"))
+		if id == "" {
+			return
 		}
+		if Availability.IsReady() {
+			n, err := strconv.Atoi(id)
+			if err != nil || !Availability.StopHasBuses(n) {
+				return
+			}
+		}
+		database.RecordEvent(hash, "stop_view", id)
 	}
 }
 

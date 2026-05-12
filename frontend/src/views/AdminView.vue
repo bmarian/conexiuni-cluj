@@ -562,34 +562,36 @@ onBeforeUnmount(() => {
                   <span v-if="cacheExpiredCount" class="admin-cache-stale">· {{ formatNumber(cacheExpiredCount) }} expired</span>
                 </span>
               </div>
-              <table v-if="cacheGroups.length" class="admin-cache-table">
-                <thead>
-                  <tr>
-                    <th>Cache</th>
-                    <th class="admin-cache-num">Entries</th>
-                    <th>Expires</th>
-                    <th class="admin-cache-num">Lifespan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="g in cacheGroups" :key="g.prefix">
-                    <td class="admin-cache-prefix">{{ g.prefix.toUpperCase() }}</td>
-                    <td class="admin-cache-num">{{ formatNumber(g.count) }}</td>
-                    <td class="admin-cache-expiry">
-                      <span :class="{'admin-cache-stale': g.expired_count >= g.count}">
-                        {{ formatRelative(g.earliest_expires_at) }}
-                      </span>
-                      <span v-if="g.count > 1" class="admin-cache-range">
-                        → {{ formatRelative(g.latest_expires_at) }}
-                      </span>
-                      <span v-if="g.expired_count && g.expired_count < g.count" class="admin-cache-stale admin-cache-tag">
-                        {{ g.expired_count }} stale
-                      </span>
-                    </td>
-                    <td class="admin-cache-num admin-cache-life">{{ formatLifespan(g.lifespan_ms) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div v-if="cacheGroups.length" class="admin-cache-table-wrap">
+                <table class="admin-cache-table">
+                  <thead>
+                    <tr>
+                      <th>Cache</th>
+                      <th class="admin-cache-num">Entries</th>
+                      <th>Expires</th>
+                      <th class="admin-cache-num">Lifespan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="g in cacheGroups" :key="g.prefix">
+                      <td class="admin-cache-prefix">{{ g.prefix.toUpperCase() }}</td>
+                      <td class="admin-cache-num">{{ formatNumber(g.count) }}</td>
+                      <td class="admin-cache-expiry">
+                        <span :class="{'admin-cache-stale': g.expired_count >= g.count}">
+                          {{ formatRelative(g.earliest_expires_at) }}
+                        </span>
+                        <span v-if="g.count > 1" class="admin-cache-range">
+                          → {{ formatRelative(g.latest_expires_at) }}
+                        </span>
+                        <span v-if="g.expired_count && g.expired_count < g.count" class="admin-cache-stale admin-cache-tag">
+                          {{ g.expired_count }} stale
+                        </span>
+                      </td>
+                      <td class="admin-cache-num admin-cache-life">{{ formatLifespan(g.lifespan_ms) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
               <div v-else class="admin-empty">No cached entries</div>
             </div>
           </section>
@@ -1159,6 +1161,12 @@ onBeforeUnmount(() => {
 .admin-warmup-sub {
   color: #64748b;
   font-size: 0.78rem;
+}
+
+.admin-cache-table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-cache-table {
@@ -2570,35 +2578,26 @@ onBeforeUnmount(() => {
 
   .admin-bars li {
     grid-template-columns: 1.65rem minmax(0, 1fr) auto;
-  }
-
-  .admin-bars li .admin-bar-track {
-    grid-column: 2 / 4;
-  }
-
-  .admin-timing-bars li {
-    grid-template-columns: 1.65rem minmax(0, 1fr) auto;
     grid-template-areas:
       "rank label count"
-      ". track track";
+      ".    track track";
     row-gap: 0.35rem;
   }
 
-  .admin-timing-bars .admin-bar-rank {
+  .admin-bars .admin-bar-rank {
     grid-area: rank;
     align-self: start;
   }
 
-  .admin-timing-bars .admin-bar-label {
+  .admin-bars .admin-bar-label {
     grid-area: label;
   }
 
-  .admin-timing-bars .admin-bar-track {
+  .admin-bars .admin-bar-track {
     grid-area: track;
-    grid-column: auto;
   }
 
-  .admin-timing-bars .admin-bar-count {
+  .admin-bars .admin-bar-count {
     grid-area: count;
     align-self: start;
   }
