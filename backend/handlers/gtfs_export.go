@@ -71,7 +71,7 @@ func BuildGTFSZip(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheT
 	// Collect timetables for all routes
 	timetables := make(map[string]*models.Timetable, len(routes))
 	for _, r := range routes {
-		tt, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, r.RouteShortName)
+		tt, err := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, r.RouteShortName)
 		if err == nil && tt != nil {
 			timetables[r.RouteShortName] = tt
 		}

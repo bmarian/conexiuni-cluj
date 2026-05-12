@@ -150,7 +150,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 		}()
 		go func() {
 			defer wg.Done()
-			tt, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn)
+			tt, err := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, rsn)
 			if err != nil {
 				log.Printf("warmup: timetable %s: %v", rsn, err)
 				timetablesFail.Add(1)

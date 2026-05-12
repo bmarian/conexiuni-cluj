@@ -271,7 +271,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 
 	api.Get("/timetable", func(c fiber.Ctx) error {
 		routeShortName := c.Query("route_short_name")
-		data, err := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, routeShortName)
+		data, err := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, routeShortName)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

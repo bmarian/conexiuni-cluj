@@ -4,24 +4,27 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctp_cj "conexiuni-cluj/services/ctp-cj"
+	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
-	"time"
 )
 
-func GetTimetable(ctpCjClient *ctp_cj.Client, shelfLife time.Duration, routeShortName string) (*models.Timetable, error) {
+func GetTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, routeShortName string) (*models.Timetable, error) {
 	cacheID := "TIMETABLE_" + routeShortName
-	return HandleCached(cacheID, shelfLife,
+	return HandleCached(cacheID, cacheTimes.TimetableCacheShelfLife,
 		func() (*models.Timetable, error) { return getTimetableFromDB(routeShortName) },
-		func() (*models.Timetable, error) { return fetchTimetable(ctpCjClient, routeShortName) },
+		func() (*models.Timetable, error) {
+			return fetchTimetable(ctpCjClient, tranzyClient, cacheTimes, routeShortName)
+		},
 		storeTimetableInDB,
 		CacheOpts[*models.Timetable]{Optimize: true},
 	)
 }
 
-func fetchTimetable(ctpCjClient *ctp_cj.Client, routeShortName string) (*models.Timetable, error) {
+func fetchTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, routeShortName string) (*models.Timetable, error) {
 	weekdays, saturday, sunday, err := ctpCjClient.FetchTimetable(routeShortName)
 	if err != nil {
 		return nil, err
@@ -53,7 +56,67 @@ func fetchTimetable(ctpCjClient *ctp_cj.Client, routeShortName string) (*models.
 		t.Sunday = toDaySchedule(sunday)
 	}
 
+	alignTimetableToDirectionIDs(tranzyClient, cacheTimes, t)
+
 	return t, nil
+}
+
+// alignTimetableToDirectionIDs ensures DepartureIn / InStopName line up with
+// Tranzy's direction_id=0. CTP-CJ's "in"/"out" labels are independent of
+// Tranzy's direction IDs, so for some routes (e.g. line 57) the frontend's
+// assumption "departure_in ↔ direction 0" renders the wrong column. We compare
+// CTP's stop names against the first stop of trips ending _0 vs _1 and swap
+// columns when the swapped arrangement is the better match. Falls back to as-is
+// when matches are absent or tied.
+func alignTimetableToDirectionIDs(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, t *models.Timetable) {
+	if t == nil || (t.InStopName == "" && t.OutStopName == "") {
+		return
+	}
+	stopTimes, err := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &t.RouteShortName})
+	if err != nil {
+		log.Printf("timetable %s: skip direction alignment (stop_times error: %v)", t.RouteShortName, err)
+		return
+	}
+	firstStop0 := firstStopOfDirection(stopTimes, "_0")
+	firstStop1 := firstStopOfDirection(stopTimes, "_1")
+	if firstStop0 == "" || firstStop1 == "" {
+		return
+	}
+
+	keep := stopMatchScore(t.InStopName, firstStop0) + stopMatchScore(t.OutStopName, firstStop1)
+	swap := stopMatchScore(t.InStopName, firstStop1) + stopMatchScore(t.OutStopName, firstStop0)
+
+	if swap > keep {
+		log.Printf("timetable %s: swapping directions (CTP in=%q out=%q ↔ Tranzy dir0=%q dir1=%q)",
+			t.RouteShortName, t.InStopName, t.OutStopName, firstStop0, firstStop1)
+		t.InStopName, t.OutStopName = t.OutStopName, t.InStopName
+		swapDayScheduleColumns(&t.Weekdays)
+		swapDayScheduleColumns(&t.Saturday)
+		swapDayScheduleColumns(&t.Sunday)
+	}
+}
+
+func firstStopOfDirection(stopTimes []models.StopTime, tripSuffix string) string {
+	var best *models.StopTime
+	for i := range stopTimes {
+		st := &stopTimes[i]
+		if !strings.HasSuffix(st.TripID, tripSuffix) {
+			continue
+		}
+		if best == nil || st.StopSequence < best.StopSequence {
+			best = st
+		}
+	}
+	if best == nil {
+		return ""
+	}
+	return best.StopHeadsign
+}
+
+func swapDayScheduleColumns(d *models.DaySchedule) {
+	for i := range d.Entries {
+		d.Entries[i].DepartureIn, d.Entries[i].DepartureOut = d.Entries[i].DepartureOut, d.Entries[i].DepartureIn
+	}
 }
 
 func toDaySchedule(p *ctp_cj.ParsedTimetable) models.DaySchedule {

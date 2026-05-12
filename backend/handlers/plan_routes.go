@@ -897,7 +897,7 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				stopsMap[strconv.Itoa(destStop.StopID)] = destStop
 				if _, exists := shapesMap[strconv.Itoa(route.RouteID)]; !exists {
 					stopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &route.RouteShortName})
-					timetable, _ := GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, route.RouteShortName)
+					timetable, _ := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, route.RouteShortName)
 
 					shapesMap[strconv.Itoa(route.RouteID)] = shapeSlim{
 						RouteShortName: route.RouteShortName,

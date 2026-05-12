@@ -141,7 +141,7 @@ func buildShapesInfoParallel(
 			}()
 			go func() {
 				defer inner.Done()
-				timetable, ttErr = GetTimetable(ctpCjClient, cacheTimes.TimetableCacheShelfLife, rsn)
+				timetable, ttErr = GetTimetable(ctpCjClient, tranzyClient, cacheTimes, rsn)
 			}()
 			inner.Wait()
 
