@@ -400,7 +400,7 @@ const stopsInit = async () => {
       className: 'stop-name-tooltip',
     })
     marker.on('click', () => {
-      router.push({name: 'stop', params: {stopId: stop_id}, replace: true})
+      router.push({name: 'stop', params: {stopId: stop_id}})
     })
 
     marker.addTo(stopGroup.value)
