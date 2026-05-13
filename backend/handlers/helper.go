@@ -27,71 +27,108 @@ func HandleCached[T any](
 	dbStorer func(T) error,
 	opts CacheOpts[T],
 ) (T, error) {
-	if data, hit, err := readFromCache(cacheID, dbFetcher); hit {
-		if err != nil {
-			var zero T
-			return zero, err
-		}
-		return data, nil
+	data, state, err := readFromCache(cacheID, dbFetcher)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	switch state {
+	case database.CacheStateFresh:
+		return applyPostProcess(data, opts), nil
+	case database.CacheStateStale:
+		// Stale-while-revalidate: serve the existing row immediately and refresh
+		// from the API in the background. Avoids the 8h-idle cascade where every
+		// cache miss serialized behind Tranzy + CTP-CJ rate limiters.
+		go backgroundRefresh(cacheID, shelfLife, apiFetcher, dbStorer, opts)
+		return applyPostProcess(data, opts), nil
 	}
 
-	// Deduplicate concurrent cache-miss callers so only one API request goes out;
-	// everyone else waits for the shared result.
+	// CacheStateMissing: deduplicate concurrent cache-miss callers via
+	// singleflight so only one API request goes out; everyone else waits.
 	raw, err, _ := cacheSingleflight.Do(cacheID, func() (any, error) {
-		// Re-check the cache — an earlier flight may have just populated it.
-		if data, hit, err := readFromCache(cacheID, dbFetcher); hit {
-			if err != nil {
-				return nil, err
-			}
+		if data, state, err := readFromCache(cacheID, dbFetcher); err == nil && state != database.CacheStateMissing {
 			return data, nil
 		}
 
-		data, err := apiFetcher()
+		fetched, err := apiFetcher()
 		if err != nil {
 			return nil, err
 		}
 
-		go func() {
-			mu := database.GetCacheRWMutex(cacheID)
-			mu.Lock()
-			defer func() {
-				if r := recover(); r != nil {
-					log.Printf("Warning: panic in cache write goroutine for %s: %v", cacheID, r)
-				}
-				mu.Unlock()
-			}()
-
-			if database.IsCacheValid(cacheID) {
-				return
-			}
-
-			if err := dbStorer(data); err != nil {
-				log.Printf("Warning: failed to store %s in database: %v", cacheID, err)
-				return
-			}
-			if err := database.UpdateCache(cacheID, shelfLife.Milliseconds()); err != nil {
-				log.Printf("Warning: failed to update cache for %s: %v", cacheID, err)
-				return
-			}
-			if opts.Optimize {
-				if err := database.Optimize(); err != nil {
-					log.Printf("Warning: failed to optimize database: %v", err)
-				}
-			}
-		}()
-
-		return data, nil
+		go writeCache(cacheID, shelfLife, fetched, dbStorer, opts)
+		return fetched, nil
 	})
 	if err != nil {
 		var zero T
 		return zero, err
 	}
-	data := raw.(T)
+	return applyPostProcess(raw.(T), opts), nil
+}
 
+func applyPostProcess[T any](data T, opts CacheOpts[T]) T {
 	if opts.PostProcess != nil {
-		return opts.PostProcess(data), nil
+		return opts.PostProcess(data)
 	}
-	return data, nil
+	return data
+}
+
+func backgroundRefresh[T any](
+	cacheID string,
+	shelfLife time.Duration,
+	apiFetcher func() (T, error),
+	dbStorer func(T) error,
+	opts CacheOpts[T],
+) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Warning: panic in background refresh for %s: %v", cacheID, r)
+		}
+	}()
+
+	_, _, _ = cacheSingleflight.Do(cacheID, func() (any, error) {
+		data, err := apiFetcher()
+		if err != nil {
+			log.Printf("Warning: background refresh of %s failed: %v", cacheID, err)
+			return nil, err
+		}
+		writeCache(cacheID, shelfLife, data, dbStorer, opts)
+		return data, nil
+	})
+}
+
+func writeCache[T any](
+	cacheID string,
+	shelfLife time.Duration,
+	data T,
+	dbStorer func(T) error,
+	opts CacheOpts[T],
+) {
+	mu := database.GetCacheRWMutex(cacheID)
+	mu.Lock()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Warning: panic in cache write for %s: %v", cacheID, r)
+		}
+		mu.Unlock()
+	}()
+
+	if database.IsCacheValid(cacheID) {
+		return
+	}
+
+	if err := dbStorer(data); err != nil {
+		log.Printf("Warning: failed to store %s in database: %v", cacheID, err)
+		return
+	}
+	if err := database.UpdateCache(cacheID, shelfLife.Milliseconds()); err != nil {
+		log.Printf("Warning: failed to update cache for %s: %v", cacheID, err)
+		return
+	}
+	if opts.Optimize {
+		if err := database.Optimize(); err != nil {
+			log.Printf("Warning: failed to optimize database: %v", err)
+		}
+	}
 }
 
 func NormalizeTripID(tripID string) string {
@@ -102,18 +139,19 @@ func NormalizeTripID(tripID string) string {
 	return tripID
 }
 
-func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, bool, error) {
+func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, database.CacheState, error) {
 	mu := database.GetCacheRWMutex(cacheID)
 	mu.RLock()
 	defer mu.RUnlock()
 
-	if !database.IsCacheValid(cacheID) {
+	state := database.GetCacheState(cacheID)
+	if state == database.CacheStateMissing {
 		var zero T
-		return zero, false, nil
+		return zero, state, nil
 	}
 
 	data, err := dbFetcher()
-	return data, true, err
+	return data, state, err
 }
 
 // tranzyFetch fetches endpoint from the Tranzy API and unmarshals the response into T.

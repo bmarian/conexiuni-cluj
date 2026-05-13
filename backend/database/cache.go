@@ -13,15 +13,30 @@ func GetCacheRWMutex(cacheId string) *sync.RWMutex {
 }
 
 func IsCacheValid(cacheId string) bool {
-	var timestamp int64
-	var lifespan int64
+	return GetCacheState(cacheId) == CacheStateFresh
+}
 
+// CacheState distinguishes "never populated" from "populated but past TTL",
+// enabling stale-while-revalidate: stale rows can be served immediately while
+// a background refresh runs.
+type CacheState int
+
+const (
+	CacheStateMissing CacheState = iota
+	CacheStateFresh
+	CacheStateStale
+)
+
+func GetCacheState(cacheId string) CacheState {
+	var timestamp, lifespan int64
 	err := DB.QueryRow(`SELECT timestamp, lifespan FROM cache_times WHERE id = ?`, cacheId).Scan(&timestamp, &lifespan)
 	if err != nil {
-		return false
+		return CacheStateMissing
 	}
-
-	return time.Now().UnixMilli() < (timestamp + lifespan)
+	if time.Now().UnixMilli() < (timestamp + lifespan) {
+		return CacheStateFresh
+	}
+	return CacheStateStale
 }
 
 func UpdateCache(cacheId string, lifespan int64) error {

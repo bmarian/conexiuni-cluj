@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -728,9 +727,16 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 	}
 
 	routeByName := make(map[string]models.Route, len(allRoutes))
+	routeByID := make(map[int]models.Route, len(allRoutes))
 	for _, r := range allRoutes {
 		routeByName[strings.ToUpper(strings.TrimSpace(r.RouteShortName))] = r
+		routeByID[r.RouteID] = r
 	}
+
+	// Warmup normally has the index ready before any request lands; this covers
+	// the rare case where plan_routes is hit between server start and warmup's
+	// api_stop_times phase.
+	StopRoutes.EnsureReady(tranzyClient, cacheTimes.TranzyCacheShelfLife)
 
 	stopsMap := make(map[string]models.Stop)
 	shapesMap := make(map[string]shapeSlim)
@@ -800,87 +806,75 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				rideSec := leg.Duration
 				transitSec += rideSec
 
-				tripID := ""
-				stopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &startStop.StopID})
-				if stopInfo != nil {
-					target0 := strconv.Itoa(route.RouteID) + "_0"
-					target1 := strconv.Itoa(route.RouteID) + "_1"
-
-					found0 := slices.Contains(stopInfo.OutgoingTripIds, target0)
-					found1 := slices.Contains(stopInfo.IncomingTripIds, target1)
-
-					if found0 && !found1 {
+				target0 := strconv.Itoa(route.RouteID) + OUTGOING_SUFFIX
+				target1 := strconv.Itoa(route.RouteID) + INCOMING_SUFFIX
+				tripID := target0
+				if startDirs, ok := StopRoutes.Get(startStop.StopID, route.RouteID); ok {
+					switch {
+					case startDirs.Has0 && !startDirs.Has1:
 						tripID = target0
-					} else if found1 && !found0 {
+					case startDirs.Has1 && !startDirs.Has0:
 						tripID = target1
-					} else if found0 && found1 {
-						if destStopInfo, _ := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &destStop.StopID}); destStopInfo != nil {
-							dFound0 := slices.Contains(destStopInfo.OutgoingTripIds, target0)
-							dFound1 := slices.Contains(destStopInfo.IncomingTripIds, target1)
-							if dFound0 && !dFound1 {
+					case startDirs.Has0 && startDirs.Has1:
+						if destDirs, ok := StopRoutes.Get(destStop.StopID, route.RouteID); ok {
+							if destDirs.Has0 && !destDirs.Has1 {
 								tripID = target0
-							} else if dFound1 && !dFound0 {
+							} else if destDirs.Has1 && !destDirs.Has0 {
 								tripID = target1
 							}
 						}
 					}
 				}
-				if tripID == "" {
-					tripID = strconv.Itoa(route.RouteID) + "_0"
+
+				// Add alternative routes that cover the same stop sequence
+				// (start → intermediates → dest) in the same direction. We resolve
+				// candidates via the in-memory index and only fetch the heavy
+				// per-route stop_times + timetable for routes that pass the
+				// sequence check — previously this loaded full stop_info per leg,
+				// which fanned out to dozens of cache lookups.
+				suffix := OUTGOING_SUFFIX
+				if strings.HasSuffix(tripID, INCOMING_SUFFIX) {
+					suffix = INCOMING_SUFFIX
 				}
+				required := make([]int, 0, len(intermediates)+2)
+				required = append(required, startStop.StopID)
+				required = append(required, intermediates...)
+				required = append(required, destStop.StopID)
 
-				// Use the already-fetched stopInfo to add alternative routes that
-				// cover the exact same stop sequence (start → all intermediates → dest)
-				// in the same direction. Routes that only share the endpoints but take
-				// a different path (e.g. a different route number) are excluded.
-				if stopInfo != nil {
-					suffix := "_0"
-					if strings.HasSuffix(tripID, "_1") {
-						suffix = "_1"
+				for altRouteID, altDir := range StopRoutes.RoutesThroughStop(startStop.StopID) {
+					key := strconv.Itoa(altRouteID)
+					if _, exists := shapesMap[key]; exists {
+						continue
 					}
-
-					// Build the full ordered stop sequence the chosen leg must match.
-					required := make([]int, 0, len(intermediates)+2)
-					required = append(required, startStop.StopID)
-					required = append(required, intermediates...)
-					required = append(required, destStop.StopID)
-
-					for _, si := range stopInfo.ShapesInfo {
-						key := strconv.Itoa(si.RouteId)
-						if _, exists := shapesMap[key]; exists {
-							continue
-						}
-						altTripID := strconv.Itoa(si.RouteId) + suffix
-
-						// Walk the stop-times in order and match every required stop
-						// sequentially.  All required stops must appear in order.
-						reqIdx := 0
-						for _, st := range si.StopTimes {
-							if st.TripID != altTripID {
-								continue
-							}
-							if st.StopID == required[reqIdx] {
-								reqIdx++
-								if reqIdx == len(required) {
-									break
-								}
-							}
-						}
-						if reqIdx < len(required) {
-							// This route does not serve all stops in the correct order.
-							continue
-						}
-
-						t := si.Timetable
-						shapesMap[key] = shapeSlim{
-							RouteShortName: si.RouteShortName,
-							RouteLongName:  si.RouteLongName,
-							RouteID:        si.RouteId,
-							RouteType:      si.RouteType,
-							RouteColor:     models.ResolveRouteDisplayColor(si.RouteShortName),
-							StopTime:       si.StopTimes,
-							Timetable:      &t,
-						}
+					if (suffix == OUTGOING_SUFFIX && !altDir.Has0) || (suffix == INCOMING_SUFFIX && !altDir.Has1) {
+						continue
+					}
+					altTripID := strconv.Itoa(altRouteID) + suffix
+					if !tripCoversSequence(StopRoutes.TripStops(altTripID), required) {
+						continue
+					}
+					altRoute, ok := routeByID[altRouteID]
+					if !ok {
+						continue
+					}
+					altStopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &altRoute.RouteShortName})
+					altTimetable, _ := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, altRoute.RouteShortName)
+					if altTimetable == nil {
+						continue
+					}
+					if len(altTimetable.Weekdays.Entries) == 0 &&
+						len(altTimetable.Saturday.Entries) == 0 &&
+						len(altTimetable.Sunday.Entries) == 0 {
+						continue
+					}
+					shapesMap[key] = shapeSlim{
+						RouteShortName: altRoute.RouteShortName,
+						RouteLongName:  altRoute.RouteLongName,
+						RouteID:        altRoute.RouteID,
+						RouteType:      altRoute.RouteType,
+						RouteColor:     models.ResolveRouteDisplayColor(altRoute.RouteShortName),
+						StopTime:       altStopTimes,
+						Timetable:      altTimetable,
 					}
 				}
 
