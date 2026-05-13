@@ -166,6 +166,9 @@ func main() {
 		app.Get("/route/:routeId/:direction", handlers.RouteOGHandler)
 		app.Get("/stop/:stopId", handlers.StopOGHandler)
 		app.Get("/plan", handlers.PlanOGHandler)
+		app.Get("/admin", func(c fiber.Ctx) error {
+			return c.SendFile("./dist/index.html")
+		})
 
 		app.Use("/", static.New("./dist", static.Config{
 			Browse: false,
@@ -179,6 +182,7 @@ func main() {
 			if ext := filepath.Ext(path); ext != "" && ext != ".html" {
 				return c.SendStatus(fiber.StatusNotFound)
 			}
+			c.Status(fiber.StatusNotFound)
 			return c.SendFile("./dist/index.html")
 		})
 
