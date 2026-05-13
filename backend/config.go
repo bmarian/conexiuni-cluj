@@ -33,6 +33,9 @@ type Config struct {
 	VehicleScheduleWeekend   string
 	VehicleMinInterval       time.Duration
 	VehicleMaxInterval       time.Duration
+	VehicleLearningEnabled   bool
+	VehicleLearningInterval  time.Duration
+	VehicleLearningMinQuota  int
 	OtpMaxMemory             string
 }
 
@@ -70,6 +73,19 @@ func getDuration(key string, defaultValue time.Duration) time.Duration {
 	return defaultValue
 }
 
+func getBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value != "" {
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			log.Printf("Invalid %s, using default %t: %v", key, defaultValue, err)
+			return defaultValue
+		}
+		return b
+	}
+	return defaultValue
+}
+
 func Load() *Config {
 	loaded := false
 	if err := godotenv.Load(".env", "keys.env"); err == nil {
@@ -83,6 +99,11 @@ func Load() *Config {
 	}
 
 	tranzyDefaultDailyQuota := getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144)
+	tranzyVehiclesDailyQuota := getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500)
+	vehicleLearningMinQuota := tranzyVehiclesDailyQuota / 10
+	if vehicleLearningMinQuota < 50 {
+		vehicleLearningMinQuota = 50
+	}
 	// 6 distinct Tranzy endpoint caches share the quota equally
 	tranzyCacheShelfLife := 24 * time.Hour * 6 / time.Duration(tranzyDefaultDailyQuota)
 
@@ -103,12 +124,15 @@ func Load() *Config {
 		NewsCacheShelfLife:       getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
 		CtpCjRateLimit:           getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
-		TranzyVehiclesDailyQuota: getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),
+		TranzyVehiclesDailyQuota: tranzyVehiclesDailyQuota,
 		TranzyDefaultDailyQuota:  tranzyDefaultDailyQuota,
 		VehicleSchedule:          getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleScheduleWeekend:   getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleMinInterval:       getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
 		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
+		VehicleLearningEnabled:   getBool("VEHICLE_LEARNING_ENABLED", true),
+		VehicleLearningInterval:  getDuration("VEHICLE_LEARNING_INTERVAL", time.Minute),
+		VehicleLearningMinQuota:  getInt("VEHICLE_LEARNING_MIN_QUOTA_REMAINING", vehicleLearningMinQuota),
 		OtpMaxMemory:             getEnv("OTP_MX", "2G"),
 	}
 

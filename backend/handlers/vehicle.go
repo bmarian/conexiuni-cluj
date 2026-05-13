@@ -87,7 +87,12 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		}
 		filtered = append(filtered, v)
 	}
-	return smoothVehicles(tranzyClient, filtered, filter)
+	smoothed, err := smoothVehicles(tranzyClient, filtered, filter)
+	if err != nil {
+		return nil, err
+	}
+	go ObserveVehicleSegmentTravelTimes(tranzyClient.Location(), smoothed)
+	return smoothed, nil
 }
 
 func tripIDSet(ids []string) map[string]struct{} {

@@ -198,6 +198,34 @@ func InitSchemas() error {
             key    TEXT    NOT NULL,
             count  INTEGER NOT NULL,
             PRIMARY KEY (date, metric, key)
+        );
+
+		CREATE TABLE IF NOT EXISTS segment_travel_time_samples
+        (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            route_id         INTEGER NOT NULL,
+            direction_id     INTEGER NOT NULL,
+            from_stop_id     INTEGER NOT NULL,
+            to_stop_id       INTEGER NOT NULL,
+            day_type         TEXT    NOT NULL,
+            bucket_start_min INTEGER NOT NULL,
+            duration_sec     REAL    NOT NULL,
+            observed_at      INTEGER NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS segment_travel_time_profiles
+        (
+            route_id         INTEGER NOT NULL,
+            direction_id     INTEGER NOT NULL,
+            from_stop_id     INTEGER NOT NULL,
+            to_stop_id       INTEGER NOT NULL,
+            day_type         TEXT    NOT NULL,
+            bucket_start_min INTEGER NOT NULL,
+            sample_count     INTEGER NOT NULL,
+            median_sec       REAL    NOT NULL,
+            p75_sec          REAL    NOT NULL,
+            updated_at       INTEGER NOT NULL,
+            PRIMARY KEY (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min)
         )
     `
 	_, err := DB.Exec(schema)
@@ -237,6 +265,11 @@ func InitSchemas() error {
 		CREATE INDEX IF NOT EXISTS idx_stats_visitors_daily_date ON stats_visitors_daily(date);
 		CREATE INDEX IF NOT EXISTS idx_stats_daily_metric_count ON stats_daily(metric, count DESC);
 		CREATE INDEX IF NOT EXISTS idx_stats_daily_metric_date_key ON stats_daily(metric, date, key);
+
+		-- Segment travel profile indexes
+		CREATE INDEX IF NOT EXISTS idx_segment_samples_key ON segment_travel_time_samples(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, observed_at);
+		CREATE INDEX IF NOT EXISTS idx_segment_samples_observed_at ON segment_travel_time_samples(observed_at);
+		CREATE INDEX IF NOT EXISTS idx_segment_profiles_route_time ON segment_travel_time_profiles(route_id, direction_id, day_type, bucket_start_min);
 	`
 
 	_, err = DB.Exec(indexes)

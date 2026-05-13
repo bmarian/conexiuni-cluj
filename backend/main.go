@@ -106,6 +106,11 @@ func main() {
 		MinInterval: config.VehicleMinInterval,
 		MaxInterval: config.VehicleMaxInterval,
 	})
+	handlers.StartVehicleLearningSampler(tranzyClient, handlers.VehicleLearningSamplerConfig{
+		Enabled:           config.VehicleLearningEnabled,
+		Interval:          config.VehicleLearningInterval,
+		MinQuotaRemaining: config.VehicleLearningMinQuota,
+	})
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",

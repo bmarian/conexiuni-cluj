@@ -974,7 +974,10 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
         const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
         if (boardingIdx < 0) continue
 
-        const eta = etaForStop(boardingIdx, indexed, shapeIndex)
+        const eta = etaForStop(boardingIdx, indexed, shapeIndex, {
+          tripStops: stopTimes,
+          targetStopId: leg.startStopId,
+        })
         if (eta && eta.etaMinutes <= MAX_MINUTES) {
           const entry: PlannedTimeEntry = {
             minutes: eta.etaMinutes,

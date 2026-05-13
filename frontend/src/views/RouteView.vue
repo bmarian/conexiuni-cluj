@@ -118,10 +118,10 @@ const stopsForDirection = computed((): IndexedStop[] => {
   const filtered = rawStops.value
     .filter((st) => st.trip_id === currentTripId.value)
     .sort((a, b) => a.stop_sequence - b.stop_sequence)
-  let cumulative = 0
+  let cumulativeSec = 0
   return filtered.map((st) => {
-    const offset = cumulative
-    cumulative += Math.ceil(st.offset_arrival_time / 60)
+    const offset = Math.ceil(cumulativeSec / 60)
+    cumulativeSec += st.offset_arrival_time
     return {...st, timeOffsetFromStart: offset}
   })
 })
@@ -207,7 +207,10 @@ function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
   if (dirShape && currentDirectionVehicles.value.length) {
     const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
     if (stopIdx !== undefined && stopIdx >= 0) {
-      const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex)
+      const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
+        tripStops: stopsForDirection.value,
+        targetStopId: stop.stop_id,
+      })
       if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
     }
   }

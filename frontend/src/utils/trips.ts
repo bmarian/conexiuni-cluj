@@ -35,13 +35,13 @@ export const getTripIdForRouteAtStop = (outgoingTripIds: string[], incomingTripI
 }
 
 export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopId: number): number => {
-  let timeOffset = 0
+  let timeOffsetSec = 0
   for (const st of stopTimes) {
     if (st.trip_id !== tripId) continue
     if (st.stop_id === stopId) break
-    timeOffset += Math.ceil(st.offset_arrival_time / 60)
+    timeOffsetSec += st.offset_arrival_time
   }
-  return timeOffset
+  return Math.ceil(timeOffsetSec / 60)
 }
 
 // Minutes the bus takes to ride from `fromStopId` to `toStopId` on the given

@@ -240,7 +240,10 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       continue
     }
 
-    const eta = etaForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex)
+    const eta = etaForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex, {
+      tripStops,
+      targetStopId: stopIdNum.value,
+    })
     if (!eta) {
       results.push(shape)
       continue

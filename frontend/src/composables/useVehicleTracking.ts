@@ -97,9 +97,13 @@ function distanceOnShape(index: ShapeIndex, fromShapeIdx: number, toShapeIdx: nu
   return index.cumulativeDist[toShapeIdx]! - index.cumulativeDist[fromShapeIdx]!
 }
 
-function estimateEtaMinutes(distanceMeters: number, speedKmh: number): number {
+function estimateEtaSeconds(distanceMeters: number, speedKmh: number): number {
   const speed = Math.max(speedKmh, MIN_SPEED_KMH)
-  return Math.ceil(((distanceMeters / 1000) / speed) * 60)
+  return ((distanceMeters / 1000) / speed) * 3600
+}
+
+function estimateEtaMinutes(distanceMeters: number, speedKmh: number): number {
+  return Math.ceil(estimateEtaSeconds(distanceMeters, speedKmh) / 60)
 }
 
 export function buildShapeIndex(shape: Shape[]): ShapeIndex {
@@ -135,6 +139,32 @@ export function buildStopShapeIdxByStopId(tripStops: StopTime[], shape: Shape[])
     stopShapeIdxByStopId.set(st.stop_id, findClosestShapeIdx(st.stop_lat, st.stop_lon, shape))
   }
   return stopShapeIdxByStopId
+}
+
+function sortedTripStops(tripStops: StopTime[]): StopTime[] {
+  return [...tripStops].sort((a, b) => a.stop_sequence - b.stop_sequence)
+}
+
+function stopShapePositions(tripStops: StopTime[], shape: Shape[]): number[] {
+  let last = 0
+  return tripStops.map((st) => {
+    const idx = st.stop_lat && st.stop_lon ? findClosestShapeIdx(st.stop_lat, st.stop_lon, shape) : last
+    last = Math.max(last, idx)
+    return last
+  })
+}
+
+function blendedRemainingSegmentSeconds(segmentSec: number, segmentMeters: number, remainingMeters: number, speedKmh: number): number {
+  const liveSec = estimateEtaSeconds(remainingMeters, speedKmh)
+  if (segmentSec <= 0 || segmentMeters <= 0) return liveSec
+  const ratio = Math.min(1, Math.max(0, remainingMeters / segmentMeters))
+  const profileSec = segmentSec * ratio
+  return liveSec * 0.6 + profileSec * 0.4
+}
+
+type EtaOptions = {
+  tripStops?: StopTime[]
+  targetStopId?: number
 }
 
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
@@ -195,6 +225,7 @@ export function etaForStop(
   stopShapeIdx: number,
   vehicles: IndexedVehicle[],
   index: ShapeIndex,
+  options: EtaOptions = {},
 ): { vehicle: IndexedVehicle; etaMinutes: number } | null {
   if (stopShapeIdx < 0) return null
 
@@ -203,10 +234,55 @@ export function etaForStop(
     .sort((a, b) => b.shapeIdx - a.shapeIdx)
 
   for (const v of candidates) {
-    const distMeters = distanceOnShape(index, v.shapeIdx, stopShapeIdx)
-    const etaMinutes = estimateEtaMinutes(distMeters, v.speed)
+    const etaMinutes = profileAwareEtaMinutes(v, stopShapeIdx, index, options)
+      ?? estimateEtaMinutes(distanceOnShape(index, v.shapeIdx, stopShapeIdx), v.speed)
     if (etaMinutes > 0) return {vehicle: v, etaMinutes}
   }
 
   return null
+}
+
+function profileAwareEtaMinutes(
+  vehicle: IndexedVehicle,
+  stopShapeIdx: number,
+  index: ShapeIndex,
+  options: EtaOptions,
+): number | null {
+  const stops = options.tripStops?.length ? sortedTripStops(options.tripStops) : []
+  if (!stops.length || options.targetStopId === undefined) return null
+
+  const targetPos = stops.findIndex(st => st.stop_id === options.targetStopId)
+  if (targetPos < 0) return null
+
+  const positions = stopShapePositions(stops, index.shape)
+  if (targetPos === 0) {
+    return estimateEtaMinutes(distanceOnShape(index, vehicle.shapeIdx, stopShapeIdx), vehicle.speed)
+  }
+
+  let prevPos = -1
+  for (let i = 0; i < targetPos; i++) {
+    if (positions[i]! <= vehicle.shapeIdx) prevPos = i
+    else break
+  }
+  if (prevPos < 0) return null
+
+  const nextPos = prevPos + 1
+  if (nextPos > targetPos) return null
+
+  const currentStartIdx = positions[prevPos]!
+  const currentEndIdx = positions[nextPos]!
+  const remainingMeters = distanceOnShape(index, Math.max(vehicle.shapeIdx, currentStartIdx), currentEndIdx)
+  const segmentMeters = distanceOnShape(index, currentStartIdx, currentEndIdx)
+  let seconds = blendedRemainingSegmentSeconds(
+    stops[nextPos]!.offset_arrival_time,
+    segmentMeters,
+    remainingMeters,
+    vehicle.speed,
+  )
+
+  for (let pos = nextPos + 1; pos <= targetPos; pos++) {
+    seconds += stops[pos]!.offset_arrival_time
+  }
+
+  return Math.ceil(seconds / 60)
 }

@@ -601,7 +601,7 @@ func handlePlanRoutes(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctp
 		})
 	}
 
-	resp, err := enrichOTPResponse(itineraries, tranzyClient, ctpCjClient, cacheTimes)
+	resp, err := enrichOTPResponse(itineraries, tranzyClient, ctpCjClient, cacheTimes, reqTime)
 	if err != nil {
 		log.Printf("plan_routes: enrich failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
@@ -712,7 +712,7 @@ func extractOTPStopID(otpID string, lat, lon float64, allStops []models.Stop) mo
 	return nearestStop(allStops, lat, lon)
 }
 
-func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*planResp, error) {
+func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, refTime time.Time) (*planResp, error) {
 	if len(itineraries) == 0 {
 		return &planResp{Plans: []planRouteResp{}, Stops: map[string]models.Stop{}, Shapes: map[string]shapeSlim{}}, nil
 	}
@@ -857,7 +857,7 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 					if !ok {
 						continue
 					}
-					altStopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &altRoute.RouteShortName})
+					altStopTimes, _ := GetStopTimesAt(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &altRoute.RouteShortName}, refTime)
 					altTimetable, _ := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, altRoute.RouteShortName)
 					if altTimetable == nil {
 						continue
@@ -890,7 +890,7 @@ func enrichOTPResponse(itineraries []otpItinerary, tranzyClient *tranzy.Client, 
 				stopsMap[strconv.Itoa(startStop.StopID)] = startStop
 				stopsMap[strconv.Itoa(destStop.StopID)] = destStop
 				if _, exists := shapesMap[strconv.Itoa(route.RouteID)]; !exists {
-					stopTimes, _ := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &route.RouteShortName})
+					stopTimes, _ := GetStopTimesAt(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &route.RouteShortName}, refTime)
 					timetable, _ := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, route.RouteShortName)
 
 					shapesMap[strconv.Itoa(route.RouteID)] = shapeSlim{

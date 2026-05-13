@@ -21,16 +21,37 @@ func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 }
 
 func closestShapeIndex(stop models.Stop, shapes []models.Shape) int {
+	return closestShapeIndexLatLon(stop.StopLat, stop.StopLon, shapes)
+}
+
+func closestShapeIndexLatLon(lat, lon float64, shapes []models.Shape) int {
 	minDist := math.MaxFloat64
 	idx := 0
 	for i, s := range shapes {
-		d := haversineMeters(stop.StopLat, stop.StopLon, s.ShapePtLat, s.ShapePtLon)
+		d := haversineMeters(lat, lon, s.ShapePtLat, s.ShapePtLon)
 		if d < minDist {
 			minDist = d
 			idx = i
 		}
 	}
 	return idx
+}
+
+func shapeDistanceMeters(shapes []models.Shape, fromIdx, toIdx int) float64 {
+	if len(shapes) == 0 || fromIdx < 0 || toIdx < 0 || fromIdx >= toIdx || fromIdx >= len(shapes) {
+		return 0
+	}
+	if toIdx >= len(shapes) {
+		toIdx = len(shapes) - 1
+	}
+	var distMeters float64
+	for i := fromIdx; i < toIdx; i++ {
+		distMeters += haversineMeters(
+			shapes[i].ShapePtLat, shapes[i].ShapePtLon,
+			shapes[i+1].ShapePtLat, shapes[i+1].ShapePtLon,
+		)
+	}
+	return distMeters
 }
 
 func calculateStopOffset(prev, curr models.Stop, shapes []models.Shape) float64 {
@@ -41,13 +62,5 @@ func calculateStopOffset(prev, curr models.Stop, shapes []models.Shape) float64 
 		fromIdx, toIdx = toIdx, fromIdx
 	}
 
-	var distMeters float64
-	for i := fromIdx; i < toIdx; i++ {
-		distMeters += haversineMeters(
-			shapes[i].ShapePtLat, shapes[i].ShapePtLon,
-			shapes[i+1].ShapePtLat, shapes[i+1].ShapePtLon,
-		)
-	}
-
-	return distMeters / averageBusSpeedMps
+	return shapeDistanceMeters(shapes, fromIdx, toIdx) / averageBusSpeedMps
 }

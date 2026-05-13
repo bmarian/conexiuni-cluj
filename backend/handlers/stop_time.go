@@ -5,7 +5,9 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
+	"sort"
 	"time"
 )
 
@@ -19,16 +21,29 @@ type StopTimeFilter struct {
 }
 
 func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, error) {
+	return GetStopTimesAt(tranzyClient, cacheTimes, filter, time.Now().In(tranzyClient.Location()))
+}
+
+func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter, refTime time.Time) ([]models.StopTime, error) {
 	if filter.RouteShortName == nil {
 		return nil, fmt.Errorf("route_short_name is required")
 	}
 	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
-	return HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
+	stopTimes, err := HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
 		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
 		storeStopTimesInDB,
 		CacheOpts[[]models.StopTime]{},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
+	if err != nil || len(routes) == 0 {
+		return stopTimes, nil
+	}
+	return applySegmentProfilesToStopTimes(stopTimes, routes[0].RouteID, refTime), nil
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
@@ -93,7 +108,13 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		if len(gr) == 0 {
 			continue
 		}
+		sort.Slice(gr, func(i, j int) bool {
+			return gr[i].StopSequence < gr[j].StopSequence
+		})
 		shapes := shapesByID[shapeByTrip[t.TripID]]
+		sort.Slice(shapes, func(i, j int) bool {
+			return shapes[i].ShapePtSequence < shapes[j].ShapePtSequence
+		})
 		var previousStop *models.Stop
 		stopIndex := 0
 		for _, st := range gr {
@@ -124,6 +145,55 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		}
 	}
 	return out, nil
+}
+
+func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, refTime time.Time) []models.StopTime {
+	if len(stopTimes) == 0 {
+		return stopTimes
+	}
+
+	out := make([]models.StopTime, len(stopTimes))
+	copy(out, stopTimes)
+
+	profilesByDirection := make(map[int]map[stopPair]float64)
+	groupByTrip := make(map[string][]int)
+	for i, st := range out {
+		groupByTrip[st.TripID] = append(groupByTrip[st.TripID], i)
+	}
+
+	for tripID, indexes := range groupByTrip {
+		directionID, ok := directionIDFromTripID(tripID)
+		if !ok {
+			continue
+		}
+		profiles, exists := profilesByDirection[directionID]
+		if !exists {
+			var err error
+			profiles, err = loadSegmentProfileDurations(routeID, directionID, refTime)
+			if err != nil {
+				log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
+				profiles = map[stopPair]float64{}
+			}
+			profilesByDirection[directionID] = profiles
+		}
+		if len(profiles) == 0 {
+			continue
+		}
+
+		sort.Slice(indexes, func(i, j int) bool {
+			return out[indexes[i]].StopSequence < out[indexes[j]].StopSequence
+		})
+		for pos := 1; pos < len(indexes); pos++ {
+			prev := out[indexes[pos-1]]
+			currIdx := indexes[pos]
+			pair := stopPair{FromStopID: prev.StopID, ToStopID: out[currIdx].StopID}
+			if duration, ok := profiles[pair]; ok && duration > 0 {
+				out[currIdx].OffsetArrivalTime = math.Ceil(duration)
+			}
+		}
+	}
+
+	return out
 }
 
 func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {

@@ -73,7 +73,7 @@ Boot order in `backend/main.go`:
 5. Parse adaptive vehicle polling schedules and initialize the SSE vehicle hub.
 6. Configure stats middleware, Fiber logger, CORS, and all `/api` routes.
 7. If `backend/dist` exists, load `index.html`, install OG metadata handlers, serve PWA files with safe cache headers, serve static assets, and use SPA fallback.
-8. Start cache warmup and defer OTP cleanup.
+8. Start cache warmup, start the background vehicle learning sampler, and defer OTP cleanup.
 
 Primary env vars:
 
@@ -89,13 +89,19 @@ TRANZY_BASE_URL                default https://api.tranzy.ai/v1/opendata
 CLUJ_AGENCY_ID                 default 2
 CTP_CSV_BASE_URL               default https://ctpcj.ro/orare/csv
 TRANZY_DEFAULT_DAILY_QUOTA     default 144; Tranzy shelf life = 24h * 6 / quota
+TRANZY_VEHICLES_DAILY_QUOTA    default 4500; separate quota for `/vehicles`
 TIMETABLE_CACHE_SHELF_LIFE     default 24h
 NEWS_CACHE_SHELF_LIFE          default 4h
 OTP_URL                        optional external OTP server. Defaults to local http://localhost:18080
 OTP_MX                         Java max heap for local OTP. Default 2G
 VEHICLE_SCHEDULE               weekday adaptive polling slots
 VEHICLE_SCHEDULE_WEEKEND       weekend adaptive polling slots
+VEHICLE_LEARNING_ENABLED       default true; background sampling for learned travel-time segments
+VEHICLE_LEARNING_INTERVAL      default 1m; skipped while live subscribers are already polling
+VEHICLE_LEARNING_MIN_QUOTA_REMAINING default 10% of vehicle quota, minimum 50
 ```
+
+Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling; the background sampler only fills quiet periods and preserves the configured quota reserve.
 
 ### API Surface
 
