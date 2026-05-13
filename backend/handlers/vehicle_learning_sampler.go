@@ -44,7 +44,12 @@ func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearnin
 }
 
 func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig) {
-	if VehicleHub != nil && VehicleHub.SubscriberCount() > 0 {
+	subscribers := 0
+	if VehicleHub != nil {
+		subscribers = VehicleHub.SubscriberCount()
+	}
+	if subscribers > 0 {
+		log.Printf("vehicle learner: skip, active_sse_subscribers=%d", subscribers)
 		return
 	}
 	remaining := tranzyClient.VehiclesQuotaRemaining()
@@ -56,8 +61,16 @@ func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSa
 	if shelfLife > time.Second {
 		shelfLife -= time.Second
 	}
-	if _, err := GetVehicles(tranzyClient, shelfLife, VehicleFilter{}); err != nil {
+	log.Printf("vehicle learner: sampling vehicles interval=%s cache_shelf=%s quota_remaining=%d reserve=%d",
+		cfg.Interval,
+		shelfLife,
+		remaining,
+		cfg.MinQuotaRemaining,
+	)
+	vehicles, err := GetVehicles(tranzyClient, shelfLife, VehicleFilter{})
+	if err != nil {
 		log.Printf("vehicle learner: sample failed: %v", err)
 		return
 	}
+	log.Printf("vehicle learner: sample complete vehicles=%d quota_remaining=%d", len(vehicles), tranzyClient.VehiclesQuotaRemaining())
 }

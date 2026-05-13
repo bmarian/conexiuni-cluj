@@ -68,6 +68,31 @@ type pendingSegmentSample struct {
 	ObservedAt time.Time
 }
 
+type segmentObservationStatus string
+
+const (
+	segmentObservedAccepted    segmentObservationStatus = "accepted"
+	segmentObservedInvalid     segmentObservationStatus = "invalid"
+	segmentObservedStale       segmentObservationStatus = "stale"
+	segmentObservedNoTracker   segmentObservationStatus = "no_tracker"
+	segmentObservedReset       segmentObservationStatus = "reset"
+	segmentObservedNoProgress  segmentObservationStatus = "no_progress"
+	segmentObservedNonAdjacent segmentObservationStatus = "non_adjacent"
+	segmentObservedRejected    segmentObservationStatus = "rejected"
+)
+
+type segmentObservationSummary struct {
+	Total       int
+	Accepted    int
+	Invalid     int
+	Stale       int
+	NoTracker   int
+	Reset       int
+	NoProgress  int
+	NonAdjacent int
+	Rejected    int
+}
+
 var (
 	tripSegmentTrackers = struct {
 		sync.RWMutex
@@ -87,29 +112,66 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 	if loc == nil {
 		loc = time.Local
 	}
+	summary := segmentObservationSummary{Total: len(vehicles)}
 	for _, v := range vehicles {
-		if sample, ok := observeVehicleSegment(loc, v); ok {
+		sample, status := observeVehicleSegment(loc, v)
+		summary.add(status)
+		if status == segmentObservedAccepted {
 			storeSegmentTravelSample(sample)
 		}
 	}
+	if summary.Total > 0 {
+		log.Printf("segment travel: snapshot vehicles=%d accepted=%d rejected=%d non_adjacent=%d reset=%d no_progress=%d no_tracker=%d stale=%d invalid=%d",
+			summary.Total,
+			summary.Accepted,
+			summary.Rejected,
+			summary.NonAdjacent,
+			summary.Reset,
+			summary.NoProgress,
+			summary.NoTracker,
+			summary.Stale,
+			summary.Invalid,
+		)
+	}
 }
 
-func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegmentSample, bool) {
+func (s *segmentObservationSummary) add(status segmentObservationStatus) {
+	switch status {
+	case segmentObservedAccepted:
+		s.Accepted++
+	case segmentObservedInvalid:
+		s.Invalid++
+	case segmentObservedStale:
+		s.Stale++
+	case segmentObservedNoTracker:
+		s.NoTracker++
+	case segmentObservedReset:
+		s.Reset++
+	case segmentObservedNoProgress:
+		s.NoProgress++
+	case segmentObservedNonAdjacent:
+		s.NonAdjacent++
+	case segmentObservedRejected:
+		s.Rejected++
+	}
+}
+
+func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegmentSample, segmentObservationStatus) {
 	if v.ID == 0 || v.Latitude <= 0 || v.Longitude <= 0 || v.RouteID < 0 || v.TripID == "" || v.TripID == "-1" {
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedInvalid
 	}
 	observedAt, err := time.Parse(time.RFC3339, v.Timestamp)
 	if err != nil {
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedInvalid
 	}
 	observedAt = observedAt.In(loc)
 	if time.Since(observedAt) > maxObservedVehicleAge || time.Until(observedAt) > 2*time.Minute {
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedStale
 	}
 
 	tracker, ok := getTripSegmentTracker(v.TripID)
 	if !ok || len(tracker.Stops) < 2 || len(tracker.Shape) < 2 {
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedNoTracker
 	}
 
 	shapeIdx := closestShapeIndexLatLon(v.Latitude, v.Longitude, tracker.Shape)
@@ -122,42 +184,49 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	if !exists || state.TripID != tracker.TripID || observedAt.After(state.LastObservedAt.Add(25*time.Minute)) ||
 		!observedAt.After(state.LastObservedAt) || shapeIdx+3 < state.ShapeIdx || stopPos < state.SegmentStartPos {
 		vehicleSegmentStates.byVehicle[v.ID] = newVehicleSegmentState(tracker.TripID, shapeIdx, stopPos, observedAt)
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedReset
 	}
 
 	state.ShapeIdx = shapeIdx
 	state.LastObservedAt = observedAt
 	if stopPos <= state.SegmentStartPos {
 		vehicleSegmentStates.byVehicle[v.ID] = state
-		return pendingSegmentSample{}, false
+		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
 
 	var sample pendingSegmentSample
-	recordSample := false
-	if state.HasSegmentStart && stopPos == state.SegmentStartPos+1 {
-		from := tracker.Stops[state.SegmentStartPos]
-		to := tracker.Stops[stopPos]
-		sample = pendingSegmentSample{
-			Key: segmentProfileKey{
-				RouteID:        tracker.RouteID,
-				DirectionID:    tracker.DirectionID,
-				FromStopID:     from.StopID,
-				ToStopID:       to.StopID,
-				DayType:        segmentDayType(observedAt),
-				BucketStartMin: segmentBucketStartMin(observedAt),
-			},
-			Duration:   observedAt.Sub(state.SegmentStartedAt),
-			DistanceM:  tracker.distanceBetweenStopPositions(state.SegmentStartPos, stopPos),
-			ObservedAt: observedAt,
+	status := segmentObservedReset
+	if state.HasSegmentStart {
+		status = segmentObservedNonAdjacent
+		if stopPos == state.SegmentStartPos+1 {
+			from := tracker.Stops[state.SegmentStartPos]
+			to := tracker.Stops[stopPos]
+			sample = pendingSegmentSample{
+				Key: segmentProfileKey{
+					RouteID:        tracker.RouteID,
+					DirectionID:    tracker.DirectionID,
+					FromStopID:     from.StopID,
+					ToStopID:       to.StopID,
+					DayType:        segmentDayType(observedAt),
+					BucketStartMin: segmentBucketStartMin(observedAt),
+				},
+				Duration:   observedAt.Sub(state.SegmentStartedAt),
+				DistanceM:  tracker.distanceBetweenStopPositions(state.SegmentStartPos, stopPos),
+				ObservedAt: observedAt,
+			}
+			if isPlausibleSegmentSample(sample) {
+				status = segmentObservedAccepted
+			} else {
+				status = segmentObservedRejected
+			}
 		}
-		recordSample = isPlausibleSegmentSample(sample)
 	}
 
 	state.SegmentStartPos = stopPos
 	state.SegmentStartedAt = observedAt
 	state.HasSegmentStart = stopPos >= 0 && stopPos < len(tracker.Stops)-1
 	vehicleSegmentStates.byVehicle[v.ID] = state
-	return sample, recordSample
+	return sample, status
 }
 
 func newVehicleSegmentState(tripID string, shapeIdx, stopPos int, observedAt time.Time) vehicleSegmentState {
@@ -308,6 +377,19 @@ func storeSegmentTravelSample(sample pendingSegmentSample) {
 		return
 	}
 
+	log.Printf("segment travel: sample stored route=%d dir=%d %d->%d day=%s bucket=%s duration=%s distance=%.0fm speed=%.1fkm/h observed=%s",
+		sample.Key.RouteID,
+		sample.Key.DirectionID,
+		sample.Key.FromStopID,
+		sample.Key.ToStopID,
+		sample.Key.DayType,
+		formatSegmentBucket(sample.Key.BucketStartMin),
+		sample.Duration.Round(time.Second),
+		sample.DistanceM,
+		segmentSampleSpeedKmh(sample),
+		sample.ObservedAt.Format(time.RFC3339),
+	)
+
 	recomputeSegmentProfile(sample.Key)
 	allDay := sample.Key
 	allDay.BucketStartMin = allDaySegmentBucket
@@ -316,6 +398,7 @@ func storeSegmentTravelSample(sample pendingSegmentSample) {
 }
 
 func recomputeSegmentProfile(key segmentProfileKey) {
+	oldCount, oldMedian, oldP75, hadOldProfile := loadSegmentProfileSnapshot(key)
 	query := `
 		SELECT duration_sec
 		FROM segment_travel_time_samples
@@ -360,7 +443,64 @@ func recomputeSegmentProfile(key segmentProfileKey) {
 		len(durations), median, p75, time.Now().Unix(),
 	); err != nil {
 		log.Printf("segment travel: profile upsert failed: %v", err)
+		return
 	}
+
+	if !hadOldProfile || oldCount != len(durations) || math.Abs(oldMedian-median) >= 0.5 || math.Abs(oldP75-p75) >= 0.5 {
+		if hadOldProfile {
+			log.Printf("segment travel: profile updated route=%d dir=%d %d->%d day=%s bucket=%s samples=%d median=%s p75=%s previous_samples=%d previous_median=%s previous_p75=%s",
+				key.RouteID,
+				key.DirectionID,
+				key.FromStopID,
+				key.ToStopID,
+				key.DayType,
+				formatSegmentBucket(key.BucketStartMin),
+				len(durations),
+				formatSecondsDuration(median),
+				formatSecondsDuration(p75),
+				oldCount,
+				formatSecondsDuration(oldMedian),
+				formatSecondsDuration(oldP75),
+			)
+		} else {
+			log.Printf("segment travel: profile created route=%d dir=%d %d->%d day=%s bucket=%s samples=%d median=%s p75=%s",
+				key.RouteID,
+				key.DirectionID,
+				key.FromStopID,
+				key.ToStopID,
+				key.DayType,
+				formatSegmentBucket(key.BucketStartMin),
+				len(durations),
+				formatSecondsDuration(median),
+				formatSecondsDuration(p75),
+			)
+		}
+	}
+}
+
+func loadSegmentProfileSnapshot(key segmentProfileKey) (int, float64, float64, bool) {
+	var count int
+	var median, p75 float64
+	err := database.DB.QueryRow(`
+		SELECT sample_count, median_sec, p75_sec
+		FROM segment_travel_time_profiles
+		WHERE route_id = ?
+		  AND direction_id = ?
+		  AND from_stop_id = ?
+		  AND to_stop_id = ?
+		  AND day_type = ?
+		  AND bucket_start_min = ?`,
+		key.RouteID,
+		key.DirectionID,
+		key.FromStopID,
+		key.ToStopID,
+		key.DayType,
+		key.BucketStartMin,
+	).Scan(&count, &median, &p75)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	return count, median, p75, true
 }
 
 func nearestRank(sortedValues []float64, percentile float64) float64 {
@@ -384,8 +524,13 @@ func pruneOldSegmentSamples() {
 		return
 	}
 	lastSegmentPrune = time.Now()
-	if _, err := database.DB.Exec(`DELETE FROM segment_travel_time_samples WHERE observed_at < ?`, time.Now().Add(-segmentSampleRetention).Unix()); err != nil {
+	res, err := database.DB.Exec(`DELETE FROM segment_travel_time_samples WHERE observed_at < ?`, time.Now().Add(-segmentSampleRetention).Unix())
+	if err != nil {
 		log.Printf("segment travel: sample prune failed: %v", err)
+		return
+	}
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		log.Printf("segment travel: pruned %d samples older than %s", n, segmentSampleRetention)
 	}
 }
 
@@ -469,6 +614,30 @@ func segmentDayType(t time.Time) string {
 func segmentBucketStartMin(t time.Time) int {
 	minutes := t.Hour()*60 + t.Minute()
 	return (minutes / segmentBucketMinutes) * segmentBucketMinutes
+}
+
+func segmentSampleSpeedKmh(sample pendingSegmentSample) float64 {
+	durationSec := sample.Duration.Seconds()
+	if durationSec <= 0 {
+		return 0
+	}
+	return (sample.DistanceM / 1000) / (durationSec / 3600)
+}
+
+func formatSegmentBucket(bucketStartMin int) string {
+	if bucketStartMin == allDaySegmentBucket {
+		return "all-day"
+	}
+	return formatMinuteOfDay(bucketStartMin)
+}
+
+func formatMinuteOfDay(minutes int) string {
+	minutes = ((minutes % 1440) + 1440) % 1440
+	return time.Date(0, 1, 1, minutes/60, minutes%60, 0, 0, time.UTC).Format("15:04")
+}
+
+func formatSecondsDuration(seconds float64) time.Duration {
+	return time.Duration(math.Round(seconds)) * time.Second
 }
 
 func directionIDFromTripID(tripID string) (int, bool) {

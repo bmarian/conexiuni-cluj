@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -31,13 +32,16 @@ func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filt
 	}
 
 	opts := CacheOpts[[]models.Vehicle]{}
-	if filter.RouteID != nil || len(filter.TripIDs) > 0 {
+	if filter.RouteID != nil || filter.TripID != nil || len(filter.TripIDs) > 0 {
 		f := filter
 		tripSet := tripIDSet(f.TripIDs)
 		opts.PostProcess = func(vs []models.Vehicle) []models.Vehicle {
 			out := make([]models.Vehicle, 0)
 			for _, v := range vs {
 				if f.RouteID != nil && v.RouteID != *f.RouteID {
+					continue
+				}
+				if f.TripID != nil && v.TripID != *f.TripID {
 					continue
 				}
 				if tripSet != nil {
@@ -67,32 +71,34 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		vehicles = make([]models.Vehicle, 0)
 	}
 
-	tripSet := tripIDSet(filter.TripIDs)
-	filtered := make([]models.Vehicle, 0)
+	valid := make([]models.Vehicle, 0, len(vehicles))
 	for _, v := range vehicles {
 		if v.RouteID == -1 || v.TripID == "-1" {
 			continue
 		}
 		v.TripID = NormalizeTripID(v.TripID)
-		if filter.RouteID != nil && v.RouteID != *filter.RouteID {
-			continue
-		}
-		if filter.TripID != nil && v.TripID != *filter.TripID {
-			continue
-		}
-		if tripSet != nil {
-			if _, ok := tripSet[v.TripID]; !ok {
-				continue
-			}
-		}
-		filtered = append(filtered, v)
+		valid = append(valid, v)
 	}
-	smoothed, err := smoothVehicles(tranzyClient, filtered, filter)
+	smoothed, err := smoothVehicles(tranzyClient, valid, VehicleFilter{})
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("vehicles: fetched raw=%d valid=%d learning_scope=all response_filter=%s", len(vehicles), len(smoothed), describeVehicleFilter(filter))
 	go ObserveVehicleSegmentTravelTimes(tranzyClient.Location(), smoothed)
 	return smoothed, nil
+}
+
+func describeVehicleFilter(filter VehicleFilter) string {
+	switch {
+	case filter.RouteID != nil:
+		return fmt.Sprintf("route_id=%d", *filter.RouteID)
+	case filter.TripID != nil:
+		return fmt.Sprintf("trip_id=%s", *filter.TripID)
+	case len(filter.TripIDs) > 0:
+		return fmt.Sprintf("trip_ids=%d", len(filter.TripIDs))
+	default:
+		return "all"
+	}
 }
 
 func tripIDSet(ids []string) map[string]struct{} {
