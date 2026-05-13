@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -266,38 +267,81 @@ func buildWarmupResponse(s WarmupSnapshot) warmupSnapshotResponse {
 	return resp
 }
 
-func normalizeTopRouteKeys(entries []database.TopEntry) []database.TopEntry {
-	out := make([]database.TopEntry, len(entries))
-	copy(out, entries)
-	for i := range out {
-		id, err := strconv.Atoi(out[i].Key)
-		if err != nil {
+// mergeTopEntries collapses entries whose keys map to the same final value
+// (after `resolve`) and drops anything `keep` rejects. Old stats_daily rows
+// recorded before the Availability filter landed still contain retired routes
+// and stops — this filters them at display time so bots probing dead URLs
+// don't pollute the top lists.
+func mergeTopEntries(entries []database.TopEntry, resolve func(string) string, keep func(string) bool) []database.TopEntry {
+	indexByKey := make(map[string]int, len(entries))
+	out := make([]database.TopEntry, 0, len(entries))
+	for _, e := range entries {
+		key := resolve(e.Key)
+		if !keep(key) {
 			continue
+		}
+		if idx, ok := indexByKey[key]; ok {
+			out[idx].Count += e.Count
+			continue
+		}
+		indexByKey[key] = len(out)
+		out = append(out, database.TopEntry{Key: key, Count: e.Count})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
+}
+
+func normalizeTopRouteKeys(entries []database.TopEntry) []database.TopEntry {
+	resolve := func(key string) string {
+		id, err := strconv.Atoi(key)
+		if err != nil {
+			return key
 		}
 		var shortName string
 		err = database.DB.QueryRow(`SELECT route_short_name FROM routes WHERE route_id = ?`, id).Scan(&shortName)
 		if err == nil && strings.TrimSpace(shortName) != "" {
-			out[i].Key = shortName
+			return shortName
 		}
+		return key
 	}
-	return out
+	keep := func(key string) bool {
+		if !Availability.IsReady() {
+			return true
+		}
+		return Availability.RouteHasTimetable(key)
+	}
+	return mergeTopEntries(entries, resolve, keep)
 }
 
 func normalizeTopStopKeys(entries []database.TopEntry) []database.TopEntry {
-	out := make([]database.TopEntry, len(entries))
-	copy(out, entries)
-	for i := range out {
-		id, err := strconv.Atoi(out[i].Key)
+	resolve := func(key string) string {
+		id, err := strconv.Atoi(key)
 		if err != nil {
-			continue
+			return key
 		}
 		var name string
 		err = database.DB.QueryRow(`SELECT stop_name FROM stops WHERE stop_id = ?`, id).Scan(&name)
 		if err == nil && strings.TrimSpace(name) != "" {
-			out[i].Key = name
+			return name
 		}
+		return key
 	}
-	return out
+	keep := func(key string) bool {
+		if !Availability.IsReady() {
+			return true
+		}
+		id, err := strconv.Atoi(key)
+		if err == nil {
+			return Availability.StopHasBuses(id)
+		}
+		var stopID int
+		err = database.DB.QueryRow(`SELECT stop_id FROM stops WHERE stop_name = ? LIMIT 1`, key).Scan(&stopID)
+		if err != nil {
+			return false
+		}
+		return Availability.StopHasBuses(stopID)
+	}
+	return mergeTopEntries(entries, resolve, keep)
 }
 
 func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Client, secureCookies bool) {

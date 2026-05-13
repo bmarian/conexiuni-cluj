@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
               <ul v-if="filteredTopStops.length" class="admin-bars">
                 <li v-for="(s, i) in filteredTopStops" :key="s.key">
                   <span class="admin-bar-rank">#{{ i + 1 }}</span>
-                  <span class="admin-bar-label">Stop {{ s.key }}</span>
+                  <span class="admin-bar-label">{{ s.key }}</span>
                   <span class="admin-bar-track">
                     <span class="admin-bar-fill" :style="{width: barPercent(s.count, stats.top_stops)}"></span>
                   </span>
