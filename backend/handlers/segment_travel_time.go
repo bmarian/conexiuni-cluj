@@ -102,6 +102,25 @@ type segmentWriteSummary struct {
 	ProfileError      int
 }
 
+type segmentLearningRuntimeSnapshot struct {
+	ObservedAt         string `json:"observed_at,omitempty"`
+	Vehicles           int    `json:"vehicles"`
+	Accepted           int    `json:"accepted"`
+	Stored             int    `json:"stored"`
+	ProfilesCreated    int    `json:"profiles_created"`
+	ProfilesUpdated    int    `json:"profiles_updated"`
+	ProfilesUnchanged  int    `json:"profiles_unchanged"`
+	Rejected           int    `json:"rejected"`
+	IgnoredReset       int    `json:"ignored_reset"`
+	IgnoredNoProgress  int    `json:"ignored_no_progress"`
+	IgnoredNonAdjacent int    `json:"ignored_non_adjacent"`
+	IgnoredNoTracker   int    `json:"ignored_no_tracker"`
+	Stale              int    `json:"stale"`
+	Invalid            int    `json:"invalid"`
+	SampleErrors       int    `json:"sample_errors"`
+	ProfileErrors      int    `json:"profile_errors"`
+}
+
 type segmentProfileWriteResult int
 
 const (
@@ -124,6 +143,11 @@ var (
 
 	segmentSamplePruneMu sync.Mutex
 	lastSegmentPrune     time.Time
+
+	segmentLearningRuntime = struct {
+		sync.RWMutex
+		snapshot segmentLearningRuntimeSnapshot
+	}{}
 )
 
 func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehicle) {
@@ -140,22 +164,41 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 		}
 	}
 	if summary.Total > 0 {
+		snapshot := segmentLearningRuntimeSnapshot{
+			ObservedAt:         time.Now().In(loc).Format(time.RFC3339),
+			Vehicles:           summary.Total,
+			Accepted:           summary.Accepted,
+			Stored:             writes.Stored,
+			ProfilesCreated:    writes.ProfilesCreated,
+			ProfilesUpdated:    writes.ProfilesUpdated,
+			ProfilesUnchanged:  writes.ProfilesUnchanged,
+			Rejected:           summary.Rejected,
+			IgnoredReset:       summary.Reset,
+			IgnoredNoProgress:  summary.NoProgress,
+			IgnoredNonAdjacent: summary.NonAdjacent,
+			IgnoredNoTracker:   summary.NoTracker,
+			Stale:              summary.Stale,
+			Invalid:            summary.Invalid,
+			SampleErrors:       writes.SampleInsertError,
+			ProfileErrors:      writes.ProfileError,
+		}
+		rememberSegmentLearningSnapshot(snapshot)
 		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
-			summary.Total,
-			summary.Accepted,
-			writes.Stored,
-			writes.ProfilesCreated,
-			writes.ProfilesUpdated,
-			writes.ProfilesUnchanged,
-			summary.Rejected,
-			summary.Reset,
-			summary.NoProgress,
-			summary.NonAdjacent,
-			summary.NoTracker,
-			summary.Stale,
-			summary.Invalid,
-			writes.SampleInsertError,
-			writes.ProfileError,
+			snapshot.Vehicles,
+			snapshot.Accepted,
+			snapshot.Stored,
+			snapshot.ProfilesCreated,
+			snapshot.ProfilesUpdated,
+			snapshot.ProfilesUnchanged,
+			snapshot.Rejected,
+			snapshot.IgnoredReset,
+			snapshot.IgnoredNoProgress,
+			snapshot.IgnoredNonAdjacent,
+			snapshot.IgnoredNoTracker,
+			snapshot.Stale,
+			snapshot.Invalid,
+			snapshot.SampleErrors,
+			snapshot.ProfileErrors,
 		)
 	}
 }
@@ -201,6 +244,18 @@ func (s *segmentWriteSummary) addProfileResult(result segmentProfileWriteResult)
 	default:
 		s.ProfilesUnchanged++
 	}
+}
+
+func rememberSegmentLearningSnapshot(snapshot segmentLearningRuntimeSnapshot) {
+	segmentLearningRuntime.Lock()
+	segmentLearningRuntime.snapshot = snapshot
+	segmentLearningRuntime.Unlock()
+}
+
+func currentSegmentLearningSnapshot() segmentLearningRuntimeSnapshot {
+	segmentLearningRuntime.RLock()
+	defer segmentLearningRuntime.RUnlock()
+	return segmentLearningRuntime.snapshot
 }
 
 func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegmentSample, segmentObservationStatus) {

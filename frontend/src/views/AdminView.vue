@@ -53,6 +53,41 @@ type WarmupSnapshot = {
   next_scheduled_at: string
 }
 
+type SegmentLearningRoute = {
+  route_id: number
+  route_short_name: string
+  samples: number
+  profiles: number
+}
+
+type SegmentLearningSnapshot = {
+  observed_at?: string
+  vehicles: number
+  accepted: number
+  stored: number
+  profiles_created: number
+  profiles_updated: number
+  profiles_unchanged: number
+  rejected: number
+  ignored_reset: number
+  ignored_no_progress: number
+  ignored_non_adjacent: number
+  ignored_no_tracker: number
+  stale: number
+  invalid: number
+  sample_errors: number
+  profile_errors: number
+}
+
+type SegmentLearning = {
+  total_samples: number
+  total_profiles: number
+  routes_with_profiles: number
+  last_sample_at?: string
+  last_snapshot: SegmentLearningSnapshot
+  top_routes: SegmentLearningRoute[]
+}
+
 type StatsResponse = {
   visitors: VisitorTotals
   daily_visits: DailyVisit[]
@@ -72,6 +107,7 @@ type StatsResponse = {
   daily_tranzy_quota: DailyTranzyQuota[]
   endpoint_response_times: EndpointTiming[]
   cache_groups: CacheGroup[]
+  segment_learning: SegmentLearning
   warmup: WarmupSnapshot
   generated_at: string
 }
@@ -346,6 +382,22 @@ const cacheGroups = computed(() => stats.value?.cache_groups ?? [])
 
 const warmupInfo = computed(() => stats.value?.warmup ?? null)
 
+const segmentLearning = computed(() => stats.value?.segment_learning ?? null)
+
+const segmentLearningRoutePeak = computed(() =>
+  Math.max(...(segmentLearning.value?.top_routes ?? []).map(r => r.profiles), 1),
+)
+
+const segmentLearningBarPercent = (profiles: number) => `${(profiles / segmentLearningRoutePeak.value) * 100}%`
+
+const segmentSnapshot = computed(() => segmentLearning.value?.last_snapshot ?? null)
+
+const segmentSnapshotIgnored = computed(() => {
+  const s = segmentSnapshot.value
+  if (!s) return 0
+  return s.ignored_reset + s.ignored_no_progress + s.ignored_non_adjacent + s.ignored_no_tracker
+})
+
 const cacheHealthyCount = computed(() =>
   cacheGroups.value.reduce((n, g) => n + (g.count - g.expired_count), 0),
 )
@@ -593,6 +645,60 @@ onBeforeUnmount(() => {
                 </table>
               </div>
               <div v-else class="admin-empty">No cached entries</div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Travel-time learning</h2>
+                <span class="admin-card-meta">
+                  {{ formatNumber(segmentLearning?.routes_with_profiles ?? 0) }} routes
+                </span>
+              </div>
+              <div v-if="segmentLearning" class="admin-learning">
+                <div class="admin-learning-metrics">
+                  <div class="admin-learning-metric">
+                    <span>Samples</span>
+                    <strong>{{ formatNumber(segmentLearning.total_samples) }}</strong>
+                  </div>
+                  <div class="admin-learning-metric">
+                    <span>Profiles</span>
+                    <strong>{{ formatNumber(segmentLearning.total_profiles) }}</strong>
+                  </div>
+                  <div class="admin-learning-metric">
+                    <span>Last sample</span>
+                    <strong>{{ formatRelative(segmentLearning.last_sample_at) }}</strong>
+                  </div>
+                </div>
+
+                <div v-if="segmentSnapshot?.observed_at" class="admin-learning-snapshot">
+                  <div class="admin-learning-snapshot-head">
+                    <span>Latest snapshot</span>
+                    <strong>{{ formatRelative(segmentSnapshot.observed_at) }}</strong>
+                  </div>
+                  <div class="admin-learning-pills">
+                    <span>{{ formatNumber(segmentSnapshot.vehicles) }} vehicles</span>
+                    <span>{{ formatNumber(segmentSnapshot.accepted) }} accepted</span>
+                    <span>{{ formatNumber(segmentSnapshot.stored) }} stored</span>
+                    <span>{{ formatNumber(segmentSnapshotIgnored) }} ignored</span>
+                    <span v-if="segmentSnapshot.sample_errors || segmentSnapshot.profile_errors" class="admin-learning-warn">
+                      {{ formatNumber(segmentSnapshot.sample_errors + segmentSnapshot.profile_errors) }} errors
+                    </span>
+                  </div>
+                </div>
+
+                <ul v-if="segmentLearning.top_routes.length" class="admin-bars admin-learning-bars">
+                  <li v-for="(route, i) in segmentLearning.top_routes" :key="route.route_id">
+                    <span class="admin-bar-rank">#{{ i + 1 }}</span>
+                    <span class="admin-bar-label">{{ route.route_short_name || route.route_id }}</span>
+                    <span class="admin-bar-track">
+                      <span class="admin-bar-fill admin-bar-fill-learning" :style="{width: segmentLearningBarPercent(route.profiles)}"></span>
+                    </span>
+                    <span class="admin-bar-count">{{ formatNumber(route.profiles) }} · {{ formatNumber(route.samples) }}</span>
+                  </li>
+                </ul>
+                <div v-else class="admin-empty">No learned profiles yet</div>
+              </div>
+              <div v-else class="admin-empty">No learning stats yet</div>
             </div>
           </section>
 
@@ -1161,6 +1267,92 @@ onBeforeUnmount(() => {
 .admin-warmup-sub {
   color: #64748b;
   font-size: 0.78rem;
+}
+
+.admin-learning {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-learning-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-learning-metric,
+.admin-learning-snapshot {
+  background: var(--admin-subtle, #0b1220);
+  border: 1px solid var(--admin-border, #1f2a44);
+  border-radius: 8px;
+}
+
+.admin-learning-metric {
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+}
+
+.admin-learning-metric span,
+.admin-learning-snapshot-head span {
+  display: block;
+  color: var(--admin-muted, #94a3b8);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-learning-metric strong,
+.admin-learning-snapshot-head strong {
+  color: var(--admin-text, #e6edf3);
+  font-size: 1rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-learning-snapshot {
+  padding: 0.7rem;
+}
+
+.admin-learning-snapshot-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.admin-learning-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.admin-learning-pills span {
+  background: var(--admin-surface, #111a2c);
+  border: 1px solid var(--admin-border, #233052);
+  border-radius: 999px;
+  color: var(--admin-muted, #94a3b8);
+  font-size: 0.74rem;
+  padding: 0.2rem 0.48rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-learning-pills .admin-learning-warn {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.admin-learning-bars li {
+  grid-template-columns: 2rem minmax(5rem, 1fr) minmax(4rem, 1fr) auto;
+}
+
+.admin-bar-fill-learning {
+  background: linear-gradient(90deg, #22c55e 0%, #38bdf8 100%);
 }
 
 .admin-cache-table-wrap {
@@ -2278,6 +2470,10 @@ onBeforeUnmount(() => {
   background: repeating-linear-gradient(90deg, #f59e0b 0 0.9rem, #ef4444 0.9rem 1.8rem);
 }
 
+.admin-shell.is-arcade .admin-bar-fill-learning {
+  background: repeating-linear-gradient(90deg, #22c55e 0 0.9rem, #38bdf8 0.9rem 1.8rem);
+}
+
 .admin-shell.is-arcade .admin-quota-default,
 .admin-shell.is-arcade .admin-kpi-meter-alt span {
   background: repeating-linear-gradient(90deg, #a78bfa 0 0.9rem, #f472b6 0.9rem 1.8rem);
@@ -2525,6 +2721,10 @@ onBeforeUnmount(() => {
 
 .admin-shell.is-legacy-blue .admin-bar-fill-latency {
   background: linear-gradient(to bottom, #ffcf63 0%, #f3a536 50%, #d56b18 100%);
+}
+
+.admin-shell.is-legacy-blue .admin-bar-fill-learning {
+  background: linear-gradient(to bottom, #72d56f 0%, #239247 55%, #12652f 100%);
 }
 
 .admin-shell.is-legacy-blue .admin-quota-default,

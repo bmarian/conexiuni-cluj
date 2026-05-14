@@ -117,6 +117,7 @@ type adminStatsResponse struct {
 	DailyTranzyQuota      []database.DailyTranzyQuotaPoint `json:"daily_tranzy_quota"`
 	EndpointResponseTimes []database.EndpointTimingEntry   `json:"endpoint_response_times"`
 	CacheGroups           []cacheGroupSnapshot             `json:"cache_groups"`
+	SegmentLearning       segmentLearningStats             `json:"segment_learning"`
 	Warmup                warmupSnapshotResponse           `json:"warmup"`
 	GeneratedAt           string                           `json:"generated_at"`
 }
@@ -135,6 +136,22 @@ type warmupSnapshotResponse struct {
 	LastCompletedAt string `json:"last_completed_at,omitempty"`
 	LastDurationMs  int64  `json:"last_duration_ms,omitempty"`
 	NextScheduledAt string `json:"next_scheduled_at"`
+}
+
+type segmentLearningStats struct {
+	TotalSamples       int                            `json:"total_samples"`
+	TotalProfiles      int                            `json:"total_profiles"`
+	RoutesWithProfiles int                            `json:"routes_with_profiles"`
+	LastSampleAt       string                         `json:"last_sample_at,omitempty"`
+	LastSnapshot       segmentLearningRuntimeSnapshot `json:"last_snapshot"`
+	TopRoutes          []segmentLearningRouteStats    `json:"top_routes"`
+}
+
+type segmentLearningRouteStats struct {
+	RouteID        int    `json:"route_id"`
+	RouteShortName string `json:"route_short_name"`
+	Samples        int    `json:"samples"`
+	Profiles       int    `json:"profiles"`
 }
 
 type tranzyQuotaSnapshot struct {
@@ -265,6 +282,65 @@ func buildWarmupResponse(s WarmupSnapshot) warmupSnapshotResponse {
 		resp.LastDurationMs = s.LastDuration.Milliseconds()
 	}
 	return resp
+}
+
+func loadSegmentLearningStats(loc *time.Location) (segmentLearningStats, error) {
+	if loc == nil {
+		loc = time.Local
+	}
+	stats := segmentLearningStats{
+		LastSnapshot: currentSegmentLearningSnapshot(),
+		TopRoutes:    []segmentLearningRouteStats{},
+	}
+
+	var lastObserved int64
+	if err := database.DB.QueryRow(`
+		SELECT COUNT(*), COUNT(DISTINCT route_id), COALESCE(MAX(observed_at), 0)
+		FROM segment_travel_time_samples
+	`).Scan(&stats.TotalSamples, &stats.RoutesWithProfiles, &lastObserved); err != nil {
+		return stats, err
+	}
+	if lastObserved > 0 {
+		stats.LastSampleAt = time.Unix(lastObserved, 0).In(loc).Format(time.RFC3339)
+	}
+
+	if err := database.DB.QueryRow(`SELECT COUNT(*) FROM segment_travel_time_profiles`).Scan(&stats.TotalProfiles); err != nil {
+		return stats, err
+	}
+
+	rows, err := database.DB.Query(`
+		SELECT
+			p.route_id,
+			COALESCE(r.route_short_name, ''),
+			COUNT(*) AS profiles,
+			COALESCE(MAX(s.sample_count), 0) AS samples
+		FROM segment_travel_time_profiles p
+		LEFT JOIN routes r ON r.route_id = p.route_id
+		LEFT JOIN (
+			SELECT route_id, COUNT(*) AS sample_count
+			FROM segment_travel_time_samples
+			GROUP BY route_id
+		) s ON s.route_id = p.route_id
+		GROUP BY p.route_id, r.route_short_name
+		ORDER BY profiles DESC, samples DESC
+		LIMIT 8
+	`)
+	if err != nil {
+		return stats, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var entry segmentLearningRouteStats
+		if err := rows.Scan(&entry.RouteID, &entry.RouteShortName, &entry.Profiles, &entry.Samples); err != nil {
+			return stats, err
+		}
+		if entry.RouteShortName == "" {
+			entry.RouteShortName = strconv.Itoa(entry.RouteID)
+		}
+		stats.TopRoutes = append(stats.TopRoutes, entry)
+	}
+	return stats, rows.Err()
 }
 
 // mergeTopEntries collapses entries whose keys map to the same final value
@@ -416,6 +492,10 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		cacheGroups := buildCacheGroups(cacheEntries, time.Now())
+		segmentLearning, err := loadSegmentLearningStats(tranzyClient.Location())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
 		warmup := buildWarmupResponse(WarmupState.Snapshot())
 
 		resp := adminStatsResponse{
@@ -437,6 +517,7 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 			DailyTranzyQuota:      dailyTranzyQuota,
 			EndpointResponseTimes: endpointResponseTimes,
 			CacheGroups:           cacheGroups,
+			SegmentLearning:       segmentLearning,
 			Warmup:                warmup,
 			GeneratedAt:           time.Now().UTC().Format(time.RFC3339),
 		}
