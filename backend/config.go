@@ -34,7 +34,7 @@ type Config struct {
 	VehicleMinInterval       time.Duration
 	VehicleMaxInterval       time.Duration
 	VehicleLearningEnabled   bool
-	VehicleLearningInterval  time.Duration
+	VehicleLearningMaxQuota  int
 	VehicleLearningMinQuota  int
 	OtpMaxMemory             string
 }
@@ -131,7 +131,7 @@ func Load() *Config {
 		VehicleMinInterval:       getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
 		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
 		VehicleLearningEnabled:   getBool("VEHICLE_LEARNING_ENABLED", true),
-		VehicleLearningInterval:  getDuration("VEHICLE_LEARNING_INTERVAL", time.Minute),
+		VehicleLearningMaxQuota:  getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
 		VehicleLearningMinQuota:  getInt("VEHICLE_LEARNING_MIN_QUOTA_REMAINING", vehicleLearningMinQuota),
 		OtpMaxMemory:             getEnv("OTP_MX", "2G"),
 	}

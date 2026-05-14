@@ -108,7 +108,7 @@ func main() {
 	})
 	handlers.StartVehicleLearningSampler(tranzyClient, handlers.VehicleLearningSamplerConfig{
 		Enabled:           config.VehicleLearningEnabled,
-		Interval:          config.VehicleLearningInterval,
+		MaxDailyQuota:     config.VehicleLearningMaxQuota,
 		MinQuotaRemaining: config.VehicleLearningMinQuota,
 	})
 

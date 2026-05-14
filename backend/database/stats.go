@@ -383,6 +383,48 @@ func GetDailyTranzyQuotaUsage(days int) ([]DailyTranzyQuotaPoint, error) {
 	return out, nil
 }
 
+func GetAverageDailyTranzyQuotaUsage(key string, days int) (float64, int, error) {
+	if days <= 0 {
+		days = 14
+	}
+	loc := statsLocation()
+	today := time.Now().In(loc).Format("2006-01-02")
+	start := time.Now().In(loc).AddDate(0, 0, -days).Format("2006-01-02")
+
+	rows, err := DB.Query(`
+		SELECT SUM(count)
+		FROM stats_daily
+		WHERE metric = 'tranzy_quota'
+			AND key = ?
+			AND date >= ?
+			AND date < ?
+		GROUP BY date
+		HAVING SUM(count) > 0
+	`, key, start, today)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	total := 0
+	activeDays := 0
+	for rows.Next() {
+		var count int
+		if err := rows.Scan(&count); err != nil {
+			return 0, 0, err
+		}
+		total += count
+		activeDays++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+	if activeDays == 0 {
+		return 0, 0, nil
+	}
+	return float64(total) / float64(activeDays), activeDays, nil
+}
+
 type TopEntry struct {
 	Key   string `json:"key"`
 	Count int    `json:"count"`
