@@ -161,8 +161,6 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 		groupByTrip[st.TripID] = append(groupByTrip[st.TripID], i)
 	}
 
-	appliedByDirection := make(map[int]int)
-	profileCountByDirection := make(map[int]int)
 	for tripID, indexes := range groupByTrip {
 		directionID, ok := directionIDFromTripID(tripID)
 		if !ok {
@@ -177,7 +175,6 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 				profiles = map[stopPair]float64{}
 			}
 			profilesByDirection[directionID] = profiles
-			profileCountByDirection[directionID] = len(profiles)
 		}
 		if len(profiles) == 0 {
 			continue
@@ -192,25 +189,8 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 			pair := stopPair{FromStopID: prev.StopID, ToStopID: out[currIdx].StopID}
 			if duration, ok := profiles[pair]; ok && duration > 0 {
 				out[currIdx].OffsetArrivalTime = math.Ceil(duration)
-				appliedByDirection[directionID]++
 			}
 		}
-	}
-
-	totalApplied := 0
-	for _, applied := range appliedByDirection {
-		totalApplied += applied
-	}
-	if totalApplied > 0 {
-		log.Printf("stop_times: applied learned segment profiles route=%d ref=%s total_segments=%d dir0=%d/%d dir1=%d/%d",
-			routeID,
-			refTime.Format(time.RFC3339),
-			totalApplied,
-			appliedByDirection[0],
-			profileCountByDirection[0],
-			appliedByDirection[1],
-			profileCountByDirection[1],
-		)
 	}
 
 	return out

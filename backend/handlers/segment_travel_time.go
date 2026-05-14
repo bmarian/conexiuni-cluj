@@ -93,6 +93,24 @@ type segmentObservationSummary struct {
 	Rejected    int
 }
 
+type segmentWriteSummary struct {
+	Stored            int
+	SampleInsertError int
+	ProfilesCreated   int
+	ProfilesUpdated   int
+	ProfilesUnchanged int
+	ProfileError      int
+}
+
+type segmentProfileWriteResult int
+
+const (
+	segmentProfileUnchanged segmentProfileWriteResult = iota
+	segmentProfileCreated
+	segmentProfileUpdated
+	segmentProfileFailed
+)
+
 var (
 	tripSegmentTrackers = struct {
 		sync.RWMutex
@@ -113,24 +131,31 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 		loc = time.Local
 	}
 	summary := segmentObservationSummary{Total: len(vehicles)}
+	writes := segmentWriteSummary{}
 	for _, v := range vehicles {
 		sample, status := observeVehicleSegment(loc, v)
 		summary.add(status)
 		if status == segmentObservedAccepted {
-			storeSegmentTravelSample(sample)
+			writes.add(storeSegmentTravelSample(sample))
 		}
 	}
 	if summary.Total > 0 {
-		log.Printf("segment travel: snapshot vehicles=%d accepted=%d rejected=%d non_adjacent=%d reset=%d no_progress=%d no_tracker=%d stale=%d invalid=%d",
+		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
 			summary.Total,
 			summary.Accepted,
+			writes.Stored,
+			writes.ProfilesCreated,
+			writes.ProfilesUpdated,
+			writes.ProfilesUnchanged,
 			summary.Rejected,
-			summary.NonAdjacent,
 			summary.Reset,
 			summary.NoProgress,
+			summary.NonAdjacent,
 			summary.NoTracker,
 			summary.Stale,
 			summary.Invalid,
+			writes.SampleInsertError,
+			writes.ProfileError,
 		)
 	}
 }
@@ -153,6 +178,28 @@ func (s *segmentObservationSummary) add(status segmentObservationStatus) {
 		s.NonAdjacent++
 	case segmentObservedRejected:
 		s.Rejected++
+	}
+}
+
+func (s *segmentWriteSummary) add(other segmentWriteSummary) {
+	s.Stored += other.Stored
+	s.SampleInsertError += other.SampleInsertError
+	s.ProfilesCreated += other.ProfilesCreated
+	s.ProfilesUpdated += other.ProfilesUpdated
+	s.ProfilesUnchanged += other.ProfilesUnchanged
+	s.ProfileError += other.ProfileError
+}
+
+func (s *segmentWriteSummary) addProfileResult(result segmentProfileWriteResult) {
+	switch result {
+	case segmentProfileCreated:
+		s.ProfilesCreated++
+	case segmentProfileUpdated:
+		s.ProfilesUpdated++
+	case segmentProfileFailed:
+		s.ProfileError++
+	default:
+		s.ProfilesUnchanged++
 	}
 }
 
@@ -359,7 +406,8 @@ func (t *tripSegmentTracker) distanceBetweenStopPositions(fromPos, toPos int) fl
 	return t.Cumulative[toIdx] - t.Cumulative[fromIdx]
 }
 
-func storeSegmentTravelSample(sample pendingSegmentSample) {
+func storeSegmentTravelSample(sample pendingSegmentSample) segmentWriteSummary {
+	summary := segmentWriteSummary{}
 	if _, err := database.DB.Exec(`
 		INSERT INTO segment_travel_time_samples
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
@@ -374,30 +422,20 @@ func storeSegmentTravelSample(sample pendingSegmentSample) {
 		sample.ObservedAt.Unix(),
 	); err != nil {
 		log.Printf("segment travel: sample insert failed: %v", err)
-		return
+		summary.SampleInsertError++
+		return summary
 	}
 
-	log.Printf("segment travel: sample stored route=%d dir=%d %d->%d day=%s bucket=%s duration=%s distance=%.0fm speed=%.1fkm/h observed=%s",
-		sample.Key.RouteID,
-		sample.Key.DirectionID,
-		sample.Key.FromStopID,
-		sample.Key.ToStopID,
-		sample.Key.DayType,
-		formatSegmentBucket(sample.Key.BucketStartMin),
-		sample.Duration.Round(time.Second),
-		sample.DistanceM,
-		segmentSampleSpeedKmh(sample),
-		sample.ObservedAt.Format(time.RFC3339),
-	)
-
-	recomputeSegmentProfile(sample.Key)
+	summary.Stored++
+	summary.addProfileResult(recomputeSegmentProfile(sample.Key))
 	allDay := sample.Key
 	allDay.BucketStartMin = allDaySegmentBucket
-	recomputeSegmentProfile(allDay)
+	summary.addProfileResult(recomputeSegmentProfile(allDay))
 	pruneOldSegmentSamples()
+	return summary
 }
 
-func recomputeSegmentProfile(key segmentProfileKey) {
+func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 	oldCount, oldMedian, oldP75, hadOldProfile := loadSegmentProfileSnapshot(key)
 	query := `
 		SELECT duration_sec
@@ -423,8 +461,9 @@ func recomputeSegmentProfile(key segmentProfileKey) {
 	if err != nil || len(durations) == 0 {
 		if err != nil {
 			log.Printf("segment travel: profile recompute failed: %v", err)
+			return segmentProfileFailed
 		}
-		return
+		return segmentProfileUnchanged
 	}
 
 	median := nearestRank(durations, 0.50)
@@ -443,39 +482,16 @@ func recomputeSegmentProfile(key segmentProfileKey) {
 		len(durations), median, p75, time.Now().Unix(),
 	); err != nil {
 		log.Printf("segment travel: profile upsert failed: %v", err)
-		return
+		return segmentProfileFailed
 	}
 
 	if !hadOldProfile || oldCount != len(durations) || math.Abs(oldMedian-median) >= 0.5 || math.Abs(oldP75-p75) >= 0.5 {
 		if hadOldProfile {
-			log.Printf("segment travel: profile updated route=%d dir=%d %d->%d day=%s bucket=%s samples=%d median=%s p75=%s previous_samples=%d previous_median=%s previous_p75=%s",
-				key.RouteID,
-				key.DirectionID,
-				key.FromStopID,
-				key.ToStopID,
-				key.DayType,
-				formatSegmentBucket(key.BucketStartMin),
-				len(durations),
-				formatSecondsDuration(median),
-				formatSecondsDuration(p75),
-				oldCount,
-				formatSecondsDuration(oldMedian),
-				formatSecondsDuration(oldP75),
-			)
-		} else {
-			log.Printf("segment travel: profile created route=%d dir=%d %d->%d day=%s bucket=%s samples=%d median=%s p75=%s",
-				key.RouteID,
-				key.DirectionID,
-				key.FromStopID,
-				key.ToStopID,
-				key.DayType,
-				formatSegmentBucket(key.BucketStartMin),
-				len(durations),
-				formatSecondsDuration(median),
-				formatSecondsDuration(p75),
-			)
+			return segmentProfileUpdated
 		}
+		return segmentProfileCreated
 	}
+	return segmentProfileUnchanged
 }
 
 func loadSegmentProfileSnapshot(key segmentProfileKey) (int, float64, float64, bool) {
@@ -614,30 +630,6 @@ func segmentDayType(t time.Time) string {
 func segmentBucketStartMin(t time.Time) int {
 	minutes := t.Hour()*60 + t.Minute()
 	return (minutes / segmentBucketMinutes) * segmentBucketMinutes
-}
-
-func segmentSampleSpeedKmh(sample pendingSegmentSample) float64 {
-	durationSec := sample.Duration.Seconds()
-	if durationSec <= 0 {
-		return 0
-	}
-	return (sample.DistanceM / 1000) / (durationSec / 3600)
-}
-
-func formatSegmentBucket(bucketStartMin int) string {
-	if bucketStartMin == allDaySegmentBucket {
-		return "all-day"
-	}
-	return formatMinuteOfDay(bucketStartMin)
-}
-
-func formatMinuteOfDay(minutes int) string {
-	minutes = ((minutes % 1440) + 1440) % 1440
-	return time.Date(0, 1, 1, minutes/60, minutes%60, 0, 0, time.UTC).Format("15:04")
-}
-
-func formatSecondsDuration(seconds float64) time.Duration {
-	return time.Duration(math.Round(seconds)) * time.Second
 }
 
 func directionIDFromTripID(tripID string) (int, bool) {

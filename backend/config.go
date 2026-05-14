@@ -35,7 +35,6 @@ type Config struct {
 	VehicleMaxInterval       time.Duration
 	VehicleLearningEnabled   bool
 	VehicleLearningMaxQuota  int
-	VehicleLearningMinQuota  int
 	OtpMaxMemory             string
 }
 
@@ -100,10 +99,6 @@ func Load() *Config {
 
 	tranzyDefaultDailyQuota := getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144)
 	tranzyVehiclesDailyQuota := getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500)
-	vehicleLearningMinQuota := tranzyVehiclesDailyQuota / 10
-	if vehicleLearningMinQuota < 50 {
-		vehicleLearningMinQuota = 50
-	}
 	// 6 distinct Tranzy endpoint caches share the quota equally
 	tranzyCacheShelfLife := 24 * time.Hour * 6 / time.Duration(tranzyDefaultDailyQuota)
 
@@ -132,7 +127,6 @@ func Load() *Config {
 		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
 		VehicleLearningEnabled:   getBool("VEHICLE_LEARNING_ENABLED", true),
 		VehicleLearningMaxQuota:  getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
-		VehicleLearningMinQuota:  getInt("VEHICLE_LEARNING_MIN_QUOTA_REMAINING", vehicleLearningMinQuota),
 		OtpMaxMemory:             getEnv("OTP_MX", "2G"),
 	}
 

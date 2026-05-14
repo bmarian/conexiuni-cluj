@@ -107,9 +107,8 @@ func main() {
 		MaxInterval: config.VehicleMaxInterval,
 	})
 	handlers.StartVehicleLearningSampler(tranzyClient, handlers.VehicleLearningSamplerConfig{
-		Enabled:           config.VehicleLearningEnabled,
-		MaxDailyQuota:     config.VehicleLearningMaxQuota,
-		MinQuotaRemaining: config.VehicleLearningMinQuota,
+		Enabled:       config.VehicleLearningEnabled,
+		MaxDailyQuota: config.VehicleLearningMaxQuota,
 	})
 
 	app := fiber.New(fiber.Config{

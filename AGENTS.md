@@ -98,10 +98,9 @@ VEHICLE_SCHEDULE               weekday adaptive polling slots
 VEHICLE_SCHEDULE_WEEKEND       weekend adaptive polling slots
 VEHICLE_LEARNING_ENABLED       default true; background sampling for learned travel-time segments
 VEHICLE_LEARNING_DAILY_QUOTA_MAX default 3000; cap for background learning `/vehicles` calls
-VEHICLE_LEARNING_MIN_QUOTA_REMAINING default 10% of vehicle quota, minimum 50
 ```
 
-Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling; the background sampler only fills quiet periods and preserves the configured quota reserve. Its daily budget is the lower of `VEHICLE_LEARNING_DAILY_QUOTA_MAX` and half of the average unused vehicle quota from recent active days, then it spreads that budget across the remaining day.
+Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling. The background sampler only fills quiet periods, and its daily budget is the lower of `VEHICLE_LEARNING_DAILY_QUOTA_MAX` and half of the average unused vehicle quota from recent active days. It spreads that budget across the remaining day and also stretches when today's actual vehicle quota is lower.
 
 ### API Surface
 

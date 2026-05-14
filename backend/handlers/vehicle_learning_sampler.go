@@ -15,20 +15,18 @@ const (
 )
 
 type VehicleLearningSamplerConfig struct {
-	Enabled           bool
-	MaxDailyQuota     int
-	MinQuotaRemaining int
+	Enabled       bool
+	MaxDailyQuota int
 }
 
 type vehicleLearningPlan struct {
-	Interval                time.Duration
-	ShelfLife               time.Duration
-	DailyBudget             int
-	AverageDailyUsage       float64
-	AverageDays             int
-	CallsRemaining          int
-	QuotaRemaining          int
-	SpendableQuotaRemaining int
+	Interval          time.Duration
+	ShelfLife         time.Duration
+	DailyBudget       int
+	AverageDailyUsage float64
+	AverageDays       int
+	CallsRemaining    int
+	QuotaRemaining    int
 }
 
 func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig) {
@@ -40,13 +38,8 @@ func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearnin
 		log.Printf("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
 		return
 	}
-	if cfg.MinQuotaRemaining < 0 {
-		cfg.MinQuotaRemaining = 0
-	}
-
-	log.Printf("vehicle learner: enabled max_daily_quota=%d quota_reserve=%d average_days=%d",
+	log.Printf("vehicle learner: enabled max_daily_quota=%d average_days=%d",
 		cfg.MaxDailyQuota,
-		cfg.MinQuotaRemaining,
 		vehicleLearningAverageDays,
 	)
 	go func() {
@@ -68,40 +61,34 @@ func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSa
 		subscribers = VehicleHub.SubscriberCount()
 	}
 	if subscribers > 0 {
-		log.Printf("vehicle learner: skip, active_sse_subscribers=%d", subscribers)
 		return
 	}
 
 	plan := currentVehicleLearningPlan(tranzyClient, cfg)
 	if plan.CallsRemaining <= 0 {
-		log.Printf("vehicle learner: skip, calls_remaining=%d daily_budget=%d avg_vehicle_usage=%.1f avg_days=%d quota_remaining=%d spendable_quota=%d reserve=%d",
+		log.Printf("vehicle learner: skip, calls_remaining=%d daily_budget=%d avg_vehicle_usage=%.1f avg_days=%d quota_remaining=%d",
 			plan.CallsRemaining,
 			plan.DailyBudget,
 			plan.AverageDailyUsage,
 			plan.AverageDays,
 			plan.QuotaRemaining,
-			plan.SpendableQuotaRemaining,
-			cfg.MinQuotaRemaining,
 		)
 		return
 	}
 
-	log.Printf("vehicle learner: sampling vehicles interval=%s cache_shelf=%s daily_budget=%d calls_remaining=%d avg_vehicle_usage=%.1f avg_days=%d quota_remaining=%d reserve=%d",
-		plan.Interval,
-		plan.ShelfLife,
-		plan.DailyBudget,
-		plan.CallsRemaining,
-		plan.AverageDailyUsage,
-		plan.AverageDays,
-		plan.QuotaRemaining,
-		cfg.MinQuotaRemaining,
-	)
-	vehicles, err := GetVehicles(tranzyClient, plan.ShelfLife, VehicleFilter{})
+	_, err := GetVehicles(tranzyClient, plan.ShelfLife, VehicleFilter{})
 	if err != nil {
-		log.Printf("vehicle learner: sample failed: %v", err)
+		log.Printf("vehicle learner: sample failed interval=%s daily_budget=%d calls_remaining=%d avg_vehicle_usage=%.1f avg_days=%d quota_remaining=%d err=%v",
+			plan.Interval,
+			plan.DailyBudget,
+			plan.CallsRemaining,
+			plan.AverageDailyUsage,
+			plan.AverageDays,
+			plan.QuotaRemaining,
+			err,
+		)
 		return
 	}
-	log.Printf("vehicle learner: sample complete vehicles=%d quota_remaining=%d", len(vehicles), tranzyClient.VehiclesQuotaRemaining())
 }
 
 func currentVehicleLearningPlan(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig) vehicleLearningPlan {
@@ -114,7 +101,6 @@ func currentVehicleLearningPlan(tranzyClient *tranzy.Client, cfg VehicleLearning
 		tranzyClient.VehiclesQuotaLimit(),
 		tranzyClient.VehiclesQuotaRemaining(),
 		cfg.MaxDailyQuota,
-		cfg.MinQuotaRemaining,
 		avgUsage,
 		avgDays,
 		time.Now(),
@@ -126,7 +112,6 @@ func computeVehicleLearningPlan(
 	quotaLimit int,
 	quotaRemaining int,
 	maxDailyQuota int,
-	minQuotaRemaining int,
 	averageDailyUsage float64,
 	averageDays int,
 	now time.Time,
@@ -134,13 +119,12 @@ func computeVehicleLearningPlan(
 ) vehicleLearningPlan {
 	dailyBudget := computeVehicleLearningDailyBudget(quotaLimit, maxDailyQuota, averageDailyUsage)
 	callsByClock, untilReset := vehicleLearningCallsRemainingByClock(dailyBudget, now, loc)
-	spendableQuota := quotaRemaining - minQuotaRemaining
-	if spendableQuota < 0 {
-		spendableQuota = 0
-	}
 	callsRemaining := callsByClock
-	if callsRemaining > spendableQuota {
-		callsRemaining = spendableQuota
+	if quotaRemaining < 0 {
+		quotaRemaining = 0
+	}
+	if callsRemaining > quotaRemaining {
+		callsRemaining = quotaRemaining
 	}
 
 	interval := time.Duration(0)
@@ -153,14 +137,13 @@ func computeVehicleLearningPlan(
 	}
 
 	return vehicleLearningPlan{
-		Interval:                interval,
-		ShelfLife:               shelfLife,
-		DailyBudget:             dailyBudget,
-		AverageDailyUsage:       averageDailyUsage,
-		AverageDays:             averageDays,
-		CallsRemaining:          callsRemaining,
-		QuotaRemaining:          quotaRemaining,
-		SpendableQuotaRemaining: spendableQuota,
+		Interval:          interval,
+		ShelfLife:         shelfLife,
+		DailyBudget:       dailyBudget,
+		AverageDailyUsage: averageDailyUsage,
+		AverageDays:       averageDays,
+		CallsRemaining:    callsRemaining,
+		QuotaRemaining:    quotaRemaining,
 	}
 }
 
