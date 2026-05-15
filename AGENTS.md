@@ -100,7 +100,7 @@ VEHICLE_LEARNING_ENABLED       default true; background sampling for learned tra
 VEHICLE_LEARNING_DAILY_QUOTA_MAX default 3000; cap for background learning `/vehicles` calls
 ```
 
-Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling. The background sampler only fills quiet periods, and its daily budget is the lower of `VEHICLE_LEARNING_DAILY_QUOTA_MAX` and half of the average unused vehicle quota from recent active days. It spreads that budget across the remaining day and also stretches when today's actual vehicle quota is lower.
+Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling. The background sampler only fills quiet periods, using `VEHICLE_LEARNING_DAILY_QUOTA_MAX` as its daily budget spread evenly across the remaining day, capped by the actual Tranzy quota remaining.
 
 ### API Surface
 
