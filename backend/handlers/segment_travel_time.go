@@ -17,6 +17,7 @@ const (
 	minSegmentProfileSamples   = 3
 	segmentProfileNeighborMins = 120
 	segmentSampleRetention     = 45 * 24 * time.Hour
+	segmentProfileRetention    = 60 * 24 * time.Hour
 	maxObservedVehicleAge      = 10 * time.Minute
 	minSegmentDurationSec      = 8
 	maxSegmentDurationSec      = 45 * 60
@@ -143,6 +144,9 @@ var (
 
 	segmentSamplePruneMu sync.Mutex
 	lastSegmentPrune     time.Time
+
+	segmentProfilePruneMu   sync.Mutex
+	lastSegmentProfilePrune time.Time
 
 	segmentLearningRuntime = struct {
 		sync.RWMutex
@@ -487,6 +491,7 @@ func storeSegmentTravelSample(sample pendingSegmentSample) segmentWriteSummary {
 	allDay.BucketStartMin = allDaySegmentBucket
 	summary.addProfileResult(recomputeSegmentProfile(allDay))
 	pruneOldSegmentSamples()
+	pruneStaleSegmentProfiles()
 	return summary
 }
 
@@ -602,6 +607,23 @@ func pruneOldSegmentSamples() {
 	}
 	if n, err := res.RowsAffected(); err == nil && n > 0 {
 		log.Printf("segment travel: pruned %d samples older than %s", n, segmentSampleRetention)
+	}
+}
+
+func pruneStaleSegmentProfiles() {
+	segmentProfilePruneMu.Lock()
+	defer segmentProfilePruneMu.Unlock()
+	if time.Since(lastSegmentProfilePrune) < 24*time.Hour {
+		return
+	}
+	lastSegmentProfilePrune = time.Now()
+	res, err := database.DB.Exec(`DELETE FROM segment_travel_time_profiles WHERE updated_at < ?`, time.Now().Add(-segmentProfileRetention).Unix())
+	if err != nil {
+		log.Printf("segment travel: profile prune failed: %v", err)
+		return
+	}
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		log.Printf("segment travel: pruned %d profiles not updated in %s", n, segmentProfileRetention)
 	}
 }
 
