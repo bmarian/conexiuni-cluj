@@ -22,6 +22,7 @@ type Config struct {
 	Port                     string
 	DatabasePath             string
 	TranzyApiKey             string
+	TranzyLearningApiKey     string
 	TranzyCacheShelfLife     time.Duration
 	TimetableCacheShelfLife  time.Duration
 	NewsCacheShelfLife       time.Duration
@@ -114,6 +115,7 @@ func Load() *Config {
 		Port:                     getEnv("PORT", "6698"),
 		DatabasePath:             getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
 		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
+		TranzyLearningApiKey:     getEnv("TRANZY_API_KEY_LEARNING", ""),
 		TranzyCacheShelfLife:     tranzyCacheShelfLife,
 		TimetableCacheShelfLife:  getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
 		NewsCacheShelfLife:       getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),

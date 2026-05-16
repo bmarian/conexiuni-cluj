@@ -210,6 +210,7 @@ function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
       const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
         tripStops: stopsForDirection.value,
         targetStopId: stop.stop_id,
+        referenceTime: userTime.value,
       })
       if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
     }

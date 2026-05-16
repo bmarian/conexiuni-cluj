@@ -8,6 +8,9 @@ export const MIN_SPEED_KMH = 7 // MinSpeedFloor
 const STALE_POSITION_METERS = 20
 const STALE_POSITION_MS = 3 * 60_000
 const HEADING_LOOKAHEAD = 3
+const LIVE_ETA_MAX_POSITION_AGE_MS = 3 * 60_000
+const LIVE_SEGMENT_WEIGHT = 0.35
+const PROFILE_SEGMENT_WEIGHT = 0.65
 
 export type TrackedVehicle = Vehicle & {
   route_short_name: string;
@@ -26,6 +29,11 @@ function hasInvalidCoords(v: Vehicle): boolean {
 function isStale(v: Vehicle, now: number): boolean {
   const ts = new Date(v.timestamp).getTime()
   return isNaN(ts) || now - ts > VEHICLE_GRACE_PERIOD * 60_000
+}
+
+function isFreshForLiveEta(v: Vehicle, now: number): boolean {
+  const ts = new Date(v.timestamp).getTime()
+  return !isNaN(ts) && now - ts >= 0 && now - ts <= LIVE_ETA_MAX_POSITION_AGE_MS
 }
 
 function isStuckAtTerminus(v: Vehicle, nearTerminus: boolean, now: number): boolean {
@@ -159,12 +167,13 @@ function blendedRemainingSegmentSeconds(segmentSec: number, segmentMeters: numbe
   if (segmentSec <= 0 || segmentMeters <= 0) return liveSec
   const ratio = Math.min(1, Math.max(0, remainingMeters / segmentMeters))
   const profileSec = segmentSec * ratio
-  return liveSec * 0.6 + profileSec * 0.4
+  return liveSec * LIVE_SEGMENT_WEIGHT + profileSec * PROFILE_SEGMENT_WEIGHT
 }
 
 type EtaOptions = {
   tripStops?: StopTime[]
   targetStopId?: number
+  referenceTime?: Date | null
 }
 
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
@@ -229,8 +238,9 @@ export function etaForStop(
 ): { vehicle: IndexedVehicle; etaMinutes: number } | null {
   if (stopShapeIdx < 0) return null
 
+  const now = options.referenceTime?.getTime() ?? Date.now()
   const candidates = vehicles
-    .filter(v => v.shapeIdx >= 0 && v.shapeIdx <= stopShapeIdx)
+    .filter(v => v.shapeIdx >= 0 && v.shapeIdx <= stopShapeIdx && isFreshForLiveEta(v, now))
     .sort((a, b) => b.shapeIdx - a.shapeIdx)
 
   for (const v of candidates) {

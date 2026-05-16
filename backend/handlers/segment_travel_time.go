@@ -23,6 +23,7 @@ const (
 	maxSegmentDurationSec      = 45 * 60
 	minObservedSegmentKmh      = 1.5
 	maxObservedSegmentKmh      = 70.0
+	segmentStopProximityMeters = 80.0
 )
 
 type segmentProfileKey struct {
@@ -42,6 +43,8 @@ type stopPair struct {
 type trackedSegmentStop struct {
 	StopID   int
 	ShapeIdx int
+	Lat      float64
+	Lon      float64
 }
 
 type tripSegmentTracker struct {
@@ -281,21 +284,29 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	}
 
 	shapeIdx := closestShapeIndexLatLon(v.Latitude, v.Longitude, tracker.Shape)
-	stopPos := tracker.stopPosForShapeIdx(shapeIdx)
+	routePos := tracker.stopPosForShapeIdx(shapeIdx)
+	nearStopPos := tracker.nearStopPos(v.Latitude, v.Longitude, shapeIdx)
 
 	vehicleSegmentStates.Lock()
 	defer vehicleSegmentStates.Unlock()
 
 	state, exists := vehicleSegmentStates.byVehicle[v.ID]
 	if !exists || state.TripID != tracker.TripID || observedAt.After(state.LastObservedAt.Add(25*time.Minute)) ||
-		!observedAt.After(state.LastObservedAt) || shapeIdx+3 < state.ShapeIdx || stopPos < state.SegmentStartPos {
-		vehicleSegmentStates.byVehicle[v.ID] = newVehicleSegmentState(tracker.TripID, shapeIdx, stopPos, observedAt)
+		!observedAt.After(state.LastObservedAt) || shapeIdx+3 < state.ShapeIdx || routePos < state.SegmentStartPos {
+		vehicleSegmentStates.byVehicle[v.ID] = newVehicleSegmentState(tracker, shapeIdx, routePos, nearStopPos, observedAt)
 		return pendingSegmentSample{}, segmentObservedReset
 	}
 
 	state.ShapeIdx = shapeIdx
 	state.LastObservedAt = observedAt
-	if stopPos <= state.SegmentStartPos {
+	if nearStopPos < 0 {
+		vehicleSegmentStates.byVehicle[v.ID] = state
+		return pendingSegmentSample{}, segmentObservedNoProgress
+	}
+	if nearStopPos <= state.SegmentStartPos {
+		if nearStopPos == state.SegmentStartPos {
+			state.HasSegmentStart = nearStopPos < len(tracker.Stops)-1
+		}
 		vehicleSegmentStates.byVehicle[v.ID] = state
 		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
@@ -304,9 +315,9 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	status := segmentObservedReset
 	if state.HasSegmentStart {
 		status = segmentObservedNonAdjacent
-		if stopPos == state.SegmentStartPos+1 {
+		if nearStopPos == state.SegmentStartPos+1 {
 			from := tracker.Stops[state.SegmentStartPos]
-			to := tracker.Stops[stopPos]
+			to := tracker.Stops[nearStopPos]
 			sample = pendingSegmentSample{
 				Key: segmentProfileKey{
 					RouteID:        tracker.RouteID,
@@ -317,7 +328,7 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 					BucketStartMin: segmentBucketStartMin(observedAt),
 				},
 				Duration:   observedAt.Sub(state.SegmentStartedAt),
-				DistanceM:  tracker.distanceBetweenStopPositions(state.SegmentStartPos, stopPos),
+				DistanceM:  tracker.distanceBetweenStopPositions(state.SegmentStartPos, nearStopPos),
 				ObservedAt: observedAt,
 			}
 			if isPlausibleSegmentSample(sample) {
@@ -328,21 +339,27 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		}
 	}
 
-	state.SegmentStartPos = stopPos
+	state.SegmentStartPos = nearStopPos
 	state.SegmentStartedAt = observedAt
-	state.HasSegmentStart = stopPos >= 0 && stopPos < len(tracker.Stops)-1
+	state.HasSegmentStart = nearStopPos < len(tracker.Stops)-1
 	vehicleSegmentStates.byVehicle[v.ID] = state
 	return sample, status
 }
 
-func newVehicleSegmentState(tripID string, shapeIdx, stopPos int, observedAt time.Time) vehicleSegmentState {
+func newVehicleSegmentState(tracker *tripSegmentTracker, shapeIdx, routePos, nearStopPos int, observedAt time.Time) vehicleSegmentState {
+	startPos := routePos
+	hasSegmentStart := false
+	if nearStopPos >= 0 {
+		startPos = nearStopPos
+		hasSegmentStart = nearStopPos < len(tracker.Stops)-1
+	}
 	return vehicleSegmentState{
-		TripID:           tripID,
+		TripID:           tracker.TripID,
 		ShapeIdx:         shapeIdx,
-		SegmentStartPos:  stopPos,
+		SegmentStartPos:  startPos,
 		SegmentStartedAt: observedAt,
 		LastObservedAt:   observedAt,
-		HasSegmentStart:  stopPos >= 0,
+		HasSegmentStart:  hasSegmentStart,
 	}
 }
 
@@ -419,7 +436,12 @@ func loadTripSegmentTracker(tripID string) (*tripSegmentTracker, bool) {
 			shapeIdx = lastShapeIdx
 		}
 		lastShapeIdx = shapeIdx
-		trackedStops = append(trackedStops, trackedSegmentStop{StopID: st.StopID, ShapeIdx: shapeIdx})
+		trackedStops = append(trackedStops, trackedSegmentStop{
+			StopID:   st.StopID,
+			ShapeIdx: shapeIdx,
+			Lat:      stop.StopLat,
+			Lon:      stop.StopLon,
+		})
 	}
 	if len(trackedStops) < 2 {
 		return nil, false
@@ -451,6 +473,24 @@ func (t *tripSegmentTracker) stopPosForShapeIdx(shapeIdx int) int {
 		return t.Stops[i].ShapeIdx > shapeIdx
 	}) - 1
 	return pos
+}
+
+func (t *tripSegmentTracker) nearStopPos(lat, lon float64, shapeIdx int) int {
+	routePos := t.stopPosForShapeIdx(shapeIdx)
+	bestPos := -1
+	bestDist := segmentStopProximityMeters
+	for _, pos := range []int{routePos, routePos + 1} {
+		if pos < 0 || pos >= len(t.Stops) {
+			continue
+		}
+		stop := t.Stops[pos]
+		d := haversineMeters(lat, lon, stop.Lat, stop.Lon)
+		if d <= bestDist {
+			bestDist = d
+			bestPos = pos
+		}
+	}
+	return bestPos
 }
 
 func (t *tripSegmentTracker) distanceBetweenStopPositions(fromPos, toPos int) float64 {

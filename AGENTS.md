@@ -79,6 +79,7 @@ Primary env vars:
 
 ```text
 TRANZY_API_KEY                 required
+TRANZY_API_KEY_LEARNING        optional separate key for background vehicle learning
 ENV                            development by default; development makes static caches effectively never expire
 PORT                           default 6698
 DATABASE_PATH                  default ../conexiuni-cluj.db
@@ -100,7 +101,7 @@ VEHICLE_LEARNING_ENABLED       default true; background sampling for learned tra
 VEHICLE_LEARNING_DAILY_QUOTA_MAX default 3000; cap for background learning `/vehicles` calls
 ```
 
-Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling. The background sampler only fills quiet periods, using `VEHICLE_LEARNING_DAILY_QUOTA_MAX` as its daily budget spread evenly across the remaining day, capped by the actual Tranzy quota remaining.
+Vehicle learning uses live `/vehicles` snapshots to populate stop-to-stop segment travel profiles. Foreground SSE users always drive the freshest sampling. The background sampler only fills quiet periods, using `VEHICLE_LEARNING_DAILY_QUOTA_MAX` as its daily budget spread evenly across the remaining day. If `TRANZY_API_KEY_LEARNING` is set and differs from `TRANZY_API_KEY`, learning uses a separate Tranzy client with separate persisted `/vehicles` quota counters. If it is absent, learning uses the normal Tranzy client and is capped by the shared vehicle quota remaining.
 
 ### API Surface
 

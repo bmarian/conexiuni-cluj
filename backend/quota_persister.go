@@ -18,3 +18,13 @@ func (dbQuotaPersister) Save(name string, count int, resetAt time.Time) error {
 func (dbQuotaPersister) RecordUsage(name string) {
 	database.RecordTranzyQuotaUsage(name)
 }
+
+type dbQuotaOnlyPersister struct{}
+
+func (dbQuotaOnlyPersister) Load(name string) (int, time.Time, error) {
+	return database.LoadTranzyQuota(name)
+}
+
+func (dbQuotaOnlyPersister) Save(name string, count int, resetAt time.Time) error {
+	return database.SaveTranzyQuota(name, count, resetAt)
+}

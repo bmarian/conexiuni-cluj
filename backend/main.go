@@ -89,6 +89,16 @@ func main() {
 	}
 
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
+	learningTranzyClient := tranzyClient
+	if config.TranzyLearningApiKey != "" && config.TranzyLearningApiKey != tranzyAPIKey {
+		learningTranzyClient = tranzy.NewClientWithQuotaNames(config.TranzyBaseUrl, config.TranzyLearningApiKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, tranzy.QuotaNames{
+			Vehicles: "vehicle_learning_vehicles",
+			Default:  "vehicle_learning_default",
+		}, dbQuotaOnlyPersister{})
+		log.Printf("vehicle learner: using TRANZY_API_KEY_LEARNING")
+	} else if config.TranzyLearningApiKey != "" {
+		log.Printf("vehicle learner: TRANZY_API_KEY_LEARNING matches TRANZY_API_KEY; using shared Tranzy client")
+	}
 	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
 
 	weekdaySlots, err := handlers.ParseSchedule(config.VehicleSchedule)
@@ -106,7 +116,7 @@ func main() {
 		MinInterval: config.VehicleMinInterval,
 		MaxInterval: config.VehicleMaxInterval,
 	})
-	handlers.StartVehicleLearningSampler(tranzyClient, handlers.VehicleLearningSamplerConfig{
+	handlers.StartVehicleLearningSampler(learningTranzyClient, handlers.VehicleLearningSamplerConfig{
 		Enabled:       config.VehicleLearningEnabled,
 		MaxDailyQuota: config.VehicleLearningMaxQuota,
 	})

@@ -96,6 +96,11 @@ type Client struct {
 	defaultQuota  *dailyQuota
 }
 
+type QuotaNames struct {
+	Vehicles string
+	Default  string
+}
+
 func (c *Client) VehiclesQuotaRemaining() int {
 	return c.vehiclesQuota.remaining()
 }
@@ -176,6 +181,10 @@ func newQuota(name string, limit int, loc *time.Location, persister QuotaPersist
 }
 
 func NewClient(baseUrl string, apiKey string, agencyId string, rateLimit time.Duration, vehiclesDailyQuota int, defaultDailyQuota int, persister QuotaPersister) *Client {
+	return NewClientWithQuotaNames(baseUrl, apiKey, agencyId, rateLimit, vehiclesDailyQuota, defaultDailyQuota, QuotaNames{}, persister)
+}
+
+func NewClientWithQuotaNames(baseUrl string, apiKey string, agencyId string, rateLimit time.Duration, vehiclesDailyQuota int, defaultDailyQuota int, quotaNames QuotaNames, persister QuotaPersister) *Client {
 	c := client.New()
 	c.SetTimeout(30 * time.Second)
 
@@ -186,6 +195,12 @@ func NewClient(baseUrl string, apiKey string, agencyId string, rateLimit time.Du
 	}
 
 	burst := int(time.Second / rateLimit)
+	if quotaNames.Vehicles == "" {
+		quotaNames.Vehicles = "vehicles"
+	}
+	if quotaNames.Default == "" {
+		quotaNames.Default = "default"
+	}
 
 	return &Client{
 		BaseURL:       baseUrl,
@@ -193,8 +208,8 @@ func NewClient(baseUrl string, apiKey string, agencyId string, rateLimit time.Du
 		AgencyId:      agencyId,
 		client:        c,
 		limiter:       rate.NewLimiter(rate.Every(rateLimit), burst),
-		vehiclesQuota: newQuota("vehicles", vehiclesDailyQuota, loc, persister),
-		defaultQuota:  newQuota("default", defaultDailyQuota, loc, persister),
+		vehiclesQuota: newQuota(quotaNames.Vehicles, vehiclesDailyQuota, loc, persister),
+		defaultQuota:  newQuota(quotaNames.Default, defaultDailyQuota, loc, persister),
 	}
 }
 
