@@ -90,7 +90,8 @@ func main() {
 
 	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
 	learningTranzyClient := tranzyClient
-	if config.TranzyLearningApiKey != "" && config.TranzyLearningApiKey != tranzyAPIKey {
+	usesDedicatedLearningKey := config.TranzyLearningApiKey != "" && config.TranzyLearningApiKey != tranzyAPIKey
+	if usesDedicatedLearningKey {
 		learningTranzyClient = tranzy.NewClientWithQuotaNames(config.TranzyBaseUrl, config.TranzyLearningApiKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, tranzy.QuotaNames{
 			Vehicles: "vehicle_learning_vehicles",
 			Default:  "vehicle_learning_default",
@@ -117,8 +118,9 @@ func main() {
 		MaxInterval: config.VehicleMaxInterval,
 	})
 	handlers.StartVehicleLearningSampler(learningTranzyClient, handlers.VehicleLearningSamplerConfig{
-		Enabled:       config.VehicleLearningEnabled,
-		MaxDailyQuota: config.VehicleLearningMaxQuota,
+		Enabled:                config.VehicleLearningEnabled,
+		MaxDailyQuota:          config.VehicleLearningMaxQuota,
+		UsesDedicatedTranzyKey: usesDedicatedLearningKey,
 	})
 
 	app := fiber.New(fiber.Config{

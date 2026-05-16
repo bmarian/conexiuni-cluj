@@ -26,6 +26,23 @@ type DailyTranzyQuota = {
   total: number
 }
 
+type VehicleLearningQuota = {
+  enabled: boolean
+  disabled_reason?: string
+  uses_dedicated_tranzy_key: boolean
+  max_daily_quota: number
+  daily_budget: number
+  calls_used: number
+  calls_remaining: number
+  vehicles_remaining: number
+  vehicles_limit: number
+  vehicles_used: number
+  ready: boolean
+  interval_ms: number
+  shelf_life_ms: number
+  reset_at?: string
+}
+
 type TopEntry = {
   key: string
   count: number
@@ -104,6 +121,7 @@ type StatsResponse = {
     default_limit: number
     default_used: number
   }
+  vehicle_learning_quota: VehicleLearningQuota
   daily_tranzy_quota: DailyTranzyQuota[]
   endpoint_response_times: EndpointTiming[]
   cache_groups: CacheGroup[]
@@ -131,6 +149,12 @@ const stats = ref<StatsResponse | null>(null)
 const activeNow = ref(0)
 const livePolling = ref(false)
 let activePollTimer: ReturnType<typeof setInterval> | null = null
+
+const viewportWidth = ref(0)
+const viewportHeight = ref(0)
+const pixelRatio = ref(1)
+const online = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
+const storageEstimate = ref<{usage?: number; quota?: number} | null>(null)
 
 // Top-list filter/sort state (one entry per kind)
 const routesSearch = ref('')
@@ -251,6 +275,82 @@ const refreshAll = async () => {
 
 const formatNumber = (n: number) => n.toLocaleString('en-US')
 
+const formatBytes = (n?: number) => {
+  if (!Number.isFinite(n ?? NaN)) return '—'
+  const value = n ?? 0
+  if (value < 1024) return `${value} B`
+  const units = ['KB', 'MB', 'GB']
+  let scaled = value / 1024
+  let unit = units[0]
+  for (let i = 1; i < units.length && scaled >= 1024; i++) {
+    scaled /= 1024
+    unit = units[i]
+  }
+  return `${scaled.toFixed(scaled >= 100 ? 0 : 1)} ${unit}`
+}
+
+const learningQuota = computed(() => stats.value?.vehicle_learning_quota ?? null)
+
+const learningQuotaSource = computed(() => {
+  const quota = learningQuota.value
+  if (!quota) return '—'
+  return quota.uses_dedicated_tranzy_key ? 'learning key' : 'primary key'
+})
+
+const learningStatusText = computed(() => {
+  const quota = learningQuota.value
+  if (!quota) return '—'
+  if (!quota.enabled) return quota.disabled_reason || 'disabled'
+  return quota.ready ? 'ready now' : `next in ${formatDuration(quota.interval_ms)}`
+})
+
+const refreshFrontendDebug = () => {
+  if (typeof window === 'undefined') return
+  viewportWidth.value = window.innerWidth
+  viewportHeight.value = window.innerHeight
+  pixelRatio.value = window.devicePixelRatio || 1
+  online.value = navigator.onLine
+}
+
+const refreshStorageEstimate = async () => {
+  if (typeof navigator === 'undefined' || !navigator.storage?.estimate) return
+  try {
+    storageEstimate.value = await navigator.storage.estimate()
+  } catch {
+    storageEstimate.value = null
+  }
+}
+
+const storageSummary = computed(() => {
+  const estimate = storageEstimate.value
+  if (!estimate) return 'unavailable'
+  return `${formatBytes(estimate.usage)} / ${formatBytes(estimate.quota)}`
+})
+
+const localStorageSummary = computed(() => {
+  if (typeof localStorage === 'undefined') return 'unavailable'
+  try {
+    const keys = Array.from({length: localStorage.length}, (_, i) => localStorage.key(i) ?? '')
+    const favorites = keys.filter(k => k.startsWith('favorites:')).length
+    return `${keys.length} keys · ${favorites} favorites groups`
+  } catch {
+    return 'blocked'
+  }
+})
+
+const frontendDebugRows = computed(() => [
+  {label: 'Build mode', value: import.meta.env.MODE},
+  {label: 'Route', value: typeof location === 'undefined' ? '—' : `${location.pathname}${location.search}`},
+  {label: 'Viewport', value: `${viewportWidth.value}×${viewportHeight.value} @ ${pixelRatio.value.toFixed(2)}x`},
+  {label: 'Network', value: online.value ? 'online' : 'offline'},
+  {label: 'Locale', value: typeof navigator === 'undefined' ? '—' : navigator.language},
+  {label: 'Time zone', value: Intl.DateTimeFormat().resolvedOptions().timeZone || '—'},
+  {label: 'Theme', value: settings.legacyBlueActive ? 'Legacy Blue' : settings.arcadeActive ? 'Arcade' : settings.isDark ? 'Default dark' : 'Default light'},
+  {label: 'Storage', value: storageSummary.value},
+  {label: 'Local storage', value: localStorageSummary.value},
+  {label: 'Service worker', value: typeof navigator !== 'undefined' && navigator.serviceWorker?.controller ? 'controlled' : 'not controlled'},
+])
+
 const formatRoDay = (date?: string) => {
   if (!date) return ''
   const [, month, day] = date.split('-')
@@ -267,7 +367,7 @@ const formatMs = (ms: number) => {
 const nowTick = ref(Date.now())
 let nowTimer: ReturnType<typeof setInterval> | null = null
 
-const formatDuration = (ms: number) => {
+function formatDuration(ms: number) {
   if (!Number.isFinite(ms) || ms <= 0) return '0s'
   const sec = Math.round(ms / 1000)
   if (sec < 60) return `${sec}s`
@@ -423,6 +523,11 @@ const rangeTotal = computed(() => sparkVisits.value.reduce((s, d) => s + d.count
 
 onMounted(async () => {
   nowTimer = setInterval(() => { nowTick.value = Date.now() }, 1000)
+  refreshFrontendDebug()
+  window.addEventListener('resize', refreshFrontendDebug)
+  window.addEventListener('online', refreshFrontendDebug)
+  window.addEventListener('offline', refreshFrontendDebug)
+  void refreshStorageEstimate()
   if (!hasAuthFlag()) return
   await loadStats(true)
 })
@@ -433,6 +538,9 @@ onBeforeUnmount(() => {
     clearInterval(nowTimer)
     nowTimer = null
   }
+  window.removeEventListener('resize', refreshFrontendDebug)
+  window.removeEventListener('online', refreshFrontendDebug)
+  window.removeEventListener('offline', refreshFrontendDebug)
 })
 </script>
 
@@ -573,6 +681,17 @@ onBeforeUnmount(() => {
                 <span :style="{width: usedPercent(stats.tranzy_quota.default_used, stats.tranzy_quota.default_limit)}"></span>
               </div>
             </div>
+            <div class="admin-kpi">
+              <div class="admin-kpi-label">Tranzy · learning</div>
+              <div class="admin-kpi-value">{{ formatNumber(stats.vehicle_learning_quota.calls_used) }}</div>
+              <div class="admin-kpi-sub">
+                {{ learningQuotaSource }} · {{ formatNumber(stats.vehicle_learning_quota.calls_remaining) }} left of
+                {{ formatNumber(stats.vehicle_learning_quota.daily_budget || stats.vehicle_learning_quota.max_daily_quota) }}
+              </div>
+              <div class="admin-kpi-meter admin-kpi-meter-learning">
+                <span :style="{width: usedPercent(stats.vehicle_learning_quota.calls_used, stats.vehicle_learning_quota.daily_budget || stats.vehicle_learning_quota.max_daily_quota)}"></span>
+              </div>
+            </div>
           </section>
 
           <section class="admin-grid admin-grid-two">
@@ -651,7 +770,7 @@ onBeforeUnmount(() => {
               <div class="admin-card-head">
                 <h2>Travel-time learning</h2>
                 <span class="admin-card-meta">
-                  {{ formatNumber(segmentLearning?.routes_with_profiles ?? 0) }} routes
+                  {{ learningStatusText }} · {{ formatNumber(segmentLearning?.routes_with_profiles ?? 0) }} routes
                 </span>
               </div>
               <div v-if="segmentLearning" class="admin-learning">
@@ -667,6 +786,18 @@ onBeforeUnmount(() => {
                   <div class="admin-learning-metric">
                     <span>Last sample</span>
                     <strong>{{ formatRelative(segmentLearning.last_sample_at) }}</strong>
+                  </div>
+                  <div class="admin-learning-metric">
+                    <span>Quota source</span>
+                    <strong>{{ learningQuotaSource }}</strong>
+                  </div>
+                  <div class="admin-learning-metric">
+                    <span>Calls left</span>
+                    <strong>{{ formatNumber(learningQuota?.calls_remaining ?? 0) }}</strong>
+                  </div>
+                  <div class="admin-learning-metric">
+                    <span>Quota reset</span>
+                    <strong>{{ formatRelative(learningQuota?.reset_at) }}</strong>
                   </div>
                 </div>
 
@@ -816,6 +947,19 @@ onBeforeUnmount(() => {
               </ul>
               <div v-else class="admin-empty">No response-time data yet</div>
             </div>
+          </section>
+
+          <section class="admin-card">
+            <div class="admin-card-head">
+              <h2>Frontend debug</h2>
+              <span class="admin-card-meta">admin session only</span>
+            </div>
+            <dl class="admin-debug-grid">
+              <div v-for="row in frontendDebugRows" :key="row.label" class="admin-debug-item">
+                <dt>{{ row.label }}</dt>
+                <dd>{{ row.value }}</dd>
+              </div>
+            </dl>
           </section>
 
           <section class="admin-grid">
@@ -1277,7 +1421,7 @@ onBeforeUnmount(() => {
 
 .admin-learning-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.5rem;
 }
 
@@ -1353,6 +1497,39 @@ onBeforeUnmount(() => {
 
 .admin-bar-fill-learning {
   background: linear-gradient(90deg, #22c55e 0%, #38bdf8 100%);
+}
+
+.admin-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.admin-debug-item {
+  min-width: 0;
+  background: var(--admin-subtle, #0b1220);
+  border: 1px solid var(--admin-border, #1f2a44);
+  border-radius: 8px;
+  padding: 0.65rem 0.7rem;
+}
+
+.admin-debug-item dt {
+  color: var(--admin-muted, #94a3b8);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.admin-debug-item dd {
+  color: var(--admin-text, #e6edf3);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  margin: 0;
 }
 
 .admin-cache-table-wrap {
@@ -2099,6 +2276,10 @@ onBeforeUnmount(() => {
 
 .admin-kpi-meter-alt span {
   background: linear-gradient(90deg, #a78bfa, #f472b6);
+}
+
+.admin-kpi-meter-learning span {
+  background: linear-gradient(90deg, #22c55e, #14b8a6);
 }
 
 .admin-card {

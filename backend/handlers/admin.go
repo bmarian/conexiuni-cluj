@@ -114,6 +114,7 @@ type adminStatsResponse struct {
 	TopAPI                []database.TopEntry              `json:"top_api"`
 	PWAInstalls           int                              `json:"pwa_installs"`
 	TranzyQuota           tranzyQuotaSnapshot              `json:"tranzy_quota"`
+	VehicleLearningQuota  vehicleLearningQuotaSnapshot     `json:"vehicle_learning_quota"`
 	DailyTranzyQuota      []database.DailyTranzyQuotaPoint `json:"daily_tranzy_quota"`
 	EndpointResponseTimes []database.EndpointTimingEntry   `json:"endpoint_response_times"`
 	CacheGroups           []cacheGroupSnapshot             `json:"cache_groups"`
@@ -161,6 +162,23 @@ type tranzyQuotaSnapshot struct {
 	DefaultRemaining  int `json:"default_remaining"`
 	DefaultLimit      int `json:"default_limit"`
 	DefaultUsed       int `json:"default_used"`
+}
+
+type vehicleLearningQuotaSnapshot struct {
+	Enabled                bool   `json:"enabled"`
+	DisabledReason         string `json:"disabled_reason,omitempty"`
+	UsesDedicatedTranzyKey bool   `json:"uses_dedicated_tranzy_key"`
+	MaxDailyQuota          int    `json:"max_daily_quota"`
+	DailyBudget            int    `json:"daily_budget"`
+	CallsUsed              int    `json:"calls_used"`
+	CallsRemaining         int    `json:"calls_remaining"`
+	VehiclesRemaining      int    `json:"vehicles_remaining"`
+	VehiclesLimit          int    `json:"vehicles_limit"`
+	VehiclesUsed           int    `json:"vehicles_used"`
+	Ready                  bool   `json:"ready"`
+	IntervalMs             int64  `json:"interval_ms"`
+	ShelfLifeMs            int64  `json:"shelf_life_ms"`
+	ResetAt                string `json:"reset_at,omitempty"`
 }
 
 func quotaUsed(limit, remaining int) int {
@@ -514,6 +532,7 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 				DefaultLimit:      defaultLimit,
 				DefaultUsed:       defaultUsed,
 			},
+			VehicleLearningQuota:  currentVehicleLearningQuotaSnapshot(),
 			DailyTranzyQuota:      dailyTranzyQuota,
 			EndpointResponseTimes: endpointResponseTimes,
 			CacheGroups:           cacheGroups,

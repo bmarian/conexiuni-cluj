@@ -15,8 +15,9 @@ const (
 )
 
 type VehicleLearningSamplerConfig struct {
-	Enabled       bool
-	MaxDailyQuota int
+	Enabled                bool
+	MaxDailyQuota          int
+	UsesDedicatedTranzyKey bool
 }
 
 type vehicleLearningPlan struct {
@@ -38,19 +39,32 @@ type vehicleLearningDailyCounter struct {
 	resetAt time.Time
 }
 
+var vehicleLearningSamplerRuntime = struct {
+	sync.RWMutex
+	client         *tranzy.Client
+	cfg            VehicleLearningSamplerConfig
+	counter        *vehicleLearningDailyCounter
+	initialized    bool
+	disabledReason string
+}{}
+
 func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig) {
 	if !cfg.Enabled {
+		rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, nil, "disabled by VEHICLE_LEARNING_ENABLED")
 		log.Printf("vehicle learner: disabled")
 		return
 	}
 	if cfg.MaxDailyQuota <= 0 {
+		rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, nil, "max_daily_quota <= 0")
 		log.Printf("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
 		return
 	}
-	log.Printf("vehicle learner: enabled max_daily_quota=%d",
+	log.Printf("vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
 		cfg.MaxDailyQuota,
+		cfg.UsesDedicatedTranzyKey,
 	)
 	counter := newVehicleLearningDailyCounter(vehicleLearningQuotaName, tranzyClient.Location())
+	rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, counter, "")
 	go func() {
 		for {
 			plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
@@ -62,6 +76,58 @@ func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearnin
 			runVehicleLearningSample(tranzyClient, cfg, counter)
 		}
 	}()
+}
+
+func rememberVehicleLearningSamplerRuntime(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter, disabledReason string) {
+	vehicleLearningSamplerRuntime.Lock()
+	vehicleLearningSamplerRuntime.client = tranzyClient
+	vehicleLearningSamplerRuntime.cfg = cfg
+	vehicleLearningSamplerRuntime.counter = counter
+	vehicleLearningSamplerRuntime.initialized = true
+	vehicleLearningSamplerRuntime.disabledReason = disabledReason
+	vehicleLearningSamplerRuntime.Unlock()
+}
+
+func currentVehicleLearningQuotaSnapshot() vehicleLearningQuotaSnapshot {
+	vehicleLearningSamplerRuntime.RLock()
+	initialized := vehicleLearningSamplerRuntime.initialized
+	tranzyClient := vehicleLearningSamplerRuntime.client
+	cfg := vehicleLearningSamplerRuntime.cfg
+	counter := vehicleLearningSamplerRuntime.counter
+	disabledReason := vehicleLearningSamplerRuntime.disabledReason
+	vehicleLearningSamplerRuntime.RUnlock()
+
+	snapshot := vehicleLearningQuotaSnapshot{
+		Enabled:                initialized && cfg.Enabled && cfg.MaxDailyQuota > 0,
+		DisabledReason:         disabledReason,
+		UsesDedicatedTranzyKey: cfg.UsesDedicatedTranzyKey,
+		MaxDailyQuota:          cfg.MaxDailyQuota,
+	}
+	if tranzyClient == nil {
+		return snapshot
+	}
+	now := time.Now()
+	plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
+	snapshot.DailyBudget = plan.DailyBudget
+	snapshot.CallsUsed = plan.LearnerUsed
+	snapshot.CallsRemaining = plan.CallsRemaining
+	snapshot.VehiclesUsed = plan.VehiclesUsed
+	snapshot.VehiclesRemaining = plan.QuotaRemaining
+	snapshot.VehiclesLimit = tranzyClient.VehiclesQuotaLimit()
+	snapshot.Ready = plan.Ready
+	if !snapshot.Enabled {
+		snapshot.CallsRemaining = 0
+		snapshot.Ready = false
+	}
+	snapshot.IntervalMs = plan.Interval.Milliseconds()
+	snapshot.ShelfLifeMs = plan.ShelfLife.Milliseconds()
+	if counter != nil {
+		_, resetAt := counter.Snapshot(now)
+		if !resetAt.IsZero() {
+			snapshot.ResetAt = resetAt.UTC().Format(time.RFC3339)
+		}
+	}
+	return snapshot
 }
 
 func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) {
@@ -214,6 +280,13 @@ func (counter *vehicleLearningDailyCounter) Count(now time.Time) int {
 	defer counter.mu.Unlock()
 	counter.rolloverLocked(now)
 	return counter.count
+}
+
+func (counter *vehicleLearningDailyCounter) Snapshot(now time.Time) (int, time.Time) {
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
+	counter.rolloverLocked(now)
+	return counter.count, counter.resetAt
 }
 
 func (counter *vehicleLearningDailyCounter) Record(now time.Time) {
