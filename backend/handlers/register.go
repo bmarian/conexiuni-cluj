@@ -238,7 +238,13 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if rsn == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "route_short_name is required"})
 		}
-		data, err := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn})
+		refTime := time.Now().In(tranzyClient.Location())
+		if h := c.Query("ref_hour"); h != "" {
+			if hour, err := strconv.Atoi(h); err == nil && hour >= 0 && hour <= 23 {
+				refTime = time.Date(refTime.Year(), refTime.Month(), refTime.Day(), hour, 0, 0, 0, refTime.Location())
+			}
+		}
+		data, err := GetStopTimesAt(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}, refTime)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

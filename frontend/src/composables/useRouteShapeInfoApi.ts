@@ -25,6 +25,16 @@ function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): 
   return target?.stop_headsign?.trim() ?? ''
 }
 
+export async function fetchStopTimesForHour(routeShortName: string, hour: number): Promise<StopTime[]> {
+  const encoded = encodeURIComponent(routeShortName)
+  try {
+    return await apiRequest(`stop_times?route_short_name=${encoded}&ref_hour=${hour}`) as StopTime[]
+  } catch (e) {
+    console.warn(`Failed to fetch stop_times for ${routeShortName} at hour ${hour}:`, e)
+    return []
+  }
+}
+
 export function useRouteShapeInfoApi() {
   async function fetchShapeInfo(route: Route): Promise<ShapeInfo> {
     if (pending.has(route.route_id)) {

@@ -28,7 +28,7 @@ import {
 } from '@/composables/useVehicleTracking.ts'
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
-import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {fetchStopTimesForHour, useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
@@ -312,6 +312,7 @@ const selectedDepartureTimeDisplay = computed(() => {
 
 const selectedDepartureTime = ref<string | null>(null)
 const tripViewRef = ref<HTMLElement | null>(null)
+const departureStopTimes = ref<StopTime[]>([])
 
 function selectDeparture(entry: TimetableChip) {
   if (entry.isSuspended) return
@@ -319,16 +320,26 @@ function selectDeparture(entry: TimetableChip) {
 }
 
 watch(selectedDepartureTime, async (val) => {
-  if (!val) return
+  if (!val) {
+    departureStopTimes.value = []
+    return
+  }
   await nextTick()
   tripViewRef.value?.scrollIntoView({behavior: 'smooth', block: 'nearest'})
+  const depMin = timeStringToMinutes(val)
+  if (depMin !== null && shapeInfo.value) {
+    const hour = Math.floor(depMin / 60) % 24
+    departureStopTimes.value = await fetchStopTimesForHour(shapeInfo.value.route_short_name, hour)
+  }
 })
 
 watch(currentDirection, () => {
   selectedDepartureTime.value = null
+  departureStopTimes.value = []
 })
 watch(selectedTimetableTab, () => {
   selectedDepartureTime.value = null
+  departureStopTimes.value = []
 })
 
 type TripStop = IndexedStop & { arrivalTimeStr: string }
@@ -337,10 +348,16 @@ const selectedDepartureStops = computed((): TripStop[] => {
   if (!selectedDepartureTime.value) return []
   const depMin = timeStringToMinutes(selectedDepartureTime.value)
   if (depMin === null) return []
-  return stopsForDirection.value.map((stop) => ({
-    ...stop,
-    arrivalTimeStr: formatAbsoluteMinutes(depMin + stop.timeOffsetFromStart),
-  }))
+  const source = departureStopTimes.value.length ? departureStopTimes.value : rawStops.value
+  const filtered = source
+    .filter((st) => st.trip_id === currentTripId.value)
+    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  let cumulativeSec = 0
+  return filtered.map((stop) => {
+    const offset = Math.ceil(cumulativeSec / 60)
+    cumulativeSec += stop.offset_arrival_time
+    return {...stop, timeOffsetFromStart: offset, arrivalTimeStr: formatAbsoluteMinutes(depMin + offset)}
+  })
 })
 
 function buildDisplayShape() {
