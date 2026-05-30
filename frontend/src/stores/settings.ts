@@ -108,6 +108,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const showNews = ref(localStorage.getItem('settings.showNews') !== 'false')
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
+  const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
 
   function setShowWeather(val: boolean) {
     showWeather.value = val
@@ -129,6 +130,11 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.autoFitMap', val ? 'true' : 'false')
   }
 
+  function setShowVehicleExtras(val: boolean) {
+    showVehicleExtras.value = val
+    localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
+  }
+
   const toastMessage = ref<string | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -148,6 +154,7 @@ export const useSettingsStore = defineStore('settings', () => {
     unlockLegacyBlue, activateLegacyBlue, deactivateLegacyBlue,
     showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
+    showVehicleExtras, setShowVehicleExtras,
     toastMessage, showToast,
   }
 })

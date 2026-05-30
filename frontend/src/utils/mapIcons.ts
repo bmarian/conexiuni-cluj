@@ -10,6 +10,7 @@ export type DisplayVehicle = Vehicle & {
 export interface IconThemeOptions {
   arcadeActive: boolean
   legacyBlueActive: boolean
+  showVehicleExtras: boolean
 }
 
 const BUS_STOP_PATH =
@@ -241,6 +242,7 @@ export function getVehicleMarkerHtml(
   const roundedSpeed = Math.round(vehicle.speed)
   const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
   const heading = vehicle.heading || 0
+  const extrasHtml = (color: string) => opts.showVehicleExtras ? accessibilityIcons(vehicle, color) : ''
 
   if (opts.arcadeActive) {
     const rotation = heading - 90
@@ -256,7 +258,7 @@ export function getVehicleMarkerHtml(
           ${showStopInfo ? `
             <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
               <span style="font-weight:700;font-size:14px;">${titleText}</span>
-              ${accessibilityIcons(vehicle, '#94a3b8')}
+              ${extrasHtml('#94a3b8')}
               <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
             </div>
           ` : ''}
@@ -268,7 +270,7 @@ export function getVehicleMarkerHtml(
         ${arcade}
         <div class="absolute" style="left:40px;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
           <span style="font-weight:700;font-size:14px;">${titleText}</span>
-          ${accessibilityIcons(vehicle, '#94a3b8')}
+          ${extrasHtml('#94a3b8')}
           <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
         </div>
       </div>`
@@ -288,7 +290,7 @@ export function getVehicleMarkerHtml(
 
     const xpTip = (extraStyle: string = '') => `<div class="absolute" style="${extraStyle}background:#FFFFE0;color:#000000;padding:3px 7px;border:1px solid #000000;box-shadow:1px 1px 0 rgba(0,0,0,0.35);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;font-family:'Tahoma','Trebuchet MS',sans-serif;line-height:1.3;">
       <span style="font-weight:700;font-size:11px;">${titleText}</span>
-      ${accessibilityIcons(vehicle, '#404040')}
+      ${extrasHtml('#404040')}
       <span style="font-size:11px;color:#404040;">${roundedSpeed} km/h</span>
     </div>`
 
@@ -327,7 +329,7 @@ export function getVehicleMarkerHtml(
         ${showStopInfo ? `
           <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
             <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            ${accessibilityIcons(vehicle, '#94a3b8')}
+            ${extrasHtml('#94a3b8')}
             <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
           </div>
         ` : ''}
@@ -344,7 +346,7 @@ export function getVehicleMarkerHtml(
         </div>
         <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
           <span class="font-bold text-sm tracking-wide">${titleText}</span>
-          ${accessibilityIcons(vehicle, '#94a3b8')}
+          ${extrasHtml('#94a3b8')}
           <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
         </div>
       </div>

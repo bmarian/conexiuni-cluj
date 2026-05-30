@@ -42,7 +42,7 @@ const {
   drawerBottomPx,
   drawerRightPx,
 } = storeToRefs(mapStore)
-const {arcadeActive, legacyBlueActive} = storeToRefs(settingsStore)
+const {arcadeActive, legacyBlueActive, showVehicleExtras} = storeToRefs(settingsStore)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -133,6 +133,7 @@ const replaceTileLayer = () => {
 const themeOpts = (): IconThemeOptions => ({
   arcadeActive: arcadeActive.value,
   legacyBlueActive: legacyBlueActive.value,
+  showVehicleExtras: showVehicleExtras.value,
 })
 
 const useTouchDragLift = () =>
@@ -860,7 +861,7 @@ const renderVehicles = (vehicles: DisplayVehicle[], currentRouteName: string | s
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, arcadeActive, legacyBlueActive], ([vehicles, routeName]) => {
+watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, arcadeActive, legacyBlueActive, showVehicleExtras], ([vehicles, routeName]) => {
   renderVehicles(vehicles as DisplayVehicle[], routeName)
 }, {deep: true})
 

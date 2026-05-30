@@ -228,6 +228,18 @@ function setLocale(newLocale: 'ro' | 'en') {
           </svg>
           <span class="btn-text">{{ t('autoFitMap') }}</span>
         </button>
+        <button type="button" class="option-btn" :class="{ active: settings.showVehicleExtras }"
+                :title="t('vehicleExtras')" @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">♿</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <circle cx="12" cy="3.5" r="2.5" fill="currentColor" stroke="none"/>
+            <path d="M10 8v6h5l2 5"/>
+            <circle cx="9" cy="19.5" r="3.5"/>
+          </svg>
+          <span class="btn-text">{{ t('vehicleExtras') }}</span>
+        </button>
       </div>
 
       <SettingsExportImport />

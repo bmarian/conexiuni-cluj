@@ -144,6 +144,7 @@
     "news": "News",
     "autoCenterOnMe": "Center on my location",
     "autoFitMap": "Fit map",
+    "vehicleExtras": "Vehicle extra info",
     "newsPopoverTitle": "CTP News",
     "newsLoading": "Loading...",
     "newsEmpty": "No news available",
