@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /admin
+Disallow: /linii/
+Disallow: /statii/
 
 Sitemap: https://bus.bmarian.online/sitemap.xml
