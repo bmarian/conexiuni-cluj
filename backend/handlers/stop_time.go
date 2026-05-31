@@ -197,18 +197,27 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 }
 
 func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
-	var conditions []string
-	var args []any
-	if filter.RouteShortName != nil {
-		conditions = append(conditions, "route_short_name = ?")
-		args = append(args, *filter.RouteShortName)
+	scan := func(rows *sql.Rows) (models.StopTime, error) {
+		var st models.StopTime
+		err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon)
+		return st, err
 	}
-	return queryRows(`SELECT * FROM stop_times`+whereClause(conditions), args,
-		func(rows *sql.Rows) (models.StopTime, error) {
-			var st models.StopTime
-			err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon)
-			return st, err
-		})
+	if filter.RouteShortName == nil {
+		return queryRows(`SELECT * FROM stop_times`, nil, scan)
+	}
+	// Resolve route_short_name → route_id → trip_ids via the live routes/trips
+	// tables instead of trusting the stop_times.route_short_name column. That
+	// column can go stale when Tranzy renumbers route_ids: trip rows persist
+	// under the previous mapping (PK is trip_id + stop_sequence), leaving the
+	// new short_name with no matching rows.
+	return queryRows(`
+		SELECT st.trip_id, st.stop_id, st.offset_arrival_time, st.stop_sequence,
+		       st.stop_headsign, st.route_short_name, st.stop_lat, st.stop_lon
+		FROM stop_times st
+		JOIN trips t  ON st.trip_id = t.trip_id
+		JOIN routes r ON t.route_id = r.route_id
+		WHERE r.route_short_name = ?`,
+		[]any{*filter.RouteShortName}, scan)
 }
 
 func storeStopTimesInDB(stopTimes []models.StopTime) error {
