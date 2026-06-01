@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
@@ -33,7 +34,14 @@ func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, f
 		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
 		storeStopTimesInDB,
-		CacheOpts[[]models.StopTime]{},
+		CacheOpts[[]models.StopTime]{
+			// Per-route stop_times should never be empty for a real route.
+			// Empty almost always means transient state (warmup mid-flight,
+			// Tranzy route_id renumber landing between trips and stop_times).
+			// Short-TTL it so the next request retries quickly instead of
+			// serving fossilized empty for the full hour.
+			IsEmpty: func(s []models.StopTime) bool { return len(s) == 0 },
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -233,6 +241,34 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 			}
 			return nil
 		})
+}
+
+// ScrubStopTimes deletes stop_times rows whose trip_id no longer exists in
+// trips (orphans, e.g. after Tranzy retires a trip_id), and reports rows whose
+// denormalized route_short_name column has drifted from the trip's current
+// route. Drift is harmless for reads now that getStopTimesFromDB resolves
+// route_short_name via JOIN, but logging it makes future renumber events
+// observable and the drift count surface in logs.
+//
+// Returns (orphansDeleted, driftedRows, error).
+func ScrubStopTimes() (int64, int64, error) {
+	res, err := database.DB.Exec(`DELETE FROM stop_times WHERE trip_id NOT IN (SELECT trip_id FROM trips)`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("scrub orphans: %w", err)
+	}
+	orphans, _ := res.RowsAffected()
+
+	var drifted int64
+	if err := database.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM stop_times st
+		JOIN trips t  ON st.trip_id = t.trip_id
+		JOIN routes r ON t.route_id = r.route_id
+		WHERE st.route_short_name != r.route_short_name`).Scan(&drifted); err != nil {
+		return orphans, 0, fmt.Errorf("scrub drift count: %w", err)
+	}
+
+	return orphans, drifted, nil
 }
 
 type APIStopTimeFilter struct {

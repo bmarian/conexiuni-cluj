@@ -14,9 +14,22 @@ import (
 
 var cacheSingleflight singleflight.Group
 
+// emptyResultTTL is the cache lifespan used when a fetch succeeds but produced
+// no data, AND the caller opted in via CacheOpts.IsEmpty. The point is to
+// avoid fossilizing a transient empty (Tranzy renumber mid-flight, partial
+// warmup, brief upstream hiccup) for the full shelf life. 5 minutes is short
+// enough that drift self-heals quickly, long enough not to hammer the API.
+const emptyResultTTL = 5 * time.Minute
+
 type CacheOpts[T any] struct {
 	Optimize    bool
 	PostProcess func(T) T
+	// IsEmpty, when non-nil, is consulted after a successful API fetch. If it
+	// returns true the cache entry is written with emptyResultTTL instead of
+	// the normal shelfLife. Use only for caches where "empty" is suspicious;
+	// leave nil where empty is a legitimate steady state (e.g. timetables for
+	// routes CTP-CJ doesn't publish).
+	IsEmpty func(T) bool
 }
 
 func HandleCached[T any](
@@ -120,7 +133,15 @@ func writeCache[T any](
 		log.Printf("Warning: failed to store %s in database: %v", cacheID, err)
 		return
 	}
-	if err := database.UpdateCache(cacheID, shelfLife.Milliseconds()); err != nil {
+	ttl := shelfLife
+	if opts.IsEmpty != nil && opts.IsEmpty(data) {
+		// Empty + IsEmpty opt-in: shorten TTL so a transient empty doesn't
+		// lock in for the full shelf life. Clamp so we never extend it.
+		if emptyResultTTL < ttl {
+			ttl = emptyResultTTL
+		}
+	}
+	if err := database.UpdateCache(cacheID, ttl.Milliseconds()); err != nil {
 		log.Printf("Warning: failed to update cache for %s: %v", cacheID, err)
 		return
 	}

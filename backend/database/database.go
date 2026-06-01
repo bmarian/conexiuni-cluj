@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -50,7 +52,45 @@ func Connect(dbPath string) error {
 		}
 	}
 
+	if err := checkIntegrity(); err != nil {
+		// Don't fail boot — the server can still serve from Tranzy and
+		// recover most caches by re-fetching. But scream loudly: silent
+		// "database disk image is malformed" warnings buried in write paths
+		// (one per cache miss) are easy to miss and waste hours of debugging.
+		log.Printf("CRITICAL: database integrity check failed: %v -- the server will run but writes to corrupt tables will fail silently; consider running `sqlite3 %s '.recover' | sqlite3 recovered.db` and swapping the file", err, dbPath)
+	}
+
 	log.Println("Database connected")
+	return nil
+}
+
+// checkIntegrity runs SQLite's PRAGMA integrity_check. It returns nil if the
+// database reports "ok", or an error containing the first few problems it
+// found otherwise. Cheap (sub-second on our DB size) and worth running every
+// boot — the alternative is per-write warnings buried in app logs.
+func checkIntegrity() error {
+	rows, err := DB.Query(`PRAGMA integrity_check(5)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var problems []string
+	for rows.Next() {
+		var msg string
+		if err := rows.Scan(&msg); err != nil {
+			return err
+		}
+		if msg != "ok" {
+			problems = append(problems, msg)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%d problems: %s", len(problems), strings.Join(problems, "; "))
+	}
 	return nil
 }
 
