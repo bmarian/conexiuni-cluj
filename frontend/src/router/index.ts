@@ -38,9 +38,14 @@ const router = createRouter({
       component: AdminView,
     },
     {
+      path: '/bsod',
+      name: 'bsod',
+      component: NotFoundView,
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: NotFoundView,
+      redirect: {name: 'home'},
     },
   ],
 })

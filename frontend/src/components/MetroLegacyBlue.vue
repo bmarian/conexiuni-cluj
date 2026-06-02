@@ -8,7 +8,7 @@ const {t, locale} = useI18n()
 const router = useRouter()
 
 function onMetroClick() {
-  router.push({name: 'not-found'})
+  router.push({name: 'bsod'})
 }
 
 const QUOTES_RO = [
