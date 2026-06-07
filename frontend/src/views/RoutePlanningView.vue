@@ -51,6 +51,9 @@ import '@vuepic/vue-datepicker/dist/main.css'
 
 const MAX_MINUTES = 60
 const WALK_SPEED = 80 // m/min
+// How many stops before the boarding stop a live vehicle becomes visible on the map,
+// so riders can see it approaching instead of only once it's on the drawn segment.
+const VEHICLE_LOOKAHEAD_STOPS = 3
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -1020,6 +1023,27 @@ watch(selectedPlanSignature, () => {
   updateMapVehicles(vehiclesByTrip.value, shapeIndicesByTripId.value)
 })
 
+// Shape index of the stop `lookahead` stops before the boarding stop along the trip,
+// used as the early-visibility bound for live vehicles. Falls back to the boarding
+// stop's own index when it's the first stop or can't be resolved.
+function lookaheadShapeIdx(
+  shape: ShapeInfo,
+  tripId: string,
+  boardingStopId: number,
+  boardingIdx: number,
+  pts: Shape[],
+  lookahead = VEHICLE_LOOKAHEAD_STOPS,
+): number {
+  const tripStops = getShapeStopTimes(shape)
+    .filter(st => st.trip_id === tripId)
+    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  const boardingPos = tripStops.findIndex(st => st.stop_id === boardingStopId)
+  if (boardingPos <= 0) return boardingIdx
+  const target = tripStops[Math.max(0, boardingPos - lookahead)]
+  if (!target?.stop_lat || !target?.stop_lon) return boardingIdx
+  return findClosestShapeIdx(target.stop_lat, target.stop_lon, pts)
+}
+
 async function updateMapVehicles(byTrip: Map<string, Vehicle[]>, indices: Map<string, ShapeIndex>) {
   const plan = selectedPlan.value
   if (!plan || !indices.size) {
@@ -1062,7 +1086,12 @@ async function updateMapVehicles(byTrip: Map<string, Vehicle[]>, indices: Map<st
         const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
         const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
 
-        const filtered = indexed.filter(iv => iv.shapeIdx >= Math.max(0, rStart - 10) && iv.shapeIdx <= rEnd + 1)
+        // Reveal a vehicle a few stops before the boarding stop (so it's visible while
+        // approaching), and keep it until just past the leg's final stop.
+        const lookaheadIdx = lookaheadShapeIdx(shape, tid, leg.startStopId, startIdx, pts)
+        const lowerIdx = Math.max(0, Math.min(rStart, lookaheadIdx))
+
+        const filtered = indexed.filter(iv => iv.shapeIdx >= lowerIdx && iv.shapeIdx <= rEnd + 1)
         allIndexedVehicles.push(...filtered)
       } catch (e) {
         console.warn('Failed to index vehicles for trip', tid, e)
