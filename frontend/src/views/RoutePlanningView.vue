@@ -800,7 +800,7 @@ watch(planData, (data) => {
     const walkOnlyB = b.legs.length === 0
     if (walkOnlyA !== walkOnlyB) return walkOnlyA ? 1 : -1
     if (isLastMode) return b.endTimeMs - a.endTimeMs
-    return a.generalizedCost - b.generalizedCost
+    return computeTotalMinutes(a) - computeTotalMinutes(b)
   })
   const transitTrimmed = results.filter(p => p.legs.length > 0).slice(0, 6)
   const walkOnlyPlans = results.filter(p => p.legs.length === 0)
