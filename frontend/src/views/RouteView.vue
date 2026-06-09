@@ -56,7 +56,31 @@ const shapeInfo = computed(() => routeStore.selectedShapeInfo)
 const fromStopId = computed(() => routeStore.fromStopId)
 const fromStopName = computed(() => routeStore.fromStopName)
 
-const currentDirection = ref<'0' | '1'>(props.direction === '1' ? '1' : '0')
+// 'auto' (from homepage/search) opens the direction whose nearest stop is closest
+// to the user. Resolved synchronously so the first paint already shows it.
+function resolveDirection(): '0' | '1' {
+  if (props.direction === '1') return '1'
+  if (props.direction !== 'auto') return '0'
+  const loc = userLocation.value
+  const info = routeStore.selectedShapeInfo
+  if (!loc || !info || info.route_id !== Number(props.routeId)) return '0'
+  const outId = `${props.routeId}${OUTGOING_SUFFIX}`
+  const inId = `${props.routeId}${INCOMING_SUFFIX}`
+  let bestDir: '0' | '1' = '0'
+  let bestDist = Infinity
+  for (const st of getShapeStopTimes(info)) {
+    const dir = st.trip_id === outId ? '0' : st.trip_id === inId ? '1' : null
+    if (!dir || !st.stop_lat || !st.stop_lon) continue
+    const d = haversineMeters(loc.latitude, loc.longitude, st.stop_lat, st.stop_lon)
+    if (d < bestDist) {
+      bestDist = d
+      bestDir = dir
+    }
+  }
+  return bestDir
+}
+
+const currentDirection = ref<'0' | '1'>(resolveDirection())
 const isOutgoing = computed(() => currentDirection.value === '0')
 const currentTripId = computed(() =>
   `${props.routeId}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
@@ -545,8 +569,15 @@ onMounted(async () => {
   if (!shapeInfo.value || storeRouteId !== Number(props.routeId)) {
     isInitialLoading.value = true
     const ok = await loadShapeInfoFromApi()
+    // Deep-linked 'auto': stops load async, so resolve once they arrive (still on
+    // the skeleton, so no flicker).
+    if (ok && props.direction === 'auto') currentDirection.value = resolveDirection()
     isInitialLoading.value = false
     if (!ok) return
+  }
+  // Swap the transient 'auto' in the URL for the resolved direction.
+  if (props.direction !== currentDirection.value) {
+    void router.replace({name: 'route', params: {routeId: props.routeId, direction: currentDirection.value}})
   }
   updateMap()
   void loadAllDirections().then(() => {

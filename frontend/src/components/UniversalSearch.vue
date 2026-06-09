@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import {computed, onUnmounted, ref, watch} from 'vue'
-import {useRouter} from 'vue-router'
-import {useI18n} from 'vue-i18n'
-import {useMapStore} from '@/stores/map.ts'
-import {useRouteStore} from '@/stores/route.ts'
-import {useSettingsStore} from '@/stores/settings.ts'
-import {useUserStore} from '@/stores/user.ts'
-import {useFavoritesStore} from '@/stores/favorites.ts'
-import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
-import {useOnline} from '@/composables/useOnline.ts'
-import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
-import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
-import {searchNominatimPlaces, type NominatimPlace} from '@/utils/nominatim.ts'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useMapStore } from '@/stores/map.ts'
+import { useRouteStore } from '@/stores/route.ts'
+import { useSettingsStore } from '@/stores/settings.ts'
+import { useUserStore } from '@/stores/user.ts'
+import { useFavoritesStore } from '@/stores/favorites.ts'
+import { useRouteShapeInfoApi } from '@/composables/useRouteShapeInfoApi.ts'
+import { useOnline } from '@/composables/useOnline.ts'
+import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
+import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
+import { searchNominatimPlaces, type NominatimPlace } from '@/utils/nominatim.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 
 interface EnrichedGeoResult extends NominatimPlace {
@@ -36,15 +36,15 @@ const emit = defineEmits<{
   'update:active': [value: boolean]
 }>()
 
-const {t, locale} = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
 const favoritesStore = useFavoritesStore()
-const {fetchShapeInfo} = useRouteShapeInfoApi()
-const {isOnline} = useOnline()
+const { fetchShapeInfo } = useRouteShapeInfoApi()
+const { isOnline } = useOnline()
 
 const search = ref('')
 const navigatingRouteId = ref<number | null>(null)
@@ -55,7 +55,7 @@ let geoDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const isSearchMode = computed(() => search.value.trim().length > 0)
 
-watch(isSearchMode, (val) => emit('update:active', val), {immediate: true})
+watch(isSearchMode, (val) => emit('update:active', val), { immediate: true })
 
 function norm(s: string): string {
   return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
@@ -164,7 +164,7 @@ function navigateToPlan(result: NominatimPlace) {
   const lat = parseFloat(result.lat)
   const lon = parseFloat(result.lon)
   if (!isNaN(lat) && !isNaN(lon)) {
-    favoritesStore.addRecentPlan({name: result.label, lat, lon})
+    favoritesStore.addRecentPlan({ name: result.label, lat, lon })
   }
 
   void router.push({
@@ -185,7 +185,7 @@ async function navigateToRoute(route: Route) {
     const shapeInfo = await fetchShapeInfo(route)
     const tripId = `${route.route_id}${OUTGOING_SUFFIX}`
     routeStore.setSelectedRoute(shapeInfo, tripId, '', '')
-    await router.push({name: 'route', params: {routeId: String(route.route_id), direction: '0'}})
+    await router.push({ name: 'route', params: { routeId: String(route.route_id), direction: 'auto' } })
   } catch (e) {
     console.error('Failed to load route:', e)
   } finally {
@@ -196,7 +196,7 @@ async function navigateToRoute(route: Route) {
 function navigateToStop(stop: Stop) {
   mapStore.clearPinnedLocation()
   mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
-  void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
+  void router.push({ name: 'stop', params: { stopId: String(stop.stop_id) } })
 }
 
 </script>
@@ -208,29 +208,16 @@ function navigateToStop(stop: Stop) {
 
     <div class="search-wrap">
       <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🔍</span>
-      <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
-           viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round"
-              d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
+      <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24"
+        stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
       </svg>
-      <input
-        v-model="search"
-        type="search"
-        :placeholder="t('searchPlaceholder')"
-        class="search-input"
-        autocomplete="off"
-        @keydown.enter="($event.target as HTMLInputElement).blur()"
-      />
-      <button
-        v-if="search"
-        type="button"
-        class="search-clear"
-        aria-label="Clear search"
-        @click="search = ''; mapStore.clearPinnedLocation()"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-             stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      <input v-model="search" type="search" :placeholder="t('searchPlaceholder')" class="search-input"
+        autocomplete="off" @keydown.enter="($event.target as HTMLInputElement).blur()" />
+      <button v-if="search" type="button" class="search-clear" aria-label="Clear search"
+        @click="search = ''; mapStore.clearPinnedLocation()">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
@@ -246,23 +233,13 @@ function navigateToStop(stop: Stop) {
       <div v-if="isOnline && enrichedGeoResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-          <div
-            v-for="result in enrichedGeoResults"
-            :key="result.id"
-            class="geo-result-row group"
-            role="button"
-            tabindex="0"
-            @click="navigateToPlan(result)"
-            @keydown.enter.space.prevent="navigateToPlan(result)"
-          >
-            <div
-              class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                    aria-hidden="true">📍</span>
-              <svg v-else class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24"
-                   fill="currentColor">
+          <div v-for="result in enrichedGeoResults" :key="result.id" class="geo-result-row group" role="button"
+            tabindex="0" @click="navigateToPlan(result)" @keydown.enter.space.prevent="navigateToPlan(result)">
+            <div class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
+              <svg v-else class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24" fill="currentColor">
                 <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
             </div>
             <div class="flex flex-col flex-1 min-w-0 gap-0.5">
@@ -270,9 +247,7 @@ function navigateToStop(stop: Stop) {
                 class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
                 {{ result.main }}
               </span>
-              <span
-                v-if="result.sub"
-                class="text-xs text-slate-400 dark:text-slate-500 truncate">
+              <span v-if="result.sub" class="text-xs text-slate-400 dark:text-slate-500 truncate">
                 {{ result.sub }}
               </span>
             </div>
@@ -280,7 +255,7 @@ function navigateToStop(stop: Stop) {
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </div>
         </div>
@@ -289,38 +264,26 @@ function navigateToStop(stop: Stop) {
       <div v-if="searchRouteResults.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsRoutes') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-          <div
-            v-for="route in searchRouteResults"
-            :key="route.route_id"
-            class="all-route-row group"
-            :class="{'opacity-60 pointer-events-none': navigatingRouteId === route.route_id}"
-            @click="navigateToRoute(route)"
-          >
+          <div v-for="route in searchRouteResults" :key="route.route_id" class="all-route-row group"
+            :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
+            @click="navigateToRoute(route)">
             <div
               class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-              :style="{backgroundColor: route.route_color}"
-            >{{ route.route_short_name }}
+              :style="{ backgroundColor: route.route_color }">{{ route.route_short_name }}
             </div>
             <span
               class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
               {{ route.route_long_name }}
             </span>
-            <svg
-              v-if="navigatingRouteId === route.route_id"
-              class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-              fill="none" viewBox="0 0 24 24"
-            >
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                      stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            <svg v-if="navigatingRouteId === route.route_id" class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
+              fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
-            <svg
-              v-else
+            <svg v-else
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </div>
         </div>
@@ -329,20 +292,15 @@ function navigateToStop(stop: Stop) {
       <div v-if="stopResultsWithDist.length" class="result-group">
         <h3 class="sub-label">{{ t('searchResultsStops') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-          <div
-            v-for="entry in stopResultsWithDist"
-            :key="entry.stop.stop_id"
-            class="all-route-row group"
-            @click="navigateToStop(entry.stop)"
-          >
+          <div v-for="entry in stopResultsWithDist" :key="entry.stop.stop_id" class="all-route-row group"
+            @click="navigateToStop(entry.stop)">
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                    aria-hidden="true">🚏</span>
-              <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
-                   viewBox="0 0 24 24" fill="currentColor">
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
+              <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
+                fill="currentColor">
                 <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
             </div>
             <span
@@ -352,20 +310,17 @@ function navigateToStop(stop: Stop) {
             <span v-if="entry.dist" class="dist-badge">{{ entry.dist }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </div>
         </div>
       </div>
 
-      <MetroLegacyBlue :search="search"/>
+      <MetroLegacyBlue :search="search" />
 
-      <p
-        v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
-        class="no-results"
-      >{{ t('noResults') }}</p>
+      <p v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
+        class="no-results">{{ t('noResults') }}</p>
 
     </div>
   </div>
@@ -393,6 +348,7 @@ function navigateToStop(stop: Stop) {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -540,12 +496,27 @@ function navigateToStop(stop: Stop) {
   animation: geo-pulse 1.1s ease-in-out infinite;
 }
 
-.geo-loading-dot:nth-child(2) { animation-delay: 0.18s; }
-.geo-loading-dot:nth-child(3) { animation-delay: 0.36s; }
+.geo-loading-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.geo-loading-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
 
 @keyframes geo-pulse {
-  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>
 

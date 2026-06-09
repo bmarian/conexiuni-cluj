@@ -106,7 +106,10 @@ async function navigateToRoute(route: Route) {
     const shapeInfo = await fetchShapeInfo(route)
     const tripId = `${route.route_id}${OUTGOING_SUFFIX}`
     routeStore.setSelectedRoute(shapeInfo, tripId, '', '')
-    await router.push({name: 'route', params: {routeId: String(route.route_id), direction: '0'}})
+    await router.push({
+      name: 'route',
+      params: {routeId: String(route.route_id), direction: 'auto'},
+    })
   } catch (e) {
     console.error('Failed to load route:', e)
   } finally {
