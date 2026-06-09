@@ -233,51 +233,39 @@ function accessibilityIcons(vehicle: DisplayVehicle, color: string): string {
 export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,
-  isStopView: boolean,
   showStopInfo: boolean,
   opts: IconThemeOptions,
 ): string {
   const routeName = vehicle.route_short_name || ''
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
   const roundedSpeed = Math.round(vehicle.speed)
-  const titleText = routeName ? `${routeName} • ${vehicle.label}` : vehicle.label
   const heading = vehicle.heading || 0
   const extrasHtml = (color: string) => opts.showVehicleExtras ? accessibilityIcons(vehicle, color) : ''
 
   if (opts.arcadeActive) {
     const rotation = heading - 90
     const arcade = `<div style="transform:rotate(${rotation}deg);flex-shrink:0;">
-      <div class="arcade-chomp" style="width:${isStopView ? 36 : 32}px;height:${isStopView ? 36 : 32}px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
+      <div class="arcade-chomp" style="width:36px;height:36px;background-color:${resolvedColor};border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.28);"></div>
     </div>`
 
-    if (isStopView) {
-      return `
-        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
-          ${arcade}
-          <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
-          ${showStopInfo ? `
-            <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
-              <span style="font-weight:700;font-size:14px;">${titleText}</span>
-              ${extrasHtml('#94a3b8')}
-              <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
-            </div>
-          ` : ''}
-        </div>`
-    }
-
     return `
-      <div style="position:relative;display:flex;align-items:center;">
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;">
         ${arcade}
-        <div class="absolute" style="left:40px;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;">
-          <span style="font-weight:700;font-size:14px;">${titleText}</span>
-          ${extrasHtml('#94a3b8')}
-          <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
-        </div>
+        <div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:900;padding:0 3px;border-radius:3px;border:1px solid rgba(255,255,255,0.8);line-height:1.5;white-space:nowrap;">${routeName}</div>
+        ${showStopInfo ? `
+          <div class="absolute" style="left:42px;top:0;background:rgba(15,23,42,0.9);color:#f1f5f9;padding:4px 10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;z-index:20;pointer-events:none;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-weight:700;font-size:13px;">${routeName}</span>
+              ${extrasHtml('#94a3b8')}
+            </div>
+            <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
+          </div>
+        ` : ''}
       </div>`
   }
 
   if (opts.legacyBlueActive) {
-    const sz = isStopView ? 36 : 32
+    const sz = 36
     const cursorRotation = heading + 45
 
     // Classic XP mouse cursor. Rotated heading+45 so the NW-pointing tip aims at direction of travel.
@@ -288,67 +276,46 @@ export function getVehicleMarkerHtml(
 
     const cursorBox = `<div style="width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${cursorSvg}</div>`
 
-    const xpTip = (extraStyle: string = '') => `<div class="absolute" style="${extraStyle}background:#FFFFE0;color:#000000;padding:3px 7px;border:1px solid #000000;box-shadow:1px 1px 0 rgba(0,0,0,0.35);display:flex;flex-direction:column;white-space:nowrap;z-index:20;pointer-events:none;font-family:'Tahoma','Trebuchet MS',sans-serif;line-height:1.3;">
-      <span style="font-weight:700;font-size:11px;">${titleText}</span>
-      ${extrasHtml('#404040')}
+    const xpTip = (extraStyle: string = '') => `<div class="absolute" style="${extraStyle}background:#FFFFE0;color:#000000;padding:3px 7px;border:1px solid #000000;box-shadow:1px 1px 0 rgba(0,0,0,0.35);white-space:nowrap;z-index:20;pointer-events:none;font-family:'Tahoma','Trebuchet MS',sans-serif;line-height:1.3;">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span style="font-weight:700;font-size:11px;">${routeName}</span>
+        ${extrasHtml('#404040')}
+      </div>
       <span style="font-size:11px;color:#404040;">${roundedSpeed} km/h</span>
     </div>`
 
     const routeBadge = `<div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:700;padding:1px 5px;border-radius:0;border:1px solid #000000;line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;box-shadow:1px 1px 0 rgba(0,0,0,0.3);">${routeName}</div>`
 
-    if (isStopView) {
-      return `
-        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;">
-          ${cursorBox}
-          ${routeBadge}
-          ${showStopInfo ? xpTip(`left:${sz + 6}px;top:0;`) : ''}
-        </div>`
-    }
-
     return `
-      <div style="position:relative;display:flex;align-items:center;">
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;">
         ${cursorBox}
-        ${xpTip(`left:${sz + 4}px;`)}
+        ${routeBadge}
+        ${showStopInfo ? xpTip(`left:${sz + 6}px;top:0;`) : ''}
       </div>`
   }
 
-  return isStopView
-    ? `
-      <div class="relative flex items-center">
-        <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
-             style="background-color: ${resolvedColor};">
-          <span class="font-black leading-none text-white tracking-tight"
-                style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
-        </div>
-        <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
-               style="transform: rotate(${heading}deg);">
-            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        ${showStopInfo ? `
-          <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-            <span class="font-bold text-sm tracking-wide">${titleText}</span>
-            ${extrasHtml('#94a3b8')}
-            <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
-          </div>
-        ` : ''}
+  return `
+    <div class="relative flex items-center">
+      <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
+           style="background-color: ${resolvedColor};">
+        <span class="font-black leading-none text-white tracking-tight"
+              style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
       </div>
-    `
-    : `
-      <div class="relative flex items-center">
-        <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md z-30 shrink-0"
-             style="background-color: ${resolvedColor};">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4"
-               style="transform: rotate(${heading}deg);">
-            <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md flex flex-col whitespace-nowrap z-20 pointer-events-none">
-          <span class="font-bold text-sm tracking-wide">${titleText}</span>
-          ${extrasHtml('#94a3b8')}
+      <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
+             style="transform: rotate(${heading}deg);">
+          <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      ${showStopInfo ? `
+        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md whitespace-nowrap z-20 pointer-events-none">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span class="font-bold text-sm tracking-wide">${routeName}</span>
+            ${extrasHtml('#94a3b8')}
+          </div>
           <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
         </div>
-      </div>
-    `
+      ` : ''}
+    </div>
+  `
 }

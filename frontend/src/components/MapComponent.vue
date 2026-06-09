@@ -48,7 +48,7 @@ const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
 const stopNames = new Map<string, string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
-const selectedStopVehicleId = ref<number | null>(null)
+const selectedVehicleId = ref<number | null>(null)
 const {t} = useI18n()
 const mapContainer = ref()
 
@@ -367,7 +367,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   })
   mapValue.on('locationfound', updateLiveLocation)
   mapValue.on('click', () => {
-    selectedStopVehicleId.value = null
+    selectedVehicleId.value = null
   })
   mapValue.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
@@ -826,47 +826,43 @@ watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueAct
 }, {deep: true})
 
 
-const renderVehicles = (vehicles: DisplayVehicle[], currentRouteName: string | symbol | null | undefined) => {
+const renderVehicles = (vehicles: DisplayVehicle[]) => {
   if (!vehicleLayerGroup.value) return
 
   const layerGroup = vehicleLayerGroup.value
   layerGroup.clearLayers()
-  const isStopView = currentRouteName === 'stop'
-
   for (const vehicle of vehicles) {
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
     const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
     if (!resolvedColor) continue
 
-    const showStopInfo = isStopView && selectedStopVehicleId.value === vehicle.id
-    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, isStopView, showStopInfo, themeOpts())
+    const showStopInfo = selectedVehicleId.value === vehicle.id
+    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts())
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: L.divIcon({
         className: 'bg-transparent border-none !overflow-visible',
         html: markerHtml,
-        iconSize: isStopView ? [36, 36] : [32, 32],
-        iconAnchor: isStopView ? [18, 18] : [16, 16],
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
       }),
       zIndexOffset: showStopInfo ? 5600 : 5000
     })
 
-    if (isStopView) {
-      marker.on('click', () => {
-        selectedStopVehicleId.value = selectedStopVehicleId.value === vehicle.id ? null : vehicle.id
-      })
-    }
+    marker.on('click', () => {
+      selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
+    })
 
     marker.addTo(layerGroup)
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedStopVehicleId, arcadeActive, legacyBlueActive, showVehicleExtras], ([vehicles, routeName]) => {
-  renderVehicles(vehicles as DisplayVehicle[], routeName)
+watch([vehiclesToDisplay, () => route.name, selectedVehicleId, arcadeActive, legacyBlueActive, showVehicleExtras], ([vehicles]) => {
+  renderVehicles(vehicles as DisplayVehicle[])
 }, {deep: true})
 
-watch(() => route.name, (name) => {
-  if (name !== 'stop') selectedStopVehicleId.value = null
+watch(() => route.name, () => {
+  selectedVehicleId.value = null
 })
 
 watch(centerOnUser, (shouldCenter) => {
