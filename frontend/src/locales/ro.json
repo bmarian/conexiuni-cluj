@@ -34,6 +34,8 @@
   "searchResultsRoutes": "Rute",
   "searchResultsStops": "Stații",
   "noResults": "Niciun rezultat",
+  "dropPin": "Plasează un pin pe hartă",
+  "droppedPin": "Pin plasat",
   "addToFavorites": "Adaugă la favorite",
   "removeFromFavorites": "Elimină din favorite",
   "serviceSuspended": "Serviciu suspendat",

@@ -34,6 +34,8 @@
   "searchResultsRoutes": "Routes",
   "searchResultsStops": "Stops",
   "noResults": "No results",
+  "dropPin": "Drop a pin on the map",
+  "droppedPin": "Dropped pin",
   "addToFavorites": "Add to favorites",
   "removeFromFavorites": "Remove from favorites",
   "serviceSuspended": "Service suspended",

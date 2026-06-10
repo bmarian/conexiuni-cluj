@@ -30,6 +30,55 @@ interface GeocodeJsonResponse {
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
 
+const GMAPS_SHORT_URL = /^https?:\/\/maps\.app\.goo\.gl\//
+const GMAPS_FULL_URL = /^https?:\/\/(www\.)?google\.com\/maps/
+const GMAPS_PIN_COORD = /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/
+const GMAPS_AT_COORD = /\/@(-?\d+\.\d+),(-?\d+\.\d+)/
+const GMAPS_QUERY_COORD = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/
+const GMAPS_PLACE_NAME = /\/maps\/place\/([^/@?#]+)/
+
+export function isGoogleMapsUrl(query: string): boolean {
+  const s = query.trim()
+  return GMAPS_SHORT_URL.test(s) || GMAPS_FULL_URL.test(s)
+}
+
+function parseGoogleMapsUrlCoords(url: string): NominatimPlace | null {
+  const m = GMAPS_PIN_COORD.exec(url) ?? GMAPS_AT_COORD.exec(url) ?? GMAPS_QUERY_COORD.exec(url)
+  if (!m) return null
+  const lat = m[1] ?? ''
+  const lon = m[2] ?? ''
+  if (!lat || !lon) return null
+  const nameMatch = GMAPS_PLACE_NAME.exec(url)
+  const rawName = nameMatch?.[1]
+  const label = rawName
+    ? decodeURIComponent(rawName.replace(/\+/g, ' '))
+    : `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`
+  return { id: `gmaps:${lat}:${lon}`, lat, lon, label }
+}
+
+export async function resolveGoogleMapsLink(url: string): Promise<NominatimPlace | null> {
+  const s = url.trim()
+  if (GMAPS_FULL_URL.test(s)) {
+    return parseGoogleMapsUrlCoords(s)
+  }
+  try {
+    const resp = await fetch(`/api/resolve-location?url=${encodeURIComponent(s)}`)
+    if (!resp.ok) return null
+    const data = await resp.json()
+    if (typeof data.lat === 'number' && typeof data.lon === 'number') {
+      return {
+        id: `gmaps:${data.lat}:${data.lon}`,
+        lat: String(data.lat),
+        lon: String(data.lon),
+        label: String(data.label ?? `${Number(data.lat).toFixed(4)}, ${Number(data.lon).toFixed(4)}`),
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function toFeatureList(features: GeocodeJsonResponse['features']): GeocodeJsonFeature[] {
   if (Array.isArray(features)) return features
   return features ? [features] : []

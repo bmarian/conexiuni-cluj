@@ -284,4 +284,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	})
 
 	api.Get("/news", func(c fiber.Ctx) error { return GetNews(c, cacheTimes.NewsCacheShelfLife) })
+
+	api.Get("/resolve-location", ResolveLocationHandler)
 }

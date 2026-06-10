@@ -45,7 +45,7 @@ import {
 } from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
 import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
-import {reverseNominatimPlace, searchNominatimPlaces, type NominatimPlace} from "@/utils/nominatim.ts"
+import {reverseNominatimPlace, searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace} from "@/utils/nominatim.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 
@@ -1348,7 +1348,12 @@ async function performSearch() {
   }
   isSearching.value = true
   try {
-    searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
+    if (isGoogleMapsUrl(q)) {
+      const place = await resolveGoogleMapsLink(q)
+      searchResults.value = place ? [place] : []
+    } else {
+      searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
+    }
   } finally {
     isSearching.value = false
   }
@@ -1401,6 +1406,17 @@ function closeActiveSearch() {
   searchQuery.value = ''
   searchResults.value = []
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+}
+
+function dropPinAsDestination() {
+  if (!isOnline.value) return
+  const label = t('droppedPin')
+  const newQuery = { ...route.query, lat: '46.7712', lon: '23.6236', name: label }
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+  void router.replace({ query: newQuery })
+  void calculateRoutes()
 }
 
 function useCurrentLocationAsDestination() {
@@ -2043,7 +2059,7 @@ watch(timeValue, (val) => {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation))">
+            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation) || (!isSearching && searchQuery.trim().length >= 3))">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
@@ -2063,6 +2079,17 @@ watch(timeValue, (val) => {
                   @click="selectDestination(res)"
                 >
                   <span class="res-main">{{ res.label }}</span>
+                </div>
+                <div
+                  v-if="!searchResults.length && searchQuery.trim().length >= 3"
+                  class="search-result-item drop-pin-option"
+                  @click="dropPinAsDestination"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21c0 0-7-6.686-7-11a7 7 0 1 1 14 0c0 4.314-7 11-7 11z"/>
+                    <circle cx="12" cy="10" r="2.5" fill="currentColor" stroke="none"/>
+                  </svg>
+                  <span class="res-main">{{ t('dropPin') }}</span>
                 </div>
               </template>
             </div>
@@ -3943,6 +3970,13 @@ html.dark[data-legacy-blue] .plan-placeholder {
 
 .search-result-item:hover {
   background: #f8fafc;
+}
+
+.drop-pin-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
 }
 
 .res-main {

@@ -140,6 +140,7 @@ const otpPlanQuery = `{
     arriveBy: %t
     numItineraries: 12
     searchWindow: 21600
+    maxWalkDistance: 3500
     transportModes: [{ mode: WALK }, { mode: TRANSIT }]
   ) {
     itineraries {

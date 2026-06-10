@@ -11,7 +11,7 @@ import { useRouteShapeInfoApi } from '@/composables/useRouteShapeInfoApi.ts'
 import { useOnline } from '@/composables/useOnline.ts'
 import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
-import { searchNominatimPlaces, type NominatimPlace } from '@/utils/nominatim.ts'
+import { searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace } from '@/utils/nominatim.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 
 interface EnrichedGeoResult extends NominatimPlace {
@@ -109,6 +109,26 @@ async function fetchGeo(q: string) {
   }
 }
 
+async function handleGoogleMapsUrl(url: string) {
+  geoLoading.value = true
+  try {
+    const place = await resolveGoogleMapsLink(url)
+    geoResults.value = place ? [place] : []
+  } catch {
+    geoResults.value = []
+  } finally {
+    geoLoading.value = false
+  }
+}
+
+function dropPin() {
+  search.value = ''
+  void router.push({
+    name: 'plan',
+    query: { lat: '46.7712', lon: '23.6236', name: t('droppedPin') },
+  })
+}
+
 watch(search, (q) => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
   geoResults.value = []
@@ -123,6 +143,10 @@ watch(search, (q) => {
     return
   }
   geoLoading.value = true
+  if (isGoogleMapsUrl(trimmed)) {
+    geoDebounceTimer = setTimeout(() => handleGoogleMapsUrl(trimmed), 350)
+    return
+  }
   geoDebounceTimer = setTimeout(() => fetchGeo(trimmed), 350)
 })
 
@@ -319,8 +343,30 @@ function navigateToStop(stop: Stop) {
 
       <MetroLegacyBlue :search="search" />
 
-      <p v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length"
-        class="no-results">{{ t('noResults') }}</p>
+      <template v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length">
+        <div v-if="isOnline" class="result-group">
+          <div class="geo-result-row group" role="button" tabindex="0"
+            @click="dropPin" @keydown.enter.space.prevent="dropPin">
+            <div class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21c0 0-7-6.686-7-11a7 7 0 1 1 14 0c0 4.314-7 11-7 11z"/>
+                <circle cx="12" cy="10" r="2.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <div class="flex flex-col flex-1 min-w-0 gap-0.5">
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
+                {{ t('noResults') }}
+              </span>
+              <span class="text-xs text-slate-400 dark:text-slate-500 truncate">{{ t('dropPin') }}</span>
+            </div>
+            <svg class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+        <p v-else class="no-results">{{ t('noResults') }}</p>
+      </template>
 
     </div>
   </div>
@@ -466,9 +512,9 @@ function navigateToStop(stop: Stop) {
 .no-results {
   font-size: 0.875rem;
   color: #94a3b8;
-  padding: 1rem 0;
   text-align: center;
 }
+
 
 .dist-badge {
   flex-shrink: 0;
