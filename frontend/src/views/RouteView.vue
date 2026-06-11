@@ -9,6 +9,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
+import type {DaySchedule, Frequency} from '@/types/ctp.ts'
 import {
   formatMinutesFromNow,
   getMinutesFromDate,
@@ -268,15 +269,36 @@ const timetableTabOrder: Record<TimetableTab, number> = {
 const isPastTab = (tab: TimetableTab): boolean =>
   timetableTabOrder[tab] < timetableTabOrder[todayTab.value]
 
+const dayHasContent = (d?: DaySchedule | null): boolean =>
+  !!(d?.entries?.length || d?.in_frequency || d?.out_frequency)
+
 const availableTabs = computed(() => {
   const tt = timetable.value
   if (!tt) return []
   const tabs: Array<{ key: TimetableTab; label: string }> = []
-  if (tt.weekdays?.entries?.length) tabs.push({key: 'weekdays', label: t('weekdays')})
-  if (tt.saturday?.entries?.length) tabs.push({key: 'saturday', label: t('saturday')})
-  if (tt.sunday?.entries?.length) tabs.push({key: 'sunday', label: t('sunday')})
+  if (dayHasContent(tt.weekdays)) tabs.push({key: 'weekdays', label: t('weekdays')})
+  if (dayHasContent(tt.saturday)) tabs.push({key: 'saturday', label: t('saturday')})
+  if (dayHasContent(tt.sunday)) tabs.push({key: 'sunday', label: t('sunday')})
   return tabs
 })
+
+// A headway direction (e.g. M26 toward Floreşti) lists no individual departures,
+// so the chip grid is empty for it; show the frequency card instead.
+const activeFrequency = computed((): Frequency | null => {
+  const tt = timetable.value
+  if (!tt) return null
+  const sched =
+    selectedTimetableTab.value === 'sunday' ? tt.sunday :
+      selectedTimetableTab.value === 'saturday' ? tt.saturday :
+        tt.weekdays
+  return (isOutgoing.value ? sched?.in_frequency : sched?.out_frequency) ?? null
+})
+
+function frequencyLabel(f: Frequency): string {
+  const {min_minutes: min, max_minutes: max} = f
+  if (min && max && min !== max) return t('frequencyEveryRange', {min, max})
+  return t('frequencyEvery', {min: min || max})
+}
 
 type TimetableChip = { time: string; isPast: boolean; isSuspended: boolean }
 
@@ -839,7 +861,26 @@ onUnmounted(() => {
 
         <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
 
-        <div class="tt-table">
+        <div v-if="activeFrequency || timetableByHour.length" class="tt-table">
+          <div v-if="activeFrequency" class="tt-row">
+            <span class="tt-hour">
+              <svg class="tt-freq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5V12l3 1.8"/>
+              </svg>
+            </span>
+            <div class="tt-mins tt-freq-mins">
+              <span v-if="activeFrequency.min_minutes || activeFrequency.max_minutes"
+                    class="tt-freq-primary text-[15px] font-semibold tabular-nums leading-tight text-slate-800 dark:text-slate-200">{{
+                  frequencyLabel(activeFrequency)
+                }}</span>
+              <span v-if="activeFrequency.start"
+                    class="tt-freq-window text-[13px] font-medium tabular-nums text-slate-400 dark:text-slate-500">{{
+                  t('frequencyWindow', {start: activeFrequency.start, end: activeFrequency.end})
+                }}</span>
+            </div>
+          </div>
           <div v-for="group in timetableByHour" :key="group.hour" class="tt-row">
             <span class="tt-hour" :class="group.isNextDay ? 'tt-hour-next-day' : ''">{{
                 group.hour
@@ -1207,6 +1248,20 @@ onUnmounted(() => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.tt-freq-mins {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.1rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.tt-freq-icon {
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 .trip-view {

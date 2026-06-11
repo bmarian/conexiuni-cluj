@@ -117,6 +117,7 @@ func swapDayScheduleColumns(d *models.DaySchedule) {
 	for i := range d.Entries {
 		d.Entries[i].DepartureIn, d.Entries[i].DepartureOut = d.Entries[i].DepartureOut, d.Entries[i].DepartureIn
 	}
+	d.InFrequency, d.OutFrequency = d.OutFrequency, d.InFrequency
 }
 
 func toDaySchedule(p *ctp_cj.ParsedTimetable) models.DaySchedule {
@@ -131,6 +132,20 @@ func toDaySchedule(p *ctp_cj.ParsedTimetable) models.DaySchedule {
 		ServiceName:  p.ServiceName,
 		ServiceStart: p.ServiceStart,
 		Entries:      entries,
+		InFrequency:  toFrequency(p.InFrequency),
+		OutFrequency: toFrequency(p.OutFrequency),
+	}
+}
+
+func toFrequency(f *ctp_cj.Frequency) *models.Frequency {
+	if f == nil {
+		return nil
+	}
+	return &models.Frequency{
+		Start:      f.Start,
+		End:        f.End,
+		MinMinutes: f.MinMinutes,
+		MaxMinutes: f.MaxMinutes,
 	}
 }
 

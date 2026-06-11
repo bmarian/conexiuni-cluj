@@ -3,10 +3,19 @@ export type TimetableEntry = {
   departure_out: string
 }
 
+export type Frequency = {
+  start: string
+  end: string
+  min_minutes: number
+  max_minutes: number
+}
+
 export type DaySchedule = {
   service_name: string
   service_start: string
   entries: TimetableEntry[]
+  in_frequency?: Frequency | null
+  out_frequency?: Frequency | null
 }
 
 export type Timetable = {

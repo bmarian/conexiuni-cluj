@@ -5,10 +5,22 @@ type TimetableEntry struct {
 	DepartureOut string `json:"departure_out"`
 }
 
+// Frequency describes a headway-based direction (no individual departures, just
+// a service window and an "every N-M min" interval); nil when the direction
+// lists explicit times.
+type Frequency struct {
+	Start      string `json:"start"`
+	End        string `json:"end"`
+	MinMinutes int    `json:"min_minutes"`
+	MaxMinutes int    `json:"max_minutes"`
+}
+
 type DaySchedule struct {
 	ServiceName  string           `json:"service_name"`
 	ServiceStart string           `json:"service_start"`
 	Entries      []TimetableEntry `json:"entries"`
+	InFrequency  *Frequency       `json:"in_frequency,omitempty"`
+	OutFrequency *Frequency       `json:"out_frequency,omitempty"`
 }
 
 type Timetable struct {

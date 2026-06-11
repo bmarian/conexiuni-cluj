@@ -14,6 +14,15 @@ type TimetableEntry struct {
 	DepartureOut string
 }
 
+// Frequency describes a headway-based direction (e.g. line M26), where CTP lists
+// no individual departures, only a service window and a "every N-M min" interval.
+type Frequency struct {
+	Start      string
+	End        string
+	MinMinutes int
+	MaxMinutes int
+}
+
 type ParsedTimetable struct {
 	RouteLongName string
 	ServiceName   string
@@ -21,13 +30,48 @@ type ParsedTimetable struct {
 	InStopName    string
 	OutStopName   string
 	Entries       []TimetableEntry
+	InFrequency   *Frequency
+	OutFrequency  *Frequency
 }
 
 // Accept HH:MM and annotated values like 07:20*.
 var timeCell = regexp.MustCompile(`^\s*\d{1,2}:\d{2}\S*\s*$`)
 
+// Headway cells, spread across two rows in one column: a service window
+// ("05:10-22:40") and an interval ("10-20min" or "15min").
+var (
+	freqWindowCell   = regexp.MustCompile(`^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$`)
+	freqIntervalCell = regexp.MustCompile(`^(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*min$`)
+)
+
 func isTimeCell(s string) bool {
 	return s == "" || timeCell.MatchString(s)
+}
+
+// applyFreqCell folds a window or interval cell into freq (allocated on first
+// use) and reports whether s was a frequency cell. The two halves arrive on
+// separate rows, so they accumulate into one struct.
+func applyFreqCell(freq **Frequency, s string) bool {
+	if m := freqWindowCell.FindStringSubmatch(s); m != nil {
+		if *freq == nil {
+			*freq = &Frequency{}
+		}
+		(*freq).Start, (*freq).End = m[1], m[2]
+		return true
+	}
+	if m := freqIntervalCell.FindStringSubmatch(s); m != nil {
+		if *freq == nil {
+			*freq = &Frequency{}
+		}
+		minv, _ := strconv.Atoi(m[1])
+		maxv := minv
+		if m[2] != "" {
+			maxv, _ = strconv.Atoi(m[2])
+		}
+		(*freq).MinMinutes, (*freq).MaxMinutes = minv, maxv
+		return true
+	}
+	return false
 }
 
 func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
@@ -63,6 +107,16 @@ func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 		case "out_stop_name":
 			t.OutStopName = right
 			continue
+		}
+
+		// A headway column carries no individual departures, only the window /
+		// interval cells. Lift them into the frequency descriptor and blank the
+		// cell so the opposite column's real time on that row is still kept.
+		if applyFreqCell(&t.InFrequency, left) {
+			left = ""
+		}
+		if applyFreqCell(&t.OutFrequency, right) {
+			right = ""
 		}
 
 		if !isTimeCell(left) || !isTimeCell(right) {

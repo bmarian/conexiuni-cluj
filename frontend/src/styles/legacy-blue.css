@@ -1338,6 +1338,17 @@ html[data-legacy-blue] .tt-hour {
   color: var(--xp-blue) !important;
 }
 
+html[data-legacy-blue] .tt-freq-primary {
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+  color: var(--xp-text) !important;
+}
+
+html[data-legacy-blue] .tt-freq-window {
+  font-family: var(--xp-font) !important;
+  color: var(--xp-blue) !important;
+}
+
 html[data-legacy-blue] .tt-today-dot {
   background: #5BAA38 !important;
 }
