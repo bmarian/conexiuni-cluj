@@ -5,6 +5,7 @@ set -e
 UPDATE_PBF=false
 DELETE_DB=false
 DELETE_LOGS=false
+BUST_CACHE=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -14,6 +15,8 @@ for arg in "$@"; do
     DELETE_DB=true
   elif [ "$arg" == "--delete-logs" ]; then
     DELETE_LOGS=true
+  elif [ "$arg" == "--bust-cache" ]; then
+    BUST_CACHE=true
   fi
 done
 
@@ -101,6 +104,14 @@ if [ "$DELETE_LOGS" = true ]; then
   echo ""
   echo "🗑️ Deleting logs folder..."
   rm -rf logs
+fi
+
+if [ "$BUST_CACHE" = true ]; then
+  echo ""
+  echo "🧹 Busting cache..."
+  cd backend
+  ./conexiuni-cluj --bust-cache
+  cd ..
 fi
 
 echo ""

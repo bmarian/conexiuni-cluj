@@ -7,6 +7,7 @@ import (
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -33,9 +34,33 @@ func clientIDForLog(c fiber.Ctx, salt string) string {
 	return hash
 }
 
+func runCacheBust(dbPath string) {
+	if err := database.Connect(dbPath); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer func() { _ = database.DB.Close() }()
+	if err := database.InitSchemas(); err != nil {
+		log.Fatalf("Failed to initialize database schemas: %v", err)
+	}
+	if err := database.InvalidateAllCaches(); err != nil {
+		log.Fatalf("Failed to bust cache: %v", err)
+	}
+	log.Println("All cache entries invalidated")
+}
+
 func main() {
 	_ = os.Setenv("TZ", "Europe/Bucharest")
+
+	bustCache := flag.Bool("bust-cache", false, "invalidate all cached entries, then exit without starting the server")
+	flag.Parse()
+
 	config := Load()
+
+	if *bustCache {
+		runCacheBust(config.DatabasePath)
+		return
+	}
+
 	logHashSalt := config.LogIPHashSalt
 	if logHashSalt == "" {
 		if config.Environment == "production" {
