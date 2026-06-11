@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -47,7 +48,7 @@ func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter
 	} else {
 		opts.Optimize = true
 	}
-	return HandleCached(ShapesCacheId, cacheShelfLife,
+	shapes, err := HandleCached(ShapesCacheId, cacheShelfLife,
 		func() ([]models.Shape, error) { return getShapesFromDB(filter) },
 		func() ([]models.Shape, error) {
 			shapes, err := tranzyFetch[[]models.Shape](tranzyClient, "/shapes")
@@ -62,6 +63,18 @@ func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter
 		storeShapesInDB,
 		opts,
 	)
+	if err != nil {
+		return nil, err
+	}
+	// On a cache miss HandleCached returns Tranzy's raw (unsorted) order, bypassing
+	// the DB query's ORDER BY — sort here so the polyline always draws in sequence.
+	sort.Slice(shapes, func(i, j int) bool {
+		if shapes[i].ShapeID != shapes[j].ShapeID {
+			return shapes[i].ShapeID < shapes[j].ShapeID
+		}
+		return shapes[i].ShapePtSequence < shapes[j].ShapePtSequence
+	})
+	return shapes, nil
 }
 
 func shapeIDSet(ids []string) map[string]struct{} {
@@ -88,7 +101,7 @@ func getShapesFromDB(filter ShapeFilter) ([]models.Shape, error) {
 			args = append(args, id)
 		}
 	}
-	return queryRows(`SELECT * FROM shapes`+whereClause(conditions), args,
+	return queryRows(`SELECT * FROM shapes`+whereClause(conditions)+` ORDER BY shape_id, shape_pt_sequence`, args,
 		func(rows *sql.Rows) (models.Shape, error) {
 			var s models.Shape
 			err := rows.Scan(&s.ShapeID, &s.ShapePtLat, &s.ShapePtLon, &s.ShapePtSequence, &s.ShapeDistTraveled)
