@@ -9,8 +9,8 @@ const STALE_POSITION_METERS = 20
 const STALE_POSITION_MS = 3 * 60_000
 const HEADING_LOOKAHEAD = 3
 const LIVE_ETA_MAX_POSITION_AGE_MS = 3 * 60_000
-const LIVE_SEGMENT_WEIGHT = 0.35
 const PROFILE_SEGMENT_WEIGHT = 0.65
+const FALLBACK_SEGMENT_CONFIDENCE = 0.25
 
 export type TrackedVehicle = Vehicle & {
   route_short_name: string;
@@ -162,12 +162,13 @@ function stopShapePositions(tripStops: StopTime[], shape: Shape[]): number[] {
   })
 }
 
-function blendedRemainingSegmentSeconds(segmentSec: number, segmentMeters: number, remainingMeters: number, speedKmh: number): number {
+function blendedRemainingSegmentSeconds(segmentSec: number, segmentMeters: number, remainingMeters: number, speedKmh: number, confidence: number): number {
   const liveSec = estimateEtaSeconds(remainingMeters, speedKmh)
   if (segmentSec <= 0 || segmentMeters <= 0) return liveSec
   const ratio = Math.min(1, Math.max(0, remainingMeters / segmentMeters))
   const profileSec = segmentSec * ratio
-  return liveSec * LIVE_SEGMENT_WEIGHT + profileSec * PROFILE_SEGMENT_WEIGHT
+  const profileWeight = PROFILE_SEGMENT_WEIGHT * Math.min(1, Math.max(0, confidence))
+  return liveSec * (1 - profileWeight) + profileSec * profileWeight
 }
 
 type EtaOptions = {
@@ -288,6 +289,7 @@ function profileAwareEtaMinutes(
     segmentMeters,
     remainingMeters,
     vehicle.speed,
+    stops[nextPos]!.offset_confidence || FALLBACK_SEGMENT_CONFIDENCE,
   )
 
   for (let pos = nextPos + 1; pos <= targetPos; pos++) {

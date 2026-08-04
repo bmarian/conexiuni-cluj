@@ -9,6 +9,7 @@ export type StopTime = {
   trip_id: string
   stop_id: number
   offset_arrival_time: number
+  offset_confidence?: number
   stop_sequence: number
   stop_headsign: string
   route_short_name: string

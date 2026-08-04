@@ -14,7 +14,7 @@ import (
 const (
 	segmentBucketMinutes       = 60
 	allDaySegmentBucket        = -1
-	minSegmentProfileSamples   = 3
+	minSegmentProfileSamples   = 5
 	segmentProfileNeighborMins = 120
 	segmentSampleRetention     = 45 * 24 * time.Hour
 	segmentProfileRetention    = 60 * 24 * time.Hour
@@ -80,6 +80,7 @@ const (
 	segmentObservedStale       segmentObservationStatus = "stale"
 	segmentObservedNoTracker   segmentObservationStatus = "no_tracker"
 	segmentObservedReset       segmentObservationStatus = "reset"
+	segmentObservedDuplicate   segmentObservationStatus = "duplicate"
 	segmentObservedNoProgress  segmentObservationStatus = "no_progress"
 	segmentObservedNonAdjacent segmentObservationStatus = "non_adjacent"
 	segmentObservedRejected    segmentObservationStatus = "rejected"
@@ -92,6 +93,7 @@ type segmentObservationSummary struct {
 	Stale       int
 	NoTracker   int
 	Reset       int
+	Duplicate   int
 	NoProgress  int
 	NonAdjacent int
 	Rejected    int
@@ -116,6 +118,7 @@ type segmentLearningRuntimeSnapshot struct {
 	ProfilesUnchanged  int    `json:"profiles_unchanged"`
 	Rejected           int    `json:"rejected"`
 	IgnoredReset       int    `json:"ignored_reset"`
+	IgnoredDuplicate   int    `json:"ignored_duplicate"`
 	IgnoredNoProgress  int    `json:"ignored_no_progress"`
 	IgnoredNonAdjacent int    `json:"ignored_non_adjacent"`
 	IgnoredNoTracker   int    `json:"ignored_no_tracker"`
@@ -181,6 +184,7 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			ProfilesUnchanged:  writes.ProfilesUnchanged,
 			Rejected:           summary.Rejected,
 			IgnoredReset:       summary.Reset,
+			IgnoredDuplicate:   summary.Duplicate,
 			IgnoredNoProgress:  summary.NoProgress,
 			IgnoredNonAdjacent: summary.NonAdjacent,
 			IgnoredNoTracker:   summary.NoTracker,
@@ -190,7 +194,7 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			ProfileErrors:      writes.ProfileError,
 		}
 		rememberSegmentLearningSnapshot(snapshot)
-		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
+		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
 			snapshot.Vehicles,
 			snapshot.Accepted,
 			snapshot.Stored,
@@ -199,6 +203,7 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			snapshot.ProfilesUnchanged,
 			snapshot.Rejected,
 			snapshot.IgnoredReset,
+			snapshot.IgnoredDuplicate,
 			snapshot.IgnoredNoProgress,
 			snapshot.IgnoredNonAdjacent,
 			snapshot.IgnoredNoTracker,
@@ -222,6 +227,8 @@ func (s *segmentObservationSummary) add(status segmentObservationStatus) {
 		s.NoTracker++
 	case segmentObservedReset:
 		s.Reset++
+	case segmentObservedDuplicate:
+		s.Duplicate++
 	case segmentObservedNoProgress:
 		s.NoProgress++
 	case segmentObservedNonAdjacent:
@@ -291,8 +298,12 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	defer vehicleSegmentStates.Unlock()
 
 	state, exists := vehicleSegmentStates.byVehicle[v.ID]
+	// Same GPS report served again: no new information, keep the in-flight segment.
+	if exists && state.TripID == tracker.TripID && !observedAt.After(state.LastObservedAt) {
+		return pendingSegmentSample{}, segmentObservedDuplicate
+	}
 	if !exists || state.TripID != tracker.TripID || observedAt.After(state.LastObservedAt.Add(25*time.Minute)) ||
-		!observedAt.After(state.LastObservedAt) || shapeIdx+3 < state.ShapeIdx || routePos < state.SegmentStartPos {
+		shapeIdx+3 < state.ShapeIdx || (routePos < state.SegmentStartPos && nearStopPos != state.SegmentStartPos) {
 		vehicleSegmentStates.byVehicle[v.ID] = newVehicleSegmentState(tracker, shapeIdx, routePos, nearStopPos, observedAt)
 		return pendingSegmentSample{}, segmentObservedReset
 	}
@@ -304,8 +315,11 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
 	if nearStopPos <= state.SegmentStartPos {
-		if nearStopPos == state.SegmentStartPos {
-			state.HasSegmentStart = nearStopPos < len(tracker.Stops)-1
+		// A stale mid-segment anchor becoming a real segment start gets re-anchored;
+		// an already valid start keeps its time so from-stop dwell stays in the sample.
+		if nearStopPos == state.SegmentStartPos && !state.HasSegmentStart && nearStopPos < len(tracker.Stops)-1 {
+			state.HasSegmentStart = true
+			state.SegmentStartedAt = observedAt
 		}
 		vehicleSegmentStates.byVehicle[v.ID] = state
 		return pendingSegmentSample{}, segmentObservedNoProgress
@@ -667,12 +681,17 @@ func pruneStaleSegmentProfiles() {
 	}
 }
 
-func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (map[stopPair]float64, error) {
+type segmentProfileEstimate struct {
+	DurationSec float64
+	Confidence  float64
+}
+
+func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (map[stopPair]segmentProfileEstimate, error) {
 	dayType := segmentDayType(refTime)
 	bucket := segmentBucketStartMin(refTime)
 
 	rows, err := database.DB.Query(`
-		SELECT from_stop_id, to_stop_id, bucket_start_min, median_sec
+		SELECT from_stop_id, to_stop_id, bucket_start_min, sample_count, median_sec
 		FROM segment_travel_time_profiles
 		WHERE route_id = ?
 		  AND direction_id = ?
@@ -686,14 +705,15 @@ func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (m
 	defer rows.Close()
 
 	type selectedProfile struct {
-		duration float64
-		priority int
+		duration    float64
+		priority    int
+		sampleCount int
 	}
 	selected := make(map[stopPair]selectedProfile)
 	for rows.Next() {
-		var fromStopID, toStopID, profileBucket int
+		var fromStopID, toStopID, profileBucket, sampleCount int
 		var medianSec float64
-		if err := rows.Scan(&fromStopID, &toStopID, &profileBucket, &medianSec); err != nil {
+		if err := rows.Scan(&fromStopID, &toStopID, &profileBucket, &sampleCount, &medianSec); err != nil {
 			return nil, err
 		}
 		priority, ok := segmentProfilePriority(profileBucket, bucket)
@@ -702,35 +722,56 @@ func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (m
 		}
 		pair := stopPair{FromStopID: fromStopID, ToStopID: toStopID}
 		if current, exists := selected[pair]; !exists || priority < current.priority {
-			selected[pair] = selectedProfile{duration: medianSec, priority: priority}
+			selected[pair] = selectedProfile{duration: medianSec, priority: priority, sampleCount: sampleCount}
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	out := make(map[stopPair]float64, len(selected))
+	out := make(map[stopPair]segmentProfileEstimate, len(selected))
 	for pair, profile := range selected {
-		out[pair] = profile.duration
+		out[pair] = segmentProfileEstimate{
+			DurationSec: profile.duration,
+			Confidence:  segmentProfileConfidence(profile.priority, profile.sampleCount),
+		}
 	}
 	return out, nil
 }
 
+const (
+	segmentProfileExactPriority  = 0
+	segmentProfileNeighborBase   = 100
+	segmentProfileAllDayPriority = 10_000
+)
+
 func segmentProfilePriority(profileBucket, wantedBucket int) (int, bool) {
 	if profileBucket == wantedBucket {
-		return 0, true
+		return segmentProfileExactPriority, true
 	}
 	if profileBucket == allDaySegmentBucket {
-		return 10_000, true
+		return segmentProfileAllDayPriority, true
 	}
 	diff := int(math.Abs(float64(profileBucket - wantedBucket)))
 	if wrap := 1440 - diff; wrap < diff {
 		diff = wrap
 	}
 	if diff <= segmentProfileNeighborMins {
-		return 100 + diff, true
+		return segmentProfileNeighborBase + diff, true
 	}
 	return 0, false
+}
+
+func segmentProfileConfidence(priority, sampleCount int) float64 {
+	bucketFactor := 1.0
+	switch {
+	case priority >= segmentProfileAllDayPriority:
+		bucketFactor = 0.4
+	case priority >= segmentProfileNeighborBase:
+		bucketFactor = 1.0 - float64(priority-segmentProfileNeighborBase)/float64(2*segmentProfileNeighborMins)
+	}
+	countFactor := float64(sampleCount) / float64(sampleCount+10)
+	return bucketFactor * countFactor
 }
 
 func segmentDayType(t time.Time) string {

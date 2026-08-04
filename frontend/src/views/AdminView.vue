@@ -87,6 +87,7 @@ type SegmentLearningSnapshot = {
   profiles_unchanged: number
   rejected: number
   ignored_reset: number
+  ignored_duplicate: number
   ignored_no_progress: number
   ignored_non_adjacent: number
   ignored_no_tracker: number
@@ -495,7 +496,7 @@ const segmentSnapshot = computed(() => segmentLearning.value?.last_snapshot ?? n
 const segmentSnapshotIgnored = computed(() => {
   const s = segmentSnapshot.value
   if (!s) return 0
-  return s.ignored_reset + s.ignored_no_progress + s.ignored_non_adjacent + s.ignored_no_tracker
+  return s.ignored_reset + (s.ignored_duplicate ?? 0) + s.ignored_no_progress + s.ignored_non_adjacent + s.ignored_no_tracker
 })
 
 const cacheHealthyCount = computed(() =>

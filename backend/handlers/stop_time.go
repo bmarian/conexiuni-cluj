@@ -163,7 +163,7 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 	out := make([]models.StopTime, len(stopTimes))
 	copy(out, stopTimes)
 
-	profilesByDirection := make(map[int]map[stopPair]float64)
+	profilesByDirection := make(map[int]map[stopPair]segmentProfileEstimate)
 	groupByTrip := make(map[string][]int)
 	for i, st := range out {
 		groupByTrip[st.TripID] = append(groupByTrip[st.TripID], i)
@@ -180,7 +180,7 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 			profiles, err = loadSegmentProfileDurations(routeID, directionID, refTime)
 			if err != nil {
 				log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
-				profiles = map[stopPair]float64{}
+				profiles = map[stopPair]segmentProfileEstimate{}
 			}
 			profilesByDirection[directionID] = profiles
 		}
@@ -195,8 +195,9 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 			prev := out[indexes[pos-1]]
 			currIdx := indexes[pos]
 			pair := stopPair{FromStopID: prev.StopID, ToStopID: out[currIdx].StopID}
-			if duration, ok := profiles[pair]; ok && duration > 0 {
-				out[currIdx].OffsetArrivalTime = math.Ceil(duration)
+			if estimate, ok := profiles[pair]; ok && estimate.DurationSec > 0 {
+				out[currIdx].OffsetArrivalTime = math.Ceil(estimate.DurationSec)
+				out[currIdx].OffsetConfidence = estimate.Confidence
 			}
 		}
 	}
