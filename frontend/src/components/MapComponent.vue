@@ -67,6 +67,7 @@ const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
 let hasFittedForContent = false
+let pendingCenterOnUser = false
 let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
@@ -232,22 +233,21 @@ const scheduleInvalidateMapSize = () => {
 const isStandaloneApp = () =>
   window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
 
-const beginLocationWatch = (setView = false, enableHighAccuracy = false) => {
+const beginLocationWatch = (enableHighAccuracy = false) => {
   if (!map.value) return
 
   userStore.setIsLocating(true)
   map.value.stopLocate()
   map.value.locate({
     watch: true,
-    setView,
     enableHighAccuracy,
     maximumAge: 30000,
     timeout: enableHighAccuracy ? 15000 : 6000,
   })
 }
 
-const requestCurrentLocation = (setView = false, enableHighAccuracy = false) => {
-  beginLocationWatch(setView, enableHighAccuracy)
+const requestCurrentLocation = (enableHighAccuracy = false) => {
+  beginLocationWatch(enableHighAccuracy)
 
   if (!navigator.geolocation) return
   navigator.geolocation.getCurrentPosition(
@@ -260,6 +260,7 @@ const requestCurrentLocation = (setView = false, enableHighAccuracy = false) => 
     },
     (error) => {
       userStore.setIsLocating(false)
+      pendingCenterOnUser = false
       if (error.code === error.PERMISSION_DENIED) {
         userStore.setHasLocationPermission(false)
         userStore.clearUserLocation()
@@ -275,7 +276,7 @@ const requestCurrentLocation = (setView = false, enableHighAccuracy = false) => 
 
 const retryLocationForStandaloneApp = () => {
   if (!isStandaloneApp() || document.visibilityState !== 'visible' || userStore.userLocation) return
-  requestCurrentLocation(false, false)
+  requestCurrentLocation(false)
 }
 
 const createCenterControl = (mapValue: L.Map) => {
@@ -300,7 +301,8 @@ const createCenterControl = (mapValue: L.Map) => {
       e.preventDefault()
       const location = userDot.value?.getLatLng()
       if (!location) {
-        requestCurrentLocation(true, true)
+        pendingCenterOnUser = true
+        requestCurrentLocation(true)
         return
       }
       flyToVisible(location, DEFAULT_ZOOM)
@@ -372,6 +374,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
   mapValue.on('locationerror', (e) => {
     console.warn("GPS Error:", e.message)
     userStore.setIsLocating(false)
+    pendingCenterOnUser = false
     if (e.code === 1) {
       userStore.setHasLocationPermission(false)
     }
@@ -433,6 +436,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
 
   userStore.setIsLocating(false)
   if (!isInClujCounty(e.latlng.lat, e.latlng.lng)) {
+    pendingCenterOnUser = false
     userStore.setHasLocationPermission(false)
     userStore.clearUserLocation()
     if (userDot.value) {
@@ -451,6 +455,10 @@ const updateLiveLocation = (e: L.LocationEvent) => {
   if (isFirstLocationHandle) {
     if (settingsStore.autoCenterOnMe && !hasFittedForContent) flyToVisible(e.latlng, DEFAULT_ZOOM)
     isFirstLocationHandle = false
+  }
+  if (pendingCenterOnUser) {
+    pendingCenterOnUser = false
+    flyToVisible(e.latlng, DEFAULT_ZOOM)
   }
 
   if (userDot.value && accuracyCircle.value) {
