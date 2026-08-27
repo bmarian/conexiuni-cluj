@@ -69,12 +69,11 @@ The official CTP site works, but it doesn't have all the features that I want. I
 
 ### Backend
 
-Create a `.env` file in the project root (or in `backend/`) with at minimum:
+Create a `.env` file with at minimum:
 
 ```env
 TRANZY_API_KEY=your_key_here
-# Optional: use a separate Tranzy key only for background vehicle learning.
-TRANZY_API_KEY_LEARNING=your_learning_key_here
+CARTO_KEY=your_carto_key_here
 ```
 
 Then run:
@@ -87,12 +86,6 @@ go run .
 The server listens on port `6698` by default.
 
 ### Frontend
-
-Map tiles are served by CARTO and require an API key. Add it to the same `keys.env` file in the project root:
-
-```env
-CARTO_KEY=your_carto_key_here
-```
 
 ```bash
 cd frontend
