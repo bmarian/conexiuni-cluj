@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -6,9 +7,34 @@ import tailwindcss from '@tailwindcss/vite'
 import svgLoader from 'vite-svg-loader'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Read CARTO_KEY from keys.env so it doesn't need to be duplicated into a separate frontend env file.
+function readRootEnvValue(key: string): string {
+  for (const file of ['../keys.env', '../.env']) {
+    try {
+      const content = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf-8')
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eq = trimmed.indexOf('=')
+        if (eq === -1) continue
+        if (trimmed.slice(0, eq).trim() !== key) continue
+        let value = trimmed.slice(eq + 1).trim()
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1)
+        }
+        return value
+      }
+    } catch {
+      // file not found, keep looking
+    }
+  }
+  return ''
+}
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(Date.now().toString(36)),
+    __CARTO_KEY__: JSON.stringify(readRootEnvValue('CARTO_KEY')),
   },
   plugins: [
     tailwindcss(),

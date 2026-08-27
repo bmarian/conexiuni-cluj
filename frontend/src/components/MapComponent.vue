@@ -101,20 +101,20 @@ const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlu
   if (isArcade) {
     // TODO: Change when you find a better theme that fits
     return useDarkMode
-      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
-      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
+      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
   }
 
   if (isLegacyBlue) {
     // TODO: Change when you find a better theme that fits
     return useDarkMode
-      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
-      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
+      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
   }
 
   return useDarkMode
-    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
-    : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
+    : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
 }
 
 const replaceTileLayer = () => {

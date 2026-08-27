@@ -88,6 +88,12 @@ The server listens on port `6698` by default.
 
 ### Frontend
 
+Map tiles are served by CARTO and require an API key. Add it to the same `keys.env` file in the project root:
+
+```env
+CARTO_KEY=your_carto_key_here
+```
+
 ```bash
 cd frontend
 npm install
