@@ -37,7 +37,6 @@ colors, and heavy caching instead of hitting upstream quotas directly.
   - [GET /api/plan_routes](#get-apiplan_routes)
   - [GET /api/news](#get-apinews)
   - [GET /api/resolve-location](#get-apiresolve-location)
-  - [POST /api/stats/event](#post-apistatsevent)
 - [Enumerations](#enumerations)
 - [Recipes](#recipes)
 
@@ -1030,37 +1029,6 @@ curl -s --get https://bus.bmarian.online/api/resolve-location \
 
 ---
 
-### `POST /api/stats/event`
-
-First-party analytics for PWA installs. Same-origin only, with an allowlist of
-exactly one event.
-
-The endpoint always returns `204 No Content`, including for rejected, malformed,
-or cross-origin requests. It never confirms whether the event was recorded.
-
-**Request body**
-
-```json
-{ "metric": "pwa_install", "key": "appinstalled" }
-```
-
-Any other `metric` / `key` pair is silently discarded.
-
-**Request**
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -X POST https://bus.bmarian.online/api/stats/event \
-  -H 'Content-Type: application/json' \
-  -d '{"metric":"pwa_install","key":"appinstalled"}'
-# 204
-```
-
-Events are attributed to an HMAC-pseudonymized client ID derived from the request
-and `LOG_IP_HASH_SALT`. Raw IP addresses are never stored.
-
----
-
 ## Enumerations
 
 ### `route_type` (GTFS)
@@ -1167,4 +1135,3 @@ eta_seconds = sum(offset_arrival_time for stops in T where k < stop_sequence <= 
 
 `offset_confidence` of `0` means a purely geometric guess; higher values mean the
 segment has a learned profile behind it.
-
