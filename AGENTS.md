@@ -27,6 +27,8 @@ conexiuni-cluj/
 ├── AGENTS.md                 Agent guide. Keep this current when architecture shifts.
 ├── README.md                 User-facing project overview and run instructions.
 ├── update.sh                 Deployment-server-only script. Do not run during local agent work.
+├── docs/
+│   └── API.md                Full HTTP API reference. Keep in sync with handlers and models.
 ├── .env / keys.env           Runtime config and secrets. Never commit real secrets.
 ├── backend/
 │   ├── main.go               Boot, logging, DB, clients, Fiber middleware, routes, static frontend serving.
@@ -121,10 +123,11 @@ All routes are registered in `backend/handlers/register.go`.
 | `GET /api/plan_routes?...` | `plan_routes.go` | Route planner backed by OpenTripPlanner. |
 | `GET /api/news` | `news.go` | Scraped CTP news; database-backed cache with TTL expiration, serves stale on fetch failure. |
 | `POST /api/stats/event` | `register.go` | Same-origin first-party PWA install events. |
+| `GET /api/resolve-location?url=...` | `resolve_location.go` | Resolves `maps.app.goo.gl` short links to coordinates. |
 | `POST /api/admin/login` / `logout` | `admin.go` | Admin token login/logout. Login sets an HttpOnly cookie. |
-| `GET /api/admin/stats` / `logs` | `admin.go` | Token-protected admin stats and access-log tail. |
+| `GET /api/admin/stats` | `admin.go` | Session-protected operational stats. |
 
-Cached API endpoints send `Cache-Control: max-age=...` based on configured shelf lives (`TRANZY_DEFAULT_DAILY_QUOTA`, `TIMETABLE_CACHE_SHELF_LIFE`, `NEWS_CACHE_SHELF_LIFE`). `plan_routes` uses `max-age=300`; live vehicles use `no-store`; SSE uses `no-cache`.
+Cached API endpoints send `Cache-Control: no-cache` so clients revalidate via the `/api` ETag middleware and unchanged bodies short-circuit to `304`. Server-side shelf lives (`TRANZY_DEFAULT_DAILY_QUOTA`, `TIMETABLE_CACHE_SHELF_LIFE`, `NEWS_CACHE_SHELF_LIFE`) control the SQLite cache, not the browser. `plan_routes` uses `public, max-age=300`; live vehicles use `no-store`; SSE uses `no-cache` and is excluded from the ETag middleware.
 
 ### OTP And Planning
 
