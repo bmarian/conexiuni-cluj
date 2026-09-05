@@ -204,7 +204,7 @@ function formatAbsoluteMinutes(absMin: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
-const baseDepartureTimes = computed((): number[] => {
+const departureTimes = computed((): number[] => {
   const tt = timetable.value
   if (!tt) return []
   const sched = getTimetableForDay(tt, userTime.value || new Date())
@@ -212,12 +212,16 @@ const baseDepartureTimes = computed((): number[] => {
   return sched.entries
     .map((e) => timeStringToMinutes(isOutgoing.value ? e.departure_in : e.departure_out))
     .filter((v): v is number => v !== null)
-    .map((absMin) => ({absMin, delta: ((absMin - currentMinutes.value) + 1440) % 1440}))
-    .filter((v) => v.delta < 480)
-    .sort((a, b) => a.delta - b.delta)
-    .slice(0, 3)
-    .map((v) => v.absMin)
 })
+
+// Offset first, then sort, so runs already under way still count for later stops.
+function nextArrivalsAtStop(offsetFromStart: number): number[] {
+  return departureTimes.value
+    .map((absMin) => minutesLeft(absMin + offsetFromStart))
+    .filter((m) => m < 480)
+    .sort((a, b) => a - b)
+    .slice(0, 3)
+}
 
 interface StopTimeDisplay {
   label: string;
@@ -225,7 +229,7 @@ interface StopTimeDisplay {
 }
 
 function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
-  const times = baseDepartureTimes.value.map((base) => base + stop.timeOffsetFromStart)
+  const times = nextArrivalsAtStop(stop.timeOffsetFromStart)
   if (!times.length) return []
   let liveMinutes: number | null = null
   const dirShape = currentDirectionShape.value
@@ -240,14 +244,14 @@ function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
       if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
     }
   }
-  return times.map((absMin, i) => {
+  return times.map((minutes, i) => {
     if (i === 0 && liveMinutes !== null) return {label: formatMinutes(liveMinutes), isLive: true}
-    return {label: formatMinutes(minutesLeft(absMin)), isLive: false}
+    return {label: formatMinutes(minutes), isLive: false}
   })
 }
 
 function getHeaderTimes(): string[] {
-  return baseDepartureTimes.value.map((base) => formatMinutes(minutesLeft(base)))
+  return nextArrivalsAtStop(0).map((m) => formatMinutes(m))
 }
 
 function getStopLabel(idx: number, stop: IndexedStop): string {

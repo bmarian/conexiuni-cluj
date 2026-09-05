@@ -9,6 +9,8 @@ const STALE_POSITION_METERS = 20
 const STALE_POSITION_MS = 3 * 60_000
 const HEADING_LOOKAHEAD = 3
 const LIVE_ETA_MAX_POSITION_AGE_MS = 3 * 60_000
+// userTime ticks every 10s, so a just-fetched position often reads as future-dated.
+const LIVE_ETA_MAX_CLOCK_SKEW_MS = 60_000
 const PROFILE_SEGMENT_WEIGHT = 0.65
 const FALLBACK_SEGMENT_CONFIDENCE = 0.25
 
@@ -33,7 +35,9 @@ function isStale(v: Vehicle, now: number): boolean {
 
 function isFreshForLiveEta(v: Vehicle, now: number): boolean {
   const ts = new Date(v.timestamp).getTime()
-  return !isNaN(ts) && now - ts >= 0 && now - ts <= LIVE_ETA_MAX_POSITION_AGE_MS
+  if (isNaN(ts)) return false
+  const age = now - ts
+  return age >= -LIVE_ETA_MAX_CLOCK_SKEW_MS && age <= LIVE_ETA_MAX_POSITION_AGE_MS
 }
 
 function isStuckAtTerminus(v: Vehicle, nearTerminus: boolean, now: number): boolean {
