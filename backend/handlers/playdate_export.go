@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -103,6 +104,23 @@ func buildPlaydateRoutesParallel(
 			if tErr != nil || stErr != nil || ttErr != nil || timetable == nil {
 				return
 			}
+
+			// One set of cumulative offsets per hour of day (0-23): segment
+			// travel-time profiles vary by time of day, and this snapshot is
+			// synced once and browsed offline for up to a day, so a single
+			// "as of sync time" offset would drift wrong as the day goes on.
+			// Sequential per route (not further parallelized across hours)
+			// to bound total concurrent DB queries across all 105 routes.
+			today := time.Now().In(tranzyClient.Location())
+			hourlyStopTimes := make(map[int][]models.StopTime, 24)
+			for hour := 0; hour < 24; hour++ {
+				refTime := time.Date(today.Year(), today.Month(), today.Day(), hour, 0, 0, 0, today.Location())
+				hourStopTimes, err := GetStopTimesAt(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}, refTime)
+				if err != nil {
+					continue
+				}
+				hourlyStopTimes[hour] = hourStopTimes
+			}
 			if len(timetable.Weekdays.Entries) == 0 &&
 				len(timetable.Saturday.Entries) == 0 &&
 				len(timetable.Sunday.Entries) == 0 {
@@ -118,23 +136,36 @@ func buildPlaydateRoutesParallel(
 			for _, dirKey := range []struct {
 				suffix, name string
 			}{{OUTGOING_SUFFIX, "out"}, {INCOMING_SUFFIX, "in"}} {
-				var rows []models.StopTime
-				for _, st := range stopTimes {
-					if strings.HasSuffix(st.TripID, dirKey.suffix) {
-						rows = append(rows, st)
-					}
-				}
+				rows := filterAndSortStopTimesBySuffix(stopTimes, dirKey.suffix)
 				if len(rows) == 0 {
 					continue
 				}
-				sort.Slice(rows, func(i, j int) bool { return rows[i].StopSequence < rows[j].StopSequence })
 				stopRefs := make([]models.PlaydateStopRef, 0, len(rows))
 				for _, st := range rows {
 					stopRefs = append(stopRefs, models.PlaydateStopRef{StopID: st.StopID, StopName: st.StopHeadsign})
 				}
+
+				hourlyOffsets := make(map[int][]int, len(hourlyStopTimes))
+				for hour, hourRows := range hourlyStopTimes {
+					hourFiltered := filterAndSortStopTimesBySuffix(hourRows, dirKey.suffix)
+					if len(hourFiltered) != len(rows) {
+						// Shouldn't happen (same trips exist regardless of ref_hour),
+						// but skip rather than risk misaligning against stopRefs.
+						continue
+					}
+					offsets := make([]int, len(hourFiltered))
+					cumulative := 0.0
+					for i, st := range hourFiltered {
+						cumulative += st.OffsetArrivalTime
+						offsets[i] = int(math.Round(cumulative))
+					}
+					hourlyOffsets[hour] = offsets
+				}
+
 				directions[dirKey.name] = models.PlaydateDirection{
-					Headsign: headsignByTripID[rows[0].TripID],
-					Stops:    stopRefs,
+					Headsign:      headsignByTripID[rows[0].TripID],
+					Stops:         stopRefs,
+					HourlyOffsets: hourlyOffsets,
 				}
 			}
 			if len(directions) == 0 {
@@ -162,5 +193,18 @@ func buildPlaydateRoutesParallel(
 			out = append(out, s.route)
 		}
 	}
+	return out
+}
+
+// filterAndSortStopTimesBySuffix returns the rows for one direction
+// (trip_id suffix "_0"/"_1"), sorted by stop_sequence.
+func filterAndSortStopTimesBySuffix(rows []models.StopTime, suffix string) []models.StopTime {
+	var out []models.StopTime
+	for _, st := range rows {
+		if strings.HasSuffix(st.TripID, suffix) {
+			out = append(out, st)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StopSequence < out[j].StopSequence })
 	return out
 }

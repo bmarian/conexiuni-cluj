@@ -1051,8 +1051,16 @@ consumers; documented here because it's part of the public API surface.
       "route_long_name": "Str. Bucium - Str. Unirii",
       "route_color": "#462EE0",
       "directions": {
-        "out": { "headsign": "Snagov Nord", "stops": [{ "stop_id": 1, "stop_name": "Snagov Nord", "offset_seconds": 0 }] },
-        "in": { "headsign": "Disp. Clabucet", "stops": [{ "stop_id": 2, "stop_name": "Disp. Clabucet", "offset_seconds": 0 }] }
+        "out": {
+          "headsign": "Snagov Nord",
+          "stops": [{ "stop_id": 1, "stop_name": "Snagov Nord" }, { "stop_id": 2, "stop_name": "Primaverii" }],
+          "hourly_offset_seconds": { "0": [0, 130], "1": [0, 128], "8": [0, 210], "...": "keys 0-23" }
+        },
+        "in": {
+          "headsign": "Disp. Clabucet",
+          "stops": [{ "stop_id": 2, "stop_name": "Primaverii" }, { "stop_id": 1, "stop_name": "Snagov Nord" }],
+          "hourly_offset_seconds": { "0": [0, 125], "...": "keys 0-23" }
+        }
       },
       "timetable": { "...": "a full Timetable object, see GET /api/timetable" }
     }
@@ -1065,11 +1073,24 @@ consumers; documented here because it's part of the public API surface.
 
 `directions` has an `out` and/or `in` key (GTFS `direction_id` `0`/`1`);
 either can be absent if that direction has no stop sequence. Stops within a
-direction are already ordered by `stop_sequence`. `offset_seconds` is
-cumulative from that direction's first stop (`0`), summed from the same
-per-segment `offset_arrival_time` values `GET /api/stop_times` computes —
-combined with a departure time from `timetable`, a client can approximate
-how far along a scheduled trip currently is without live vehicle data.
+direction are already ordered by `stop_sequence`.
+
+`hourly_offset_seconds` is keyed `"0"`-`"23"` (local hour of day); each
+value is an array the same length as `stops`, holding that stop's
+cumulative offset from the direction's first stop (`0`) for that hour's
+estimate — the same per-segment `offset_arrival_time` values
+`GET /api/stop_times?ref_hour=` computes, summed. It's broken out by hour
+rather than a single number because segment travel-time profiles vary by
+time of day, and this endpoint is meant to be synced once and used for up
+to a day: a snapshot taken at the sync hour would drift wrong by evening.
+Combined with a departure time from `timetable` and the *current* hour, a
+client can approximate how far along a scheduled trip is without live
+vehicle data. An hour can be missing from the map if computing it failed —
+fall back to the nearest hour present, or to `"0"`, rather than assuming
+all 24 exist. This is by far the most expensive part of the endpoint to
+compute (24x the per-route `GET /api/stop_times` work); expect this
+endpoint to take noticeably longer than the rest of the API.
+
 Routes with no published timetable at all (same rule `GET /api/routes`
 uses) are omitted. `stops` is
 `GET /api/stops` trimmed to `stop_id`/`stop_name`/`stop_lat`/`stop_lon` —

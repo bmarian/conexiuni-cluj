@@ -3,20 +3,32 @@ package models
 type PlaydateStopRef struct {
 	StopID   int    `json:"stop_id"`
 	StopName string `json:"stop_name"`
-	// OffsetSeconds is cumulative seconds from this direction's first stop,
-	// summed from the per-segment offset_arrival_time values GET /api/stop_times
-	// already computes. Lets the Playdate app approximate where a scheduled
-	// trip currently is between stops (elapsed-since-departure vs this
-	// cumulative offset) without shipping live vehicle data.
-	OffsetSeconds int `json:"offset_seconds"`
 }
 
-// PlaydateDirection is one direction (out or in) of a route: its headsign and
-// the ordered stop sequence, ready to draw as a flat line with no further
-// lookups.
+// PlaydateDirection is one direction (out or in) of a route: its headsign,
+// the ordered stop sequence, and cumulative per-stop offsets broken out by
+// hour of day.
+//
+// Segment travel-time profiles (what GET /api/stop_times?ref_hour= reads)
+// vary by time of day -- a rush-hour segment takes longer than the same
+// segment at 2am. This app syncs once and is then browsed offline for up to
+// a day, so a single offset snapshot taken at sync time would drift
+// increasingly wrong as the day goes on (e.g. sync at 8am, still using
+// 8am's segment durations to estimate bus position at 8pm). HourlyOffsets
+// avoids that: it has one cumulative-offset array per hour (0-23, local
+// time), so the client picks the array matching its own current clock hour
+// instead of a stale single value.
 type PlaydateDirection struct {
 	Headsign string            `json:"headsign"`
 	Stops    []PlaydateStopRef `json:"stops"`
+	// HourlyOffsets[hour][i] is the cumulative offset_seconds for Stops[i]
+	// using that hour's learned-profile estimate (falls back to the
+	// geometric estimate where no profile exists, same as GET /api/stop_times
+	// always does). Keyed by hour as an int 0-23; Go's encoding/json renders
+	// int map keys as JSON string keys ("0".."23"). An hour can be absent if
+	// computing it failed -- clients should fall back to the nearest hour
+	// present, or to hour 0, rather than assume all 24 exist.
+	HourlyOffsets map[int][]int `json:"hourly_offset_seconds"`
 }
 
 type PlaydateRoute struct {
