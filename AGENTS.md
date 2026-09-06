@@ -124,6 +124,7 @@ All routes are registered in `backend/handlers/register.go`.
 | `GET /api/news` | `news.go` | Scraped CTP news; database-backed cache with TTL expiration, serves stale on fetch failure. |
 | `POST /api/stats/event` | `register.go` | Same-origin first-party PWA install events. |
 | `GET /api/resolve-location?url=...` | `resolve_location.go` | Resolves `maps.app.goo.gl` short links to coordinates. |
+| `GET /api/playdate/export` | `playdate_export.go` | Full offline snapshot for the Playdate port (`../conexiuni-cluj-playdate`); that client syncs this once over Wi-Fi and calls nothing else. |
 | `POST /api/admin/login` / `logout` | `admin.go` | Admin token login/logout. Login sets an HttpOnly cookie. |
 | `GET /api/admin/stats` | `admin.go` | Session-protected operational stats. |
 

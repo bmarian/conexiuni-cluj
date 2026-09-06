@@ -283,6 +283,15 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		return handlePlanRoutes(c, tranzyClient, ctpCjClient, cacheTimes)
 	})
 
+	api.Get("/playdate/export", func(c fiber.Ctx) error {
+		data, err := GetPlaydateExport(tranzyClient, ctpCjClient, cacheTimes)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		c.Set("Cache-Control", revalidateCacheControl)
+		return c.JSON(data)
+	})
+
 	api.Get("/news", func(c fiber.Ctx) error { return GetNews(c, cacheTimes.NewsCacheShelfLife) })
 
 	api.Get("/resolve-location", ResolveLocationHandler)

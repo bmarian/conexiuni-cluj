@@ -37,6 +37,7 @@ colors, and heavy caching instead of hitting upstream quotas directly.
   - [GET /api/plan_routes](#get-apiplan_routes)
   - [GET /api/news](#get-apinews)
   - [GET /api/resolve-location](#get-apiresolve-location)
+  - [GET /api/playdate/export](#get-apiplaydateexport)
 - [Enumerations](#enumerations)
 - [Recipes](#recipes)
 
@@ -1026,6 +1027,62 @@ curl -s --get https://bus.bmarian.online/api/resolve-location \
 | `400` | `{"error": "invalid url"}` |
 | `502` | `{"error": "failed to resolve link"}` |
 | `422` | `{"error": "no coordinates found in link"}` |
+
+---
+
+### `GET /api/playdate/export`
+
+The full offline snapshot for the [Playdate port](https://github.com/bmarian/conexiuni-cluj-playdate),
+which syncs this once over Wi-Fi and browses entirely from local storage
+afterward — no other endpoint is called by that client. Not meant for other
+consumers; documented here because it's part of the public API surface.
+
+**Parameters** — none.
+
+**Response `200`** (abridged)
+
+```json
+{
+  "generated_at": "2026-09-06T12:00:00Z",
+  "routes": [
+    {
+      "route_id": 14,
+      "route_short_name": "25",
+      "route_long_name": "Str. Bucium - Str. Unirii",
+      "route_color": "#462EE0",
+      "directions": {
+        "out": { "headsign": "Snagov Nord", "stops": [{ "stop_id": 1, "stop_name": "Snagov Nord", "offset_seconds": 0 }] },
+        "in": { "headsign": "Disp. Clabucet", "stops": [{ "stop_id": 2, "stop_name": "Disp. Clabucet", "offset_seconds": 0 }] }
+      },
+      "timetable": { "...": "a full Timetable object, see GET /api/timetable" }
+    }
+  ],
+  "stops": [
+    { "stop_id": 155, "stop_name": "Unirii", "stop_lat": 46.76896, "stop_lon": 23.62968 }
+  ]
+}
+```
+
+`directions` has an `out` and/or `in` key (GTFS `direction_id` `0`/`1`);
+either can be absent if that direction has no stop sequence. Stops within a
+direction are already ordered by `stop_sequence`. `offset_seconds` is
+cumulative from that direction's first stop (`0`), summed from the same
+per-segment `offset_arrival_time` values `GET /api/stop_times` computes —
+combined with a departure time from `timetable`, a client can approximate
+how far along a scheduled trip currently is without live vehicle data.
+Routes with no published timetable at all (same rule `GET /api/routes`
+uses) are omitted. `stops` is
+`GET /api/stops` trimmed to `stop_id`/`stop_name`/`stop_lat`/`stop_lon` —
+`stop_desc`, `stop_code`, and `location_type` are dropped since they're
+always empty/`0`.
+
+This is the largest response in the API — every published route's full stop
+sequence and timetable in one call. No dedicated cache layer of its own; it
+reads through to the same per-route caches `GET /api/timetable` and
+`GET /api/stop_times` use.
+
+**Errors** — `500` `{"error": "..."}` on an upstream/database failure,
+same as the other aggregate endpoints.
 
 ---
 
