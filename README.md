@@ -1,91 +1,38 @@
 # Conexiuni Cluj
 
-Live bus tracker for Cluj-Napoca.
+A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired of the official site, so I built the one I actually wanted to use.
 
----
+**[bus.bmarian.online](https://bus.bmarian.online)**
+
+![Map view with live vehicles and the sidebar showing favorites and routes](readme/default-desktop-view.png)
 
 ## What it does
 
-- **Live map** - every CTP bus and tram moving in real time, updated every few seconds
-- **Stop departures** - next buses with live countdowns, falling back to the schedule when there's no GPS signal
-- **Route timetables** - full schedules sourced directly from CTP Cluj-Napoca
-- **Route planner** - trip planning from A to B with transit, with "leave now", "leave at", and "arrive by" modes
-- **Weather** - current temperature and conditions for Cluj
-- **Favorites** - pin the routes and stops you actually use
-- **Dark mode**
-- **PWA** - installable, works offline for cached data
+- Live map, every CTP bus and tram, positions updated every few seconds
+- Live departures per stop, with a countdown that falls back to the schedule when a vehicle's GPS drops
+- Full route timetables, pulled straight from CTP Cluj-Napoca
+- A route planner: leave now, leave at, or arrive by
+- Weather for Cluj
+- Favorite routes and stops
+- Dark mode, installable as a PWA, works offline for cached data
 
 There are a few hidden things scattered around for the curious. 🐣
 
----
-
-## Why it exists
-
-The official CTP site works, but it doesn't have all the features that I want. I commute in Cluj every day and got tired of it, so I built something I'd actually want to open.
-
----
-
-## Tech stack
-
-### Frontend
-- **Vue 3** (Vapor) with TypeScript
-- **Vite 7** for bundling
-- **Vue Router 5** + **Pinia 3** for routing and state
-- **vue-i18n 11** for localisation
-- **Leaflet 1.9** for the interactive map
-- **vuedraggable** for reorderable favorites
-- **@meteocons/svg** for weather icons
-- **Tailwind CSS 4** for utility styling
-- **vite-plugin-pwa** for service worker and offline support
-
-### Backend
-- **Go** (1.25) with **Fiber v3** as the HTTP framework
-- **SQLite** (`go-sqlite3`) for persistent caching and quota tracking
-- **OpenTripPlanner** (spawned subprocess) for transit route planning
-- Server-sent events stream for pushing live vehicle positions to the client
-
----
-
-## Data & credits
-
-| Source | What it provides |
+| | |
 |---|---|
-| [Tranzy.ai](https://tranzy.ai/) | Live GPS positions and GTFS data for all CTP Cluj-Napoca vehicles |
-| [CTP Cluj-Napoca](https://www.ctpcj.ro/) | Official timetable CSVs for all routes |
-| [Open-Meteo](https://open-meteo.com/) | Weather data |
-| [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
-| [CARTO](https://carto.com/) | Map tile rendering |
-| [Nominatim](https://nominatim.org/) | Address and location search |
+| ![Stop view with live departures](readme/stop-desktop-view.png) | ![Route timetable with stops and countdowns](readme/bus-desktop-view.png) |
+| ![Route planner with a suggested trip](readme/route-planner-desktop-view.png) | |
 
----
+## Running it locally
 
-## Running locally
-
-### Prerequisites
-- Node.js ≥ 20.19 or ≥ 22.12
-- Go ≥ 1.25
-- A Tranzy API key
-- Java 21+ (only needed for the route planner feature, which uses OpenTripPlanner)
-
-### Backend
-
-Create a `.env` file with at minimum:
-
-```env
-TRANZY_API_KEY=your_key_here
-CARTO_KEY=your_carto_key_here
-```
-
-Then run:
+You'll need Node ≥ 20.19, Go ≥ 1.25, and a [Tranzy](https://tranzy.ai/) API key.
 
 ```bash
 cd backend
+echo "TRANZY_API_KEY=your_key
+CARTO_KEY=your_carto_key" > keys.env
 go run .
 ```
-
-The server listens on port `6698` by default.
-
-### Frontend
 
 ```bash
 cd frontend
@@ -93,13 +40,18 @@ npm install
 npm run dev
 ```
 
-The frontend dev server proxies API calls to the backend at `localhost:6698`.
+The backend listens on `:6698`, the frontend dev server proxies to it. `npm run build` in `frontend/` outputs to `backend/dist/`, which the Go server serves directly, that's the whole production setup.
 
-### Production build
+The route planner needs more: Java 21+, an `otp.jar` in `backend/services/otp/`, and a `cluj.pbf` extract in `backend/services/otp/cluj/`. [`update.sh`](update.sh) downloads and builds all of that (OTP jar, Osmosis, a Cluj-cropped OSM extract) if you want the full setup.
 
-```bash
-cd frontend
-npm run build
-```
+## Credits
 
-Output goes to `backend/dist/` — the Go server picks it up and serves it automatically.
+| Source | Used for |
+|---|---|
+| [Tranzy.ai](https://tranzy.ai/) | Live GPS positions and GTFS data for CTP Cluj-Napoca |
+| [CTP Cluj-Napoca](https://www.ctpcj.ro/) | Official timetable CSVs |
+| [Open-Meteo](https://open-meteo.com/) | Weather data |
+| [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
+| [CARTO](https://carto.com/) | Map tiles |
+| [Nominatim](https://nominatim.org/) | Address search |
+| [OpenTripPlanner](https://www.opentripplanner.org/) | Route planning |
