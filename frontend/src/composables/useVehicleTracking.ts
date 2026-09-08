@@ -18,16 +18,16 @@ const HEADING_LOOKAHEAD = 3
 const LIVE_ETA_MAX_POSITION_AGE_MS = 4 * 60_000
 // userTime ticks every 10s, so a just-fetched position often reads as future-dated.
 const LIVE_ETA_MAX_CLOCK_SKEW_MS = 60_000
-// Tranzy drops vehicles from a poll now and then. Keep counting the last estimate
-// down instead of snapping the row back to its timetable value and back again.
-const LIVE_ETA_HOLD_MS = 3 * 60_000
-const ETA_SMOOTHING = 0.4
-// Past this the new estimate is a different reality (traffic, a re-route), not
-// noise - take it as is rather than easing towards it.
-const ETA_SNAP_MS = 5 * 60_000
-const ETA_CACHE_MAX_ENTRIES = 400
+// No bus covers ground faster than this, so no estimate may claim it did. This is
+// the backstop that keeps a stop from reading "now" while the bus is streets away.
+const MAX_PLAUSIBLE_SPEED_MPS = 50 / 3.6
 const PROFILE_SEGMENT_WEIGHT = 0.65
 const FALLBACK_SEGMENT_CONFIDENCE = 0.25
+// How far live speed may pull an estimate away from what this route historically
+// takes. A bus paused at a light is not evidence the whole run has doubled, and a
+// bus on a clear stretch will still meet the queue at the next junction.
+const MIN_LIVE_ADJUSTMENT = 0.5
+const MAX_LIVE_ADJUSTMENT = 2.5
 
 export type TrackedVehicle = Vehicle & {
   route_short_name: string;
@@ -45,15 +45,10 @@ export type IndexedVehicle = TrackedVehicle & {
   dwellMs: number
 }
 export type ShapeIndex = { shape: Shape[]; cumulativeDist: number[] }
-export type StopEta = { vehicle: IndexedVehicle | null; etaMinutes: number }
+export type StopEta = { vehicle: IndexedVehicle | null; etaMinutes: number; etaSeconds: number }
 
 function hasInvalidCoords(v: Vehicle): boolean {
   return !v.latitude || !v.longitude || v.latitude < 0 || v.longitude < 0
-}
-
-function vehicleTimestamp(v: Vehicle, fallback: number): number {
-  const ts = new Date(v.timestamp).getTime()
-  return isNaN(ts) ? fallback : ts
 }
 
 function isStale(v: Vehicle, now: number): boolean {
@@ -167,20 +162,14 @@ function stopShapePositions(tripStops: StopTime[], shape: Shape[]): number[] {
   })
 }
 
-function blendedRemainingSegmentSeconds(segmentSec: number, segmentMeters: number, remainingMeters: number, speedKmh: number, confidence: number): number {
-  const liveSec = estimateEtaSeconds(remainingMeters, speedKmh)
-  if (segmentSec <= 0 || segmentMeters <= 0) return liveSec
-  const ratio = Math.min(1, Math.max(0, remainingMeters / segmentMeters))
-  const profileSec = segmentSec * ratio
-  const profileWeight = PROFILE_SEGMENT_WEIGHT * Math.min(1, Math.max(0, confidence))
-  return liveSec * (1 - profileWeight) + profileSec * profileWeight
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 type EtaOptions = {
   tripStops?: StopTime[]
   targetStopId?: number
   referenceTime?: Date | null
-  tripId?: string
 }
 
 async function fetchRawVehicles(tripId: string, prefetched?: Vehicle[]): Promise<Vehicle[]> {
@@ -222,59 +211,6 @@ export async function getIndexedVehicles(
   return result
 }
 
-// Live ETAs are kept as an absolute arrival instant rather than a minute count, so
-// the number ticks down between polls instead of freezing and then jumping, and so
-// one missing poll does not drop the row back to its timetable value.
-type LiveEta = { vehicleId: number; dataTs: number; arrivalAt: number }
-
-const liveEtaCache = new Map<string, LiveEta>()
-
-function etaCacheKey(options: EtaOptions): string | null {
-  if (!options.tripId || options.targetStopId === undefined) return null
-  return `${options.tripId}:${options.targetStopId}`
-}
-
-function pruneLiveEtaCache(now: number): void {
-  if (liveEtaCache.size <= ETA_CACHE_MAX_ENTRIES) return
-  for (const [key, entry] of liveEtaCache) {
-    if (now - entry.dataTs > LIVE_ETA_HOLD_MS) liveEtaCache.delete(key)
-  }
-}
-
-// Idempotent per data frame: the views call etaForStop on every render, so the same
-// (vehicle, timestamp) pair has to keep producing the same arrival instant.
-function commitLiveEta(key: string | null, vehicleId: number, dataTs: number, rawArrivalAt: number): number {
-  if (!key) return rawArrivalAt
-  const prev = liveEtaCache.get(key)
-  if (prev && prev.vehicleId === vehicleId && prev.dataTs === dataTs) return prev.arrivalAt
-
-  let arrivalAt = rawArrivalAt
-  if (prev && prev.vehicleId === vehicleId && Math.abs(rawArrivalAt - prev.arrivalAt) <= ETA_SNAP_MS) {
-    arrivalAt = prev.arrivalAt + ETA_SMOOTHING * (rawArrivalAt - prev.arrivalAt)
-  }
-  liveEtaCache.set(key, {vehicleId, dataTs, arrivalAt})
-  pruneLiveEtaCache(dataTs)
-  return arrivalAt
-}
-
-function heldLiveEta(key: string | null, now: number, vehicles: IndexedVehicle[], stopShapeIdx: number): number | null {
-  if (!key) return null
-  const entry = liveEtaCache.get(key)
-  if (!entry) return null
-
-  // The vehicle is still being reported and has driven past the stop: the run is
-  // done, so the estimate is spent even if it had not counted down to zero yet.
-  const owner = vehicles.find((v) => v.id === entry.vehicleId)
-  const expired = now - entry.dataTs > LIVE_ETA_HOLD_MS
-    || (owner !== undefined && owner.shapeIdx > stopShapeIdx)
-    || entry.arrivalAt < now - 60_000
-  if (expired) {
-    liveEtaCache.delete(key)
-    return null
-  }
-  return Math.max(0, Math.round((entry.arrivalAt - now) / 60_000))
-}
-
 export function etaForStop(
   stopShapeIdx: number,
   vehicles: IndexedVehicle[],
@@ -284,7 +220,6 @@ export function etaForStop(
   if (stopShapeIdx < 0) return null
 
   const now = options.referenceTime?.getTime() ?? Date.now()
-  const key = etaCacheKey(options)
 
   // Two ways a vehicle carries this trip without being on it yet: parked at the
   // departure terminus, or still driving in from somewhere else entirely. Neither
@@ -297,16 +232,17 @@ export function etaForStop(
       && !v.atStartTerminus
       && isFreshForLiveEta(v, now))
     .sort((a, b) => b.shapeIdx - a.shapeIdx)[0]
+  if (!candidate) return null
 
-  if (candidate) {
-    const seconds = etaSecondsForStop(candidate, stopShapeIdx, index, options)
-    const dataTs = vehicleTimestamp(candidate, now)
-    const arrivalAt = commitLiveEta(key, candidate.id, dataTs, dataTs + seconds * 1000)
-    return {vehicle: candidate, etaMinutes: Math.max(0, Math.round((arrivalAt - now) / 60_000))}
-  }
+  // Deliberately *not* aged against the wall clock. Between position fixes we have
+  // no evidence the bus moved, and letting the estimate tick down anyway drained it
+  // to "now" while the bus was still hundreds of metres out. The number holds until
+  // the vehicle reports again, then it is recomputed from where it actually is.
+  const estimated = etaSecondsForStop(candidate, stopShapeIdx, index, options)
+  const remainingMeters = distanceOnShape(index, candidate.shapeIdx, stopShapeIdx)
+  const seconds = Math.max(estimated, remainingMeters / MAX_PLAUSIBLE_SPEED_MPS)
 
-  const held = heldLiveEta(key, now, vehicles, stopShapeIdx)
-  return held === null ? null : {vehicle: null, etaMinutes: held}
+  return {vehicle: candidate, etaMinutes: Math.max(0, Math.round(seconds / 60)), etaSeconds: seconds}
 }
 
 function etaSecondsForStop(
@@ -319,6 +255,12 @@ function etaSecondsForStop(
     ?? estimateEtaSeconds(distanceOnShape(index, vehicle.shapeIdx, stopShapeIdx), vehicle.speed)
 }
 
+// Blends what this route historically takes against what this bus is doing right now.
+//
+// Both halves are continuous in the vehicle's position, which is the point: the
+// earlier version applied live speed to the whole of the *current* segment only, so a
+// segment worth 124s while it was still ahead became 160s the moment the bus entered
+// it, and every downstream stop jumped a minute each time a bus passed a stop.
 function profileAwareEtaSeconds(
   vehicle: IndexedVehicle,
   stopShapeIdx: number,
@@ -329,12 +271,9 @@ function profileAwareEtaSeconds(
   if (!stops.length || options.targetStopId === undefined) return null
 
   const targetPos = stops.findIndex(st => st.stop_id === options.targetStopId)
-  if (targetPos < 0) return null
+  if (targetPos <= 0) return null
 
   const positions = stopShapePositions(stops, index.shape)
-  if (targetPos === 0) {
-    return estimateEtaSeconds(distanceOnShape(index, vehicle.shapeIdx, stopShapeIdx), vehicle.speed)
-  }
 
   let prevPos = -1
   for (let i = 0; i < targetPos; i++) {
@@ -346,21 +285,29 @@ function profileAwareEtaSeconds(
   const nextPos = prevPos + 1
   if (nextPos > targetPos) return null
 
-  const currentStartIdx = positions[prevPos]!
-  const currentEndIdx = positions[nextPos]!
-  const remainingMeters = distanceOnShape(index, Math.max(vehicle.shapeIdx, currentStartIdx), currentEndIdx)
-  const segmentMeters = distanceOnShape(index, currentStartIdx, currentEndIdx)
-  let seconds = blendedRemainingSegmentSeconds(
-    stops[nextPos]!.offset_arrival_time,
-    segmentMeters,
-    remainingMeters,
-    vehicle.speed,
-    stops[nextPos]!.offset_confidence || FALLBACK_SEGMENT_CONFIDENCE,
-  )
+  const segmentStartIdx = positions[prevPos]!
+  const segmentEndIdx = positions[nextPos]!
+  const segmentMeters = distanceOnShape(index, segmentStartIdx, segmentEndIdx)
+  const remainingInSegment = distanceOnShape(index, Math.max(vehicle.shapeIdx, segmentStartIdx), segmentEndIdx)
+  // Share of the current segment still to run: 1 on entering it, 0 on reaching its
+  // far stop, which is what lets the profile total hand over without a step.
+  const share = segmentMeters > 0 ? clamp(remainingInSegment / segmentMeters, 0, 1) : 0
 
-  for (let pos = nextPos + 1; pos <= targetPos; pos++) {
-    seconds += stops[pos]!.offset_arrival_time
+  // Trust is averaged over exactly the segments being summed, weighted by how much
+  // each contributes. Reading it off the current segment alone made the estimate jump
+  // whenever the bus entered a segment the learner knows less well.
+  let profileSeconds = 0
+  let weightedConfidence = 0
+  for (let pos = nextPos; pos <= targetPos; pos++) {
+    const seconds = stops[pos]!.offset_arrival_time * (pos === nextPos ? share : 1)
+    profileSeconds += seconds
+    weightedConfidence += seconds * clamp(stops[pos]!.offset_confidence || FALLBACK_SEGMENT_CONFIDENCE, 0, 1)
   }
+  if (profileSeconds <= 0) return null
 
-  return seconds
+  const liveSeconds = estimateEtaSeconds(distanceOnShape(index, vehicle.shapeIdx, stopShapeIdx), vehicle.speed)
+  const profileWeight = PROFILE_SEGMENT_WEIGHT * (weightedConfidence / profileSeconds)
+
+  const blended = liveSeconds * (1 - profileWeight) + profileSeconds * profileWeight
+  return clamp(blended, profileSeconds * MIN_LIVE_ADJUSTMENT, profileSeconds * MAX_LIVE_ADJUSTMENT)
 }

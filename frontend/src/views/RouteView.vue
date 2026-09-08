@@ -239,7 +239,6 @@ function liveMinutesForStop(stop: IndexedStop): number | null {
     tripStops: stopsForDirection.value,
     targetStopId: stop.stop_id,
     referenceTime: userTime.value,
-    tripId: currentTripId.value,
   })
   return eta ? eta.etaMinutes : null
 }

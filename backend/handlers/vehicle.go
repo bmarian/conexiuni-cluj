@@ -24,9 +24,10 @@ const (
 	StationaryRadiusMeters = 30.0
 
 	// vehicleMissingGrace is how long a vehicle Tranzy stopped reporting keeps
-	// being served from its last known position. Covers a dropped poll at the
-	// worst-case 60s interval without pinning a ghost to the map.
-	vehicleMissingGrace = 3 * time.Minute
+	// being served from its last known position. One dropped poll at the worst-case
+	// 60s interval, no more: every extra second here is a second the frontend
+	// estimates against a position that is no longer moving.
+	vehicleMissingGrace = 90 * time.Second
 
 	// vehicleRetention bounds the table: older rows are neither served nor kept.
 	// Without it every vehicle ever seen came back on the cache-hit path.
