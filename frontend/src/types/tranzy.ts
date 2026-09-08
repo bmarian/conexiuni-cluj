@@ -103,6 +103,10 @@ export type Vehicle = {
   speed: number
   route_id: number
   trip_id: string
+  // Tranzy's reading before the backend's smoothing and minimum-speed floor.
+  raw_speed?: number
+  // Vehicle timestamp at which it was last seen away from where it stands now.
+  stationary_since?: string
 }
 
 export type TimeEntry = {

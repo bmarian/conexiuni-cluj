@@ -109,7 +109,12 @@ func InitSchemas() error {
             wheelchair_accessible TEXT    NOT NULL,
             speed                 REAL    NOT NULL,
             route_id              INTEGER NOT NULL,
-            trip_id               TEXT    NOT NULL
+            trip_id               TEXT    NOT NULL,
+            raw_speed             REAL    NOT NULL DEFAULT 0,
+            anchor_lat            REAL    NOT NULL DEFAULT 0,
+            anchor_lon            REAL    NOT NULL DEFAULT 0,
+            anchor_at             TEXT    NOT NULL DEFAULT '',
+            observed_at           INTEGER NOT NULL DEFAULT 0
         );
 
 		CREATE TABLE IF NOT EXISTS routes
@@ -273,11 +278,17 @@ func InitSchemas() error {
 		return err
 	}
 
+	// Before the indexes: an older database is missing columns some of them cover.
+	if err := addMissingColumns(); err != nil {
+		return err
+	}
+
 	indexes := `
 		-- Vehicles indexes
 		CREATE INDEX IF NOT EXISTS idx_vehicles_route_id ON vehicles(route_id);
 		CREATE INDEX IF NOT EXISTS idx_vehicles_trip_id ON vehicles(trip_id);
 		CREATE INDEX IF NOT EXISTS idx_vehicles_timestamp ON vehicles(timestamp);
+		CREATE INDEX IF NOT EXISTS idx_vehicles_observed_at ON vehicles(observed_at);
 
 		-- Routes indexes
 		CREATE INDEX IF NOT EXISTS idx_routes_agency_id ON routes(agency_id);
@@ -319,6 +330,58 @@ func InitSchemas() error {
 
 	log.Println("Database schema and indexes initialized")
 	return nil
+}
+
+// addMissingColumns brings older databases up to the current shape. SQLite has
+// no "ADD COLUMN IF NOT EXISTS", so existing columns are read first.
+func addMissingColumns() error {
+	additions := map[string][]string{
+		"vehicles": {
+			"raw_speed REAL NOT NULL DEFAULT 0",
+			"anchor_lat REAL NOT NULL DEFAULT 0",
+			"anchor_lon REAL NOT NULL DEFAULT 0",
+			"anchor_at TEXT NOT NULL DEFAULT ''",
+			"observed_at INTEGER NOT NULL DEFAULT 0",
+		},
+	}
+	for table, columns := range additions {
+		existing, err := tableColumns(table)
+		if err != nil {
+			return err
+		}
+		for _, def := range columns {
+			name := strings.Fields(def)[0]
+			if _, ok := existing[name]; ok {
+				continue
+			}
+			if _, err := DB.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, def)); err != nil {
+				return fmt.Errorf("add %s.%s: %w", table, name, err)
+			}
+			log.Printf("schema: added column %s.%s", table, name)
+		}
+	}
+	return nil
+}
+
+func tableColumns(table string) (map[string]struct{}, error) {
+	rows, err := DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	cols := make(map[string]struct{})
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
+			return nil, err
+		}
+		cols[name] = struct{}{}
+	}
+	return cols, rows.Err()
 }
 
 // Rate-limit ANALYZE/optimize calls under concurrent cache writes.

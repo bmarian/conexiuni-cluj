@@ -228,21 +228,25 @@ interface StopTimeDisplay {
   isLive: boolean
 }
 
+function liveMinutesForStop(stop: IndexedStop): number | null {
+  const dirShape = currentDirectionShape.value
+  if (!dirShape) return null
+  const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
+  if (stopIdx === undefined || stopIdx < 0) return null
+  const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
+    tripStops: stopsForDirection.value,
+    targetStopId: stop.stop_id,
+    referenceTime: userTime.value,
+    tripId: currentTripId.value,
+  })
+  return eta ? eta.etaMinutes : null
+}
+
 function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
   const times = nextArrivalsAtStop(stop.timeOffsetFromStart)
-  if (!times.length) return []
-  let liveMinutes: number | null = null
-  const dirShape = currentDirectionShape.value
-  if (dirShape && currentDirectionVehicles.value.length) {
-    const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
-    if (stopIdx !== undefined && stopIdx >= 0) {
-      const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
-        tripStops: stopsForDirection.value,
-        targetStopId: stop.stop_id,
-        referenceTime: userTime.value,
-      })
-      if (eta && eta.etaMinutes > 0) liveMinutes = eta.etaMinutes
-    }
+  const liveMinutes = liveMinutesForStop(stop)
+  if (!times.length) {
+    return liveMinutes === null ? [] : [{label: formatMinutes(liveMinutes), isLive: true}]
   }
   return times.map((minutes, i) => {
     if (i === 0 && liveMinutes !== null) return {label: formatMinutes(liveMinutes), isLive: true}

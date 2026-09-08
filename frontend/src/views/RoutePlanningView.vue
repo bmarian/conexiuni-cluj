@@ -981,6 +981,7 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
           tripStops: stopTimes,
           targetStopId: leg.startStopId,
           referenceTime: userTime.value,
+          tripId: tid,
         })
         if (eta && eta.etaMinutes <= MAX_MINUTES) {
           const entry: PlannedTimeEntry = {

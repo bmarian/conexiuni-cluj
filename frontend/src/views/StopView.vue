@@ -222,11 +222,9 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       if (vehiclesOnRoute.length) favoriteTripIds.add(shape.trip_id)
     }
 
-    if (!vehiclesOnRoute.length) {
-      results.push(shape)
-      continue
-    }
-
+    // No early-out on an empty vehicle list: etaForStop can still serve the last
+    // estimate while Tranzy skips a poll, which is what stopped the row flipping
+    // between its live and timetable values every few seconds.
     const routeShapeInfo = shapeInfoByRouteId.value.get(shape.route_id)
     if (!routeShapeInfo) {
       results.push(shape)
@@ -244,6 +242,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       tripStops,
       targetStopId: stopIdNum.value,
       referenceTime: userTime.value,
+      tripId: shape.trip_id,
     })
     if (!eta) {
       results.push(shape)
