@@ -143,11 +143,13 @@ const stopsForDirection = computed((): IndexedStop[] => {
   const filtered = rawStops.value
     .filter((st) => st.trip_id === currentTripId.value)
     .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  // offset_arrival_time is the ride from the previous stop into this one, so it has
+  // to be added before the offset is read - otherwise every stop shows the previous
+  // stop's arrival time and the last segment never counts at all.
   let cumulativeSec = 0
   return filtered.map((st) => {
-    const offset = Math.ceil(cumulativeSec / 60)
     cumulativeSec += st.offset_arrival_time
-    return {...st, timeOffsetFromStart: offset}
+    return {...st, timeOffsetFromStart: Math.ceil(cumulativeSec / 60)}
   })
 })
 
@@ -408,8 +410,8 @@ const selectedDepartureStops = computed((): TripStop[] => {
     .sort((a, b) => a.stop_sequence - b.stop_sequence)
   let cumulativeSec = 0
   return filtered.map((stop) => {
-    const offset = Math.ceil(cumulativeSec / 60)
     cumulativeSec += stop.offset_arrival_time
+    const offset = Math.ceil(cumulativeSec / 60)
     return {...stop, timeOffsetFromStart: offset, arrivalTimeStr: formatAbsoluteMinutes(depMin + offset)}
   })
 })

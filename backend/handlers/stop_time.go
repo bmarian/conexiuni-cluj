@@ -212,7 +212,7 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 		return st, err
 	}
 	if filter.RouteShortName == nil {
-		return queryRows(`SELECT * FROM stop_times`, nil, scan)
+		return queryRows(`SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scan)
 	}
 	// Resolve route_short_name → route_id → trip_ids via the live routes/trips
 	// tables instead of trusting the stop_times.route_short_name column. That
@@ -225,7 +225,8 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 		FROM stop_times st
 		JOIN trips t  ON st.trip_id = t.trip_id
 		JOIN routes r ON t.route_id = r.route_id
-		WHERE r.route_short_name = ?`,
+		WHERE r.route_short_name = ?
+		ORDER BY st.trip_id, st.stop_sequence`,
 		[]any{*filter.RouteShortName}, scan)
 }
 

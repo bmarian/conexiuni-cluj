@@ -3,6 +3,12 @@ import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
 import type {Shape, StopTime, Vehicle} from '@/types/tranzy.ts'
 
 export const TERMINUS_RADIUS_METERS = 200
+// Tranzy tags a vehicle with the trip it is *about* to run, so a bus deadheading
+// back to the terminus carries the outbound trip while it is streets away. Snapped
+// to the nearest shape point it lands on index 0 and then drives the live ETA for
+// every stop on the route. Stops on these shapes sit within ~25 m of the line, so
+// anything past this is not on the route.
+const MAX_OFF_ROUTE_METERS = 150
 export const VEHICLE_GRACE_PERIOD = 10
 export const MIN_SPEED_KMH = 7 // MinSpeedFloor
 // A bus standing this long is out of service, not on a layover. Terminus layovers
@@ -30,6 +36,9 @@ export type TrackedVehicle = Vehicle & {
 }
 export type IndexedVehicle = TrackedVehicle & {
   shapeIdx: number
+  // Distance from the shape at shapeIdx. Snapping is unconditional, so this is the
+  // only thing separating a bus on the route from one that merely carries its trip.
+  offRouteMeters: number
   // Sitting at (or still rolling into) the departure terminus: drawn on the map,
   // but never the source of a live ETA - see etaForStop.
   atStartTerminus: boolean
@@ -118,18 +127,22 @@ export function buildShapeIndex(shape: Shape[]): ShapeIndex {
   return {shape, cumulativeDist}
 }
 
-export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): number {
-  let best = -1
-  let bestDist = Infinity
+export function closestShapePoint(lat: number, lon: number, shape: Shape[]): { idx: number; distanceMeters: number } {
+  let idx = -1
+  let distanceMeters = Infinity
   for (let i = 0; i < shape.length; i++) {
     const p = shape[i]!
     const d = haversineMeters(p.shape_pt_lat, p.shape_pt_lon, lat, lon)
-    if (d < bestDist) {
-      bestDist = d;
-      best = i
+    if (d < distanceMeters) {
+      distanceMeters = d;
+      idx = i
     }
   }
-  return best
+  return {idx, distanceMeters}
+}
+
+export function findClosestShapeIdx(lat: number, lon: number, shape: Shape[]): number {
+  return closestShapePoint(lat, lon, shape).idx
 }
 
 export function buildStopShapeIdxByStopId(tripStops: StopTime[], shape: Shape[]): Map<number, number> {
@@ -193,13 +206,14 @@ export async function getIndexedVehicles(
 
   for (const v of raw) {
     if (!isTracked(v, now)) continue
-    const shapeIdx = findClosestShapeIdx(v.latitude, v.longitude, shape)
+    const {idx: shapeIdx, distanceMeters} = closestShapePoint(v.latitude, v.longitude, shape)
     result.push({
       ...v,
       route_short_name: routeShortName,
       route_color: routeColor,
       heading: computeHeading(v.latitude, v.longitude, shape, shapeIdx),
       shapeIdx,
+      offRouteMeters: distanceMeters,
       atStartTerminus: haversineMeters(v.latitude, v.longitude, start.shape_pt_lat, start.shape_pt_lon) <= TERMINUS_RADIUS_METERS,
       dwellMs: dwellMs(v, now),
     })
@@ -272,11 +286,16 @@ export function etaForStop(
   const now = options.referenceTime?.getTime() ?? Date.now()
   const key = etaCacheKey(options)
 
-  // A vehicle still at the departure terminus says nothing about when it leaves -
-  // that is the timetable's job. Tracking it would read as "0m" for the whole
-  // layover and then flip back to the schedule the moment it pulled away.
+  // Two ways a vehicle carries this trip without being on it yet: parked at the
+  // departure terminus, or still driving in from somewhere else entirely. Neither
+  // says anything about when it leaves - that is the timetable's job - and both
+  // snap to shape index 0, which would make them the candidate for every stop.
   const candidate = vehicles
-    .filter(v => v.shapeIdx >= 0 && v.shapeIdx <= stopShapeIdx && !v.atStartTerminus && isFreshForLiveEta(v, now))
+    .filter(v => v.shapeIdx >= 0
+      && v.shapeIdx <= stopShapeIdx
+      && v.offRouteMeters <= MAX_OFF_ROUTE_METERS
+      && !v.atStartTerminus
+      && isFreshForLiveEta(v, now))
     .sort((a, b) => b.shapeIdx - a.shapeIdx)[0]
 
   if (candidate) {

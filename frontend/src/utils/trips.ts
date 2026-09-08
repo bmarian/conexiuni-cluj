@@ -34,12 +34,17 @@ export const getTripIdForRouteAtStop = (outgoingTripIds: string[], incomingTripI
     .find((id) => getRouteIdFromTripId(id) === wantedRouteId)
 }
 
+// Minutes from the trip's departure until it reaches `stopId`. offset_arrival_time
+// is the ride from the previous stop *into* this one, so the target's own delta is
+// part of the answer - dropping it reported every stop at the previous stop's time.
 export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopId: number): number => {
+  const ordered = stopTimes
+    .filter((st) => st.trip_id === tripId)
+    .sort((a, b) => a.stop_sequence - b.stop_sequence)
   let timeOffsetSec = 0
-  for (const st of stopTimes) {
-    if (st.trip_id !== tripId) continue
-    if (st.stop_id === stopId) break
+  for (const st of ordered) {
     timeOffsetSec += st.offset_arrival_time
+    if (st.stop_id === stopId) break
   }
   return Math.ceil(timeOffsetSec / 60)
 }
