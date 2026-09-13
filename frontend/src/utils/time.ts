@@ -6,6 +6,7 @@ import {
   type VehiclesInStop
 } from '@/types/tranzy.ts'
 import {getRouteIdFromTripId, getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from "@/utils/trips.ts";
+import {scheduledArrivals} from "@/utils/arrivals.ts";
 
 export const timeStringToMinutes = (timeString: string): number | null => {
   if (!timeString || !timeString.includes(':')) {
@@ -92,24 +93,18 @@ export const getAvailableBusesForStop = (
     const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
     const daySchedule = getTimetableForDay(timetable, referenceDate)
 
-    let upcomingEntries: TimeEntry[] = daySchedule.entries
-      .map(entry => {
-        const depStr = isOutgoing ? entry.departure_in : entry.departure_out
-        const depMinutes = timeStringToMinutes(depStr)
-        if (depMinutes === null) return null
+    const departureMinutes = daySchedule.entries
+      .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
+      .filter((m): m is number => m !== null)
 
-        const arrivalAtStopMinutes = depMinutes + timeOffsetToStop
-        const minutesDiff = ((arrivalAtStopMinutes - referenceMinutes) + 1440) % 1440
-
-        if (options.maxMinutes !== undefined && minutesDiff >= options.maxMinutes) return null
-
-        return {
-          minutes: minutesDiff,
-          is_live: false
-        }
-      })
-      .filter((e): e is TimeEntry => e !== null)
-      .sort((a, b) => a.minutes - b.minutes)
+    // Signed, so a run a couple of minutes behind schedule is still listed as coming
+    // instead of wrapping into tomorrow and pushing the whole card on by a headway.
+    let upcomingEntries: TimeEntry[] = scheduledArrivals({
+      departureMinutes,
+      offsetMinutes: timeOffsetToStop,
+      nowMinutes: referenceMinutes,
+      horizonMinutes: options.maxMinutes,
+    }).map(minutes => ({minutes: Math.max(minutes, 0), is_live: false}))
 
     if (options.limit !== undefined) {
       upcomingEntries = upcomingEntries.slice(0, options.limit)

@@ -19,6 +19,7 @@ import {
 } from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
+import {mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
 import {
   buildShapeIndex,
   buildStopShapeIdxByStopId,
@@ -196,10 +197,6 @@ function formatMinutes(minutes: number): string {
   return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
-function minutesLeft(absMinutes: number): number {
-  return ((absMinutes - currentMinutes.value) + 1440) % 1440
-}
-
 function formatAbsoluteMinutes(absMin: number): string {
   const h = Math.floor(absMin / 60) % 24
   const m = absMin % 60
@@ -216,14 +213,22 @@ const departureTimes = computed((): number[] => {
     .filter((v): v is number => v !== null)
 })
 
+const SCHEDULE_HORIZON_MIN = 480
+
 // Offset first, then sort, so runs already under way still count for later stops.
 function nextArrivalsAtStop(offsetFromStart: number): number[] {
-  return departureTimes.value
-    .map((absMin) => minutesLeft(absMin + offsetFromStart))
-    .filter((m) => m < 480)
-    .sort((a, b) => a - b)
-    .slice(0, 3)
+  return scheduledArrivals({
+    departureMinutes: departureTimes.value,
+    offsetMinutes: offsetFromStart,
+    nowMinutes: currentMinutes.value,
+    horizonMinutes: SCHEDULE_HORIZON_MIN,
+  })
 }
+
+// Whether live tracking has anything to say about this direction at all. It is the
+// difference between "no bus is behind this stop" and "we are not watching", and only
+// the first of those justifies dropping a timetable slot that reads as due now.
+const directionIsTracked = computed(() => currentDirectionVehicles.value.length > 0)
 
 interface StopTimeDisplay {
   label: string;
@@ -243,20 +248,19 @@ function liveMinutesForStop(stop: IndexedStop): number | null {
   return eta ? eta.etaMinutes : null
 }
 
+// The live estimate used to be dropped into slot 0 and the timetable kept the rest,
+// which left the same bus counted twice and made a column mean a different thing on
+// every row. Merging on time instead keeps the columns comparable down the list.
 function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
-  const times = nextArrivalsAtStop(stop.timeOffsetFromStart)
-  const liveMinutes = liveMinutesForStop(stop)
-  if (!times.length) {
-    return liveMinutes === null ? [] : [{label: formatMinutes(liveMinutes), isLive: true}]
-  }
-  return times.map((minutes, i) => {
-    if (i === 0 && liveMinutes !== null) return {label: formatMinutes(liveMinutes), isLive: true}
-    return {label: formatMinutes(minutes), isLive: false}
-  })
+  const scheduled = nextArrivalsAtStop(stop.timeOffsetFromStart)
+  const merged = mergeArrivals(liveMinutesForStop(stop), scheduled, {tracked: directionIsTracked.value})
+  return merged.map((arrival) => ({label: formatMinutes(arrival.minutes), isLive: arrival.isLive}))
 }
 
+// The header lists departures from the terminus, where there is no stop to have been
+// passed, so it stays on the timetable alone.
 function getHeaderTimes(): string[] {
-  return nextArrivalsAtStop(0).map((m) => formatMinutes(m))
+  return mergeArrivals(null, nextArrivalsAtStop(0)).map((arrival) => formatMinutes(arrival.minutes))
 }
 
 function getStopLabel(idx: number, stop: IndexedStop): string {
