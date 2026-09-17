@@ -36,6 +36,7 @@ import {useFavoritesStore} from "@/stores/favorites.ts";
 import {useRouter} from "vue-router";
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {
+  getDirectionFromTripId,
   getRouteIdFromTripId,
   getShapeStopTimes,
   getTripIdForRouteAtStop
@@ -141,10 +142,14 @@ const shapeInfoByRouteId = computed(() => {
   return new Map<number, ShapeInfo>(info.shapes_info.map((shapeInfo: ShapeInfo) => [shapeInfo.route_id, shapeInfo]))
 })
 
+function isDepartureFavorite(shape: VehiclesInStop): boolean {
+  return favoritesStore.isRouteFavorite(shape.route_id, getDirectionFromTripId(shape.trip_id))
+}
+
 const departuresSorted = computed(() => {
   return [...shapesComingToTheStopBasedOnVehiclePositions.value].sort((a, b) => {
-    const aFav = favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1
-    const bFav = favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1
+    const aFav = isDepartureFavorite(a) ? 0 : 1
+    const bFav = isDepartureFavorite(b) ? 0 : 1
     if (aFav !== bFav) return aFav - bFav
     return a.minutes_left - b.minutes_left
   })
@@ -247,7 +252,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       vehiclesByTripMap.get(shape.trip_id) ?? [],
     )
 
-    if (favoritesStore.isRouteFavorite(shape.route_id)) {
+    if (isDepartureFavorite(shape)) {
       favoriteVehicles.push(...vehiclesOnRoute)
       if (vehiclesOnRoute.length) favoriteTripIds.add(shape.trip_id)
     }
@@ -313,7 +318,7 @@ const navigateToRoute = (shape: VehiclesInStop) => {
     name: 'route',
     params: {
       routeId: shape.route_id,
-      direction: shape.trip_id.endsWith(OUTGOING_SUFFIX) ? '0' : '1'
+      direction: getDirectionFromTripId(shape.trip_id)
     }
   })
 }
@@ -323,7 +328,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
   router.push({
     name: 'route',
-    params: {routeId: shape.route_id, direction: tripId.endsWith(OUTGOING_SUFFIX) ? '0' : '1'}
+    params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)}
   })
 }
 
@@ -465,7 +470,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
             :key="shape.route_short_name"
             @click="navigateToRoute(shape)"
             class="departure-card group"
-            :class="{ 'departure-card-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
+            :class="{ 'departure-card-fav': isDepartureFavorite(shape) }"
           >
             <div
               :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>

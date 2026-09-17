@@ -53,7 +53,6 @@ const {zoomOut} = storeToRefs(mapStore)
 const {favoriteStopIds} = storeToRefs(favoritesStore)
 
 const routeIdNum = computed(() => Number(props.routeId))
-const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value))
 const shapeInfo = computed(() => routeStore.selectedShapeInfo)
 const fromStopId = computed(() => routeStore.fromStopId)
 const fromStopName = computed(() => routeStore.fromStopName)
@@ -83,6 +82,7 @@ function resolveDirection(): '0' | '1' {
 }
 
 const currentDirection = ref<'0' | '1'>(resolveDirection())
+const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value, currentDirection.value))
 const isOutgoing = computed(() => currentDirection.value === '0')
 const currentTripId = computed(() =>
   `${props.routeId}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
@@ -696,7 +696,7 @@ onUnmounted(() => {
         :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
-        @click="favoritesStore.toggleRouteFavorite(routeIdNum)"
+        @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
         <IconHeartOutline v-else class="w-5 h-5"/>

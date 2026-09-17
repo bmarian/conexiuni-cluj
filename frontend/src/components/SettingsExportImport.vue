@@ -35,7 +35,7 @@ function buildJson() {
       autoFitMap: settings.autoFitMap,
     },
     favorites: {
-      routes: favs.favoriteRouteIds,
+      routes: favs.favoriteRoutes,
       stops: favs.favoriteStopIds,
       plans: favs.favoritePlans,
       recentPlans: favs.recentPlans,

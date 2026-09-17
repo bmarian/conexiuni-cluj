@@ -42,6 +42,8 @@ export type Route = {
 export const OUTGOING_SUFFIX = "_0"
 export const INCOMING_SUFFIX = "_1"
 
+export type RouteDirection = '0' | '1'
+
 export type LocationType =
   | 0 // StopOrPlatform
   | 1 // Station

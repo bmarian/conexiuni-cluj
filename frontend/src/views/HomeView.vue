@@ -6,7 +6,7 @@ import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import type {FavoritePlan} from '@/stores/favorites.ts'
+import type {FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
@@ -14,7 +14,7 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
-import {OUTGOING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
+import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection, type Stop} from '@/types/tranzy.ts'
 import UniversalSearch from '@/components/UniversalSearch.vue'
 
 const {t} = useI18n()
@@ -36,7 +36,7 @@ const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
-const {favoriteRouteIds, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
+const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -45,6 +45,7 @@ const {isOnline} = useOnline()
 
 const isSearchMode = ref(false)
 const navigatingRouteId = ref<number | null>(null)
+const navigatingRouteKey = ref<string | null>(null)
 
 const routesById = computed(() => {
   const map = new Map<number, Route>()
@@ -69,11 +70,35 @@ onMounted(() => {
   void fetchStops()
 })
 
-const favoriteRoutes = computed<Route[]>(() => {
-  return favoriteRouteIds.value
-    .map((id) => routesById.value.get(id))
-    .filter((r): r is Route => !!r)
+type FavoriteRouteChip = {
+  route: Route
+  destination: string
+  name: string
+}
+
+function favoriteRouteKey(fav: FavoriteRoute): string {
+  return `${fav.routeId}_${fav.direction}`
+}
+
+const favoriteRouteChips = computed(() => {
+  const chips = new Map<string, FavoriteRouteChip>()
+  for (const fav of favoriteRoutes.value) {
+    const route = routesById.value.get(fav.routeId)
+    if (!route) continue
+    const longName = route.route_long_name
+    const i = longName.lastIndexOf(' - ')
+    const origin = i >= 0 ? longName.slice(0, i) : ''
+    const end = i >= 0 ? longName.slice(i + 3) : longName
+    chips.set(favoriteRouteKey(fav), fav.direction === '1' && origin
+      ? {route, destination: origin, name: `${end} - ${origin}`}
+      : {route, destination: end, name: longName})
+  }
+  return chips
 })
+
+function chipFor(fav: FavoriteRoute): FavoriteRouteChip | undefined {
+  return favoriteRouteChips.value.get(favoriteRouteKey(fav))
+}
 
 const favoriteStops = computed<Stop[]>(() => {
   return favoriteStopIds.value
@@ -82,7 +107,7 @@ const favoriteStops = computed<Stop[]>(() => {
 })
 
 const hasFavorites = computed(() =>
-  favoriteRouteIds.value.length > 0 ||
+  favoriteRoutes.value.length > 0 ||
   favoriteStopIds.value.length > 0 ||
   (isOnline.value && favoritePlans.value.length > 0)
 )
@@ -99,21 +124,23 @@ const sortedRoutes = computed<Route[]>(() => {
   )
 })
 
-async function navigateToRoute(route: Route) {
+async function navigateToRoute(route: Route, direction?: RouteDirection) {
   if (navigatingRouteId.value === route.route_id) return
   navigatingRouteId.value = route.route_id
+  navigatingRouteKey.value = direction ? favoriteRouteKey({routeId: route.route_id, direction}) : null
   try {
     const shapeInfo = await fetchShapeInfo(route)
-    const tripId = `${route.route_id}${OUTGOING_SUFFIX}`
+    const tripId = `${route.route_id}${direction === '1' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
     routeStore.setSelectedRoute(shapeInfo, tripId, '', '')
     await router.push({
       name: 'route',
-      params: {routeId: String(route.route_id), direction: 'auto'},
+      params: {routeId: String(route.route_id), direction: direction ?? 'auto'},
     })
   } catch (e) {
     console.error('Failed to load route:', e)
   } finally {
     navigatingRouteId.value = null
+    navigatingRouteKey.value = null
   }
 }
 
@@ -139,9 +166,9 @@ function navigateToPlan(plan: FavoritePlan) {
   })
 }
 
-function removeFavoriteRoute(route: Route, ev: Event) {
+function removeFavoriteRoute(fav: FavoriteRoute, ev: Event) {
   ev.stopPropagation()
-  favoritesStore.toggleRouteFavorite(route.route_id)
+  favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
 }
 
 function removeFavoriteStop(stop: Stop, ev: Event) {
@@ -161,9 +188,9 @@ function dismissRecentPlan(plan: FavoritePlan, ev: Event) {
   favoritesStore.removeRecentPlan(plan)
 }
 
-const routeFavoritesModel = computed<number[]>({
-  get: () => favoriteRouteIds.value,
-  set: (newIds) => favoritesStore.reorderRouteIds([...newIds]),
+const routeFavoritesModel = computed<FavoriteRoute[]>({
+  get: () => favoriteRoutes.value,
+  set: (newRoutes) => favoritesStore.reorderRoutes([...newRoutes]),
 })
 
 const stopFavoritesModel = computed<number[]>({
@@ -201,11 +228,11 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           {{ t('favorites') }}
         </h2>
 
-        <div v-if="favoriteRoutes.length" class="flex flex-col gap-2">
+        <div v-if="favoriteRouteChips.size" class="flex flex-col gap-2">
           <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
           <Draggable
             v-model="routeFavoritesModel"
-            :item-key="(id: number) => id"
+            :item-key="favoriteRouteKey"
             class="favorite-routes-grid"
             tag="div"
             handle=".drag-handle"
@@ -213,48 +240,47 @@ const planFavoritesModel = computed<FavoritePlan[]>({
             chosen-class="drag-chosen"
             :animation="180"
           >
-            <template #item="{element: routeId}">
+            <template #item="{element: fav}">
               <div
-                v-if="routesById.get(routeId)"
+                v-if="chipFor(fav)"
                 class="fav-route-chip group"
-                :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === routeId }"
-                :style="{ '--chip-color': routesById.get(routeId)?.route_color }"
-                @click="navigateToRoute(routesById.get(routeId)!)"
-                @keydown.enter.space.prevent="navigateToRoute(routesById.get(routeId)!)"
+                :class="{ 'opacity-60 pointer-events-none': navigatingRouteKey === favoriteRouteKey(fav) }"
+                :style="{ '--chip-color': chipFor(fav)?.route.route_color }"
+                :title="chipFor(fav)?.name"
+                @click="navigateToRoute(chipFor(fav)!.route, fav.direction)"
+                @keydown.enter.space.prevent="navigateToRoute(chipFor(fav)!.route, fav.direction)"
                 role="button"
                 tabindex="0"
               >
-                <svg
-                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                  viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="9" cy="5" r="1.5"/>
-                  <circle cx="15" cy="5" r="1.5"/>
-                  <circle cx="9" cy="12" r="1.5"/>
-                  <circle cx="15" cy="12" r="1.5"/>
-                  <circle cx="9" cy="19" r="1.5"/>
-                  <circle cx="15" cy="19" r="1.5"/>
-                </svg>
-                <span
-                  class="fav-route-badge"
-                  :style="{ backgroundColor: routesById.get(routeId)?.route_color }"
-                  :title="routesById.get(routeId)?.route_long_name"
-                >{{ routesById.get(routeId)?.route_short_name }}</span>
-                <span
-                  class="fav-route-name"
-                  :title="routesById.get(routeId)?.route_long_name"
-                >{{ routesById.get(routeId)?.route_long_name }}</span>
-                <button
-                  type="button"
-                  class="fav-remove"
-                  :title="t('removeFromFavorites')"
-                  :aria-label="t('removeFromFavorites')"
-                  @click.stop="removeFavoriteRoute(routesById.get(routeId)!, $event)"
-                >
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                       stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                <div class="fav-route-body">
+                  <svg
+                    class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
+                    viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="9" cy="5" r="1.5"/>
+                    <circle cx="15" cy="5" r="1.5"/>
+                    <circle cx="9" cy="12" r="1.5"/>
+                    <circle cx="15" cy="12" r="1.5"/>
+                    <circle cx="9" cy="19" r="1.5"/>
+                    <circle cx="15" cy="19" r="1.5"/>
                   </svg>
-                </button>
+                  <span
+                    class="fav-route-badge"
+                    :style="{ backgroundColor: chipFor(fav)?.route.route_color }"
+                  >{{ chipFor(fav)?.route.route_short_name }}</span>
+                  <span class="fav-route-name">→ {{ chipFor(fav)?.destination }}</span>
+                  <button
+                    type="button"
+                    class="fav-remove"
+                    :title="t('removeFromFavorites')"
+                    :aria-label="t('removeFromFavorites')"
+                    @click.stop="removeFavoriteRoute(fav, $event)"
+                  >
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                         stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </template>
           </Draggable>
@@ -647,17 +673,23 @@ html.dark[data-legacy-blue] .no-favorites-hint {
   text-overflow: ellipsis;
 }
 
-@container fav-chip (max-width: 9rem) {
-  .fav-route-name {
-    display: none;
-  }
+.fav-route-body {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  width: 100%;
+}
 
-  .fav-route-badge {
-    margin-right: auto;
+@container fav-chip (max-width: 12rem) {
+  .fav-route-name {
+    grid-row: 2;
+    grid-column: 1 / -1;
   }
 }
 
 .fav-remove {
+  grid-column: 4;
   display: flex;
   align-items: center;
   justify-content: center;

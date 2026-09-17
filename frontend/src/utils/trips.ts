@@ -1,4 +1,4 @@
-import type {ShapeInfo, Stop, StopInfo, StopTime, TimeEntry} from '@/types/tranzy.ts'
+import {INCOMING_SUFFIX, type RouteDirection, type ShapeInfo, type Stop, type StopInfo, type StopTime, type TimeEntry} from '@/types/tranzy.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 
@@ -27,7 +27,10 @@ export const getRouteIdFromTripId = (tripId: string): number | null => {
   return Number.isFinite(routeId) ? routeId : null
 }
 
-export const getTripIdForRouteAtStop = (outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string): string | undefined => {
+export const getDirectionFromTripId = (tripId: string): RouteDirection =>
+  tripId.endsWith(INCOMING_SUFFIX) ? '1' : '0'
+
+export const getTripIdForRouteAtStop =(outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string): string | undefined => {
   const wantedRouteId = Number(routeId)
   if (!Number.isFinite(wantedRouteId)) return undefined
   return [...(outgoingTripIds || []), ...(incomingTripIds || [])]
