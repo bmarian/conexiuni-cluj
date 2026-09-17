@@ -52,7 +52,11 @@ let maxViewportHeight = 0
 let vvResizeHandler: (() => void) | null = null
 
 type VirtualKeyboard = EventTarget & { overlaysContent: boolean, boundingRect: DOMRect }
-const virtualKeyboard = (navigator as unknown as { virtualKeyboard?: VirtualKeyboard }).virtualKeyboard
+// Android PWAs don't move the page for the keyboard, so we lift the drawer ourselves there.
+// Browser tabs already handle it, and their reported keyboard height leaves a gap.
+const virtualKeyboard = window.matchMedia('(display-mode: standalone)').matches
+  ? (navigator as unknown as { virtualKeyboard?: VirtualKeyboard }).virtualKeyboard
+  : undefined
 const keyboardPx = ref(0)
 
 const onKeyboardGeometryChange = () => {
@@ -127,7 +131,6 @@ onUnmounted(() => {
   if (mapInsetTimer) clearTimeout(mapInsetTimer)
 })
 
-// Android PWAs don't shift the page for the keyboard, so let it overlay and lift the drawer ourselves.
 watch([isPortraitMobile, isAdminRoute], ([portrait, admin]) => {
   if (!virtualKeyboard) return
   virtualKeyboard.overlaysContent = portrait && !admin
