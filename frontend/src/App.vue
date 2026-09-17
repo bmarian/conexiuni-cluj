@@ -51,6 +51,14 @@ let keyboardOpen = false
 let maxViewportHeight = 0
 let vvResizeHandler: (() => void) | null = null
 
+type VirtualKeyboard = EventTarget & { overlaysContent: boolean, boundingRect: DOMRect }
+const virtualKeyboard = (navigator as unknown as { virtualKeyboard?: VirtualKeyboard }).virtualKeyboard
+const keyboardPx = ref(0)
+
+const onKeyboardGeometryChange = () => {
+  keyboardPx.value = virtualKeyboard?.overlaysContent ? virtualKeyboard.boundingRect.height : 0
+}
+
 const addMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
   mql.addEventListener('change', listener)
   ;(mql as unknown as { addListener?: (cb: () => void) => void }).addListener?.(listener)
@@ -96,6 +104,8 @@ onMounted(() => {
     vv.addEventListener('resize', vvResizeHandler, {passive: true})
   }
 
+  virtualKeyboard?.addEventListener('geometrychange', onKeyboardGeometryChange)
+
   updatePortraitMobile()
   scheduleMapInsetSync()
   window.addEventListener('resize', scheduleMapInsetSync, {passive: true})
@@ -111,23 +121,31 @@ onUnmounted(() => {
   if (vvResizeHandler) {
     window.visualViewport?.removeEventListener('resize', vvResizeHandler)
   }
+  virtualKeyboard?.removeEventListener('geometrychange', onKeyboardGeometryChange)
   window.removeEventListener('resize', scheduleMapInsetSync)
   if (mapInsetRaf) cancelAnimationFrame(mapInsetRaf)
   if (mapInsetTimer) clearTimeout(mapInsetTimer)
 })
 
+// Android PWAs don't shift the page for the keyboard, so let it overlay and lift the drawer ourselves.
+watch([isPortraitMobile, isAdminRoute], ([portrait, admin]) => {
+  if (!virtualKeyboard) return
+  virtualKeyboard.overlaysContent = portrait && !admin
+  onKeyboardGeometryChange()
+}, {immediate: true})
+
 const drawerStyle = computed(() => {
   if (!isPortraitMobile.value) return {}
   const state = drawerState.value
-  if (state === 'fullscreen') return {transform: 'translateY(0px)', '--drawer-visible-h': '100dvh'}
+  const kb = keyboardPx.value
   if (state === 'minimized') return {
-    transform: `translateY(calc(100dvh - ${MINIMIZED_PX}px))`,
+    transform: `translateY(calc(100dvh - ${MINIMIZED_PX + kb}px))`,
     '--drawer-visible-h': `${MINIMIZED_PX}px`,
   }
   const hiddenFrac = 1 - SNAP_FRAC[state]
   return {
-    transform: `translateY(${hiddenFrac * 100}dvh)`,
-    '--drawer-visible-h': `${SNAP_FRAC[state] * 100}dvh`,
+    transform: `translateY(max(0px, ${hiddenFrac * 100}dvh - ${kb}px))`,
+    '--drawer-visible-h': `min(${SNAP_FRAC[state] * 100}dvh, 100dvh - ${kb}px)`,
   }
 })
 
@@ -158,15 +176,14 @@ function viewportPx() {
   return window.visualViewport?.height ?? window.innerHeight
 }
 
-function getDrawerVisibleHeight(): number {
+function snapHeightPx(state: DrawerState, kb = keyboardPx.value): number {
+  if (state === 'minimized') return MINIMIZED_PX
   const vh = viewportPx()
-  if (drawerState.value === 'minimized') return MINIMIZED_PX
-  if (drawerState.value === 'fullscreen') return vh
-  return SNAP_FRAC[drawerState.value] * vh
+  return Math.min(SNAP_FRAC[state] * vh, vh - kb)
 }
 
 function updateMapInsets() {
-  mapStore.setDrawerBottomPx(isPortraitMobile.value ? getDrawerVisibleHeight() : 0)
+  mapStore.setDrawerBottomPx(isPortraitMobile.value ? snapHeightPx(drawerState.value, 0) : 0)
 
   if (isPortraitMobile.value) {
     mapStore.setDrawerRightPx(0)
@@ -204,7 +221,7 @@ function onPointerDown(e: PointerEvent) {
   if (!el) return
   pointerId = e.pointerId
   startY = e.clientY
-  startHeight = getDrawerVisibleHeight()
+  startHeight = snapHeightPx(drawerState.value)
   currentDragHeightPx = startHeight
   moved = false
   velocityY = 0
@@ -213,8 +230,8 @@ function onPointerDown(e: PointerEvent) {
   isDragging.value = true
   el.style.transition = 'none'
   // Pin the drawer at its current position immediately so there's no jump on drag start
-  const vh = viewportPx()
-  el.style.transform = `translateY(${vh - startHeight}px)`
+  const bottom = viewportPx() - keyboardPx.value
+  el.style.transform = `translateY(${bottom - startHeight}px)`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
@@ -228,25 +245,17 @@ function onPointerMove(e: PointerEvent) {
   if (dt > 0) velocityY = (e.clientY - lastY) / dt
   lastY = e.clientY
   lastT = e.timeStamp
-  const vh = viewportPx()
-  currentDragHeightPx = Math.max(MINIMIZED_PX, Math.min(vh, startHeight - dy))
-  el.style.transform = `translateY(${vh - currentDragHeightPx}px)`
+  const bottom = viewportPx() - keyboardPx.value
+  currentDragHeightPx = Math.max(MINIMIZED_PX, Math.min(bottom, startHeight - dy))
+  el.style.transform = `translateY(${bottom - currentDragHeightPx}px)`
 }
 
 function endDrag() {
   if (!isDragging.value) return
   const el = drawerEl.value
-  const vh = viewportPx()
-  const height = currentDragHeightPx || getDrawerVisibleHeight()
+  const height = currentDragHeightPx || snapHeightPx(drawerState.value)
 
   const snapStates: DrawerState[] = ['minimized', 'half', 'fullscreen']
-  const snapHeights: Record<DrawerState, number> = {
-    minimized: MINIMIZED_PX,
-    collapsed: SNAP_FRAC.collapsed * vh,
-    half: SNAP_FRAC.half * vh,
-    expanded: SNAP_FRAC.expanded * vh,
-    fullscreen: vh,
-  }
 
   let best: DrawerState = 'half'
 
@@ -265,7 +274,7 @@ function endDrag() {
   } else {
     let bestDist = Infinity
     for (const s of snapStates) {
-      const d = Math.abs(snapHeights[s] - height)
+      const d = Math.abs(snapHeightPx(s) - height)
       if (d < bestDist) {
         bestDist = d
         best = s
