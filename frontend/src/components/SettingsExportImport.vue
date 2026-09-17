@@ -3,6 +3,8 @@ import {nextTick, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import {useFavoritesStore} from '@/stores/favorites'
+import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {focusItem} from '@/utils/keyboardFocus.ts'
 
 const {t, locale} = useI18n()
 const settings = useSettingsStore()
@@ -16,6 +18,15 @@ const exportDone = ref(false)
 const importState = ref<'idle' | 'success' | 'error'>('idle')
 let exportTimer: ReturnType<typeof setTimeout> | null = null
 let importTimer: ReturnType<typeof setTimeout> | null = null
+
+const groupRef = ref<HTMLElement | null>(null)
+const {keyboardMode} = useKeyboardNav()
+
+useKbdEscape(() => mode.value !== null, () => {
+  const opener = groupRef.value?.querySelector<HTMLElement>(`[data-kbd-item="ei-${mode.value}"]`)
+  cancel()
+  if (opener) focusItem(opener)
+})
 
 const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -92,6 +103,7 @@ function openImport() {
   mode.value = 'import'
   text.value = ''
   importState.value = 'idle'
+  if (keyboardMode.value) void nextTick(() => textareaRef.value?.focus())
 }
 
 function cancel() {
@@ -167,8 +179,8 @@ async function doImport() {
 <template>
   <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive }">
     <p class="ei-label">{{ t('exportImport') }}</p>
-    <div class="ei-group">
-      <button type="button" class="ei-btn" @click="openExport">
+    <div ref="groupRef" class="ei-group" data-kbd-section="ei" data-kbd-axis="x">
+      <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -178,7 +190,7 @@ async function doImport() {
         </svg>
         {{ t('exportSettings') }}
       </button>
-      <button type="button" class="ei-btn" @click="openImport">
+      <button type="button" class="ei-btn" data-kbd-item="ei-import" @click="openImport">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📂</span>
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -196,6 +208,8 @@ async function doImport() {
         ref="textareaRef"
         v-model="text"
         class="ei-textarea"
+        data-kbd-section="ei-text"
+        data-kbd-item="ei-text"
         :readonly="mode === 'export'"
         :placeholder="mode === 'import' ? t('importPastePlaceholder') : ''"
         rows="7"
@@ -204,11 +218,12 @@ async function doImport() {
         autocorrect="off"
         autocapitalize="off"
       />
-      <div class="ei-actions">
+      <div class="ei-actions" data-kbd-section="ei-actions" data-kbd-axis="x">
         <button
           v-if="mode === 'export'"
           type="button"
           class="ei-btn ei-btn-primary"
+          data-kbd-item="ei-share"
           :class="{'ei-btn-success': exportDone}"
           :disabled="exportDone"
           @click="doExportShare"
@@ -228,6 +243,7 @@ async function doImport() {
           v-if="mode === 'import'"
           type="button"
           class="ei-btn ei-btn-primary"
+          data-kbd-item="ei-confirm"
           :class="{'ei-btn-success': importState === 'success', 'ei-btn-error': importState === 'error'}"
           :disabled="!text.trim() || importState !== 'idle'"
           @click="doImport"
@@ -250,7 +266,7 @@ async function doImport() {
             {{ t('importConfirm') }}
           </template>
         </button>
-        <button type="button" class="ei-btn" @click="cancel">{{ t('cancel') }}</button>
+        <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
       </div>
     </template>
   </div>

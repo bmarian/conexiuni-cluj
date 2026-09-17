@@ -25,3 +25,23 @@ a,
 [role="button"] {
   touch-action: manipulation;
 }
+
+:root {
+  --kbd-ring: #2563eb;
+  --kbd-ring-style: solid;
+  --kbd-ring-offset: 2px;
+}
+
+:root.dark {
+  --kbd-ring: #60a5fa;
+}
+
+html[data-kbd] [data-kbd-item] {
+  scroll-margin: 3rem 0;
+}
+
+html[data-kbd] [data-kbd-item]:focus,
+html[data-kbd] [data-kbd-inner]:focus-within {
+  outline: 2px var(--kbd-ring-style) var(--kbd-ring);
+  outline-offset: var(--kbd-ring-offset);
+}

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import {computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
-import {useRoute} from "vue-router"
+import {useRoute, useRouter} from "vue-router"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import ArcadeToast from "@/components/ArcadeToast.vue"
 import ArcadeTransition from "@/components/ArcadeTransition.vue"
+import KeyboardHelp from "@/components/KeyboardHelp.vue"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
+import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
 
 const WeatherButton = defineAsyncComponent(() => import("@/components/WeatherButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
@@ -20,6 +22,8 @@ const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const {isOnline} = useOnline()
 const route = useRoute()
+const {keyboardMode} = useKeyboardNav()
+useKeyboardNavRoot(useRouter())
 const isAdminRoute = computed(() => route.name === 'admin')
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
@@ -309,6 +313,28 @@ function onPointerUp(e: PointerEvent) {
 function toggleLandscapeDrawer() {
   isLandscapeDrawerOpen.value = !isLandscapeDrawerOpen.value
 }
+
+function cycleDrawerSize() {
+  if (isPortraitMobile.value) {
+    const next: Partial<Record<DrawerState, DrawerState>> = {half: 'fullscreen', fullscreen: 'minimized'}
+    drawerState.value = next[drawerState.value] ?? 'half'
+  } else if (mqlLandscape?.matches) {
+    toggleLandscapeDrawer()
+  }
+}
+
+function onDrawerFocusIn(e: FocusEvent) {
+  if (!keyboardMode.value) return
+  if (isPortraitMobile.value && drawerState.value === 'minimized') drawerState.value = 'half'
+  else if (mqlLandscape?.matches && !isLandscapeDrawerOpen.value) isLandscapeDrawerOpen.value = true
+  else return
+  const target = e.target as HTMLElement
+  void nextTick(() => {
+    if (document.activeElement === target) target.scrollIntoView({block: 'nearest'})
+  })
+}
+
+useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 </script>
 
 <template>
@@ -353,6 +379,8 @@ function toggleLandscapeDrawer() {
       class="app-drawer bg-slate-100 dark:bg-slate-900 shadow-xl/30"
       :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
       :style="drawerStyle"
+      data-kbd-root
+      @focusin="onDrawerFocusIn"
     >
       <div v-if="isPortraitMobile" class="drawer-credits" v-html="attributionHtml"></div>
       <div
@@ -364,6 +392,7 @@ function toggleLandscapeDrawer() {
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
+        @keydown.enter.space.prevent="cycleDrawerSize"
       >
         <span class="drawer-grip"></span>
       </div>
@@ -380,6 +409,7 @@ function toggleLandscapeDrawer() {
     </aside>
   </main>
   <ArcadeTransition/>
+  <KeyboardHelp v-if="!isAdminRoute"/>
 </template>
 
 <style scoped>

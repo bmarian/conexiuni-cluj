@@ -20,9 +20,11 @@ const goHome = () => {
 </script>
 
 <template>
-  <div class="flex items-center w-full" :class="hasBack ? 'justify-between' : 'justify-end'">
+  <div class="flex items-center w-full" :class="hasBack ? 'justify-between' : 'justify-end'"
+       data-kbd-section="nav" data-kbd-axis="x">
     <button
       v-if="hasBack"
+      data-kbd-item="back"
       @click="goBack"
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       :title="t('back')"
@@ -32,6 +34,7 @@ const goHome = () => {
     </button>
 
     <button
+      data-kbd-item="home"
       @click="goHome"
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       :title="t('home')"

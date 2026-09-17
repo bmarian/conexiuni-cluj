@@ -38,6 +38,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import ShareButton from '@/components/ShareButton.vue'
 import RoutePong from '@/components/RoutePong.vue'
 import {useRouter} from "vue-router";
+import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -566,6 +567,56 @@ function onDirClick(dir: '0' | '1') {
   }
 }
 
+const kbd = useKeyboardNav()
+
+useKbdLayer(pongActive, {capture: true, close: () => { pongActive.value = false }})
+
+watch(pongActive, (active) => {
+  if (!kbd.keyboardMode.value) return
+  void nextTick(() => {
+    if (!active) kbd.focusSection('direction')
+    else document.querySelector('.pong-wrap')?.scrollIntoView({block: 'nearest'})
+  })
+})
+
+function switchDirection() {
+  const next = currentDirection.value === '0' ? '1' : '0'
+  if (next === '0' ? !hasOutgoing.value : !hasIncoming.value) return
+  const key = kbd.focusedKey()
+  onDirClick(next)
+  void nextTick(() => {
+    const onStop = key?.startsWith('stop-')
+    if (onStop && kbd.focusKey(key!)) return
+    if (onStop || !kbd.focusedKey()) kbd.focusEntry()
+  })
+}
+
+const nextChipTime = computed(() => {
+  for (const group of timetableByHour.value) {
+    const chip = group.chips.find(c => !c.isPast)
+    if (chip) return chip.time
+  }
+  return null
+})
+
+watch(selectedDepartureTime, (time, prev) => {
+  if (!kbd.keyboardMode.value) return
+  const seq = kbd.navSeq()
+  void nextTick(() => {
+    if (kbd.navSeq() !== seq) return
+    if (time) kbd.focusSection('trip')
+    else if (prev && !kbd.focusedKey()) kbd.focusKey(`min-${prev}`)
+  })
+})
+
+useKbdEscape(() => selectedDepartureTime.value !== null, () => { selectedDepartureTime.value = null })
+
+useKbdShortcuts({
+  f: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
+  d: switchDirection,
+  t: () => kbd.focusSection('tt-minutes') || kbd.focusSection('tt-tabs'),
+})
+
 // Secret: chomp animation for the route badge
 const mouthOpen = ref(true)
 let chompTimer: ReturnType<typeof setInterval> | null = null
@@ -665,7 +716,7 @@ onUnmounted(() => {
       <HeaderNavigation/>
     </div>
 
-    <header class="flex items-start gap-4 pb-5">
+    <header class="flex items-start gap-4 pb-5" data-kbd-section="actions" data-kbd-axis="x">
       <div
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
         :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
@@ -696,6 +747,7 @@ onUnmounted(() => {
         :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
+        data-kbd-item="fav"
         @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
@@ -709,8 +761,9 @@ onUnmounted(() => {
       :route-color="shapeInfo.route_color"
       @exit="pongActive = false"
     />
-    <div v-else class="direction-toggle-wrap">
+    <div v-else class="direction-toggle-wrap" data-kbd-section="direction" data-kbd-axis="x" data-kbd-entry="3">
       <button :disabled="!hasOutgoing" @click="onDirClick('0')"
+              data-kbd-item="dir-0" :data-kbd-active="currentDirection === '0'"
               :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
              stroke-width="2.5">
@@ -719,6 +772,7 @@ onUnmounted(() => {
         <span class="truncate">{{ directionTerminals.outgoing.last || timetable?.out_stop_name }}</span>
       </button>
       <button :disabled="!hasIncoming" @click="onDirClick('1')"
+              data-kbd-item="dir-1" :data-kbd-active="currentDirection === '1'"
               :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
         <span class="truncate">{{ directionTerminals.incoming.last || timetable?.in_stop_name }}</span>
         <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24"
@@ -750,7 +804,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="relative">
+      <div class="relative" data-kbd-section="stops">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
         <div v-if="settings.arcadeActive" class="arcade-eater" aria-hidden="true">
@@ -761,6 +815,8 @@ onUnmounted(() => {
         <div
           v-for="(stop, idx) in stopsForDirection"
           :key="stop.stop_id + '-' + idx"
+          :data-kbd-item="`stop-${stop.stop_id}`"
+          :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
           :class="['stop-row',
             String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
             idx === nearestStopIdx ? 'stop-row-nearest' :
@@ -811,7 +867,7 @@ onUnmounted(() => {
               idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
               idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
               'font-medium text-slate-500 dark:text-slate-400'
-            ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}
+            ]" :to="`/stop/${stop.stop_id}`" data-kbd-click>{{ getStopLabel(idx, stop) }}
             </router-link>
             <template v-if="!settings.legacyBlueActive">
               <svg v-if="String(stop.stop_id) === fromStopId"
@@ -856,11 +912,13 @@ onUnmounted(() => {
             }}</span>
         </div>
 
-        <div class="flex gap-1.5 mb-4!">
+        <div class="flex gap-1.5 mb-4!" data-kbd-section="tt-tabs" data-kbd-axis="x">
           <button
             v-for="tab in availableTabs"
             :key="tab.key"
             @click="selectedTimetableTab = tab.key"
+            :data-kbd-item="`tab-${tab.key}`"
+            :data-kbd-active="selectedTimetableTab === tab.key"
             :class="[
               'tt-tab',
               selectedTimetableTab === tab.key ? 'tt-tab-active' : 'tt-tab-inactive',
@@ -874,7 +932,8 @@ onUnmounted(() => {
 
         <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
 
-        <div v-if="activeFrequency || timetableByHour.length" class="tt-table">
+        <div v-if="activeFrequency || timetableByHour.length" class="tt-table"
+             data-kbd-section="tt-minutes" data-kbd-axis="grid">
           <div v-if="activeFrequency" class="tt-row">
             <span class="tt-hour">
               <svg class="tt-freq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -903,6 +962,8 @@ onUnmounted(() => {
                 v-for="chip in group.chips"
                 :key="chip.time"
                 @click="selectDeparture(chip)"
+                :data-kbd-item="`min-${chip.time}`"
+                :data-kbd-active="selectedDepartureTime ? selectedDepartureTime === chip.time : nextChipTime === chip.time"
                 :class="[
                   'tt-min',
                   selectedDepartureTime === chip.time ? 'tt-min-selected' :
@@ -915,7 +976,7 @@ onUnmounted(() => {
 
         <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef"
              class="trip-view">
-          <div class="flex items-center gap-2 mb-3">
+          <div class="flex items-center gap-2 mb-3" data-kbd-section="trip-head" data-kbd-axis="x">
             <span class="section-label-text">{{
                 t('tripAt', {time: selectedDepartureTimeDisplay})
               }}</span>
@@ -924,16 +985,18 @@ onUnmounted(() => {
               @click="selectedDepartureTime = null"
               class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold"
               :aria-label="t('closeTripView')"
+              data-kbd-item="trip-close"
             >×
             </button>
           </div>
 
-          <div class="relative">
+          <div class="relative" data-kbd-section="trip">
             <div
               class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
             <div
               v-for="(stop, idx) in selectedDepartureStops"
               :key="stop.stop_id + '-trip'"
+              :data-kbd-item="`trip-stop-${stop.stop_id}`"
               :class="['trip-stop-row',
                 String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
                 idx === nearestStopIdx ? 'stop-row-nearest' :
@@ -984,7 +1047,7 @@ onUnmounted(() => {
                   idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
-                ]" :to="`/stop/${stop.stop_id}`">{{ getStopLabel(idx, stop) }}</router-link>
+                ]" :to="`/stop/${stop.stop_id}`" data-kbd-click>{{ getStopLabel(idx, stop) }}</router-link>
                 <template v-if="!settings.legacyBlueActive">
                   <svg v-if="String(stop.stop_id) === fromStopId"
                        class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"

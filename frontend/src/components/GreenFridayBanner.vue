@@ -19,7 +19,7 @@ function replayAnimation() {
 </script>
 
 <template>
-  <div v-if="isFriday && !dismissed" class="green-friday-banner">
+  <div v-if="isFriday && !dismissed" class="green-friday-banner" data-kbd-section="banner" data-kbd-axis="x">
 
     <div :key="animationKey" class="gf-icon" aria-hidden="true" @click="replayAnimation">
       <svg class="gf-svg" viewBox="0 0 115 75" fill="none" overflow="visible">
@@ -96,7 +96,8 @@ function replayAnimation() {
       <p class="green-friday-desc">{{ t('greenFridayDesc') }}</p>
     </div>
 
-    <button type="button" class="green-friday-close" :aria-label="t('dismiss')" @click="dismiss">
+    <button type="button" class="green-friday-close" :aria-label="t('dismiss')" data-kbd-item="banner-dismiss"
+            @click="dismiss">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M18 6L6 18M6 6l12 12"/>

@@ -382,13 +382,14 @@ function onTouchMove(e: TouchEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
+  if (e.defaultPrevented) return
   if (e.key === 'Escape') {
     emit('exit');
     return
   }
   const step = 18
-  if (e.key === 'ArrowUp') rpy = Math.max(0, rpy - step)
-  if (e.key === 'ArrowDown') rpy = Math.min(H - PH, rpy + step)
+  if (e.key === 'ArrowUp' || e.key === 'k') rpy = Math.max(0, rpy - step)
+  if (e.key === 'ArrowDown' || e.key === 'j') rpy = Math.min(H - PH, rpy + step)
 }
 
 onMounted(() => {

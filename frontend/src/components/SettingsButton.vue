@@ -4,6 +4,7 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
+import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -19,6 +20,20 @@ const isAdminAuthed = ref(false)
 const readAdminAuthed = () => {
   try { isAdminAuthed.value = localStorage.getItem('admin:authed') === '1' } catch { isAdminAuthed.value = false }
 }
+
+const popoverRef = ref<HTMLElement | null>(null)
+const {closeLayers} = useKeyboardNav()
+
+useKbdLayer(isOpen, {el: () => popoverRef.value, close: () => { isOpen.value = false }})
+
+useKbdShortcuts({
+  o: () => {
+    const open = !isOpen.value
+    closeLayers()
+    isOpen.value = open
+    if (open) readAdminAuthed()
+  },
+}, {global: true})
 
 let arcadeClickCount = 0
 
@@ -100,10 +115,12 @@ function setLocale(newLocale: 'ro' | 'en') {
       </svg>
     </button>
 
-    <div v-if="isOpen" class="settings-popover" role="dialog" :aria-label="t('settings')">
+    <div v-if="isOpen" ref="popoverRef" class="settings-popover" role="dialog" :aria-label="t('settings')">
       <p class="section-label">{{ t('theme') }}</p>
-      <div class="option-group" role="group" :aria-label="t('theme')">
+      <div class="option-group" role="group" :aria-label="t('theme')"
+           data-kbd-section="theme" data-kbd-axis="x" data-kbd-entry="1">
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }"
+                data-kbd-item="theme-light" :data-kbd-active="settings.theme === 'light'"
                 @click="setTheme('light')">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☀️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -116,6 +133,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           {{ t('themeLight') }}
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }"
+                data-kbd-item="theme-dark" :data-kbd-active="settings.theme === 'dark'"
                 @click="setTheme('dark')">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🌙</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -126,6 +144,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           {{ t('themeDark') }}
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }"
+                data-kbd-item="theme-system" :data-kbd-active="settings.theme === 'system'"
                 @click="setTheme('system')">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🖥️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -138,9 +157,11 @@ function setLocale(newLocale: 'ro' | 'en') {
         </button>
       </div>
 
-      <div v-if="settings.arcadeUnlocked || settings.legacyBlueUnlocked" class="select-wrap">
+      <div v-if="settings.arcadeUnlocked || settings.legacyBlueUnlocked" class="select-wrap"
+           data-kbd-section="special-theme">
         <select
           class="theme-select"
+          data-kbd-item="special-theme"
           :value="activeSpecialTheme"
           :class="{
               'is-arcade': settings.arcadeActive,
@@ -164,11 +185,14 @@ function setLocale(newLocale: 'ro' | 'en') {
 
 
       <p class="section-label">{{ t('language') }}</p>
-      <div class="option-group" role="group" :aria-label="t('language')">
+      <div class="option-group" role="group" :aria-label="t('language')"
+           data-kbd-section="language" data-kbd-axis="x">
         <button
           type="button"
           class="option-btn"
           :class="{ active: settings.locale === 'ro' }"
+          data-kbd-item="lang-ro"
+          :data-kbd-active="settings.locale === 'ro'"
           @click="setLocale('ro')"
         >
           Română
@@ -177,6 +201,8 @@ function setLocale(newLocale: 'ro' | 'en') {
           type="button"
           class="option-btn"
           :class="{ active: settings.locale === 'en' }"
+          data-kbd-item="lang-en"
+          :data-kbd-active="settings.locale === 'en'"
           @click="setLocale('en')"
         >
           English
@@ -184,9 +210,10 @@ function setLocale(newLocale: 'ro' | 'en') {
       </div>
 
       <p class="section-label">{{ t('display') }}</p>
-      <div class="option-group display-grid" role="group" :aria-label="t('display')">
+      <div class="option-group display-grid" role="group" :aria-label="t('display')"
+           data-kbd-section="display" data-kbd-axis="grid">
         <button type="button" class="option-btn" :class="{ active: settings.showWeather }"
-                :title="t('weather')" @click="settings.setShowWeather(!settings.showWeather)">
+                :title="t('weather')" data-kbd-item="show-weather" @click="settings.setShowWeather(!settings.showWeather)">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -196,7 +223,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('weather') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.showNews }"
-                :title="t('news')" @click="settings.setShowNews(!settings.showNews)">
+                :title="t('news')" data-kbd-item="show-news" @click="settings.setShowNews(!settings.showNews)">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -207,7 +234,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('news') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoCenterOnMe }"
-                :title="t('autoCenterOnMe')" @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
+                :title="t('autoCenterOnMe')" data-kbd-item="auto-center" @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -219,7 +246,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('autoCenterOnMe') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.autoFitMap }"
-                :title="t('autoFitMap')" @click="settings.setAutoFitMap(!settings.autoFitMap)">
+                :title="t('autoFitMap')" data-kbd-item="auto-fit" @click="settings.setAutoFitMap(!settings.autoFitMap)">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -229,7 +256,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           <span class="btn-text">{{ t('autoFitMap') }}</span>
         </button>
         <button type="button" class="option-btn" :class="{ active: settings.showVehicleExtras }"
-                :title="t('vehicleExtras')" @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
+                :title="t('vehicleExtras')" data-kbd-item="vehicle-extras" @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
           <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">♿</span>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
@@ -246,8 +273,8 @@ function setLocale(newLocale: 'ro' | 'en') {
 
       <template v-if="isAdminAuthed">
         <p class="section-label">Admin</p>
-        <div class="option-group">
-          <button type="button" class="option-btn" @click="goToAdmin">
+        <div class="option-group" data-kbd-section="admin">
+          <button type="button" class="option-btn" data-kbd-item="admin" @click="goToAdmin">
             <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🛡️</span>
             <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

@@ -25,13 +25,13 @@ const goHome = () => {
 
 <template>
   <div class="ves-root">
-    <div class="ves-card">
+    <div class="ves-card" data-kbd-section="error" data-kbd-entry="1">
       <div class="ves-illus">
         <IconBus404/>
       </div>
       <h1 class="ves-title">{{ title ?? t('notFound') }}</h1>
       <p class="ves-desc">{{ description ?? t('notFoundDesc') }}</p>
-      <button type="button" class="ves-back-btn" @click="goHome">
+      <button type="button" class="ves-back-btn" data-kbd-item="error-home" @click="goHome">
         <IconHome class="ves-back-icon" aria-hidden="true"/>
         {{ backLabel ?? t('home') }}
       </button>

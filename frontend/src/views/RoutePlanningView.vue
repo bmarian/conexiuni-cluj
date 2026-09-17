@@ -5,7 +5,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import {computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
+import {computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {RouterLink, useRoute, useRouter, type LocationQueryRaw} from 'vue-router'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
@@ -25,6 +25,7 @@ import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import {useOnline} from "@/composables/useOnline.ts"
+import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from "@/composables/useKeyboardNav.ts"
 
 import {useVehicleStream} from "@/composables/useVehicleStream.ts"
 import type {DisplayShape} from "@/stores/map.ts"
@@ -1729,6 +1730,68 @@ async function refreshRoutes() {
   await calculateRoutes()
 }
 
+const kbd = useKeyboardNav()
+let calcNavSeq = 0
+
+watch(isCalculating, (calculating) => {
+  if (calculating) {
+    calcNavSeq = kbd.navSeq()
+    return
+  }
+  if (isActive.value && kbd.navSeq() === calcNavSeq) kbd.focusSectionSoon('results')
+})
+
+async function onSearchEnter(e: KeyboardEvent) {
+  const input = e.target
+  const query = searchQuery.value
+  if (searchTimeout) clearTimeout(searchTimeout)
+  await performSearch()
+  if (!kbd.keyboardMode.value || !activeSearchField.value || query.trim().length < 3) return
+  if (searchQuery.value !== query || document.activeElement !== input) return
+  await nextTick()
+  kbd.focusSection(activeSearchField.value === 'origin' ? 'from-results' : 'to-results')
+}
+
+function closeSearchField() {
+  activeSearchField.value = null
+  searchQuery.value = ''
+  searchResults.value = []
+}
+
+watch(activeSearchField, (field, prev) => {
+  if (field || !prev || !kbd.keyboardMode.value) return
+  void nextTick(() => kbd.focusKey(prev === 'origin' ? 'from' : 'to'))
+})
+
+watch(isRenaming, (renaming) => {
+  if (!renaming && kbd.keyboardMode.value) void nextTick(() => kbd.focusKey('rename') || kbd.focusKey('fav'))
+})
+
+function onResultEnter(e: KeyboardEvent, index: number) {
+  if (e.repeat) return
+  if (selectedPlanIndex.value === index) kbd.focusSection('legs')
+  else selectPlanAt(index)
+}
+
+const canRecalculate = computed(() =>
+  hasValidCoords.value && !isCalculating.value && (hasLocationPermission.value || !!customOrigin.value)
+)
+
+useKbdEscape(() => isRenaming.value, cancelRename)
+useKbdEscape(() => activeSearchField.value !== null, closeSearchField)
+
+useKbdShortcuts({
+  f: () => {
+    if (hasValidCoords.value) toggleFavorite()
+  },
+  r: () => {
+    if (canRecalculate.value) void refreshRoutes()
+  },
+  v: () => {
+    if (canRecalculate.value) void swapOriginDestination()
+  },
+})
+
 // Auto-populate `timeValue` with "now" when switching out of `now`.
 // NOTE: we intentionally do NOT auto-refresh on time-filter changes — the
 // user must click the explicit "Search" button in `.plan-time-filter-actions`
@@ -1770,7 +1833,7 @@ watch(timeValue, (val) => {
     <div class="flex items-center -mb-2">
       <HeaderNavigation/>
     </div>
-    <header class="flex items-center gap-3">
+    <header class="flex items-center gap-3" data-kbd-section="actions" data-kbd-axis="x">
       <div
         class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
@@ -1791,16 +1854,16 @@ watch(timeValue, (val) => {
             v-model="renameValue"
             class="rename-input"
             :placeholder="t('renameFavoritePlaceholder')"
-            @keyup.enter="confirmRename"
-            @keyup.esc="cancelRename"
+            data-kbd-item="rename-input"
+            @keydown.enter="confirmRename"
             v-focus
           />
-          <button class="rename-confirm-btn" type="button" :aria-label="t('renameFavorite')" @click="confirmRename">
+          <button class="rename-confirm-btn" type="button" data-kbd-item="rename-confirm" :aria-label="t('renameFavorite')" @click="confirmRename">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
           </button>
-          <button class="rename-cancel-btn" type="button" aria-label="Cancel" @click="cancelRename">
+          <button class="rename-cancel-btn" type="button" data-kbd-item="rename-cancel" aria-label="Cancel" @click="cancelRename">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -1819,6 +1882,7 @@ watch(timeValue, (val) => {
         class="rename-btn mt-1 shrink-0"
         :title="t('renameFavorite')"
         :aria-label="t('renameFavorite')"
+        data-kbd-item="rename"
         @click="startRename"
       >
         <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">✏️</span>
@@ -1837,6 +1901,7 @@ watch(timeValue, (val) => {
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
         :disabled="!isOnline"
+        data-kbd-item="fav"
         @click="toggleFavorite"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
@@ -1863,7 +1928,7 @@ watch(timeValue, (val) => {
       </section>
       <!-- From/To card — always shown -->
       <section class="route-legs-card">
-        <div class="leg-row">
+        <div class="leg-row" data-kbd-section="from" data-kbd-entry="2">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
               <span v-if="settings.legacyBlueActive" class="text-sm">📍</span>
@@ -1874,7 +1939,7 @@ watch(timeValue, (val) => {
             <div class="leg-line"></div>
           </div>
           <div class="leg-label-col" v-if="activeSearchField !== 'origin'">
-            <div class="origin-clickable" @click="openSearchField('origin')">
+            <div class="origin-clickable" data-kbd-item="from" @click="openSearchField('origin')">
               <span class="leg-type-badge">{{ t('planFrom') }}</span>
               <div class="leg-name-wrap">
                 <span class="leg-name">{{ originLabel }}</span>
@@ -1891,8 +1956,8 @@ watch(timeValue, (val) => {
                 v-model="searchQuery"
                 class="search-input"
                 :placeholder="t('planSearchPlaceholder')"
-                @keyup.enter="performSearch"
-                @keyup.esc="activeSearchField = null"
+                data-kbd-item="from-input"
+                @keydown.enter="onSearchEnter"
                 v-focus
               />
               <button class="search-cancel" @click="activeSearchField = null">
@@ -1901,7 +1966,8 @@ watch(timeValue, (val) => {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission">
+            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission"
+                 data-kbd-section="from-results">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
@@ -1910,6 +1976,7 @@ watch(timeValue, (val) => {
                 <div
                   v-if="hasLocationPermission"
                   class="search-result-item current-loc-option"
+                  data-kbd-item="from-current"
                   @click="useCurrentLocation"
                 >
                   <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
@@ -1918,6 +1985,7 @@ watch(timeValue, (val) => {
                   v-for="res in searchResults"
                   :key="res.id"
                   class="search-result-item"
+                  :data-kbd-item="`from-res-${res.id}`"
                   @click="selectOrigin(res)"
                 >
                   <span class="res-main">{{ res.label }}</span>
@@ -1940,7 +2008,7 @@ watch(timeValue, (val) => {
               <span class="leg-name">{{ formatMinutes(getJourneyDuration(selectedPlan)) }}</span>
             </div>
           </div>
-          <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx">
+          <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx" data-kbd-section="legs">
             <div class="leg-row">
               <div class="leg-icon-col">
                 <div class="leg-dot boarding-dot" :style="{ borderColor: ld.shape?.route_color }">
@@ -1954,15 +2022,16 @@ watch(timeValue, (val) => {
                   <template v-for="(routeId, rIdx) in (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.leg.routeIds : ld.leg.routeIds.slice(0, 4))" :key="routeId">
                     <RouterLink
                       class="leg-route-link"
+                      :data-kbd-item="`leg-${legIdx}-route-${routeId}`"
                       :to="{ name: 'route', params: { routeId: routeId, direction: ld.leg.tripIds[rIdx]?.endsWith('_1') ? '1' : '0' } }"
                       @click.stop
                     >{{ shapes[String(routeId)]?.route_short_name }}</RouterLink><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.leg.routeIds.length : Math.min(ld.leg.routeIds.length, 4)) - 1" class="leg-route-sep"> / </span>
-                  </template><span v-if="ld.leg.routeIds.length > 4" class="leg-route-overflow cursor-pointer" @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"> {{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.leg.routeIds.length - 4) }}</span>
+                  </template><span v-if="ld.leg.routeIds.length > 4" class="leg-route-overflow cursor-pointer" :data-kbd-item="`leg-${legIdx}-more`" @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"> {{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.leg.routeIds.length - 4) }}</span>
                   <span v-if="Math.max(0, Math.round(ld.leg.rideSeconds / 60)) > 0" class="leg-ride-time">
                     · {{ Math.max(0, Math.round(ld.leg.rideSeconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                   </span>
                 </span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.startStopId } }">{{ getStopName(ld.leg.startStopId) }}</RouterLink>
+                <RouterLink class="leg-name leg-name-link" :data-kbd-item="`leg-${legIdx}-start`" :to="{ name: 'stop', params: { stopId: ld.leg.startStopId } }">{{ getStopName(ld.leg.startStopId) }}</RouterLink>
               </div>
             </div>
 
@@ -1974,7 +2043,7 @@ watch(timeValue, (val) => {
                 <div class="leg-line" :style="{ backgroundColor: ld.shape?.route_color, backgroundImage: 'none' }"></div>
               </div>
               <div class="leg-label-col">
-                <RouterLink class="leg-name intermediate-name leg-name-link" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
+                <RouterLink class="leg-name intermediate-name leg-name-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
               </div>
             </div>
 
@@ -1987,7 +2056,7 @@ watch(timeValue, (val) => {
               </div>
               <div class="leg-label-col">
                 <span class="leg-type-badge" :style="{ color: ld.shape?.route_color }">{{ t('planAlighting') }}</span>
-                <RouterLink class="leg-name leg-name-link" :to="{ name: 'stop', params: { stopId: ld.leg.destStopId } }">{{ getStopName(ld.leg.destStopId) }}</RouterLink>
+                <RouterLink class="leg-name leg-name-link" :data-kbd-item="`leg-${legIdx}-end`" :to="{ name: 'stop', params: { stopId: ld.leg.destStopId } }">{{ getStopName(ld.leg.destStopId) }}</RouterLink>
               </div>
             </div>
 
@@ -2016,7 +2085,7 @@ watch(timeValue, (val) => {
           </div>
         </template>
 
-        <div class="leg-row">
+        <div class="leg-row" data-kbd-section="to" :data-kbd-entry="hasValidDest ? undefined : 1">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-dest">
               <span v-if="settings.legacyBlueActive" class="text-sm">🏁</span>
@@ -2030,6 +2099,7 @@ watch(timeValue, (val) => {
             <div
               class="origin-clickable"
               :class="{ 'opacity-60 pointer-events-none': !isOnline }"
+              data-kbd-item="to"
               @click="openSearchField('destination')"
             >
               <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
@@ -2049,8 +2119,8 @@ watch(timeValue, (val) => {
                 class="search-input"
                 :placeholder="t('planDestSearchPlaceholder')"
                 :disabled="!isOnline"
-                @keyup.enter="performSearch"
-                @keyup.esc="activeSearchField = null"
+                data-kbd-item="to-input"
+                @keydown.enter="onSearchEnter"
                 v-focus
               />
               <button class="search-cancel" @click="activeSearchField = null">
@@ -2059,7 +2129,8 @@ watch(timeValue, (val) => {
                 </svg>
               </button>
             </div>
-            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation) || (!isSearching && searchQuery.trim().length >= 3))">
+            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation) || (!isSearching && searchQuery.trim().length >= 3))"
+                 data-kbd-section="to-results">
               <div v-if="isSearching" class="search-loading">
                 <div class="mini-spinner"></div>
                 {{ t('planSearching') }}
@@ -2068,6 +2139,7 @@ watch(timeValue, (val) => {
                 <div
                   v-if="hasLocationPermission && userLocation"
                   class="search-result-item current-loc-option"
+                  data-kbd-item="to-current"
                   @click="useCurrentLocationAsDestination"
                 >
                   <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
@@ -2076,6 +2148,7 @@ watch(timeValue, (val) => {
                   v-for="res in searchResults"
                   :key="res.id"
                   class="search-result-item"
+                  :data-kbd-item="`to-res-${res.id}`"
                   @click="selectDestination(res)"
                 >
                   <span class="res-main">{{ res.label }}</span>
@@ -2083,6 +2156,7 @@ watch(timeValue, (val) => {
                 <div
                   v-if="!searchResults.length && searchQuery.trim().length >= 3"
                   class="search-result-item drop-pin-option"
+                  data-kbd-item="to-drop-pin"
                   @click="dropPinAsDestination"
                 >
                   <svg class="w-4 h-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2105,11 +2179,13 @@ watch(timeValue, (val) => {
           </h2>
         </div>
 
-        <div class="plan-time-filter" role="group" :aria-label="t('planTimeFilterLabel')">
+        <div class="plan-time-filter" role="group" :aria-label="t('planTimeFilterLabel')"
+             data-kbd-section="time" data-kbd-axis="x">
           <label class="plan-time-mode">
             <select
               v-model="timeMode"
               class="plan-time-select"
+              data-kbd-item="time-mode"
               :aria-label="t('planTimeFilterLabel')"
             >
               <option value="now">{{ t('planTimeLeaveNow') }}</option>
@@ -2126,6 +2202,7 @@ watch(timeValue, (val) => {
               v-if="timeMode !== 'now' && timeMode !== 'last'"
               type="button"
               class="plan-time-search-btn shrink-0"
+              data-kbd-item="time-search"
               :title="t('planTimeSearchAria')"
               :aria-label="t('planTimeSearchAria')"
               :disabled="isCalculating || !timeValue || (!hasLocationPermission && !customOrigin)"
@@ -2141,6 +2218,7 @@ watch(timeValue, (val) => {
               v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
               type="button"
               class="swap-btn shrink-0"
+              data-kbd-item="swap"
               :title="t('planSwap')"
               :aria-label="t('planSwap')"
               :disabled="isCalculating"
@@ -2154,6 +2232,7 @@ watch(timeValue, (val) => {
               v-if="hasValidCoords"
               type="button"
               class="refresh-btn shrink-0"
+              data-kbd-item="refresh"
               :class="{ 'is-busy': isCalculating }"
               :title="t('planRefresh')"
               :aria-label="t('planRefresh')"
@@ -2182,6 +2261,8 @@ watch(timeValue, (val) => {
             :dark="isDarkTheme"
             text-input
             class="plan-time-datetime"
+            data-kbd-item="time-date"
+            data-kbd-inner
             :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
           />
         </div>
@@ -2193,13 +2274,17 @@ watch(timeValue, (val) => {
         <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
 
         <!-- Results -->
-        <div v-else-if="routesWithTimes.length > 0" class="route-results-list flex flex-col gap-2.5">
+        <div v-else-if="routesWithTimes.length > 0" class="route-results-list flex flex-col gap-2.5"
+             data-kbd-section="results" data-kbd-entry="1">
           <div
             v-for="(plan, index) in routesWithTimes"
             :key="plan.key"
             class="departure-card group"
             :class="{ 'is-selected': selectedPlanIndex === index }"
+            :data-kbd-item="`plan-${plan.key}`"
+            :data-kbd-active="selectedPlanIndex === index"
             @click="selectPlanAt(index)"
+            @keydown.enter.prevent="onResultEnter($event, index)"
           >
             <div class="card-rail" :class="{ 'is-active': selectedPlanIndex === index }"></div>
 

@@ -38,6 +38,7 @@ const quote = computed(() => {
   <div v-if="showMetro" class="metro-legacy-wrap">
     <div
       class="metro-legacy-row"
+      data-kbd-item="metro"
       role="button"
       tabindex="0"
       :aria-label="t('metroLegacyLine')"

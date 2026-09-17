@@ -2,6 +2,7 @@
 import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
+import {useKbdShortcuts} from '@/composables/useKeyboardNav.ts'
 
 const {t} = useI18n()
 const settings = useSettingsStore()
@@ -11,6 +12,8 @@ let resetTimer: ReturnType<typeof setTimeout> | null = null
 const hoverBg = computed(() => settings.isDark ? '#1e293b' : '#eff6ff')
 const hoverColor = computed(() => settings.isDark ? '#94a3b8' : '#3b82f6')
 const copiedHoverBg = computed(() => settings.isDark ? '#064e3b' : '#ecfdf5')
+
+useKbdShortcuts({c: () => void share()})
 
 async function share() {
   const url = window.location.href
@@ -40,6 +43,7 @@ async function share() {
   <button
     type="button"
     class="share-btn"
+    data-kbd-item="share"
     :class="{'is-copied': copied}"
     :title="copied ? t('urlCopied') : t('shareUrl')"
     :aria-label="copied ? t('urlCopied') : t('shareUrl')"

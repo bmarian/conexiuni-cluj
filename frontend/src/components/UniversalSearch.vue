@@ -13,6 +13,7 @@ import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
 import { searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace } from '@/utils/nominatim.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
+import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 interface EnrichedGeoResult extends NominatimPlace {
   parsedLat: number
@@ -47,6 +48,8 @@ const { fetchShapeInfo } = useRouteShapeInfoApi()
 const { isOnline } = useOnline()
 
 const search = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
+const kbd = useKeyboardNav()
 const navigatingRouteId = ref<number | null>(null)
 const geoResults = ref<NominatimPlace[]>([])
 const geoLoading = ref(false)
@@ -217,6 +220,22 @@ async function navigateToRoute(route: Route) {
   }
 }
 
+function clearSearch() {
+  search.value = ''
+  mapStore.clearPinnedLocation()
+}
+
+function onInputEnter() {
+  if (kbd.keyboardMode.value && kbd.focusSection('search-results')) return
+  inputRef.value?.blur()
+}
+
+useKbdEscape(() => isSearchMode.value || document.activeElement === inputRef.value, () => {
+  if (document.activeElement !== inputRef.value) inputRef.value?.focus()
+  else if (search.value) clearSearch()
+  else kbd.focusNext()
+})
+
 function navigateToStop(stop: Stop) {
   mapStore.clearPinnedLocation()
   mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
@@ -230,23 +249,23 @@ function navigateToStop(stop: Stop) {
     <!-- Absolute-positioned into home-view-container which has position:relative. -->
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
-    <div class="search-wrap">
+    <div class="search-wrap" data-kbd-section="search" data-kbd-item="search" data-kbd-inner>
       <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🔍</span>
       <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24"
         stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
       </svg>
-      <input v-model="search" type="search" :placeholder="t('searchPlaceholder')" class="search-input"
-        autocomplete="off" @keydown.enter="($event.target as HTMLInputElement).blur()" />
+      <input ref="inputRef" v-model="search" type="search" :placeholder="t('searchPlaceholder')" class="search-input"
+        autocomplete="off" @keydown.enter="onInputEnter" />
       <button v-if="search" type="button" class="search-clear" aria-label="Clear search"
-        @click="search = ''; mapStore.clearPinnedLocation()">
+        @click="clearSearch">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
 
-    <div v-if="isSearchMode" class="search-results">
+    <div v-if="isSearchMode" class="search-results" data-kbd-section="search-results">
 
       <div v-if="geoLoading" class="geo-loading" aria-label="Loading places">
         <span class="geo-loading-dot"></span>
@@ -258,7 +277,7 @@ function navigateToStop(stop: Stop) {
         <h3 class="sub-label">{{ t('searchResultsPlaces') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div v-for="result in enrichedGeoResults" :key="result.id" class="geo-result-row group" role="button"
-            tabindex="0" @click="navigateToPlan(result)" @keydown.enter.space.prevent="navigateToPlan(result)">
+            tabindex="0" :data-kbd-item="`place-${result.id}`" @click="navigateToPlan(result)" @keydown.enter.space.prevent="navigateToPlan(result)">
             <div class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
               <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
               <svg v-else class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24" fill="currentColor">
@@ -289,6 +308,7 @@ function navigateToStop(stop: Stop) {
         <h3 class="sub-label">{{ t('searchResultsRoutes') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div v-for="route in searchRouteResults" :key="route.route_id" class="all-route-row group"
+            :data-kbd-item="`search-route-${route.route_id}`"
             :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
             @click="navigateToRoute(route)">
             <div
@@ -317,6 +337,7 @@ function navigateToStop(stop: Stop) {
         <h3 class="sub-label">{{ t('searchResultsStops') }}</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
           <div v-for="entry in stopResultsWithDist" :key="entry.stop.stop_id" class="all-route-row group"
+            :data-kbd-item="`search-stop-${entry.stop.stop_id}`"
             @click="navigateToStop(entry.stop)">
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
@@ -345,7 +366,7 @@ function navigateToStop(stop: Stop) {
 
       <template v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length">
         <div v-if="isOnline" class="result-group">
-          <div class="geo-result-row group" role="button" tabindex="0"
+          <div class="geo-result-row group" role="button" tabindex="0" data-kbd-item="drop-pin"
             @click="dropPin" @keydown.enter.space.prevent="dropPin">
             <div class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
               <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

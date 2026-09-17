@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref, watchPostEffect} from 'vue'
+import {computed, nextTick, onMounted, ref, watchPostEffect} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -16,6 +16,7 @@ import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection, type Stop} from '@/types/tranzy.ts'
 import UniversalSearch from '@/components/UniversalSearch.vue'
+import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const {t} = useI18n()
 const router = useRouter()
@@ -202,6 +203,61 @@ const planFavoritesModel = computed<FavoritePlan[]>({
   get: () => favoritePlans.value,
   set: (newPlans) => favoritesStore.reorderPlans([...newPlans]),
 })
+
+const kbd = useKeyboardNav()
+
+const favRouteItemKey = (fav: FavoriteRoute) => `fav-route-${favoriteRouteKey(fav)}`
+const favStopItemKey = (id: number) => `fav-stop-${id}`
+const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
+const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
+const recentItemKey = (p: FavoritePlan) => `recent-${planKey(p)}`
+
+function removeFocused(): boolean {
+  const key = kbd.focusedKey()
+  if (!key) return false
+  const neighbor = kbd.neighborKey()
+  const fav = favoriteRoutes.value.find(f => favRouteItemKey(f) === key)
+  const stopId = favoriteStopIds.value.find(id => favStopItemKey(id) === key)
+  const plan = favoritePlans.value.find(p => favPlanItemKey(p) === key)
+  const recent = recentNonFavoritePlans.value.find(p => recentItemKey(p) === key)
+  if (fav) favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
+  else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
+  else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
+  else if (recent && isOnline.value) favoritesStore.removeRecentPlan(recent)
+  else return false
+  void nextTick(() => {
+    if (!neighbor || !kbd.focusKey(neighbor)) kbd.focusEntry()
+  })
+  return true
+}
+
+function swapInList<T>(list: T[], keyOf: (item: T) => string, key: string, delta: number, apply: (next: T[]) => void): boolean {
+  const i = list.findIndex(item => keyOf(item) === key)
+  if (i < 0) return false
+  const j = i + delta
+  if (j < 0 || j >= list.length) return true
+  const next = [...list]
+  ;[next[i], next[j]] = [next[j]!, next[i]!]
+  apply(next)
+  return true
+}
+
+function moveFocused(delta: 1 | -1): boolean {
+  const key = kbd.focusedKey()
+  if (!key) return false
+  const moved = swapInList(favoriteRoutes.value, favRouteItemKey, key, delta, l => favoritesStore.reorderRoutes(l))
+    || swapInList(favoriteStopIds.value, favStopItemKey, key, delta, l => favoritesStore.reorderStopIds(l))
+    || swapInList(favoritePlans.value, favPlanItemKey, key, delta, l => favoritesStore.reorderPlans(l))
+  if (moved) void nextTick(() => kbd.focusKey(key))
+  return moved
+}
+
+useKbdShortcuts({
+  x: removeFocused,
+  Delete: removeFocused,
+  J: () => moveFocused(1),
+  K: () => moveFocused(-1),
+})
 </script>
 
 <template>
@@ -228,7 +284,8 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           {{ t('favorites') }}
         </h2>
 
-        <div v-if="favoriteRouteChips.size" class="flex flex-col gap-2">
+        <div v-if="favoriteRouteChips.size" class="flex flex-col gap-2"
+             data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
           <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
           <Draggable
             v-model="routeFavoritesModel"
@@ -244,6 +301,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
               <div
                 v-if="chipFor(fav)"
                 class="fav-route-chip group"
+                :data-kbd-item="favRouteItemKey(fav)"
                 :class="{ 'opacity-60 pointer-events-none': navigatingRouteKey === favoriteRouteKey(fav) }"
                 :style="{ '--chip-color': chipFor(fav)?.route.route_color }"
                 :title="chipFor(fav)?.name"
@@ -286,7 +344,8 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </Draggable>
         </div>
 
-        <div v-if="favoriteStops.length" class="flex flex-col gap-2">
+        <div v-if="favoriteStops.length" class="flex flex-col gap-2"
+             data-kbd-section="fav-stops" data-kbd-entry="1">
           <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
           <Draggable
             v-model="stopFavoritesModel"
@@ -302,6 +361,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
               <div
                 v-if="stopsById.get(stopId)"
                 class="fav-stop-row group"
+                :data-kbd-item="favStopItemKey(stopId)"
                 @click="navigateToStop(stopsById.get(stopId)!)"
               >
                 <svg
@@ -350,7 +410,8 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </Draggable>
         </div>
 
-        <div v-if="isOnline && favoritePlans.length" class="flex flex-col gap-2">
+        <div v-if="isOnline && favoritePlans.length" class="flex flex-col gap-2"
+             data-kbd-section="fav-plans" data-kbd-entry="1">
           <h3 class="sub-label">{{ t('favoritePlans') }}</h3>
           <Draggable
             v-model="planFavoritesModel"
@@ -365,6 +426,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
             <template #item="{element: plan}">
               <div
                 class="fav-stop-row group"
+                :data-kbd-item="favPlanItemKey(plan)"
                 @click="navigateToPlan(plan)"
               >
                 <svg
@@ -426,13 +488,15 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </Draggable>
         </div>
 
-        <div v-if="isOnline && recentNonFavoritePlans.length" class="flex flex-col gap-2">
+        <div v-if="isOnline && recentNonFavoritePlans.length" class="flex flex-col gap-2"
+             data-kbd-section="recent-plans" data-kbd-entry="1">
           <h3 class="sub-label">{{ t('recentDestinations') }}</h3>
           <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
             <div
               v-for="plan in recentNonFavoritePlans"
               :key="`${plan.lat}-${plan.lon}`"
               class="fav-stop-row group"
+              :data-kbd-item="recentItemKey(plan)"
               @click="navigateToPlan(plan)"
             >
               <div
@@ -501,12 +565,14 @@ const planFavoritesModel = computed<FavoritePlan[]>({
           </div>
         </div>
 
-        <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+        <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
+             data-kbd-section="all-routes" data-kbd-entry="2">
           <div
             v-for="route in sortedRoutes"
             :key="route.route_id"
             @click="navigateToRoute(route)"
             class="all-route-row group"
+            :data-kbd-item="`route-${route.route_id}`"
             :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
           >
             <div

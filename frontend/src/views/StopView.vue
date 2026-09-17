@@ -43,6 +43,7 @@ import {
 } from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts"
 import ShareButton from "@/components/ShareButton.vue";
+import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -55,6 +56,8 @@ const favoritesStore = useFavoritesStore()
 const router = useRouter()
 const stopIdNum = computed(() => Number(props.stopId))
 const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
+
+useKbdShortcuts({f: () => favoritesStore.toggleStopFavorite(stopIdNum.value)})
 const {userTime} = storeToRefs(userStore)
 const {zoomOut} = storeToRefs(mapStore)
 const {stopInfo, fetchStopData} = useStopInfoApi()
@@ -400,7 +403,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
       <HeaderNavigation />
     </div>
 
-    <header class="flex items-start gap-4">
+    <header class="flex items-start gap-4" data-kbd-section="actions" data-kbd-axis="x">
       <div
         class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
@@ -429,6 +432,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
         :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
+        data-kbd-item="fav"
         @click="favoritesStore.toggleStopFavorite(stopIdNum)"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
@@ -436,7 +440,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
       </button>
     </header>
 
-    <section>
+    <section data-kbd-section="departures" data-kbd-entry="1">
       <h2 class="section-label">
         <span
           class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
@@ -470,6 +474,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
             :key="shape.route_short_name"
             @click="navigateToRoute(shape)"
             class="departure-card group"
+            :data-kbd-item="`dep-${shape.route_short_name}`"
             :class="{ 'departure-card-fav': isDepartureFavorite(shape) }"
           >
             <div
@@ -518,7 +523,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
       </template>
     </section>
 
-    <section class="pb-6">
+    <section class="pb-6" data-kbd-section="stop-routes" data-kbd-entry="2">
       <h2 class="section-label">
         <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🗺️</span>
         <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
@@ -535,6 +540,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
           :key="shape.route_short_name"
           @click="navigateToAllRoute(shape)"
           class="all-route-row group"
+          :data-kbd-item="`route-${shape.route_short_name}`"
           :class="{ 'all-route-row-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
         >
           <div

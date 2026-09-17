@@ -73,6 +73,8 @@ let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 const DEFAULT_ZOOM = 16
 const DEFAULT_CENTER: L.LatLngTuple = [46.7712, 23.6236]
+L.Marker.mergeOptions({keyboard: false})
+
 const STOP_ZOOM_THRESHOLD = 16
 const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
 const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
@@ -356,6 +358,7 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     minZoom: MIN_ZOOM,
     attributionControl: true,
   }).setView([lat, lon], zoom)
+  mapValue.getContainer().tabIndex = -1
 
   map.value = mapValue
   mapValue.on('moveend', () => {

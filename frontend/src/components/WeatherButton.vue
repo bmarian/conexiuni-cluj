@@ -3,6 +3,7 @@ import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import WeatherIcon from './icons/WeatherIcon.vue'
+import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
 
@@ -153,6 +154,19 @@ function scheduleNext(isoTime?: string, intervalSec?: number) {
   timer = setTimeout(fetch_weather, delay)
 }
 
+const popoverRef = ref<HTMLElement | null>(null)
+const {closeLayers} = useKeyboardNav()
+
+useKbdLayer(isOpen, {el: () => popoverRef.value, close: () => { isOpen.value = false }})
+
+useKbdShortcuts({
+  w: () => {
+    const open = !isOpen.value
+    closeLayers()
+    isOpen.value = open
+  },
+}, {global: true})
+
 function toggle() {
   isOpen.value = !isOpen.value
 }
@@ -196,7 +210,7 @@ onUnmounted(() => {
       <span class="weather-temp">{{ temp }}°</span>
     </button>
 
-    <div v-if="isOpen" class="weather-popover" role="dialog" :aria-label="t('weatherToday')">
+    <div v-if="isOpen" ref="popoverRef" class="weather-popover" role="dialog" :aria-label="t('weatherToday')">
       <div class="weather-popover-head">
         <WeatherIcon v-if="iconSlug" :slug="iconSlug" size="2.75rem" class="weather-popover-icon" />
         <div class="weather-popover-main">

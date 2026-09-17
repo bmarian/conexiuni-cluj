@@ -701,3 +701,71 @@ html.dark[data-arcade] .plan-view-container .text-sky-400 {
 html.dark[data-arcade] .plan-view-container .bg-sky-500 {
   background: #d97706 !important;
 }
+
+html[data-arcade] {
+  --kbd-ring: #d97706;
+}
+
+html.dark[data-arcade] {
+  --kbd-ring: #fbbf24;
+}
+
+html[data-arcade] .kbd-help-backdrop {
+  background: rgba(69, 26, 3, 0.4) !important;
+}
+
+html[data-arcade] .kbd-help {
+  background: #fffbeb !important;
+  color: #78350f !important;
+  box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.25), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-arcade] .kbd-help-group-title,
+html[data-arcade] .kbd-help-close {
+  color: #b45309 !important;
+}
+
+html[data-arcade] .kbd-help-close:hover {
+  background: #fef9c3 !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .kbd-help-keys kbd {
+  background: #fef9c3 !important;
+  border-color: #fbbf24 !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .kbd-help-label {
+  color: #92400e !important;
+}
+
+html.dark[data-arcade] .kbd-help-backdrop {
+  background: rgba(0, 0, 0, 0.55) !important;
+}
+
+html.dark[data-arcade] .kbd-help {
+  background: #1c1608 !important;
+  color: #fde68a !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
+}
+
+html.dark[data-arcade] .kbd-help-group-title,
+html.dark[data-arcade] .kbd-help-close {
+  color: #d97706 !important;
+}
+
+html.dark[data-arcade] .kbd-help-close:hover {
+  background: #2a2006 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .kbd-help-keys kbd {
+  background: #2a2006 !important;
+  border-color: #78350f !important;
+  color: #fbbf24 !important;
+}
+
+html.dark[data-arcade] .kbd-help-label {
+  color: #fde68a !important;
+}

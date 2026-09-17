@@ -3,6 +3,7 @@ import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import {apiRequest} from '@/utils/api'
+import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 interface NewsItem {
   url: string
@@ -91,6 +92,20 @@ async function fetchNews() {
   }
 }
 
+const popoverRef = ref<HTMLElement | null>(null)
+const {closeLayers} = useKeyboardNav()
+
+useKbdLayer(isOpen, {el: () => popoverRef.value, close: () => { isOpen.value = false }})
+
+useKbdShortcuts({
+  n: () => {
+    const open = !isOpen.value
+    closeLayers()
+    isOpen.value = open
+    if (open && isBlinking.value) stopBlinking()
+  },
+}, {global: true})
+
 function toggle() {
   isOpen.value = !isOpen.value
   if (isOpen.value && isBlinking.value) {
@@ -138,7 +153,7 @@ const topValue = computed(() => props.topOffset)
       </svg>
     </button>
 
-    <div v-if="isOpen" class="news-popover" role="dialog" :aria-label="t('news')">
+    <div v-if="isOpen" ref="popoverRef" class="news-popover" role="dialog" :aria-label="t('news')">
       <p class="news-popover-title">{{ t('newsPopoverTitle') }}</p>
 
       <div v-if="loading && newsItems.length === 0" class="news-state">
@@ -150,7 +165,7 @@ const topValue = computed(() => props.topOffset)
       <div v-else-if="newsItems.length === 0" class="news-state">
         <span>{{ t('newsEmpty') }}</span>
       </div>
-      <div v-else class="news-list">
+      <div v-else class="news-list" data-kbd-section="news">
         <a
           v-for="item in newsItems"
           :key="item.url"
@@ -158,6 +173,7 @@ const topValue = computed(() => props.topOffset)
           target="_blank"
           rel="noopener noreferrer"
           class="news-item"
+          :data-kbd-item="`news-${item.url}`"
         >
           <span class="news-date">{{ item.date }}</span>
           <span class="news-title">{{ item.title }}</span>
