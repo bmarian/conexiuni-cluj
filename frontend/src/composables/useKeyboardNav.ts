@@ -48,6 +48,8 @@ const NAV_KEYS: Record<string, ['v' | 'h', 1 | -1]> = {
   ArrowRight: ['h', 1],
 }
 
+const BACKSPACE_PAUSE_MS = 500
+
 const keyboardMode = ref(false)
 const closers: Closer[] = []
 const layers: Layer[] = []
@@ -55,6 +57,7 @@ const shortcuts: ShortcutEntry[] = []
 const savedFocus = new Map<string, string>()
 let navSeq = 0
 let pendingFocus: string | null = null
+let lastFieldBackspace = -Infinity
 let router: Router | null = null
 
 function setKeyboardMode(on: boolean) {
@@ -185,6 +188,14 @@ function move(scope: HTMLElement, target: Element | null, kind: 'v' | 'h', dir: 
   if (!focusEntryIn(scope)) scope.scrollBy({top: dir * 80})
 }
 
+// Backspaces that keep coming after the field empties are still deleting, not leaving.
+function isDeliberateBackspace(e: KeyboardEvent, field: Element | null) {
+  const now = performance.now()
+  const paused = now - lastFieldBackspace >= BACKSPACE_PAUSE_MS
+  lastFieldBackspace = now
+  return paused && !e.repeat && isEmptyField(field)
+}
+
 function onKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey) return
   if (!rootEl()) return
@@ -218,7 +229,7 @@ function onKeydown(e: KeyboardEvent) {
   }
 
   if (isTypingTarget(target)) {
-    const wantsClose = key === 'Escape' || (key === 'Backspace' && !e.repeat && isEmptyField(target))
+    const wantsClose = key === 'Escape' || (key === 'Backspace' && isDeliberateBackspace(e, target))
     if (wantsClose && closeTop()) act()
     return
   }
