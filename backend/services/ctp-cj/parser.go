@@ -34,8 +34,8 @@ type ParsedTimetable struct {
 	OutFrequency  *Frequency
 }
 
-// Accept HH:MM and annotated values like 07:20*.
-var timeCell = regexp.MustCompile(`^\s*\d{1,2}:\d{2}\S*\s*$`)
+// Accept HH:MM and annotated values like 07:20* or *07:20.
+var timeCell = regexp.MustCompile(`^\s*\**\d{1,2}:\d{2}\S*\s*$`)
 
 // Headway cells, spread across two rows in one column: a service window
 // ("05:10-22:40") and an interval ("10-20min" or "15min").
@@ -46,6 +46,13 @@ var (
 
 func isTimeCell(s string) bool {
 	return s == "" || timeCell.MatchString(s)
+}
+
+// CanonicalTime moves a leading annotation to the end, so "*07:25" becomes "07:25*".
+func CanonicalTime(s string) string {
+	s = strings.TrimSpace(s)
+	bare := strings.TrimLeft(s, "*")
+	return bare + s[:len(s)-len(bare)]
 }
 
 // applyFreqCell folds a window or interval cell into freq (allocated on first
@@ -145,7 +152,7 @@ func normalizeEntries(entries []TimetableEntry) {
 }
 
 func normalizeTime(s string, prev *int, offset *int) string {
-	s = strings.TrimSpace(s)
+	s = CanonicalTime(s)
 	if s == "" {
 		return s
 	}

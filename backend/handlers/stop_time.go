@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -33,7 +34,7 @@ func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, f
 	stopTimes, err := HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
 		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
-		storeStopTimesInDB,
+		storeStopTimesTrackingChanges(*filter.RouteShortName),
 		CacheOpts[[]models.StopTime]{
 			// Per-route stop_times should never be empty for a real route.
 			// Empty almost always means transient state (warmup mid-flight,
@@ -205,14 +206,31 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 	return out
 }
 
-func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
-	scan := func(rows *sql.Rows) (models.StopTime, error) {
-		var st models.StopTime
-		err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon)
-		return st, err
+func scanStopTime(rows *sql.Rows) (models.StopTime, error) {
+	var st models.StopTime
+	err := rows.Scan(&st.TripID, &st.StopID, &st.OffsetArrivalTime, &st.StopSequence, &st.StopHeadsign, &st.RouteShortName, &st.StopLat, &st.StopLon)
+	return st, err
+}
+
+func getStopTimesForTrips(tripIDs []string) ([]models.StopTime, error) {
+	if len(tripIDs) == 0 {
+		return nil, nil
 	}
+	args := make([]any, len(tripIDs))
+	for i, id := range tripIDs {
+		args[i] = id
+	}
+	return queryRows(`
+		SELECT trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon
+		FROM stop_times
+		WHERE trip_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(tripIDs)), ",")+`)
+		ORDER BY trip_id, stop_sequence`,
+		args, scanStopTime)
+}
+
+func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 	if filter.RouteShortName == nil {
-		return queryRows(`SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scan)
+		return queryRows(`SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scanStopTime)
 	}
 	// Resolve route_short_name → route_id → trip_ids via the live routes/trips
 	// tables instead of trusting the stop_times.route_short_name column. That
@@ -227,11 +245,20 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 		JOIN routes r ON t.route_id = r.route_id
 		WHERE r.route_short_name = ?
 		ORDER BY st.trip_id, st.stop_sequence`,
-		[]any{*filter.RouteShortName}, scan)
+		[]any{*filter.RouteShortName}, scanStopTime)
 }
 
+// Rows are keyed by stop_sequence, so a trip that lost stops would keep its old tail without the delete.
 func storeStopTimesInDB(stopTimes []models.StopTime) error {
-	return batchExec(`
+	clear := func(tx *sql.Tx) error {
+		for _, id := range tripIDsOf(stopTimes) {
+			if _, err := tx.Exec(`DELETE FROM stop_times WHERE trip_id = ?`, id); err != nil {
+				return fmt.Errorf("error clearing stop times: %w", err)
+			}
+		}
+		return nil
+	}
+	return batchReplace(clear, `
 		INSERT OR REPLACE INTO stop_times
 		(trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -322,7 +349,14 @@ func getAPIStopTimesFromDB(filter APIStopTimeFilter) ([]models.RequestStopTime, 
 }
 
 func storeAPIStopTimesInDB(stopTimes []models.RequestStopTime) error {
-	return batchExec(`
+	var clear func(*sql.Tx) error
+	if len(stopTimes) > 0 {
+		clear = func(tx *sql.Tx) error {
+			_, err := tx.Exec(`DELETE FROM api_stop_times`)
+			return err
+		}
+	}
+	return batchReplace(clear, `
 		INSERT OR REPLACE INTO api_stop_times (trip_id, stop_id, stop_sequence)
 		VALUES (?, ?, ?)`,
 		func(stmt *sql.Stmt) error {

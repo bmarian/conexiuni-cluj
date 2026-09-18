@@ -19,7 +19,7 @@ func GetTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cache
 		func() (*models.Timetable, error) {
 			return fetchTimetable(ctpCjClient, tranzyClient, cacheTimes, routeShortName)
 		},
-		storeTimetableInDB,
+		storeTimetableTrackingChanges,
 		CacheOpts[*models.Timetable]{Optimize: true},
 	)
 }
@@ -199,7 +199,7 @@ func normalizeDaySchedule(d *models.DaySchedule) {
 }
 
 func normalizeTimetableTime(s string, prev *int, offset *int) string {
-	s = strings.TrimSpace(s)
+	s = ctp_cj.CanonicalTime(s)
 	if s == "" {
 		return s
 	}

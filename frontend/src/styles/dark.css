@@ -42,6 +42,23 @@ html.dark .fav-btn.is-fav:hover {
   background: rgb(244 63 94 / 0.2);
 }
 
+html.dark .bell-btn {
+  color: #64748b;
+}
+
+html.dark .bell-btn:hover {
+  background: rgb(234 179 8 / 0.12);
+  color: #facc15;
+}
+
+html.dark .bell-btn.is-following {
+  color: #facc15;
+}
+
+html.dark .bell-btn.is-following:hover {
+  background: rgb(234 179 8 / 0.2);
+}
+
 html.dark .rename-btn {
   color: #64748b;
 }

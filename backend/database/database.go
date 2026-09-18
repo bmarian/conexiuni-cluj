@@ -222,6 +222,16 @@ func InitSchemas() error {
             title TEXT NOT NULL
         );
 
+		CREATE TABLE IF NOT EXISTS route_changes
+        (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            route_short_name TEXT    NOT NULL,
+            source           TEXT    NOT NULL,
+            changes          TEXT    NOT NULL,
+            signature        TEXT    NOT NULL,
+            detected_at      INTEGER NOT NULL
+        );
+
 		CREATE TABLE IF NOT EXISTS stats_visitors
         (
             client_hash TEXT PRIMARY KEY,
@@ -310,6 +320,10 @@ func InitSchemas() error {
 		-- StopTimes indexes
 		CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
 		CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
+
+		-- Route change indexes
+		CREATE INDEX IF NOT EXISTS idx_route_changes_route ON route_changes(route_short_name, detected_at);
+		CREATE INDEX IF NOT EXISTS idx_route_changes_detected_at ON route_changes(detected_at);
 
 		-- Stats indexes
 		CREATE INDEX IF NOT EXISTS idx_stats_visitors_last_seen ON stats_visitors(last_seen);

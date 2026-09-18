@@ -28,9 +28,20 @@ func queryRows[T any](query string, args []any, scan func(*sql.Rows) (T, error))
 
 // batchExec wraps a prepared statement in a transaction and calls exec for all rows.
 func batchExec(insertSQL string, exec func(*sql.Stmt) error) error {
+	return batchReplace(nil, insertSQL, exec)
+}
+
+// batchReplace is batchExec with a clear step run first in the same transaction.
+func batchReplace(clear func(*sql.Tx) error, insertSQL string, exec func(*sql.Stmt) error) error {
 	tx, err := database.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
+	}
+	if clear != nil {
+		if err := clear(tx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
 	}
 	stmt, err := tx.Prepare(insertSQL)
 	if err != nil {

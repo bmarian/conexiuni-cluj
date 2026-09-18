@@ -6,7 +6,7 @@ import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
-import ArcadeToast from "@/components/ArcadeToast.vue"
+import AppToast from "@/components/AppToast.vue"
 import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
 import {useMapStore} from "@/stores/map.ts"
@@ -357,7 +357,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
       :style="{ '--controls-row-index': appSettings.showNews && isOnline ? 2 : 1 }"
     />
-    <ArcadeToast/>
+    <AppToast :landscape-open="isLandscapeDrawerOpen"/>
     <button
       type="button"
       class="landscape-drawer-toggle"
@@ -399,9 +399,11 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       <div class="drawer-scroll">
         <GreenFridayBanner/>
         <div class="drawer-view">
-          <RouterView v-slot="{ Component }">
+          <!-- RouteView only loads on mount, so another line needs a fresh instance. -->
+          <RouterView v-slot="{ Component, route: viewRoute }">
             <KeepAlive include="RoutePlanningView">
-              <component :is="Component"/>
+              <component :is="Component"
+                         :key="viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)"/>
             </KeepAlive>
           </RouterView>
         </div>

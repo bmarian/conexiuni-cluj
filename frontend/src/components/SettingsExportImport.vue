@@ -3,12 +3,14 @@ import {nextTick, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import {useFavoritesStore} from '@/stores/favorites'
+import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {focusItem} from '@/utils/keyboardFocus.ts'
 
 const {t, locale} = useI18n()
 const settings = useSettingsStore()
 const favs = useFavoritesStore()
+const routeUpdates = useRouteUpdatesStore()
 
 type Mode = 'export' | 'import' | null
 const mode = ref<Mode>(null)
@@ -51,6 +53,7 @@ function buildJson() {
       plans: favs.favoritePlans,
       recentPlans: favs.recentPlans,
     },
+    followedLines: routeUpdates.followed,
   })
 }
 
@@ -162,6 +165,7 @@ async function doImport() {
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     favs.importAll(data.favorites ?? {})
+    if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
     importState.value = 'success'
     if (importTimer) clearTimeout(importTimer)
     importTimer = setTimeout(cancel, 1500)

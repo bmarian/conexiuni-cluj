@@ -4,6 +4,16 @@ import {defineStore} from 'pinia'
 type Theme = 'light' | 'dark' | 'system'
 type AppLocale = 'ro' | 'en'
 
+export type ToastIcon = 'info' | 'bell' | 'bell-off' | 'joystick' | 'ghost'
+
+export interface Toast {
+  id: number
+  title: string
+  body?: string
+  icon: ToastIcon
+  duration: number
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
@@ -135,15 +145,21 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
   }
 
-  const toastMessage = ref<string | null>(null)
+  const toast = ref<Toast | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
+  let toastSeq = 0
 
-  function showToast(message: string) {
-    toastMessage.value = message
+  function showToast(title: string, options: { body?: string; icon?: ToastIcon } = {}) {
+    const duration = options.body ? 4500 : 3000
+    toast.value = {id: ++toastSeq, title, body: options.body, icon: options.icon ?? 'info', duration}
     if (toastTimer) clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => {
-      toastMessage.value = null
-    }, 3000)
+    toastTimer = setTimeout(dismissToast, duration)
+  }
+
+  function dismissToast() {
+    if (toastTimer) clearTimeout(toastTimer)
+    toastTimer = null
+    toast.value = null
   }
 
   return {
@@ -155,6 +171,6 @@ export const useSettingsStore = defineStore('settings', () => {
     showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
-    toastMessage, showToast,
+    toast, showToast, dismissToast,
   }
 })

@@ -44,9 +44,9 @@ function toggle() {
   if (!settings.arcadeUnlocked) {
     arcadeClickCount++
     if (arcadeClickCount === 5) {
-      settings.showToast(t('arcadeInsertCoinToast'))
+      settings.showToast(t('arcadeInsertCoinToast'), {icon: 'joystick'})
     } else if (arcadeClickCount === 10) {
-      settings.showToast(t('arcadeGameStartToast'))
+      settings.showToast(t('arcadeGameStartToast'), {icon: 'ghost'})
       settings.unlockArcade()
       settings.activateArcade()
       isOpen.value = false

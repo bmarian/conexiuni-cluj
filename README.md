@@ -14,14 +14,15 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - A route planner: leave now, leave at, or arrive by
 - Weather for Cluj
 - Favorite routes and stops
+- Follow a line and get notified when it's timetable changes
 - Dark mode, installable as a PWA, works offline for cached data
 
 There are a few hidden things scattered around for the curious. 🐣
 
-| | |
-|---|---|
-| ![Stop view with live departures](readme/stop-desktop-view.png) | ![Route timetable with stops and countdowns](readme/bus-desktop-view.png) |
-| ![Route planner with a suggested trip](readme/route-planner-desktop-view.png) | |
+|                                                                               |                                                                           |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| ![Stop view with live departures](readme/stop-desktop-view.png)               | ![Route timetable with stops and countdowns](readme/bus-desktop-view.png) |
+| ![Route planner with a suggested trip](readme/route-planner-desktop-view.png) |                                                                           |
 
 ## Running it locally
 
@@ -46,12 +47,12 @@ The route planner needs more: Java 21+, an `otp.jar` in `backend/services/otp/`,
 
 ## Credits
 
-| Source | Used for |
-|---|---|
-| [Tranzy.ai](https://tranzy.ai/) | Live GPS positions and GTFS data for CTP Cluj-Napoca |
-| [CTP Cluj-Napoca](https://www.ctpcj.ro/) | Official timetable CSVs |
-| [Open-Meteo](https://open-meteo.com/) | Weather data |
+| Source                                                       | Used for                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| [Tranzy.ai](https://tranzy.ai/)                              | Live GPS positions and GTFS data for CTP Cluj-Napoca                                       |
+| [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetable CSVs                                                                    |
+| [Open-Meteo](https://open-meteo.com/)                        | Weather data                                                                               |
 | [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
-| [CARTO](https://carto.com/) | Map tiles |
-| [Nominatim](https://nominatim.org/) | Address search |
-| [OpenTripPlanner](https://www.opentripplanner.org/) | Route planning |
+| [CARTO](https://carto.com/)                                  | Map tiles                                                                                  |
+| [Nominatim](https://nominatim.org/)                          | Address search                                                                             |
+| [OpenTripPlanner](https://www.opentripplanner.org/)          | Route planning                                                                             |

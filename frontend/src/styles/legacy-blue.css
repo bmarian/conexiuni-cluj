@@ -24,6 +24,7 @@ html[data-legacy-blue] .app-drawer .all-route-row,
 html[data-legacy-blue] .app-drawer .stop-result-row,
 html[data-legacy-blue] .app-drawer .geo-result-row,
 html[data-legacy-blue] .app-drawer .fav-btn,
+html[data-legacy-blue] .app-drawer .bell-btn,
 html[data-legacy-blue] .app-drawer .direction-toggle-wrap,
 html[data-legacy-blue] .app-drawer .dir-btn,
 html[data-legacy-blue] .app-drawer .stop-row,
@@ -64,6 +65,10 @@ html[data-legacy-blue] .settings-popover .select-wrap::after,
 html[data-legacy-blue] .news-btn,
 html[data-legacy-blue] .news-popover,
 html[data-legacy-blue] .news-item,
+html[data-legacy-blue] .news-source-tag,
+html[data-legacy-blue] .news-change-badge,
+html[data-legacy-blue] .app-drawer .rc-chip,
+html[data-legacy-blue] .app-drawer .rc-close,
 /* export/import buttons */
 html[data-legacy-blue] .ei-btn,
 html[data-legacy-blue] .ei-textarea,
@@ -74,7 +79,6 @@ html[data-legacy-blue] .weather-range,
 html[data-legacy-blue] .weather-stat,
 html[data-legacy-blue] .landscape-drawer-toggle,
 html[data-legacy-blue] .offline-pill,
-html[data-legacy-blue] .arcade-toast,
 html[data-legacy-blue] .app-drawer .green-friday-close {
   border-radius: 0 !important;
 }
@@ -1199,6 +1203,43 @@ html.dark[data-legacy-blue] .fav-btn.is-fav:hover {
   color: #FFFFFF !important;
 }
 
+html[data-legacy-blue] .bell-btn {
+  background: var(--xp-btn) !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #808080 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+html[data-legacy-blue] .bell-btn:hover {
+  background: linear-gradient(to bottom, #FFF8D0 0%, #FFEC99 100%) !important;
+  border-color: #B08A00 !important;
+  color: #8A6A00 !important;
+}
+
+html[data-legacy-blue] .bell-btn.is-following {
+  background: linear-gradient(to bottom, #FFF3A0 0%, #F5D020 50%, #C9A000 100%) !important;
+  border-color: #7A5E00 !important;
+  color: #5A4500 !important;
+}
+
+html.dark[data-legacy-blue] .bell-btn {
+  background: var(--xp-btn) !important;
+  border-color: var(--xp-border) !important;
+  color: #6A6A82 !important;
+}
+
+html.dark[data-legacy-blue] .bell-btn:hover {
+  background: linear-gradient(to bottom, #40381A 0%, #302810 100%) !important;
+  border-color: #B08A00 !important;
+  color: #FFD84A !important;
+}
+
+html.dark[data-legacy-blue] .bell-btn.is-following {
+  background: linear-gradient(to bottom, #FFF3A0 0%, #F5D020 50%, #C9A000 100%) !important;
+  border-color: #7A5E00 !important;
+  color: #5A4500 !important;
+}
+
 html[data-legacy-blue] .share-btn {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -2058,6 +2099,129 @@ html.dark[data-legacy-blue] .news-state {
   color: #8898B0 !important;
 }
 
+/* ── Route change news + banner ── */
+
+html[data-legacy-blue] .news-section-head {
+  border-bottom-color: var(--xp-border) !important;
+}
+
+html[data-legacy-blue] .news-section-title,
+html[data-legacy-blue] .news-change-title,
+html[data-legacy-blue] .news-hint {
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .news-change.is-new {
+  background: #FFF8D0 !important;
+}
+
+html.dark[data-legacy-blue] .news-change.is-new {
+  background: #2A2A18 !important;
+}
+
+html[data-legacy-blue] .rc-banner {
+  background: var(--xp-tan) !important;
+  border-bottom: 1px solid var(--xp-border) !important;
+  box-shadow: inset 1px 1px 0 #FFFFFF !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .rc-title,
+html[data-legacy-blue] .rc-toward {
+  color: var(--xp-blue) !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 700 !important;
+}
+
+html[data-legacy-blue] .rc-summary,
+html[data-legacy-blue] .rc-line,
+html[data-legacy-blue] .rc-day-name {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .rc-detected,
+html[data-legacy-blue] .rc-since {
+  color: #555555 !important;
+}
+
+html[data-legacy-blue] .rc-details {
+  background: #FFFFFF !important;
+  border: 1px solid #7F9DB9 !important;
+  border-radius: 0 !important;
+}
+
+html[data-legacy-blue] .rc-section + .rc-section {
+  border-top: 1px solid #D4D0C8 !important;
+}
+
+html[data-legacy-blue] .rc-chip {
+  background: #FFFFFF !important;
+  border: 1px solid var(--xp-border) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .rc-toggle {
+  background: var(--xp-btn) !important;
+  border: 1px solid #003C74 !important;
+  border-radius: 3px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  font-weight: 400 !important;
+}
+
+html[data-legacy-blue] .rc-toggle:hover {
+  background: var(--xp-btn-hover) !important;
+}
+
+html[data-legacy-blue] .rc-close {
+  background: var(--xp-fav-active) !important;
+  border: 1px solid #6B1010 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-legacy-blue] .rc-close:hover {
+  background: var(--xp-fav-active-hover) !important;
+}
+
+html.dark[data-legacy-blue] .rc-banner {
+  background: #1A2030 !important;
+  box-shadow: none !important;
+}
+
+html.dark[data-legacy-blue] .rc-summary,
+html.dark[data-legacy-blue] .rc-line,
+html.dark[data-legacy-blue] .rc-day-name,
+html.dark[data-legacy-blue] .rc-chip {
+  color: var(--xp-text) !important;
+}
+
+html.dark[data-legacy-blue] .rc-detected,
+html.dark[data-legacy-blue] .rc-since {
+  color: #8898B0 !important;
+}
+
+html.dark[data-legacy-blue] .rc-details {
+  background: #14182A !important;
+  border-color: var(--xp-border) !important;
+}
+
+html.dark[data-legacy-blue] .rc-section + .rc-section {
+  border-top-color: var(--xp-border) !important;
+}
+
+html.dark[data-legacy-blue] .rc-chip {
+  background: #1F2230 !important;
+}
+
+html.dark[data-legacy-blue] .rc-toggle {
+  border-color: #001E5C !important;
+  color: var(--xp-text) !important;
+}
+
 /* ── Export / Import (ei-*) XP fix ── */
 
 html[data-legacy-blue] .ei-label {
@@ -2281,4 +2445,54 @@ html.dark[data-legacy-blue] .kbd-help-close {
 
 html.dark[data-legacy-blue] .kbd-help-keys kbd {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── Toast: XP tray balloon ── */
+
+html[data-legacy-blue] .app-toast {
+  gap: 0.5rem !important;
+  padding: 0.55rem 0.75rem 0.6rem 0.6rem !important;
+  align-items: flex-start !important;
+  background: #FFFFE1 !important;
+  border: 1px solid #000000 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .app-toast-icon {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+html[data-legacy-blue] .app-toast-title {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  font-size: 0.8rem !important;
+}
+
+html[data-legacy-blue] .app-toast-body {
+  color: #000000 !important;
+  font-family: var(--xp-font) !important;
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+}
+
+html[data-legacy-blue] .app-toast-progress {
+  display: none !important;
+}
+
+html.dark[data-legacy-blue] .app-toast {
+  background: var(--xp-tan) !important;
+  border-color: var(--xp-border) !important;
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+html.dark[data-legacy-blue] .app-toast-title,
+html.dark[data-legacy-blue] .app-toast-body {
+  color: var(--xp-text) !important;
 }

@@ -107,3 +107,91 @@ func hasOutTime(entries []TimetableEntry, t string) bool {
 	}
 	return false
 }
+
+// Real M39 (s) file from 2026-09-18: two rows mark the departure with a leading asterisk.
+const m39SaturdayCSV = `route_long_name,Cluj-Napoca - Chinteni Lac
+service_name,Sambata
+service_start,18.05.2024
+in_stop_name,Gara Mica Sud
+out_stop_name,M-Chinteni Lac Pl.
+*07:25,07:55**
+09:30,08:35
+11:30,10:05
+*14:30,12:05
+17:25,15:40
+19:25,17:55
+21:30,20:00
+,22:05
+
+
+`
+
+func TestParseTimetableCSV_LeadingAnnotation(t *testing.T) {
+	parsed, err := ParseTimetableCSV([]byte(m39SaturdayCSV))
+	if err != nil {
+		t.Fatalf("ParseTimetableCSV: %v", err)
+	}
+	want := []TimetableEntry{
+		{"07:25*", "07:55**"},
+		{"09:30", "08:35"},
+		{"11:30", "10:05"},
+		{"14:30*", "12:05"},
+		{"17:25", "15:40"},
+		{"19:25", "17:55"},
+		{"21:30", "20:00"},
+		{"", "22:05"},
+	}
+	if len(parsed.Entries) != len(want) {
+		t.Fatalf("got %d entries, want %d: %+v", len(parsed.Entries), len(want), parsed.Entries)
+	}
+	for i, e := range parsed.Entries {
+		if e != want[i] {
+			t.Errorf("entry %d = %+v, want %+v", i, e, want[i])
+		}
+	}
+}
+
+// Real M23 (lv) row shapes, CRLF included, plus a made-up pair past midnight.
+func TestParseTimetableCSV_LeadingAnnotationEitherColumn(t *testing.T) {
+	csv := "service_start,14.09.2026\r\n" +
+		"05:00,*04:40\r\n" +
+		"05:45,05:20\r\n" +
+		"*22:30,22:05\r\n" +
+		"23:40,23:50\r\n" +
+		"*00:15,*00:25\r\n"
+	parsed, err := ParseTimetableCSV([]byte(csv))
+	if err != nil {
+		t.Fatalf("ParseTimetableCSV: %v", err)
+	}
+	want := []TimetableEntry{
+		{"05:00", "04:40*"},
+		{"05:45", "05:20"},
+		{"22:30*", "22:05"},
+		{"23:40", "23:50"},
+		{"24:15*", "24:25*"},
+	}
+	if len(parsed.Entries) != len(want) {
+		t.Fatalf("got %d entries, want %d: %+v", len(parsed.Entries), len(want), parsed.Entries)
+	}
+	for i, e := range parsed.Entries {
+		if e != want[i] {
+			t.Errorf("entry %d = %+v, want %+v", i, e, want[i])
+		}
+	}
+}
+
+func TestCanonicalTime(t *testing.T) {
+	cases := map[string]string{
+		"*07:25":   "07:25*",
+		" *22:30 ": "22:30*",
+		"07:55**":  "07:55**",
+		"07:20":    "07:20",
+		"**07:20":  "07:20**",
+		"":         "",
+	}
+	for in, want := range cases {
+		if got := CanonicalTime(in); got != want {
+			t.Errorf("CanonicalTime(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

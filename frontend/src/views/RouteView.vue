@@ -34,10 +34,14 @@ import {fetchStopTimesForHour, useRouteShapeInfoApi} from '@/composables/useRout
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
+import IconBellFilled from '@/components/icons/IconBellFilled.vue'
+import IconBellOutline from '@/components/icons/IconBellOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
 import ShareButton from '@/components/ShareButton.vue'
+import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import RoutePong from '@/components/RoutePong.vue'
-import {useRouter} from "vue-router";
+import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
@@ -48,7 +52,9 @@ const userStore = useUserStore()
 const mapStore = useMapStore()
 const favoritesStore = useFavoritesStore()
 const settings = useSettingsStore()
+const routeUpdates = useRouteUpdatesStore()
 const router = useRouter()
+const currentRoute = useRoute()
 const {userTime, userLocation} = storeToRefs(userStore)
 const {zoomOut} = storeToRefs(mapStore)
 const {favoriteStopIds} = storeToRefs(favoritesStore)
@@ -84,6 +90,39 @@ function resolveDirection(): '0' | '1' {
 
 const currentDirection = ref<'0' | '1'>(resolveDirection())
 const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value, currentDirection.value))
+const isFollowing = computed(() =>
+  !!shapeInfo.value && routeUpdates.isFollowing(shapeInfo.value.route_short_name)
+)
+
+function toggleFollow() {
+  const name = shapeInfo.value?.route_short_name
+  if (!name) return
+  const following = routeUpdates.toggleFollow(name)
+  settings.showToast(t(following ? 'followLineToast' : 'unfollowLineToast', {route: name}), {
+    body: t(following ? 'followLineToastBody' : 'unfollowLineToastBody'),
+    icon: following ? 'bell' : 'bell-off',
+  })
+}
+
+const activeChange = ref<RouteChange | null>(null)
+
+// Direction switches replace the URL without the query, so only a new id replaces the banner.
+watch(() => currentRoute.query.change, async (raw) => {
+  const id = Number(raw)
+  if (!Number.isInteger(id) || id <= 0) return
+  const change = await routeUpdates.loadChange(id)
+  if (change) {
+    activeChange.value = change
+    routeUpdates.markSeen([change.id])
+  }
+}, {immediate: true})
+
+function dismissChange() {
+  activeChange.value = null
+  if (currentRoute.query.change) {
+    void router.replace({name: 'route', params: {routeId: props.routeId, direction: currentDirection.value}})
+  }
+}
 const isOutgoing = computed(() => currentDirection.value === '0')
 const currentTripId = computed(() =>
   `${props.routeId}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
@@ -613,6 +652,7 @@ useKbdEscape(() => selectedDepartureTime.value !== null, () => { selectedDepartu
 
 useKbdShortcuts({
   f: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
+  b: toggleFollow,
   d: switchDirection,
   t: () => kbd.focusSection('tt-minutes') || kbd.focusSection('tt-tabs'),
 })
@@ -712,6 +752,8 @@ onUnmounted(() => {
   <div v-else
        class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
 
+    <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange"/>
+
     <div class="flex items-center mb-4!">
       <HeaderNavigation/>
     </div>
@@ -740,6 +782,19 @@ onUnmounted(() => {
         </p>
       </div>
       <ShareButton class="mt-1"/>
+      <button
+        type="button"
+        class="bell-btn mt-1 shrink-0"
+        :class="{ 'is-following': isFollowing }"
+        :title="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
+        :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
+        :aria-pressed="isFollowing"
+        data-kbd-item="bell"
+        @click="toggleFollow"
+      >
+        <IconBellFilled v-if="isFollowing" class="w-5 h-5"/>
+        <IconBellOutline v-else class="w-5 h-5"/>
+      </button>
       <button
         type="button"
         class="fav-btn mt-1 shrink-0"
@@ -1381,6 +1436,36 @@ onUnmounted(() => {
 
 .fav-btn.is-fav:hover {
   background: #fee2e2;
+}
+
+.bell-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.bell-btn:hover {
+  background: #fefce8;
+  color: #eab308;
+}
+
+.bell-btn:active {
+  transform: scale(0.92);
+}
+
+.bell-btn.is-following {
+  color: #eab308;
+}
+
+.bell-btn.is-following:hover {
+  background: #fef9c3;
 }
 
 .tt-hour-next-day {
