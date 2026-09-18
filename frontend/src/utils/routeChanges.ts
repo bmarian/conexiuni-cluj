@@ -84,12 +84,19 @@ export function changeDirection(change: RouteChange): '0' | '1' {
   return change.changes[0]?.direction ?? '0'
 }
 
-export function formatChangeDate(ms: number, locale: string): string {
+export function formatChangeDate(ms: number, locale: string, withYear = true): string {
   return new Date(ms).toLocaleDateString(locale === 'en' ? 'en-GB' : 'ro-RO', {
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
+    ...(withYear ? {year: 'numeric'} : {}),
   })
+}
+
+// CTP writes service_start as DD.MM.YYYY.
+export function formatServiceStart(since: string, locale: string): string {
+  const [d, m, y] = since.split('.').map(Number)
+  if (!d || !m || !y) return since
+  return formatChangeDate(new Date(y, m - 1, d).getTime(), locale, false)
 }
 
 export function daysLabel(days: RouteChangeDay[] | undefined, t: Translate): string {
@@ -115,10 +122,17 @@ export function itemLabel(item: RouteChangeItem, t: Translate): string {
   }
 }
 
-export function itemChips(item: RouteChangeItem): string[] {
-  if (item.shifts?.length) return item.shifts.map((s) => `${s.from} → ${s.to}`)
+export interface ChangeEntry {
+  text: string
+  old?: string
+  struck?: boolean
+}
+
+export function itemEntries(item: RouteChangeItem): ChangeEntry[] {
+  if (item.shifts?.length) return item.shifts.map((s) => ({old: s.from, text: s.to}))
   if (item.all) return []
-  return item.times ?? item.stops ?? []
+  if (item.stops?.length) return item.stops.map((text) => ({text}))
+  return (item.times ?? []).map((text) => ({text, struck: item.kind === 'trips_removed'}))
 }
 
 export type ChangeRowKind = 'retimed' | 'trips_added' | 'trips_removed' | 'stops_added' | 'stops_removed'
@@ -126,7 +140,7 @@ export type ChangeRowKind = 'retimed' | 'trips_added' | 'trips_removed' | 'stops
 export interface ChangeRow {
   kind: ChangeRowKind
   label: string
-  chips: string[]
+  entries: ChangeEntry[]
 }
 
 const ROW_ORDER: ChangeRowKind[] = ['retimed', 'trips_added', 'trips_removed', 'stops_added', 'stops_removed']
@@ -146,12 +160,12 @@ export function changeRows(items: RouteChangeItem[], t: Translate): ChangeRow[] 
 
   const rows: ChangeRow[] = items
     .filter((item) => !isShift(item))
-    .map((item) => ({kind: item.kind as ChangeRowKind, label: itemLabel(item, t), chips: itemChips(item)}))
+    .map((item) => ({kind: item.kind as ChangeRowKind, label: itemLabel(item, t), entries: itemEntries(item)}))
   if (shifts.length) {
     rows.push({
       kind: 'retimed',
       label: t('routeChangeRetimed', {n: shifts.length}),
-      chips: shifts.map((s) => `${s.from} → ${s.to}`),
+      entries: shifts.map((s) => ({old: s.from, text: s.to})),
     })
   }
   return rows.sort((a, b) => ROW_ORDER.indexOf(a.kind) - ROW_ORDER.indexOf(b.kind))

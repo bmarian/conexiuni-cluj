@@ -823,84 +823,38 @@ html.dark[data-arcade] .app-toast-body {
   color: #d97706 !important;
 }
 
-/* ── Route change banner ── */
+/* ── Route change banner, dressed like Green Friday ── */
 
 html[data-arcade] .rc-banner {
-  background: #fef9c3 !important;
-  border-bottom: 2px solid #f59e0b !important;
+  background: linear-gradient(135deg, #fef9c3, #fef3c7) !important;
+  border-bottom-color: #fde68a !important;
 }
 
 html[data-arcade] .rc-icon {
   color: #f59e0b !important;
 }
 
-html[data-arcade] .rc-title {
-  color: #78350f !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+html[data-arcade] .rc-summary {
+  color: #92400e !important;
 }
 
-html[data-arcade] .rc-details {
-  background: #fffbeb !important;
-  border: 2px solid #fbbf24 !important;
-  border-radius: 0.5rem !important;
-}
-
-html[data-arcade] .rc-section + .rc-section {
-  border-top: 2px dotted #fbbf24 !important;
-}
-
-html[data-arcade] .rc-chip {
-  background: #fef3c7 !important;
-  border-color: #fbbf24 !important;
-  border-radius: 0.25rem !important;
-}
-
-html[data-arcade] .rc-toggle {
-  background: #facc15 !important;
-  border: 2px solid #d97706 !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 2px 2px 0 #d97706;
-  color: #78350f !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-html[data-arcade] .rc-toggle:hover {
-  background: #fde047 !important;
+html[data-arcade] .rc-rule {
+  background: #fde68a !important;
 }
 
 html.dark[data-arcade] .rc-banner {
-  background: #1c1608 !important;
-  border-bottom-color: #d97706 !important;
+  background: linear-gradient(135deg, #2a2006, #211a05) !important;
+  border-bottom-color: #78350f !important;
 }
 
-html.dark[data-arcade] .rc-title {
+html.dark[data-arcade] .rc-icon {
   color: #fbbf24 !important;
 }
 
-html.dark[data-arcade] .rc-details {
-  background: #120e04 !important;
-  border-color: #854d0e !important;
+html.dark[data-arcade] .rc-summary {
+  color: #fbbf24 !important;
 }
 
-html.dark[data-arcade] .rc-section + .rc-section {
-  border-top-color: #854d0e !important;
-}
-
-html.dark[data-arcade] .rc-chip {
-  background: #1c1608 !important;
-  border-color: #854d0e !important;
-  color: #fde68a !important;
-}
-
-html.dark[data-arcade] .rc-toggle {
-  background: #854d0e !important;
-  border-color: #a16207 !important;
-  box-shadow: 2px 2px 0 #451a03;
-  color: #fde68a !important;
-}
-
-html.dark[data-arcade] .rc-toggle:hover {
-  background: #a16207 !important;
+html.dark[data-arcade] .rc-rule {
+  background: #78350f !important;
 }

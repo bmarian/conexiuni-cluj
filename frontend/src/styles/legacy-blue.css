@@ -65,9 +65,7 @@ html[data-legacy-blue] .settings-popover .select-wrap::after,
 html[data-legacy-blue] .news-btn,
 html[data-legacy-blue] .news-popover,
 html[data-legacy-blue] .news-item,
-html[data-legacy-blue] .news-source-tag,
 html[data-legacy-blue] .news-change-badge,
-html[data-legacy-blue] .app-drawer .rc-chip,
 html[data-legacy-blue] .app-drawer .rc-close,
 /* export/import buttons */
 html[data-legacy-blue] .ei-btn,
@@ -2101,22 +2099,14 @@ html.dark[data-legacy-blue] .news-state {
 
 /* ── Route change news + banner ── */
 
-html[data-legacy-blue] .news-section-head {
-  border-bottom-color: var(--xp-border) !important;
+html[data-legacy-blue] .news-rule {
+  background: var(--xp-border) !important;
 }
 
 html[data-legacy-blue] .news-section-title,
 html[data-legacy-blue] .news-change-title,
 html[data-legacy-blue] .news-hint {
   font-family: var(--xp-font) !important;
-}
-
-html[data-legacy-blue] .news-change.is-new {
-  background: #FFF8D0 !important;
-}
-
-html.dark[data-legacy-blue] .news-change.is-new {
-  background: #2A2A18 !important;
 }
 
 html[data-legacy-blue] .rc-banner {
@@ -2126,54 +2116,33 @@ html[data-legacy-blue] .rc-banner {
   font-family: var(--xp-font) !important;
 }
 
-html[data-legacy-blue] .rc-title,
-html[data-legacy-blue] .rc-toward {
+html[data-legacy-blue] .rc-title {
   color: var(--xp-blue) !important;
   font-family: var(--xp-font) !important;
-  font-weight: 700 !important;
 }
 
 html[data-legacy-blue] .rc-summary,
-html[data-legacy-blue] .rc-line,
-html[data-legacy-blue] .rc-day-name {
+html[data-legacy-blue] .rc-day-name,
+html[data-legacy-blue] .rc-entries {
   color: #000000 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-legacy-blue] .rc-detected,
-html[data-legacy-blue] .rc-since {
+html[data-legacy-blue] .rc-date,
+html[data-legacy-blue] .rc-since,
+html[data-legacy-blue] .rc-row-label,
+html[data-legacy-blue] .rc-old,
+html[data-legacy-blue] .rc-cancelled,
+html[data-legacy-blue] .rc-more {
   color: #555555 !important;
 }
 
-html[data-legacy-blue] .rc-details {
-  background: #FFFFFF !important;
-  border: 1px solid #7F9DB9 !important;
-  border-radius: 0 !important;
-}
-
-html[data-legacy-blue] .rc-section + .rc-section {
-  border-top: 1px solid #D4D0C8 !important;
-}
-
-html[data-legacy-blue] .rc-chip {
-  background: #FFFFFF !important;
-  border: 1px solid var(--xp-border) !important;
-  color: #000000 !important;
-  font-family: var(--xp-font) !important;
+html[data-legacy-blue] .rc-rule {
+  background: var(--xp-border) !important;
 }
 
 html[data-legacy-blue] .rc-toggle {
-  background: var(--xp-btn) !important;
-  border: 1px solid #003C74 !important;
-  border-radius: 3px !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
-  color: #000000 !important;
-  font-family: var(--xp-font) !important;
-  font-weight: 400 !important;
-}
-
-html[data-legacy-blue] .rc-toggle:hover {
-  background: var(--xp-btn-hover) !important;
+  margin-left: 0 !important;
 }
 
 html[data-legacy-blue] .rc-close {
@@ -2185,6 +2154,7 @@ html[data-legacy-blue] .rc-close {
 
 html[data-legacy-blue] .rc-close:hover {
   background: var(--xp-fav-active-hover) !important;
+  color: #FFFFFF !important;
 }
 
 html.dark[data-legacy-blue] .rc-banner {
@@ -2193,33 +2163,18 @@ html.dark[data-legacy-blue] .rc-banner {
 }
 
 html.dark[data-legacy-blue] .rc-summary,
-html.dark[data-legacy-blue] .rc-line,
 html.dark[data-legacy-blue] .rc-day-name,
-html.dark[data-legacy-blue] .rc-chip {
+html.dark[data-legacy-blue] .rc-entries {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-legacy-blue] .rc-detected,
-html.dark[data-legacy-blue] .rc-since {
+html.dark[data-legacy-blue] .rc-date,
+html.dark[data-legacy-blue] .rc-since,
+html.dark[data-legacy-blue] .rc-row-label,
+html.dark[data-legacy-blue] .rc-old,
+html.dark[data-legacy-blue] .rc-cancelled,
+html.dark[data-legacy-blue] .rc-more {
   color: #8898B0 !important;
-}
-
-html.dark[data-legacy-blue] .rc-details {
-  background: #14182A !important;
-  border-color: var(--xp-border) !important;
-}
-
-html.dark[data-legacy-blue] .rc-section + .rc-section {
-  border-top-color: var(--xp-border) !important;
-}
-
-html.dark[data-legacy-blue] .rc-chip {
-  background: #1F2230 !important;
-}
-
-html.dark[data-legacy-blue] .rc-toggle {
-  border-color: #001E5C !important;
-  color: var(--xp-text) !important;
 }
 
 /* ── Export / Import (ei-*) XP fix ── */

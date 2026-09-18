@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {createI18n} from 'vue-i18n'
 import type {RouteChange, RouteChangeDay} from '@/stores/routeUpdates'
-import {changeKindLabels, changeKinds, changeRows, changeSummary, groupByDirection, itemChips, itemLabel} from '@/utils/routeChanges.ts'
+import {changeKindLabels, changeKinds, changeRows, changeSummary, groupByDirection, itemEntries, itemLabel} from '@/utils/routeChanges.ts'
 import en from '@/locales/en.json'
 import ro from '@/locales/ro.json'
 
@@ -40,13 +40,14 @@ describe('route change text', () => {
     ], t)
     expect(rows.map((r) => r.kind)).toEqual(['retimed', 'trips_added', 'trips_removed'])
     expect(rows[0]!.label).toBe('routeChangeRetimed {"n":4}')
-    expect(rows[0]!.chips).toEqual(['07:00 → 07:01', '07:35 → 07:30', '23:58 → 00:03', '00:20 → 00:15'])
+    expect(rows[0]!.entries.map((e) => `${e.old}>${e.text}`)).toEqual(['07:00>07:01', '07:35>07:30', '23:58>00:03', '00:20>00:15'])
+    expect(rows[2]!.entries).toEqual([{text: '09:30', struck: true}])
   })
 
   it('describes a newly served day by its span instead of every trip', () => {
     const item = line1.changes[2]!
     expect(itemLabel(item, t)).toBe('routeChangeNowRuns {"first":"05:50","last":"22:40"}')
-    expect(itemChips(item)).toEqual([])
+    expect(itemEntries(item)).toEqual([])
   })
 
   it('groups items by direction in first-seen order', () => {

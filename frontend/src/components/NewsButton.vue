@@ -7,7 +7,6 @@ import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {apiRequest} from '@/utils/api'
 import {changeDirection, changeKindLabels, changeTitle, formatChangeDate} from '@/utils/routeChanges'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import IconBellFilled from '@/components/icons/IconBellFilled.vue'
 
 interface NewsItem {
   url: string
@@ -144,10 +143,9 @@ const topValue = computed(() => props.topOffset)
       <div class="news-scroll">
         <section class="news-section">
           <div class="news-section-head">
-            <span v-if="settings.legacyBlueActive" class="news-section-icon" aria-hidden="true">🔔</span>
-            <IconBellFilled v-else class="news-section-icon news-section-icon-bell"/>
-            <span class="news-section-title">{{ t('newsYourLines') }}</span>
-            <span class="news-source-tag news-source-ours">{{ t('newsSourceOurs') }}</span>
+            <span class="news-section-title section-label-text">{{ t('newsYourLines') }}</span>
+            <span class="news-rule"></span>
+            <span class="news-source">{{ t('newsSourceOurs') }}</span>
           </div>
 
           <p v-if="!routeUpdates.followed.length" class="news-hint">{{ t('newsFollowHint') }}</p>
@@ -175,7 +173,7 @@ const topValue = computed(() => props.topOffset)
               <span class="news-change-body">
                 <span class="news-date">
                   {{ row.date }}
-                  <span v-if="row.isNew" class="news-new-dot" :aria-label="t('newsNew')"></span>
+                  <span v-if="row.isNew" class="sr-only">{{ t('newsNew') }}</span>
                 </span>
                 <span class="news-change-title">{{ row.title }}</span>
                 <span class="news-change-kinds">{{ row.kinds }}</span>
@@ -186,15 +184,9 @@ const topValue = computed(() => props.topOffset)
 
         <section class="news-section">
           <div class="news-section-head">
-            <span v-if="settings.legacyBlueActive" class="news-section-icon" aria-hidden="true">📰</span>
-            <svg v-else class="news-section-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                 stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-              <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
-            </svg>
-            <span class="news-section-title">{{ t('newsCtp') }}</span>
-            <span class="news-source-tag">ctpcj.ro</span>
+            <span class="news-section-title section-label-text">{{ t('newsCtp') }}</span>
+            <span class="news-rule"></span>
+            <span class="news-source">ctpcj.ro</span>
           </div>
 
           <div v-if="loading && newsItems.length === 0" class="news-state">
@@ -364,64 +356,37 @@ const topValue = computed(() => props.topOffset)
 .news-section-head {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding-bottom: 0.375rem;
-  margin-bottom: 0.125rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.news-root.is-dark .news-section-head {
-  border-bottom-color: #334155;
-}
-
-.news-section-icon {
-  width: 0.875rem;
-  height: 0.875rem;
-  flex-shrink: 0;
-  color: #64748b;
-  font-size: 0.75rem;
-  line-height: 1;
-}
-
-.news-section-icon-bell {
-  color: #eab308;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
 }
 
 .news-section-title {
-  flex: 1;
   font-size: 0.75rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.news-root.is-dark .news-section-title {
-  color: #f1f5f9;
-}
-
-.news-source-tag {
-  flex-shrink: 0;
-  padding: 0.05rem 0.4rem;
-  border-radius: 9999px;
-  background: #f1f5f9;
+  font-weight: 600;
   color: #64748b;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
-.news-source-ours {
-  background: #fef9c3;
-  color: #854d0e;
+.news-rule {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
 }
 
-.news-root.is-dark .news-source-tag {
-  background: #0f172a;
+.news-source {
+  font-size: 0.65rem;
+  font-weight: 500;
   color: #94a3b8;
+  white-space: nowrap;
 }
 
-.news-root.is-dark .news-source-ours {
-  background: rgb(234 179 8 / 0.15);
-  color: #facc15;
+.news-root.is-dark .news-section-title,
+.news-root.is-dark .news-source {
+  color: #64748b;
+}
+
+.news-root.is-dark .news-rule {
+  background: #334155;
 }
 
 .news-hint {
@@ -507,14 +472,6 @@ const topValue = computed(() => props.topOffset)
   opacity: 0.6;
 }
 
-.news-change.is-new {
-  background: #fefce8;
-}
-
-.news-root.is-dark .news-change.is-new {
-  background: rgb(234 179 8 / 0.08);
-}
-
 .news-change-badge {
   flex-shrink: 0;
   min-width: 2rem;
@@ -539,7 +496,7 @@ const topValue = computed(() => props.topOffset)
 
 .news-change-title {
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #0f172a;
   line-height: 1.3;
 }
@@ -548,25 +505,18 @@ const topValue = computed(() => props.topOffset)
   color: #f1f5f9;
 }
 
+.news-change.is-new .news-change-title {
+  font-weight: 800;
+}
+
 .news-change-kinds {
   font-size: 0.7rem;
-  font-weight: 500;
-  color: #854d0e;
+  color: #64748b;
   line-height: 1.35;
 }
 
 .news-root.is-dark .news-change-kinds {
-  color: #facc15;
-}
-
-.news-new-dot {
-  display: inline-block;
-  width: 0.4rem;
-  height: 0.4rem;
-  margin-left: 0.25rem;
-  border-radius: 9999px;
-  background: #eab308;
-  vertical-align: middle;
+  color: #94a3b8;
 }
 
 .news-date {
