@@ -96,7 +96,7 @@ const isFollowing = computed(() =>
 
 function toggleFollow() {
   const name = shapeInfo.value?.route_short_name
-  if (!name) return
+  if (!name || !settings.showTimetableChanges) return
   const following = routeUpdates.toggleFollow(name)
   settings.showToast(t(following ? 'followLineToast' : 'unfollowLineToast', {route: name}), {
     body: t(following ? 'followLineToastBody' : 'unfollowLineToastBody'),
@@ -783,6 +783,7 @@ onUnmounted(() => {
       </div>
       <ShareButton class="mt-1"/>
       <button
+        v-if="settings.showTimetableChanges"
         type="button"
         class="bell-btn mt-1 shrink-0"
         :class="{ 'is-following': isFollowing }"

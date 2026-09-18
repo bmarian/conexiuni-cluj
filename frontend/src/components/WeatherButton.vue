@@ -263,15 +263,17 @@ onUnmounted(() => {
 
 @media (max-width: 1023px) and (orientation: landscape) {
   .weather-root {
+    --anchor-right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
     top: calc(0.75rem + env(safe-area-inset-top));
-    right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+    right: var(--anchor-right);
   }
 
   .weather-root.landscape-open {
-    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+    --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
   }
 
   .weather-popover {
+    right: min(0px, 100vw - var(--anchor-right) - 0.75rem - env(safe-area-inset-left) - var(--popover-width)) !important;
     max-height: calc(
       100dvh -
       (
@@ -338,10 +340,11 @@ onUnmounted(() => {
 }
 
 .weather-popover {
+  --popover-width: min(19rem, calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  width: min(19rem, calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  width: var(--popover-width);
   max-height: calc(
     100dvh -
     (
@@ -499,5 +502,18 @@ onUnmounted(() => {
 
 .weather-root.is-dark .weather-sun {
   color: #94a3b8;
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .weather-range,
+  .weather-grid,
+  .weather-sun {
+    margin-top: 0.5rem;
+  }
+
+  .weather-stat {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
 }
 </style>

@@ -150,6 +150,7 @@
     "autoCenterOnMe": "Center on my location",
     "autoFitMap": "Fit map",
     "vehicleExtras": "Vehicle extra info",
+    "timetableChanges": "Timetable changes",
     "newsLoading": "Loading...",
     "newsEmpty": "No news available",
     "newsError": "Could not load news",

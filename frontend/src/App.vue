@@ -397,7 +397,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
         <span class="drawer-grip"></span>
       </div>
       <div class="drawer-scroll">
-        <GreenFridayBanner/>
+        <GreenFridayBanner v-if="appSettings.showGreenFriday"/>
         <div class="drawer-view">
           <!-- RouteView only loads on mount, so another line needs a fresh instance. -->
           <RouterView v-slot="{ Component, route: viewRoute }">

@@ -45,10 +45,12 @@ async function fetchNews() {
   }
 }
 
+const hasUpdates = computed(() => settings.showTimetableChanges && routeUpdates.hasUnseen)
+
 watch([isOpen, () => routeUpdates.changes], ([open], [wasOpen]) => {
   if (!open) return
   if (!wasOpen) freshIds.value = new Set()
-  if (!routeUpdates.hasUnseen) return
+  if (!hasUpdates.value) return
   freshIds.value = new Set([...freshIds.value, ...routeUpdates.unseenIds])
   routeUpdates.markAllSeen()
 })
@@ -97,14 +99,17 @@ function onDocumentPointerDown(e: PointerEvent) {
 }
 
 function onVisibilityChange() {
-  if (document.visibilityState === 'visible') routeUpdates.refreshIfStale()
+  if (document.visibilityState === 'visible' && settings.showTimetableChanges) routeUpdates.refreshIfStale()
 }
+
+watch(() => settings.showTimetableChanges, (enabled) => {
+  if (enabled) void routeUpdates.fetchChanges()
+}, {immediate: true})
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('visibilitychange', onVisibilityChange)
   void fetchNews()
-  void routeUpdates.fetchChanges()
 })
 
 onUnmounted(() => {
@@ -121,9 +126,9 @@ const topValue = computed(() => props.topOffset)
     <button
       type="button"
       class="news-btn"
-      :class="{'has-updates': routeUpdates.hasUnseen}"
-      :title="routeUpdates.hasUnseen ? t('newsHasUpdates') : t('news')"
-      :aria-label="routeUpdates.hasUnseen ? t('newsHasUpdates') : t('news')"
+      :class="{'has-updates': hasUpdates}"
+      :title="hasUpdates ? t('newsHasUpdates') : t('news')"
+      :aria-label="hasUpdates ? t('newsHasUpdates') : t('news')"
       :aria-expanded="isOpen"
       @click="toggle"
     >
@@ -134,14 +139,14 @@ const topValue = computed(() => props.topOffset)
         <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
         <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
       </svg>
-      <span v-if="routeUpdates.hasUnseen" class="news-dot" aria-hidden="true"></span>
+      <span v-if="hasUpdates" class="news-dot" aria-hidden="true"></span>
     </button>
 
     <div v-if="isOpen" ref="popoverRef" class="news-popover" role="dialog" :aria-label="t('news')">
       <p class="news-popover-title">{{ t('news') }}</p>
 
       <div class="news-scroll">
-        <section class="news-section">
+        <section v-if="settings.showTimetableChanges" class="news-section">
           <div class="news-section-head">
             <span class="news-section-title section-label-text">{{ t('newsYourLines') }}</span>
             <span class="news-rule"></span>
@@ -236,12 +241,17 @@ const topValue = computed(() => props.topOffset)
 
 @media (max-width: 1023px) and (orientation: landscape) {
   .news-root {
+    --anchor-right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
     top: calc(0.75rem + env(safe-area-inset-top));
-    right: calc(0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+    right: var(--anchor-right);
   }
 
   .news-root.landscape-open {
-    right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+    --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
+  }
+
+  .news-popover {
+    right: min(0px, 100vw - var(--anchor-right) - 0.75rem - env(safe-area-inset-left) - var(--popover-width)) !important;
   }
 }
 
@@ -308,10 +318,11 @@ const topValue = computed(() => props.topOffset)
 }
 
 .news-popover {
+  --popover-width: min(20rem, calc(100vw - 1.5rem));
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  width: min(20rem, calc(100vw - 1.5rem));
+  width: var(--popover-width);
   max-height: min(28rem, calc(100dvh - 7rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   background: #ffffff;
   border-radius: 0.875rem;

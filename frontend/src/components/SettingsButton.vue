@@ -267,6 +267,28 @@ function setLocale(newLocale: 'ro' | 'en') {
           </svg>
           <span class="btn-text">{{ t('vehicleExtras') }}</span>
         </button>
+        <button type="button" class="option-btn" :class="{ active: settings.showGreenFriday }"
+                :title="t('greenFridayTitle')" data-kbd-item="green-friday" @click="settings.setShowGreenFriday(!settings.showGreenFriday)">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🌿</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+          <span class="btn-text">{{ t('greenFridayTitle') }}</span>
+        </button>
+        <button type="button" class="option-btn" :class="{ active: settings.showTimetableChanges }"
+                :title="t('timetableChanges')" data-kbd-item="timetable-changes" @click="settings.setShowTimetableChanges(!settings.showTimetableChanges)">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🔔</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="btn-text">{{ t('timetableChanges') }}</span>
+        </button>
       </div>
 
       <SettingsExportImport />

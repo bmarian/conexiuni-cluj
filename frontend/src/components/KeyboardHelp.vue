@@ -2,8 +2,10 @@
 import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {useSettingsStore} from '@/stores/settings'
 
 const {t} = useI18n()
+const settings = useSettingsStore()
 const {closeLayers} = useKeyboardNav()
 const isOpen = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
@@ -59,7 +61,7 @@ const groups = computed(() => [
     title: t('route'),
     rows: [
       {keys: ['d'], label: t('kbdDirection')},
-      {keys: ['b'], label: t('kbdFollow')},
+      ...(settings.showTimetableChanges ? [{keys: ['b'], label: t('kbdFollow')}] : []),
       {keys: ['t'], label: t('kbdTimetable')},
     ],
   },

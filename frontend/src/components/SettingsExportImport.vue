@@ -46,6 +46,8 @@ function buildJson() {
       showNews: settings.showNews,
       autoCenterOnMe: settings.autoCenterOnMe,
       autoFitMap: settings.autoFitMap,
+      showGreenFriday: settings.showGreenFriday,
+      showTimetableChanges: settings.showTimetableChanges,
     },
     favorites: {
       routes: favs.favoriteRoutes,
@@ -164,6 +166,8 @@ async function doImport() {
     if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
+    if (typeof s.showGreenFriday === 'boolean') settings.setShowGreenFriday(s.showGreenFriday)
+    if (typeof s.showTimetableChanges === 'boolean') settings.setShowTimetableChanges(s.showTimetableChanges)
     favs.importAll(data.favorites ?? {})
     if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
     importState.value = 'success'
