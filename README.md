@@ -41,6 +41,8 @@ npm install
 npm run dev
 ```
 
+Push notifications need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
+
 The backend listens on `:6698`, the frontend dev server proxies to it. `npm run build` in `frontend/` outputs to `backend/dist/`, which the Go server serves directly, that's the whole production setup.
 
 The route planner needs more: Java 21+, an `otp.jar` in `backend/services/otp/`, and a `cluj.pbf` extract in `backend/services/otp/cluj/`. [`update.sh`](update.sh) downloads and builds all of that (OTP jar, Osmosis, a Cluj-cropped OSM extract) if you want the full setup.

@@ -296,5 +296,9 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 
 	api.Get("/route-changes", GetRouteChanges)
 
+	api.Get("/push/key", GetPushKey)
+	api.Post("/push/subscribe", SubscribePush)
+	api.Post("/push/unsubscribe", UnsubscribePush)
+
 	api.Get("/resolve-location", ResolveLocationHandler)
 }

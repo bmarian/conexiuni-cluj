@@ -3,6 +3,8 @@ import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
+import {usePushStore} from '@/stores/push'
+import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
@@ -11,6 +13,8 @@ type Theme = 'light' | 'dark' | 'system'
 const {t, locale} = useI18n()
 const router = useRouter()
 const settings = useSettingsStore()
+const push = usePushStore()
+const routeUpdates = useRouteUpdatesStore()
 const isDark = computed(() => settings.isDark)
 
 const isOpen = ref(false)
@@ -86,6 +90,32 @@ function onSpecialThemeChange(e: Event) {
     settings.deactivateArcade();
     settings.deactivateLegacyBlue()
   }
+}
+
+async function togglePush() {
+  if (push.busy) return
+  if (push.enabled) {
+    await push.disable()
+    settings.showToast(t('pushOffToast'), {icon: 'bell-off'})
+    return
+  }
+  const result = await push.enable()
+  if (result === 'enabled') {
+    settings.showToast(t('pushOnToast'), {
+      body: t(routeUpdates.followed.length ? 'pushOnToastBody' : 'pushOnToastNoLines'),
+      icon: 'bell',
+    })
+    return
+  }
+  const key = {
+    unsupported: 'pushUnsupportedToast',
+    denied: 'pushDeniedToast',
+    brave: 'pushBraveToast',
+    failed: 'pushFailedToast',
+  }[result]
+  const isIOS = /iPhone|iPad/.test(navigator.userAgent)
+  const body = result === 'unsupported' && !isIOS ? undefined : t(`${key}Body`)
+  settings.showToast(t(key), {body, icon: 'bell-off'})
 }
 
 function setLocale(newLocale: 'ro' | 'en') {
@@ -288,6 +318,18 @@ function setLocale(newLocale: 'ro' | 'en') {
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
           <span class="btn-text">{{ t('timetableChanges') }}</span>
+        </button>
+        <button v-if="settings.showTimetableChanges" type="button" class="option-btn" :class="{ active: push.enabled }"
+                :title="t('pushNotifications')" :aria-busy="push.busy" data-kbd-item="push-notifications" @click="togglePush">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📲</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            <path d="M2 8c0-2.2.7-4.3 2-6M22 8a10 10 0 0 0-2-6"/>
+          </svg>
+          <span class="btn-text">{{ t('pushNotifications') }}</span>
         </button>
       </div>
 

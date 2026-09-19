@@ -9,6 +9,7 @@ import router from './router'
 import {useUserStore} from './stores/user'
 import {useSettingsStore} from './stores/settings'
 import {useFavoritesStore} from './stores/favorites'
+import {usePushStore} from './stores/push'
 import {apiRequest} from './utils/api'
 import './main.css'
 import './styles/arcade.css'
@@ -65,6 +66,14 @@ userStore.startTimeTracker()
 const favoritesStore = useFavoritesStore(pinia)
 void favoritesStore.hydrate().then(() => {
   if (!isAdminPath) favoritesStore.preloadFavorites()
+})
+
+if (!isAdminPath) void usePushStore(pinia).sync()
+
+// Sent by push-sw.js when a notification is tapped while the app is already open.
+navigator.serviceWorker?.addEventListener('message', (event) => {
+  const url = event.data?.type === 'open-url' ? event.data.url : null
+  if (typeof url === 'string' && url.startsWith('/')) void router.push(url)
 })
 
 void router.isReady().then(() => app.mount('#app'))

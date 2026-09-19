@@ -45,9 +45,22 @@ echo ""
 echo "📄 Updating production environment..."
 sed -i 's/^ENV=.*/ENV=production/' .env
 cp .env backend/.env
-if [ -f keys.env ]; then
-  cp keys.env backend/keys.env
+touch keys.env
+if [ -n "$(tail -c1 keys.env)" ]; then
+  echo >> keys.env
 fi
+if ! grep -Eq '^VAPID_(PUBLIC|PRIVATE)_KEY=.+' keys.env; then
+  echo "🔑 Generating VAPID keys for push notifications..."
+  sed -i -E '/^VAPID_(PUBLIC|PRIVATE)_KEY=/d' keys.env
+  npx --yes web-push generate-vapid-keys --json \
+    | node -e 'const k = JSON.parse(require("fs").readFileSync(0, "utf8")); console.log(`VAPID_PUBLIC_KEY=${k.publicKey}\nVAPID_PRIVATE_KEY=${k.privateKey}`)' \
+    >> keys.env
+fi
+if ! grep -q '^VAPID_SUBJECT=.' keys.env; then
+  sed -i '/^VAPID_SUBJECT=/d' keys.env
+  echo "VAPID_SUBJECT=https://bus.bmarian.online/" >> keys.env
+fi
+cp keys.env backend/keys.env
 
 echo ""
 echo "🚌 Setting up OpenTripPlanner..."
@@ -78,12 +91,12 @@ if [ "$UPDATE_PBF" = true ]; then
     echo "📥 Downloading Romania PBF..."
     wget --tries=10 --waitretry=5 --retry-connrefused --retry-on-http-error=502,503,504 -O romania/romania-latest.osm.pbf.tmp https://download.geofabrik.de/europe/romania-latest.osm.pbf
     mv romania/romania-latest.osm.pbf.tmp romania/romania-latest.osm.pbf
-    
+
     echo ""
     echo "🗑️ Deleting old Cluj PBF..."
     mkdir -p cluj
     rm -f cluj/cluj.pbf
-    
+
     echo ""
     echo "✂️ Cropping PBF with Osmosis..."
     ./osmosis/bin/osmosis \

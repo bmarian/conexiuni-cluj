@@ -232,6 +232,22 @@ func InitSchemas() error {
             detected_at      INTEGER NOT NULL
         );
 
+		CREATE TABLE IF NOT EXISTS push_subscriptions
+        (
+            endpoint   TEXT PRIMARY KEY,
+            p256dh     TEXT    NOT NULL,
+            auth       TEXT    NOT NULL,
+            locale     TEXT    NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS push_subscription_routes
+        (
+            endpoint         TEXT NOT NULL,
+            route_short_name TEXT NOT NULL,
+            PRIMARY KEY (endpoint, route_short_name)
+        );
+
 		CREATE TABLE IF NOT EXISTS stats_visitors
         (
             client_hash TEXT PRIMARY KEY,
@@ -324,6 +340,9 @@ func InitSchemas() error {
 		-- Route change indexes
 		CREATE INDEX IF NOT EXISTS idx_route_changes_route ON route_changes(route_short_name, detected_at);
 		CREATE INDEX IF NOT EXISTS idx_route_changes_detected_at ON route_changes(detected_at);
+
+		-- Push subscription indexes
+		CREATE INDEX IF NOT EXISTS idx_push_subscription_routes_route ON push_subscription_routes(route_short_name);
 
 		-- Stats indexes
 		CREATE INDEX IF NOT EXISTS idx_stats_visitors_last_seen ON stats_visitors(last_seen);

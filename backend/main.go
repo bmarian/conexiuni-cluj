@@ -147,6 +147,9 @@ func main() {
 		MaxDailyQuota:          config.VehicleLearningMaxQuota,
 		UsesDedicatedTranzyKey: usesDedicatedLearningKey,
 	})
+	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
+		log.Printf("Warning: push notifications disabled: %v", err)
+	}
 
 	app := fiber.New(fiber.Config{
 		AppName: "Conexiuni Cluj",
@@ -192,6 +195,10 @@ func main() {
 			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			c.Set("Service-Worker-Allowed", "/")
 			return c.SendFile("./dist/sw.js")
+		})
+		app.Get("/push-sw.js", func(c fiber.Ctx) error {
+			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			return c.SendFile("./dist/push-sw.js")
 		})
 		app.Get("/registerSW.js", func(c fiber.Ctx) error {
 			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")

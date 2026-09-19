@@ -456,9 +456,15 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 		log.Printf("route changes: could not check line %s: %v", routeShortName, err)
 		return
 	}
-	if _, err := tx.Exec(
+	res, err := tx.Exec(
 		`INSERT INTO route_changes (route_short_name, source, changes, signature, detected_at) VALUES (?, ?, ?, ?, ?)`,
-		routeShortName, source, string(payload), signature, now.UnixMilli()); err != nil {
+		routeShortName, source, string(payload), signature, now.UnixMilli())
+	if err != nil {
+		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		return
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
 		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
@@ -466,6 +472,13 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
+	queueRouteChangePush(RouteChange{
+		ID:             id,
+		RouteShortName: routeShortName,
+		Source:         source,
+		DetectedAt:     now.UnixMilli(),
+		Changes:        items,
+	})
 
 	kinds := make([]string, len(items))
 	for i, item := range items {
