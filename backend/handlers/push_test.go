@@ -9,6 +9,7 @@ import (
 	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 )
@@ -108,7 +110,8 @@ func withTestPush(t *testing.T) {
 		t.Fatal(err)
 	}
 	pushCfg = &pushConfig{publicKey: public, privateKey: private, subject: siteOrigin}
-	t.Cleanup(func() { pushCfg, pushQueue = nil, nil })
+	pushWake = make(chan struct{}, 1)
+	t.Cleanup(func() { pushCfg, pushWake = nil, nil })
 }
 
 func followLines(t *testing.T, sub pushSubscriber, routes ...string) {
@@ -217,25 +220,119 @@ func TestSendRouteChangePushDropsExpiredSubscriptions(t *testing.T) {
 	}
 }
 
-func TestRecordRouteChangesQueuesPush(t *testing.T) {
+func pendingPushes(t *testing.T) []int64 {
+	t.Helper()
+	ids, err := queryRows(`SELECT id FROM route_changes WHERE push_pending = 1 ORDER BY id`, nil,
+		func(rows *sql.Rows) (int64, error) {
+			var id int64
+			return id, rows.Scan(&id)
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ids
+}
+
+func stopsAdded(stop string) []RouteChangeItem {
+	return []RouteChangeItem{{Kind: changeStopsAdded, Direction: "0", Stops: []string{stop}}}
+}
+
+func TestRecordRouteChangesLeavesPushPending(t *testing.T) {
 	withTestDB(t)
 	withTestPush(t)
-	pushQueue = make(chan RouteChange, 1)
 
-	items := []RouteChangeItem{{Kind: changeStopsAdded, Direction: "0", Stops: []string{"S9"}}}
-	recordRouteChanges("25", routeChangeSourceStops, items)
-
+	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := pendingPushes(t); len(got) != 1 {
+		t.Fatalf("want the new change pending, got %v", got)
+	}
 	select {
-	case change := <-pushQueue:
-		if change.ID == 0 || change.RouteShortName != "25" || len(change.Changes) != 1 {
-			t.Fatalf("queued %+v", change)
-		}
+	case <-pushWake:
 	default:
-		t.Fatal("new change was not queued for push")
+		t.Fatal("recording a change should wake the sender")
 	}
 
-	recordRouteChanges("25", routeChangeSourceStops, items)
-	if len(pushQueue) != 0 {
-		t.Fatal("a repeated change must not notify again")
+	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := pendingPushes(t); len(got) != 1 || len(pushWake) != 0 {
+		t.Fatalf("a repeated change must not notify again, pending=%v", got)
+	}
+}
+
+func TestRecordRouteChangesWithoutPushLeavesNothingPending(t *testing.T) {
+	withTestDB(t)
+
+	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := pendingPushes(t); len(got) != 0 {
+		t.Fatalf("enabling push later must not replay old changes, pending=%v", got)
+	}
+}
+
+func TestFlushPendingPushesSendsNewestChangePerLine(t *testing.T) {
+	withTestDB(t)
+	withTestPush(t)
+
+	client := newTestPushClient(t, "en", http.StatusCreated)
+	followLines(t, client.sub, "25", "35")
+
+	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S1"))
+	recordRouteChanges("35", routeChangeSourceStops, stopsAdded("S2"))
+	recordRouteChanges("25", routeChangeSourceStops, []RouteChangeItem{
+		{Kind: changeStopsRemoved, Direction: "1", Stops: []string{"S3", "S4"}},
+	})
+	if len(client.received()) != 0 {
+		t.Fatal("recording must not send by itself")
+	}
+
+	flushPendingPushes()
+	got := client.received()
+	bodies := map[string]string{}
+	for _, msg := range got {
+		bodies[msg.Tag] = msg.Body
+	}
+	if len(got) != 2 || bodies["route-change-25"] != "Some stops were removed from the route." ||
+		bodies["route-change-35"] != "A new stop was added to the route." {
+		t.Fatalf("want the newest change for each line, got %+v", got)
+	}
+	if pending := pendingPushes(t); len(pending) != 0 {
+		t.Fatalf("flushed changes still pending: %v", pending)
+	}
+
+	flushPendingPushes()
+	if len(client.received()) != 2 {
+		t.Fatal("a second flush must not resend")
+	}
+}
+
+func TestPushWindow(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		t.Skip(err)
+	}
+	at := func(day, hour, minute int) time.Time { return time.Date(2026, 10, day, hour, minute, 0, 0, loc) }
+
+	for _, c := range []struct {
+		t    time.Time
+		want bool
+	}{
+		{at(20, 4, 0), false},
+		{at(20, 7, 59), false},
+		{at(20, 8, 0), true},
+		{at(20, 14, 30), true},
+		{at(20, 21, 59), true},
+		{at(20, 22, 0), false},
+	} {
+		if got := inPushWindow(c.t); got != c.want {
+			t.Errorf("inPushWindow(%s) = %v, want %v", c.t.Format("15:04"), got, c.want)
+		}
+	}
+
+	if got := nextPushWindow(at(20, 4, 0)); !got.Equal(at(20, 8, 0)) {
+		t.Errorf("after the 04:00 warmup, want 08:00 the same day, got %s", got)
+	}
+	if got := nextPushWindow(at(20, 23, 0)); !got.Equal(at(21, 8, 0)) {
+		t.Errorf("late evening, want 08:00 the next day, got %s", got)
+	}
+	// Clocks go back on 25 October 2026.
+	if got := nextPushWindow(at(24, 23, 30)); !got.Equal(at(25, 8, 0)) || got.Sub(at(24, 23, 30)) != 9*time.Hour+30*time.Minute {
+		t.Errorf("across the DST change, want 08:00 local, got %s", got)
 	}
 }

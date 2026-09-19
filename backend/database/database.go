@@ -229,7 +229,8 @@ func InitSchemas() error {
             source           TEXT    NOT NULL,
             changes          TEXT    NOT NULL,
             signature        TEXT    NOT NULL,
-            detected_at      INTEGER NOT NULL
+            detected_at      INTEGER NOT NULL,
+            push_pending     INTEGER NOT NULL DEFAULT 0
         );
 
 		CREATE TABLE IF NOT EXISTS push_subscriptions
@@ -375,6 +376,9 @@ func addMissingColumns() error {
 			"anchor_lon REAL NOT NULL DEFAULT 0",
 			"anchor_at TEXT NOT NULL DEFAULT ''",
 			"observed_at INTEGER NOT NULL DEFAULT 0",
+		},
+		"route_changes": {
+			"push_pending INTEGER NOT NULL DEFAULT 0",
 		},
 	}
 	for table, columns := range additions {

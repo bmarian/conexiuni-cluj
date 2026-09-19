@@ -23,9 +23,11 @@ import (
 const (
 	pushTTLSeconds      = 3 * 24 * 60 * 60
 	pushRecordSize      = 2048
-	pushQueueSize       = 256
 	maxPushEndpointLen  = 1024
 	maxPushRouteNameLen = 32
+
+	pushWindowStartHour = 8
+	pushWindowEndHour   = 20
 )
 
 // The server POSTs to whatever endpoint it is given, so only browser push services are accepted.
@@ -44,7 +46,7 @@ type pushConfig struct {
 
 var (
 	pushCfg    *pushConfig
-	pushQueue  chan RouteChange
+	pushWake   chan struct{}
 	pushClient = &http.Client{Timeout: 15 * time.Second}
 )
 
@@ -135,15 +137,42 @@ func InitPush(publicKey, privateKey, subject string) error {
 		subject = siteOrigin
 	}
 
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		log.Printf("push: could not load Europe/Bucharest, using local time: %v", err)
+		loc = time.Local
+	}
+
 	pushCfg = &pushConfig{publicKey: publicKey, privateKey: privateKey, subject: subject}
-	pushQueue = make(chan RouteChange, pushQueueSize)
-	go func() {
-		for change := range pushQueue {
-			sendRouteChangePush(change)
-		}
-	}()
-	log.Printf("push: notifications enabled")
+	pushWake = make(chan struct{}, 1)
+	go runPushSender(loc)
+	log.Printf("push: notifications enabled, sent between %02d:00 and %02d:00", pushWindowStartHour, pushWindowEndHour)
 	return nil
+}
+
+// Changes found overnight (the 04:00 warmup, a deploy) wait for the morning instead of waking people up.
+func runPushSender(loc *time.Location) {
+	for {
+		now := time.Now().In(loc)
+		if !inPushWindow(now) {
+			time.Sleep(time.Until(nextPushWindow(now)))
+			continue
+		}
+		flushPendingPushes()
+		<-pushWake
+	}
+}
+
+func inPushWindow(t time.Time) bool {
+	return t.Hour() >= pushWindowStartHour && t.Hour() < pushWindowEndHour
+}
+
+func nextPushWindow(now time.Time) time.Time {
+	start := time.Date(now.Year(), now.Month(), now.Day(), pushWindowStartHour, 0, 0, 0, now.Location())
+	if !start.After(now) {
+		start = start.AddDate(0, 0, 1)
+	}
+	return start
 }
 
 func checkVAPIDKeys(publicKey, privateKey string) error {
@@ -301,14 +330,50 @@ func deletePushSubscription(endpoint string) error {
 	return tx.Commit()
 }
 
-func queueRouteChangePush(change RouteChange) {
-	if pushQueue == nil {
+func wakePushSender() {
+	if pushWake == nil {
 		return
 	}
 	select {
-	case pushQueue <- change:
+	case pushWake <- struct{}{}:
 	default:
-		log.Printf("push: queue full, not notifying followers of line %s", change.RouteShortName)
+	}
+}
+
+func flushPendingPushes() {
+	changes, err := queryRows(`
+		SELECT id, route_short_name, source, detected_at, changes
+		FROM route_changes
+		WHERE push_pending = 1
+		ORDER BY id DESC`,
+		nil,
+		func(rows *sql.Rows) (RouteChange, error) {
+			var rc RouteChange
+			var payload string
+			if err := rows.Scan(&rc.ID, &rc.RouteShortName, &rc.Source, &rc.DetectedAt, &payload); err != nil {
+				return rc, err
+			}
+			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
+		})
+	if err != nil {
+		log.Printf("push: could not load pending changes: %v", err)
+		return
+	}
+	if len(changes) == 0 {
+		return
+	}
+
+	// Notifications for a line share a tag, so an older one would only be replaced by the newest.
+	notified := make(map[string]bool)
+	for _, change := range changes {
+		if !notified[change.RouteShortName] {
+			notified[change.RouteShortName] = true
+			sendRouteChangePush(change)
+		}
+	}
+	if _, err := database.DB.Exec(`UPDATE route_changes SET push_pending = 0 WHERE push_pending = 1 AND id <= ?`,
+		changes[0].ID); err != nil {
+		log.Printf("push: could not mark changes as sent: %v", err)
 	}
 }
 
