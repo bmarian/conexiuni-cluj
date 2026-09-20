@@ -1,88 +1,134 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
-import {useI18n} from 'vue-i18n'
+import { computed, nextTick, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useKeyboardNav } from "@/composables/useKeyboardNav.ts";
 
-const {t} = useI18n()
-const isFriday = computed(() => new Date().getDay() === 5)
-const todayKey = new Date().toISOString().slice(0, 10)
-const dismissed = ref(localStorage.getItem('greenFridayDismissed') === todayKey)
-const animationKey = ref(0)
+const { t } = useI18n();
+const kbd = useKeyboardNav();
+const isFriday = computed(() => new Date().getDay() === 5);
+const todayKey = new Date().toISOString().slice(0, 10);
+const dismissed = ref(localStorage.getItem("greenFridayDismissed") === todayKey);
+const animationKey = ref(0);
 
 function dismiss() {
-  localStorage.setItem('greenFridayDismissed', todayKey)
-  dismissed.value = true
+  // The banner is a one-item section, so there is no neighbour to fall back on:
+  // without this, dismissing it drops keyboard focus onto the body.
+  const wasKeyboard = kbd.keyboardMode.value;
+  const neighbor = wasKeyboard ? kbd.neighborKey() : null;
+  localStorage.setItem("greenFridayDismissed", todayKey);
+  dismissed.value = true;
+  if (!wasKeyboard) return;
+  void nextTick(() => {
+    if (!neighbor || !kbd.focusKey(neighbor)) kbd.focusEntry();
+  });
 }
 
 function replayAnimation() {
-  animationKey.value += 1
+  animationKey.value += 1;
 }
 </script>
 
 <template>
-  <div v-if="isFriday && !dismissed" class="green-friday-banner" data-kbd-section="banner" data-kbd-axis="x">
-
+  <div
+    v-if="isFriday && !dismissed"
+    class="green-friday-banner"
+    data-kbd-section="banner"
+    data-kbd-axis="x"
+  >
     <div :key="animationKey" class="gf-icon" aria-hidden="true" @click="replayAnimation">
       <svg class="gf-svg" viewBox="0 0 115 75" fill="none" overflow="visible">
         <defs>
           <linearGradient id="gf-card-grad" x1="0%" y1="0%" x2="70%" y2="100%">
-            <stop offset="0%" stop-color="#a5b4fc"/>
-            <stop offset="100%" stop-color="#3730a3"/>
+            <stop offset="0%" stop-color="#a5b4fc" />
+            <stop offset="100%" stop-color="#3730a3" />
           </linearGradient>
           <linearGradient id="gf-chip-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#fde68a"/>
-            <stop offset="100%" stop-color="#b45309"/>
+            <stop offset="0%" stop-color="#fde68a" />
+            <stop offset="100%" stop-color="#b45309" />
           </linearGradient>
         </defs>
 
         <g class="gf-terminal">
-          <rect x="4" y="5" width="30" height="65" rx="5" fill="#1e293b"/>
-          <rect x="4" y="5" width="5" height="65" rx="4" fill="rgba(255,255,255,0.055)"/>
-          <rect x="7" y="8" width="24" height="18" rx="2.5" fill="#0f172a"/>
-          <rect x="10" y="11" width="9" height="2" rx="1" fill="#22c55e" opacity="0.9"/>
-          <rect x="10" y="15" width="16" height="2" rx="1" fill="#22c55e" opacity="0.5"/>
-          <rect x="10" y="19" width="12" height="2" rx="1" fill="#22c55e" opacity="0.3"/>
-          <line x1="4" y1="29" x2="34" y2="29" stroke="#334155" stroke-width="0.75"/>
-          <rect x="7" y="31" width="24" height="26" rx="2.5" fill="#0f172a" opacity="0.4"/>
+          <rect x="4" y="5" width="30" height="65" rx="5" fill="#1e293b" />
+          <rect x="4" y="5" width="5" height="65" rx="4" fill="rgba(255,255,255,0.055)" />
+          <rect x="7" y="8" width="24" height="18" rx="2.5" fill="#0f172a" />
+          <rect x="10" y="11" width="9" height="2" rx="1" fill="#22c55e" opacity="0.9" />
+          <rect x="10" y="15" width="16" height="2" rx="1" fill="#22c55e" opacity="0.5" />
+          <rect x="10" y="19" width="12" height="2" rx="1" fill="#22c55e" opacity="0.3" />
+          <line x1="4" y1="29" x2="34" y2="29" stroke="#334155" stroke-width="0.75" />
+          <rect x="7" y="31" width="24" height="26" rx="2.5" fill="#0f172a" opacity="0.4" />
           <g class="gf-nfc">
-            <circle cx="13" cy="44" r="2.5" fill="#22c55e"/>
-            <path d="M17.5 40.5 Q20.5 44 17.5 47.5" stroke="#22c55e" fill="none" stroke-width="2.25"
-                  stroke-linecap="round"/>
-            <path d="M21.5 37.5 Q26   44 21.5 50.5" stroke="#22c55e" fill="none" stroke-width="2"
-                  stroke-linecap="round"/>
-            <path d="M25.5 34.5 Q31.5 44 25.5 53.5" stroke="#22c55e" fill="none" stroke-width="1.5"
-                  stroke-linecap="round"/>
+            <circle cx="13" cy="44" r="2.5" fill="#22c55e" />
+            <path
+              d="M17.5 40.5 Q20.5 44 17.5 47.5"
+              stroke="#22c55e"
+              fill="none"
+              stroke-width="2.25"
+              stroke-linecap="round"
+            />
+            <path
+              d="M21.5 37.5 Q26   44 21.5 50.5"
+              stroke="#22c55e"
+              fill="none"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M25.5 34.5 Q31.5 44 25.5 53.5"
+              stroke="#22c55e"
+              fill="none"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </g>
-          <circle cx="19" cy="64" r="2.5" fill="#22c55e" opacity="0.85"/>
-          <circle cx="19" cy="64" r="1.5" fill="#4ade80"/>
+          <circle cx="19" cy="64" r="2.5" fill="#22c55e" opacity="0.85" />
+          <circle cx="19" cy="64" r="1.5" fill="#4ade80" />
         </g>
 
         <g class="gf-card-grp">
-          <rect x="75" y="22" width="27" height="42" rx="4" fill="url(#gf-card-grad)"/>
-          <rect x="75" y="22" width="27" height="10" rx="4" fill="rgba(255,255,255,0.1)"/>
-          <rect x="75" y="22" width="27" height="42" rx="4" fill="none"
-                stroke="rgba(255,255,255,0.18)" stroke-width="0.75"/>
-          <rect x="79" y="32" width="12" height="10" rx="2" fill="url(#gf-chip-grad)"/>
-          <rect x="80" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)"/>
-          <rect x="86" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)"/>
-          <rect x="80" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)"/>
-          <rect x="86" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)"/>
-          <circle cx="95" cy="37" r="1.5" fill="rgba(255,255,255,0.7)"/>
-          <path d="M97.5 34.5 Q99.5 37 97.5 39.5" stroke="rgba(255,255,255,0.7)" fill="none"
-                stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M100 32   Q103  37 100  42" stroke="rgba(255,255,255,0.7)" fill="none"
-                stroke-width="1.3" stroke-linecap="round"/>
-          <circle cx="79" cy="48" r="1.1" fill="rgba(255,255,255,0.55)"/>
-          <circle cx="81.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)"/>
-          <circle cx="84" cy="48" r="1.1" fill="rgba(255,255,255,0.55)"/>
-          <circle cx="86.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)"/>
-          <circle cx="90" cy="48" r="1.1" fill="rgba(255,255,255,0.45)"/>
-          <circle cx="92.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)"/>
-          <circle cx="95" cy="48" r="1.1" fill="rgba(255,255,255,0.45)"/>
-          <circle cx="97.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)"/>
-          <rect x="79" y="54" width="17" height="2.5" rx="1.25" fill="rgba(255,255,255,0.3)"/>
-          <rect x="79" y="58" width="11" height="2" rx="1" fill="rgba(255,255,255,0.18)"/>
+          <rect x="75" y="22" width="27" height="42" rx="4" fill="url(#gf-card-grad)" />
+          <rect x="75" y="22" width="27" height="10" rx="4" fill="rgba(255,255,255,0.1)" />
+          <rect
+            x="75"
+            y="22"
+            width="27"
+            height="42"
+            rx="4"
+            fill="none"
+            stroke="rgba(255,255,255,0.18)"
+            stroke-width="0.75"
+          />
+          <rect x="79" y="32" width="12" height="10" rx="2" fill="url(#gf-chip-grad)" />
+          <rect x="80" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
+          <rect x="86" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
+          <rect x="80" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
+          <rect x="86" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
+          <circle cx="95" cy="37" r="1.5" fill="rgba(255,255,255,0.7)" />
+          <path
+            d="M97.5 34.5 Q99.5 37 97.5 39.5"
+            stroke="rgba(255,255,255,0.7)"
+            fill="none"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+          <path
+            d="M100 32   Q103  37 100  42"
+            stroke="rgba(255,255,255,0.7)"
+            fill="none"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+          <circle cx="79" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
+          <circle cx="81.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
+          <circle cx="84" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
+          <circle cx="86.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
+          <circle cx="90" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
+          <circle cx="92.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
+          <circle cx="95" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
+          <circle cx="97.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
+          <rect x="79" y="54" width="17" height="2.5" rx="1.25" fill="rgba(255,255,255,0.3)" />
+          <rect x="79" y="58" width="11" height="2" rx="1" fill="rgba(255,255,255,0.18)" />
         </g>
-
       </svg>
 
       <div class="gf-x-mark" aria-hidden="true">
@@ -92,15 +138,27 @@ function replayAnimation() {
     </div>
 
     <div class="green-friday-text">
-      <p class="green-friday-title">{{ t('greenFridayTitle') }}</p>
-      <p class="green-friday-desc">{{ t('greenFridayDesc') }}</p>
+      <p class="green-friday-title">{{ t("greenFridayTitle") }}</p>
+      <p class="green-friday-desc">{{ t("greenFridayDesc") }}</p>
     </div>
 
-    <button type="button" class="green-friday-close" :aria-label="t('dismiss')" data-kbd-item="banner-dismiss"
-            @click="dismiss">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M18 6L6 18M6 6l12 12"/>
+    <button
+      type="button"
+      class="green-friday-close"
+      :aria-label="t('dismiss')"
+      data-kbd-item="banner-dismiss"
+      @click="dismiss"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M18 6L6 18M6 6l12 12" />
       </svg>
     </button>
   </div>
@@ -143,26 +201,39 @@ function replayAnimation() {
 }
 
 @keyframes gf-card-pay {
-  0%, 7% {
+  0%,
+  7% {
     transform: translate(0, 0) rotate(0deg);
   }
-  21%, 38% {
+  21%,
+  38% {
     transform: translate(-66px, 1px) rotate(-7deg);
   }
-  48%, 52% {
+  48%,
+  52% {
     transform: translate(0, 0) rotate(0deg);
   }
-  66%, 100% {
+  66%,
+  100% {
     transform: translate(-66px, 1px) rotate(-7deg);
   }
 }
 
 @keyframes gf-terminal-confirm {
-  0%, 21%, 31%, 48%, 66%, 76%, 100% {
+  0%,
+  21%,
+  31%,
+  48%,
+  66%,
+  76%,
+  100% {
     filter: none;
     transform: scale(1);
   }
-  24%, 28%, 69%, 73% {
+  24%,
+  28%,
+  69%,
+  73% {
     filter: drop-shadow(0 0 4px rgb(34 197 94 / 0.65));
     transform: scale(1.03);
   }
@@ -173,11 +244,20 @@ function replayAnimation() {
 }
 
 @keyframes gf-nfc-confirm {
-  0%, 20%, 31%, 48%, 65%, 76%, 100% {
+  0%,
+  20%,
+  31%,
+  48%,
+  65%,
+  76%,
+  100% {
     opacity: 0.7;
     filter: none;
   }
-  23%, 29%, 68%, 74% {
+  23%,
+  29%,
+  68%,
+  74% {
     opacity: 1;
     filter: drop-shadow(0 0 3px #22c55e);
   }
@@ -217,11 +297,17 @@ function replayAnimation() {
 }
 
 @keyframes gf-x-bar-a {
-  0%, 30%, 52%, 80% {
+  0%,
+  30%,
+  52%,
+  80% {
     transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
     opacity: 0;
   }
-  34%, 40%, 84%, 100% {
+  34%,
+  40%,
+  84%,
+  100% {
     transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
     opacity: 1;
   }
@@ -232,11 +318,17 @@ function replayAnimation() {
 }
 
 @keyframes gf-x-bar-b {
-  0%, 34%, 52%, 84% {
+  0%,
+  34%,
+  52%,
+  84% {
     transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
     opacity: 0;
   }
-  38%, 40%, 88%, 100% {
+  38%,
+  40%,
+  88%,
+  100% {
     transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
     opacity: 1;
   }

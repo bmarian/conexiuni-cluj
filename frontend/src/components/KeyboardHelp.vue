@@ -2,10 +2,12 @@
 import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {useOnline} from '@/composables/useOnline'
 import {useSettingsStore} from '@/stores/settings'
 
 const {t} = useI18n()
 const settings = useSettingsStore()
+const {isOnline} = useOnline()
 const {closeLayers} = useKeyboardNav()
 const isOpen = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
@@ -37,8 +39,8 @@ const groups = computed(() => [
       {keys: ['g'], label: t('home')},
       {keys: ['s', '/'], label: t('kbdSearch')},
       {keys: ['o'], label: t('settings')},
-      {keys: ['n'], label: t('news')},
-      {keys: ['w'], label: t('weather')},
+      ...(settings.showNews && isOnline.value ? [{keys: ['n'], label: t('news')}] : []),
+      ...(settings.showWeather && isOnline.value ? [{keys: ['w'], label: t('weather')}] : []),
       {keys: ['m'], label: t('kbdDrawer')},
       {keys: ['?'], label: t('kbdHelp')},
     ],

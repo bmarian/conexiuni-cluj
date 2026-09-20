@@ -229,6 +229,13 @@ function onKeydown(e: KeyboardEvent) {
   }
 
   if (isTypingTarget(target)) {
+    // Up/down do nothing in a one-line field, so let them step out of it. Without this
+    // the search box swallows j/k and whatever sits above it can only be reached by Tab.
+    if ((key === 'ArrowUp' || key === 'ArrowDown') && target instanceof HTMLInputElement) {
+      act()
+      move(scope, target, 'v', key === 'ArrowDown' ? 1 : -1)
+      return
+    }
     const wantsClose = key === 'Escape' || (key === 'Backspace' && isDeliberateBackspace(e, target))
     if (wantsClose && closeTop()) act()
     return
