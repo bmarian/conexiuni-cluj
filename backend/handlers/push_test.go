@@ -317,7 +317,9 @@ func TestPushWindow(t *testing.T) {
 		{at(20, 7, 59), false},
 		{at(20, 8, 0), true},
 		{at(20, 14, 30), true},
-		{at(20, 21, 59), true},
+		{at(20, 19, 59), true},
+		{at(20, 20, 0), false},
+		{at(20, 20, 1), false},
 		{at(20, 22, 0), false},
 	} {
 		if got := inPushWindow(c.t); got != c.want {
