@@ -58,13 +58,31 @@ html[data-arcade] .drawer-grip {
 html[data-arcade] .stop-view-container,
 html[data-arcade] .route-view-container,
 html[data-arcade] .home-view-container,
-html[data-arcade] .plan-view-container {
+html[data-arcade] .plan-view-container,
+html[data-arcade] .settings-view-container {
   background-color: #fefce8 !important;
 }
 
 html[data-arcade] .departure-card {
   background: #fffbeb !important;
   border-color: #fde68a !important;
+}
+
+html[data-arcade] .setting-row {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html[data-arcade] .setting-note {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .beta-badge {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #78350f !important;
 }
 
 html[data-arcade] .departure-card:hover {
@@ -274,13 +292,31 @@ html.dark[data-arcade] .app-drawer,
 html.dark[data-arcade] .stop-view-container,
 html.dark[data-arcade] .route-view-container,
 html.dark[data-arcade] .home-view-container,
-html.dark[data-arcade] .plan-view-container {
+html.dark[data-arcade] .plan-view-container,
+html.dark[data-arcade] .settings-view-container {
   background-color: #1c1608 !important;
 }
 
 html.dark[data-arcade] .departure-card {
   background: #211a05 !important;
   border-color: #78350f !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .setting-row {
+  background: #211a05 !important;
+  border-color: #78350f !important;
+}
+
+html.dark[data-arcade] .setting-note {
+  background: #422006 !important;
+  border-color: #d97706 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .beta-badge {
+  background: #422006 !important;
+  border-color: #d97706 !important;
   color: #fde68a !important;
 }
 

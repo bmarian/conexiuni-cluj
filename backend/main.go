@@ -214,6 +214,9 @@ func main() {
 		app.Get("/route/:routeId/:direction", handlers.RouteOGHandler)
 		app.Get("/stop/:stopId", handlers.StopOGHandler)
 		app.Get("/plan", handlers.PlanOGHandler)
+		app.Get("/settings", func(c fiber.Ctx) error {
+			return c.SendFile("./dist/index.html")
+		})
 		app.Get("/admin", func(c fiber.Ctx) error {
 			return c.SendFile("./dist/index.html")
 		})

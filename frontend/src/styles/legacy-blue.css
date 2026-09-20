@@ -49,6 +49,13 @@ html[data-legacy-blue] .app-drawer .bus-chip,
 html[data-legacy-blue] .app-drawer .stat-chip,
 html[data-legacy-blue] .app-drawer .card-rail,
 html[data-legacy-blue] .app-drawer .plan-time-filter,
+/* settings page */
+html[data-legacy-blue] .app-drawer .option-btn,
+html[data-legacy-blue] .app-drawer .setting-row,
+html[data-legacy-blue] .app-drawer .setting-check,
+html[data-legacy-blue] .app-drawer .setting-note,
+html[data-legacy-blue] .app-drawer .beta-badge,
+html[data-legacy-blue] .app-drawer .theme-select,
 /* settings button and popover */
 html[data-legacy-blue] .settings-btn,
 html[data-legacy-blue] .settings-popover,
@@ -177,12 +184,14 @@ html[data-legacy-blue] .drawer-handle {
 html[data-legacy-blue] .stop-view-container,
 html[data-legacy-blue] .route-view-container,
 html[data-legacy-blue] .home-view-container,
-html[data-legacy-blue] .plan-view-container {
+html[data-legacy-blue] .plan-view-container,
+html[data-legacy-blue] .settings-view-container {
   background: var(--xp-bliss) !important;
   font-family: var(--xp-font) !important;
 }
 
 html[data-legacy-blue] .plan-view-container > header,
+html[data-legacy-blue] .settings-view-container > header,
 html[data-legacy-blue] .stop-view-container > div > header,
 html[data-legacy-blue] .route-view-container > div > header {
   background: #FFFFFF !important;
@@ -924,6 +933,14 @@ html[data-legacy-blue] .home-view-container .section-label .text-rose-500 {
   color: #C03030 !important;
 }
 
+html[data-legacy-blue] .beta-badge {
+  background: linear-gradient(to bottom, #FFE0A0 0%, #FFCC60 100%) !important;
+  border: 1px solid #C08020 !important;
+  color: #5C3000 !important;
+  font-family: var(--xp-font) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
+
 html[data-legacy-blue] .live-badge {
   background: var(--xp-live) !important;
   border: 1px solid #2D5F18 !important;
@@ -1392,6 +1409,7 @@ html[data-legacy-blue] .tt-today-dot {
   background: #5BAA38 !important;
 }
 
+html[data-legacy-blue] .setting-note,
 html[data-legacy-blue] .suspended-banner {
   background: linear-gradient(to bottom, #FFE0A0 0%, #FFCC60 100%) !important;
   border: 1px solid #C08020 !important;

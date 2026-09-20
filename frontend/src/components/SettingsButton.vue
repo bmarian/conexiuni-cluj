@@ -3,27 +3,17 @@ import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
-import {usePushStore} from '@/stores/push'
-import {useRouteUpdatesStore} from '@/stores/routeUpdates'
-import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 type Theme = 'light' | 'dark' | 'system'
 
-const {t, locale} = useI18n()
+const {t} = useI18n()
 const router = useRouter()
 const settings = useSettingsStore()
-const push = usePushStore()
-const routeUpdates = useRouteUpdatesStore()
 const isDark = computed(() => settings.isDark)
 
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
-const isAdminAuthed = ref(false)
-
-const readAdminAuthed = () => {
-  try { isAdminAuthed.value = localStorage.getItem('admin:authed') === '1' } catch { isAdminAuthed.value = false }
-}
 
 const popoverRef = ref<HTMLElement | null>(null)
 const {closeLayers} = useKeyboardNav()
@@ -35,7 +25,6 @@ useKbdShortcuts({
     const open = !isOpen.value
     closeLayers()
     isOpen.value = open
-    if (open) readAdminAuthed()
   },
 }, {global: true})
 
@@ -43,7 +32,6 @@ let arcadeClickCount = 0
 
 function toggle() {
   isOpen.value = !isOpen.value
-  if (isOpen.value) readAdminAuthed()
 
   if (!settings.arcadeUnlocked) {
     arcadeClickCount++
@@ -58,9 +46,9 @@ function toggle() {
   }
 }
 
-function goToAdmin() {
+function goToSettings() {
   isOpen.value = false
-  void router.push('/admin')
+  void router.push('/settings')
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
@@ -90,37 +78,6 @@ function onSpecialThemeChange(e: Event) {
     settings.deactivateArcade();
     settings.deactivateLegacyBlue()
   }
-}
-
-async function togglePush() {
-  if (push.busy) return
-  if (push.enabled) {
-    await push.disable()
-    settings.showToast(t('pushOffToast'), {icon: 'bell-off'})
-    return
-  }
-  const result = await push.enable()
-  if (result === 'enabled') {
-    settings.showToast(t('pushOnToast'), {
-      body: t(routeUpdates.followed.length ? 'pushOnToastBody' : 'pushOnToastNoLines'),
-      icon: 'bell',
-    })
-    return
-  }
-  const key = {
-    unsupported: 'pushUnsupportedToast',
-    denied: 'pushDeniedToast',
-    brave: 'pushBraveToast',
-    failed: 'pushFailedToast',
-  }[result]
-  const isIOS = /iPhone|iPad/.test(navigator.userAgent)
-  const body = result === 'unsupported' && !isIOS ? undefined : t(`${key}Body`)
-  settings.showToast(t(key), {body, icon: 'bell-off'})
-}
-
-function setLocale(newLocale: 'ro' | 'en') {
-  settings.setLocale(newLocale)
-  locale.value = newLocale
 }
 </script>
 
@@ -214,141 +171,17 @@ function setLocale(newLocale: 'ro' | 'en') {
       </div>
 
 
-      <p class="section-label">{{ t('language') }}</p>
-      <div class="option-group" role="group" :aria-label="t('language')"
-           data-kbd-section="language" data-kbd-axis="x">
-        <button
-          type="button"
-          class="option-btn"
-          :class="{ active: settings.locale === 'ro' }"
-          data-kbd-item="lang-ro"
-          :data-kbd-active="settings.locale === 'ro'"
-          @click="setLocale('ro')"
-        >
-          Română
-        </button>
-        <button
-          type="button"
-          class="option-btn"
-          :class="{ active: settings.locale === 'en' }"
-          data-kbd-item="lang-en"
-          :data-kbd-active="settings.locale === 'en'"
-          @click="setLocale('en')"
-        >
-          English
-        </button>
-      </div>
-
-      <p class="section-label">{{ t('display') }}</p>
-      <div class="option-group display-grid" role="group" :aria-label="t('display')"
-           data-kbd-section="display" data-kbd-axis="grid">
-        <button type="button" class="option-btn" :class="{ active: settings.showWeather }"
-                :title="t('weather')" data-kbd-item="show-weather" @click="settings.setShowWeather(!settings.showWeather)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☁️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-          </svg>
-          <span class="btn-text">{{ t('weather') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.showNews }"
-                :title="t('news')" data-kbd-item="show-news" @click="settings.setShowNews(!settings.showNews)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📰</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-            <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
-          </svg>
-          <span class="btn-text">{{ t('news') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.autoCenterOnMe }"
-                :title="t('autoCenterOnMe')" data-kbd-item="auto-center" @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📍</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-            <circle cx="12" cy="12" r="8"/>
-          </svg>
-          <span class="btn-text">{{ t('autoCenterOnMe') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.autoFitMap }"
-                :title="t('autoFitMap')" data-kbd-item="auto-fit" @click="settings.setAutoFitMap(!settings.autoFitMap)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🗺️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
-          </svg>
-          <span class="btn-text">{{ t('autoFitMap') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.showVehicleExtras }"
-                :title="t('vehicleExtras')" data-kbd-item="vehicle-extras" @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">♿</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <circle cx="12" cy="3.5" r="2.5" fill="currentColor" stroke="none"/>
-            <path d="M10 8v6h5l2 5"/>
-            <circle cx="9" cy="19.5" r="3.5"/>
-          </svg>
-          <span class="btn-text">{{ t('vehicleExtras') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.showGreenFriday }"
-                :title="t('greenFridayTitle')" data-kbd-item="green-friday" @click="settings.setShowGreenFriday(!settings.showGreenFriday)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🌿</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-          <span class="btn-text">{{ t('greenFridayTitle') }}</span>
-        </button>
-        <button type="button" class="option-btn" :class="{ active: settings.showTimetableChanges }"
-                :title="t('timetableChanges')" data-kbd-item="timetable-changes" @click="settings.setShowTimetableChanges(!settings.showTimetableChanges)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🔔</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span class="btn-text">{{ t('timetableChanges') }}</span>
-        </button>
-        <button v-if="settings.showTimetableChanges" type="button" class="option-btn" :class="{ active: push.enabled }"
-                :title="t('pushNotifications')" :aria-busy="push.busy" data-kbd-item="push-notifications" @click="togglePush">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📲</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="13" height="13" aria-hidden="true" style="flex-shrink:0">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            <path d="M2 8c0-2.2.7-4.3 2-6M22 8a10 10 0 0 0-2-6"/>
-          </svg>
-          <span class="btn-text">{{ t('pushNotifications') }}</span>
-        </button>
-      </div>
-
-      <SettingsExportImport />
-
-      <template v-if="isAdminAuthed">
-        <p class="section-label">Admin</p>
-        <div class="option-group" data-kbd-section="admin">
-          <button type="button" class="option-btn" data-kbd-item="admin" @click="goToAdmin">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🛡️</span>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 width="13" height="13" aria-hidden="true">
-              <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
-            </svg>
-            Admin dashboard
-          </button>
-        </div>
-      </template>
+      <button type="button" class="option-btn all-settings-btn" data-kbd-section="all-settings"
+              data-kbd-item="all-settings" @click="goToSettings">
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🎛️</span>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             width="13" height="13" aria-hidden="true">
+          <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3"/>
+          <path d="M14 2v4M8 10v4M16 18v4"/>
+        </svg>
+        {{ t('settingsAllSettings') }}
+      </button>
 
     </div>
   </div>
@@ -440,10 +273,6 @@ function setLocale(newLocale: 'ro' | 'en') {
   color: #94a3b8;
 }
 
-.section-label + .option-group + .section-label {
-  margin-top: 0.75rem;
-}
-
 .settings-root.is-dark .section-label {
   color: #64748b;
 }
@@ -451,23 +280,6 @@ function setLocale(newLocale: 'ro' | 'en') {
 .option-group {
   display: flex;
   gap: 0.25rem;
-}
-
-.display-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.display-grid .option-btn {
-  overflow: hidden;
-  min-width: 0;
-}
-
-.display-grid .option-btn .btn-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
 }
 
 .option-btn {
@@ -512,6 +324,10 @@ function setLocale(newLocale: 'ro' | 'en') {
   background: #1e3a5f;
   color: #93c5fd;
   border-color: #1d4ed8;
+}
+
+.all-settings-btn {
+  margin-top: 0.4rem;
 }
 
 .select-wrap {

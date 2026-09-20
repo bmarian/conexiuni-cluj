@@ -186,7 +186,6 @@ async function doImport() {
 
 <template>
   <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive }">
-    <p class="ei-label">{{ t('exportImport') }}</p>
     <div ref="groupRef" class="ei-group" data-kbd-section="ei" data-kbd-axis="x">
       <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
@@ -282,24 +281,10 @@ async function doImport() {
 
 <style scoped>
 .ei-root {
-  margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
-
-/* ── label ── */
-.ei-label {
-  margin: 0 0 0.4rem 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #94a3b8;
-}
-
-.ei-root.is-dark .ei-label { color: #64748b; }
-.ei-root.is-arcade .ei-label { color: #b45309; }
-.ei-root.is-arcade.is-dark .ei-label { color: #d97706; }
 
 /* ── button group ── */
 .ei-group {
