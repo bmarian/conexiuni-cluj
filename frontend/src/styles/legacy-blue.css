@@ -1085,7 +1085,8 @@ html[data-legacy-blue] .home-view-container .fav-route-badge {
 
 html[data-legacy-blue] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
 html[data-legacy-blue] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
-html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
+html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
+html[data-legacy-blue] .settings-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
   color: #000000 !important;
@@ -1097,7 +1098,8 @@ html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][clas
 
 html[data-legacy-blue] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
 html[data-legacy-blue] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
-html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
+html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
+html[data-legacy-blue] .settings-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
   background: var(--xp-btn-hover) !important;
   border-color: #D08020 !important;
   color: #000000 !important;
@@ -1105,7 +1107,8 @@ html[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][clas
 
 html.dark[data-legacy-blue] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
 html.dark[data-legacy-blue] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
-html.dark[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
+html.dark[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn),
+html.dark[data-legacy-blue] .settings-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn) {
   background: var(--xp-btn) !important;
   border-color: var(--xp-border) !important;
   color: var(--xp-text) !important;
@@ -1114,7 +1117,8 @@ html.dark[data-legacy-blue] .plan-view-container button[class*="text-slate-500"]
 
 html.dark[data-legacy-blue] .stop-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
 html.dark[data-legacy-blue] .route-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
-html.dark[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
+html.dark[data-legacy-blue] .plan-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover,
+html.dark[data-legacy-blue] .settings-view-container button[class*="text-slate-500"][class*="rounded-xl"]:not(.fav-btn):hover {
   background: var(--xp-btn-hover) !important;
   border-color: var(--xp-blue) !important;
 }
@@ -1415,6 +1419,16 @@ html[data-legacy-blue] .suspended-banner {
   border: 1px solid #C08020 !important;
   color: #5C3000 !important;
   font-family: var(--xp-font) !important;
+}
+
+/* section blurb sits straight on the wallpaper, so it needs the .sub-label treatment */
+html[data-legacy-blue] .settings-view-container > section > .setting-desc {
+  color: #FFFFFF !important;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+html.dark[data-legacy-blue] .settings-view-container > section > .setting-desc {
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55) !important;
 }
 
 html.dark[data-legacy-blue] .tt-tab {
