@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, ref, watchPostEffect} from 'vue'
+import {computed, nextTick, onMounted, ref, watch, watchPostEffect} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -40,11 +40,20 @@ const settings = useSettingsStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
-const {stops, fetchStops} = useStopsApi()
+const {stops, isLoading: stopsLoading, fetchStops} = useStopsApi()
 const {fetchShapeInfo} = useRouteShapeInfoApi()
 const {isOnline} = useOnline()
 
 const isSearchMode = ref(false)
+
+function persistedToggle(key: string) {
+  const open = ref(localStorage.getItem(key) === 'true')
+  watch(open, (v) => localStorage.setItem(key, String(v)))
+  return open
+}
+
+const showAllRoutes = persistedToggle('home.showAllRoutes')
+const showAllStops = persistedToggle('home.showAllStops')
 const navigatingRouteId = ref<number | null>(null)
 const navigatingRouteKey = ref<string | null>(null)
 
@@ -122,6 +131,12 @@ const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
 const sortedRoutes = computed<Route[]>(() => {
   return [...routes.value].sort((a, b) =>
     a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true}),
+  )
+})
+
+const sortedStops = computed<Stop[]>(() => {
+  return [...stops.value].sort((a, b) =>
+    a.stop_name.localeCompare(b.stop_name, undefined, {numeric: true}),
   )
 })
 
@@ -542,66 +557,159 @@ useKbdShortcuts({
         </div>
       </section>
 
-      <section class="flex flex-col gap-3 pb-6">
-        <h2 class="section-label">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🗺️</span>
-          <svg v-else class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
-               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-          </svg>
-          {{ t('allRoutes') }}
-        </h2>
+      <p v-if="isHydrated && !hasFavorites && !(isOnline && recentNonFavoritePlans.length)"
+         class="no-favorites-hint text-xs leading-relaxed -mt-3">
+        {{ t('noFavorites') }}
+      </p>
 
-        <p v-if="isHydrated && !hasFavorites && !(isOnline && recentNonFavoritePlans.length)"
-           class="no-favorites-hint text-xs leading-relaxed -mt-1 mb-1">
-          {{ t('noFavorites') }}
-        </p>
-
-        <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
-          <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
-            <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-            <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
-          </div>
-        </div>
-
-        <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
-             data-kbd-section="all-routes" data-kbd-entry="2">
-          <div
-            v-for="route in sortedRoutes"
-            :key="route.route_id"
-            @click="navigateToRoute(route)"
-            class="all-route-row group"
-            :data-kbd-item="`route-${route.route_id}`"
-            :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
+      <section class="flex flex-col gap-3" data-kbd-section="all-routes" data-kbd-entry="2">
+        <h2 class="flex flex-col">
+          <button
+            type="button"
+            class="all-route-row collapse-toggle group"
+            :aria-expanded="showAllRoutes"
+            data-kbd-item="toggle-all-routes"
+            @click="showAllRoutes = !showAllRoutes"
           >
             <div
-              class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-              :style="{ backgroundColor: route.route_color }"
-            >{{ route.route_short_name }}
+              class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🗺️</span>
+              <svg v-else class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none"
+                   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+              </svg>
             </div>
             <span
-              class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-              {{ route.route_long_name }}
+              class="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              {{ t('allRoutes') }}
             </span>
+            <span v-if="sortedRoutes.length" class="collapse-count">{{ sortedRoutes.length }}</span>
             <svg
-              v-if="navigatingRouteId === route.route_id"
-              class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-              fill="none" viewBox="0 0 24 24"
-            >
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                      stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-            </svg>
-            <svg
-              v-else
-              class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-            >
+              class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
+              :class="{ 'is-open': showAllRoutes }" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
             </svg>
+          </button>
+        </h2>
+
+        <template v-if="showAllRoutes">
+          <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
+            <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
+              <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+              <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            </div>
           </div>
-        </div>
+
+          <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+            <div
+              v-for="route in sortedRoutes"
+              :key="route.route_id"
+              @click="navigateToRoute(route)"
+              class="all-route-row long-list-row group"
+              :data-kbd-item="`route-${route.route_id}`"
+              :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
+            >
+              <div
+                class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
+                :style="{ backgroundColor: route.route_color }"
+              >{{ route.route_short_name }}
+              </div>
+              <span
+                class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                {{ route.route_long_name }}
+              </span>
+              <svg
+                v-if="navigatingRouteId === route.route_id"
+                class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
+                fill="none" viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                        stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+              </svg>
+              <svg
+                v-else
+                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <section class="flex flex-col gap-3" data-kbd-section="all-stops" data-kbd-entry="3">
+        <h2 class="flex flex-col">
+          <button
+            type="button"
+            class="all-route-row collapse-toggle group"
+            :aria-expanded="showAllStops"
+            data-kbd-item="toggle-all-stops"
+            @click="showAllStops = !showAllStops"
+          >
+            <div
+              class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
+              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
+              <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
+                   fill="currentColor">
+                <path
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+            </div>
+            <span
+              class="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              {{ t('allStops') }}
+            </span>
+            <span v-if="sortedStops.length" class="collapse-count">{{ sortedStops.length }}</span>
+            <svg
+              class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
+              :class="{ 'is-open': showAllStops }" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </h2>
+
+        <template v-if="showAllStops">
+          <div v-if="stopsLoading && !stops.length" class="flex flex-col gap-1 animate-pulse">
+            <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
+              <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+              <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            </div>
+          </div>
+
+          <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+            <div
+              v-for="stop in sortedStops"
+              :key="stop.stop_id"
+              @click="navigateToStop(stop)"
+              class="all-route-row long-list-row group"
+              :data-kbd-item="`stop-${stop.stop_id}`"
+            >
+              <div
+                class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
+                <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
+                <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
+                     fill="currentColor">
+                  <path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+              </div>
+              <span
+                class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                {{ stop.stop_name }}
+              </span>
+              <svg
+                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </template>
       </section>
 
     </template>
@@ -611,7 +719,7 @@ useKbdShortcuts({
 <style scoped>
 .home-view-container {
   position: relative;
-  padding: 1.25rem 1.5rem 0;
+  padding: 1.25rem 1.5rem 1.5rem;
   height: 100%;
   overflow-y: auto;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -646,6 +754,26 @@ useKbdShortcuts({
   font-size: 0.7rem;
   font-weight: 600;
   color: #94a3b8;
+}
+
+.collapse-toggle {
+  text-align: left;
+  user-select: none;
+}
+
+.collapse-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.collapse-chevron {
+  transition: transform 0.2s, color 0.15s;
+}
+
+.collapse-chevron.is-open {
+  transform: rotate(90deg);
 }
 
 .no-favorites-hint {
@@ -843,5 +971,10 @@ html.dark[data-legacy-blue] .no-favorites-hint {
 
 .all-route-row:hover {
   background: #f8fafc;
+}
+
+.long-list-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.75rem;
 }
 </style>

@@ -20,6 +20,7 @@
   "busStop": "Bus Stop",
   "nextDepartures": "Departures",
   "allRoutes": "All Routes",
+  "allStops": "All Stops",
   "allRoutesAtStop": "Routes at this stop",
   "live": "LIVE",
   "scheduledApprox": "Scheduled",

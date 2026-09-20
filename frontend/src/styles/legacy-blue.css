@@ -315,7 +315,7 @@ html[data-legacy-blue] .stop-result-row,
 html[data-legacy-blue] .geo-result-row {
   background: #FFFFFF !important;
   border: 1px solid transparent !important;
-  margin: 0 !important;
+  margin: 0 -0.25rem !important;
   padding: 0.45rem 0.5rem !important;
 }
 
