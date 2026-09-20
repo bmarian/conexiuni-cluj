@@ -17,6 +17,7 @@ import (
 	"syscall"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/etag"
 	"github.com/gofiber/fiber/v3/middleware/logger"
@@ -167,6 +168,11 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
+	app.Use(compress.New(compress.Config{
+		Next: func(c fiber.Ctx) bool {
+			return c.Path() == "/api/vehicles/stream"
+		},
+	}))
 
 	cacheTimes := models.CacheTimes{
 		TranzyCacheShelfLife:    config.TranzyCacheShelfLife,
@@ -176,6 +182,7 @@ func main() {
 
 	api := app.Group("/api")
 	api.Use(etag.New(etag.Config{
+		Weak: true,
 		Next: func(c fiber.Ctx) bool {
 			return c.Path() == "/api/vehicles/stream"
 		},
@@ -222,7 +229,8 @@ func main() {
 		})
 
 		app.Use("/", static.New("./dist", static.Config{
-			Browse: false,
+			Browse:   false,
+			Compress: true,
 		}))
 
 		app.Use("*", func(c fiber.Ctx) error {
