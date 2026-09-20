@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, ref, watch, watchPostEffect} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch, watchPostEffect, type Ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -54,6 +54,27 @@ function persistedToggle(key: string) {
 
 const showAllRoutes = persistedToggle('home.showAllRoutes')
 const showAllStops = persistedToggle('home.showAllStops')
+const scroller = ref<HTMLElement | null>(null)
+
+function revealHeader(ev: Event) {
+  const header = ev.currentTarget as HTMLElement
+  void nextTick(() => {
+    const box = scroller.value
+    if (!box) return
+    const top = box.scrollTop + header.getBoundingClientRect().top - box.getBoundingClientRect().top - 8
+    box.scrollTo({top, behavior: 'smooth'})
+  })
+}
+
+function toggleAllRoutes(ev: Event) {
+  showAllRoutes.value = !showAllRoutes.value
+  if (showAllRoutes.value) revealHeader(ev)
+}
+
+function toggleAllStops(ev: Event) {
+  showAllStops.value = !showAllStops.value
+  if (showAllStops.value) revealHeader(ev)
+}
 const navigatingRouteId = ref<number | null>(null)
 const navigatingRouteKey = ref<string | null>(null)
 
@@ -139,6 +160,46 @@ const sortedStops = computed<Stop[]>(() => {
     a.stop_name.localeCompare(b.stop_name, undefined, {numeric: true}),
   )
 })
+
+const FIRST_CHUNK = 30
+const NEXT_CHUNK = 120
+
+function useProgressiveList<T>(source: () => T[], open: Ref<boolean>) {
+  const limit = ref(0)
+  let frame = 0
+
+  function stop() {
+    cancelAnimationFrame(frame)
+    frame = 0
+  }
+
+  function fill() {
+    stop()
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      const total = source().length
+      if (!open.value || limit.value >= total) return
+      limit.value = Math.min(limit.value + NEXT_CHUNK, total)
+      if (limit.value < total) fill()
+    })
+  }
+
+  watch([open, () => source().length], () => {
+    stop()
+    limit.value = open.value ? Math.min(FIRST_CHUNK, source().length) : 0
+    if (open.value) fill()
+  }, {immediate: true})
+
+  onUnmounted(stop)
+
+  return {
+    items: computed(() => source().slice(0, limit.value)),
+    filling: computed(() => open.value && limit.value < source().length),
+  }
+}
+
+const {items: visibleRoutes, filling: routesFilling} = useProgressiveList(() => sortedRoutes.value, showAllRoutes)
+const {items: visibleStops, filling: stopsFilling} = useProgressiveList(() => sortedStops.value, showAllStops)
 
 async function navigateToRoute(route: Route, direction?: RouteDirection) {
   if (navigatingRouteId.value === route.route_id) return
@@ -277,6 +338,7 @@ useKbdShortcuts({
 
 <template>
   <div
+    ref="scroller"
     class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
@@ -569,7 +631,7 @@ useKbdShortcuts({
             class="all-route-row collapse-toggle group"
             :aria-expanded="showAllRoutes"
             data-kbd-item="toggle-all-routes"
-            @click="showAllRoutes = !showAllRoutes"
+            @click="toggleAllRoutes"
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
@@ -585,7 +647,14 @@ useKbdShortcuts({
               {{ t('allRoutes') }}
             </span>
             <span v-if="sortedRoutes.length" class="collapse-count">{{ sortedRoutes.length }}</span>
+            <svg v-if="routesFilling" class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
+                 fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                      stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            </svg>
             <svg
+              v-else
               class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
               :class="{ 'is-open': showAllRoutes }" fill="none" viewBox="0 0 24 24"
               stroke="currentColor" stroke-width="2.5">
@@ -604,7 +673,7 @@ useKbdShortcuts({
 
           <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
             <div
-              v-for="route in sortedRoutes"
+              v-for="route in visibleRoutes"
               :key="route.route_id"
               @click="navigateToRoute(route)"
               class="all-route-row long-list-row group"
@@ -648,7 +717,7 @@ useKbdShortcuts({
             class="all-route-row collapse-toggle group"
             :aria-expanded="showAllStops"
             data-kbd-item="toggle-all-stops"
-            @click="showAllStops = !showAllStops"
+            @click="toggleAllStops"
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
@@ -664,7 +733,14 @@ useKbdShortcuts({
               {{ t('allStops') }}
             </span>
             <span v-if="sortedStops.length" class="collapse-count">{{ sortedStops.length }}</span>
+            <svg v-if="stopsFilling" class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
+                 fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                      stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+            </svg>
             <svg
+              v-else
               class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
               :class="{ 'is-open': showAllStops }" fill="none" viewBox="0 0 24 24"
               stroke="currentColor" stroke-width="2.5">
@@ -683,7 +759,7 @@ useKbdShortcuts({
 
           <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
             <div
-              v-for="stop in sortedStops"
+              v-for="stop in visibleStops"
               :key="stop.stop_id"
               @click="navigateToStop(stop)"
               class="all-route-row long-list-row group"
@@ -975,6 +1051,6 @@ html.dark[data-legacy-blue] .no-favorites-hint {
 
 .long-list-row {
   content-visibility: auto;
-  contain-intrinsic-size: auto 2.75rem;
+  contain-intrinsic-size: auto 3rem;
 }
 </style>
