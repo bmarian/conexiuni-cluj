@@ -1,17 +1,13 @@
-// Turning a timetable into "how long until the next one" is the half of an arrival
-// list that live tracking cannot do for itself, and it is where the ghost entries came
-// from. Both the route stop list and the stop departure cards used
-//
-//   ((arrivalMinutes - nowMinutes) + 1440) % 1440
-//
-// which cannot tell a run that has already gone from one that is due this very minute:
-// a run that passed a minute ago read as 1439 and was silently dropped by the horizon
-// filter, while a run passing exactly now read as 0 and advertised itself as "now".
-// A bus normally runs a few minutes off its timetable, so there is always some stop
-// just behind the vehicle whose slot is sitting on zero - that stop showed a "now" the
-// bus had already left, every stop behind it had lost its slot to the wrap and jumped a
-// full headway, and every stop ahead of it was driven by live tracking. Reading down
-// the column gave 24m, now, now, 2m.
+import type {StopTime} from '@/types/tranzy.ts'
+import {
+  canDriveLiveEta,
+  distanceOnShape,
+  type IndexedVehicle,
+  isOnRoute,
+  type ShapeIndex,
+  stopShapePositions,
+  vehicleEtaSeconds,
+} from '@/composables/useVehicleTracking.ts'
 
 /**
  * Minutes from `nowMinutes` until `absMinutes`, both in minutes past midnight.
@@ -25,9 +21,7 @@ export const minutesUntil = (absMinutes: number, nowMinutes: number): number => 
   return diff
 }
 
-// A scheduled run may be this many minutes late and still be listed: buses lose a few
-// minutes in traffic all the time, and dropping the entry only moves the whole list on
-// by a full headway. Past this the run is treated as gone rather than as still pending.
+// With nothing tracked, a run this late is still listed rather than dropped.
 export const SCHEDULE_LATE_GRACE_MIN = 3
 
 export type ScheduleQuery = {
@@ -52,41 +46,201 @@ export const scheduledArrivals = (query: ScheduleQuery): number[] => {
 
 export type Arrival = { minutes: number; isLive: boolean }
 
-export type MergeOptions = {
-  /**
-   * Live tracking has vehicles on this trip, so its silence about this stop is
-   * evidence rather than an absence of data: whatever the timetable still has sitting
-   * on zero here is the run that has gone past, not one arriving now.
-   */
-  tracked?: boolean
+// How far off its timetable a bus can run and still be taken for that run.
+const RUN_MATCH_WINDOW_MIN = 20
+// A bus already on the road cannot belong to a run that leaves later than this.
+const EARLY_DEPARTURE_MIN = 2
+
+export type TripArrivalsQuery = {
+  /** Departures from the terminus, in minutes past midnight. */
+  departureMinutes: number[]
+  /** Stops of this one trip, any order. */
+  tripStops: StopTime[]
+  vehicles: IndexedVehicle[]
+  index: ShapeIndex
+  referenceTime: Date
+  horizonMinutes?: number
   limit?: number
 }
 
-/**
- * One list of arrivals from the two sources, reconciled on time rather than on
- * position. The tracked bus *is* one of the scheduled runs, so the slot it answers for
- * has to come out of the list - otherwise the same vehicle is listed twice, once
- * tracked and once from a timetable that disagrees with it by a few minutes, and the
- * columns stop meaning the same thing from one row to the next.
- */
-export const mergeArrivals = (
-  liveMinutes: number | null,
-  scheduled: number[],
-  options: MergeOptions = {},
-): Arrival[] => {
-  const limit = options.limit ?? 3
+type Placed = {
+  vehicle: IndexedVehicle
+  atTerminus: boolean
+  live: boolean
+  // When this bus left (or can leave) the terminus, relative to now, judged from where it is.
+  departedRel: number
+}
 
-  if (liveMinutes === null) {
-    const pending = options.tracked ? scheduled.filter((minutes) => minutes >= 1) : scheduled
-    return pending.slice(0, limit).map((minutes) => ({minutes: Math.max(minutes, 0), isLive: false}))
+/**
+ * Arrivals at every stop of a trip, in stop_sequence order.
+ *
+ * Every tracked bus is first matched to the timetable run it is driving, once for the
+ * whole trip, so a run is either live or scheduled and never both, and a run whose
+ * bus is already past a stop is not listed there.
+ */
+export function arrivalsAlongTrip(query: TripArrivalsQuery): Arrival[][] {
+  const stops = [...query.tripStops].sort((a, b) => a.stop_sequence - b.stop_sequence)
+  if (!stops.length) return []
+  const limit = query.limit ?? 3
+  const horizon = query.horizonMinutes ?? Number.POSITIVE_INFINITY
+  const {index, referenceTime} = query
+  const nowMs = referenceTime.getTime()
+  const clockMinutes = referenceTime.getHours() * 60 + referenceTime.getMinutes()
+  const exactMinutes = clockMinutes + referenceTime.getSeconds() / 60
+
+  const cumulativeSec: number[] = []
+  let total = 0
+  for (const st of stops) {
+    total += st.offset_arrival_time
+    cumulativeSec.push(total)
+  }
+  const offsetMinutes = cumulativeSec.map((sec) => Math.ceil(sec / 60))
+  const positions = index.shape.length ? stopShapePositions(stops, index.shape) : []
+  const tripMinutes = total / 60
+
+  const scheduledProgressSec = (shapeIdx: number): number => {
+    let i = 0
+    while (i + 1 < positions.length && positions[i + 1]! <= shapeIdx) i++
+    if (i + 1 >= positions.length) return cumulativeSec[i] ?? 0
+    const span = distanceOnShape(index, positions[i]!, positions[i + 1]!)
+    const done = shapeIdx > positions[i]! ? distanceOnShape(index, positions[i]!, shapeIdx) : 0
+    const share = span > 0 ? Math.min(1, done / span) : 0
+    return cumulativeSec[i]! + share * (cumulativeSec[i + 1]! - cumulativeSec[i]!)
   }
 
-  const live = Math.max(liveMinutes, 0)
-  // Everything at or before the live estimate belongs to the run being tracked, or to
-  // one that is already gone. What is left are the runs that follow it.
-  const later = scheduled.filter((minutes) => minutes > live + SCHEDULE_LATE_GRACE_MIN)
-  return [
-    {minutes: live, isLive: true},
-    ...later.slice(0, Math.max(limit - 1, 0)).map((minutes) => ({minutes, isLive: false})),
-  ]
+  const placed: Placed[] = positions.length
+    ? query.vehicles.filter(isOnRoute).map((vehicle) => {
+      if (vehicle.atStartTerminus) return {vehicle, atTerminus: true, live: false, departedRel: 0}
+      const fixAgeMin = Math.max(0, (nowMs - new Date(vehicle.timestamp).getTime()) / 60_000)
+      return {
+        vehicle,
+        atTerminus: false,
+        live: canDriveLiveEta(vehicle, nowMs),
+        departedRel: -fixAgeMin - scheduledProgressSec(vehicle.shapeIdx) / 60,
+      }
+    })
+    : []
+  // Furthest along first: buses on one line do not overtake, so this is also run order.
+  placed.sort((a, b) => Number(a.atTerminus) - Number(b.atTerminus) || b.vehicle.shapeIdx - a.vehicle.shapeIdx)
+
+  const runs = query.departureMinutes
+    .map((departure) => ({
+      rel: minutesUntil(departure, exactMinutes),
+      clockRel: minutesUntil(departure, clockMinutes),
+    }))
+    .filter((run) => run.rel >= -(tripMinutes + RUN_MATCH_WINDOW_MIN) && run.clockRel < horizon)
+    .sort((a, b) => a.rel - b.rel)
+
+  const matchCost = (p: Placed, runRel: number): number => {
+    if (!p.atTerminus && runRel > EARLY_DEPARTURE_MIN) return Infinity
+    const cost = Math.abs(p.departedRel - runRel)
+    return cost <= RUN_MATCH_WINDOW_MIN ? cost : Infinity
+  }
+  const matched = matchRunsInOrder(placed, runs.map((run) => run.rel), matchCost, RUN_MATCH_WINDOW_MIN)
+
+  // Too far off any run to place, but still a real bus coming.
+  const unplaced = placed.filter((p) => p.live && !matched.includes(p))
+  const tracked = query.vehicles.length > 0
+
+  return stops.map((stop, k) => {
+    const stopShapeIdx = positions[k] ?? -1
+    const hasPassed = (p: Placed) => !p.atTerminus && p.vehicle.shapeIdx > stopShapeIdx
+    const liveMinutes = (p: Placed) => Math.max(0, Math.round(vehicleEtaSeconds(p.vehicle, stopShapeIdx, index, {
+      tripStops: stops,
+      targetStopId: stop.stop_id,
+      referenceTime,
+    }) / 60))
+    // A run the timetable says left before a bus that is already past this stop is past it too.
+    let lastRunPastStop = -1
+    matched.forEach((p, j) => {
+      if (p && hasPassed(p)) lastRunPastStop = j
+    })
+    // Ahead of the leading tracked bus: with tracking up, that is a bus that has finished.
+    const firstRunOnRoad = matched.findIndex((p) => p !== null && !p.atTerminus)
+
+    const arrivals: Arrival[] = []
+    const add = (minutes: number, isLive: boolean) => {
+      if (minutes < horizon) arrivals.push({minutes, isLive})
+    }
+    runs.forEach((run, j) => {
+      const p = matched[j]
+      if (p && hasPassed(p)) return
+      if (p?.live) {
+        add(liveMinutes(p), true)
+      } else if (p?.atTerminus) {
+        add(Math.max(run.clockRel, 0) + offsetMinutes[k]!, false)
+      } else if (p) {
+        // Last fix too old to drive an estimate: hold the bus to the pace it had then.
+        const minutes = Math.round(p.departedRel + cumulativeSec[k]! / 60)
+        if (minutes >= -SCHEDULE_LATE_GRACE_MIN) add(Math.max(0, minutes), false)
+      } else {
+        if (j < lastRunPastStop || j < firstRunOnRoad) return
+        const minutes = run.clockRel + offsetMinutes[k]!
+        if (minutes >= (tracked ? 0 : -SCHEDULE_LATE_GRACE_MIN)) add(Math.max(0, minutes), false)
+      }
+    })
+    for (const p of unplaced) {
+      if (!hasPassed(p)) add(liveMinutes(p), true)
+    }
+
+    return arrivals
+      .sort((a, b) => a.minutes - b.minutes || Number(b.isLive) - Number(a.isLive))
+      .slice(0, limit)
+  })
+}
+
+/**
+ * Order-preserving assignment of vehicles (furthest along first) to runs (earliest
+ * first) at the lowest total cost. A vehicle may stay unmatched at `unmatchedCost`.
+ */
+function matchRunsInOrder<T>(
+  vehicles: T[],
+  runs: number[],
+  cost: (vehicle: T, run: number) => number,
+  unmatchedCost: number,
+): (T | null)[] {
+  const V = vehicles.length
+  const R = runs.length
+  const width = R + 1
+  const best = new Float64Array((V + 1) * width)
+  const step = new Uint8Array((V + 1) * width)
+  const SKIP_RUN = 1, SKIP_VEHICLE = 2, MATCH = 3
+
+  for (let i = 1; i <= V; i++) {
+    best[i * width] = best[(i - 1) * width]! + unmatchedCost
+    step[i * width] = SKIP_VEHICLE
+    for (let j = 1; j <= R; j++) {
+      let value = best[i * width + j - 1]!
+      let choice = SKIP_RUN
+      const skipVehicle = best[(i - 1) * width + j]! + unmatchedCost
+      if (skipVehicle < value) {
+        value = skipVehicle
+        choice = SKIP_VEHICLE
+      }
+      const match = best[(i - 1) * width + j - 1]! + cost(vehicles[i - 1]!, runs[j - 1]!)
+      if (match <= value) {
+        value = match
+        choice = MATCH
+      }
+      best[i * width + j] = value
+      step[i * width + j] = choice
+    }
+  }
+
+  const byRun: (T | null)[] = Array.from({length: R}, () => null)
+  let i = V
+  let j = R
+  while (i > 0) {
+    const choice = j === 0 ? SKIP_VEHICLE : step[i * width + j]
+    if (choice === MATCH) {
+      byRun[j - 1] = vehicles[i - 1]!
+      i--
+      j--
+    } else if (choice === SKIP_VEHICLE) {
+      i--
+    } else {
+      j--
+    }
+  }
+  return byRun
 }

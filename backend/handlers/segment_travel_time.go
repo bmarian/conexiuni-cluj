@@ -317,7 +317,9 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	if nearStopPos <= state.SegmentStartPos {
 		// A stale mid-segment anchor becoming a real segment start gets re-anchored;
 		// an already valid start keeps its time so from-stop dwell stays in the sample.
-		if nearStopPos == state.SegmentStartPos && !state.HasSegmentStart && nearStopPos < len(tracker.Stops)-1 {
+		// Except at the departure terminus: the timetable already says when the bus
+		// leaves, so the layover there must not count as travel to the next stop.
+		if nearStopPos == state.SegmentStartPos && (!state.HasSegmentStart || nearStopPos == 0) && nearStopPos < len(tracker.Stops)-1 {
 			state.HasSegmentStart = true
 			state.SegmentStartedAt = observedAt
 		}

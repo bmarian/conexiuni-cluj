@@ -19,14 +19,13 @@ import {
 import {
   formatMinutesFromNow,
   hasTimetableEntries,
-  getAvailableBusesForStop
+  getAvailableBusesForStop,
+  getDepartureMinutes
 } from "@/utils/time.ts";
-import {mergeArrivals} from "@/utils/arrivals.ts";
+import {type Arrival, arrivalsAlongTrip} from "@/utils/arrivals.ts";
 import {type DisplayShape, useMapStore} from "@/stores/map.ts";
 import {
   buildShapeIndex,
-  buildStopShapeIdxByStopId,
-  etaForStop,
   getIndexedVehicles,
   type IndexedVehicle
 } from "@/composables/useVehicleTracking.ts";
@@ -158,9 +157,6 @@ const departuresSorted = computed(() => {
   })
 })
 
-// Pills per card. One more than this is asked of the timetable, because merging in a
-// live estimate consumes the slot that same run occupies - without the spare the card
-// would come up a time short whenever tracking has something to say.
 const DEPARTURES_SHOWN = 3
 
 const shapesComingToTheStopBasedOnTimetable = computed(() => {
@@ -168,24 +164,18 @@ const shapesComingToTheStopBasedOnTimetable = computed(() => {
   return getAvailableBusesForStop(
     stopInfo.value,
     userTime.value || new Date(),
-    {maxMinutes: 480, limit: DEPARTURES_SHOWN + 1}
+    {maxMinutes: 480, limit: DEPARTURES_SHOWN}
   )
 })
 
-// The live estimate used to be spliced over next_times[0] with the rest of the
-// timetable left in place, so the tracked bus was also still listed as a scheduled run
-// a few minutes off. Reconciling on time drops that duplicate; and when tracking is
-// watching this trip but has no bus behind the stop, a slot the timetable still reads
-// as due now is a run that has already gone past.
-function withArrivals(shape: VehiclesInStop, liveMinutes: number | null, tracked: boolean): VehiclesInStop | null {
-  const scheduled = (shape.next_times ?? []).map((entry) => entry.minutes)
-  const merged = mergeArrivals(liveMinutes, scheduled, {tracked, limit: DEPARTURES_SHOWN})
-  if (!merged.length) return null
+function withArrivals(shape: VehiclesInStop, arrivals: Arrival[] | null): VehiclesInStop | null {
+  const list = arrivals ?? (shape.next_times ?? []).map((entry) => ({minutes: entry.minutes, isLive: false}))
+  if (!list.length) return null
   return {
     ...shape,
-    minutes_left: merged[0]!.minutes,
-    next_times: merged.map((arrival) => ({minutes: arrival.minutes, is_live: arrival.isLive})),
-    static_time_approximation: liveMinutes === null,
+    minutes_left: list[0]!.minutes,
+    next_times: list.map((arrival) => ({minutes: arrival.minutes, is_live: arrival.isLive})),
+    static_time_approximation: !list[0]!.isLive,
   }
 }
 
@@ -220,7 +210,7 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   const displayShapesWithTrip = cachedShapesWithTrip.value
   if (!Array.isArray(displayShapesWithTrip) || displayShapesWithTrip.length === 0) {
     shapesComingToTheStopBasedOnVehiclePositions.value = shapesComingNext
-      .map((shape) => withArrivals(shape, null, false))
+      .map((shape) => withArrivals(shape, null))
       .filter((shape): shape is VehiclesInStop => shape !== null)
     mapStore.setVehiclesToDisplay([])
     setFavoriteRouteShapes([])
@@ -233,15 +223,15 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
   const favoriteTripIds = new Set<string>()
 
   const results: VehiclesInStop[] = []
-  const push = (shape: VehiclesInStop, liveMinutes: number | null, tracked: boolean) => {
-    const withTimes = withArrivals(shape, liveMinutes, tracked)
+  const push = (shape: VehiclesInStop, arrivals: Arrival[] | null) => {
+    const withTimes = withArrivals(shape, arrivals)
     if (withTimes) results.push(withTimes)
   }
 
   for (const shape of shapesComingNext) {
     const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
     if (!Array.isArray(trip) || !trip.length) {
-      push(shape, null, false)
+      push(shape, null)
       continue
     }
 
@@ -260,29 +250,29 @@ watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesCom
       if (vehiclesOnRoute.length) favoriteTripIds.add(shape.trip_id)
     }
 
-    // No early-out on an empty vehicle list: etaForStop can still serve the last
-    // estimate while Tranzy skips a poll, which is what stopped the row flipping
-    // between its live and timetable values every few seconds.
-    const tracked = vehiclesOnRoute.length > 0
     const routeShapeInfo = shapeInfoByRouteId.value.get(shape.route_id)
-    if (!routeShapeInfo) {
-      push(shape, null, tracked)
+    const tripStops = routeShapeInfo
+      ? getShapeStopTimes(routeShapeInfo)
+        .filter((stopTime) => stopTime.trip_id === shape.trip_id)
+        .sort((a, b) => a.stop_sequence - b.stop_sequence)
+      : []
+    const stopPos = tripStops.findIndex((stopTime) => stopTime.stop_id === stopIdNum.value)
+    if (!routeShapeInfo || stopPos < 0) {
+      push(shape, null)
       continue
     }
 
-    const tripStops = getShapeStopTimes(routeShapeInfo).filter((stopTime) => stopTime.trip_id === shape.trip_id)
-    const stopShapeIdx = buildStopShapeIdxByStopId(tripStops, trip).get(stopIdNum.value) ?? -1
-    if (stopShapeIdx < 0) {
-      push(shape, null, tracked)
-      continue
-    }
-
-    const eta = etaForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex, {
+    const referenceTime = userTime.value || new Date()
+    const arrivals = arrivalsAlongTrip({
+      departureMinutes: getDepartureMinutes(routeShapeInfo.timetable, shape.trip_id, referenceTime),
       tripStops,
-      targetStopId: stopIdNum.value,
-      referenceTime: userTime.value,
+      vehicles: vehiclesOnRoute,
+      index: shapeIndex,
+      referenceTime,
+      horizonMinutes: 480,
+      limit: DEPARTURES_SHOWN,
     })
-    push(shape, eta ? eta.etaMinutes : null, tracked)
+    push(shape, arrivals[stopPos] ?? [])
   }
   shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
   const highlightedShapes = displayShapesWithTrip.filter(([displayShape, shapePoints]) =>

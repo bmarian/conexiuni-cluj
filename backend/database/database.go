@@ -362,7 +362,45 @@ func InitSchemas() error {
 		return err
 	}
 
+	if err := dropTerminusLayoverSamples(); err != nil {
+		return err
+	}
+
 	log.Println("Database schema and indexes initialized")
+	return nil
+}
+
+// The learner used to time a trip's first segment from when the bus reached the
+// departure terminus, so every layover was learned as travel time to the next stop.
+// Those samples are dropped once; PRAGMA user_version records that it ran.
+func dropTerminusLayoverSamples() error {
+	var version int
+	if err := DB.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return err
+	}
+	if version >= 1 {
+		return nil
+	}
+	firstSegment := `EXISTS (
+		SELECT 1 FROM trips t
+		JOIN api_stop_times st ON st.trip_id = t.trip_id
+		WHERE t.route_id = %[1]s.route_id
+		  AND t.direction_id = %[1]s.direction_id
+		  AND st.stop_id = %[1]s.from_stop_id
+		  AND st.stop_sequence = (SELECT MIN(stop_sequence) FROM api_stop_times WHERE trip_id = t.trip_id)
+	)`
+	var dropped [2]int64
+	for i, table := range []string{"segment_travel_time_samples", "segment_travel_time_profiles"} {
+		res, err := DB.Exec(fmt.Sprintf(`DELETE FROM %[1]s WHERE `+firstSegment, table))
+		if err != nil {
+			return err
+		}
+		dropped[i], _ = res.RowsAffected()
+	}
+	if _, err := DB.Exec(`PRAGMA user_version = 1`); err != nil {
+		return err
+	}
+	log.Printf("segment travel: dropped %d terminus layover samples and %d profiles", dropped[0], dropped[1])
 	return nil
 }
 

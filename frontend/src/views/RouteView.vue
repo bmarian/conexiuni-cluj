@@ -19,11 +19,9 @@ import {
 } from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
-import {mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
+import {type Arrival, arrivalsAlongTrip} from '@/utils/arrivals.ts'
 import {
   buildShapeIndex,
-  buildStopShapeIdxByStopId,
-  etaForStop,
   getIndexedVehicles,
   type IndexedVehicle,
   type ShapeIndex,
@@ -161,7 +159,6 @@ useHead(() => {
 type DirectionShape = {
   shape: Shape[]
   shapeIndex: ShapeIndex
-  stopShapeIdxByStopId: Map<number, number>
 }
 
 const direction0Shape = ref<DirectionShape | null>(null)
@@ -255,52 +252,32 @@ const departureTimes = computed((): number[] => {
 
 const SCHEDULE_HORIZON_MIN = 480
 
-// Offset first, then sort, so runs already under way still count for later stops.
-function nextArrivalsAtStop(offsetFromStart: number): number[] {
-  return scheduledArrivals({
-    departureMinutes: departureTimes.value,
-    offsetMinutes: offsetFromStart,
-    nowMinutes: currentMinutes.value,
-    horizonMinutes: SCHEDULE_HORIZON_MIN,
-  })
-}
-
-// Whether live tracking has anything to say about this direction at all. It is the
-// difference between "no bus is behind this stop" and "we are not watching", and only
-// the first of those justifies dropping a timetable slot that reads as due now.
-const directionIsTracked = computed(() => currentDirectionVehicles.value.length > 0)
-
 interface StopTimeDisplay {
   label: string;
   isLive: boolean
 }
 
-function liveMinutesForStop(stop: IndexedStop): number | null {
+const arrivalsByStop = computed((): Arrival[][] => {
   const dirShape = currentDirectionShape.value
-  if (!dirShape) return null
-  const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
-  if (stopIdx === undefined || stopIdx < 0) return null
-  const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
+  return arrivalsAlongTrip({
+    departureMinutes: departureTimes.value,
     tripStops: stopsForDirection.value,
-    targetStopId: stop.stop_id,
-    referenceTime: userTime.value,
+    vehicles: dirShape ? currentDirectionVehicles.value : [],
+    index: dirShape?.shapeIndex ?? {shape: [], cumulativeDist: []},
+    referenceTime: userTime.value || new Date(),
+    horizonMinutes: SCHEDULE_HORIZON_MIN,
   })
-  return eta ? eta.etaMinutes : null
+})
+
+function getStopTimesDisplay(idx: number): StopTimeDisplay[] {
+  return (arrivalsByStop.value[idx] ?? []).map((arrival) => ({
+    label: formatMinutes(arrival.minutes),
+    isLive: arrival.isLive,
+  }))
 }
 
-// The live estimate used to be dropped into slot 0 and the timetable kept the rest,
-// which left the same bus counted twice and made a column mean a different thing on
-// every row. Merging on time instead keeps the columns comparable down the list.
-function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
-  const scheduled = nextArrivalsAtStop(stop.timeOffsetFromStart)
-  const merged = mergeArrivals(liveMinutesForStop(stop), scheduled, {tracked: directionIsTracked.value})
-  return merged.map((arrival) => ({label: formatMinutes(arrival.minutes), isLive: arrival.isLive}))
-}
-
-// The header lists departures from the terminus, where there is no stop to have been
-// passed, so it stays on the timetable alone.
 function getHeaderTimes(): string[] {
-  return mergeArrivals(null, nextArrivalsAtStop(0)).map((arrival) => formatMinutes(arrival.minutes))
+  return (arrivalsByStop.value[0] ?? []).map((arrival) => formatMinutes(arrival.minutes))
 }
 
 function getStopLabel(idx: number, stop: IndexedStop): string {
@@ -515,10 +492,7 @@ async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null
     }])
     const shape = shapeData[0]?.[1] ?? []
     if (!shape.length) return null
-    const shapeIndex = buildShapeIndex(shape)
-    const tripStops = rawStops.value.filter((st) => st.trip_id === tripId)
-    const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStops, shape)
-    return {shape, shapeIndex, stopShapeIdxByStopId}
+    return {shape, shapeIndex: buildShapeIndex(shape)}
   } catch (e) {
     console.warn(`Failed to load direction ${dir} shape:`, e)
     return null
@@ -947,7 +921,7 @@ onUnmounted(() => {
 
           <div class="times-cols shrink-0">
             <span
-              v-for="(stopTime, i) in getStopTimesDisplay(stop)"
+              v-for="(stopTime, i) in getStopTimesDisplay(idx)"
               :key="i"
               :class="[
                 'time-cell',

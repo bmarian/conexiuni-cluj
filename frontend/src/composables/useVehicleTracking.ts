@@ -100,7 +100,7 @@ function computeHeading(lat: number, lon: number, shape: Shape[], shapeIdx: numb
   return calculateBearing(lat, lon, target.shape_pt_lat, target.shape_pt_lon)
 }
 
-function distanceOnShape(index: ShapeIndex, fromShapeIdx: number, toShapeIdx: number): number {
+export function distanceOnShape(index: ShapeIndex, fromShapeIdx: number, toShapeIdx: number): number {
   if (fromShapeIdx < 0 || toShapeIdx < 0 || fromShapeIdx > toShapeIdx) return 0
   return index.cumulativeDist[toShapeIdx]! - index.cumulativeDist[fromShapeIdx]!
 }
@@ -153,7 +153,7 @@ function sortedTripStops(tripStops: StopTime[]): StopTime[] {
   return [...tripStops].sort((a, b) => a.stop_sequence - b.stop_sequence)
 }
 
-function stopShapePositions(tripStops: StopTime[], shape: Shape[]): number[] {
+export function stopShapePositions(tripStops: StopTime[], shape: Shape[]): number[] {
   let last = 0
   return tripStops.map((st) => {
     const idx = st.stop_lat && st.stop_lon ? findClosestShapeIdx(st.stop_lat, st.stop_lon, shape) : last
@@ -226,23 +226,35 @@ export function etaForStop(
   // says anything about when it leaves - that is the timetable's job - and both
   // snap to shape index 0, which would make them the candidate for every stop.
   const candidate = vehicles
-    .filter(v => v.shapeIdx >= 0
-      && v.shapeIdx <= stopShapeIdx
-      && v.offRouteMeters <= MAX_OFF_ROUTE_METERS
-      && !v.atStartTerminus
-      && isFreshForLiveEta(v, now))
+    .filter(v => v.shapeIdx <= stopShapeIdx && canDriveLiveEta(v, now))
     .sort((a, b) => b.shapeIdx - a.shapeIdx)[0]
   if (!candidate) return null
 
-  // Deliberately *not* aged against the wall clock. Between position fixes we have
-  // no evidence the bus moved, and letting the estimate tick down anyway drained it
-  // to "now" while the bus was still hundreds of metres out. The number holds until
-  // the vehicle reports again, then it is recomputed from where it actually is.
-  const estimated = etaSecondsForStop(candidate, stopShapeIdx, index, options)
-  const remainingMeters = distanceOnShape(index, candidate.shapeIdx, stopShapeIdx)
-  const seconds = Math.max(estimated, remainingMeters / MAX_PLAUSIBLE_SPEED_MPS)
-
+  const seconds = vehicleEtaSeconds(candidate, stopShapeIdx, index, options)
   return {vehicle: candidate, etaMinutes: Math.max(0, Math.round(seconds / 60)), etaSeconds: seconds}
+}
+
+export function isOnRoute(v: IndexedVehicle): boolean {
+  return v.shapeIdx >= 0 && v.offRouteMeters <= MAX_OFF_ROUTE_METERS
+}
+
+export function canDriveLiveEta(v: IndexedVehicle, now: number): boolean {
+  return isOnRoute(v) && !v.atStartTerminus && isFreshForLiveEta(v, now)
+}
+
+// Deliberately *not* aged against the wall clock. Between position fixes we have
+// no evidence the bus moved, and letting the estimate tick down anyway drained it
+// to "now" while the bus was still hundreds of metres out. The number holds until
+// the vehicle reports again, then it is recomputed from where it actually is.
+export function vehicleEtaSeconds(
+  vehicle: IndexedVehicle,
+  stopShapeIdx: number,
+  index: ShapeIndex,
+  options: EtaOptions = {},
+): number {
+  const estimated = etaSecondsForStop(vehicle, stopShapeIdx, index, options)
+  const remainingMeters = distanceOnShape(index, vehicle.shapeIdx, stopShapeIdx)
+  return Math.max(estimated, remainingMeters / MAX_PLAUSIBLE_SPEED_MPS)
 }
 
 function etaSecondsForStop(
