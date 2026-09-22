@@ -33,8 +33,6 @@ import {
   buildShapeIndex,
   getIndexedVehicles,
   findClosestShapeIdx,
-  buildStopShapeIdxByStopId,
-  etaForStop,
   type IndexedVehicle,
   type ShapeIndex
 } from "@/composables/useVehicleTracking.ts"
@@ -46,6 +44,7 @@ import {
 } from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
 import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
+import {arrivalsAlongTrip} from "@/utils/arrivals.ts"
 import {reverseNominatimPlace, searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace} from "@/utils/nominatim.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
@@ -82,6 +81,9 @@ type PlannedTimeEntry = TimeEntry & {
 }
 
 type StoredLiveEta = PlannedTimeEntry & { ts: number }
+// Boarding-stop arrivals for every first-leg trip with buses on the road, already
+// reconciled against those buses. The raw timetable only covers the other trips.
+type TrackedTimes = { tripKeys: Set<string>; entries: StoredLiveEta[] }
 
 interface RichLeg { routeIds: number[]; tripIds: string[]; startStopId: number; destStopId: number; rideSeconds: number; intermediateStopIds: number[] }
 interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number; walkEndMeters: number; walkTransferMeters: number; walkSegments: PlanWalkSeg[]; nextTimes: PlannedTimeEntry[]; isLive: boolean; key: string; generalizedCost: number; numberOfTransfers: number; startTimeMs: number; endTimeMs: number }
@@ -215,7 +217,7 @@ function toggleLegExpansion(id: string) {
 
 const selectedRouteIsLive = ref(false)
 const selectedRouteLiveEtaMin = ref<number | null>(null)
-const liveEtaByKey = ref<Map<string, StoredLiveEta[]>>(new Map())
+const trackedTimesByKey = ref<Map<string, TrackedTimes>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
 const allStops = ref<Stop[]>([])
@@ -337,19 +339,13 @@ function getTripDeparturesAtStop(
   const timetable = shape.timetable
   if (!timetable) return []
 
-  const isOutgoing = tripUsesDepartureIn(shape, tripId)
   const stopTimes = getShapeStopTimes(shape)
   const offsetMin = getTimeOffsetToStop(stopTimes, tripId, boardingStopId)
-  const daySchedule = getTimetableForDay(timetable, now)
-  if (!daySchedule?.entries) return []
 
   const nowMins = getMinutesFromDate(now)
   const results: PlannedTimeEntry[] = []
 
-  for (const entry of daySchedule.entries) {
-    const timeStr = isOutgoing ? entry.departure_in : entry.departure_out
-    const terminusMinutes = timeStringToMinutes(timeStr)
-    if (terminusMinutes === null) continue
+  for (const terminusMinutes of tripDepartureMinutes(shape, tripId, now)) {
     const arrivalAtBoardingMin = terminusMinutes + offsetMin
     for (const diff of getScheduleDiffs(arrivalAtBoardingMin, nowMins, maxMinutes, arriveBy)) {
       results.push({
@@ -366,6 +362,14 @@ function getTripDeparturesAtStop(
   }
 
   return results.sort((a, b) => a.minutes - b.minutes).slice(0, limit)
+}
+
+function tripDepartureMinutes(shape: ShapeInfo, tripId: string, now: Date): number[] {
+  if (!shape.timetable) return []
+  const isOutgoing = tripUsesDepartureIn(shape, tripId)
+  return (getTimetableForDay(shape.timetable, now)?.entries ?? [])
+    .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
+    .filter((m): m is number => m !== null)
 }
 
 function getLegDepartures(
@@ -672,26 +676,30 @@ function getDecayedLiveEntries(entries: StoredLiveEta[] | undefined, now: Date):
     .sort((a, b) => a.minutes - b.minutes)
 }
 
-function mergeLiveAndScheduled(
+const tripKey = (entry: PlannedTimeEntry) => `${entry.routeId ?? ''}:${entry.tripId ?? ''}`
+
+function mergeTrackedAndScheduled(
   plan: RichPlan,
-  liveEntries: PlannedTimeEntry[],
+  trackedEntries: PlannedTimeEntry[],
+  trackedTrips: Set<string>,
   scheduledEntries: PlannedTimeEntry[],
 ): PlannedTimeEntry[] {
   const walkStartMin = plan.walkStartMeters / WALK_SPEED
-  const catchableLive = liveEntries.filter(entry => entry.minutes >= walkStartMin)
-  const liveTripKeys = new Set(catchableLive.map(entry => `${entry.routeId ?? ''}:${entry.tripId ?? ''}`))
-  const scheduledWithoutLive = scheduledEntries.filter(entry => !liveTripKeys.has(`${entry.routeId ?? ''}:${entry.tripId ?? ''}`))
+  const catchable = trackedEntries.filter(entry => entry.minutes >= walkStartMin)
+  const untracked = scheduledEntries.filter(entry => !trackedTrips.has(tripKey(entry)))
+  const byMinutes = (a: PlannedTimeEntry, b: PlannedTimeEntry) => a.minutes - b.minutes
   const merged: PlannedTimeEntry[] = []
   const seen = new Set<string>()
 
   // When a live vehicle exists for this plan, make it the primary displayed
   // value. Static alternatives stay visible in the secondary "then" slots.
-  const entries = catchableLive.length
-    ? [...catchableLive.sort((a, b) => a.minutes - b.minutes), ...scheduledWithoutLive.sort((a, b) => a.minutes - b.minutes)]
-    : scheduledEntries.sort((a, b) => a.minutes - b.minutes)
+  const entries = [
+    ...catchable.filter(entry => entry.is_live).sort(byMinutes),
+    ...[...catchable.filter(entry => !entry.is_live), ...untracked].sort(byMinutes),
+  ]
 
   for (const entry of entries) {
-    const key = `${entry.is_live ? 'L' : 'S'}:${entry.routeId ?? ''}:${entry.tripId ?? ''}:${Math.round(entry.minutes)}`
+    const key = `${entry.is_live ? 'L' : 'S'}:${tripKey(entry)}:${Math.round(entry.minutes)}`
     if (seen.has(key)) continue
     seen.add(key)
     merged.push(entry)
@@ -715,16 +723,14 @@ function applyPlanTimingFromSchedule(now: Date) {
   for (const plan of routesWithTimes.value) {
     const scheduled = computeNextTimesForPlan(plan, data.shapes, requestedTime, isArriveBy)
       .map(t => ({ ...t, minutes: t.minutes + offsetMin }))
-    const liveEntries = timeMode.value === 'now'
-      ? getDecayedLiveEntries(liveEtaByKey.value.get(plan.key), now)
-        .filter(entry => hasScheduledConnection(plan, entry, data.shapes, now))
-      : []
+    const tracked = timeMode.value === 'now' ? trackedTimesByKey.value.get(plan.key) : undefined
+    const trackedEntries = getDecayedLiveEntries(tracked?.entries, now)
+      .filter(entry => hasScheduledConnection(plan, entry, data.shapes, now))
 
     const walkStartMin = plan.walkStartMeters / WALK_SPEED
-    const catchableLiveEntries = liveEntries.filter(entry => entry.minutes >= walkStartMin)
-    plan.isLive = catchableLiveEntries.length > 0
-    if (scheduled.length > 0 || liveEntries.length > 0) {
-      plan.nextTimes = mergeLiveAndScheduled(plan, liveEntries, scheduled)
+    plan.isLive = trackedEntries.some(entry => entry.is_live && entry.minutes >= walkStartMin)
+    if (scheduled.length > 0 || trackedEntries.length > 0) {
+      plan.nextTimes = mergeTrackedAndScheduled(plan, trackedEntries, tracked?.tripKeys ?? new Set(), scheduled)
     } else {
       plan.nextTimes = plan.nextTimes.filter(t => !t.is_live)
     }
@@ -742,8 +748,8 @@ function updateSelectedLiveState(now: Date = userTime.value || new Date()) {
   }
 
   const walkStartMin = plan.walkStartMeters / WALK_SPEED
-  const liveEntries = getDecayedLiveEntries(liveEtaByKey.value.get(plan.key), now)
-  const catchable = liveEntries.find(entry => entry.minutes >= walkStartMin)
+  const liveEntries = getDecayedLiveEntries(trackedTimesByKey.value.get(plan.key)?.entries, now)
+  const catchable = liveEntries.find(entry => entry.is_live && entry.minutes >= walkStartMin)
   selectedRouteIsLive.value = catchable !== undefined
   selectedRouteLiveEtaMin.value = catchable?.minutes ?? null
 }
@@ -765,7 +771,7 @@ const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 watch(planData, (data) => {
   if (!data?.plans?.length) {
     routesWithTimes.value = []
-    liveEtaByKey.value = new Map()
+    trackedTimesByKey.value = new Map()
     return
   }
   const now = userTime.value || new Date()
@@ -806,7 +812,7 @@ watch(planData, (data) => {
   const transitTrimmed = results.filter(p => p.legs.length > 0).slice(0, 6)
   const walkOnlyPlans = results.filter(p => p.legs.length === 0)
   routesWithTimes.value = [...transitTrimmed, ...walkOnlyPlans]
-  liveEtaByKey.value = new Map()
+  trackedTimesByKey.value = new Map()
 }, {immediate: true})
 
 // Update departure times in-place on every clock tick — no re-sort, no DOM churn
@@ -933,12 +939,12 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
     mapStore.setVehiclesToDisplay([])
     selectedRouteIsLive.value = false
     selectedRouteLiveEtaMin.value = null
-    liveEtaByKey.value = new Map()
+    trackedTimesByKey.value = new Map()
     return
   }
 
   const gen = ++vehicleTrackingGen
-  const newLiveEtas = new Map<string, StoredLiveEta[]>()
+  const newTracked = new Map<string, TrackedTimes>()
   const now = userTime.value || new Date()
 
   // Compute live ETA for every plan's first leg boarding stop, route by route.
@@ -946,7 +952,7 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
     const leg = plan.legs[0]
     if (!leg) continue
 
-    const liveEntries: StoredLiveEta[] = []
+    const tracked: TrackedTimes = {tripKeys: new Set(), entries: []}
 
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
@@ -973,25 +979,26 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
 
         if (!indexed.length) continue
 
-        const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
-        const stopShapeIdx = buildStopShapeIdxByStopId(stopTimes, shapeIndex.shape)
-        const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
-        if (boardingIdx < 0) continue
+        const stopTimes = (shape.stop_times ?? shape.stop_time ?? [])
+          .filter(st => st.trip_id === tid)
+          .sort((a, b) => a.stop_sequence - b.stop_sequence)
+        const boardingPos = stopTimes.findIndex(st => st.stop_id === leg.startStopId)
+        if (boardingPos < 0) continue
 
-        const eta = etaForStop(boardingIdx, indexed, shapeIndex, {
+        const arrivals = arrivalsAlongTrip({
+          departureMinutes: tripDepartureMinutes(shape, tid, now),
           tripStops: stopTimes,
-          targetStopId: leg.startStopId,
-          referenceTime: userTime.value,
-        })
-        if (eta && eta.etaMinutes <= MAX_MINUTES) {
-          const entry: PlannedTimeEntry = {
-            minutes: eta.etaMinutes,
-            is_live: true,
-            routeId,
-            tripId: tid,
-          }
+          vehicles: indexed,
+          index: shapeIndex,
+          referenceTime: now,
+          horizonMinutes: MAX_MINUTES + 1,
+          limit: 6,
+        })[boardingPos] ?? []
+        tracked.tripKeys.add(`${routeId}:${tid}`)
+        for (const arrival of arrivals) {
+          const entry: PlannedTimeEntry = {minutes: arrival.minutes, is_live: arrival.isLive, routeId, tripId: tid}
           if (hasScheduledConnection(plan, entry, shapes.value, now)) {
-            liveEntries.push({...entry, ts: Date.now()})
+            tracked.entries.push({...entry, ts: Date.now()})
           }
         }
       } catch (e) {
@@ -999,15 +1006,13 @@ watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
       }
     }
 
-    if (liveEntries.length) {
-      newLiveEtas.set(plan.key, liveEntries.sort((a, b) => a.minutes - b.minutes).slice(0, 3))
-    }
+    if (tracked.tripKeys.size) newTracked.set(plan.key, tracked)
   }
 
   // Discard if a newer computation has started
   if (gen !== vehicleTrackingGen) return
 
-  liveEtaByKey.value = newLiveEtas
+  trackedTimesByKey.value = newTracked
   applyPlanTimingFromSchedule(now)
 
   // Compute vehicles for selected plan's map display
