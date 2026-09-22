@@ -79,20 +79,33 @@ describe('which vehicles are allowed to drive a live ETA', () => {
   })
 })
 
-describe('an estimate waits for a new position instead of draining to zero', () => {
+describe('an estimate credits the age of the fix, then waits for the next one', () => {
   // Tranzy refreshes a fix every ~30s while the backend polls faster, and a vehicle
-  // it drops entirely is re-served from its last position for another 90s. Ageing
-  // the estimate against the wall clock through those gaps used to walk every stop
-  // down to "now" while the bus stood hundreds of metres away.
-  it('holds steady while the fix does not move', async () => {
+  // it drops entirely is re-served from its last position for another 90s. The bus
+  // has covered ground in that time, so the estimate may be credited for it - but
+  // only up to a point, or a gap in the feed walks every stop down to "now" while
+  // the bus stands hundreds of metres away.
+  it('stops crediting once the fix is older than the cap', async () => {
     const bus = vehicleAt(46.76280, 23.60960, {id: 454})
-    const reference = await track([bus])
-    const expected = stops.map((s) => etaAt(s, reference)?.etaMinutes ?? null)
-
-    for (const ageSeconds of [30, 60, 90, 120, 150, 170]) {
+    const fresh = await track([bus])
+    const at = async (ageSeconds: number) => {
       const now = new Date(FIXED_AT.getTime() + ageSeconds * 1000)
       const tracked = await track([bus], now)
-      expect(stops.map((s) => etaAt(s, tracked, now)?.etaMinutes ?? null)).toEqual(expected)
+      return stops.map((s) => etaAt(s, tracked, now)?.etaSeconds ?? null)
+    }
+
+    const reference = stops.map((s) => etaAt(s, fresh)?.etaSeconds ?? null)
+    const capped = await at(90)
+    for (const ageSeconds of [30, 60, 90, 120, 150, 170]) {
+      const seconds = await at(ageSeconds)
+      seconds.forEach((eta, i) => {
+        const before = reference[i]
+        if (eta === null || before === null) return
+        expect(before - eta).toBeLessThanOrEqual(90 + 0.5)
+        expect(eta).toBeLessThanOrEqual(before + 0.5)
+        // Past the cap the number holds until the bus reports again.
+        if (ageSeconds >= 90) expect(eta).toBeCloseTo(capped[i]!, 5)
+      })
     }
   })
 
