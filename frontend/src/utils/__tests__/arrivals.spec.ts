@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {mergeArrivals, minutesUntil, scheduledArrivals} from '@/utils/arrivals.ts'
+import {markRepeatedNow, mergeArrivals, minutesUntil, scheduledArrivals} from '@/utils/arrivals.ts'
 
 // Route 45 towards Bulgaria, 14:42, captured from the stop list that showed the bug.
 // Departures every 25 minutes; the bus on the road is running ~3 minutes ahead of its
@@ -106,5 +106,31 @@ describe('a run that is running late', () => {
       offsetMinutes: 0,
       nowMinutes: NOW,
     })).toEqual([])
+  })
+})
+
+describe('a stop list with nothing tracked', () => {
+  // Bus 32 towards P-ța Mihai Viteazul at 09:17 on 2026-09-23, while Tranzy reported
+  // none of its buses. The 09:12 run was within its grace at two stops running, so the
+  // list read "now" at both, and the 09:03 run was due at the last stop.
+  const departures32 = [9 * 60 + 3, 9 * 60 + 12, 9 * 60 + 22, 9 * 60 + 31]
+  const offsets32 = [0, 1, 2, 4, 7, 9, 14]
+  const firstColumn = markRepeatedNow(offsets32.map((offsetMinutes) => mergeArrivals(
+    null,
+    scheduledArrivals({departureMinutes: departures32, offsetMinutes, nowMinutes: 9 * 60 + 17}),
+    {tracked: false},
+  ))).map(([first]) => (first!.soon ? 'soon' : String(first!.minutes)))
+
+  it('says "now" at the first of consecutive stops and "soon" at the rest', () => {
+    expect(firstColumn).toEqual(['5', '6', '0', 'soon', '2', '4', '0'])
+  })
+
+  it('leaves a second "now" further down alone, since that is another bus', () => {
+    expect(firstColumn.at(-1)).toBe('0')
+  })
+
+  it('reads a second zero within one row as "soon"', () => {
+    const [row] = markRepeatedNow([[{minutes: 0, isLive: true}, {minutes: 0, isLive: false}, {minutes: 9, isLive: false}]])
+    expect(row!.map((a) => a.soon)).toEqual([false, true, false])
   })
 })

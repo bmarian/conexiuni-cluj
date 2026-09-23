@@ -183,3 +183,40 @@ describe('physical sanity along the whole route', () => {
     expect(regressions).toEqual([])
   })
 })
+
+describe('a bus pulling out of the departure terminus', () => {
+  // Bus 690 on line 9 left Disp. IRA at 10:04 on 2026-09-23, four minutes late. Still
+  // inside the terminus radius, it was held to the next departure and the stop list
+  // said 7 min for a stop it reached in one. A straight route stands in for the real
+  // one: points every 20 m, the first stop after the terminus 120 m in.
+  const STEP_DEG = 20 / 111_320
+  const line = Array.from({length: 40}, (_, i): Shape => ({
+    shape_id: '99_0', shape_pt_lat: 46.77 + i * STEP_DEG, shape_pt_lon: 23.6,
+    shape_pt_sequence: i, shape_dist_traveled: -1,
+  }))
+  const lineIndex = buildShapeIndex(line)
+  const lineStops = [0, 6, 30].map((pt, i): StopTime => ({
+    trip_id: '99_0', stop_id: 900 + i, stop_sequence: i, offset_arrival_time: [0, 30, 120][i]!,
+    stop_headsign: '', route_short_name: '9', stop_lat: line[pt]!.shape_pt_lat, stop_lon: line[pt]!.shape_pt_lon,
+  }))
+  const farStop = lineStops[2]!
+
+  const etaFrom = async (pt: number, tripStops: StopTime[] = lineStops) => {
+    const bus = vehicleAt(line[pt]!.shape_pt_lat, line[pt]!.shape_pt_lon, {id: 690, route_id: 99, trip_id: '99_0'})
+    const tracked = await getIndexedVehicles('99_0', '9', '#000', lineIndex, FIXED_AT, [bus])
+    expect(tracked[0]!.atStartTerminus).toBe(true)
+    return etaForStop(30, tracked, lineIndex, {tripStops, targetStopId: farStop.stop_id, referenceTime: FIXED_AT})
+  }
+
+  it('drives a live estimate once it is past the first stop, radius or not', async () => {
+    expect(await etaFrom(8)).not.toBeNull()
+  })
+
+  it('stays on the timetable while still short of that stop', async () => {
+    expect(await etaFrom(4)).toBeNull()
+  })
+
+  it('stays on the timetable when the stops are not known', async () => {
+    expect(await etaFrom(8, [])).toBeNull()
+  })
+})

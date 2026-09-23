@@ -36,8 +36,8 @@ export type IndexedVehicle = TrackedVehicle & {
   // Distance from the shape at shapeIdx. Snapping is unconditional, so this is the
   // only thing separating a bus on the route from one that merely carries its trip.
   offRouteMeters: number;
-  // Sitting at (or still rolling into) the departure terminus: drawn on the map,
-  // but never the source of a live ETA - see etaForStop.
+  // Within the radius of the departure terminus: drawn on the map, but not the source
+  // of a live ETA until it is past the trip's first stop - see etaForStop.
   atStartTerminus: boolean;
   dwellMs: number;
 };
@@ -251,8 +251,9 @@ export function etaForStop(
   // departure terminus, or still driving in from somewhere else entirely. Neither
   // says anything about when it leaves - that is the timetable's job - and both
   // snap to shape index 0, which would make them the candidate for every stop.
+  const firstStopIdx = firstStopShapeIdx(index, options.tripStops);
   const candidate = vehicles
-    .filter((v) => v.shapeIdx <= stopShapeIdx && canDriveLiveEta(v, now))
+    .filter((v) => v.shapeIdx <= stopShapeIdx && canDriveLiveEta(v, now, firstStopIdx))
     .sort((a, b) => b.shapeIdx - a.shapeIdx)[0];
   if (!candidate) return null;
 
@@ -268,8 +269,21 @@ export function isOnRoute(v: IndexedVehicle): boolean {
   return v.shapeIdx >= 0 && v.offRouteMeters <= MAX_OFF_ROUTE_METERS;
 }
 
-export function canDriveLiveEta(v: IndexedVehicle, now: number): boolean {
-  return isOnRoute(v) && !v.atStartTerminus && isFreshForLiveEta(v, now);
+// Shape index of the first stop after the departure terminus. Infinity without stops,
+// which keeps every bus inside the terminus radius on the timetable.
+function firstStopShapeIdx(index: ShapeIndex, tripStops?: StopTime[]): number {
+  const first = tripStops?.length ? sortedTripStops(tripStops)[1] : undefined;
+  if (!first?.stop_lat || !first.stop_lon) return Infinity;
+  return findClosestShapeIdx(first.stop_lat, first.stop_lon, index.shape);
+}
+
+// The terminus radius alone cannot tell a bus pulling out from one standing in the
+// bay, and a bus that left a few minutes late was held to the next departure until it
+// cleared the radius. Only a bus that has left is past the trip's first stop: parked
+// buses were seen up to 240 m along the shape, always short of it.
+export function canDriveLiveEta(v: IndexedVehicle, now: number, firstStopIdx = Infinity): boolean {
+  const waitingAtTerminus = v.atStartTerminus && v.shapeIdx <= firstStopIdx;
+  return isOnRoute(v) && !waitingAtTerminus && isFreshForLiveEta(v, now);
 }
 
 // Deliberately *not* aged against the wall clock. Between position fixes we have

@@ -19,7 +19,7 @@ import {
 } from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
-import {mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
+import {markRepeatedNow, mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
 import {
   buildShapeIndex,
   buildStopShapeIdxByStopId,
@@ -291,11 +291,14 @@ function liveMinutesForStop(stop: IndexedStop): number | null {
 // The live estimate used to be dropped into slot 0 and the timetable kept the rest,
 // which left the same bus counted twice and made a column mean a different thing on
 // every row. Merging on time instead keeps the columns comparable down the list.
-function getStopTimesDisplay(stop: IndexedStop): StopTimeDisplay[] {
-  const scheduled = nextArrivalsAtStop(stop.timeOffsetFromStart)
-  const merged = mergeArrivals(liveMinutesForStop(stop), scheduled, {tracked: directionIsTracked.value})
-  return merged.map((arrival) => ({label: formatMinutes(arrival.minutes), isLive: arrival.isLive}))
-}
+const stopTimesByStop = computed((): StopTimeDisplay[][] => {
+  const rows = stopsForDirection.value.map((stop) =>
+    mergeArrivals(liveMinutesForStop(stop), nextArrivalsAtStop(stop.timeOffsetFromStart), {tracked: directionIsTracked.value}))
+  return markRepeatedNow(rows).map((row) => row.map((arrival) => ({
+    label: arrival.soon ? t('soon') : formatMinutes(arrival.minutes),
+    isLive: arrival.isLive,
+  })))
+})
 
 // The header lists departures from the terminus, where there is no stop to have been
 // passed, so it stays on the timetable alone.
@@ -947,7 +950,7 @@ onUnmounted(() => {
 
           <div class="times-cols shrink-0">
             <span
-              v-for="(stopTime, i) in getStopTimesDisplay(stop)"
+              v-for="(stopTime, i) in stopTimesByStop[idx]"
               :key="i"
               :class="[
                 'time-cell',

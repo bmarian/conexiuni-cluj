@@ -90,3 +90,16 @@ export const mergeArrivals = (
     ...later.slice(0, Math.max(limit - 1, 0)).map((minutes) => ({minutes, isLive: false})),
   ]
 }
+
+const readsNow = (arrival: Arrival | undefined): boolean => arrival !== undefined && Math.round(arrival.minutes) === 0
+
+/**
+ * A run a couple of minutes late reads zero at every stop it is overdue at, so a stop
+ * list said "now" several stops running for one bus. The first of consecutive zeros in
+ * a column keeps "now" and the rest read "soon", as does a second zero within a row.
+ */
+export const markRepeatedNow = (rows: Arrival[][]): (Arrival & { soon: boolean })[][] =>
+  rows.map((row, stop) => row.map((arrival, column) => ({
+    ...arrival,
+    soon: readsNow(arrival) && (readsNow(rows[stop - 1]?.[column]) || row.slice(0, column).some(readsNow)),
+  })))
