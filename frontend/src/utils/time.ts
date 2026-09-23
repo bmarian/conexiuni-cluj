@@ -69,13 +69,6 @@ export const reverseRouteLongName = (routeLongName: string): string => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
-export const getDepartureMinutes = (timetable: Timetable, tripId: string, referenceDate: Date): number[] => {
-  const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
-  return (getTimetableForDay(timetable, referenceDate)?.entries ?? [])
-    .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
-    .filter((m): m is number => m !== null)
-}
-
 export const getAvailableBusesForStop = (
   stopInfo: StopInfo,
   referenceDate: Date,
@@ -98,9 +91,16 @@ export const getAvailableBusesForStop = (
     const stopTimes = getShapeStopTimes(shape)
     const timeOffsetToStop = getTimeOffsetToStop(stopTimes, tripId, stop_id)
     const isOutgoing = tripId.endsWith(OUTGOING_SUFFIX)
+    const daySchedule = getTimetableForDay(timetable, referenceDate)
 
+    const departureMinutes = daySchedule.entries
+      .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
+      .filter((m): m is number => m !== null)
+
+    // Signed, so a run a couple of minutes behind schedule is still listed as coming
+    // instead of wrapping into tomorrow and pushing the whole card on by a headway.
     let upcomingEntries: TimeEntry[] = scheduledArrivals({
-      departureMinutes: getDepartureMinutes(timetable, tripId, referenceDate),
+      departureMinutes,
       offsetMinutes: timeOffsetToStop,
       nowMinutes: referenceMinutes,
       horizonMinutes: options.maxMinutes,
