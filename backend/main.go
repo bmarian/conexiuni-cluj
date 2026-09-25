@@ -148,6 +148,7 @@ func main() {
 		MaxDailyQuota:          config.VehicleLearningMaxQuota,
 		UsesDedicatedTranzyKey: usesDedicatedLearningKey,
 	})
+	handlers.StartScheduleDelayLearner(tranzyClient.Location())
 	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
 		log.Printf("Warning: push notifications disabled: %v", err)
 	}

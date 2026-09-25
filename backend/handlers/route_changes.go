@@ -121,6 +121,9 @@ func diffTimetables(previous, current *models.Timetable) []RouteChangeItem {
 			if len(before) == 0 && len(after) == 0 {
 				continue
 			}
+			if sameDeparturesWithinDay(before, after) {
+				continue
+			}
 			toward := current.OutStopName
 			if direction == "1" {
 				toward = current.InStopName
@@ -248,6 +251,28 @@ func departureMinutes(entries []models.TimetableEntry, inColumn bool) []int {
 	}
 	sort.Ints(out)
 	return out
+}
+
+// 35:38 and 11:38 are the same departure, written past midnight or not.
+func sameDeparturesWithinDay(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	withinDay := func(xs []int) []int {
+		out := make([]int, len(xs))
+		for i, x := range xs {
+			out[i] = x % 1440
+		}
+		sort.Ints(out)
+		return out
+	}
+	wa, wb := withinDay(a), withinDay(b)
+	for i := range wa {
+		if wa[i] != wb[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func parseDepartureMinutes(s string) (int, bool) {

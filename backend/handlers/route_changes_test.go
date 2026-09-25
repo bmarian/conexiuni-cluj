@@ -112,6 +112,21 @@ func TestDiffTimetablesIgnoresSwappedColumnsAndMissingDays(t *testing.T) {
 	}
 }
 
+func TestDiffTimetablesIgnoresFalseMidnightRollover(t *testing.T) {
+	previous := &models.Timetable{
+		InStopName: "A", OutStopName: "B",
+		Weekdays: dayOf([2]string{"11:27", "11:40"}, [2]string{"14:32", "11:45"}, [2]string{"35:38", "11:51"}, [2]string{"35:43", "11:56"}),
+	}
+	current := &models.Timetable{
+		InStopName: "A", OutStopName: "B",
+		Weekdays: dayOf([2]string{"11:27", "11:40"}, [2]string{"14:32", "11:45"}, [2]string{"11:38", "11:51"}, [2]string{"11:43", "11:56"}),
+	}
+
+	if items := diffTimetables(previous, current); len(items) != 0 {
+		t.Fatalf("want no changes, got %+v", items)
+	}
+}
+
 func TestDiffTimetablesReportsNewDayOfService(t *testing.T) {
 	previous := &models.Timetable{
 		InStopName: "A", OutStopName: "B",

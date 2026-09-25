@@ -298,6 +298,18 @@ func InitSchemas() error {
             p75_sec          REAL    NOT NULL,
             updated_at       INTEGER NOT NULL,
             PRIMARY KEY (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min)
+        );
+
+		CREATE TABLE IF NOT EXISTS schedule_delay_profiles
+        (
+            route_id         INTEGER NOT NULL,
+            direction_id     INTEGER NOT NULL,
+            day_type         TEXT    NOT NULL,
+            bucket_start_min INTEGER NOT NULL,
+            run_count        INTEGER NOT NULL,
+            delay_sec        REAL    NOT NULL,
+            updated_at       INTEGER NOT NULL,
+            PRIMARY KEY (route_id, direction_id, day_type, bucket_start_min)
         )
     `
 	_, err := DB.Exec(schema)

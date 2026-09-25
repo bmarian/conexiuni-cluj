@@ -17,6 +17,8 @@ const (
 	minSegmentProfileSamples   = 5
 	segmentProfileNeighborMins = 120
 	segmentSampleRetention     = 45 * 24 * time.Hour
+	// Traffic drifts with the season; profiles follow the last two weeks only.
+	segmentProfileWindow       = 14 * 24 * time.Hour
 	segmentProfileRetention    = 60 * 24 * time.Hour
 	maxObservedVehicleAge      = 10 * time.Minute
 	minSegmentDurationSec      = 8
@@ -562,7 +564,7 @@ func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 		  AND to_stop_id = ?
 		  AND day_type = ?
 		  AND observed_at >= ?`
-	args := []any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, time.Now().Add(-segmentSampleRetention).Unix()}
+	args := []any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, time.Now().Add(-segmentProfileWindow).Unix()}
 	if key.BucketStartMin != allDaySegmentBucket {
 		query += ` AND bucket_start_min = ?`
 		args = append(args, key.BucketStartMin)
@@ -688,47 +690,52 @@ type segmentProfileEstimate struct {
 	Confidence  float64
 }
 
-func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (map[stopPair]segmentProfileEstimate, error) {
-	dayType := segmentDayType(refTime)
-	bucket := segmentBucketStartMin(refTime)
+type segmentProfileRow struct {
+	pair        stopPair
+	bucket      int
+	sampleCount int
+	medianSec   float64
+}
 
-	rows, err := database.DB.Query(`
+func loadSegmentProfileDurations(routeID, directionID int, dayType string, bucket int) (map[stopPair]segmentProfileEstimate, error) {
+	rows, err := loadSegmentProfileRows(routeID, directionID, dayType)
+	if err != nil {
+		return nil, err
+	}
+	return selectSegmentProfiles(rows, bucket), nil
+}
+
+func loadSegmentProfileRows(routeID, directionID int, dayType string) ([]segmentProfileRow, error) {
+	return queryRows(`
 		SELECT from_stop_id, to_stop_id, bucket_start_min, sample_count, median_sec
 		FROM segment_travel_time_profiles
 		WHERE route_id = ?
 		  AND direction_id = ?
 		  AND day_type = ?
 		  AND sample_count >= ?`,
-		routeID, directionID, dayType, minSegmentProfileSamples,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+		[]any{routeID, directionID, dayType, minSegmentProfileSamples},
+		func(rows *sql.Rows) (segmentProfileRow, error) {
+			var r segmentProfileRow
+			err := rows.Scan(&r.pair.FromStopID, &r.pair.ToStopID, &r.bucket, &r.sampleCount, &r.medianSec)
+			return r, err
+		})
+}
 
+func selectSegmentProfiles(rows []segmentProfileRow, bucket int) map[stopPair]segmentProfileEstimate {
 	type selectedProfile struct {
 		duration    float64
 		priority    int
 		sampleCount int
 	}
 	selected := make(map[stopPair]selectedProfile)
-	for rows.Next() {
-		var fromStopID, toStopID, profileBucket, sampleCount int
-		var medianSec float64
-		if err := rows.Scan(&fromStopID, &toStopID, &profileBucket, &sampleCount, &medianSec); err != nil {
-			return nil, err
-		}
-		priority, ok := segmentProfilePriority(profileBucket, bucket)
+	for _, r := range rows {
+		priority, ok := segmentProfilePriority(r.bucket, bucket)
 		if !ok {
 			continue
 		}
-		pair := stopPair{FromStopID: fromStopID, ToStopID: toStopID}
-		if current, exists := selected[pair]; !exists || priority < current.priority {
-			selected[pair] = selectedProfile{duration: medianSec, priority: priority, sampleCount: sampleCount}
+		if current, exists := selected[r.pair]; !exists || priority < current.priority {
+			selected[r.pair] = selectedProfile{duration: r.medianSec, priority: priority, sampleCount: r.sampleCount}
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 
 	out := make(map[stopPair]segmentProfileEstimate, len(selected))
@@ -738,7 +745,7 @@ func loadSegmentProfileDurations(routeID, directionID int, refTime time.Time) (m
 			Confidence:  segmentProfileConfidence(profile.priority, profile.sampleCount),
 		}
 	}
-	return out, nil
+	return out
 }
 
 const (

@@ -180,6 +180,37 @@ func TestParseTimetableCSV_LeadingAnnotationEitherColumn(t *testing.T) {
 	}
 }
 
+// Real line 35 (lv) rows, where CTP typed 14:32 for 11:32.
+func TestParseTimetableCSV_TypoIsNotMidnight(t *testing.T) {
+	csv := "service_start,01.09.2026\r\n" +
+		"11:21,11:34\r\n" +
+		"11:27,11:40\r\n" +
+		"14:32,11:45\r\n" +
+		"11:38,11:51\r\n" +
+		"23:40,23:50\r\n" +
+		"00:15,00:25\r\n"
+	parsed, err := ParseTimetableCSV([]byte(csv))
+	if err != nil {
+		t.Fatalf("ParseTimetableCSV: %v", err)
+	}
+	want := []TimetableEntry{
+		{"11:21", "11:34"},
+		{"11:27", "11:40"},
+		{"14:32", "11:45"},
+		{"11:38", "11:51"},
+		{"23:40", "23:50"},
+		{"24:15", "24:25"},
+	}
+	if len(parsed.Entries) != len(want) {
+		t.Fatalf("got %d entries, want %d: %+v", len(parsed.Entries), len(want), parsed.Entries)
+	}
+	for i, e := range parsed.Entries {
+		if e != want[i] {
+			t.Errorf("entry %d = %+v, want %+v", i, e, want[i])
+		}
+	}
+}
+
 func TestCanonicalTime(t *testing.T) {
 	cases := map[string]string{
 		"*07:25":   "07:25*",

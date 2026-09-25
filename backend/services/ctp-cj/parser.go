@@ -175,7 +175,8 @@ func normalizeTime(s string, prev *int, offset *int) string {
 	}
 
 	cur := h*60 + m
-	if *prev >= 0 && cur < *prev {
+	// Only a drop of over 12h is midnight; CTP typos like 14:32 among 11:3x are not.
+	if *prev >= 0 && *prev-cur > 12*60 {
 		*offset += 1440
 	}
 	*prev = cur

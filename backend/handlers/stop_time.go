@@ -163,8 +163,14 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 
 	out := make([]models.StopTime, len(stopTimes))
 	copy(out, stopTimes)
+	dayType, bucket := segmentDayType(refTime), segmentBucketStartMin(refTime)
 
-	profilesByDirection := make(map[int]map[stopPair]segmentProfileEstimate)
+	type directionProfile struct {
+		segments map[stopPair]segmentProfileEstimate
+		delay    float64
+		hasDelay bool
+	}
+	byDirection := make(map[int]directionProfile)
 	groupByTrip := make(map[string][]int)
 	for i, st := range out {
 		groupByTrip[st.TripID] = append(groupByTrip[st.TripID], i)
@@ -175,35 +181,41 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 		if !ok {
 			continue
 		}
-		profiles, exists := profilesByDirection[directionID]
+		profile, exists := byDirection[directionID]
 		if !exists {
-			var err error
-			profiles, err = loadSegmentProfileDurations(routeID, directionID, refTime)
+			segments, err := loadSegmentProfileDurations(routeID, directionID, dayType, bucket)
 			if err != nil {
 				log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
-				profiles = map[stopPair]segmentProfileEstimate{}
+				segments = map[stopPair]segmentProfileEstimate{}
 			}
-			profilesByDirection[directionID] = profiles
-		}
-		if len(profiles) == 0 {
-			continue
+			profile.segments = segments
+			profile.delay, profile.hasDelay = loadScheduleDelay(routeID, directionID, dayType, bucket)
+			byDirection[directionID] = profile
 		}
 
 		sort.Slice(indexes, func(i, j int) bool {
 			return out[indexes[i]].StopSequence < out[indexes[j]].StopSequence
 		})
-		for pos := 1; pos < len(indexes); pos++ {
-			prev := out[indexes[pos-1]]
-			currIdx := indexes[pos]
-			pair := stopPair{FromStopID: prev.StopID, ToStopID: out[currIdx].StopID}
-			if estimate, ok := profiles[pair]; ok && estimate.DurationSec > 0 {
-				out[currIdx].OffsetArrivalTime = math.Ceil(estimate.DurationSec)
-				out[currIdx].OffsetConfidence = estimate.Confidence
-			}
+		applySegmentProfilesToTrip(out, indexes, profile.segments)
+		// Every timetable consumer sums from the first stop; live ETAs never read it.
+		if profile.hasDelay && len(indexes) > 0 {
+			out[indexes[0]].OffsetArrivalTime = math.Round(profile.delay)
 		}
 	}
 
 	return out
+}
+
+// ordered indexes one trip's rows in stop_sequence order.
+func applySegmentProfilesToTrip(stopTimes []models.StopTime, ordered []int, profiles map[stopPair]segmentProfileEstimate) {
+	for pos := 1; pos < len(ordered); pos++ {
+		prev := stopTimes[ordered[pos-1]]
+		curr := &stopTimes[ordered[pos]]
+		if estimate, ok := profiles[stopPair{FromStopID: prev.StopID, ToStopID: curr.StopID}]; ok && estimate.DurationSec > 0 {
+			curr.OffsetArrivalTime = math.Ceil(estimate.DurationSec)
+			curr.OffsetConfidence = estimate.Confidence
+		}
+	}
 }
 
 func scanStopTime(rows *sql.Rows) (models.StopTime, error) {
