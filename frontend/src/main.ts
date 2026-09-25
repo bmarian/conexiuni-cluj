@@ -10,7 +10,8 @@ import {useUserStore} from './stores/user'
 import {useSettingsStore} from './stores/settings'
 import {useFavoritesStore} from './stores/favorites'
 import {usePushStore} from './stores/push'
-import {apiRequest} from './utils/api'
+import {useRoutesApi} from './composables/useRoutesApi'
+import {useStopsApi} from './composables/useStopsApi'
 import './main.css'
 import './styles/arcade.css'
 import './styles/legacy-blue.css'
@@ -36,8 +37,8 @@ window.addEventListener('appinstalled', sendPWAInstallEvent)
 const isAdminPath = window.location.pathname.startsWith('/admin')
 
 if (!isAdminPath) {
-  void apiRequest('routes')
-  void apiRequest('stops')
+  void useRoutesApi().fetchRoutes()
+  void useStopsApi().fetchStops()
 }
 
 const i18n = createI18n({

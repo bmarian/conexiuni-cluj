@@ -1,22 +1,26 @@
 import {ref} from 'vue'
 import type {Stop} from '@/types/tranzy.ts'
-import {apiRequest} from '@/utils/api.ts'
+import {apiRequest, readCachedList, writeCachedList} from '@/utils/api.ts'
 
-let pending: Promise<Stop[]> | null = null
+const CACHE_KEY = 'cache:stops'
+
+// Starts from the last session's list so favorites render before the network answers.
+const stops = ref<Stop[]>(readCachedList(CACHE_KEY))
+let pending: Promise<void> | null = null
 
 export function useStopsApi() {
-  const stops = ref<Stop[]>([])
   const isLoading = ref(false)
   const error = ref<unknown>(null)
 
   async function fetchStops() {
     isLoading.value = true
     try {
-      if (!pending) {
-        pending = apiRequest('stops') as Promise<Stop[]>
-      }
-      const data = await pending
-      stops.value = Array.isArray(data) ? data : []
+      pending ??= (apiRequest('stops') as Promise<Stop[]>).then((data) => {
+        if (!Array.isArray(data) || !data.length) return
+        stops.value = data
+        writeCachedList(CACHE_KEY, data)
+      })
+      await pending
     } catch (e) {
       error.value = e
       console.error('Failed to fetch stops:', e)

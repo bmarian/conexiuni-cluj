@@ -4,8 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
-import {apiRequest} from "@/utils/api.ts";
-import type {Stop} from "@/types/tranzy.ts";
+import {useStopsApi} from "@/composables/useStopsApi.ts";
 import {useRoute, useRouter} from "vue-router";
 import {useI18n} from "vue-i18n";
 import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
@@ -394,8 +393,10 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
 }
 
 const stopsInit = async () => {
-  const stops = await apiRequest('stops') as Stop[]
-  if (!Array.isArray(stops) || !stops.length || !stopGroup.value) return
+  const {stops: stopsRef, fetchStops} = useStopsApi()
+  await fetchStops()
+  const stops = stopsRef.value
+  if (!stops.length || !stopGroup.value) return
 
   for (let i = 0; i < stops.length; i++) {
     const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
@@ -415,6 +416,8 @@ const stopsInit = async () => {
     stopNames.set(stop_id.toString(), stop_name)
   }
   highlightSelectedStop(route.params.stopId as string)
+  // Highlights set before the markers existed were skipped.
+  renderHighlightedStops()
 }
 
 const blueDotIcon = L.divIcon({
@@ -809,11 +812,11 @@ watch([walkingPolylines, arcadeActive, legacyBlueActive], ([polylines]) => {
 }, {deep: true})
 
 
-watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueActive], ([stops]) => {
+const renderHighlightedStops = () => {
   if (!highlightedStopLayerGroup.value) return
   highlightedStopLayerGroup.value.clearLayers()
   const selectedId = currentlyHighlightedStopId.value
-  for (const {stopId, color} of stops as HighlightedStop[]) {
+  for (const {stopId, color} of highlightedStops.value as HighlightedStop[]) {
     if (stopId === selectedId) continue
     const marker = stopMarkers.get(stopId)
     if (!marker) continue
@@ -834,7 +837,9 @@ watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueAct
     m.on('click', () => router.push({name: 'stop', params: {stopId}}))
     m.addTo(highlightedStopLayerGroup.value!)
   }
-}, {deep: true})
+}
+
+watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueActive], renderHighlightedStops, {deep: true})
 
 
 const renderVehicles = (vehicles: DisplayVehicle[]) => {

@@ -1,22 +1,26 @@
 import {ref} from 'vue'
 import type {Route} from '@/types/tranzy.ts'
-import {apiRequest} from '@/utils/api.ts'
+import {apiRequest, readCachedList, writeCachedList} from '@/utils/api.ts'
 
-let pending: Promise<Route[]> | null = null
+const CACHE_KEY = 'cache:routes'
+
+// Starts from the last session's list so favorites render before the network answers.
+const routes = ref<Route[]>(readCachedList(CACHE_KEY))
+let pending: Promise<void> | null = null
 
 export function useRoutesApi() {
-  const routes = ref<Route[]>([])
   const isLoading = ref(false)
   const error = ref<unknown>(null)
 
   async function fetchRoutes() {
     isLoading.value = true
     try {
-      if (!pending) {
-        pending = apiRequest('routes') as Promise<Route[]>
-      }
-      const data = await pending
-      routes.value = Array.isArray(data) ? data : []
+      pending ??= (apiRequest('routes') as Promise<Route[]>).then((data) => {
+        if (!Array.isArray(data) || !data.length) return
+        routes.value = data
+        writeCachedList(CACHE_KEY, data)
+      })
+      await pending
     } catch (e) {
       error.value = e
       console.error('Failed to fetch routes:', e)
