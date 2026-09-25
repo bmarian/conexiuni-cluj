@@ -1,4 +1,4 @@
-import {OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
+import {type HourlyStopOffsets, OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {apiRequest} from '@/utils/api.ts'
 
@@ -25,13 +25,16 @@ function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): 
   return target?.stop_headsign?.trim() ?? ''
 }
 
-export async function fetchStopTimesForHour(routeShortName: string, hour: number): Promise<StopTime[]> {
+export async function fetchHourlyStopOffsets(
+  routeShortName: string,
+  dayType: 'weekday' | 'saturday' | 'sunday',
+): Promise<Record<string, HourlyStopOffsets>> {
   const encoded = encodeURIComponent(routeShortName)
   try {
-    return await apiRequest(`stop_times?route_short_name=${encoded}&ref_hour=${hour}`) as StopTime[]
+    return await apiRequest(`stop_times/hourly?route_short_name=${encoded}&day_type=${dayType}`) as Record<string, HourlyStopOffsets>
   } catch (e) {
-    console.warn(`Failed to fetch stop_times for ${routeShortName} at hour ${hour}:`, e)
-    return []
+    console.warn(`Failed to fetch hourly stop offsets for ${routeShortName}:`, e)
+    return {}
   }
 }
 

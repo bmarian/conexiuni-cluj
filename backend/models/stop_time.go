@@ -17,3 +17,9 @@ type StopTime struct {
 	StopLat           float64 `json:"stop_lat" db:"stop_lat"`
 	StopLon           float64 `json:"stop_lon" db:"stop_lon"`
 }
+
+// HourlyOffsetSeconds[hour][i] is the cumulative offset of StopIDs[i] for departures in that hour.
+type HourlyStopOffsets struct {
+	StopIDs             []int         `json:"stop_ids"`
+	HourlyOffsetSeconds map[int][]int `json:"hourly_offset_seconds"`
+}

@@ -8,7 +8,13 @@ import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
+import {
+  type HourlyStopOffsets,
+  INCOMING_SUFFIX,
+  OUTGOING_SUFFIX,
+  type Shape,
+  type StopTime
+} from '@/types/tranzy.ts'
 import type {DaySchedule, Frequency} from '@/types/ctp.ts'
 import {
   formatMinutesFromNow,
@@ -30,7 +36,7 @@ import {
 } from '@/composables/useVehicleTracking.ts'
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
-import {fetchStopTimesForHour, useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {fetchHourlyStopOffsets, useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
@@ -238,8 +244,9 @@ function formatMinutes(minutes: number): string {
 }
 
 function formatAbsoluteMinutes(absMin: number): string {
-  const h = Math.floor(absMin / 60) % 24
-  const m = absMin % 60
+  const dayMin = ((absMin % 1440) + 1440) % 1440
+  const h = Math.floor(dayMin / 60)
+  const m = dayMin % 60
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
@@ -303,7 +310,8 @@ const stopTimesByStop = computed((): StopTimeDisplay[][] => {
 // The header lists departures from the terminus, where there is no stop to have been
 // passed, so it stays on the timetable alone.
 function getHeaderTimes(): string[] {
-  return mergeArrivals(null, nextArrivalsAtStop(0)).map((arrival) => formatMinutes(arrival.minutes))
+  const offset = stopsForDirection.value[0]?.timeOffsetFromStart ?? 0
+  return mergeArrivals(null, nextArrivalsAtStop(offset)).map((arrival) => formatMinutes(arrival.minutes))
 }
 
 function getStopLabel(idx: number, stop: IndexedStop): string {
@@ -356,7 +364,32 @@ function frequencyLabel(f: Frequency): string {
   return t('frequencyEvery', {min: min || max})
 }
 
-type TimetableChip = { time: string; isPast: boolean; isSuspended: boolean }
+const hourlyOffsets = ref<Record<string, HourlyStopOffsets>>({})
+
+watch([() => shapeInfo.value?.route_short_name, selectedTimetableTab], async ([name, tab]) => {
+  if (!name) return
+  const data = await fetchHourlyStopOffsets(name, tab === 'weekdays' ? 'weekday' : tab)
+  if (name === shapeInfo.value?.route_short_name && tab === selectedTimetableTab.value) hourlyOffsets.value = data
+}, {immediate: true})
+
+const hourlyTripOffsets = computed((): Record<string, number[]> | null => {
+  const trip = hourlyOffsets.value[currentTripId.value]
+  const stops = stopsForDirection.value
+  if (!trip || trip.stop_ids.length !== stops.length) return null
+  return trip.stop_ids.every((id, i) => id === stops[i]!.stop_id) ? trip.hourly_offset_seconds : null
+})
+
+// Shared by the chips and the trip view so both show the same minute.
+function tripOffsetsAt(departureMin: number): number[] {
+  const seconds = hourlyTripOffsets.value?.[Math.floor(departureMin / 60) % 24]
+  return seconds
+    ? seconds.map((s) => Math.ceil(s / 60))
+    : stopsForDirection.value.map((stop) => stop.timeOffsetFromStart)
+}
+
+// time is CTP's printed departure and identifies the run; startMin adds the first stop's learned delay.
+type TimetableChip = { time: string; startMin: number | null; isPast: boolean }
+type GridChip = TimetableChip & { startMin: number }
 
 const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
@@ -373,94 +406,74 @@ const timetableEntries = computed((): TimetableChip[] => {
     .map((entry): TimetableChip | null => {
       const raw = (isOutgoing.value ? entry.departure_in : entry.departure_out)?.trim()
       if (!raw) return null
-      const absMin = timeStringToMinutes(raw)
-      if (absMin === null) return {time: raw, isPast: false, isSuspended: true}
+      const departureMin = timeStringToMinutes(raw)
+      if (departureMin === null) return {time: raw, startMin: null, isPast: false}
+      const startMin = departureMin + (tripOffsetsAt(departureMin)[0] ?? 0)
       return {
         time: raw,
-        isPast: selectedTabIsPast || (isToday && absMin < now),
-        isSuspended: false,
+        startMin,
+        isPast: selectedTabIsPast || (isToday && startMin < now),
       }
     })
     .filter((e): e is TimetableChip => e !== null)
 })
 
 const allEntriesSuspended = computed(
-  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.isSuspended)
+  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.startMin === null)
 )
 
-type HourGroup = { hour: string; chips: TimetableChip[]; isNextDay: boolean }
+type HourGroup = { hour: string; chips: GridChip[]; isNextDay: boolean }
 
 const timetableByHour = computed((): HourGroup[] => {
-  const groups = new Map<string, TimetableChip[]>()
-  for (const entry of timetableEntries.value) {
-    if (entry.isSuspended) continue
-    const rawHour = entry.time.slice(0, 2)
-    if (!groups.has(rawHour)) groups.set(rawHour, [])
-    groups.get(rawHour)!.push(entry)
+  const groups = new Map<number, GridChip[]>()
+  const chips = timetableEntries.value
+    .filter((chip): chip is GridChip => chip.startMin !== null)
+    .sort((a, b) => a.startMin - b.startMin)
+  for (const chip of chips) {
+    const h = Math.floor(chip.startMin / 60)
+    if (!groups.has(h)) groups.set(h, [])
+    groups.get(h)!.push(chip)
   }
-  return Array.from(groups.entries()).map(([rawHour, chips]) => {
-    const h = parseInt(rawHour, 10)
-    const isNextDay = h >= 24
-    const hour = isNextDay ? String(h - 24).padStart(2, '0') : rawHour
-    return {hour, chips, isNextDay}
-  })
-})
-
-const selectedDepartureTimeDisplay = computed(() => {
-  if (!selectedDepartureTime.value) return null
-  const m = timeStringToMinutes(selectedDepartureTime.value)
-  return m !== null ? formatAbsoluteMinutes(m) : selectedDepartureTime.value
+  return Array.from(groups.entries()).map(([h, chips]) => ({
+    hour: formatAbsoluteMinutes(h * 60).slice(0, 2),
+    chips,
+    isNextDay: h >= 24,
+  }))
 })
 
 const selectedDepartureTime = ref<string | null>(null)
 const tripViewRef = ref<HTMLElement | null>(null)
-const departureStopTimes = ref<StopTime[]>([])
 
 function selectDeparture(entry: TimetableChip) {
-  if (entry.isSuspended) return
   selectedDepartureTime.value = selectedDepartureTime.value === entry.time ? null : entry.time
 }
 
 watch(selectedDepartureTime, async (val) => {
-  if (!val) {
-    departureStopTimes.value = []
-    return
-  }
+  if (!val) return
   await nextTick()
   tripViewRef.value?.scrollIntoView({behavior: 'smooth', block: 'nearest'})
-  const depMin = timeStringToMinutes(val)
-  if (depMin !== null && shapeInfo.value) {
-    const hour = Math.floor(depMin / 60) % 24
-    departureStopTimes.value = await fetchStopTimesForHour(shapeInfo.value.route_short_name, hour)
-  }
 })
 
-watch(currentDirection, () => {
+watch([currentDirection, selectedTimetableTab], () => {
   selectedDepartureTime.value = null
-  departureStopTimes.value = []
-})
-watch(selectedTimetableTab, () => {
-  selectedDepartureTime.value = null
-  departureStopTimes.value = []
 })
 
 type TripStop = IndexedStop & { arrivalTimeStr: string }
 
 const selectedDepartureStops = computed((): TripStop[] => {
   if (!selectedDepartureTime.value) return []
-  const depMin = timeStringToMinutes(selectedDepartureTime.value)
-  if (depMin === null) return []
-  const source = departureStopTimes.value.length ? departureStopTimes.value : rawStops.value
-  const filtered = source
-    .filter((st) => st.trip_id === currentTripId.value)
-    .sort((a, b) => a.stop_sequence - b.stop_sequence)
-  let cumulativeSec = 0
-  return filtered.map((stop) => {
-    cumulativeSec += stop.offset_arrival_time
-    const offset = Math.ceil(cumulativeSec / 60)
-    return {...stop, timeOffsetFromStart: offset, arrivalTimeStr: formatAbsoluteMinutes(depMin + offset)}
+  const departureMin = timeStringToMinutes(selectedDepartureTime.value)
+  if (departureMin === null) return []
+  const offsets = tripOffsetsAt(departureMin)
+  return stopsForDirection.value.map((stop, idx) => {
+    const offset = offsets[idx] ?? stop.timeOffsetFromStart
+    return {...stop, timeOffsetFromStart: offset, arrivalTimeStr: formatAbsoluteMinutes(departureMin + offset)}
   })
 })
+
+const selectedDepartureTimeDisplay = computed(
+  () => selectedDepartureStops.value[0]?.arrivalTimeStr ?? null
+)
 
 function buildDisplayShape() {
   return {
@@ -771,47 +784,51 @@ onUnmounted(() => {
           }}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <div
-          class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
-          {{ t('route') }}
+        <div class="flex items-start gap-4">
+          <div class="flex-1 min-w-0">
+            <div
+              class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
+              {{ t('route') }}
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+              {{ timetable?.route_long_name || shapeInfo.route_short_name }}
+            </h1>
+          </div>
+          <ShareButton class="mt-1"/>
+          <button
+            v-if="settings.showTimetableChanges"
+            type="button"
+            class="bell-btn mt-1 shrink-0"
+            :class="{ 'is-following': isFollowing }"
+            :title="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
+            :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
+            :aria-pressed="isFollowing"
+            data-kbd-item="bell"
+            @click="toggleFollow"
+          >
+            <IconBellFilled v-if="isFollowing" class="w-5 h-5"/>
+            <IconBellOutline v-else class="w-5 h-5"/>
+          </button>
+          <button
+            type="button"
+            class="fav-btn mt-1 shrink-0"
+            :class="{ 'is-fav': isFavorite }"
+            :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+            :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+            :aria-pressed="isFavorite"
+            data-kbd-item="fav"
+            @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
+          >
+            <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
+            <IconHeartOutline v-else class="w-5 h-5"/>
+          </button>
         </div>
-        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-          {{ timetable?.route_long_name || shapeInfo.route_short_name }}
-        </h1>
         <p v-if="fromStopName"
-           class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-          {{ t('from', {name: fromStopName}) }}
+           class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
+          <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
         </p>
       </div>
-      <ShareButton class="mt-1"/>
-      <button
-        v-if="settings.showTimetableChanges"
-        type="button"
-        class="bell-btn mt-1 shrink-0"
-        :class="{ 'is-following': isFollowing }"
-        :title="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
-        :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
-        :aria-pressed="isFollowing"
-        data-kbd-item="bell"
-        @click="toggleFollow"
-      >
-        <IconBellFilled v-if="isFollowing" class="w-5 h-5"/>
-        <IconBellOutline v-else class="w-5 h-5"/>
-      </button>
-      <button
-        type="button"
-        class="fav-btn mt-1 shrink-0"
-        :class="{ 'is-fav': isFavorite }"
-        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-pressed="isFavorite"
-        data-kbd-item="fav"
-        @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
-      >
-        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
-        <IconHeartOutline v-else class="w-5 h-5"/>
-      </button>
     </header>
 
     <RoutePong
@@ -1028,7 +1045,7 @@ onUnmounted(() => {
                   selectedDepartureTime === chip.time ? 'tt-min-selected' :
                   chip.isPast ? 'tt-min-past' : 'tt-min-future'
                 ]"
-              >{{ chip.time.slice(3) }}</span>
+              >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</span>
             </div>
           </div>
         </div>

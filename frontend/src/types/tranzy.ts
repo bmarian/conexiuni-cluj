@@ -17,6 +17,11 @@ export type StopTime = {
   stop_lon: number
 }
 
+export type HourlyStopOffsets = {
+  stop_ids: number[]
+  hourly_offset_seconds: Record<string, number[]>
+}
+
 export type RouteType =
   | 0  // Tram
   | 1  // Subway

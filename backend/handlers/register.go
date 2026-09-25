@@ -252,6 +252,23 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		return c.JSON(data)
 	})
 
+	api.Get("/stop_times/hourly", func(c fiber.Ctx) error {
+		rsn := c.Query("route_short_name")
+		if rsn == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "route_short_name is required"})
+		}
+		day := time.Now().In(tranzyClient.Location())
+		if dt := c.Query("day_type"); dt != "" {
+			day = dayOfType(day, dt)
+		}
+		data, err := GetHourlyStopOffsets(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}, day)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		c.Set("Cache-Control", revalidateCacheControl)
+		return c.JSON(data)
+	})
+
 	api.Get("/stop_info", func(c fiber.Ctx) error {
 		s := c.Query("stop_id")
 		if s == "" {

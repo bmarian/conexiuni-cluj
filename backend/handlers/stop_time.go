@@ -27,8 +27,68 @@ func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, fil
 }
 
 func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter, refTime time.Time) ([]models.StopTime, error) {
+	stopTimes, routeID, err := getBaseStopTimes(tranzyClient, cacheTimes, filter)
+	if err != nil || routeID == 0 {
+		return stopTimes, err
+	}
+	return applySegmentProfilesToStopTimes(stopTimes, routeID, refTime), nil
+}
+
+func GetHourlyStopOffsets(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter, day time.Time) (map[string]models.HourlyStopOffsets, error) {
+	stopTimes, routeID, err := getBaseStopTimes(tranzyClient, cacheTimes, filter)
+	if err != nil {
+		return nil, err
+	}
+	return hourlyStopOffsets(stopTimes, routeID, day), nil
+}
+
+func hourlyStopOffsets(stopTimes []models.StopTime, routeID int, day time.Time) map[string]models.HourlyStopOffsets {
+	out := make(map[string]models.HourlyStopOffsets)
+	for hour := 0; hour < 24; hour++ {
+		rows := stopTimes
+		if routeID != 0 {
+			refTime := time.Date(day.Year(), day.Month(), day.Day(), hour, 0, 0, 0, day.Location())
+			rows = applySegmentProfilesToStopTimes(stopTimes, routeID, refTime)
+		}
+		byTrip := make(map[string][]models.StopTime)
+		for _, st := range rows {
+			byTrip[st.TripID] = append(byTrip[st.TripID], st)
+		}
+		for tripID, trip := range byTrip {
+			sort.Slice(trip, func(i, j int) bool { return trip[i].StopSequence < trip[j].StopSequence })
+			entry, ok := out[tripID]
+			if !ok {
+				entry = models.HourlyStopOffsets{StopIDs: make([]int, len(trip)), HourlyOffsetSeconds: make(map[int][]int, 24)}
+				for i, st := range trip {
+					entry.StopIDs[i] = st.StopID
+				}
+				out[tripID] = entry
+			}
+			offsets := make([]int, len(trip))
+			cumulative := 0.0
+			for i, st := range trip {
+				cumulative += st.OffsetArrivalTime
+				offsets[i] = int(math.Round(cumulative))
+			}
+			entry.HourlyOffsetSeconds[hour] = offsets
+		}
+	}
+	return out
+}
+
+func dayOfType(from time.Time, dayType string) time.Time {
+	for i := 0; i < 7; i++ {
+		if d := from.AddDate(0, 0, i); segmentDayType(d) == dayType {
+			return d
+		}
+	}
+	return from
+}
+
+// A routeID of 0 means the route is unknown and the stop times carry no learned profiles.
+func getBaseStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, int, error) {
 	if filter.RouteShortName == nil {
-		return nil, fmt.Errorf("route_short_name is required")
+		return nil, 0, fmt.Errorf("route_short_name is required")
 	}
 	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
 	stopTimes, err := HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
@@ -45,14 +105,14 @@ func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, f
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
 	if err != nil || len(routes) == 0 {
-		return stopTimes, nil
+		return stopTimes, 0, nil
 	}
-	return applySegmentProfilesToStopTimes(stopTimes, routes[0].RouteID, refTime), nil
+	return stopTimes, routes[0].RouteID, nil
 }
 
 func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
