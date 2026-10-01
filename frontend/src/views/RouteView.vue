@@ -834,7 +834,6 @@ onUnmounted(() => {
     </div>
 
     <header v-if="settings.paperActive" class="pp-masthead pp-masthead-stamped mb-6" data-kbd-section="actions" data-kbd-axis="x">
-      <p class="pp-kicker">{{ t('route') }}</p>
       <h1 class="pp-title pp-title-sm">{{ keepHyphenatedWords(timetable?.route_long_name || shapeInfo.route_short_name) }}</h1>
       <span class="pp-line-stamp" :style="{ '--line': shapeInfo.route_color }"
             :aria-label="`${t('route')} ${shapeInfo.route_short_name}`">
