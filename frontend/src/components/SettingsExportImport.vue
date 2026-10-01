@@ -42,6 +42,7 @@ function buildJson() {
       arcadeActive: settings.arcadeActive,
       legacyBlueUnlocked: settings.legacyBlueUnlocked,
       legacyBlueActive: settings.legacyBlueActive,
+      paperActive: settings.paperActive,
       showWeather: settings.showWeather,
       showNews: settings.showNews,
       autoCenterOnMe: settings.autoCenterOnMe,
@@ -162,6 +163,8 @@ async function doImport() {
     if (s.legacyBlueUnlocked) settings.unlockLegacyBlue()
     if (s.legacyBlueActive) settings.activateLegacyBlue()
     else settings.deactivateLegacyBlue()
+    if (s.paperActive) settings.activatePaper()
+    else settings.deactivatePaper()
     if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
     if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
@@ -185,7 +188,7 @@ async function doImport() {
 </script>
 
 <template>
-  <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive }">
+  <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive, 'is-paper': settings.paperActive }">
     <div ref="groupRef" class="ei-group" data-kbd-section="ei" data-kbd-axis="x">
       <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>

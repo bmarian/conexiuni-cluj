@@ -44,6 +44,7 @@ import {
 import {useSettingsStore} from "@/stores/settings.ts"
 import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
+import {keepHyphenatedWords} from "@/utils/text.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -399,6 +400,94 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
   <div v-else
        class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
 
+    <template v-if="settings.paperActive">
+    <div class="flex items-center -mb-4">
+      <HeaderNavigation />
+    </div>
+
+    <header class="pp-masthead" data-kbd-section="actions" data-kbd-axis="x">
+      <p class="pp-kicker">
+        {{ t('busStop') }}<template v-if="stopInfo?.stop_code"> · Nº {{ stopInfo.stop_code }}</template>
+      </p>
+      <h1 class="pp-title">{{ keepHyphenatedWords(stopName || '') }}</h1>
+      <div class="pp-actions">
+        <button
+          type="button"
+          class="pp-action"
+          :aria-pressed="isFavorite"
+          :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+          data-kbd-item="fav"
+          @click="favoritesStore.toggleStopFavorite(stopIdNum)"
+        >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
+        <ShareButton/>
+      </div>
+    </header>
+
+    <section data-kbd-section="departures" data-kbd-entry="1">
+      <h2 class="pp-heading">{{ t('nextDepartures') }}</h2>
+      <div class="pp-table" role="table">
+        <div class="pp-thead" role="row">
+          <span role="columnheader">{{ t('paperColLine') }}</span>
+          <span role="columnheader">{{ t('paperColTowards') }}</span>
+          <span role="columnheader">{{ t('paperColDue') }}</span>
+        </div>
+        <p v-if="isComputingDepartures" class="pp-empty">{{ t('paperComputing') }}</p>
+        <p v-else-if="!shapesComingToTheStopBasedOnVehiclePositions.length" class="pp-empty">
+          {{ t('noSchedule') }}
+        </p>
+        <div
+          v-for="shape in isComputingDepartures ? [] : departuresSorted"
+          :key="shape.route_short_name"
+          class="pp-row"
+          role="row"
+          :data-kbd-item="`dep-${shape.route_short_name}`"
+          @click="navigateToRoute(shape)"
+        >
+          <span class="pp-cell pp-cell-line">
+            <span class="pp-line" :style="{ '--line': shape.route_color }">{{ shape.route_short_name }}</span>
+          </span>
+          <span class="pp-cell pp-cell-dest">
+            <span class="pp-dest">
+              {{ routeDestination(shape.route_long_name) }}
+              <span v-if="isDepartureFavorite(shape)" class="pp-fav-mark">♥</span>
+            </span>
+            <span class="pp-from">{{ t('paperFrom') }} {{ routeOrigin(shape.route_long_name) }}</span>
+          </span>
+          <span class="pp-cell pp-cell-time">
+            <span class="pp-time" :class="{ 'is-live': !shape.static_time_approximation }">
+              {{ shape.static_time_approximation ? '~' : '' }}{{ formatMinutes(shape.next_times?.[0]?.minutes ?? shape.minutes_left) }}<sup v-if="!shape.static_time_approximation">*</sup>
+            </span>
+            <span v-if="(shape.next_times?.length ?? 0) > 1" class="pp-time-more">
+              {{ shape.next_times!.slice(1).map((time) => formatMinutes(time.minutes)).join(' · ') }}
+            </span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pb-6" data-kbd-section="stop-routes" data-kbd-entry="2">
+      <h2 class="pp-heading">{{ t('allRoutesAtStop') }}</h2>
+      <div class="pp-index">
+        <div
+          v-for="shape in busesWithAvailableTimetablesSorted"
+          :key="shape.route_short_name"
+          class="pp-index-row"
+          :data-kbd-item="`route-${shape.route_short_name}`"
+          @click="navigateToAllRoute(shape)"
+        >
+          <span class="pp-line pp-line-sm" :style="{ '--line': shape.route_color }">{{ shape.route_short_name }}</span>
+          <span class="pp-index-name">
+            {{ shape.timetable.route_long_name }}
+            <span v-if="favoritesStore.isRouteFavorite(shape.route_id)" class="pp-fav-mark">♥</span>
+          </span>
+          <span class="pp-leader" aria-hidden="true"></span>
+          <span class="pp-index-ref">{{ t('timetable') }}</span>
+        </div>
+      </div>
+    </section>
+    </template>
+
+    <template v-else>
     <div class="flex items-center -mb-4">
       <HeaderNavigation />
     </div>
@@ -420,7 +509,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
               stopInfo.stop_code
             }}</span>
         </div>
-        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+        <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
           {{ stopName }}
         </h1>
       </div>
@@ -562,6 +651,7 @@ const getShapesDisplay = (availableShapes: ShapeInfo[] | undefined): DisplayShap
         </div>
       </div>
     </section>
+    </template>
 
   </div>
 </template>

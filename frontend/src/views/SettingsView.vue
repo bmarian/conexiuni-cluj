@@ -69,6 +69,12 @@ async function togglePush() {
       <HeaderNavigation/>
     </div>
 
+    <header v-if="settings.paperActive" class="pp-masthead">
+      <p class="pp-kicker">Conexiuni Cluj</p>
+      <h1 class="pp-title pp-title-sm">{{ t('settings') }}</h1>
+      <p class="pp-subtitle">{{ t('paperSettingsSubtitle') }}</p>
+    </header>
+
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('language') }}</h2>
       <p class="setting-note">

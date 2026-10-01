@@ -41,7 +41,7 @@ const {
   drawerBottomPx,
   drawerRightPx,
 } = storeToRefs(mapStore)
-const {arcadeActive, legacyBlueActive, showVehicleExtras} = storeToRefs(settingsStore)
+const {arcadeActive, legacyBlueActive, paperActive, showVehicleExtras} = storeToRefs(settingsStore)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -98,7 +98,12 @@ type SavedMapView = {
   zoom: number
 }
 
-const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlue: boolean): string => {
+const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlue: boolean, isPaper: boolean): string => {
+  // Paper re-inks the dark tiles in CSS; the light ones are too faint to survive it.
+  if (isPaper) {
+    return `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
+  }
+
   if (isArcade) {
     // TODO: Change when you find a better theme that fits
     return useDarkMode
@@ -120,7 +125,7 @@ const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlu
 
 const replaceTileLayer = () => {
   if (!map.value) return
-  const tileUrl = getTileLayerConfig(isDarkMode.value, arcadeActive.value, legacyBlueActive.value)
+  const tileUrl = getTileLayerConfig(isDarkMode.value, arcadeActive.value, legacyBlueActive.value, paperActive.value)
   if (currentTileLayer.value) {
     map.value.removeLayer(currentTileLayer.value)
   }
@@ -135,8 +140,11 @@ const replaceTileLayer = () => {
 const themeOpts = (): IconThemeOptions => ({
   arcadeActive: arcadeActive.value,
   legacyBlueActive: legacyBlueActive.value,
+  paperActive: paperActive.value,
   showVehicleExtras: showVehicleExtras.value,
 })
+
+const paperInk = () => isDarkMode.value ? '#efe6cc' : '#1f3a7a'
 
 const useTouchDragLift = () =>
   typeof window !== 'undefined'
@@ -558,12 +566,23 @@ watch(legacyBlueActive, (active) => {
   }
 })
 
+watch(paperActive, () => {
+  stopMarkers.forEach((marker, id) => {
+    if (id === currentlyHighlightedStopId.value) return
+    marker.setIcon(stopIconForId(id))
+  })
+  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
+    const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
+    marker.setIcon(makeSelectedStopIcon(themeOpts()))
+  }
+})
+
 watch(isDarkMode, () => {
   if (!map.value) return
   replaceTileLayer()
 })
 
-watch([arcadeActive, legacyBlueActive], () => {
+watch([arcadeActive, legacyBlueActive, paperActive], () => {
   if (!map.value) return
   replaceTileLayer()
 })
@@ -625,7 +644,16 @@ const addDirectionArrowMarker = (
   </svg>`
 
   let html: string
-  if (isLegacyBlue) {
+  if (paperActive.value) {
+    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+      <div style="width:22px;height:22px;background:var(--pp-ink);color:var(--pp-paper);display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
+          <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
+        </svg>
+      </div>
+      <div style="width:2px;height:8px;background:var(--pp-ink);"></div>
+    </div>`
+  } else if (isLegacyBlue) {
     html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
       <div style="width:22px;height:22px;background:#000000;border:2px solid #FFFFFF;box-shadow:1px 1px 0 rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
         ${arrowSvg}
@@ -664,7 +692,11 @@ const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, 
   const isLegacyBlue = legacyBlueActive.value
   const endMarkerIcon = L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
-    html: isLegacyBlue
+    html: paperActive.value
+      ? `<div style="width:18px;height:18px;background-color:${routeColor};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;">
+           <div style="width:6px;height:6px;background:var(--pp-paper);"></div>
+         </div>`
+      : isLegacyBlue
       ? `<div style="width:20px;height:20px;background-color:${routeColor};border:2px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
            <div style="width:6px;height:6px;background:white;border:1px solid rgba(0,0,0,0.4);"></div>
          </div>`
@@ -681,7 +713,9 @@ const addGroupedStartMarkers = (layerGroup: L.FeatureGroup, groupedStarts: Map<s
   const isLegacyBlue = legacyBlueActive.value
   groupedStarts.forEach((data) => {
     const routesHtml = data.routes.map((r) =>
-      isLegacyBlue
+      paperActive.value
+        ? `<div class="pp-map-stamp" style="background-color:${r.color};font-size:13px;padding:3px 8px;line-height:1.3;white-space:nowrap;">${r.name}</div>`
+        : isLegacyBlue
         ? `<div style="background-color:${r.color};color:white;font-size:10px;font-weight:700;padding:2px 6px;border:1px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.35);line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;">${r.name}</div>`
         : `<div style="background-color: ${r.color};"
                 class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
@@ -725,14 +759,15 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     if (drawnPaths.has(signature)) continue
     drawnPaths.add(signature)
 
+    const square = legacyBlueActive.value || paperActive.value
     L.polyline(latLngs, {
       color: legacyBlueActive.value ? '#003C9C' : (routeColor || '#94a3b8'),
-      weight: legacyBlueActive.value ? 4 : 5,
-      opacity: legacyBlueActive.value ? 0.85 : 0.85,
+      weight: square ? 4 : 5,
+      opacity: paperActive.value ? 0.9 : 0.85,
       dashArray: arcadeActive.value ? '0 14' : (dashArray || undefined),
       smoothFactor: 1.5,
-      lineJoin: legacyBlueActive.value ? 'miter' : 'round',
-      lineCap: legacyBlueActive.value ? 'butt' : 'round'
+      lineJoin: square ? 'miter' : 'round',
+      lineCap: square ? 'butt' : 'round'
     }).addTo(layerGroup)
 
     if (directionArrowAtStart.value && latLngs.length >= 2) {
@@ -757,7 +792,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, arcadeActive, legacyBlueActive, directionArrowAtStart], ([newShapes]) => {
+watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionArrowAtStart], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
@@ -784,10 +819,10 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   for (const points of polylines) {
     if (!points.length) continue
     L.polyline(points as L.LatLngTuple[], {
-      color: legacyBlueActive.value ? '#245EDC' : '#38bdf8',
+      color: paperActive.value ? paperInk() : legacyBlueActive.value ? '#245EDC' : '#38bdf8',
       weight: 3,
       opacity: 0.85,
-      dashArray: '8 6',
+      dashArray: paperActive.value ? '1 7' : '8 6',
       lineJoin: legacyBlueActive.value ? 'miter' : 'round',
       lineCap: legacyBlueActive.value ? 'butt' : 'round',
     }).addTo(walkingLayerGroup.value)
@@ -807,7 +842,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   }
 }
 
-watch([walkingPolylines, arcadeActive, legacyBlueActive], ([polylines]) => {
+watch([walkingPolylines, arcadeActive, legacyBlueActive, paperActive, isDarkMode], ([polylines]) => {
   renderWalkingPolylines(polylines as [number, number][][])
 }, {deep: true})
 
@@ -839,7 +874,7 @@ const renderHighlightedStops = () => {
   }
 }
 
-watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueActive], renderHighlightedStops, {deep: true})
+watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueActive, paperActive], renderHighlightedStops, {deep: true})
 
 
 const renderVehicles = (vehicles: DisplayVehicle[]) => {
@@ -873,7 +908,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedVehicleId, arcadeActive, legacyBlueActive, showVehicleExtras], ([vehicles]) => {
+watch([vehiclesToDisplay, () => route.name, selectedVehicleId, arcadeActive, legacyBlueActive, paperActive, showVehicleExtras], ([vehicles]) => {
   renderVehicles(vehicles as DisplayVehicle[])
 }, {deep: true})
 
@@ -897,7 +932,7 @@ watch(flyToLocation, (loc) => {
   flyToLocation.value = null
 })
 
-watch([pinnedLocation, arcadeActive, legacyBlueActive], ([loc]) => {
+watch([pinnedLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
   if (pinMarker.value) {
     map.value?.removeLayer(pinMarker.value)
     pinMarker.value = undefined
@@ -928,7 +963,7 @@ watch([pinnedLocation, arcadeActive, legacyBlueActive], ([loc]) => {
   })
 })
 
-watch([customOriginLocation, arcadeActive, legacyBlueActive], ([loc]) => {
+watch([customOriginLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
   if (originMarker.value) {
     map.value?.removeLayer(originMarker.value)
     originMarker.value = undefined

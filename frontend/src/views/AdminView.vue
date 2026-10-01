@@ -346,7 +346,7 @@ const frontendDebugRows = computed(() => [
   {label: 'Network', value: online.value ? 'online' : 'offline'},
   {label: 'Locale', value: typeof navigator === 'undefined' ? '—' : navigator.language},
   {label: 'Time zone', value: Intl.DateTimeFormat().resolvedOptions().timeZone || '—'},
-  {label: 'Theme', value: settings.legacyBlueActive ? 'Legacy Blue' : settings.arcadeActive ? 'Arcade' : settings.isDark ? 'Default dark' : 'Default light'},
+  {label: 'Theme', value: settings.legacyBlueActive ? 'Legacy Blue' : settings.arcadeActive ? 'Arcade' : settings.paperActive ? (settings.isDark ? 'Paper dark' : 'Paper light') : settings.isDark ? 'Default dark' : 'Default light'},
   {label: 'Storage', value: storageSummary.value},
   {label: 'Local storage', value: localStorageSummary.value},
   {label: 'Service worker', value: typeof navigator !== 'undefined' && navigator.serviceWorker?.controller ? 'controlled' : 'not controlled'},
@@ -553,6 +553,7 @@ onBeforeUnmount(() => {
         'is-dark': settings.isDark,
         'is-arcade': settings.arcadeActive,
         'is-legacy-blue': settings.legacyBlueActive,
+        'is-paper': settings.paperActive,
       }"
     >
       <div v-if="authState === 'login'" class="admin-login">

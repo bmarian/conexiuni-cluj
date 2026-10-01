@@ -342,6 +342,32 @@ useKbdShortcuts({
     class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
+    <header v-if="settings.paperActive && !isSearchMode" class="pp-masthead pp-cover">
+      <svg class="pp-engraving" viewBox="0 0 240 92" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+          <path d="M18 72V34Q18 16 38 14H214Q226 14 226 26V72Z" fill="var(--pp-paper)"/>
+          <path d="M22 44V35Q22 22 36 20H48V44Z"/>
+          <path d="M54 20H72V66H54Z"/>
+          <path d="M63 20V66"/>
+          <path d="M78 22H102V44H78ZM106 22H130V44H106ZM134 22H158V44H134ZM162 22H186V44H162ZM190 22H214V44H190Z"/>
+          <path d="M18 50H226M18 60H226"/>
+          <path d="M34 72A16 16 0 0 1 66 72M164 72A16 16 0 0 1 196 72"/>
+          <circle cx="50" cy="74" r="11" fill="var(--pp-paper)"/>
+          <circle cx="180" cy="74" r="11" fill="var(--pp-paper)"/>
+          <circle cx="50" cy="74" r="4"/>
+          <circle cx="180" cy="74" r="4"/>
+          <path d="M40 8H96V14H40Z"/>
+        </g>
+        <path d="M19 51H225V59H19Z" fill="var(--pp-red)" style="mix-blend-mode: var(--pp-blend)"/>
+        <g stroke="currentColor" stroke-width="0.8" opacity="0.6">
+          <path d="M82 25L98 41M110 25L126 41M138 25L154 41M166 25L182 41M194 25L210 41"/>
+          <path d="M8 88H232M24 85H70M150 85H210"/>
+        </g>
+      </svg>
+      <p class="pp-kicker">{{ t('paperEdition', {year: new Date().getFullYear()}) }}</p>
+      <h1 class="pp-title">Conexiuni Cluj</h1>
+    </header>
+
     <UniversalSearch
       :routes="sortedRoutes"
       :stops="stops"

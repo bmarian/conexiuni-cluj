@@ -1871,7 +1871,7 @@ watch(timeValue, (val) => {
         </div>
         <h1
           v-else
-          class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight truncate"
+          class="text-lg font-bold text-slate-900 dark:text-white leading-snug truncate"
           :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
           {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
         </h1>
@@ -1886,6 +1886,7 @@ watch(timeValue, (val) => {
         @click="startRename"
       >
         <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">✏️</span>
+        <template v-else-if="settings.paperActive">{{ t('paperRename') }}</template>
         <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
@@ -1904,7 +1905,8 @@ watch(timeValue, (val) => {
         data-kbd-item="fav"
         @click="toggleFavorite"
       >
-        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
+        <template v-if="settings.paperActive">{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</template>
+        <IconHeartFilled v-else-if="isFavorite" class="w-5 h-5"/>
         <IconHeartOutline v-else class="w-5 h-5"/>
       </button>
     </header>

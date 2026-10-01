@@ -341,6 +341,24 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   <RouterView v-if="isAdminRoute"/>
   <main v-else class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
+    <svg v-if="appSettings.paperActive" class="absolute w-0 h-0" aria-hidden="true">
+      <filter id="pp-map-light" color-interpolation-filters="sRGB">
+        <feColorMatrix type="saturate" values="0"/>
+        <feComponentTransfer>
+          <feFuncR type="table" tableValues="0.937 0.888 0.591 0.394 0.278 0.213 0.180 0.155 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114"/>
+          <feFuncG type="table" tableValues="0.898 0.857 0.610 0.445 0.349 0.294 0.267 0.246 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212"/>
+          <feFuncB type="table" tableValues="0.792 0.771 0.647 0.564 0.516 0.488 0.475 0.464 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447"/>
+        </feComponentTransfer>
+      </filter>
+      <filter id="pp-map-dark" color-interpolation-filters="sRGB">
+        <feColorMatrix type="saturate" values="0"/>
+        <feComponentTransfer>
+          <feFuncR type="table" tableValues="0.106 0.156 0.455 0.655 0.771 0.837 0.871 0.896 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937"/>
+          <feFuncG type="table" tableValues="0.145 0.190 0.461 0.642 0.747 0.808 0.838 0.860 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898"/>
+          <feFuncB type="table" tableValues="0.275 0.306 0.492 0.616 0.689 0.730 0.751 0.766 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792"/>
+        </feComponentTransfer>
+      </filter>
+    </svg>
     <MapComponent class="app-map"/>
     <SettingsButton
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"

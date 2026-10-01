@@ -24,6 +24,7 @@ import {
   timeStringToMinutes
 } from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
+import {keepHyphenatedWords} from '@/utils/text.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
 import {markRepeatedNow, mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
 import {
@@ -372,35 +373,41 @@ watch([() => shapeInfo.value?.route_short_name, selectedTimetableTab], async ([n
   if (name === shapeInfo.value?.route_short_name && tab === selectedTimetableTab.value) hourlyOffsets.value = data
 }, {immediate: true})
 
-const hourlyTripOffsets = computed((): Record<string, number[]> | null => {
-  const trip = hourlyOffsets.value[currentTripId.value]
+function tripHourlyOffsets(offsets: Record<string, HourlyStopOffsets>): Record<string, number[]> | null {
+  const trip = offsets[currentTripId.value]
   const stops = stopsForDirection.value
   if (!trip || trip.stop_ids.length !== stops.length) return null
   return trip.stop_ids.every((id, i) => id === stops[i]!.stop_id) ? trip.hourly_offset_seconds : null
-})
+}
 
-// Shared by the chips and the trip view so both show the same minute.
-function tripOffsetsAt(departureMin: number): number[] {
-  const seconds = hourlyTripOffsets.value?.[Math.floor(departureMin / 60) % 24]
+const hourlyTripOffsets = computed(() => tripHourlyOffsets(hourlyOffsets.value))
+
+function offsetsAt(hourly: Record<string, number[]> | null, departureMin: number): number[] {
+  const seconds = hourly?.[Math.floor(departureMin / 60) % 24]
   return seconds
     ? seconds.map((s) => Math.ceil(s / 60))
     : stopsForDirection.value.map((stop) => stop.timeOffsetFromStart)
+}
+
+// Shared by the chips and the trip view so both show the same minute.
+function tripOffsetsAt(departureMin: number): number[] {
+  return offsetsAt(hourlyTripOffsets.value, departureMin)
 }
 
 // time is CTP's printed departure and identifies the run; startMin adds the first stop's learned delay.
 type TimetableChip = { time: string; startMin: number | null; isPast: boolean }
 type GridChip = TimetableChip & { startMin: number }
 
-const timetableEntries = computed((): TimetableChip[] => {
+function scheduleFor(day: TimetableTab): DaySchedule | undefined {
   const tt = timetable.value
-  if (!tt) return []
-  const sched =
-    selectedTimetableTab.value === 'sunday' ? tt.sunday :
-      selectedTimetableTab.value === 'saturday' ? tt.saturday :
-        tt.weekdays
+  return day === 'sunday' ? tt?.sunday : day === 'saturday' ? tt?.saturday : tt?.weekdays
+}
+
+function chipsForDay(day: TimetableTab, hourly: Record<string, number[]> | null, strikePastDays: boolean): TimetableChip[] {
+  const sched = scheduleFor(day)
   if (!sched?.entries?.length) return []
-  const isToday = selectedTimetableTab.value === todayTab.value
-  const selectedTabIsPast = isPastTab(selectedTimetableTab.value)
+  const isToday = day === todayTab.value
+  const dayIsPast = strikePastDays && isPastTab(day)
   const now = currentMinutes.value
   return sched.entries
     .map((entry): TimetableChip | null => {
@@ -408,15 +415,18 @@ const timetableEntries = computed((): TimetableChip[] => {
       if (!raw) return null
       const departureMin = timeStringToMinutes(raw)
       if (departureMin === null) return {time: raw, startMin: null, isPast: false}
-      const startMin = departureMin + (tripOffsetsAt(departureMin)[0] ?? 0)
+      const startMin = departureMin + (offsetsAt(hourly, departureMin)[0] ?? 0)
       return {
         time: raw,
         startMin,
-        isPast: selectedTabIsPast || (isToday && startMin < now),
+        isPast: dayIsPast || (isToday && startMin < now),
       }
     })
     .filter((e): e is TimetableChip => e !== null)
-})
+}
+
+const timetableEntries = computed((): TimetableChip[] =>
+  chipsForDay(selectedTimetableTab.value, hourlyTripOffsets.value, true))
 
 const allEntriesSuspended = computed(
   () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.startMin === null)
@@ -424,9 +434,9 @@ const allEntriesSuspended = computed(
 
 type HourGroup = { hour: string; chips: GridChip[]; isNextDay: boolean }
 
-const timetableByHour = computed((): HourGroup[] => {
+function chipsByHour(entries: TimetableChip[]): Map<number, GridChip[]> {
   const groups = new Map<number, GridChip[]>()
-  const chips = timetableEntries.value
+  const chips = entries
     .filter((chip): chip is GridChip => chip.startMin !== null)
     .sort((a, b) => a.startMin - b.startMin)
   for (const chip of chips) {
@@ -434,12 +444,61 @@ const timetableByHour = computed((): HourGroup[] => {
     if (!groups.has(h)) groups.set(h, [])
     groups.get(h)!.push(chip)
   }
-  return Array.from(groups.entries()).map(([h, chips]) => ({
+  return groups
+}
+
+const timetableByHour = computed((): HourGroup[] =>
+  Array.from(chipsByHour(timetableEntries.value).entries()).map(([h, chips]) => ({
     hour: formatAbsoluteMinutes(h * 60).slice(0, 2),
     chips,
     isNextDay: h >= 24,
+  })))
+
+// Paper prints every day type side by side, so it needs each day's learned offsets.
+const paperDayOffsets = ref<Partial<Record<TimetableTab, Record<string, HourlyStopOffsets>>>>({})
+
+watch([() => shapeInfo.value?.route_short_name, () => settings.paperActive], async ([name, paper]) => {
+  if (!name || !paper) return
+  const days: TimetableTab[] = ['weekdays', 'saturday', 'sunday']
+  const results = await Promise.all(days.map((day) => fetchHourlyStopOffsets(name, day === 'weekdays' ? 'weekday' : day)))
+  if (name === shapeInfo.value?.route_short_name) {
+    paperDayOffsets.value = Object.fromEntries(days.map((day, i) => [day, results[i]]))
+  }
+}, {immediate: true})
+
+type PaperRow = { hour: string; isNextDay: boolean; cells: GridChip[][] }
+
+const paperTimetable = computed(() => {
+  const days = availableTabs.value.map((tab) => tab.key)
+  const byDay = days.map((day) =>
+    chipsByHour(chipsForDay(day, tripHourlyOffsets(paperDayOffsets.value[day] ?? {}), false)))
+  const hours = [...new Set(byDay.flatMap((groups) => [...groups.keys()]))].sort((a, b) => a - b)
+  const rows: PaperRow[] = hours.map((h) => ({
+    hour: formatAbsoluteMinutes(h * 60).slice(0, 2),
+    isNextDay: h >= 24,
+    cells: byDay.map((groups) => groups.get(h) ?? []),
   }))
+  const frequencies = days.map((day) => {
+    const sched = scheduleFor(day)
+    return (isOutgoing.value ? sched?.in_frequency : sched?.out_frequency) ?? null
+  })
+  const todayCol = days.indexOf(todayTab.value)
+  const todayCells = todayCol >= 0 ? rows.flatMap((row) => row.cells[todayCol] ?? []) : []
+  return {
+    days,
+    rows,
+    frequencies,
+    nextTime: todayCells.find((chip) => !chip.isPast)?.time ?? null,
+  }
 })
+
+async function selectPaperDeparture(day: TimetableTab, chip: GridChip) {
+  if (selectedTimetableTab.value !== day) {
+    selectedTimetableTab.value = day
+    await nextTick()
+  }
+  selectDeparture(chip)
+}
 
 const selectedDepartureTime = ref<string | null>(null)
 const tripViewRef = ref<HTMLElement | null>(null)
@@ -774,7 +833,37 @@ onUnmounted(() => {
       <HeaderNavigation/>
     </div>
 
-    <header class="flex items-start gap-4 pb-5" data-kbd-section="actions" data-kbd-axis="x">
+    <header v-if="settings.paperActive" class="pp-masthead pp-masthead-stamped mb-6" data-kbd-section="actions" data-kbd-axis="x">
+      <p class="pp-kicker">{{ t('route') }}</p>
+      <h1 class="pp-title pp-title-sm">{{ keepHyphenatedWords(timetable?.route_long_name || shapeInfo.route_short_name) }}</h1>
+      <span class="pp-line-stamp" :style="{ '--line': shapeInfo.route_color }"
+            :aria-label="`${t('route')} ${shapeInfo.route_short_name}`">
+        <small aria-hidden="true">{{ t('route') }}</small>{{ shapeInfo.route_short_name }}
+      </span>
+      <p v-if="fromStopName" class="pp-subtitle">{{ t('from', {name: fromStopName}) }}</p>
+      <div class="pp-actions">
+        <button
+          type="button"
+          class="pp-action"
+          :aria-pressed="isFavorite"
+          :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
+          data-kbd-item="fav"
+          @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
+        >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
+        <button
+          v-if="settings.showTimetableChanges"
+          type="button"
+          class="pp-action"
+          :aria-pressed="isFollowing"
+          :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
+          data-kbd-item="bell"
+          @click="toggleFollow"
+        >{{ t(isFollowing ? 'paperFollowing' : 'paperFollow') }}</button>
+        <ShareButton/>
+      </div>
+    </header>
+
+    <header v-else class="flex items-start gap-4 pb-5" data-kbd-section="actions" data-kbd-axis="x">
       <div
         class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
         :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
@@ -790,7 +879,7 @@ onUnmounted(() => {
               class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
               {{ t('route') }}
             </div>
-            <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+            <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
               {{ timetable?.route_long_name || shapeInfo.route_short_name }}
             </h1>
           </div>
@@ -983,11 +1072,65 @@ onUnmounted(() => {
         <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{
+          <span v-if="!settings.paperActive" class="text-[10px] text-slate-400 dark:text-slate-500">{{
               t('timetableClickHint')
             }}</span>
         </div>
 
+        <template v-if="settings.paperActive">
+          <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
+          <div class="pp-tt" role="table" data-kbd-section="tt-minutes" data-kbd-axis="grid"
+               :style="{ '--pp-tt-cols': paperTimetable.days.length }">
+            <div class="pp-tt-head" role="row">
+              <span class="pp-tt-hour" role="columnheader">{{ t('paperHour') }}</span>
+              <span
+                v-for="day in paperTimetable.days"
+                :key="day"
+                class="pp-tt-day"
+                :class="{ 'is-today': day === todayTab }"
+                role="columnheader"
+              >{{ availableTabs.find((tab) => tab.key === day)?.label }}</span>
+            </div>
+            <div v-if="paperTimetable.frequencies.some(Boolean)" class="pp-tt-row" role="row">
+              <span class="pp-tt-hour">~</span>
+              <span
+                v-for="(freq, i) in paperTimetable.frequencies"
+                :key="i"
+                class="pp-tt-cell pp-tt-freq"
+                :class="{ 'is-today': paperTimetable.days[i] === todayTab }"
+              >
+                <template v-if="freq">
+                  {{ frequencyLabel(freq) }}
+                  <i v-if="freq.start">{{ t('frequencyWindow', {start: freq.start, end: freq.end}) }}</i>
+                </template>
+              </span>
+            </div>
+            <div v-for="row in paperTimetable.rows" :key="row.hour" class="pp-tt-row" role="row">
+              <span class="pp-tt-hour" :class="{ 'is-next-day': row.isNextDay }">{{ row.hour }}</span>
+              <span
+                v-for="(cell, i) in row.cells"
+                :key="i"
+                class="pp-tt-cell"
+                :class="{ 'is-today': paperTimetable.days[i] === todayTab }"
+              >
+                <span
+                  v-for="chip in cell"
+                  :key="chip.time"
+                  class="pp-tt-min"
+                  :class="{
+                    'is-past': chip.isPast,
+                    'is-next': paperTimetable.days[i] === todayTab && chip.time === paperTimetable.nextTime,
+                    'is-selected': paperTimetable.days[i] === selectedTimetableTab && chip.time === selectedDepartureTime,
+                  }"
+                  :data-kbd-item="paperTimetable.days[i] === selectedTimetableTab ? `min-${chip.time}` : `min-${paperTimetable.days[i]}-${chip.time}`"
+                  @click="selectPaperDeparture(paperTimetable.days[i]!, chip)"
+                >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</span>
+              </span>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
         <div class="flex gap-1.5 mb-4!" data-kbd-section="tt-tabs" data-kbd-axis="x">
           <button
             v-for="tab in availableTabs"
@@ -1049,6 +1192,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        </template>
 
         <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef"
              class="trip-view">

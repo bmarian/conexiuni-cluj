@@ -16,6 +16,8 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource/libre-caslon-text": "^5.3.0",
     "@meteocons/svg": "^0.1.0",
     "@unhead/vue": "^3.1.0",
     "@vuepic/vue-datepicker": "^12.1.0",

@@ -77,6 +77,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function activateArcade() {
     deactivateLegacyBlue()
+    deactivatePaper()
     arcadeActive.value = true
     localStorage.setItem('settings.arcadeActive', 'true')
   }
@@ -105,6 +106,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function activateLegacyBlue() {
     deactivateArcade()
+    deactivatePaper()
     legacyBlueActive.value = true
     localStorage.setItem('settings.legacyBlueActive', 'true')
   }
@@ -112,6 +114,28 @@ export const useSettingsStore = defineStore('settings', () => {
   function deactivateLegacyBlue() {
     legacyBlueActive.value = false
     localStorage.setItem('settings.legacyBlueActive', 'false')
+  }
+
+  const paperActive = ref(persistedBool('settings.paperActive'))
+
+  watch(paperActive, (active) => {
+    if (active) {
+      document.documentElement.setAttribute('data-paper', '')
+    } else {
+      document.documentElement.removeAttribute('data-paper')
+    }
+  }, {immediate: true})
+
+  function activatePaper() {
+    deactivateArcade()
+    deactivateLegacyBlue()
+    paperActive.value = true
+    localStorage.setItem('settings.paperActive', 'true')
+  }
+
+  function deactivatePaper() {
+    paperActive.value = false
+    localStorage.setItem('settings.paperActive', 'false')
   }
 
   const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
@@ -180,6 +204,7 @@ export const useSettingsStore = defineStore('settings', () => {
     unlockArcade, activateArcade, deactivateArcade,
     legacyBlueUnlocked, legacyBlueActive,
     unlockLegacyBlue, activateLegacyBlue, deactivateLegacyBlue,
+    paperActive, activatePaper, deactivatePaper,
     showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,

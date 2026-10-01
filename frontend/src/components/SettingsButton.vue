@@ -67,6 +67,7 @@ function setTheme(theme: Theme) {
 const activeSpecialTheme = computed(() => {
   if (settings.arcadeActive) return 'arcade'
   if (settings.legacyBlueActive) return 'legacy-blue'
+  if (settings.paperActive) return 'paper'
   return 'default'
 })
 
@@ -74,9 +75,11 @@ function onSpecialThemeChange(e: Event) {
   const val = (e.target as HTMLSelectElement).value
   if (val === 'arcade') settings.activateArcade()
   else if (val === 'legacy-blue') settings.activateLegacyBlue()
+  else if (val === 'paper') settings.activatePaper()
   else {
     settings.deactivateArcade();
     settings.deactivateLegacyBlue()
+    settings.deactivatePaper()
   }
 }
 </script>
@@ -93,6 +96,7 @@ function onSpecialThemeChange(e: Event) {
       @click="toggle"
     >
       <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">⚙️</span>
+      <span v-else-if="settings.paperActive" class="pp-slip-label">{{ t('paperSettingsShort') }}</span>
       <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">
@@ -144,8 +148,7 @@ function onSpecialThemeChange(e: Event) {
         </button>
       </div>
 
-      <div v-if="settings.arcadeUnlocked || settings.legacyBlueUnlocked" class="select-wrap"
-           data-kbd-section="special-theme">
+      <div class="select-wrap" data-kbd-section="special-theme">
         <select
           class="theme-select"
           data-kbd-item="special-theme"
@@ -153,11 +156,13 @@ function onSpecialThemeChange(e: Event) {
           :class="{
               'is-arcade': settings.arcadeActive,
               'is-legacy-blue': settings.legacyBlueActive,
+              'is-paper': settings.paperActive,
             }"
           @change="onSpecialThemeChange"
           :aria-label="t('theme')"
         >
           <option value="default">{{ t('themeDefault') }}</option>
+          <option value="paper">{{ t('paperTheme') }}</option>
           <option v-if="settings.arcadeUnlocked" value="arcade">{{ t('arcadeTheme') }}</option>
           <option v-if="settings.legacyBlueUnlocked" value="legacy-blue">{{
               t('legacyBlueTheme')

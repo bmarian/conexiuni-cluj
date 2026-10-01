@@ -10,11 +10,18 @@ export type DisplayVehicle = Vehicle & {
 export interface IconThemeOptions {
   arcadeActive: boolean
   legacyBlueActive: boolean
+  paperActive: boolean
   showVehicleExtras: boolean
 }
 
 const BUS_STOP_PATH =
   'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
+
+function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = ''): string {
+  return `<div style="width:${size}px;height:${size}px;background:${fill};color:${ink};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;${extra}">
+    <svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><path d="${BUS_STOP_PATH}"/></svg>
+  </div>`
+}
 
 // Clippy: paperclip body in `wire` color with a `wireDark` shadow below for depth,
 // plus googly eyes and raised eyebrows overlapping the top loop.
@@ -87,6 +94,18 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon 
     })
   }
 
+  if (opts.paperActive) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: isFav
+        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13)
+        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13),
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+      popupAnchor: [0, -10],
+    })
+  }
+
   return defaultStopIcon
 }
 
@@ -114,6 +133,14 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
         ${clippySvg('#FFD64A', '#B07A10', 32, 40)}
       </div>`,
       iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -40],
+    })
+  }
+
+  if (opts.paperActive) {
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: paperPlate(30, 'var(--pp-ink)', 'var(--pp-paper)', 18, 'outline:2px solid var(--pp-red);outline-offset:2px;'),
+      iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
     })
   }
 
@@ -169,6 +196,21 @@ export function makeHighlightIcon(
     })
   }
 
+  if (opts.paperActive) {
+    const ink =
+      color === 'green' ? 'var(--pp-green)'
+        : color === 'purple' ? 'var(--pp-plum)'
+          : color === 'red' ? 'var(--pp-red)'
+            : color === 'amber' ? 'var(--pp-ochre)'
+              : 'var(--pp-ink-2)'
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: paperPlate(22, ink, 'var(--pp-paper)', 14),
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    })
+  }
+
   return L.divIcon({
     className: 'bg-transparent border-none !overflow-visible',
     html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
@@ -203,6 +245,22 @@ export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): 
       iconSize: [28, 28],
       iconAnchor: [14, 28],
       popupAnchor: [0, -28],
+    })
+  }
+
+  if (opts.paperActive) {
+    const ink = color === '#22c55e' ? 'var(--pp-green)' : 'var(--pp-red)'
+    return L.divIcon({
+      className: 'bg-transparent border-none !overflow-visible',
+      html: `<div class="planner-pin-visual" style="width:24px;height:32px;display:flex;flex-direction:column;align-items:center;position:relative;">
+        <div style="width:18px;height:18px;background:${ink};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;">
+          <div style="width:6px;height:6px;background:var(--pp-paper);"></div>
+        </div>
+        <div style="width:2px;height:14px;background:var(--pp-ink);"></div>
+      </div>`,
+      iconSize: [24, 32],
+      iconAnchor: [12, 32],
+      popupAnchor: [0, -32],
     })
   }
 
@@ -294,6 +352,25 @@ export function getVehicleMarkerHtml(
         ${cursorBox}
         ${routeBadge}
         ${showStopInfo ? xpTip(`left:${sz + 6}px;top:0;`) : ''}
+      </div>`
+  }
+
+  if (opts.paperActive) {
+    const paperTip = `<div class="absolute" style="left:44px;top:0;background:var(--pp-paper);color:var(--pp-ink);padding:3px 8px;border:1px solid var(--pp-ink);white-space:nowrap;z-index:20;pointer-events:none;font-family:var(--pp-display);line-height:1.3;">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span style="font-weight:600;font-size:13px;letter-spacing:0.03em;">${routeName}</span>
+        ${extrasHtml('currentColor')}
+      </div>
+      <span style="font-size:12px;font-family:var(--pp-text);font-style:italic;">${roundedSpeed} km/h</span>
+    </div>`
+
+    return `
+      <div style="position:relative;display:flex;align-items:center;">
+        <div class="pp-map-stamp" style="min-width:36px;height:26px;padding:0 4px;background-color:${resolvedColor};display:flex;align-items:center;justify-content:center;font-family:var(--pp-display);font-weight:600;font-size:${routeFontSize + 3}px;letter-spacing:0.02em;line-height:1;">${routeName}</div>
+        <div style="position:absolute;right:-7px;bottom:-7px;width:15px;height:15px;background:var(--pp-ink);display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="10" height="10" style="fill:var(--pp-paper);transform:rotate(${heading}deg);"><path d="M12 2L21 21l-9-4-9 4 9-19z"/></svg>
+        </div>
+        ${showStopInfo ? paperTip : ''}
       </div>`
   }
 

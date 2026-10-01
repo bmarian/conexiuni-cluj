@@ -76,8 +76,17 @@ export default defineConfig({
       workbox: {
         importScripts: ["push-sw.js"],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        globIgnores: ["**/node_modules/**/*", "sw.js", "workbox-*.js", "**/archivo-*.woff2", "**/libre-caslon-text-*.woff2"],
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/(archivo|libre-caslon-text)-.*\.woff2$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "paper-fonts",
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
           {
             urlPattern: /^https:\/\/[a-z0-9]+\.basemaps\.cartocdn\.com\/.*/,
             handler: "CacheFirst",

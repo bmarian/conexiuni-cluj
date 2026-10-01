@@ -49,7 +49,8 @@ async function share() {
     :aria-label="copied ? t('urlCopied') : t('shareUrl')"
     @click="share"
   >
-    <template v-if="copied">
+    <template v-if="settings.paperActive">{{ copied ? t('paperCopied') : t('paperShare') }}</template>
+    <template v-else-if="copied">
       <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">✅</span>
       <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
