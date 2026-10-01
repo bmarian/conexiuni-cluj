@@ -267,7 +267,8 @@ function navigateToStop(stop: Stop) {
 
     <div v-if="isSearchMode" class="search-results" data-kbd-section="search-results">
 
-      <div v-if="geoLoading" class="geo-loading" aria-label="Loading places">
+      <p v-if="geoLoading && settings.paperActive" class="pp-empty" role="status">{{ t('paperSearchingPlaces') }}</p>
+      <div v-else-if="geoLoading" class="geo-loading" aria-label="Loading places">
         <span class="geo-loading-dot"></span>
         <span class="geo-loading-dot"></span>
         <span class="geo-loading-dot"></span>

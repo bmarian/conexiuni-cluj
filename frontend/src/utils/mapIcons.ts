@@ -288,11 +288,18 @@ function accessibilityIcons(vehicle: DisplayVehicle, color: string): string {
   return `<span style="display:flex;gap:4px;align-items:center;">${wheelchair}${bike}</span>`
 }
 
+function accessibilityWords(vehicle: DisplayVehicle, t: (key: string) => string): string {
+  const wheelchair = t(vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE' ? 'paperWheelchair' : 'paperNoWheelchair')
+  const bikes = t(vehicle.bike_accessible === 'BIKE_ACCESSIBLE' ? 'paperBikes' : 'paperNoBikes')
+  return `<div style="font-size:10px;font-stretch:85%;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">${wheelchair} · ${bikes}</div>`
+}
+
 export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,
   showStopInfo: boolean,
   opts: IconThemeOptions,
+  t: (key: string) => string,
 ): string {
   const routeName = vehicle.route_short_name || ''
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
@@ -357,11 +364,9 @@ export function getVehicleMarkerHtml(
 
   if (opts.paperActive) {
     const paperTip = `<div class="absolute" style="left:44px;top:0;background:var(--pp-paper);color:var(--pp-ink);padding:3px 8px;border:1px solid var(--pp-ink);white-space:nowrap;z-index:20;pointer-events:none;font-family:var(--pp-display);line-height:1.3;">
-      <div style="display:flex;align-items:center;gap:4px;">
-        <span style="font-weight:600;font-size:13px;letter-spacing:0.03em;">${routeName}</span>
-        ${extrasHtml('currentColor')}
-      </div>
-      <span style="font-size:12px;font-family:var(--pp-text);font-style:italic;">${roundedSpeed} km/h</span>
+      <div style="font-weight:600;font-size:13px;letter-spacing:0.03em;">${routeName}</div>
+      <div style="font-size:12px;font-family:var(--pp-text);font-style:italic;">${roundedSpeed} km/h</div>
+      ${opts.showVehicleExtras ? accessibilityWords(vehicle, t) : ''}
     </div>`
 
     return `

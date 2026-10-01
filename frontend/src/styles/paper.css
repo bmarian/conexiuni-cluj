@@ -1347,9 +1347,10 @@ html[data-paper] .drag-chosen {
   box-shadow: 3px 4px 6px rgb(40 25 5 / 0.35) !important;
 }
 
-/* stops, places and lines read as an index with dotted leaders */
+/* stops, places and lines read as an index with dotted leaders, search results too */
 html[data-paper] .home-view-container .fav-stop-row,
-html[data-paper] .home-view-container .long-list-row {
+html[data-paper] .home-view-container .long-list-row,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) {
   gap: 0.5rem;
   padding: 0.45rem 0 !important;
   margin: 0 !important;
@@ -1359,12 +1360,14 @@ html[data-paper] .home-view-container .long-list-row {
 }
 
 html[data-paper] .home-view-container .fav-stop-row > .rounded-full,
-html[data-paper] .home-view-container .long-list-row > .rounded-full {
+html[data-paper] .home-view-container .long-list-row > .rounded-full,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) > .rounded-full {
   display: none;
 }
 
 html[data-paper] .home-view-container .fav-stop-row > .flex-1,
-html[data-paper] .home-view-container .long-list-row > .flex-1 {
+html[data-paper] .home-view-container .long-list-row > .flex-1,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) > .flex-1 {
   flex: 0 1 auto;
   font-family: var(--pp-text) !important;
   font-size: 0.9375rem !important;
@@ -1373,7 +1376,8 @@ html[data-paper] .home-view-container .long-list-row > .flex-1 {
 }
 
 html[data-paper] .home-view-container .fav-stop-row::after,
-html[data-paper] .home-view-container .long-list-row::after {
+html[data-paper] .home-view-container .long-list-row::after,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row)::after {
   content: "";
   order: 1;
   flex: 1 1 1rem;
@@ -1391,12 +1395,14 @@ html[data-paper] .home-view-container .long-list-row > svg:last-child {
 }
 
 html[data-paper] .home-view-container .fav-stop-row:hover > .flex-1,
-html[data-paper] .home-view-container .long-list-row:hover > .flex-1 {
+html[data-paper] .home-view-container .long-list-row:hover > .flex-1,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row):hover > .flex-1 {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-html[data-paper] .home-view-container .long-list-row > [style*="background-color"] {
+html[data-paper] .home-view-container .long-list-row > [style*="background-color"],
+html[data-paper] .universal-search .all-route-row > [style*="background-color"] {
   min-width: 2.375rem;
   width: auto !important;
   height: 1.375rem !important;
@@ -1483,9 +1489,7 @@ html[data-paper] .geo-result-row {
   border-bottom: 1px dotted var(--pp-hair) !important;
 }
 
-html[data-paper] .all-route-row:hover,
-html[data-paper] .stop-result-row:hover,
-html[data-paper] .geo-result-row:hover {
+html[data-paper] .stop-result-row:hover {
   background: rgb(29 54 114 / 0.06) !important;
 }
 
@@ -1498,9 +1502,43 @@ html[data-paper] .dist-badge {
   font-style: italic;
 }
 
-html[data-paper] .geo-loading-dot {
-  border-radius: 0 !important;
-  background: var(--pp-ink) !important;
+html[data-paper] .universal-search .search-results {
+  gap: 1rem;
+}
+
+html[data-paper] .universal-search .result-group > .divide-y {
+  margin-top: -0.25rem;
+}
+
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) > .flex-1 > span {
+  font: inherit !important;
+  color: inherit !important;
+}
+
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) > .flex-1 > span + span {
+  font-size: 0.8125rem !important;
+  font-style: italic !important;
+  color: var(--pp-ink-2) !important;
+}
+
+html[data-paper] .universal-search .dist-badge {
+  order: 2;
+  padding: 0 !important;
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+}
+
+html[data-paper] .universal-search .pp-empty {
+  padding: 0.25rem 0 0;
+  animation: pp-ink-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pp-ink-pulse {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-paper] .universal-search .pp-empty { animation: none; }
 }
 
 html[data-paper] .app-drawer :is(.w-7, .w-8).rounded-full.items-center {
@@ -2143,7 +2181,7 @@ html[data-paper] .leg-name-link:active {
   color: var(--pp-red) !important;
 }
 
-html[data-paper] .search-results {
+html[data-paper] .plan-view-container .search-results {
   border-radius: 0 !important;
   background: var(--pp-paper) var(--pp-grain) !important;
   border: 1px solid var(--pp-ink) !important;
@@ -2479,12 +2517,14 @@ html[data-paper] .route-view-container .trip-stop-row svg.shrink-0 {
 }
 
 html[data-paper] .home-view-container .fav-stop-row > svg:last-child,
-html[data-paper] .home-view-container .long-list-row > svg:last-child {
+html[data-paper] .home-view-container .long-list-row > svg:last-child,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) > svg:last-child {
   display: none !important;
 }
 
 html[data-paper] .home-view-container .fav-stop-row::before,
-html[data-paper] .home-view-container .long-list-row::before {
+html[data-paper] .home-view-container .long-list-row::before,
+html[data-paper] .universal-search :is(.all-route-row, .geo-result-row)::before {
   content: "›";
   order: 3;
   font-family: var(--pp-sans);

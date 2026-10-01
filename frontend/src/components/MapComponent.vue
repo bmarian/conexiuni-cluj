@@ -889,7 +889,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     if (!resolvedColor) continue
 
     const showStopInfo = selectedVehicleId.value === vehicle.id
-    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts())
+    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: L.divIcon({
         className: 'bg-transparent border-none !overflow-visible',
