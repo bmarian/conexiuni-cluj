@@ -35,6 +35,13 @@ function setLocale(newLocale: 'ro' | 'en') {
   locale.value = newLocale
 }
 
+// Settings has no simplified version, so switching it on goes to the menu.
+function toggleSimplified() {
+  const on = !settings.watchActive
+  settings.setSimplified(on)
+  if (on) void router.push({name: 'home'})
+}
+
 async function togglePush() {
   if (push.busy) return
   if (push.enabled) {
@@ -187,6 +194,29 @@ async function togglePush() {
           </span>
           <span class="setting-check" aria-hidden="true">
             <svg v-if="settings.showGreenFriday" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <path d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </span>
+        </button>
+
+        <button v-if="settings.watchScreen" type="button" class="option-btn setting-row"
+                :class="{ active: settings.watchActive }"
+                :aria-pressed="settings.watchActive" data-kbd-item="simplified-layout"
+                @click="toggleSimplified">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🔘</span>
+          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 10h8M9.5 14h5"/>
+          </svg>
+          <span class="setting-text">
+            <span class="setting-title">{{ t('simplifiedLayout') }}</span>
+            <span class="setting-desc">{{ t('simplifiedLayoutDesc') }}</span>
+          </span>
+          <span class="setting-check" aria-hidden="true">
+            <svg v-if="settings.watchActive" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
                  stroke-linejoin="round">
               <path d="M4.5 12.75l6 6 9-13.5"/>

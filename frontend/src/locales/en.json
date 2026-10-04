@@ -288,5 +288,19 @@
   "exportImportDesc": "Settings, favorites and followed lines are kept on this device only.",
   "settingsAdminDesc": "Usage stats.",
   "adminDashboard": "Admin dashboard",
-  "beta": "Beta"
+  "beta": "Beta",
+  "watchLocating": "Finding your location…",
+  "watchNoLocation": "Location is off, so nearby stops can't be shown.",
+  "watchNoNearby": "No stops within 700 m.",
+  "watchMap": "Map",
+  "watchTowards": "Towards {name}",
+  "watchLoadFailed": "Couldn't load. Check the connection.",
+  "yes": "Yes",
+  "no": "No",
+  "simplifiedPrompt": "Do you want to use the simplified layout?",
+  "simplifiedPromptNote": "You can change this later in Settings.",
+  "simplifiedLayout": "Simplified layout",
+  "simplifiedLayoutDesc": "Simpler pages with bigger text for small round screens.",
+  "simplifiedTurnOff": "Turn off simplified layout",
+  "simplifiedUnavailable": "This page isn't available in the simplified layout."
 }

@@ -288,5 +288,19 @@
   "exportImportDesc": "Setările, favoritele și liniile urmărite sunt păstrate doar pe dispozitivul acesta.",
   "settingsAdminDesc": "Statistici de utilizare.",
   "adminDashboard": "Panou admin",
-  "beta": "Beta"
+  "beta": "Beta",
+  "watchLocating": "Se caută locația…",
+  "watchNoLocation": "Locația e oprită, așa că stațiile din apropiere nu pot fi afișate.",
+  "watchNoNearby": "Nicio stație pe o rază de 700 m.",
+  "watchMap": "Hartă",
+  "watchTowards": "Spre {name}",
+  "watchLoadFailed": "Nu s-a putut încărca. Verifică conexiunea.",
+  "yes": "Da",
+  "no": "Nu",
+  "simplifiedPrompt": "Vrei să folosești aspectul simplificat?",
+  "simplifiedPromptNote": "Poți schimba asta oricând din Setări.",
+  "simplifiedLayout": "Aspect simplificat",
+  "simplifiedLayoutDesc": "Pagini mai simple, cu text mai mare, pentru ecrane mici și rotunde.",
+  "simplifiedTurnOff": "Dezactivează aspectul simplificat",
+  "simplifiedUnavailable": "Pagina asta nu e disponibilă în aspectul simplificat."
 }

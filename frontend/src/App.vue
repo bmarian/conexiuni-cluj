@@ -16,6 +16,8 @@ import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables
 
 const WeatherButton = defineAsyncComponent(() => import("@/components/WeatherButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
+const WatchShell = defineAsyncComponent(() => import("@/components/watch/WatchShell.vue"))
+const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/SimplifiedLayoutPrompt.vue"))
 
 const {t} = useI18n()
 const mapStore = useMapStore()
@@ -162,7 +164,7 @@ watch([drawerState, isDragging], async ([, dragging]) => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
 
-watch([drawerState, isPortraitMobile], scheduleMapInsetSync, {immediate: true})
+watch([drawerState, isPortraitMobile, () => appSettings.watchActive], scheduleMapInsetSync, {immediate: true})
 
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()
@@ -190,6 +192,11 @@ function snapHeightPx(state: DrawerState, kb = keyboardPx.value): number {
 }
 
 function updateMapInsets() {
+  if (appSettings.watchActive) {
+    mapStore.setDrawerBottomPx(0)
+    mapStore.setDrawerRightPx(0)
+    return
+  }
   mapStore.setDrawerBottomPx(isPortraitMobile.value ? snapHeightPx(drawerState.value, 0) : 0)
 
   if (isPortraitMobile.value) {
@@ -339,6 +346,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 
 <template>
   <RouterView v-if="isAdminRoute"/>
+  <WatchShell v-else-if="appSettings.watchActive"/>
   <main v-else class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
     <svg v-if="appSettings.paperActive" class="absolute w-0 h-0" aria-hidden="true">
@@ -429,7 +437,8 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
     </aside>
   </main>
   <ArcadeTransition/>
-  <KeyboardHelp v-if="!isAdminRoute"/>
+  <KeyboardHelp v-if="!isAdminRoute && !appSettings.watchActive"/>
+  <SimplifiedLayoutPrompt v-if="!isAdminRoute && appSettings.askSimplified"/>
 </template>
 
 <style scoped>

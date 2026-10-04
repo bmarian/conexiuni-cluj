@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
+import {computed, onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {useUserStore} from "@/stores/user.ts";
@@ -41,7 +41,11 @@ const {
   drawerBottomPx,
   drawerRightPx,
 } = storeToRefs(mapStore)
-const {arcadeActive, legacyBlueActive, paperActive, showVehicleExtras} = storeToRefs(settingsStore)
+const {showVehicleExtras} = storeToRefs(settingsStore)
+// The watch layout only has the default look.
+const arcadeActive = computed(() => settingsStore.arcadeActive && !settingsStore.watchActive)
+const legacyBlueActive = computed(() => settingsStore.legacyBlueActive && !settingsStore.watchActive)
+const paperActive = computed(() => settingsStore.paperActive && !settingsStore.watchActive)
 const router = useRouter()
 const route = useRoute()
 const stopMarkers = new Map<string, L.Marker>()
@@ -527,6 +531,16 @@ onMounted(() => {
     mapInit(DEFAULT_CENTER[0], DEFAULT_CENTER[1], DEFAULT_ZOOM)
   }
   void stopsInit()
+  // The watch mounts the map on demand, after a view has already filled the store.
+  if (shapesToDisplay.value.length) {
+    renderShapes(shapesToDisplay.value as ShapeLayerEntry[])
+    const bounds = shapeLayerGroup.value?.getBounds()
+    if (bounds?.isValid()) {
+      map.value?.fitBounds(bounds, {...fitBoundsPadding(), maxZoom: 16, animate: false})
+      hasFittedForContent = true
+    }
+  }
+  renderVehicles(vehiclesToDisplay.value as DisplayVehicle[])
 
   window.addEventListener('resize', scheduleInvalidateMapSize, {passive: true})
   window.addEventListener('orientationchange', scheduleInvalidateMapSize)
@@ -1014,6 +1028,14 @@ onUnmounted(() => {
 
     map.value.remove()
   }
+})
+
+defineExpose({
+  zoomBy: (delta: number) => map.value?.setZoom(map.value.getZoom() + delta),
+  focus: (lat: number, lng: number) => {
+    hasFittedForContent = true
+    map.value?.setView([lat, lng], DEFAULT_ZOOM, {animate: false})
+  },
 })
 </script>
 
