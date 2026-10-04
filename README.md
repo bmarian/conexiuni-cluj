@@ -4,34 +4,74 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 
 **[bus.bmarian.online](https://bus.bmarian.online)**
 
-![Map view with live vehicles and the sidebar showing favorites and routes](readme/default-desktop-view.png)
+![A stop with live departures, and the favorite lines moving on the map](readme/desktop-stop.png)
 
 ## What it does
 
-- Live map, every CTP bus and tram, positions updated every few seconds
-- Live departures per stop, with a countdown that falls back to the schedule when a vehicle's GPS drops
-- Full route timetables, pulled straight from CTP Cluj-Napoca
-- A route planner: leave now, leave at, or arrive by
-- Weather for Cluj
-- Favorite routes and stops
-- Follow a line and get notified when it's timetable changes
-- Dark mode, installable as a PWA, works offline for cached data
+- Every CTP bus and tram on the map, live
+- Departures for any stop. Tracked buses get a live countdown, the rest show approximate times
+- The times get better on their own: the server watches the buses and learns how long each stretch really takes, hour by hour
+- Full timetables for every line, straight from CTP
+- A route planner: leave now, leave at, arrive by, or the last one today
+- Favorite stops, and favorite lines per direction
+- Follow a line and get a notification when CTP changes its timetable or route
+- Installable as an app, with partial offline support
+- Export your favorites and settings, import them on another phone
+- Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
 There are a few hidden things scattered around for the curious. 🐣
 
-|                                                                               |                                                                           |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| ![Stop view with live departures](readme/stop-desktop-view.png)               | ![Route timetable with stops and countdowns](readme/bus-desktop-view.png) |
-| ![Route planner with a suggested trip](readme/route-planner-desktop-view.png) |                                                                           |
+<p align="center">
+  <img src="readme/phone-route.png" width="250" alt="A line's stops with live arrival times">
+  <img src="readme/phone-planner.png" width="250" alt="A planned trip from the train station to Iulius Mall">
+  <img src="readme/phone-timetable.png" width="250" alt="A line's timetable, with the times already gone faded out">
+</p>
 
-## Running it locally
+### Themes
 
-You'll need Node ≥ 20.19, Go ≥ 1.25, and a [Tranzy](https://tranzy.ai/) API key.
+<p align="center">
+  <img src="readme/themes-light.png" width="380" alt="The stop screen split into four slices: Default, Arcade, Legacy Blue and Paper, in light mode">
+  <img src="readme/themes-dark.png" width="380" alt="The same four themes in dark mode">
+</p>
+
+### On a watch
+
+It runs in a smartwatch browser too 🤷‍♂️
+
+<p align="center">
+  <img src="readme/watch-menu.png" width="180" alt="Simplified layout menu with favorites">
+  <img src="readme/watch-stop.png" width="180" alt="Departures from a stop">
+  <img src="readme/watch-route.png" width="180" alt="A line's stops around the one you came from">
+  <img src="readme/watch-map.png" width="180" alt="Live buses on the map">
+</p>
+
+### On a Playdate
+
+There's a [Playdate companion](https://github.com/bmarian/conexiuni-cluj-playdate) too. It syncs once over Wi-Fi, then stops, routes and timetables work offline.
+
+<p align="center">
+  <img src="readme/playdate-station.png" width="260" alt="A stop on the Playdate with the next arrivals">
+  <img src="readme/playdate-route.png" width="260" alt="Line 25 on the Playdate, with the bus moving between stops">
+  <img src="readme/playdate-timetable.png" width="260" alt="Line 25's weekday timetable on the Playdate">
+</p>
+
+---
+
+## Running it yourself
+
+You'll need Node 20.19+ (or 22.12+), Go 1.25+, and a [Tranzy](https://tranzy.ai/) API key.
+
+Put your keys in a `keys.env` next to this README.
+
+```bash
+TRANZY_API_KEY=your_tranzy_key
+CARTO_KEY=your_carto_key
+```
+
+Then the backend and the frontend, each in its own terminal:
 
 ```bash
 cd backend
-echo "TRANZY_API_KEY=your_key
-CARTO_KEY=your_carto_key" > keys.env
 go run .
 ```
 
@@ -41,18 +81,20 @@ npm install
 npm run dev
 ```
 
-Push notifications need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
+The backend listens on `:6698` and the dev server proxies `/api` to it. Everything else has a default in [`.env`](.env).
 
-The backend listens on `:6698`, the frontend dev server proxies to it. `npm run build` in `frontend/` outputs to `backend/dist/`, which the Go server serves directly, that's the whole production setup.
+**Push notifications** need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
 
-The route planner needs more: Java 21+, an `otp.jar` in `backend/services/otp/`, and a `cluj.pbf` extract in `backend/services/otp/cluj/`. [`update.sh`](update.sh) downloads and builds all of that (OTP jar, Osmosis, a Cluj-cropped OSM extract) if you want the full setup.
+**The route planner** needs Java 21+, an `otp.jar` in `backend/services/otp/` and a `cluj.pbf` extract in `backend/services/otp/cluj/`. [`update.sh`](update.sh) downloads and builds all of that: the OTP jar, Osmosis, and a Cluj-cropped OSM extract.
+
+**Production** is `npm run build` in `frontend/`, which writes to `backend/dist/`, and the Go server serves it directly. `update.sh` is what I deploy with.
 
 ## Credits
 
 | Source                                                       | Used for                                                                                   |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | [Tranzy.ai](https://tranzy.ai/)                              | Live GPS positions and GTFS data for CTP Cluj-Napoca                                       |
-| [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetable CSVs                                                                    |
+| [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetables                                                                        |
 | [Open-Meteo](https://open-meteo.com/)                        | Weather data                                                                               |
 | [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
 | [CARTO](https://carto.com/)                                  | Map tiles                                                                                  |

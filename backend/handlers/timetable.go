@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 )
 
@@ -193,41 +192,9 @@ func normalizeDaySchedule(d *models.DaySchedule) {
 	prevIn, prevOut := -1, -1
 	offIn, offOut := 0, 0
 	for i := range d.Entries {
-		d.Entries[i].DepartureIn = normalizeTimetableTime(d.Entries[i].DepartureIn, &prevIn, &offIn)
-		d.Entries[i].DepartureOut = normalizeTimetableTime(d.Entries[i].DepartureOut, &prevOut, &offOut)
+		d.Entries[i].DepartureIn = ctp_cj.NormalizeTime(d.Entries[i].DepartureIn, &prevIn, &offIn)
+		d.Entries[i].DepartureOut = ctp_cj.NormalizeTime(d.Entries[i].DepartureOut, &prevOut, &offOut)
 	}
-}
-
-func normalizeTimetableTime(s string, prev *int, offset *int) string {
-	s = ctp_cj.CanonicalTime(s)
-	if s == "" {
-		return s
-	}
-	colon := strings.Index(s, ":")
-	if colon < 0 {
-		return s
-	}
-	end := colon + 1
-	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
-		end++
-	}
-	timeStr, suffix := s[:end], s[end:]
-	parts := strings.SplitN(timeStr, ":", 2)
-	h, err1 := strconv.Atoi(parts[0])
-	m, err2 := strconv.Atoi(parts[1])
-	if err1 != nil || err2 != nil {
-		return s
-	}
-	cur := h*60 + m
-	if *prev >= 0 && cur < *prev {
-		*offset += 1440
-	}
-	*prev = cur
-	if *offset == 0 {
-		return s
-	}
-	total := cur + *offset
-	return fmt.Sprintf("%02d:%02d%s", total/60, total%60, suffix)
 }
 
 func storeTimetableInDB(t *models.Timetable) error {

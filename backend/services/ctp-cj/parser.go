@@ -146,12 +146,12 @@ func normalizeEntries(entries []TimetableEntry) {
 	prevIn, prevOut := -1, -1
 	offIn, offOut := 0, 0
 	for i := range entries {
-		entries[i].DepartureIn = normalizeTime(entries[i].DepartureIn, &prevIn, &offIn)
-		entries[i].DepartureOut = normalizeTime(entries[i].DepartureOut, &prevOut, &offOut)
+		entries[i].DepartureIn = NormalizeTime(entries[i].DepartureIn, &prevIn, &offIn)
+		entries[i].DepartureOut = NormalizeTime(entries[i].DepartureOut, &prevOut, &offOut)
 	}
 }
 
-func normalizeTime(s string, prev *int, offset *int) string {
+func NormalizeTime(s string, prev *int, offset *int) string {
 	s = CanonicalTime(s)
 	if s == "" {
 		return s
