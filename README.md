@@ -29,10 +29,16 @@ There are a few hidden things scattered around for the curious. 🐣
 
 ### Themes
 
-<p align="center">
-  <img src="readme/themes-light.png" width="380" alt="The stop screen split into four slices: Default, Arcade, Legacy Blue and Paper, in light mode">
-  <img src="readme/themes-dark.png" width="380" alt="The same four themes in dark mode">
-</p>
+<table>
+  <tr>
+    <td align="center"><img src="readme/theme-default.png" width="380" alt="The default theme, light and dark"><br><sub>Default</sub></td>
+    <td align="center"><img src="readme/theme-arcade.png" width="380" alt="The Arcade theme, light and dark"><br><sub>Arcade</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="readme/theme-legacy-blue.png" width="380" alt="The Legacy Blue theme, light and dark"><br><sub>Legacy Blue</sub></td>
+    <td align="center"><img src="readme/theme-paper.png" width="380" alt="The Paper theme, light and dark"><br><sub>Paper</sub></td>
+  </tr>
+</table>
 
 ### On a watch
 
