@@ -1,18 +1,25 @@
 <script setup lang="ts">
-import {nextTick, ref} from 'vue'
+import {computed, defineAsyncComponent, nextTick, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
+import {useRoute, useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
-import {useFavoritesStore} from '@/stores/favorites'
-import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
+import {useTransferReceiver} from '@/composables/useTransferReceiver.ts'
 import {focusItem} from '@/utils/keyboardFocus.ts'
+import {sendToTransferLink, TRANSFER_QUERY} from '@/utils/transferLink.ts'
 
-const {t, locale} = useI18n()
+const QrCode = defineAsyncComponent(() => import('@/components/QrCode.vue'))
+
+const props = defineProps<{ sendCode?: string }>()
+
+const {t} = useI18n()
+const route = useRoute()
+const router = useRouter()
 const settings = useSettingsStore()
-const favs = useFavoritesStore()
-const routeUpdates = useRouteUpdatesStore()
+const {buildExport, applyExport} = useSettingsTransfer()
 
-type Mode = 'export' | 'import' | null
+type Mode = 'export' | 'import' | 'send' | 'receive' | null
 const mode = ref<Mode>(null)
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -21,44 +28,46 @@ const importState = ref<'idle' | 'success' | 'error'>('idle')
 let exportTimer: ReturnType<typeof setTimeout> | null = null
 let importTimer: ReturnType<typeof setTimeout> | null = null
 
-const groupRef = ref<HTMLElement | null>(null)
+const code = ref('')
+const codeRef = ref<HTMLInputElement | null>(null)
+const sendState = ref<'idle' | 'busy' | 'sent' | 'unknown' | 'failed'>('idle')
+let sendTimer: ReturnType<typeof setTimeout> | null = null
+const codeDigits = computed(() => code.value.replace(/\D/g, ''))
+const canSend = computed(() => codeDigits.value.length === 6 && sendState.value === 'idle')
+
+let receiveTimer: ReturnType<typeof setTimeout> | null = null
+const {
+  state: receiveState,
+  url: receiveUrl,
+  spacedCode: receiveCode,
+  start: startReceive,
+  stop: stopReceive,
+} = useTransferReceiver((data) => {
+  applyExport(data)
+  receiveTimer = setTimeout(cancel, 1500)
+})
+
+watch(mode, (_now, before) => {
+  if (before === 'receive') stopReceive()
+})
+
+// The code arrives after the panel opens and makes it taller, so bring it all into view then.
+watch(receiveState, async (state) => {
+  if (state !== 'waiting' || mode.value !== 'receive') return
+  await nextTick()
+  rootRef.value?.querySelector('[data-kbd-section="ei-receive-actions"]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
+})
+
+const rootRef = ref<HTMLElement | null>(null)
 const {keyboardMode} = useKeyboardNav()
 
 useKbdEscape(() => mode.value !== null, () => {
-  const opener = groupRef.value?.querySelector<HTMLElement>(`[data-kbd-item="ei-${mode.value}"]`)
+  const opener = rootRef.value?.querySelector<HTMLElement>(`[data-kbd-item="ei-${mode.value}"]`)
   cancel()
   if (opener) focusItem(opener)
 })
 
 const canShare = typeof navigator !== 'undefined' && !!navigator.share
-
-function buildJson() {
-  return JSON.stringify({
-    version: 1,
-    settings: {
-      theme: settings.theme,
-      locale: settings.locale,
-      arcadeUnlocked: settings.arcadeUnlocked,
-      arcadeActive: settings.arcadeActive,
-      legacyBlueUnlocked: settings.legacyBlueUnlocked,
-      legacyBlueActive: settings.legacyBlueActive,
-      paperActive: settings.paperActive,
-      showWeather: settings.showWeather,
-      showNews: settings.showNews,
-      autoCenterOnMe: settings.autoCenterOnMe,
-      autoFitMap: settings.autoFitMap,
-      showGreenFriday: settings.showGreenFriday,
-      showTimetableChanges: settings.showTimetableChanges,
-    },
-    favorites: {
-      routes: favs.favoriteRoutes,
-      stops: favs.favoriteStopIds,
-      plans: favs.favoritePlans,
-      recentPlans: favs.recentPlans,
-    },
-    followedLines: routeUpdates.followed,
-  })
-}
 
 async function compress(json: string): Promise<string> {
   const stream = new CompressionStream('deflate-raw')
@@ -99,7 +108,7 @@ async function decompress(b64: string): Promise<string> {
 
 async function openExport() {
   mode.value = 'export'
-  text.value = await compress(buildJson())
+  text.value = await compress(JSON.stringify(buildExport()))
   exportDone.value = false
   await nextTick()
   textareaRef.value?.select()
@@ -116,6 +125,58 @@ function cancel() {
   mode.value = null
   exportDone.value = false
   importState.value = 'idle'
+  sendState.value = 'idle'
+  if (sendTimer) clearTimeout(sendTimer)
+  sendTimer = null
+  if (receiveTimer) clearTimeout(receiveTimer)
+  receiveTimer = null
+  if (route.query[TRANSFER_QUERY] !== undefined) void router.replace({query: {}})
+}
+
+async function openSend(prefill = '') {
+  mode.value = 'send'
+  code.value = prefill
+  sendState.value = 'idle'
+  await nextTick()
+  if (prefill) {
+    // A scanned code opens a fresh page that is still laying out, which cuts a smooth scroll short.
+    await document.fonts.ready
+    await new Promise(requestAnimationFrame)
+    await new Promise(requestAnimationFrame)
+    rootRef.value?.scrollIntoView({block: 'center'})
+    if (keyboardMode.value) {
+      const confirm = rootRef.value?.querySelector<HTMLElement>('[data-kbd-item="ei-send-confirm"]')
+      if (confirm) focusItem(confirm)
+    }
+  } else {
+    codeRef.value?.focus({preventScroll: true})
+    rootRef.value?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
+  }
+}
+
+// Scanning the code on the other device opens Settings with it filled in.
+watch(() => props.sendCode, (prefill) => {
+  if (prefill && /^\d{6}$/.test(prefill)) void openSend(prefill)
+}, {immediate: true})
+
+async function doSend() {
+  if (!canSend.value) return
+  sendState.value = 'busy'
+  const result = await sendToTransferLink(codeDigits.value, buildExport())
+  sendState.value = result
+  if (sendTimer) clearTimeout(sendTimer)
+  sendTimer = setTimeout(() => {
+    sendTimer = null
+    if (result === 'sent') cancel()
+    else sendState.value = 'idle'
+  }, result === 'sent' ? 1500 : 2000)
+}
+
+async function openReceive() {
+  mode.value = 'receive'
+  void startReceive()
+  await nextTick()
+  rootRef.value?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
 }
 
 async function doExportShare() {
@@ -149,30 +210,7 @@ async function doImport() {
   try {
     let raw = text.value.trim()
     try { raw = await decompress(raw) } catch { /* plain JSON fallback */ }
-    const data = JSON.parse(raw)
-    if (!data || typeof data !== 'object') throw new Error()
-    const s = data.settings ?? {}
-    if (s.theme) settings.setTheme(s.theme)
-    if (s.locale) {
-      settings.setLocale(s.locale)
-      locale.value = s.locale
-    }
-    if (s.arcadeUnlocked) settings.unlockArcade()
-    if (s.arcadeActive) settings.activateArcade()
-    else settings.deactivateArcade()
-    if (s.legacyBlueUnlocked) settings.unlockLegacyBlue()
-    if (s.legacyBlueActive) settings.activateLegacyBlue()
-    else settings.deactivateLegacyBlue()
-    if (s.paperActive) settings.activatePaper()
-    else settings.deactivatePaper()
-    if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
-    if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
-    if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
-    if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
-    if (typeof s.showGreenFriday === 'boolean') settings.setShowGreenFriday(s.showGreenFriday)
-    if (typeof s.showTimetableChanges === 'boolean') settings.setShowTimetableChanges(s.showTimetableChanges)
-    favs.importAll(data.favorites ?? {})
-    if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
+    applyExport(JSON.parse(raw))
     importState.value = 'success'
     if (importTimer) clearTimeout(importTimer)
     importTimer = setTimeout(cancel, 1500)
@@ -188,8 +226,110 @@ async function doImport() {
 </script>
 
 <template>
-  <div class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive, 'is-paper': settings.paperActive }">
-    <div ref="groupRef" class="ei-group" data-kbd-section="ei" data-kbd-axis="x">
+  <div ref="rootRef" class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive, 'is-paper': settings.paperActive }">
+    <div class="ei-group" data-kbd-section="ei-transfer" data-kbd-axis="x">
+      <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-send" @click="openSend()">
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📤</span>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             width="13" height="13" aria-hidden="true">
+          <path d="M22 2 11 13"/>
+          <path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+        </svg>
+        {{ t('transferSend') }}
+      </button>
+      <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-receive" @click="openReceive">
+        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📥</span>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             width="13" height="13" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M17 20h4v-3"/>
+        </svg>
+        {{ t('transferReceive') }}
+      </button>
+    </div>
+
+    <template v-if="mode === 'send'">
+      <input
+        ref="codeRef"
+        v-model="code"
+        class="ei-textarea ei-code"
+        data-kbd-section="ei-code"
+        data-kbd-item="ei-code"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="7"
+        :placeholder="t('sendCodePlaceholder')"
+        @keydown.enter="doSend"
+      />
+      <div class="ei-actions" data-kbd-section="ei-send-actions" data-kbd-axis="x">
+        <button
+          type="button"
+          class="ei-btn ei-btn-primary"
+          data-kbd-item="ei-send-confirm"
+          :class="{'ei-btn-success': sendState === 'sent', 'ei-btn-error': sendState === 'unknown' || sendState === 'failed'}"
+          :disabled="!canSend"
+          @click="doSend"
+        >
+          <template v-if="sendState === 'sent'">
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+            {{ t('sendDone') }}
+          </template>
+          <template v-else-if="sendState === 'unknown' || sendState === 'failed'">
+            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
+            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            {{ sendState === 'unknown' ? t('sendUnknownCode') : t('sendFailed') }}
+          </template>
+          <template v-else>
+            {{ t('sendConfirm') }}
+          </template>
+        </button>
+        <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
+      </div>
+    </template>
+
+    <template v-else-if="mode === 'receive'">
+      <div v-if="receiveState !== 'done'" class="ei-receive">
+        <template v-if="receiveState === 'waiting'">
+          <div class="ei-qr">
+            <QrCode :text="receiveUrl" :label="receiveCode"/>
+          </div>
+          <p class="ei-receive-code">{{ receiveCode }}</p>
+          <p class="ei-note setting-desc">{{ t('transferHint') }}</p>
+        </template>
+        <p v-else-if="receiveState === 'expired' || receiveState === 'failed'" class="ei-note setting-desc">
+          {{ receiveState === 'expired' ? t('transferExpired') : t('transferFailed') }}
+        </p>
+        <p v-else class="ei-note setting-desc">{{ t('transferLoading') }}</p>
+      </div>
+      <div class="ei-actions" data-kbd-section="ei-receive-actions" data-kbd-axis="x">
+        <button v-if="receiveState === 'done'" type="button" class="ei-btn ei-btn-primary ei-btn-success" disabled>
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
+          <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          {{ t('receiveDone') }}
+        </button>
+        <template v-else>
+          <button v-if="receiveState === 'expired' || receiveState === 'failed'" type="button"
+                  class="ei-btn ei-btn-primary" data-kbd-item="ei-new-code" @click="startReceive">
+            {{ t('transferNewCode') }}
+          </button>
+          <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
+        </template>
+      </div>
+    </template>
+
+    <div class="ei-group ei-group-text" data-kbd-section="ei" data-kbd-axis="x">
       <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -213,7 +353,7 @@ async function doImport() {
       </button>
     </div>
 
-    <template v-if="mode">
+    <template v-if="mode === 'export' || mode === 'import'">
       <textarea
         ref="textareaRef"
         v-model="text"
@@ -415,6 +555,68 @@ async function doImport() {
 /* legacy blue dark */
 .ei-root.is-legacy-blue.is-dark .ei-textarea { border-color: #2A508C; background: #0A1020; color: #90B4E0; }
 .ei-root.is-legacy-blue.is-dark .ei-textarea:focus { border-color: #3d70c0; background: #0A1020; }
+
+.ei-code {
+  font-size: 1.125rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ei-code::placeholder {
+  font-size: 0.75rem;
+  letter-spacing: normal;
+}
+
+.ei-note {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.ei-root.is-dark .ei-note { color: #94a3b8; }
+
+.ei-group-text {
+  margin-top: 0.25rem;
+}
+
+.ei-receive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+/* Dark on white in every theme: that's what cameras read. */
+.ei-qr {
+  width: 10rem;
+  height: 10rem;
+  padding: 0.625rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.ei-qr :deep(svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ei-root.is-dark .ei-qr { border-color: transparent; }
+
+.ei-receive-code {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ei-receive .ei-note {
+  max-width: 18rem;
+  text-align: center;
+}
 
 /* ── actions row ── */
 .ei-actions {

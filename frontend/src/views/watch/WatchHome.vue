@@ -116,6 +116,19 @@ async function openRoute(route: Route, direction: FavoriteRoute['direction']) {
         <span class="wt-row-title">{{ t('allStops') }}</span>
       </span>
     </button>
+    <button type="button" class="wt-row wt-fish" @click="router.push({query: {pair: '1'}})">
+      <span class="wt-browse-icon" aria-hidden="true">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M17 20h4v-3"/>
+        </svg>
+      </span>
+      <span class="wt-row-text">
+        <span class="wt-row-title">{{ t('watchCopyFavorites') }}</span>
+      </span>
+    </button>
 
     <button type="button" class="wt-row wt-row-action wt-fish" @click="settings.setSimplified(false)">
       {{ t('simplifiedTurnOff') }}

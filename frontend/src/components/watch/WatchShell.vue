@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onUnmounted} from 'vue'
+import {computed, defineAsyncComponent, nextTick, onUnmounted, provide} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {type RouteLocationNormalized, useRoute, useRouter} from 'vue-router'
 import {storeToRefs} from 'pinia'
@@ -14,6 +14,8 @@ import WatchStop from '@/views/watch/WatchStop.vue'
 import WatchRoute from '@/views/watch/WatchRoute.vue'
 import '@/styles/watch.css'
 
+const WatchPair = defineAsyncComponent(() => import('@/views/watch/WatchPair.vue'))
+
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +24,7 @@ const {userTime} = storeToRefs(useUserStore())
 const {stops} = useStopsApi()
 
 const browse = computed(() => route.name === 'home' ? route.query.browse : undefined)
+const pairing = computed(() => route.name === 'home' && route.query.pair !== undefined)
 const queryString = (key: string) => typeof route.query[key] === 'string' ? route.query[key] as string : undefined
 
 const stopMapOpen = computed(() => route.name === 'stop' && route.query.map !== undefined)
@@ -38,6 +41,8 @@ const clock = computed(() => {
 // The bezel only scrolls the page itself, so every screen scrolls the document and
 // going back has to put it where it was. Map screens park it in their scroll sink.
 const savedScroll = new Map<number, number>()
+const browserRestoration = window.history.scrollRestoration
+window.history.scrollRestoration = 'manual'
 
 const isMapScreen = (to: RouteLocationNormalized) =>
   (to.name === 'stop' && to.query.map !== undefined)
@@ -46,6 +51,12 @@ const isMapScreen = (to: RouteLocationNormalized) =>
 const historyPosition = () => (window.history.state?.position as number | undefined) ?? 0
 let currentPosition = historyPosition()
 let popped = false
+let returnToTop = false
+
+// After copying favorites, home opens at the top where they are.
+provide('watchScrollTopOnReturn', () => {
+  returnToTop = true
+})
 
 function restoreScroll(top: number) {
   let frames = 0
@@ -69,13 +80,15 @@ const stopListening = router.options.history.listen((_to, _from, info) => {
 const removeAfter = router.afterEach((to, _from, failure) => {
   if (failure) return
   currentPosition = historyPosition()
-  const top = popped ? savedScroll.get(currentPosition) : undefined
+  const top = popped && !returnToTop ? savedScroll.get(currentPosition) : undefined
   popped = false
+  returnToTop = false
   if (isMapScreen(to)) return
   void nextTick(() => top === undefined ? window.scrollTo(0, 0) : restoreScroll(top))
 })
 
 onUnmounted(() => {
+  window.history.scrollRestoration = browserRestoration
   removeBefore()
   removeAfter()
   stopListening()
@@ -95,6 +108,7 @@ onUnmounted(() => {
         :letter="queryString('letter')"
         :prefix="queryString('prefix')"
       />
+      <WatchPair v-else-if="pairing"/>
       <WatchHome v-else-if="route.name === 'home'"/>
       <WatchStop
         v-else-if="route.name === 'stop'"

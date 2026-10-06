@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
-import {useRouter} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
 import {usePushStore} from '@/stores/push'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {TRANSFER_QUERY} from '@/utils/transferLink.ts'
 
 const {t, locale} = useI18n()
+const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
 const push = usePushStore()
@@ -21,6 +23,10 @@ useHead(() => ({
 }))
 
 const isAdminAuthed = ref(false)
+const sendCode = computed(() => {
+  const code = route.query[TRANSFER_QUERY]
+  return typeof code === 'string' ? code : undefined
+})
 
 onMounted(() => {
   try {
@@ -332,9 +338,9 @@ async function togglePush() {
     </section>
 
     <section class="flex flex-col gap-2">
-      <h2 class="section-label">{{ t('exportImport') }}</h2>
-      <p class="setting-desc">{{ t('exportImportDesc') }}</p>
-      <SettingsExportImport/>
+      <h2 class="section-label">{{ t('transfer') }}</h2>
+      <p class="setting-desc">{{ t('transferDesc') }}</p>
+      <SettingsExportImport :send-code="sendCode"/>
     </section>
 
     <section v-if="isAdminAuthed" class="flex flex-col gap-2">

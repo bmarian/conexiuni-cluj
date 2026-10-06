@@ -16,7 +16,7 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - Favorite stops, and favorite lines per direction
 - Follow a line and get a notification when CTP changes its timetable or route
 - Installable as an app, with partial offline support
-- Export your favorites and settings, import them on another phone
+- Move your favorites and settings to another phone or your watch by scanning a code
 - Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
 There are a few hidden things scattered around for the curious. 🐣

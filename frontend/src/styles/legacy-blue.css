@@ -1526,12 +1526,16 @@ html[data-legacy-blue] .suspended-banner {
 }
 
 /* section blurb sits straight on the wallpaper, so it needs the .sub-label treatment */
-html[data-legacy-blue] .settings-view-container > section > .setting-desc {
+html[data-legacy-blue] .settings-view-container > section > .setting-desc,
+html[data-legacy-blue] .ei-note,
+html[data-legacy-blue] .ei-receive-code {
   color: #ffffff !important;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45) !important;
 }
 
-html.dark[data-legacy-blue] .settings-view-container > section > .setting-desc {
+html.dark[data-legacy-blue] .settings-view-container > section > .setting-desc,
+html.dark[data-legacy-blue] .ei-note,
+html.dark[data-legacy-blue] .ei-receive-code {
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55) !important;
 }
 
