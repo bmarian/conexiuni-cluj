@@ -34,6 +34,7 @@ export type IndexedStop = StopTime & { timeOffsetFromStart: number }
 export interface StopTimeDisplay {
   label: string;
   isLive: boolean
+  minutes: number
 }
 
 const SCHEDULE_HORIZON_MIN = 480
@@ -208,6 +209,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     return markRepeatedNow(rows).map((row) => row.map((arrival) => ({
       label: arrival.soon ? t('soon') : formatMinutes(arrival.minutes),
       isLive: arrival.isLive,
+      minutes: arrival.minutes,
     })))
   })
 

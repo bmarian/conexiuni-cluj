@@ -247,7 +247,8 @@ const isStandaloneApp = () =>
   window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
 
 const beginLocationWatch = (enableHighAccuracy = false) => {
-  if (!map.value) return
+  // Location never worked on the watch, so the simplified layout doesn't ask for it.
+  if (!map.value || settingsStore.watchActive) return
 
   userStore.setIsLocating(true)
   map.value.stopLocate()
@@ -262,7 +263,7 @@ const beginLocationWatch = (enableHighAccuracy = false) => {
 const requestCurrentLocation = (enableHighAccuracy = false) => {
   beginLocationWatch(enableHighAccuracy)
 
-  if (!navigator.geolocation) return
+  if (!navigator.geolocation || settingsStore.watchActive) return
   navigator.geolocation.getCurrentPosition(
     (position) => {
       if (!map.value) return
@@ -368,6 +369,8 @@ const mapInit = (lat: number, lon: number, zoom: number) => {
     maxBoundsViscosity: 1.0,
     minZoom: MIN_ZOOM,
     attributionControl: true,
+    // The watch fits routes between its title and buttons, and whole steps fit them badly.
+    zoomSnap: settingsStore.watchActive ? 0.25 : 1,
   }).setView([lat, lon], zoom)
   mapValue.getContainer().tabIndex = -1
 
@@ -532,14 +535,7 @@ onMounted(() => {
   }
   void stopsInit()
   // The watch mounts the map on demand, after a view has already filled the store.
-  if (shapesToDisplay.value.length) {
-    renderShapes(shapesToDisplay.value as ShapeLayerEntry[])
-    const bounds = shapeLayerGroup.value?.getBounds()
-    if (bounds?.isValid()) {
-      map.value?.fitBounds(bounds, {...fitBoundsPadding(), maxZoom: 16, animate: false})
-      hasFittedForContent = true
-    }
-  }
+  if (shapesToDisplay.value.length) renderShapes(shapesToDisplay.value as ShapeLayerEntry[])
   renderVehicles(vehiclesToDisplay.value as DisplayVehicle[])
 
   window.addEventListener('resize', scheduleInvalidateMapSize, {passive: true})
@@ -811,7 +807,8 @@ watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionAr
 }, {deep: true})
 
 watch(shapesToDisplay, (newShapes) => {
-  if (!settingsStore.autoFitMap || !map.value) return
+  // The watch frames its own view.
+  if (!settingsStore.autoFitMap || !map.value || settingsStore.watchActive) return
   if (newShapes.length && mapStore.fitWalkingPolylines) return
   if (newShapes.length) {
     const bounds = shapeLayerGroup.value?.getBounds()
@@ -1032,10 +1029,19 @@ onUnmounted(() => {
 
 defineExpose({
   zoomBy: (delta: number) => map.value?.setZoom(map.value.getZoom() + delta),
-  focus: (lat: number, lng: number) => {
+  focus: (lat: number, lng: number, zoom = DEFAULT_ZOOM) => {
     hasFittedForContent = true
-    map.value?.setView([lat, lng], DEFAULT_ZOOM, {animate: false})
+    map.value?.setView([lat, lng], zoom, {animate: false})
   },
+  fitShapes: (paddingTopLeft: L.PointTuple, paddingBottomRight: L.PointTuple): boolean => {
+    const bounds = shapeLayerGroup.value?.getBounds()
+    if (!map.value || !bounds?.isValid()) return false
+    map.value.fitBounds(bounds, {paddingTopLeft, paddingBottomRight, maxZoom: 16, animate: false})
+    hasFittedForContent = true
+    return true
+  },
+  invalidate: invalidateMapSize,
+  leaflet: () => map.value,
 })
 </script>
 

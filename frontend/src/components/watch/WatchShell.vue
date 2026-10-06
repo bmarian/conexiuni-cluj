@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import {computed, nextTick, onUnmounted, provide, ref} from 'vue'
+import {computed, nextTick, onUnmounted} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRoute, useRouter} from 'vue-router'
+import {type RouteLocationNormalized, useRoute, useRouter} from 'vue-router'
 import {storeToRefs} from 'pinia'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
-import {useWatchLocation} from '@/composables/useWatchLocation.ts'
+import {useStopsApi} from '@/composables/useStopsApi.ts'
 import WatchMap from '@/components/watch/WatchMap.vue'
 import WatchHome from '@/views/watch/WatchHome.vue'
+import WatchRoutes from '@/views/watch/WatchRoutes.vue'
+import WatchStops from '@/views/watch/WatchStops.vue'
 import WatchStop from '@/views/watch/WatchStop.vue'
 import WatchRoute from '@/views/watch/WatchRoute.vue'
 import '@/styles/watch.css'
@@ -17,11 +19,16 @@ const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
 const {userTime} = storeToRefs(useUserStore())
+const {stops} = useStopsApi()
 
-const {status: locationStatus} = useWatchLocation()
-provide('watchLocation', locationStatus)
+const browse = computed(() => route.name === 'home' ? route.query.browse : undefined)
+const queryString = (key: string) => typeof route.query[key] === 'string' ? route.query[key] as string : undefined
 
-const mapOpen = computed(() => route.query.map !== undefined)
+const stopMapOpen = computed(() => route.name === 'stop' && route.query.map !== undefined)
+const stopFocus = computed(() => {
+  const stop = stops.value.find((s) => String(s.stop_id) === route.params.stopId)
+  return stop ? {lat: stop.stop_lat, lng: stop.stop_lon} : null
+})
 
 const clock = computed(() => {
   const now = userTime.value || new Date()
@@ -29,10 +36,12 @@ const clock = computed(() => {
 })
 
 // The bezel only scrolls the page itself, so every screen scrolls the document and
-// going back has to put it where it was.
+// going back has to put it where it was. Map screens park it in their scroll sink.
 const savedScroll = new Map<number, number>()
-const restoring = ref(false)
-provide('watchRestoring', restoring)
+
+const isMapScreen = (to: RouteLocationNormalized) =>
+  (to.name === 'stop' && to.query.map !== undefined)
+  || (to.name === 'route' && to.query.timetable === undefined)
 
 const historyPosition = () => (window.history.state?.position as number | undefined) ?? 0
 let currentPosition = historyPosition()
@@ -62,8 +71,7 @@ const removeAfter = router.afterEach((to, _from, failure) => {
   currentPosition = historyPosition()
   const top = popped ? savedScroll.get(currentPosition) : undefined
   popped = false
-  restoring.value = top !== undefined
-  if (to.query.map !== undefined) return
+  if (isMapScreen(to)) return
   void nextTick(() => top === undefined ? window.scrollTo(0, 0) : restoreScroll(top))
 })
 
@@ -80,8 +88,14 @@ onUnmounted(() => {
     <div class="wt-fade wt-fade-top" aria-hidden="true"></div>
     <div class="wt-fade wt-fade-bottom" aria-hidden="true"></div>
 
-    <div v-show="!mapOpen">
-      <WatchHome v-if="route.name === 'home'"/>
+    <div v-show="!stopMapOpen">
+      <WatchRoutes v-if="browse === 'routes'"/>
+      <WatchStops
+        v-else-if="browse === 'stops'"
+        :letter="queryString('letter')"
+        :prefix="queryString('prefix')"
+      />
+      <WatchHome v-else-if="route.name === 'home'"/>
       <WatchStop
         v-else-if="route.name === 'stop'"
         :key="`stop-${route.params.stopId}`"
@@ -104,6 +118,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <WatchMap v-if="mapOpen"/>
+    <WatchMap v-if="stopMapOpen" :focus="stopFocus"/>
   </div>
 </template>

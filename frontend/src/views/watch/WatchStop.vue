@@ -70,6 +70,17 @@ function openRoute(shape: VehiclesInStop) {
       <h1 class="wt-heading">{{ stopName || '…' }}</h1>
     </header>
 
+    <button
+      type="button"
+      class="wt-row wt-row-action wt-fish"
+      :aria-pressed="isFavorite"
+      @click="favoritesStore.toggleStopFavorite(Number(stopId))"
+    >
+      <IconHeartFilled v-if="isFavorite" class="wt-heart"/>
+      <IconHeartOutline v-else/>
+      {{ isFavorite ? t('removeFromFavorites') : t('addToFavorites') }}
+    </button>
+
     <p v-if="loadError" class="wt-note">{{ t('watchLoadFailed') }}</p>
     <p v-else-if="isLoading || isComputingDepartures" class="wt-note">{{ t('loadingStop') }}</p>
     <p v-else-if="!departuresSorted.length" class="wt-note">{{ t('noSchedule') }}</p>
@@ -94,16 +105,6 @@ function openRoute(shape: VehiclesInStop) {
 
     <button type="button" class="wt-row wt-row-action wt-fish" @click="router.push({query: {map: '1'}})">
       {{ t('watchMap') }}
-    </button>
-    <button
-      type="button"
-      class="wt-row wt-row-action wt-fish"
-      :aria-pressed="isFavorite"
-      @click="favoritesStore.toggleStopFavorite(Number(stopId))"
-    >
-      <IconHeartFilled v-if="isFavorite" class="wt-heart"/>
-      <IconHeartOutline v-else/>
-      {{ isFavorite ? t('removeFromFavorites') : t('addToFavorites') }}
     </button>
   </div>
 </template>
