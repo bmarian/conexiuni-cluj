@@ -1,10 +1,22 @@
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
-import {useFavoritesStore} from '@/stores/favorites'
+import {parseFavoriteRoutes, parsePlans, parseStopIds, useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+// What the person is shown before an export they received replaces theirs: only what would be kept.
+export function describeExport(data: unknown) {
+  if (!isRecord(data) || (!isRecord(data.favorites) && !isRecord(data.settings))) return null
+  const favorites = isRecord(data.favorites) ? data.favorites : {}
+  return {
+    stops: parseStopIds(favorites.stops).length,
+    lines: parseFavoriteRoutes(favorites.routes).length,
+    places: parsePlans(favorites.plans).length,
+    followed: Array.isArray(data.followedLines) ? data.followedLines.filter((x) => typeof x === 'string').length : 0,
+  }
+}
 
 // The same export goes out as text (Export / Import) and through a transfer code.
 export function useSettingsTransfer() {
@@ -51,7 +63,7 @@ export function useSettingsTransfer() {
   function applyExport(data: unknown) {
     if (!isRecord(data)) throw new Error('not a settings export')
     const s = (isRecord(data.settings) ? data.settings : {}) as Partial<ReturnType<typeof buildExport>['settings']>
-    if (s.theme) settings.setTheme(s.theme)
+    if (s.theme === 'light' || s.theme === 'dark' || s.theme === 'system') settings.setTheme(s.theme)
     applyLocale(s.locale)
     if (s.arcadeUnlocked) settings.unlockArcade()
     if (s.arcadeActive) settings.activateArcade()

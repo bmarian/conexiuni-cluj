@@ -8,7 +8,7 @@ import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
 import {usePushStore} from '@/stores/push'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
-import {TRANSFER_QUERY} from '@/utils/transferLink.ts'
+import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -27,6 +27,7 @@ const sendCode = computed(() => {
   const code = route.query[TRANSFER_QUERY]
   return typeof code === 'string' ? code : undefined
 })
+const sendKey = computed(() => transferKeyFromHash(route.hash))
 
 onMounted(() => {
   try {
@@ -340,7 +341,7 @@ async function togglePush() {
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('transfer') }}</h2>
       <p class="setting-desc">{{ t('transferDesc') }}</p>
-      <SettingsExportImport :send-code="sendCode"/>
+      <SettingsExportImport :send-code="sendCode" :send-key="sendKey"/>
     </section>
 
     <section v-if="isAdminAuthed" class="flex flex-col gap-2">

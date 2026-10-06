@@ -22,17 +22,7 @@ var streamedAPIPaths = map[string]struct{}{
 // ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client IP
 // using the provided salt. Same scheme as the access log identifier.
 func ComputeClientHash(c fiber.Ctx, salt string) string {
-	ip := ""
-	for forwardedIP := range strings.SplitSeq(c.Get(fiber.HeaderXForwardedFor), ",") {
-		candidate := strings.TrimSpace(forwardedIP)
-		if candidate != "" {
-			ip = candidate
-			break
-		}
-	}
-	if ip == "" {
-		ip = c.IP()
-	}
+	ip := ClientIP(c)
 	if ip == "" {
 		return ""
 	}

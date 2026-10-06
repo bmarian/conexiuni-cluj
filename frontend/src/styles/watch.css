@@ -476,6 +476,23 @@ html[data-watch] body {
   font-variant-numeric: tabular-nums;
 }
 
+.wt-pair-review {
+  margin-top: 3rem;
+  padding: 0 3rem;
+  text-align: center;
+}
+
+.wt-pair-counts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.9375rem;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+
 .wt-pair-done {
   margin: 4.5rem 0 0.75rem;
   width: 4rem;

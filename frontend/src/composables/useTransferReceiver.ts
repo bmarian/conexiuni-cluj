@@ -1,7 +1,9 @@
 import {computed, onScopeDispose, ref, shallowRef} from 'vue'
 import {
+  createTransferKey,
   createTransferLink,
   deleteTransferLink,
+  openTransfer,
   readTransferLink,
   type TransferLink,
   transferLinkUrl,
@@ -9,15 +11,23 @@ import {
 
 const POLL_MS = 2000
 
-// Shows a code and waits for another device to send its export to it.
-export function useTransferReceiver(apply: (data: unknown) => void) {
-  const state = ref<'idle' | 'loading' | 'waiting' | 'done' | 'expired' | 'failed'>('idle')
+// Shows a code, waits for another device to send its export to it, and holds what
+// arrived until the person confirms it: anyone who guesses a waiting code can send too.
+// `describe` returns null for anything that isn't an export.
+export function useTransferReceiver<Summary>(
+  describe: (data: unknown) => Summary | null,
+  apply: (data: unknown) => void,
+) {
+  const state = ref<'idle' | 'loading' | 'waiting' | 'review' | 'done' | 'expired' | 'failed' | 'broken'>('idle')
   const link = shallowRef<TransferLink | null>(null)
+  const summary = shallowRef<Summary | null>(null)
+  let key: string | null = null
+  let received: unknown = null
   let expiresAt = 0
   let timer: ReturnType<typeof setTimeout> | undefined
   let polling = false
 
-  const url = computed(() => link.value ? transferLinkUrl(link.value.code) : '')
+  const url = computed(() => link.value ? transferLinkUrl(link.value.code, key) : '')
   const spacedCode = computed(() => link.value ? `${link.value.code.slice(0, 3)} ${link.value.code.slice(3)}` : '')
 
   function clearTimer() {
@@ -26,8 +36,10 @@ export function useTransferReceiver(apply: (data: unknown) => void) {
   }
 
   function release() {
-    if (link.value && state.value !== 'done') deleteTransferLink(link.value)
+    if (link.value) deleteTransferLink(link.value)
     link.value = null
+    summary.value = null
+    received = null
   }
 
   async function start() {
@@ -41,6 +53,7 @@ export function useTransferReceiver(apply: (data: unknown) => void) {
         deleteTransferLink(created)
         return
       }
+      key = createTransferKey()
       link.value = created
       expiresAt = Date.now() + created.expiresIn * 1000
       state.value = 'waiting'
@@ -70,7 +83,7 @@ export function useTransferReceiver(apply: (data: unknown) => void) {
       const result = await readTransferLink(current)
       if (link.value !== current) return
       if (result.state === 'gone') state.value = 'expired'
-      else if (result.state === 'received') receive(current, result.data)
+      else if (result.state === 'received') await receive(current, result.data)
     } catch {
       // Offline for a moment; the next poll tries again.
     } finally {
@@ -79,14 +92,26 @@ export function useTransferReceiver(apply: (data: unknown) => void) {
     if (state.value === 'waiting') timer = setTimeout(poll, POLL_MS)
   }
 
-  function receive(from: TransferLink, data: unknown) {
+  async function receive(from: TransferLink, payload: unknown) {
+    deleteTransferLink(from)
+    link.value = null
     try {
-      apply(data)
+      received = await openTransfer(payload, key)
+      summary.value = describe(received)
+    } catch {
+      summary.value = null
+    }
+    state.value = summary.value ? 'review' : 'broken'
+  }
+
+  function accept() {
+    if (state.value !== 'review') return
+    try {
+      apply(received)
       state.value = 'done'
     } catch {
-      state.value = 'failed'
+      state.value = 'broken'
     }
-    deleteTransferLink(from)
   }
 
   // Timers stop while the screen is off or the tab is hidden, so check as soon as it's back.
@@ -96,5 +121,5 @@ export function useTransferReceiver(apply: (data: unknown) => void) {
 
   onScopeDispose(stop)
 
-  return {state, url, spacedCode, start, stop}
+  return {state, url, spacedCode, summary, start, stop, accept}
 }

@@ -20,8 +20,14 @@ const (
 	transferLinkTTL          = 10 * time.Minute
 	maxTransferLinks         = 1000
 	maxTransferBody          = 32 << 10
-	maxTransferLinkMisses    = 20
 	transferLinkSecretHeader = "X-Link-Secret"
+
+	// Six digits are guessable, so wrong codes are budgeted per client and for everyone
+	// together. The shared budget lets through about 3000 guesses in a code's lifetime,
+	// a 0.3% chance at any one code, however many addresses a bot uses.
+	maxTransferMissesPerClient  = 20
+	maxTransferMissesPerMinute  = 300
+	maxTransferCreatesPerClient = 20
 )
 
 type transferLink struct {
@@ -30,15 +36,17 @@ type transferLink struct {
 	payload []byte
 }
 
-type transferLinkMisses struct {
+type transferCounter struct {
 	count int
 	reset time.Time
 }
 
 var (
-	transferLinksMu    sync.Mutex
-	transferLinks      = map[string]*transferLink{}
-	transferLinkMissed = map[string]*transferLinkMisses{}
+	transferLinksMu      sync.Mutex
+	transferLinks        = map[string]*transferLink{}
+	transferClientMisses = map[string]*transferCounter{}
+	transferCreates      = map[string]*transferCounter{}
+	transferMisses       transferCounter
 )
 
 func validTransferCode(code string) bool {
@@ -60,11 +68,29 @@ func pruneTransferLinks(now time.Time) {
 			delete(transferLinks, code)
 		}
 	}
-	for client, misses := range transferLinkMissed {
-		if now.After(misses.reset) {
-			delete(transferLinkMissed, client)
+	for _, counters := range []map[string]*transferCounter{transferClientMisses, transferCreates} {
+		for client, counter := range counters {
+			if now.After(counter.reset) {
+				delete(counters, client)
+			}
 		}
 	}
+}
+
+// Callers hold transferLinksMu.
+func overTransferLimit(counters map[string]*transferCounter, client string, limit int, now time.Time) bool {
+	counter := counters[client]
+	return counter != nil && !now.After(counter.reset) && counter.count >= limit
+}
+
+// Callers hold transferLinksMu.
+func bumpTransferCounter(counters map[string]*transferCounter, client string, now time.Time) {
+	counter := counters[client]
+	if counter == nil || now.After(counter.reset) {
+		counter = &transferCounter{reset: now.Add(transferLinkTTL)}
+		counters[client] = counter
+	}
+	counter.count++
 }
 
 // Callers hold transferLinksMu.
@@ -93,6 +119,7 @@ func CreateTransferLink(c fiber.Ctx) error {
 	if !sameOriginRequest(c) {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
+	client := ClientHashFromLocals(c)
 	secret := make([]byte, 16)
 	_, _ = rand.Read(secret)
 	now := time.Now()
@@ -100,6 +127,9 @@ func CreateTransferLink(c fiber.Ctx) error {
 	transferLinksMu.Lock()
 	defer transferLinksMu.Unlock()
 	pruneTransferLinks(now)
+	if overTransferLimit(transferCreates, client, maxTransferCreatesPerClient, now) {
+		return c.SendStatus(fiber.StatusTooManyRequests)
+	}
 	if len(transferLinks) >= maxTransferLinks {
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
@@ -114,6 +144,7 @@ func CreateTransferLink(c fiber.Ctx) error {
 			break
 		}
 	}
+	bumpTransferCounter(transferCreates, client, now)
 	link := &transferLink{secret: hex.EncodeToString(secret), expires: now.Add(transferLinkTTL)}
 	transferLinks[code] = link
 	return c.JSON(fiber.Map{"code": code, "secret": link.secret, "expiresIn": int(transferLinkTTL.Seconds())})
@@ -138,22 +169,20 @@ func SendToTransferLink(c fiber.Ctx) error {
 
 	transferLinksMu.Lock()
 	defer transferLinksMu.Unlock()
-	// Six digits are guessable, so a client that keeps missing is turned away for a while.
-	misses := transferLinkMissed[client]
-	if misses != nil && now.After(misses.reset) {
-		delete(transferLinkMissed, client)
-		misses = nil
+	if now.After(transferMisses.reset) {
+		transferMisses = transferCounter{reset: now.Add(time.Minute)}
+		// Also bounds the per-client counters when nobody is creating codes.
+		pruneTransferLinks(now)
 	}
-	if misses != nil && misses.count >= maxTransferLinkMisses {
+	// Refused before looking the code up, so a refusal says nothing about whether it exists.
+	if transferMisses.count >= maxTransferMissesPerMinute ||
+		overTransferLimit(transferClientMisses, client, maxTransferMissesPerClient, now) {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
 	link := liveTransferLink(c.Params("code"), now)
 	if link == nil {
-		if misses == nil {
-			misses = &transferLinkMisses{reset: now.Add(transferLinkTTL)}
-			transferLinkMissed[client] = misses
-		}
-		misses.count++
+		transferMisses.count++
+		bumpTransferCounter(transferClientMisses, client, now)
 		return c.SendStatus(fiber.StatusNotFound)
 	}
 	link.payload = bytes.Clone(body)

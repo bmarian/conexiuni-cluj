@@ -4,14 +4,14 @@ import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
+import {describeExport, useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
 import {useTransferReceiver} from '@/composables/useTransferReceiver.ts'
 import {focusItem} from '@/utils/keyboardFocus.ts'
 import {sendToTransferLink, TRANSFER_QUERY} from '@/utils/transferLink.ts'
 
 const QrCode = defineAsyncComponent(() => import('@/components/QrCode.vue'))
 
-const props = defineProps<{ sendCode?: string }>()
+const props = defineProps<{ sendCode?: string; sendKey?: string }>()
 
 const {t} = useI18n()
 const route = useRoute()
@@ -30,9 +30,11 @@ let importTimer: ReturnType<typeof setTimeout> | null = null
 
 const code = ref('')
 const codeRef = ref<HTMLInputElement | null>(null)
-const sendState = ref<'idle' | 'busy' | 'sent' | 'unknown' | 'failed'>('idle')
+const sendState = ref<'idle' | 'busy' | 'sent' | 'unknown' | 'limited' | 'failed'>('idle')
 let sendTimer: ReturnType<typeof setTimeout> | null = null
 const codeDigits = computed(() => code.value.replace(/\D/g, ''))
+// The key from a scanned code only belongs to that code.
+let scanned: { code: string; key?: string } | null = null
 const canSend = computed(() => codeDigits.value.length === 6 && sendState.value === 'idle')
 
 let receiveTimer: ReturnType<typeof setTimeout> | null = null
@@ -40,20 +42,35 @@ const {
   state: receiveState,
   url: receiveUrl,
   spacedCode: receiveCode,
+  summary: receivedSummary,
   start: startReceive,
   stop: stopReceive,
-} = useTransferReceiver((data) => {
-  applyExport(data)
-  receiveTimer = setTimeout(cancel, 1500)
+  accept: acceptReceived,
+} = useTransferReceiver(describeExport, applyExport)
+
+const summaryRows = computed(() => {
+  const summary = receivedSummary.value
+  if (!summary) return []
+  return [
+    {label: t('favoriteStops'), count: summary.stops},
+    {label: t('favoriteRoutes'), count: summary.lines},
+    {label: t('favoritePlans'), count: summary.places},
+    {label: t('followedLines'), count: summary.followed},
+  ]
 })
+
+function replaceWithReceived() {
+  acceptReceived()
+  if (receiveState.value === 'done') receiveTimer = setTimeout(cancel, 1500)
+}
 
 watch(mode, (_now, before) => {
   if (before === 'receive') stopReceive()
 })
 
-// The code arrives after the panel opens and makes it taller, so bring it all into view then.
+// The code, and later what arrived, make the panel taller, so bring it all into view then.
 watch(receiveState, async (state) => {
-  if (state !== 'waiting' || mode.value !== 'receive') return
+  if ((state !== 'waiting' && state !== 'review') || mode.value !== 'receive') return
   await nextTick()
   rootRef.value?.querySelector('[data-kbd-section="ei-receive-actions"]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
 })
@@ -133,9 +150,10 @@ function cancel() {
   if (route.query[TRANSFER_QUERY] !== undefined) void router.replace({query: {}})
 }
 
-async function openSend(prefill = '') {
+async function openSend(prefill = '', key?: string) {
   mode.value = 'send'
   code.value = prefill
+  scanned = prefill ? {code: prefill, key} : null
   sendState.value = 'idle'
   await nextTick()
   if (prefill) {
@@ -156,13 +174,14 @@ async function openSend(prefill = '') {
 
 // Scanning the code on the other device opens Settings with it filled in.
 watch(() => props.sendCode, (prefill) => {
-  if (prefill && /^\d{6}$/.test(prefill)) void openSend(prefill)
+  if (prefill && /^\d{6}$/.test(prefill)) void openSend(prefill, props.sendKey)
 }, {immediate: true})
 
 async function doSend() {
   if (!canSend.value) return
   sendState.value = 'busy'
-  const result = await sendToTransferLink(codeDigits.value, buildExport())
+  const key = scanned?.code === codeDigits.value ? scanned.key : undefined
+  const result = await sendToTransferLink(codeDigits.value, buildExport(), key)
   sendState.value = result
   if (sendTimer) clearTimeout(sendTimer)
   sendTimer = setTimeout(() => {
@@ -271,7 +290,7 @@ async function doImport() {
           type="button"
           class="ei-btn ei-btn-primary"
           data-kbd-item="ei-send-confirm"
-          :class="{'ei-btn-success': sendState === 'sent', 'ei-btn-error': sendState === 'unknown' || sendState === 'failed'}"
+          :class="{'ei-btn-success': sendState === 'sent', 'ei-btn-error': sendState === 'unknown' || sendState === 'limited' || sendState === 'failed'}"
           :disabled="!canSend"
           @click="doSend"
         >
@@ -282,12 +301,12 @@ async function doImport() {
             </svg>
             {{ t('sendDone') }}
           </template>
-          <template v-else-if="sendState === 'unknown' || sendState === 'failed'">
+          <template v-else-if="sendState === 'unknown' || sendState === 'limited' || sendState === 'failed'">
             <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
             <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
-            {{ sendState === 'unknown' ? t('sendUnknownCode') : t('sendFailed') }}
+            {{ sendState === 'unknown' ? t('sendUnknownCode') : sendState === 'limited' ? t('sendTooMany') : t('sendFailed') }}
           </template>
           <template v-else>
             {{ t('sendConfirm') }}
@@ -306,8 +325,18 @@ async function doImport() {
           <p class="ei-receive-code">{{ receiveCode }}</p>
           <p class="ei-note setting-desc">{{ t('transferHint') }}</p>
         </template>
-        <p v-else-if="receiveState === 'expired' || receiveState === 'failed'" class="ei-note setting-desc">
-          {{ receiveState === 'expired' ? t('transferExpired') : t('transferFailed') }}
+        <template v-else-if="receiveState === 'review'">
+          <p class="ei-note setting-desc">{{ t('receiveReview') }}</p>
+          <dl class="ei-summary">
+            <div v-for="row in summaryRows" :key="row.label" class="ei-summary-row">
+              <dt>{{ row.label }}</dt>
+              <dd>{{ row.count }}</dd>
+            </div>
+          </dl>
+        </template>
+        <p v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'"
+           class="ei-note setting-desc">
+          {{ t({expired: 'transferExpired', failed: 'transferFailed', broken: 'transferBroken'}[receiveState]) }}
         </p>
         <p v-else class="ei-note setting-desc">{{ t('transferLoading') }}</p>
       </div>
@@ -320,8 +349,12 @@ async function doImport() {
           {{ t('receiveDone') }}
         </button>
         <template v-else>
-          <button v-if="receiveState === 'expired' || receiveState === 'failed'" type="button"
-                  class="ei-btn ei-btn-primary" data-kbd-item="ei-new-code" @click="startReceive">
+          <button v-if="receiveState === 'review'" type="button"
+                  class="ei-btn ei-btn-primary" data-kbd-item="ei-receive-confirm" @click="replaceWithReceived">
+            {{ t('receiveReplace') }}
+          </button>
+          <button v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'"
+                  type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-new-code" @click="startReceive">
             {{ t('transferNewCode') }}
           </button>
           <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
@@ -610,6 +643,26 @@ async function doImport() {
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ei-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 100%;
+  max-width: 16rem;
+  font-size: 0.8125rem;
+}
+
+.ei-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ei-summary dd {
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 

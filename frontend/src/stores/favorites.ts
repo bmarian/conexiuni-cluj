@@ -31,7 +31,7 @@ function sameRoute(a: FavoriteRoute, b: FavoriteRoute): boolean {
   return a.routeId === b.routeId && a.direction === b.direction
 }
 
-function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
+export function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
   if (!Array.isArray(raw)) return []
   const parsed: FavoriteRoute[] = []
   for (const item of raw) {
@@ -44,6 +44,16 @@ function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
     if (fav && !parsed.some((p) => sameRoute(p, fav))) parsed.push(fav)
   }
   return parsed
+}
+
+export function parseStopIds(raw: unknown): number[] {
+  return Array.isArray(raw) ? raw.filter((x): x is number => typeof x === 'number') : []
+}
+
+export function parsePlans(raw: unknown): FavoritePlan[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((p): p is FavoritePlan =>
+    typeof p?.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lon))
 }
 
 export const useFavoritesStore = defineStore('favorites', () => {
@@ -186,9 +196,9 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function importAll(data: { routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown }) {
     favoriteRoutes.value = parseFavoriteRoutes(data.routes)
-    favoriteStopIds.value = Array.isArray(data.stops) ? data.stops.filter((x): x is number => typeof x === 'number') : []
-    favoritePlans.value = Array.isArray(data.plans) ? data.plans as FavoritePlan[] : []
-    recentPlans.value = Array.isArray(data.recentPlans) ? data.recentPlans as FavoritePlan[] : []
+    favoriteStopIds.value = parseStopIds(data.stops)
+    favoritePlans.value = parsePlans(data.plans)
+    recentPlans.value = parsePlans(data.recentPlans)
     persistRoutes()
     persistStops()
     persistPlans()

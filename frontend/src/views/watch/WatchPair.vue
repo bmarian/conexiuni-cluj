@@ -3,7 +3,7 @@ import {inject, onMounted, onUnmounted} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import QrCode from '@/components/QrCode.vue'
-import {useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
+import {describeExport, useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
 import {useTransferReceiver} from '@/composables/useTransferReceiver.ts'
 
 const DONE_PAUSE_MS = 1500
@@ -14,7 +14,7 @@ const scrollTopOnReturn = inject<() => void>('watchScrollTopOnReturn', () => {})
 const {applyFavorites} = useSettingsTransfer()
 let doneTimer: ReturnType<typeof setTimeout> | undefined
 
-const {state, url, spacedCode, start} = useTransferReceiver((data) => {
+const {state, url, spacedCode, summary, start, accept} = useTransferReceiver(describeExport, (data) => {
   applyFavorites(data)
   navigator.vibrate?.(60)
   doneTimer = setTimeout(goHome, DONE_PAUSE_MS)
@@ -40,6 +40,16 @@ onUnmounted(() => clearTimeout(doneTimer))
       <p class="wt-note">{{ t('transferHint') }}</p>
     </template>
 
+    <template v-else-if="state === 'review' && summary">
+      <p class="wt-heading wt-pair-review">{{ t('watchPairReview') }}</p>
+      <p class="wt-pair-counts">
+        <span>{{ t('favoriteStops') }}: {{ summary.stops }}</span>
+        <span>{{ t('favoriteRoutes') }}: {{ summary.lines }}</span>
+      </p>
+      <button type="button" class="wt-float" @click="accept">{{ t('watchPairCopy') }}</button>
+      <button type="button" class="wt-row wt-row-action" @click="goHome">{{ t('cancel') }}</button>
+    </template>
+
     <template v-else-if="state === 'done'">
       <span class="wt-pair-done" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -49,8 +59,8 @@ onUnmounted(() => clearTimeout(doneTimer))
       <p class="wt-heading">{{ t('watchPairDone') }}</p>
     </template>
 
-    <template v-else-if="state === 'expired' || state === 'failed'">
-      <p class="wt-note">{{ state === 'expired' ? t('transferExpired') : t('transferFailed') }}</p>
+    <template v-else-if="state === 'expired' || state === 'failed' || state === 'broken'">
+      <p class="wt-note">{{ t({expired: 'transferExpired', failed: 'transferFailed', broken: 'transferBroken'}[state]) }}</p>
       <button type="button" class="wt-row wt-row-action" @click="start">
         {{ t('transferNewCode') }}
       </button>
