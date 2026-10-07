@@ -17,6 +17,7 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - Follow a line and get a notification when CTP changes its timetable or route
 - Installable as an app, with partial offline support
 - Move your favorites and settings to another phone or your watch by scanning a code
+- A Wear OS app with a tile and a complication for the next bus
 - Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
 There are a few hidden things scattered around for the curious. 🐣
@@ -42,14 +43,16 @@ There are a few hidden things scattered around for the curious. 🐣
 
 ### On a watch
 
-It runs in a smartwatch browser too 🤷‍♂️
+There's a [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos) too, with live departures, the route map, a tile, and a watch face complication that counts down to the next bus. Scan the code from Settings to bring your favorites over.
 
 <p align="center">
-  <img src="readme/watch-menu.png" width="180" alt="Simplified layout menu with favorites">
-  <img src="readme/watch-stop.png" width="180" alt="Departures from a stop">
-  <img src="readme/watch-route.png" width="180" alt="A line's stops around the one you came from">
-  <img src="readme/watch-map.png" width="180" alt="Live buses on the map">
+  <img src="readme/wearos-home.png" width="180" alt="Favorite stops and routes on the watch">
+  <img src="readme/wearos-stop.png" width="180" alt="Departures from a stop">
+  <img src="readme/wearos-route-map.png" width="180" alt="A line on the map with the next arrival above each stop">
+  <img src="readme/wearos-tile.png" width="180" alt="The tile with the next departures">
 </p>
+
+Other watches can still open the site in their browser, which offers a simplified layout.
 
 ### On a Playdate
 
