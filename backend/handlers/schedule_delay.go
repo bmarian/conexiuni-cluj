@@ -350,26 +350,33 @@ func median(values []float64) float64 {
 
 // Same bucket preference as segment profiles: this hour, the nearest one, then all day.
 func loadScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {
-	rows, err := queryRows(`
-		SELECT bucket_start_min, delay_sec
-		FROM schedule_delay_profiles
-		WHERE route_id = ? AND direction_id = ? AND day_type = ?`,
-		[]any{routeID, directionID, dayType},
-		func(rows *sql.Rows) ([2]float64, error) {
-			var b int
-			var d float64
-			err := rows.Scan(&b, &d)
-			return [2]float64{float64(b), d}, err
-		})
+	rows, err := loadScheduleDelayRows(routeID, directionID, dayType)
 	if err != nil {
 		log.Printf("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
 		return 0, false
 	}
+	return selectScheduleDelay(rows, bucket)
+}
+
+func loadScheduleDelayRows(routeID, directionID int, dayType string) ([]scheduleDelayRow, error) {
+	return queryRows(`
+		SELECT bucket_start_min, delay_sec
+		FROM schedule_delay_profiles
+		WHERE route_id = ? AND direction_id = ? AND day_type = ?`,
+		[]any{routeID, directionID, dayType},
+		func(rows *sql.Rows) (scheduleDelayRow, error) {
+			var r scheduleDelayRow
+			err := rows.Scan(&r.bucket, &r.delay)
+			return r, err
+		})
+}
+
+func selectScheduleDelay(rows []scheduleDelayRow, bucket int) (float64, bool) {
 	bestPriority, delay, found := 0, 0.0, false
 	for _, r := range rows {
-		priority, ok := segmentProfilePriority(int(r[0]), bucket)
+		priority, ok := segmentProfilePriority(r.bucket, bucket)
 		if ok && (!found || priority < bestPriority) {
-			bestPriority, delay, found = priority, r[1], true
+			bestPriority, delay, found = priority, r.delay, true
 		}
 	}
 	return delay, found

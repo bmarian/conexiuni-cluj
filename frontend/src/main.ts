@@ -12,6 +12,7 @@ import {useFavoritesStore} from './stores/favorites'
 import {usePushStore} from './stores/push'
 import {useRoutesApi} from './composables/useRoutesApi'
 import {useStopsApi} from './composables/useStopsApi'
+import {startNetwork} from './utils/network'
 import './main.css'
 import './styles/arcade.css'
 import './styles/legacy-blue.css'
@@ -44,6 +45,7 @@ const isAdminPath = window.location.pathname.startsWith('/admin')
 if (!isAdminPath) {
   void useRoutesApi().fetchRoutes()
   void useStopsApi().fetchStops()
+  void startNetwork()
 }
 
 const i18n = createI18n({

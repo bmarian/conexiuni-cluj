@@ -171,7 +171,7 @@ func main() {
 	}))
 	app.Use(compress.New(compress.Config{
 		Next: func(c fiber.Ctx) bool {
-			return c.Path() == "/api/vehicles/stream"
+			return handlers.EncodesItself(c.Path())
 		},
 	}))
 
@@ -181,11 +181,13 @@ func main() {
 		NewsCacheShelfLife:      config.NewsCacheShelfLife,
 	}
 
+	app.Get("/.well-known/assetlinks.json", handlers.AssetLinksHandler(config.AndroidPackage, config.AndroidCertSHA256))
+
 	api := app.Group("/api")
 	api.Use(etag.New(etag.Config{
 		Weak: true,
 		Next: func(c fiber.Ctx) bool {
-			return c.Path() == "/api/vehicles/stream"
+			return handlers.EncodesItself(c.Path())
 		},
 	}))
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)

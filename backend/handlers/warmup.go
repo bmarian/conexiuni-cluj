@@ -74,6 +74,7 @@ func StartWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 
 		for {
 			runWarmup(tranzyClient, ctpCjClient, cacheTimes)
+			WarmNetwork(tranzyClient, ctpCjClient, cacheTimes)
 			next := nextWarmupAt(time.Now().In(loc))
 			log.Printf("warmup: next pass at %s (in %s)", next.Format(time.RFC3339), time.Until(next).Round(time.Minute))
 			time.Sleep(time.Until(next))

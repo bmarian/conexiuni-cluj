@@ -3,6 +3,28 @@ import type {RouteType} from "@/types/tranzy";
 import {defineStore} from 'pinia'
 import {ref} from "vue";
 import {apiRequest} from "@/utils/api.ts";
+import {decodePolyline, network} from "@/utils/network.ts";
+
+const shapeCache = new Map<string, Promise<Shape[]>>()
+const shapeKey = (tripId: string) => `${tripId}@${network.value?.shapeHash(tripId) ?? ''}`
+
+async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[]>> {
+  const missing = tripIds.filter((id) => !shapeCache.has(shapeKey(id)))
+  if (missing.length) {
+    const request = apiRequest(`shapes?format=polyline&shape_ids=${missing.join(',')}`) as Promise<Record<string, string>>
+    for (const id of missing) {
+      const key = shapeKey(id)
+      const points = request.then((encoded) => decodePolyline(encoded?.[id] ?? '').map(([lat, lon], i): Shape => ({
+        shape_id: id, shape_pt_lat: lat, shape_pt_lon: lon, shape_pt_sequence: i, shape_dist_traveled: -1,
+      })))
+      shapeCache.set(key, points)
+      points.then((p) => { if (!p.length) shapeCache.delete(key) }, () => shapeCache.delete(key))
+    }
+  }
+  const out = new Map<string, Shape[]>()
+  await Promise.all(tripIds.map(async (id) => out.set(id, await shapeCache.get(shapeKey(id))!)))
+  return out
+}
 
 export type DisplayShape = {
   trip_id: string,
@@ -53,14 +75,7 @@ export const useMapStore = defineStore('map', () => {
     if (!displayShapes?.length) return []
 
     const shapeIds = [...new Set(displayShapes.map(d => d.trip_id))].sort()
-    const raw = (await apiRequest(`shapes?shape_ids=${shapeIds.join(',')}`) as Shape[]) ?? []
-
-    const grouped = new Map<string, Shape[]>()
-    for (const id of shapeIds) grouped.set(id, [])
-    for (const pt of raw) {
-      const bucket = grouped.get(pt.shape_id)
-      if (bucket) bucket.push(pt)
-    }
+    const grouped = await fetchShapes(shapeIds)
     return displayShapes.map((d): [DisplayShape, Shape[]] => [d, grouped.get(d.trip_id) ?? []])
   }
 

@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -40,6 +41,8 @@ type Config struct {
 	VapidPublicKey           string
 	VapidPrivateKey          string
 	VapidSubject             string
+	AndroidPackage           string
+	AndroidCertSHA256        []string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -89,6 +92,16 @@ func getBool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
+func getList(key string) []string {
+	var out []string
+	for _, part := range strings.Split(os.Getenv(key), ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 func Load() *Config {
 	loaded := false
 	if err := godotenv.Load(".env", "keys.env"); err == nil {
@@ -136,6 +149,8 @@ func Load() *Config {
 		VapidPublicKey:           getEnv("VAPID_PUBLIC_KEY", ""),
 		VapidPrivateKey:          getEnv("VAPID_PRIVATE_KEY", ""),
 		VapidSubject:             getEnv("VAPID_SUBJECT", ""),
+		AndroidPackage:           getEnv("ANDROID_PACKAGE", "online.bmarian.bus"),
+		AndroidCertSHA256:        getList("ANDROID_CERT_SHA256"),
 	}
 
 	if cfg.Environment == "development" {

@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strings"
@@ -243,13 +242,8 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 		}
 		profile, exists := byDirection[directionID]
 		if !exists {
-			segments, err := loadSegmentProfileDurations(routeID, directionID, dayType, bucket)
-			if err != nil {
-				log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
-				segments = map[stopPair]segmentProfileEstimate{}
-			}
-			profile.segments = segments
-			profile.delay, profile.hasDelay = loadScheduleDelay(routeID, directionID, dayType, bucket)
+			profile.segments = snapshotSegmentProfiles(routeID, directionID, dayType, bucket)
+			profile.delay, profile.hasDelay = snapshotScheduleDelay(routeID, directionID, dayType, bucket)
 			byDirection[directionID] = profile
 		}
 
@@ -273,7 +267,7 @@ func applySegmentProfilesToTrip(stopTimes []models.StopTime, ordered []int, prof
 		curr := &stopTimes[ordered[pos]]
 		if estimate, ok := profiles[stopPair{FromStopID: prev.StopID, ToStopID: curr.StopID}]; ok && estimate.DurationSec > 0 {
 			curr.OffsetArrivalTime = math.Ceil(estimate.DurationSec)
-			curr.OffsetConfidence = estimate.Confidence
+			curr.OffsetConfidence = math.Round(estimate.Confidence*100) / 100
 		}
 	}
 }

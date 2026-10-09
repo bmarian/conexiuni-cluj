@@ -1,6 +1,7 @@
 import type {StopInfo} from "@/types/tranzy.ts";
 import {ref} from "vue";
 import {apiRequest} from "@/utils/api.ts";
+import {buildStopInfo, network} from "@/utils/network.ts";
 
 const pendingRequests = new Map<string, Promise<StopInfo>>()
 
@@ -11,6 +12,12 @@ export function useStopInfoApi() {
   async function fetchStopData(stopId: string) {
     stopInfo.value = undefined
     error.value = undefined
+
+    const local = network.value && buildStopInfo(network.value, Number(stopId))
+    if (local) {
+      stopInfo.value = local
+      return
+    }
 
     if (pendingRequests.has(stopId)) {
       try {

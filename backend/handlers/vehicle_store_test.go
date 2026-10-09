@@ -16,6 +16,7 @@ func withTestDB(t *testing.T) {
 	if err := database.InitSchemas(); err != nil {
 		t.Fatalf("init schemas: %v", err)
 	}
+	resetProfileSnapshots()
 	t.Cleanup(func() { _ = database.DB.Close() })
 }
 

@@ -15,9 +15,8 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - A route planner: leave now, leave at, arrive by, or the last one today
 - Favorite stops, and favorite lines per direction
 - Follow a line and get a notification when CTP changes its timetable or route
-- Installable as an app, with partial offline support
+- Installable as an app. After the first visit every stop, line and timetable opens without the server: the whole network comes down once (about 180 KB) and only the buses stay live
 - Move your favorites and settings to another phone or your watch by scanning a code
-- A Wear OS app that keeps a followed bus's countdown on your watch face
 - Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
 There are a few hidden things scattered around for the curious. 🐣
@@ -43,16 +42,14 @@ There are a few hidden things scattered around for the curious. 🐣
 
 ### On a watch
 
-There's a [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos) too, with live departures and the route map. Follow a bus and the countdown stays on your watch face, with a buzz before it comes. Scan the code from Settings to bring your favorites over.
+It runs in a smartwatch browser too, with a simplified layout: favorites, departures, a line's stops and the live map. Scan the code from Settings to bring your favorites over.
 
 <p align="center">
-  <img src="readme/wearos-home.png" width="180" alt="Favorite stops and routes on the watch">
-  <img src="readme/wearos-stop.png" width="180" alt="Departures from a stop">
-  <img src="readme/wearos-route-map.png" width="180" alt="A line on the map with the next arrival above each stop">
-  <img src="readme/wearos-departure.png" width="180" alt="One departure, with the button to follow it">
+  <img src="readme/watch-menu.png" width="180" alt="Simplified layout menu with favorites">
+  <img src="readme/watch-stop.png" width="180" alt="Departures from a stop">
+  <img src="readme/watch-route.png" width="180" alt="A line's stops around the one you came from">
+  <img src="readme/watch-map.png" width="180" alt="Live buses on the map">
 </p>
-
-Other watches can still open the site in their browser, which offers a simplified layout.
 
 ### On a Playdate
 
@@ -91,6 +88,8 @@ npm run dev
 ```
 
 The backend listens on `:6698` and the dev server proxies `/api` to it. Everything else has a default in [`.env`](.env).
+
+**The network bundle** (`/api/network`) is every line with its timetable, stop sequence and learned travel times for each hour of each kind of day, plus every stop. The website builds stop pages, line pages and timetables from it exactly as `stop_info`, `stop_times` and `stop_times/hourly` would answer. `/api/network/version` tells it when the lines changed. The learned travel times are read once per quarter hour, so those answers hold still between refreshes. Live buses come from `/api/vehicles/stream?v=2`: a snapshot, then only what moved, gzipped. Shapes come as encoded polylines with `/api/shapes?format=polyline`.
 
 **Push notifications** need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
 

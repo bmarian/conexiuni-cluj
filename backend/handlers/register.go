@@ -134,6 +134,9 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		c.Set("Cache-Control", revalidateCacheControl)
+		if c.Query("format") == "polyline" {
+			return c.JSON(shapePolylines(data))
+		}
 		return c.JSON(data)
 	})
 
@@ -165,6 +168,13 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	})
 
 	api.Get("/vehicles/stream", func(c fiber.Ctx) error {
+		if c.Query("v") == "2" {
+			tripIDs := streamTripIDs(c)
+			if len(tripIDs) == 0 {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "trip_ids or route_ids required"})
+			}
+			return serveVehicleStreamV2(c, tripIDs)
+		}
 		var tripIDs []string
 		if s := c.Query("trip_ids"); s != "" {
 			for _, id := range strings.Split(s, ",") {
@@ -308,6 +318,9 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(data)
 	})
+
+	api.Get("/network", NetworkHandler(tranzyClient, ctpCjClient, cacheTimes))
+	api.Get("/network/version", NetworkVersionHandler(tranzyClient, ctpCjClient, cacheTimes))
 
 	api.Get("/news", func(c fiber.Ctx) error { return GetNews(c, cacheTimes.NewsCacheShelfLife) })
 

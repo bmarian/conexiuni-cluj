@@ -1,6 +1,7 @@
 import {type HourlyStopOffsets, OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {apiRequest} from '@/utils/api.ts'
+import {buildHourlyOffsets, clujClock, network, routeStopTimes} from '@/utils/network.ts'
 
 const pending = new Map<number, Promise<ShapeInfo>>()
 
@@ -29,6 +30,9 @@ export async function fetchHourlyStopOffsets(
   routeShortName: string,
   dayType: 'weekday' | 'saturday' | 'sunday',
 ): Promise<Record<string, HourlyStopOffsets>> {
+  const index = network.value
+  const local = index?.routeByShortName.get(routeShortName)
+  if (index && local) return buildHourlyOffsets(index, local, dayType)
   const encoded = encodeURIComponent(routeShortName)
   try {
     return await apiRequest(`stop_times/hourly?route_short_name=${encoded}&day_type=${dayType}`) as Record<string, HourlyStopOffsets>
@@ -46,10 +50,20 @@ export function useRouteShapeInfoApi() {
 
     const promise = (async () => {
       const encoded = encodeURIComponent(route.route_short_name)
-      const [timetableResult, stopTimesResult] = await Promise.allSettled([
-        apiRequest(`timetable?route_short_name=${encoded}`) as Promise<Timetable>,
-        apiRequest(`stop_times?route_short_name=${encoded}`) as Promise<StopTime[]>,
-      ])
+      const index = network.value
+      const local = index?.routeById.get(route.route_id)
+      const {dayType, hour} = clujClock()
+      const [timetableResult, stopTimesResult] = index && local
+        ? [
+          local.timetable
+            ? {status: 'fulfilled' as const, value: structuredClone(local.timetable)}
+            : {status: 'rejected' as const, reason: 'no timetable'},
+          {status: 'fulfilled' as const, value: routeStopTimes(index, local, dayType, hour)},
+        ]
+        : await Promise.allSettled([
+          apiRequest(`timetable?route_short_name=${encoded}`) as Promise<Timetable>,
+          apiRequest(`stop_times?route_short_name=${encoded}`) as Promise<StopTime[]>,
+        ])
 
       const timetable: Timetable =
         timetableResult.status === 'fulfilled' && timetableResult.value
