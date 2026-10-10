@@ -11,7 +11,7 @@ import { useRouteShapeInfoApi } from '@/composables/useRouteShapeInfoApi.ts'
 import { useOnline } from '@/composables/useOnline.ts'
 import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
-import { searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace } from '@/utils/nominatim.ts'
+import { searchNominatimPlaces, type NominatimPlace } from '@/utils/nominatim.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
@@ -112,18 +112,6 @@ async function fetchGeo(q: string) {
   }
 }
 
-async function handleGoogleMapsUrl(url: string) {
-  geoLoading.value = true
-  try {
-    const place = await resolveGoogleMapsLink(url)
-    geoResults.value = place ? [place] : []
-  } catch {
-    geoResults.value = []
-  } finally {
-    geoLoading.value = false
-  }
-}
-
 function dropPin() {
   search.value = ''
   void router.push({
@@ -146,10 +134,6 @@ watch(search, (q) => {
     return
   }
   geoLoading.value = true
-  if (isGoogleMapsUrl(trimmed)) {
-    geoDebounceTimer = setTimeout(() => handleGoogleMapsUrl(trimmed), 350)
-    return
-  }
   geoDebounceTimer = setTimeout(() => fetchGeo(trimmed), 350)
 })
 

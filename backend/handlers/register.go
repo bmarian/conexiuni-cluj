@@ -335,5 +335,4 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	api.Get("/transfer/:code", ReadTransferLink)
 	api.Delete("/transfer/:code", DeleteTransferLink)
 
-	api.Get("/resolve-location", ResolveLocationHandler)
 }

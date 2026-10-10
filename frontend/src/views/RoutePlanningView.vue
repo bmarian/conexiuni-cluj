@@ -46,7 +46,7 @@ import {
 } from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
 import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
-import {reverseNominatimPlace, searchNominatimPlaces, isGoogleMapsUrl, resolveGoogleMapsLink, type NominatimPlace} from "@/utils/nominatim.ts"
+import {reverseNominatimPlace, searchNominatimPlaces, type NominatimPlace} from "@/utils/nominatim.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 
@@ -1349,12 +1349,7 @@ async function performSearch() {
   }
   isSearching.value = true
   try {
-    if (isGoogleMapsUrl(q)) {
-      const place = await resolveGoogleMapsLink(q)
-      searchResults.value = place ? [place] : []
-    } else {
-      searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
-    }
+    searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
   } finally {
     isSearching.value = false
   }
