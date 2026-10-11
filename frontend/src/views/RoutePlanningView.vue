@@ -2319,6 +2319,7 @@ watch(timeValue, (val) => {
             :is24="true"
             :enable-seconds="false"
             :minutes-increment="1"
+            :week-start="1"
             :auto-apply="false"
             :teleport="true"
             :floating="{ arrow: false, strategy: 'fixed', offset: 0, placement: 'bottom-start' }"
@@ -4541,9 +4542,9 @@ html.dark[data-arcade] .mini-spinner {
   color-scheme: var(--pt-color-scheme);
 }
 
-.plan-time-datetime :deep(.dp__main),
-.plan-time-datetime :deep(.dp__theme_light),
-.plan-time-datetime :deep(.dp__theme_dark) {
+.plan-time-datetime :deep(.dp--main),
+.plan-time-datetime :deep(.dp--theme-light),
+.plan-time-datetime :deep(.dp--theme-dark) {
   --dp-font-family: var(--pt-font-family);
   --dp-font-size: var(--pt-font-size);
   --dp-border-radius: var(--pt-input-radius);
@@ -4572,7 +4573,7 @@ html.dark[data-arcade] .mini-spinner {
   --dp-scroll-bar-color: var(--pt-dp-scroll);
 }
 
-.plan-time-datetime :deep(.dp__input) {
+.plan-time-datetime :deep(.dp--input) {
   box-sizing: border-box;
   height: var(--pt-input-height);
   font-family: var(--pt-font-family);
@@ -4585,74 +4586,73 @@ html.dark[data-arcade] .mini-spinner {
   padding: 0 0.625rem 0 var(--dp-input-icon-padding);
 }
 
-.plan-time-datetime :deep(.dp__input:hover),
-.plan-time-datetime :deep(.dp__input:focus),
-.plan-time-datetime :deep(.dp__input:focus-visible),
-.plan-time-datetime :deep(.dp__input_focus),
-.plan-time-datetime :deep(.dp__input_wrap:focus-within .dp__input) {
+.plan-time-datetime :deep(.dp--input:hover),
+.plan-time-datetime :deep(.dp--input:focus),
+.plan-time-datetime :deep(.dp--input:focus-visible),
+.plan-time-datetime :deep(.dp--input-focus),
+.plan-time-datetime :deep(.dp--input-wrap:focus-within .dp--input) {
   border-color: var(--pt-border-hover) !important;
 }
 
-.plan-time-datetime :deep(.dp__input_wrap .dp__input) {
+.plan-time-datetime :deep(.dp--input-wrap .dp--input) {
   border-color: var(--pt-border) !important;
 }
 
-.plan-time-datetime :deep(.dp__menu) {
+.plan-time-datetime :deep(.dp--menu) {
   border-width: var(--pt-input-border-width);
   border-radius: var(--pt-input-radius);
 }
 
-.plan-time-datetime :deep(.dp__menu_inner),
-.plan-time-datetime :deep(.dp__calendar),
-.plan-time-datetime :deep(.dp__calendar_wrap),
-.plan-time-datetime :deep(.dp__action_row),
-.plan-time-datetime :deep(.dp__action_extra),
-.plan-time-datetime :deep(.dp__input_wrap),
-.plan-time-datetime :deep(.dp__inner_nav),
-.plan-time-datetime :deep(.dp__action_button),
-.plan-time-datetime :deep(.dp__cell_inner) {
+.plan-time-datetime :deep(.dp--menu-inner),
+.plan-time-datetime :deep(.dp--calendar),
+.plan-time-datetime :deep(.dp--action-row),
+.plan-time-datetime :deep(.dp--action-extra),
+.plan-time-datetime :deep(.dp--input-wrap),
+.plan-time-datetime :deep(.dp--inner-nav),
+.plan-time-datetime :deep(.dp--action-button),
+.plan-time-datetime :deep(.dp--cell-inner) {
   border-radius: var(--pt-cell-radius);
 }
 
-.plan-time-datetime :deep(.dp__month_year_wrap),
-.plan-time-datetime :deep(.dp__calendar_header),
-.plan-time-datetime :deep(.dp__calendar_header_item),
-.plan-time-datetime :deep(.dp__inner_nav),
-.plan-time-datetime :deep(.dp__action_row) {
+.plan-time-datetime :deep(.dp--month-year-wrap),
+.plan-time-datetime :deep(.dp--calendar-header),
+.plan-time-datetime :deep(.dp--calendar-header-item),
+.plan-time-datetime :deep(.dp--inner-nav),
+.plan-time-datetime :deep(.dp--action-row) {
   color: var(--pt-dp-text);
 }
 
-.plan-time-datetime :deep(.dp__calendar_header_separator) {
+.plan-time-datetime :deep(.dp--calendar-header-separator) {
   border-color: var(--pt-border);
 }
 
-.plan-time-datetime :deep(.dp__arrow_top) {
+.plan-time-datetime :deep(.dp--arrow-top) {
   border-left-color: var(--pt-border);
   border-top-color: var(--pt-border);
 }
 
 .plan-time-datetime :deep(.dp--clear-btn),
-.plan-time-datetime :deep(.dp__input_icons) {
+.plan-time-datetime :deep(.dp--input-icons) {
   color: var(--pt-dp-icon);
 }
 
-.plan-time-datetime :deep(.dp__action_select) {
+.plan-time-datetime :deep(.dp--action-select) {
   background: var(--pt-dp-primary);
   color: var(--pt-dp-primary-text);
   font-weight: 600;
 }
 
-.plan-time-datetime :deep(.dp__action_select:hover) {
+.plan-time-datetime :deep(.dp--action-select:hover) {
   filter: brightness(1.08);
 }
 
-.plan-time-datetime :deep(.dp__action_cancel) {
+.plan-time-datetime :deep(.dp--action-cancel) {
   color: var(--pt-dp-text);
   border: 1px solid var(--pt-border);
   background: transparent;
 }
 
-.plan-time-datetime :deep(.dp__action_cancel:hover) {
+.plan-time-datetime :deep(.dp--action-cancel:hover) {
   border-color: var(--pt-border-hover);
   background: var(--pt-dp-hover);
 }
@@ -4928,77 +4928,74 @@ html.dark[data-legacy-blue] .plan-time-filter {
   --dp-disabled-color: #0a1228;
 }
 
-:global(.plan-time-menu .dp__menu_inner),
-:global(.plan-time-menu .dp__calendar),
-:global(.plan-time-menu .dp__calendar_wrap),
-:global(.plan-time-menu .dp__action_row),
-:global(.plan-time-menu .dp__action_extra),
-:global(.plan-time-menu .dp__inner_nav),
-:global(.plan-time-menu .dp__action_button),
-:global(.plan-time-menu .dp__cell_inner) {
+:global(.plan-time-menu .dp--menu-inner),
+:global(.plan-time-menu .dp--calendar),
+:global(.plan-time-menu .dp--action-row),
+:global(.plan-time-menu .dp--action-extra),
+:global(.plan-time-menu .dp--inner-nav),
+:global(.plan-time-menu .dp--action-button),
+:global(.plan-time-menu .dp--cell-inner) {
   border-radius: var(--dp-cell-border-radius);
 }
 
-:global(.plan-time-menu .dp__month_year_wrap),
-:global(.plan-time-menu .dp__calendar_header),
-:global(.plan-time-menu .dp__calendar_header_item),
-:global(.plan-time-menu .dp__inner_nav),
-:global(.plan-time-menu .dp__action_row) {
+:global(.plan-time-menu .dp--month-year-wrap),
+:global(.plan-time-menu .dp--calendar-header),
+:global(.plan-time-menu .dp--calendar-header-item),
+:global(.plan-time-menu .dp--inner-nav),
+:global(.plan-time-menu .dp--action-row) {
   color: var(--dp-text-color);
 }
 
-:global(.plan-time-menu .dp__calendar_header_separator) {
+:global(.plan-time-menu .dp--calendar-header-separator) {
   border-color: var(--dp-border-color);
 }
 
-:global(.plan-time-menu .dp__arrow_top) {
+:global(.plan-time-menu .dp--arrow-top) {
   border-left-color: var(--dp-menu-border-color);
   border-top-color: var(--dp-menu-border-color);
 }
 
-:global(.plan-time-menu .dp__action_select) {
+:global(.plan-time-menu .dp--action-select) {
   background: var(--dp-primary-color);
   color: var(--dp-primary-text-color);
   font-weight: 600;
 }
 
-:global(.plan-time-menu .dp__action_select:hover) {
+:global(.plan-time-menu .dp--action-select:hover) {
   filter: brightness(1.08);
 }
 
-:global(.plan-time-menu .dp__action_cancel) {
+:global(.plan-time-menu .dp--action-cancel) {
   color: var(--dp-text-color);
   border: 1px solid var(--dp-border-color);
   background: transparent;
 }
 
-:global(.plan-time-menu .dp__action_cancel:hover) {
+:global(.plan-time-menu .dp--action-cancel:hover) {
   border-color: var(--dp-border-color-hover);
   background: var(--dp-hover-color);
 }
 
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__menu_inner),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__calendar),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__calendar_wrap),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__action_row),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__month_year_wrap),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__inner_nav),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__action_button),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__cell_inner),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__input),
-html[data-legacy-blue] .plan-time-datetime :deep(.dp__input_wrap),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--menu),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--menu-inner),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--calendar),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--action-row),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--month-year-wrap),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--inner-nav),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--action-button),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--cell-inner),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--input),
+html[data-legacy-blue] .plan-time-datetime :deep(.dp--input-wrap),
 :global(html[data-legacy-blue] .plan-time-menu),
-:global(html[data-legacy-blue] .plan-time-menu .dp__menu_inner),
-:global(html[data-legacy-blue] .plan-time-menu .dp__calendar),
-:global(html[data-legacy-blue] .plan-time-menu .dp__calendar_wrap),
-:global(html[data-legacy-blue] .plan-time-menu .dp__action_row),
-:global(html[data-legacy-blue] .plan-time-menu .dp__month_year_wrap),
-:global(html[data-legacy-blue] .plan-time-menu .dp__inner_nav),
-:global(html[data-legacy-blue] .plan-time-menu .dp__action_button),
-:global(html[data-legacy-blue] .plan-time-menu .dp__cell_inner),
-:global(html[data-legacy-blue] .plan-time-menu .dp__input),
-:global(html[data-legacy-blue] .plan-time-menu .dp__input_wrap) {
+:global(html[data-legacy-blue] .plan-time-menu .dp--menu-inner),
+:global(html[data-legacy-blue] .plan-time-menu .dp--calendar),
+:global(html[data-legacy-blue] .plan-time-menu .dp--action-row),
+:global(html[data-legacy-blue] .plan-time-menu .dp--month-year-wrap),
+:global(html[data-legacy-blue] .plan-time-menu .dp--inner-nav),
+:global(html[data-legacy-blue] .plan-time-menu .dp--action-button),
+:global(html[data-legacy-blue] .plan-time-menu .dp--cell-inner),
+:global(html[data-legacy-blue] .plan-time-menu .dp--input),
+:global(html[data-legacy-blue] .plan-time-menu .dp--input-wrap) {
   border-radius: 0 !important;
 }
 

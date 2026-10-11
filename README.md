@@ -67,7 +67,7 @@ There's a [Playdate companion](https://github.com/bmarian/conexiuni-cluj-playdat
 
 ## Running it yourself
 
-You'll need Node 20.19+ (or 22.12+), Go 1.25+, and a [Tranzy](https://tranzy.ai/) API key.
+You'll need Node 22.12+, Go 1.26+, and a [Tranzy](https://tranzy.ai/) API key.
 
 Put your keys in a `keys.env` next to this README.
 

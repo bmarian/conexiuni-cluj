@@ -139,7 +139,10 @@ const hasAuthFlag = () => {
   try { return localStorage.getItem(AUTH_FLAG_KEY) === '1' } catch { return false }
 }
 const setAuthFlag = (v: boolean) => {
-  try { v ? localStorage.setItem(AUTH_FLAG_KEY, '1') : localStorage.removeItem(AUTH_FLAG_KEY) } catch { /* noop */ }
+  try {
+    if (v) localStorage.setItem(AUTH_FLAG_KEY, '1')
+    else localStorage.removeItem(AUTH_FLAG_KEY)
+  } catch { /* noop */ }
 }
 
 const tokenInput = ref('')
