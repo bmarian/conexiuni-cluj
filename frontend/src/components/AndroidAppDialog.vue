@@ -2,8 +2,11 @@
 import {onMounted, onUnmounted} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {ANDROID_APP_URL, androidAppDialog, WEAR_APP_URL, WEAR_INSTALLER_URL} from '@/utils/androidApp.ts'
+import {useAppRelease} from '@/composables/useAppRelease.ts'
 
 const {t} = useI18n()
+const phoneRelease = useAppRelease('conexiuni-cluj-mobile')
+const watchRelease = useAppRelease('conexiuni-cluj-wearos')
 
 const close = () => { androidAppDialog.value = false }
 const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
@@ -30,6 +33,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
             <p>{{ t('androidAppSteps') }}</p>
             <p class="aa-note">{{ t('androidAppNeeds') }}</p>
             <a :href="ANDROID_APP_URL" class="rs-save aa-button">{{ t('androidAppDownload') }}</a>
+            <p v-if="phoneRelease" class="aa-note">{{ phoneRelease }}</p>
           </div>
 
           <div class="aa-part">
@@ -39,6 +43,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
               <a :href="WEAR_APP_URL" class="rs-text-btn">{{ t('androidAppWatchDownload') }}</a>
               <a :href="WEAR_INSTALLER_URL" class="rs-text-btn" target="_blank" rel="noopener">Wear Installer 2</a>
             </div>
+            <p v-if="watchRelease" class="aa-note">{{ watchRelease }}</p>
           </div>
         </div>
       </section>

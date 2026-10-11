@@ -414,5 +414,6 @@
   "androidAppDownload": "Download the app",
   "androidAppWatch": "Wear OS watch",
   "androidAppWatchSteps": "Download the watch app on your phone, then send it to your watch with an app like Wear Installer 2.",
-  "androidAppWatchDownload": "Download the watch app"
+  "androidAppWatchDownload": "Download the watch app",
+  "appVersion": "Version {version} · {date}"
 }

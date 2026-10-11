@@ -414,5 +414,6 @@
   "androidAppDownload": "Descarcă aplicația",
   "androidAppWatch": "Ceas Wear OS",
   "androidAppWatchSteps": "Descarcă aplicația pentru ceas pe telefon, apoi trimite-o pe ceas cu o aplicație ca Wear Installer 2.",
-  "androidAppWatchDownload": "Descarcă aplicația pentru ceas"
+  "androidAppWatchDownload": "Descarcă aplicația pentru ceas",
+  "appVersion": "Versiunea {version} · {date}"
 }

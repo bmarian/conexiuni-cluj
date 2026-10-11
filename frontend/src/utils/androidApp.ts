@@ -50,3 +50,45 @@ export const androidAppDialog = ref(false)
 export function openAndroidApp() {
   androidAppDialog.value = true
 }
+
+export interface AppRelease {
+  version: string
+  /** ISO date-time. */
+  date: string
+}
+
+export type AppRepo = 'conexiuni-cluj-mobile' | 'conexiuni-cluj-wearos'
+
+// GitHub allows 60 anonymous requests an hour per address.
+const RELEASE_TTL_MS = 6 * 60 * 60_000
+
+const releases = new Map<AppRepo, Promise<AppRelease | null>>()
+
+function cached(repo: AppRepo): AppRelease | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`release.${repo}`) ?? 'null') as (AppRelease & { at: number }) | null
+    return saved && Date.now() - saved.at < RELEASE_TTL_MS ? {version: saved.version, date: saved.date} : null
+  } catch {
+    return null
+  }
+}
+
+export function latestRelease(repo: AppRepo): Promise<AppRelease | null> {
+  let release = releases.get(repo)
+  if (!release) {
+    const saved = cached(repo)
+    release = saved ? Promise.resolve(saved) : fetch(`https://api.github.com/repos/bmarian/${repo}/releases/latest`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { tag_name?: string, published_at?: string } | null) => {
+        if (!json?.tag_name || !json.published_at) return null
+        const found = {version: json.tag_name.replace(/^v/, ''), date: json.published_at}
+        try {
+          localStorage.setItem(`release.${repo}`, JSON.stringify({...found, at: Date.now()}))
+        } catch {}
+        return found
+      })
+      .catch(() => null)
+    releases.set(repo, release)
+  }
+  return release
+}
