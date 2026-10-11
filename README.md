@@ -13,9 +13,8 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - The times get better on their own: the server watches the buses and learns how long each stretch really takes, hour by hour
 - Full timetables for every line, straight from CTP
 - A route planner: leave now, leave at, arrive by, or the last one today
-- Start a planned trip and it walks you through it: to the stop, onto the bus, off at the right stop
-- Tap the bell on a departure and it tells you when to leave, when the bus is close and when it's there
-- Reminders for the buses you take often, once or on chosen days, sent 20 minutes before the bus even with the site closed
+- Step-by-step guidance for a planned trip
+- Follow a bus and get told when it comes, and reminders for the buses you take often (experimental)
 - Favorite stops, and favorite lines per direction
 - Follow a line and get a notification when CTP changes its timetable or route
 - Installable as an app. After the first visit every stop, line and timetable opens without the server: the whole network comes down once (about 180 KB) and only the buses stay live

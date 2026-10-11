@@ -405,5 +405,14 @@
   "busAlerts": "Alerte autobuz",
   "busAlertsDesc": "Află când vine autobuzul, setează mementouri și fii trezit înainte de stația ta.",
   "busAlertsNote": "În funcție de browser, acestea pot să nu funcționeze sau pot fi inconsecvente.",
-  "experimental": "Experimental"
+  "experimental": "Experimental",
+  "androidApp": "Aplicația Android",
+  "androidAppDesc": "Pentru telefon și ceas Wear OS.",
+  "androidAppAsk": "Vrei să încerci aplicația Android?",
+  "androidAppSteps": "Descarcă aplicația și deschide fișierul. Dacă telefonul întreabă, permite instalarea din browser.",
+  "androidAppNeeds": "Necesită Android 14 sau mai nou.",
+  "androidAppDownload": "Descarcă aplicația",
+  "androidAppWatch": "Ceas Wear OS",
+  "androidAppWatchSteps": "Descarcă aplicația pentru ceas pe telefon, apoi trimite-o pe ceas cu o aplicație ca Wear Installer 2.",
+  "androidAppWatchDownload": "Descarcă aplicația pentru ceas"
 }

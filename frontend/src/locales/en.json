@@ -405,5 +405,14 @@
   "busAlerts": "Bus alerts",
   "busAlertsDesc": "Get told when a bus comes, set reminders and get woken before your stop.",
   "busAlertsNote": "Depending on your browser, these may not work or may be inconsistent.",
-  "experimental": "Experimental"
+  "experimental": "Experimental",
+  "androidApp": "Android app",
+  "androidAppDesc": "For your phone and Wear OS watch.",
+  "androidAppAsk": "Want to try the Android app?",
+  "androidAppSteps": "Download the app and open the file. If your phone asks, allow installs from your browser.",
+  "androidAppNeeds": "Needs Android 14 or newer.",
+  "androidAppDownload": "Download the app",
+  "androidAppWatch": "Wear OS watch",
+  "androidAppWatchSteps": "Download the watch app on your phone, then send it to your watch with an app like Wear Installer 2.",
+  "androidAppWatchDownload": "Download the watch app"
 }
