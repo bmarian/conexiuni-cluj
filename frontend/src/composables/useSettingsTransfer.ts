@@ -42,6 +42,7 @@ export function useSettingsTransfer() {
         autoFitMap: settings.autoFitMap,
         showGreenFriday: settings.showGreenFriday,
         showTimetableChanges: settings.showTimetableChanges,
+        busAlerts: settings.busAlerts,
       },
       favorites: {
         routes: favs.favoriteRoutes,
@@ -79,6 +80,7 @@ export function useSettingsTransfer() {
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     if (typeof s.showGreenFriday === 'boolean') settings.setShowGreenFriday(s.showGreenFriday)
     if (typeof s.showTimetableChanges === 'boolean') settings.setShowTimetableChanges(s.showTimetableChanges)
+    if (typeof s.busAlerts === 'boolean') settings.setBusAlerts(s.busAlerts)
     favs.importAll(isRecord(data.favorites) ? data.favorites : {})
     if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
   }

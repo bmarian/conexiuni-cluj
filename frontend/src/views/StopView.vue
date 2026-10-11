@@ -103,6 +103,7 @@ watch(() => stopInfo.value?.stop_id, () => {
 watch([stopInfo, () => route.query.follow], ([info, tripId]) => {
   const at = Number(route.query.at)
   if (!info || typeof tripId !== 'string' || !Number.isFinite(at)) return
+  if (!settings.busAlerts) return void router.replace({query: {}})
   const routeId = getRouteIdFromTripId(tripId)
   const shape = info.shapes_info.find((s: ShapeInfo) => s.route_id === routeId)
   if (routeId !== null && shape && at > Date.now() - 5 * 60_000) {
@@ -277,7 +278,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           class="pp-row"
           role="row"
           :data-kbd-item="`dep-${shape.route_short_name}`"
-          v-bind="press.bind(shape)"
+          v-bind="settings.busAlerts ? press.bind(shape) : {}"
           @click="press.click(() => navigateToRoute(shape))"
         >
           <span class="pp-cell pp-cell-line">
@@ -287,8 +288,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             <span class="pp-dest">
               {{ routeDestination(shape.route_long_name) }}
               <span v-if="isDepartureFavorite(shape)" class="pp-fav-mark">♥</span>
-              <span v-if="isReminded(shape)" class="pp-fav-mark" :title="t('remindSaved')">⏰</span>
-              <button type="button" class="pp-follow" :aria-pressed="isFollowed(shape)"
+              <span v-if="settings.busAlerts && isReminded(shape)" class="pp-fav-mark" :title="t('remindSaved')">⏰</span>
+              <button v-if="settings.busAlerts" type="button" class="pp-follow" :aria-pressed="isFollowed(shape)"
                       :aria-label="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
                       @click.stop="toggleFollow(shape)">{{ isFollowed(shape) ? '🔔' : '🔕' }}</button>
             </span>
@@ -388,7 +389,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         <span
           class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
         {{ t('nextDepartures') }}
-        <span class="dep-hint">{{ pointerHint ? t('departuresClickHint') : t('departuresHoldHint') }}</span>
+        <span v-if="settings.busAlerts" class="dep-hint">{{ pointerHint ? t('departuresClickHint') : t('departuresHoldHint') }}</span>
       </h2>
 
       <div v-if="isComputingDepartures" class="flex flex-col gap-2.5 animate-pulse">
@@ -416,7 +417,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           <div
             v-for="shape in departuresSorted"
             :key="shape.route_short_name"
-            v-bind="press.bind(shape)"
+            v-bind="settings.busAlerts ? press.bind(shape) : {}"
             @click="press.click(() => navigateToRoute(shape))"
             class="departure-card group"
             :data-kbd-item="`dep-${shape.route_short_name}`"
@@ -438,7 +439,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                   {{ t('live') }}
                 </span>
                 <span class="card-dest">→ {{ routeDestination(shape.route_long_name) }}</span>
-                <svg v-if="isReminded(shape)" class="w-3.5 h-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24"
+                <svg v-if="settings.busAlerts && isReminded(shape)" class="w-3.5 h-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24"
                      stroke="currentColor" stroke-width="2.2" :aria-label="t('remindSaved')">
                   <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
                 </svg>
@@ -464,6 +465,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             </div>
 
             <button
+              v-if="settings.busAlerts"
               type="button"
               class="dep-follow"
               :class="{ 'is-on': isFollowed(shape) }"

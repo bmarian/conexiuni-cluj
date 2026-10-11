@@ -52,7 +52,9 @@ export const useRemindersStore = defineStore('reminders', () => {
     return reminders.value.find((r) => r.stopId === stopId && r.routeId === routeId && r.tripId === tripId)
   }
 
+  // Off: the server gets none; the list stays here.
   function payload() {
+    if (!settings.busAlerts) return []
     return reminders.value.map((r) => ({
       id: r.id,
       stop_id: r.stopId,
@@ -70,7 +72,8 @@ export const useRemindersStore = defineStore('reminders', () => {
   async function sync(): Promise<boolean> {
     if (!pushSupported()) return false
     const hadServer = localStorage.getItem(SYNCED_KEY) === 'true'
-    if (!reminders.value.length && !hadServer) return true
+    const list = payload()
+    if (!list.length && !hadServer) return true
     if (Notification.permission !== 'granted') return false
     if (syncing.value) {
       again = true
@@ -81,9 +84,9 @@ export const useRemindersStore = defineStore('reminders', () => {
       const reg = await pushRegistration()
       if (!reg) return false
       const sub = await pushSubscription(reg)
-      await apiPost('push/reminders', {...sub.toJSON(), locale: settings.locale, reminders: payload()})
-      localStorage.setItem(SYNCED_KEY, reminders.value.length ? 'true' : 'false')
-      if (!reminders.value.length && !usePushStore().enabled) await usePushStore().disable()
+      await apiPost('push/reminders', {...sub.toJSON(), locale: settings.locale, reminders: list})
+      localStorage.setItem(SYNCED_KEY, list.length ? 'true' : 'false')
+      if (!list.length && !usePushStore().enabled) await usePushStore().disable()
       return true
     } catch (err) {
       console.warn('Reminder sync failed:', err)
@@ -96,6 +99,8 @@ export const useRemindersStore = defineStore('reminders', () => {
       }
     }
   }
+
+  watch(() => settings.busAlerts, () => void sync())
 
   const full = (id?: string) => reminders.value.length >= MAX_REMINDERS && !reminders.value.some((r) => r.id === id)
 
@@ -144,6 +149,7 @@ export const useRemindersStore = defineStore('reminders', () => {
   watch(() => settings.locale, () => void sync())
 
   function openSheet(target: ReminderTarget) {
+    if (!settings.busAlerts) return
     if (full(forBus(target.stopId, target.routeId, target.tripId)?.id)) {
       settings.showToast(t('limitReached', {n: MAX_REMINDERS}), {icon: 'bell-off'})
       return

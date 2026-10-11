@@ -686,7 +686,7 @@ onUnmounted(() => {
       <div class="stops-header">
         <span class="flex flex-col">
           <span class="section-label-text">{{ t('stops') }}</span>
-          <span class="stops-hint">{{ pointerHint ? t('stopsClickHint') : t('stopsHoldHint') }}</span>
+          <span v-if="settings.busAlerts" class="stops-hint">{{ pointerHint ? t('stopsClickHint') : t('stopsHoldHint') }}</span>
         </span>
         <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
         <div class="flex flex-col items-end gap-0.5">
@@ -719,7 +719,7 @@ onUnmounted(() => {
             idx === nearestStopIdx ? 'stop-row-nearest' :
             favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
           ]"
-          v-bind="stopPress.bind({stop, idx})"
+          v-bind="settings.busAlerts ? stopPress.bind({stop, idx}) : {}"
           @click.capture="stopPress.swallow"
         >
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
@@ -786,11 +786,11 @@ onUnmounted(() => {
                   d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </template>
-            <svg v-if="isStopFollowed(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
+            <svg v-if="settings.busAlerts && isStopFollowed(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
                  fill="currentColor" :aria-label="t('following')">
               <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2z"/>
             </svg>
-            <svg v-if="isStopReminded(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24"
+            <svg v-if="settings.busAlerts && isStopReminded(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24"
                  stroke="currentColor" stroke-width="2.2" :aria-label="t('remindSaved')">
               <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
             </svg>

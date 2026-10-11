@@ -335,6 +335,40 @@ async function togglePush() {
             </svg>
           </span>
         </button>
+        <button type="button" class="option-btn setting-row"
+                :class="{ active: settings.busAlerts }"
+                :aria-pressed="settings.busAlerts" data-kbd-item="bus-alerts"
+                @click="settings.setBusAlerts(!settings.busAlerts)">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">⏰</span>
+          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M12 9v4l2 2M5 3 2 6m17-3 3 3"/>
+          </svg>
+          <span class="setting-text">
+            <span class="setting-title">
+              {{ t('busAlerts') }}
+              <span class="beta-badge">{{ t('experimental') }}</span>
+            </span>
+            <span class="setting-desc">{{ t('busAlertsDesc') }}</span>
+          </span>
+          <span class="setting-check" aria-hidden="true">
+            <svg v-if="settings.busAlerts" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <path d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </span>
+        </button>
+        <p class="setting-note">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">⚠️</span>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/>
+            <path d="M12 9v4M12 17h.01"/>
+          </svg>
+          {{ t('busAlertsNote') }}
+        </p>
       </div>
     </section>
 

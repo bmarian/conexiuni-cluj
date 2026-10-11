@@ -401,5 +401,9 @@
   "close": "Close",
   "shareFinding": "Finding {name}…",
   "shareNotFound": "Couldn't find that place. Search for it here.",
-  "limitReached": "Up to {n} at a time"
+  "limitReached": "Up to {n} at a time",
+  "busAlerts": "Bus alerts",
+  "busAlertsDesc": "Get told when a bus comes, set reminders and get woken before your stop.",
+  "busAlertsNote": "Depending on your browser, these may not work or may be inconsistent.",
+  "experimental": "Experimental"
 }

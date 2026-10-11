@@ -1,3 +1,5 @@
+import {useSettingsStore} from '@/stores/settings.ts'
+
 export type NotifyPermission = 'granted' | 'denied' | 'unsupported'
 
 export const notificationsSupported = () => typeof window !== 'undefined' && 'Notification' in window
@@ -48,7 +50,7 @@ export interface Notice {
 }
 
 export async function notify(notice: Notice): Promise<boolean> {
-  if (!alerting) return false
+  if (!alerting || !useSettingsStore().busAlerts) return false
   if (notice.buzz) navigator.vibrate?.([200, 100, 200])
   if (!notificationsSupported() || Notification.permission !== 'granted') return false
   const silent = notice.silent || watched()

@@ -198,6 +198,13 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.showGreenFriday', val ? 'true' : 'false')
   }
 
+  const busAlerts = ref(persistedBool('settings.busAlerts'))
+
+  function setBusAlerts(val: boolean) {
+    busAlerts.value = val
+    localStorage.setItem('settings.busAlerts', val ? 'true' : 'false')
+  }
+
   function setShowTimetableChanges(val: boolean) {
     showTimetableChanges.value = val
     localStorage.setItem('settings.showTimetableChanges', val ? 'true' : 'false')
@@ -233,6 +240,7 @@ export const useSettingsStore = defineStore('settings', () => {
     showVehicleExtras, setShowVehicleExtras,
     showGreenFriday, setShowGreenFriday,
     showTimetableChanges, setShowTimetableChanges,
+    busAlerts, setBusAlerts,
     toast, showToast, dismissToast,
   }
 })

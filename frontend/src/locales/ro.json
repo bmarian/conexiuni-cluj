@@ -401,5 +401,9 @@
   "close": "Închide",
   "shareFinding": "Se caută {name}…",
   "shareNotFound": "Locul nu a fost găsit. Caută-l aici.",
-  "limitReached": "Cel mult {n} deodată"
+  "limitReached": "Cel mult {n} deodată",
+  "busAlerts": "Alerte autobuz",
+  "busAlertsDesc": "Află când vine autobuzul, setează mementouri și fii trezit înainte de stația ta.",
+  "busAlertsNote": "În funcție de browser, acestea pot să nu funcționeze sau pot fi inconsecvente.",
+  "experimental": "Experimental"
 }

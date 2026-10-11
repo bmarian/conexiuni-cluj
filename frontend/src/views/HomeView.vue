@@ -420,13 +420,15 @@ useKbdShortcuts({
 
     <template v-if="!isSearchMode">
 
-      <section v-if="journeyStore.journey || followsStore.follows.length" class="flex flex-col gap-2.5"
+      <section v-if="journeyStore.journey || (settings.busAlerts && followsStore.follows.length)" class="flex flex-col gap-2.5"
                data-kbd-section="live" data-kbd-entry="1">
         <JourneyCard v-if="journeyStore.journey"/>
-        <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
+        <template v-if="settings.busAlerts">
+          <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
+        </template>
       </section>
 
-      <section v-if="remindersStore.reminders.length" class="flex flex-col gap-2"
+      <section v-if="settings.busAlerts && remindersStore.reminders.length" class="flex flex-col gap-2"
                data-kbd-section="reminders" data-kbd-entry="1">
         <h3 class="sub-label">{{ t('reminders') }}</h3>
         <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">

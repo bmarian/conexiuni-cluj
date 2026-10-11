@@ -307,8 +307,10 @@ export function getVehicleMarkerHtml(
   // Showing it would claim a bus waiting at a terminus is doing 7 km/h.
   const reportedSpeed = vehicle.raw_speed !== undefined && vehicle.raw_speed >= 0 ? vehicle.raw_speed : vehicle.speed
   const roundedSpeed = Math.round(reportedSpeed)
+  const label = String(vehicle.label ?? '').replace(/[^\w -]/g, '')
+  const speedText = `${label ? `#${label} · ` : ''}${roundedSpeed} km/h`
   const heading = vehicle.heading || 0
-  const extrasHtml = (color: string) => opts.showVehicleExtras ? accessibilityIcons(vehicle, color) : ''
+  const extrasHtml = (color: string) => opts.showVehicleExtras ? `<span style="color:${color};font-weight:700;">·</span>${accessibilityIcons(vehicle, color)}` : ''
 
   if (opts.arcadeActive) {
     const rotation = heading - 90
@@ -326,7 +328,7 @@ export function getVehicleMarkerHtml(
               <span style="font-weight:700;font-size:13px;">${routeName}</span>
               ${extrasHtml('#94a3b8')}
             </div>
-            <span style="font-size:12px;color:#94a3b8;">${roundedSpeed} km/h</span>
+            <span style="font-size:12px;color:#94a3b8;">${speedText}</span>
           </div>
         ` : ''}
       </div>`
@@ -349,7 +351,7 @@ export function getVehicleMarkerHtml(
         <span style="font-weight:700;font-size:11px;">${routeName}</span>
         ${extrasHtml('#404040')}
       </div>
-      <span style="font-size:11px;color:#404040;">${roundedSpeed} km/h</span>
+      <span style="font-size:11px;color:#404040;">${speedText}</span>
     </div>`
 
     const routeBadge = `<div style="background-color:${resolvedColor};color:white;font-size:${routeFontSize}px;font-weight:700;padding:1px 5px;border-radius:0;border:1px solid #000000;line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;box-shadow:1px 1px 0 rgba(0,0,0,0.3);">${routeName}</div>`
@@ -365,7 +367,7 @@ export function getVehicleMarkerHtml(
   if (opts.paperActive) {
     const paperTip = `<div class="absolute" style="left:44px;top:0;background:var(--pp-paper);color:var(--pp-ink);padding:3px 8px;border:1px solid var(--pp-ink);white-space:nowrap;z-index:20;pointer-events:none;font-family:var(--pp-display);line-height:1.3;">
       <div style="font-weight:600;font-size:13px;letter-spacing:0.03em;">${routeName}</div>
-      <div style="font-size:12px;font-family:var(--pp-text);font-style:italic;">${roundedSpeed} km/h</div>
+      <div style="font-size:12px;font-family:var(--pp-text);font-style:italic;">${speedText}</div>
       ${opts.showVehicleExtras ? accessibilityWords(vehicle, t) : ''}
     </div>`
 
@@ -398,7 +400,7 @@ export function getVehicleMarkerHtml(
             <span class="font-bold text-sm tracking-wide">${routeName}</span>
             ${extrasHtml('#94a3b8')}
           </div>
-          <span class="text-xs text-slate-400">${roundedSpeed} km/h</span>
+          <span class="text-xs text-slate-400">${speedText}</span>
         </div>
       ` : ''}
     </div>
