@@ -61,6 +61,11 @@ export default defineConfig({
         launch_handler: {
           client_mode: ["navigate-existing", "auto"],
         },
+        share_target: {
+          action: "/plan",
+          method: "GET",
+          params: {title: "shared_title", text: "shared_text", url: "shared_url"},
+        },
         icons: [
           { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },

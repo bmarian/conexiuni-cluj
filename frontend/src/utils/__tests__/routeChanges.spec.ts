@@ -79,27 +79,27 @@ describe('route change summary', () => {
   })
 
   it.each([
-    [[['sunday']], 'There are changes to the Sunday timetable.', 'Sunt schimbări la orarul de duminică.'],
-    [[['weekdays']], 'There are changes to the weekday timetable.', 'Sunt schimbări la orarul din timpul săptămânii.'],
-    [[['saturday', 'sunday']], 'There are changes to the Saturday and Sunday timetables.', 'Sunt schimbări la orarul de sâmbătă și de duminică.'],
-    [[['sunday'], ['weekdays']], 'There are changes to the weekday and Sunday timetables.', 'Sunt schimbări la orarul din timpul săptămânii și de duminică.'],
+    [[['sunday']], 'The Sunday timetable changed.', 'Orarul de duminică s-a schimbat.'],
+    [[['weekdays']], 'The weekday timetable changed.', 'Orarul din timpul săptămânii s-a schimbat.'],
+    [[['saturday', 'sunday']], 'The Saturday and Sunday timetables changed.', 'Orarele de sâmbătă și de duminică s-au schimbat.'],
+    [[['sunday'], ['weekdays']], 'The weekday and Sunday timetables changed.', 'Orarele din timpul săptămânii și de duminică s-au schimbat.'],
     [[['weekdays'], ['saturday', 'sunday'], ['weekdays']],
-      'There are changes to the weekday, Saturday and Sunday timetables.',
-      'Sunt schimbări la orarul din timpul săptămânii, de sâmbătă și de duminică.'],
+      'The weekday, Saturday and Sunday timetables changed.',
+      'Orarele din timpul săptămânii, de sâmbătă și de duminică s-au schimbat.'],
   ] as [RouteChangeDay[][], string, string][])('names the changed days %j', (days, enText, roText) => {
     expect(say('en', timetable(...days))).toBe(enText)
     expect(say('ro', timetable(...days))).toBe(roText)
   })
 
   it('counts a stop dropped in both directions once', () => {
-    expect(say('en', stops([], ['Piața Mărăști', 'Piața Mărăști']))).toBe('A stop was removed from the route.')
-    expect(say('ro', stops([], ['Piața Mărăști', 'Piața Mărăști']))).toBe('O stație a fost scoasă de pe traseu.')
+    expect(say('en', stops([], ['Piața Mărăști', 'Piața Mărăști']))).toBe('A stop was removed.')
+    expect(say('ro', stops([], ['Piața Mărăști', 'Piața Mărăști']))).toBe('A fost scoasă o stație.')
   })
 
   it('covers added, removed and mixed stop changes', () => {
-    expect(say('en', stops(['A'], []))).toBe('A new stop was added to the route.')
-    expect(say('ro', stops(['A', 'B'], []))).toBe('Au fost adăugate stații noi pe traseu.')
-    expect(say('en', stops([], ['A', 'B']))).toBe('Some stops were removed from the route.')
-    expect(say('ro', stops(['A'], ['B']))).toBe('Unele stații au fost adăugate pe traseu, iar altele au fost scoase.')
+    expect(say('en', stops(['A'], []))).toBe('A stop was added.')
+    expect(say('ro', stops(['A', 'B'], []))).toBe('Au fost adăugate stații.')
+    expect(say('en', stops([], ['A', 'B']))).toBe('Stops were removed.')
+    expect(say('ro', stops(['A'], ['B']))).toBe('Au fost adăugate și scoase stații.')
   })
 })

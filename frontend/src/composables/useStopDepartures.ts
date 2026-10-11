@@ -15,7 +15,7 @@ import {
 import type {Shape, ShapeInfo, Vehicle, VehiclesInStop} from '@/types/tranzy.ts'
 import {getAvailableBusesForStop, hasTimetableEntries} from '@/utils/time.ts'
 import {mergeArrivals} from '@/utils/arrivals.ts'
-import {getDirectionFromTripId, getRouteIdFromTripId, getShapeStopTimes} from '@/utils/trips.ts'
+import {getRouteIdFromTripId, getShapeStopTimes} from '@/utils/trips.ts'
 
 // Pills per card. One more than this is asked of the timetable, because merging in a
 // live estimate consumes the slot that same run occupies - without the spare the card
@@ -83,7 +83,7 @@ export function useStopDepartures(stopId: Ref<string>) {
   })
 
   function isDepartureFavorite(shape: VehiclesInStop): boolean {
-    return favoritesStore.isRouteFavorite(shape.route_id, getDirectionFromTripId(shape.trip_id))
+    return favoritesStore.isRouteFavorite(shape.route_id)
   }
 
   const shapesComingToTheStopBasedOnTimetable = computed(() => {
@@ -112,7 +112,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     }
   }
 
-  watch(stopId, async (newValue) => {
+  async function load(id: string) {
     isLoading.value = true
     loadError.value = false
     isComputingDepartures.value = true
@@ -120,10 +120,12 @@ export function useStopDepartures(stopId: Ref<string>) {
     cachedShapeKey.value = ''
     cachedShapesWithTrip.value = []
     displayedFavoriteShapeKey.value = null
-    await fetchStopData(newValue)
+    await fetchStopData(id)
     if (!stopInfo.value) loadError.value = true
     isLoading.value = false
-  }, {immediate: true})
+  }
+
+  watch(stopId, (id) => void load(id), {immediate: true})
 
   watch([shapesComingToTheStopBasedOnTimetable, vehiclesByTrip], async ([shapesComingNext]) => {
     if (!Array.isArray(shapesComingNext) || shapesComingNext.length === 0) {
@@ -259,5 +261,6 @@ export function useStopDepartures(stopId: Ref<string>) {
     departures: shapesComingToTheStopBasedOnVehiclePositions,
     busesWithAvailableTimetables,
     isDepartureFavorite,
+    reload: () => load(stopId.value),
   }
 }

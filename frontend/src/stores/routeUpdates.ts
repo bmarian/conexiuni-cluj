@@ -47,11 +47,13 @@ function writeList(key: string, value: unknown[]) {
   } catch {}
 }
 
+export const MAX_FOLLOWED_LINES = 10
+
 const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0
 const isNumber = (v: unknown): v is number => typeof v === 'number'
 
 export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
-  const followed = ref<string[]>(readList(FOLLOWED_KEY, isString))
+  const followed = ref<string[]>(readList(FOLLOWED_KEY, isString).slice(0, MAX_FOLLOWED_LINES))
   const seenIds = ref(new Set(readList(SEEN_KEY, isNumber)))
   const changes = ref<RouteChange[]>([])
   const loading = ref(false)
@@ -66,8 +68,10 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     return followed.value.includes(routeShortName)
   }
 
-  function toggleFollow(routeShortName: string): boolean {
+  /** null when the limit is reached */
+  function toggleFollow(routeShortName: string): boolean | null {
     const idx = followed.value.indexOf(routeShortName)
+    if (idx === -1 && followed.value.length >= MAX_FOLLOWED_LINES) return null
     if (idx === -1) followed.value.push(routeShortName)
     else followed.value.splice(idx, 1)
     writeList(FOLLOWED_KEY, followed.value)
@@ -75,7 +79,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
   }
 
   function importFollowed(raw: unknown) {
-    followed.value = Array.isArray(raw) ? [...new Set(raw.filter(isString))] : []
+    followed.value = Array.isArray(raw) ? [...new Set(raw.filter(isString))].slice(0, MAX_FOLLOWED_LINES) : []
     writeList(FOLLOWED_KEY, followed.value)
   }
 

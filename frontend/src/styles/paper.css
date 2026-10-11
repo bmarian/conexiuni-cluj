@@ -424,7 +424,7 @@ html[data-paper] .pp-actions {
 
 html[data-paper] .pp-action,
 html[data-paper] .pp-masthead .share-btn,
-html[data-paper] .plan-view-container > header :is(.rename-btn, .share-btn, .fav-btn) {
+html[data-paper] .plan-view-container > header :is(.start-btn, .rename-btn, .share-btn, .fav-btn) {
   display: inline-flex;
   align-items: center;
   width: auto !important;
@@ -448,7 +448,7 @@ html[data-paper] .plan-view-container > header :is(.rename-btn, .share-btn, .fav
 
 html[data-paper] .pp-action:hover,
 html[data-paper] .pp-masthead .share-btn:hover,
-html[data-paper] .plan-view-container > header :is(.rename-btn, .share-btn, .fav-btn):hover {
+html[data-paper] .plan-view-container > header :is(.start-btn, .rename-btn, .share-btn, .fav-btn):hover {
   background: rgb(29 54 114 / 0.08) !important;
 }
 
@@ -2742,4 +2742,130 @@ html[data-paper] .pp-masthead .pp-line-stamp {
   html[data-paper] :is(.settings-root, .news-root, .weather-root).landscape-open {
     --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
   }
+}
+
+/* ---------- followed buses, reminders and trips ---------- */
+
+html[data-paper] .bus-menu,
+html[data-paper] .rs-sheet {
+  border-radius: 0 !important;
+  background-color: var(--pp-paper) !important;
+  background-image: var(--pp-grain) !important;
+  color: var(--pp-ink) !important;
+  border: 3px double var(--pp-ink) !important;
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.12) !important;
+  font-family: var(--pp-text) !important;
+}
+
+html[data-paper] .bus-menu-item,
+html[data-paper] .rs-choice,
+html[data-paper] .rs-choice button,
+html[data-paper] .rs-day,
+html[data-paper] .rs-last,
+html[data-paper] .rs-time,
+html[data-paper] .rs-close,
+html[data-paper] .rs-save,
+html[data-paper] .rs-text-btn,
+html[data-paper] .retry-btn,
+html[data-paper] .follow-card,
+html[data-paper] .follow-stop-btn,
+html[data-paper] .follow-time,
+html[data-paper] .follow-badge,
+html[data-paper] .journey-card,
+html[data-paper] .journey-go,
+html[data-paper] .journey-text-btn,
+html[data-paper] .journey-time,
+html[data-paper] .journey-badge,
+html[data-paper] .reminder-badge,
+html[data-paper] .dep-follow,
+html[data-paper] .nav-banner,
+html[data-paper] .nav-then,
+html[data-paper] .nav-round,
+html[data-paper] .nav-next,
+html[data-paper] .nav-end,
+html[data-paper] .nav-badge,
+html[data-paper] .nav-step-badge,
+html[data-paper] .nav-progress,
+html[data-paper] .nav-step-dot {
+  border-radius: 0 !important;
+}
+
+html[data-paper] .bus-menu-item:hover,
+html[data-paper] .bus-menu-item:focus-visible {
+  background: var(--pp-paper-2) !important;
+}
+
+html[data-paper] .rs-choice {
+  background: transparent !important;
+  border: 1px solid var(--pp-ink) !important;
+}
+
+html[data-paper] .rs-day,
+html[data-paper] .rs-last,
+html[data-paper] .rs-time,
+html[data-paper] .rs-choice button,
+html[data-paper] .rs-save,
+html[data-paper] .rs-text-btn,
+html[data-paper] .retry-btn,
+html[data-paper] .follow-stop-btn,
+html[data-paper] .journey-go,
+html[data-paper] .journey-text-btn,
+html[data-paper] .nav-round,
+html[data-paper] .nav-next,
+html[data-paper] .nav-end {
+  background: transparent !important;
+  color: var(--pp-ink) !important;
+  border: 1px solid var(--pp-ink) !important;
+  font-family: var(--pp-display) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: none !important;
+}
+
+html[data-paper] .rs-choice button.is-on,
+html[data-paper] .rs-day.is-on,
+html[data-paper] .rs-last.is-on,
+html[data-paper] .rs-time.is-on,
+html[data-paper] .rs-save:not(:disabled),
+html[data-paper] .journey-go,
+html[data-paper] .dep-follow.is-on,
+html[data-paper] .follow-time.is-live,
+html[data-paper] .journey-time,
+html[data-paper] .nav-progress span {
+  background: var(--pp-ink) !important;
+  color: var(--pp-paper) !important;
+}
+
+html[data-paper] .nav-end {
+  color: var(--pp-red) !important;
+  border-color: var(--pp-red) !important;
+}
+
+html[data-paper] .rs-hour,
+html[data-paper] .rs-next,
+html[data-paper] .nav-eta-minutes {
+  color: var(--pp-ink) !important;
+  font-family: var(--pp-display) !important;
+}
+
+html[data-paper] .follow-card,
+html[data-paper] .journey-card,
+html[data-paper] .nav-then {
+  background: var(--pp-paper-2) !important;
+  color: var(--pp-ink) !important;
+  border: 1px solid var(--pp-ink) !important;
+  box-shadow: var(--pp-slip-shadow) !important;
+  font-family: var(--pp-text) !important;
+}
+
+html[data-paper] .nav-banner {
+  background: var(--pp-ink) !important;
+  color: var(--pp-paper) !important;
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.12) !important;
+  font-family: var(--pp-display) !important;
+}
+
+html[data-paper] .nav-step.is-current .nav-step-dot {
+  background: var(--pp-red) !important;
+  border-color: var(--pp-red) !important;
 }

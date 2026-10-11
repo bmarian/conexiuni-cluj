@@ -180,7 +180,7 @@ func TestSendRouteChangePushReachesOnlyFollowers(t *testing.T) {
 	got := english.received()
 	want := pushMessage{
 		Title:     "Line 25 · Timetable changed",
-		Body:      "There are changes to the weekday, Saturday and Sunday timetables.",
+		Body:      "The weekday, Saturday and Sunday timetables changed.",
 		URL:       "/route/12/1?change=7",
 		Tag:       "route-change-25",
 		Timestamp: 1700000000000,
@@ -192,7 +192,7 @@ func TestSendRouteChangePushReachesOnlyFollowers(t *testing.T) {
 		t.Fatalf("missing VAPID authorization: %q", english.vapid[0])
 	}
 	if got := romanian.received(); len(got) != 1 || got[0].Title != "Linia 25 · Orar modificat" ||
-		got[0].Body != "Sunt schimbări la orarul din timpul săptămânii, de sâmbătă și de duminică." {
+		got[0].Body != "Orarele din timpul săptămânii, de sâmbătă și de duminică s-au schimbat." {
 		t.Fatalf("romanian follower got %+v", got)
 	}
 	if got := other.received(); len(got) != 0 {
@@ -288,8 +288,8 @@ func TestFlushPendingPushesSendsNewestChangePerLine(t *testing.T) {
 	for _, msg := range got {
 		bodies[msg.Tag] = msg.Body
 	}
-	if len(got) != 2 || bodies["route-change-25"] != "Some stops were removed from the route." ||
-		bodies["route-change-35"] != "A new stop was added to the route." {
+	if len(got) != 2 || bodies["route-change-25"] != "Stops were removed." ||
+		bodies["route-change-35"] != "A stop was added." {
 		t.Fatalf("want the newest change for each line, got %+v", got)
 	}
 	if pending := pendingPushes(t); len(pending) != 0 {

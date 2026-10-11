@@ -16,10 +16,35 @@ import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection, type Stop} from '@/types/tranzy.ts'
 import UniversalSearch from '@/components/UniversalSearch.vue'
+import FollowCard from '@/components/FollowCard.vue'
+import JourneyCard from '@/components/JourneyCard.vue'
+import {useFollowsStore} from '@/stores/follows.ts'
+import {useJourneyStore} from '@/stores/journey.ts'
+import {useRemindersStore} from '@/stores/reminders.ts'
+import {useUserStore} from '@/stores/user.ts'
+import {nextOf} from '@/utils/reminders.ts'
+import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const router = useRouter()
+const followsStore = useFollowsStore()
+const journeyStore = useJourneyStore()
+const remindersStore = useRemindersStore()
+const {userTime} = storeToRefs(useUserStore())
+
+const reminderRows = computed(() => {
+  const nowMs = (userTime.value ?? new Date()).getTime()
+  return remindersStore.reminders.map((reminder) => {
+    const next = nextOf(reminder, nowMs)
+    return {
+      reminder,
+      title: `${next !== null ? reminderWhen(next, locale.value, nowMs) : t('remindNoBus')} → ${reminder.destination}`,
+      kicker: [reminder.time === null ? t('remindLastBus') : null, reminderRepeat(reminder.days, locale.value), reminder.stopName]
+        .filter(Boolean).join(' · '),
+    }
+  })
+})
 
 useHead(() => ({
   title: t('headHomeTitle'),
@@ -101,34 +126,53 @@ onMounted(() => {
   void fetchStops()
 })
 
-type FavoriteRouteChip = {
-  route: Route
-  destination: string
-  name: string
+type FavoriteRouteGroup = {
+  routeId: number
+  favorites: FavoriteRoute[]
 }
 
-function favoriteRouteKey(fav: FavoriteRoute): string {
-  return `${fav.routeId}_${fav.direction}`
+type FavoriteRouteChip = {
+  route: Route
+  label: string
+  name: string
+  direction?: RouteDirection
+}
+
+const favoriteRouteGroups = computed<FavoriteRouteGroup[]>(() => {
+  const groups = new Map<number, FavoriteRouteGroup>()
+  for (const fav of favoriteRoutes.value) {
+    const group = groups.get(fav.routeId)
+    if (group) group.favorites.push(fav)
+    else groups.set(fav.routeId, {routeId: fav.routeId, favorites: [fav]})
+  }
+  return [...groups.values()]
+})
+
+function favoriteRouteKey(group: FavoriteRouteGroup): string {
+  return String(group.routeId)
 }
 
 const favoriteRouteChips = computed(() => {
   const chips = new Map<string, FavoriteRouteChip>()
-  for (const fav of favoriteRoutes.value) {
-    const route = routesById.value.get(fav.routeId)
+  for (const group of favoriteRouteGroups.value) {
+    const route = routesById.value.get(group.routeId)
     if (!route) continue
     const longName = route.route_long_name
     const i = longName.lastIndexOf(' - ')
     const origin = i >= 0 ? longName.slice(0, i) : ''
     const end = i >= 0 ? longName.slice(i + 3) : longName
-    chips.set(favoriteRouteKey(fav), fav.direction === '1' && origin
-      ? {route, destination: origin, name: `${end} - ${origin}`}
-      : {route, destination: end, name: longName})
+    const single = group.favorites.length === 1 ? group.favorites[0]! : null
+    let chip: FavoriteRouteChip
+    if (!single) chip = {route, label: origin ? `${origin} ⇄ ${end}` : longName, name: longName}
+    else if (single.direction === '1' && origin) chip = {route, label: `→ ${origin}`, name: `${end} - ${origin}`, direction: '1'}
+    else chip = {route, label: `→ ${end}`, name: longName, direction: single.direction}
+    chips.set(favoriteRouteKey(group), chip)
   }
   return chips
 })
 
-function chipFor(fav: FavoriteRoute): FavoriteRouteChip | undefined {
-  return favoriteRouteChips.value.get(favoriteRouteKey(fav))
+function chipFor(group: FavoriteRouteGroup): FavoriteRouteChip | undefined {
+  return favoriteRouteChips.value.get(favoriteRouteKey(group))
 }
 
 const favoriteStops = computed<Stop[]>(() => {
@@ -204,7 +248,7 @@ const {items: visibleStops, filling: stopsFilling} = useProgressiveList(() => so
 async function navigateToRoute(route: Route, direction?: RouteDirection) {
   if (navigatingRouteId.value === route.route_id) return
   navigatingRouteId.value = route.route_id
-  navigatingRouteKey.value = direction ? favoriteRouteKey({routeId: route.route_id, direction}) : null
+  navigatingRouteKey.value = String(route.route_id)
   try {
     const shapeInfo = await fetchShapeInfo(route)
     const tripId = `${route.route_id}${direction === '1' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
@@ -243,9 +287,9 @@ function navigateToPlan(plan: FavoritePlan) {
   })
 }
 
-function removeFavoriteRoute(fav: FavoriteRoute, ev: Event) {
+function removeFavoriteRoute(group: FavoriteRouteGroup, ev: Event) {
   ev.stopPropagation()
-  favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
+  for (const fav of group.favorites) favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
 }
 
 function removeFavoriteStop(stop: Stop, ev: Event) {
@@ -265,9 +309,9 @@ function dismissRecentPlan(plan: FavoritePlan, ev: Event) {
   favoritesStore.removeRecentPlan(plan)
 }
 
-const routeFavoritesModel = computed<FavoriteRoute[]>({
-  get: () => favoriteRoutes.value,
-  set: (newRoutes) => favoritesStore.reorderRoutes([...newRoutes]),
+const routeFavoritesModel = computed<FavoriteRouteGroup[]>({
+  get: () => favoriteRouteGroups.value,
+  set: (groups) => favoritesStore.reorderRoutes(groups.flatMap((group) => group.favorites)),
 })
 
 const stopFavoritesModel = computed<number[]>({
@@ -282,7 +326,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 
 const kbd = useKeyboardNav()
 
-const favRouteItemKey = (fav: FavoriteRoute) => `fav-route-${favoriteRouteKey(fav)}`
+const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${favoriteRouteKey(group)}`
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
@@ -292,11 +336,11 @@ function removeFocused(): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
   const neighbor = kbd.neighborKey()
-  const fav = favoriteRoutes.value.find(f => favRouteItemKey(f) === key)
+  const group = favoriteRouteGroups.value.find(g => favRouteItemKey(g) === key)
   const stopId = favoriteStopIds.value.find(id => favStopItemKey(id) === key)
   const plan = favoritePlans.value.find(p => favPlanItemKey(p) === key)
   const recent = recentNonFavoritePlans.value.find(p => recentItemKey(p) === key)
-  if (fav) favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
+  if (group) group.favorites.forEach((fav) => favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction))
   else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
   else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
   else if (recent && isOnline.value) favoritesStore.removeRecentPlan(recent)
@@ -321,7 +365,7 @@ function swapInList<T>(list: T[], keyOf: (item: T) => string, key: string, delta
 function moveFocused(delta: 1 | -1): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
-  const moved = swapInList(favoriteRoutes.value, favRouteItemKey, key, delta, l => favoritesStore.reorderRoutes(l))
+  const moved = swapInList(favoriteRouteGroups.value, favRouteItemKey, key, delta, l => favoritesStore.reorderRoutes(l.flatMap((g) => g.favorites)))
     || swapInList(favoriteStopIds.value, favStopItemKey, key, delta, l => favoritesStore.reorderStopIds(l))
     || swapInList(favoritePlans.value, favPlanItemKey, key, delta, l => favoritesStore.reorderPlans(l))
   if (moved) void nextTick(() => kbd.focusKey(key))
@@ -376,6 +420,46 @@ useKbdShortcuts({
 
     <template v-if="!isSearchMode">
 
+      <section v-if="journeyStore.journey || followsStore.follows.length" class="flex flex-col gap-2.5"
+               data-kbd-section="live" data-kbd-entry="1">
+        <JourneyCard v-if="journeyStore.journey"/>
+        <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
+      </section>
+
+      <section v-if="remindersStore.reminders.length" class="flex flex-col gap-2"
+               data-kbd-section="reminders" data-kbd-entry="1">
+        <h3 class="sub-label">{{ t('reminders') }}</h3>
+        <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div
+            v-for="row in reminderRows"
+            :key="row.reminder.id"
+            class="fav-stop-row group"
+            role="button"
+            tabindex="0"
+            :data-kbd-item="`reminder-${row.reminder.id}`"
+            @click="remindersStore.openSheet(row.reminder)"
+            @keydown.enter.prevent="remindersStore.openSheet(row.reminder)"
+          >
+            <span class="reminder-badge" :style="{ backgroundColor: row.reminder.color }">{{ row.reminder.line }}</span>
+            <div class="flex-1 min-w-0">
+              <p class="reminder-kicker">{{ row.kicker }}</p>
+              <p class="reminder-title">{{ row.title }}</p>
+            </div>
+            <button
+              type="button"
+              class="fav-stop-remove"
+              :title="t('remindDelete')"
+              :aria-label="t('remindDelete')"
+              @click.stop="remindersStore.remove(row.reminder.id)"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
         <h2 class="section-label">
           <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">❤️</span>
@@ -400,16 +484,16 @@ useKbdShortcuts({
             chosen-class="drag-chosen"
             :animation="180"
           >
-            <template #item="{element: fav}">
+            <template #item="{element: group}">
               <div
-                v-if="chipFor(fav)"
+                v-if="chipFor(group)"
                 class="fav-route-chip group"
-                :data-kbd-item="favRouteItemKey(fav)"
-                :class="{ 'opacity-60 pointer-events-none': navigatingRouteKey === favoriteRouteKey(fav) }"
-                :style="{ '--chip-color': chipFor(fav)?.route.route_color }"
-                :title="chipFor(fav)?.name"
-                @click="navigateToRoute(chipFor(fav)!.route, fav.direction)"
-                @keydown.enter.space.prevent="navigateToRoute(chipFor(fav)!.route, fav.direction)"
+                :data-kbd-item="favRouteItemKey(group)"
+                :class="{ 'opacity-60 pointer-events-none': navigatingRouteKey === favoriteRouteKey(group) }"
+                :style="{ '--chip-color': chipFor(group)?.route.route_color }"
+                :title="chipFor(group)?.name"
+                @click="navigateToRoute(chipFor(group)!.route, chipFor(group)!.direction)"
+                @keydown.enter.space.prevent="navigateToRoute(chipFor(group)!.route, chipFor(group)!.direction)"
                 role="button"
                 tabindex="0"
               >
@@ -426,15 +510,15 @@ useKbdShortcuts({
                   </svg>
                   <span
                     class="fav-route-badge"
-                    :style="{ backgroundColor: chipFor(fav)?.route.route_color }"
-                  >{{ chipFor(fav)?.route.route_short_name }}</span>
-                  <span class="fav-route-name">→ {{ chipFor(fav)?.destination }}</span>
+                    :style="{ backgroundColor: chipFor(group)?.route.route_color }"
+                  >{{ chipFor(group)?.route.route_short_name }}</span>
+                  <span class="fav-route-name">{{ chipFor(group)?.label }}</span>
                   <button
                     type="button"
                     class="fav-remove"
                     :title="t('removeFromFavorites')"
                     :aria-label="t('removeFromFavorites')"
-                    @click.stop="removeFavoriteRoute(fav, $event)"
+                    @click.stop="removeFavoriteRoute(group, $event)"
                   >
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                          stroke-width="2.5">
@@ -1001,6 +1085,39 @@ html.dark[data-legacy-blue] .no-favorites-hint {
 .fav-remove:hover {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.reminder-badge {
+  min-width: 2rem;
+  height: 1.6rem;
+  padding: 0 0.35rem;
+  border-radius: 0.45rem;
+  color: var(--color-white, #fff);
+  font-size: 0.75rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reminder-kicker {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-slate-400, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminder-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fav-stop-row {

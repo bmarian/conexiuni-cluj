@@ -894,3 +894,177 @@ html.dark[data-arcade] .rc-summary {
 html.dark[data-arcade] .rc-rule {
   background: #78350f !important;
 }
+
+/* ---------- followed buses, reminders and trips ---------- */
+
+html[data-arcade] .bus-menu,
+html[data-arcade] .rs-sheet {
+  background: #fffbeb !important;
+  color: #78350f !important;
+  border-color: #fde68a !important;
+  box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.25), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-arcade] .bus-menu-item:hover,
+html[data-arcade] .bus-menu-item:focus-visible,
+html[data-arcade] .rs-close:hover,
+html[data-arcade] .rs-text-btn:hover {
+  background: #fef3c7 !important;
+}
+
+html[data-arcade] .rs-choice,
+html[data-arcade] .rs-day,
+html[data-arcade] .rs-last,
+html[data-arcade] .rs-time,
+html[data-arcade] .nav-round,
+html[data-arcade] .nav-next,
+html[data-arcade] .nav-progress {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+html[data-arcade] .rs-choice button {
+  color: #92400e !important;
+}
+
+html[data-arcade] .rs-choice button.is-on,
+html[data-arcade] .rs-day.is-on,
+html[data-arcade] .rs-last.is-on,
+html[data-arcade] .rs-time.is-on,
+html[data-arcade] .rs-save,
+html[data-arcade] .journey-go,
+html[data-arcade] .nav-progress span,
+html[data-arcade] .follow-time.is-live,
+html[data-arcade] .journey-time {
+  background: #f59e0b !important;
+  color: #451a03 !important;
+}
+
+html[data-arcade] .directions-btn,
+html[data-arcade] .start-btn,
+html[data-arcade] .rs-hour,
+html[data-arcade] .rs-next,
+html[data-arcade] .rs-text-btn,
+html[data-arcade] .nav-eta-minutes,
+html[data-arcade] .journey-text-btn {
+  color: #b45309 !important;
+}
+
+html[data-arcade] .rs-foot {
+  border-color: #fde68a !important;
+}
+
+html[data-arcade] .follow-card,
+html[data-arcade] .journey-card,
+html[data-arcade] .nav-then {
+  background: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .follow-time,
+html[data-arcade] .follow-stop-btn,
+html[data-arcade] .retry-btn {
+  background: #fde68a !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .directions-btn:hover,
+html[data-arcade] .start-btn:hover,
+html[data-arcade] .dep-follow:hover,
+html[data-arcade] .dep-follow.is-on {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+}
+
+html[data-arcade] .nav-banner {
+  background: #f59e0b !important;
+  color: #451a03 !important;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.3) !important;
+}
+
+html[data-arcade] .nav-banner.is-ride {
+  background: #d97706 !important;
+}
+
+html[data-arcade] .nav-step.is-current .nav-step-dot {
+  background: #f59e0b !important;
+  border-color: #f59e0b !important;
+}
+
+html.dark[data-arcade] .bus-menu,
+html.dark[data-arcade] .rs-sheet {
+  background: #1c1608 !important;
+  color: #fde68a !important;
+  border-color: #78350f !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24) !important;
+}
+
+html.dark[data-arcade] .bus-menu-item:hover,
+html.dark[data-arcade] .bus-menu-item:focus-visible,
+html.dark[data-arcade] .rs-close:hover,
+html.dark[data-arcade] .rs-text-btn:hover,
+html.dark[data-arcade] .rs-choice,
+html.dark[data-arcade] .rs-day,
+html.dark[data-arcade] .rs-last,
+html.dark[data-arcade] .rs-time,
+html.dark[data-arcade] .nav-round,
+html.dark[data-arcade] .nav-next,
+html.dark[data-arcade] .nav-progress {
+  background: #2a2006 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .rs-choice button {
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .rs-choice button.is-on,
+html.dark[data-arcade] .rs-day.is-on,
+html.dark[data-arcade] .rs-last.is-on,
+html.dark[data-arcade] .rs-time.is-on,
+html.dark[data-arcade] .rs-save,
+html.dark[data-arcade] .journey-go,
+html.dark[data-arcade] .nav-progress span,
+html.dark[data-arcade] .follow-time.is-live,
+html.dark[data-arcade] .journey-time {
+  background: #d97706 !important;
+  color: #1c1608 !important;
+}
+
+html.dark[data-arcade] .directions-btn,
+html.dark[data-arcade] .start-btn,
+html.dark[data-arcade] .rs-hour,
+html.dark[data-arcade] .rs-next,
+html.dark[data-arcade] .rs-text-btn,
+html.dark[data-arcade] .nav-eta-minutes,
+html.dark[data-arcade] .journey-text-btn {
+  color: #fbbf24 !important;
+}
+
+html.dark[data-arcade] .rs-foot {
+  border-color: #78350f !important;
+}
+
+html.dark[data-arcade] .follow-card,
+html.dark[data-arcade] .journey-card,
+html.dark[data-arcade] .nav-then {
+  background: #211a05 !important;
+  border-color: #78350f !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .follow-time,
+html.dark[data-arcade] .follow-stop-btn,
+html.dark[data-arcade] .retry-btn {
+  background: #422006 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .directions-btn:hover,
+html.dark[data-arcade] .start-btn:hover,
+html.dark[data-arcade] .dep-follow:hover,
+html.dark[data-arcade] .dep-follow.is-on {
+  background: #2a2006 !important;
+  color: #fbbf24 !important;
+}

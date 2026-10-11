@@ -1,0 +1,135 @@
+import {haversineMeters} from '@/utils/geo.ts'
+import {minutesUntil, SCHEDULE_LATE_GRACE_MIN} from '@/utils/arrivals.ts'
+import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
+
+export const SOON_MINUTES = 2
+export const MAX_FOLLOWS = 10
+export const GIVE_UP_MS = 90 * 60_000
+export const LEAVE_BUFFER_MIN = 5
+export const CLOCK_FROM_MINUTES = 60
+const WALK_DETOUR = 1.25
+const AT_STOP_METERS = 60
+
+export interface Followed {
+  id: string
+  stopId: number
+  stopName: string
+  stopLat: number
+  stopLon: number
+  routeId: number
+  tripId: string
+  line: string
+  color: string
+  destination: string
+  startedAt: number
+  /** Reminder's bus, epoch ms. */
+  targetAt?: number
+}
+
+export interface FollowReading {
+  minutes: number
+  live: boolean
+  later: number[]
+}
+
+export interface FollowProgress {
+  lastMinutes: number | null
+  alertedSoon: boolean
+  arrived: boolean
+  toldToLeave: boolean
+}
+
+export type FollowAlert = 'soon' | 'arrived' | 'leave'
+export type FollowEnd = 'left' | 'none' | 'stopped'
+
+export const freshProgress = (): FollowProgress => ({lastMinutes: null, alertedSoon: false, arrived: false, toldToLeave: false})
+
+export function followId(stopId: number, routeId: number, tripId: string, targetAt?: number): string {
+  return targetAt ? `${stopId}:${routeId}:${tripId}@${targetAt}` : `${stopId}:${routeId}:${tripId}`
+}
+
+export function walkMinutes(fromLat: number, fromLon: number, toLat: number, toLon: number): number {
+  const meters = haversineMeters(fromLat, fromLon, toLat, toLon)
+  if (meters < AT_STOP_METERS) return 0
+  return Math.ceil(meters * WALK_DETOUR / WALKING_SPEED_M_PER_MIN)
+}
+
+export function clujMinutes(ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'})
+    .formatToParts(new Date(ms))
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24
+  return hour * 60 + Number(parts.find((p) => p.type === 'minute')?.value ?? 0)
+}
+
+export function targetMinutes(scheduled: number[], live: number | null, expected: number): number | null {
+  const nearest = (to: number) => scheduled.reduce<number | null>((best, m) =>
+    best === null || Math.abs(m - to) < Math.abs(best - to) ? m : best, null)
+  const close = nearest(expected)
+  const ours = close !== null && Math.abs(close - expected) <= 1 ? close : expected
+  if (live !== null && nearest(live) === ours) return live
+  if (ours < -SCHEDULE_LATE_GRACE_MIN) return null
+  return Math.max(ours, 0)
+}
+
+export function targetReading(scheduled: number[], live: number | null, targetAt: number, nowMs: number): FollowReading | null {
+  const expected = minutesUntil(clujMinutes(targetAt), clujMinutes(nowMs))
+  const minutes = targetMinutes(scheduled, live, expected)
+  if (minutes === null) return null
+  return {minutes, live: minutes === live, later: scheduled.filter((m) => m > minutes + SCHEDULE_LATE_GRACE_MIN).slice(0, 2)}
+}
+
+export function leadMinutes(walk: number | null): number | null {
+  return walk === null ? null : walk + LEAVE_BUFFER_MIN
+}
+
+export interface FollowStep {
+  progress: FollowProgress
+  alerts: FollowAlert[]
+  end?: FollowEnd
+  leaveAt: number | null
+}
+
+export function stepFollow(
+  progress: FollowProgress,
+  reading: FollowReading | null,
+  options: {target: boolean, walk: number | null, nowMs: number, startedAt: number},
+): FollowStep {
+  const p = {...progress}
+  if (options.nowMs - options.startedAt > GIVE_UP_MS) return {progress: p, alerts: [], end: 'stopped', leaveAt: null}
+  if (!reading) return {progress: p, alerts: [], end: options.target || p.alertedSoon ? 'left' : 'none', leaveAt: null}
+  const minutes = reading.minutes
+  if (p.alertedSoon && minutes > (p.lastMinutes ?? 0) + 2) return {progress: p, alerts: [], end: 'left', leaveAt: null}
+  const opening = p.lastMinutes === null && !options.target
+  const alerts: FollowAlert[] = []
+  let leaveAt: number | null = null
+  const lead = leadMinutes(options.walk)
+  if (lead !== null && options.walk !== 0) {
+    const leaveIn = minutes - lead
+    if (leaveIn <= 0 && !p.toldToLeave) {
+      p.toldToLeave = true
+      if (!opening) alerts.push('leave')
+    }
+    if (minutes > SOON_MINUTES) leaveAt = options.nowMs + leaveIn * 60_000
+  }
+  if (minutes <= SOON_MINUTES && !p.alertedSoon) {
+    p.alertedSoon = true
+    if (!opening && minutes > 0) alerts.push('soon')
+  }
+  if (minutes === 0 && !p.arrived) {
+    p.arrived = true
+    if (!opening) alerts.push('arrived')
+  }
+  p.lastMinutes = minutes
+  return {progress: p, alerts, leaveAt}
+}
+
+export const isClockTime = (minutes: number) => minutes >= CLOCK_FROM_MINUTES
+
+export function clockAt(nowMs: number, minutes: number): string {
+  return new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})
+    .format(new Date(nowMs + minutes * 60_000))
+}
+
+export function leaveInMinutes(leaveAt: number, nowMs: number): number {
+  return Math.max(0, Math.round((leaveAt - nowMs) / 60_000))
+}

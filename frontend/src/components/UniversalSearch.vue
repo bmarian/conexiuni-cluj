@@ -11,11 +11,11 @@ import { useRouteShapeInfoApi } from '@/composables/useRouteShapeInfoApi.ts'
 import { useOnline } from '@/composables/useOnline.ts'
 import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
-import { searchNominatimPlaces, type NominatimPlace } from '@/utils/nominatim.ts'
+import { searchPlaces, type Place } from '@/utils/places.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
-interface EnrichedGeoResult extends NominatimPlace {
+interface EnrichedGeoResult extends Place {
   parsedLat: number
   parsedLon: number
   dist: string | null
@@ -51,10 +51,11 @@ const search = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const kbd = useKeyboardNav()
 const navigatingRouteId = ref<number | null>(null)
-const geoResults = ref<NominatimPlace[]>([])
+const geoResults = ref<Place[]>([])
 const geoLoading = ref(false)
 
 let geoDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let geoRequest: AbortController | null = null
 
 const isSearchMode = computed(() => search.value.trim().length > 0)
 
@@ -99,16 +100,22 @@ async function fetchGeo(q: string) {
     return
   }
   geoLoading.value = true
+  const request = new AbortController()
+  geoRequest = request
   try {
-    const results = await searchNominatimPlaces(q, locale.value, 3)
+    const results = await searchPlaces(q, locale.value, 3, request.signal)
+    if (request.signal.aborted) return
     const loc = userStore.userLocation
     geoResults.value = loc && results.length > 1
       ? sortByDistance(results, loc.latitude, loc.longitude, r => parseFloat(r.lat), r => parseFloat(r.lon))
       : results
   } catch {
-    geoResults.value = []
+    if (!request.signal.aborted) geoResults.value = []
   } finally {
-    geoLoading.value = false
+    if (geoRequest === request) {
+      geoRequest = null
+      geoLoading.value = false
+    }
   }
 }
 
@@ -122,6 +129,8 @@ function dropPin() {
 
 watch(search, (q) => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
+  geoRequest?.abort()
+  geoRequest = null
   geoResults.value = []
   if (!isOnline.value) {
     geoLoading.value = false
@@ -139,6 +148,7 @@ watch(search, (q) => {
 
 onUnmounted(() => {
   if (geoDebounceTimer) clearTimeout(geoDebounceTimer)
+  geoRequest?.abort()
 })
 
 function distanceFrom(lat: number, lon: number): string | null {
@@ -169,7 +179,7 @@ const stopResultsWithDist = computed<StopWithDist[]>(() =>
   }))
 )
 
-function navigateToPlan(result: NominatimPlace) {
+function navigateToPlan(result: Place) {
   search.value = ''
 
   const lat = parseFloat(result.lat)

@@ -70,14 +70,14 @@ var pushTexts = map[string]pushText{
 			"saturday": "de sâmbătă",
 			"sunday":   "de duminică",
 		},
-		timetableOne:  "Sunt schimbări la orarul %s.",
-		timetableMany: "Sunt schimbări la orarul %s.",
-		timetableAny:  "Sunt schimbări la orar.",
-		stopAdded:     "O stație nouă a fost adăugată pe traseu.",
-		stopsAdded:    "Au fost adăugate stații noi pe traseu.",
-		stopRemoved:   "O stație a fost scoasă de pe traseu.",
-		stopsRemoved:  "Unele stații au fost scoase de pe traseu.",
-		stopsBoth:     "Unele stații au fost adăugate pe traseu, iar altele au fost scoase.",
+		timetableOne:  "Orarul %s s-a schimbat.",
+		timetableMany: "Orarele %s s-au schimbat.",
+		timetableAny:  "Orarul s-a schimbat.",
+		stopAdded:     "A fost adăugată o stație.",
+		stopsAdded:    "Au fost adăugate stații.",
+		stopRemoved:   "A fost scoasă o stație.",
+		stopsRemoved:  "Au fost scoase stații.",
+		stopsBoth:     "Au fost adăugate și scoase stații.",
 	},
 	"en": {
 		line:      "Line %s · %s",
@@ -89,14 +89,14 @@ var pushTexts = map[string]pushText{
 			"saturday": "Saturday",
 			"sunday":   "Sunday",
 		},
-		timetableOne:  "There are changes to the %s timetable.",
-		timetableMany: "There are changes to the %s timetables.",
-		timetableAny:  "There are changes to the timetable.",
-		stopAdded:     "A new stop was added to the route.",
-		stopsAdded:    "New stops were added to the route.",
-		stopRemoved:   "A stop was removed from the route.",
-		stopsRemoved:  "Some stops were removed from the route.",
-		stopsBoth:     "Some stops were added to the route and others were removed.",
+		timetableOne:  "The %s timetable changed.",
+		timetableMany: "The %s timetables changed.",
+		timetableAny:  "The timetable changed.",
+		stopAdded:     "A stop was added.",
+		stopsAdded:    "Stops were added.",
+		stopRemoved:   "A stop was removed.",
+		stopsRemoved:  "Stops were removed.",
+		stopsBoth:     "Stops were added and removed.",
 	},
 }
 
@@ -146,6 +146,7 @@ func InitPush(publicKey, privateKey, subject string) error {
 	pushCfg = &pushConfig{publicKey: publicKey, privateKey: privateKey, subject: subject}
 	pushWake = make(chan struct{}, 1)
 	go runPushSender(loc)
+	go runReminderSender(loc)
 	log.Printf("push: notifications enabled, sent between %02d:00 and %02d:00", pushWindowStartHour, pushWindowEndHour)
 	return nil
 }
@@ -324,6 +325,9 @@ func deletePushSubscription(endpoint string) error {
 	if _, err := tx.Exec(`DELETE FROM push_subscription_routes WHERE endpoint = ?`, endpoint); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`DELETE FROM push_reminders WHERE endpoint = ?`, endpoint); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint); err != nil {
 		return err
 	}
@@ -415,6 +419,10 @@ func sendRouteChangePush(change RouteChange) {
 }
 
 func sendPush(sub pushSubscriber, payload []byte) bool {
+	return sendPushWith(sub, payload, pushTTLSeconds, webpush.UrgencyNormal)
+}
+
+func sendPushWith(sub pushSubscriber, payload []byte, ttl int, urgency webpush.Urgency) bool {
 	resp, err := webpush.SendNotification(payload, &webpush.Subscription{
 		Endpoint: sub.endpoint,
 		Keys:     webpush.Keys{P256dh: sub.p256dh, Auth: sub.auth},
@@ -422,8 +430,8 @@ func sendPush(sub pushSubscriber, payload []byte) bool {
 		HTTPClient:      pushClient,
 		RecordSize:      pushRecordSize,
 		Subscriber:      pushCfg.subject,
-		TTL:             pushTTLSeconds,
-		Urgency:         webpush.UrgencyNormal,
+		TTL:             ttl,
+		Urgency:         urgency,
 		VAPIDPublicKey:  pushCfg.publicKey,
 		VAPIDPrivateKey: pushCfg.privateKey,
 	})

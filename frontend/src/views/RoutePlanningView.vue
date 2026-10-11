@@ -18,6 +18,8 @@ import {usePlannerStore} from '@/stores/planner.ts'
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import ShareButton from "@/components/ShareButton.vue"
+import {useJourneyStore} from "@/stores/journey.ts"
+import type {JourneyLeg, JourneyStop} from "@/utils/journey.ts"
 import {haversineMeters} from "@/utils/geo.ts"
 import {apiRequest} from "@/utils/api.ts"
 import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
@@ -45,8 +47,8 @@ import {
   timeStringToMinutes
 } from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
-import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop} from "@/utils/trips.ts"
-import {reverseNominatimPlace, searchNominatimPlaces, type NominatimPlace} from "@/utils/nominatim.ts"
+import {getRideMinutesBetweenStops, getShapeStopTimes, getTimeOffsetToStop, WALKING_SPEED_M_PER_MIN} from "@/utils/trips.ts"
+import {reversePlace, searchPlaces, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 
@@ -89,7 +91,8 @@ interface RichPlan { legs: RichLeg[]; isDirect: boolean; walkStartMeters: number
 const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
 const activeSearchField = ref<'origin' | 'destination' | null>(null)
 const searchQuery = ref('')
-const searchResults = ref<NominatimPlace[]>([])
+const searchResults = ref<Place[]>([])
+let searchRequest: AbortController | null = null
 const isSearching = ref(false)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -158,6 +161,44 @@ const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
   p.lat === destLat.value && p.lon === destLon.value &&
   p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
 )?.label)
+
+const journeyStore = useJourneyStore()
+
+function startJourney() {
+  const plan = selectedPlan.value
+  if (!plan?.legs.length || !hasValidCoords.value) return
+  const at = (id: number): JourneyStop | null => {
+    const stop = getStop(id)
+    return stop ? {id, name: stop.stop_name, lat: stop.stop_lat, lon: stop.stop_lon} : null
+  }
+  const transfers = Math.max(plan.legs.length - 1, 1)
+  const legs: JourneyLeg[] = []
+  for (const [i, leg] of plan.legs.entries()) {
+    const stops = [leg.startStopId, ...leg.intermediateStopIds, leg.destStopId].map(at).filter((s): s is JourneyStop => s !== null)
+    if (stops.length < 2) return
+    legs.push({
+      routeIds: leg.routeIds,
+      tripIds: leg.tripIds,
+      lines: leg.routeIds.map((id) => shapes.value[String(id)]?.route_short_name ?? String(id)),
+      colors: leg.routeIds.map((id) => shapes.value[String(id)]?.route_color ?? '#64748b'),
+      stops,
+      walkMinutes: (i === 0 ? plan.walkStartMeters : plan.walkTransferMeters / transfers) / WALKING_SPEED_M_PER_MIN,
+      rideMinutes: leg.rideSeconds / 60,
+    })
+  }
+  const last = plan.legs[plan.legs.length - 1]!
+  const location = userLocation.value
+  void journeyStore.start({
+    id: crypto.randomUUID(),
+    destination: {id: -1, name: destName.value || getStopName(last.destStopId), lat: destLat.value, lon: destLon.value},
+    legs,
+    walkEndMinutes: plan.walkEndMeters / WALKING_SPEED_M_PER_MIN,
+    walks: plan.walkSegments.map((seg) => decodePolyline(seg.geometry)),
+    planPath: route.fullPath,
+    startedAt: Date.now(),
+  }, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
+  void router.push('/nav')
+}
 
 function toggleFavorite() {
   if (!isOnline.value) return
@@ -1277,7 +1318,7 @@ const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStor
 
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
-    const result = await reverseNominatimPlace(lat, lon, locale.value)
+    const result = await reversePlace(lat, lon, locale.value)
     return result?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   } catch { /* ignore */ }
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
@@ -1343,15 +1384,24 @@ async function performSearch() {
     return
   }
   const q = searchQuery.value.trim()
+  searchRequest?.abort()
+  searchRequest = null
   if (q.length < 3) {
     searchResults.value = []
+    isSearching.value = false
     return
   }
+  const request = new AbortController()
+  searchRequest = request
   isSearching.value = true
   try {
-    searchResults.value = await searchNominatimPlaces(q, locale.value, 5)
+    const results = await searchPlaces(q, locale.value, 5, request.signal)
+    if (!request.signal.aborted) searchResults.value = results
   } finally {
-    isSearching.value = false
+    if (searchRequest === request) {
+      searchRequest = null
+      isSearching.value = false
+    }
   }
 }
 
@@ -1360,7 +1410,7 @@ watch(searchQuery, () => {
   searchTimeout = setTimeout(performSearch, 500)
 })
 
-function selectOrigin(res: NominatimPlace) {
+function selectOrigin(res: Place) {
   customOrigin.value = {
     name: res.label,
     lat: parseFloat(res.lat),
@@ -1373,7 +1423,7 @@ function selectOrigin(res: NominatimPlace) {
   void calculateRoutes()
 }
 
-function selectDestination(res: NominatimPlace) {
+function selectDestination(res: Place) {
   if (!isOnline.value) return
   const newQuery = {
     ...route.query,
@@ -1713,6 +1763,12 @@ function openSearchField(field: 'origin' | 'destination') {
   searchQuery.value = ''
 }
 
+watch(() => route.query.q, (q) => {
+  if (typeof q !== 'string' || !q.trim() || !isOnline.value) return
+  activeSearchField.value = 'destination'
+  searchQuery.value = q
+}, {immediate: true})
+
 async function refreshRoutes() {
   if (isCalculating.value) return
   clearPlanSelection()
@@ -1871,6 +1927,19 @@ watch(timeValue, (val) => {
           {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
         </h1>
       </div>
+      <button
+        v-if="selectedPlan && selectedPlan.legs.length && !isCalculating && hasValidCoords && !isRenaming"
+        type="button"
+        class="start-btn mt-1 shrink-0"
+        :title="t('journeyStart')"
+        :aria-label="t('journeyStart')"
+        data-kbd-item="start"
+        @click="startJourney"
+      >
+        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">▶️</span>
+        <template v-else-if="settings.paperActive">{{ t('journeyStart') }}</template>
+        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
+      </button>
       <button
         v-if="isOnline && hasValidCoords && isFavorite && !isRenaming"
         type="button"
@@ -3847,6 +3916,35 @@ html.dark[data-legacy-blue] .time-pill-sched {
 
 .fav-btn.is-fav:hover {
   background: #fee2e2;
+}
+
+.start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: var(--color-sky-600, #0284c7);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.start-btn:hover {
+  background: var(--color-sky-100, #e0f2fe);
+}
+
+.start-btn:active {
+  transform: scale(0.92);
+}
+
+:root.dark .start-btn {
+  color: var(--color-sky-400, #38bdf8);
+}
+
+:root.dark .start-btn:hover {
+  background: rgb(14 165 233 / 0.15);
 }
 
 .rename-btn {

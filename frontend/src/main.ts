@@ -1,6 +1,5 @@
 import {createApp} from 'vue'
 import {createHead} from '@unhead/vue/client'
-import {createI18n} from 'vue-i18n'
 import {createPinia} from 'pinia'
 import {registerSW} from 'virtual:pwa-register'
 
@@ -10,6 +9,7 @@ import {useUserStore} from './stores/user'
 import {useSettingsStore} from './stores/settings'
 import {useFavoritesStore} from './stores/favorites'
 import {usePushStore} from './stores/push'
+import {useRemindersStore} from './stores/reminders'
 import {useRoutesApi} from './composables/useRoutesApi'
 import {useStopsApi} from './composables/useStopsApi'
 import {startNetwork} from './utils/network'
@@ -21,8 +21,7 @@ import '@fontsource/libre-caslon-text/400.css'
 import '@fontsource/libre-caslon-text/400-italic.css'
 import '@fontsource/libre-caslon-text/700.css'
 import './styles/paper.css'
-import ro from './locales/ro.json'
-import en from './locales/en.json'
+import {i18n} from './i18n'
 
 registerSW({immediate: true})
 
@@ -48,15 +47,6 @@ if (!isAdminPath) {
   void startNetwork()
 }
 
-const i18n = createI18n({
-  legacy: false,
-  locale: 'ro',
-  fallbackLocale: 'en',
-  messages: {
-    ro,
-    en
-  }
-})
 const app = createApp(App)
 const pinia = createPinia()
 
@@ -76,7 +66,10 @@ void favoritesStore.hydrate().then(() => {
   if (!isAdminPath) favoritesStore.preloadFavorites()
 })
 
-if (!isAdminPath) void usePushStore(pinia).sync()
+if (!isAdminPath) {
+  void usePushStore(pinia).sync()
+  useRemindersStore(pinia)
+}
 
 // Sent by push-sw.js when a notification is tapped while the app is already open.
 navigator.serviceWorker?.addEventListener('message', (event) => {

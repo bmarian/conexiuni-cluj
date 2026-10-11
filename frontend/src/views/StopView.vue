@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import {useUserStore} from "@/stores/user.ts"
 import {storeToRefs} from "pinia"
-import {computed, toRef} from "vue"
+import {computed, ref, toRef, watch} from "vue"
 import {useHead} from '@unhead/vue'
 import {useI18n} from "vue-i18n"
 import StopIcon from "@/assets/stop.svg"
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
-import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {
   OUTGOING_SUFFIX,
@@ -17,7 +16,12 @@ import {formatMinutesFromNow} from "@/utils/time.ts";
 import {useStopDepartures} from "@/composables/useStopDepartures.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {useRouter} from "vue-router";
+import {useRoute, useRouter} from "vue-router";
+import BusMenu, {type BusMenuItem} from "@/components/BusMenu.vue";
+import {useLongPress} from "@/composables/useLongPress.ts";
+import {useFollowsStore} from "@/stores/follows.ts";
+import {useRemindersStore, type ReminderTarget} from "@/stores/reminders.ts";
+import {getRouteIdFromTripId} from "@/utils/trips.ts";
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts"
@@ -33,6 +37,9 @@ const settings = useSettingsStore()
 const routeStore = useRouteStore()
 const favoritesStore = useFavoritesStore()
 const router = useRouter()
+const route = useRoute()
+const follows = useFollowsStore()
+const remindersStore = useRemindersStore()
 const stopIdNum = computed(() => Number(props.stopId))
 const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
 
@@ -47,7 +54,60 @@ const {
   departures: shapesComingToTheStopBasedOnVehiclePositions,
   busesWithAvailableTimetables,
   isDepartureFavorite,
+  reload,
 } = useStopDepartures(toRef(props, 'stopId'))
+
+const pointerHint = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+
+function busAt(shape: VehiclesInStop): ReminderTarget & {stopLat: number, stopLon: number} {
+  return {
+    stopId: stopIdNum.value,
+    stopName: stopName.value || '',
+    stopLat: stopInfo.value?.stop_lat ?? 0,
+    stopLon: stopInfo.value?.stop_lon ?? 0,
+    routeId: shape.route_id,
+    tripId: shape.trip_id,
+    line: shape.route_short_name,
+    color: shape.route_color,
+    destination: routeDestination(shape.route_long_name),
+  }
+}
+
+const isFollowed = (shape: VehiclesInStop) => !!follows.find(stopIdNum.value, shape.route_id, shape.trip_id)
+const isReminded = (shape: VehiclesInStop) => !!remindersStore.forBus(stopIdNum.value, shape.route_id, shape.trip_id)
+const toggleFollow = (shape: VehiclesInStop) => follows.toggle(busAt(shape))
+
+const menu = ref<{ x: number, y: number, items: BusMenuItem[] } | null>(null)
+const press = useLongPress<VehiclesInStop>((shape, x, y) => {
+  menu.value = {
+    x, y, items: [
+      {key: 'notify', label: t(isFollowed(shape) ? 'notifyMeOff' : 'notifyMe'), icon: isFollowed(shape) ? 'bell-off' : 'bell', action: () => toggleFollow(shape)},
+      {key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAt(shape))},
+    ],
+  }
+})
+
+function planHere() {
+  const info = stopInfo.value
+  if (!info) return
+  void router.push({name: 'plan', query: {lat: String(info.stop_lat), lon: String(info.stop_lon), name: info.stop_name}})
+}
+
+watch([stopInfo, () => route.query.follow], ([info, tripId]) => {
+  const at = Number(route.query.at)
+  if (!info || typeof tripId !== 'string' || !Number.isFinite(at)) return
+  const routeId = getRouteIdFromTripId(tripId)
+  const shape = info.shapes_info.find((s: ShapeInfo) => s.route_id === routeId)
+  if (routeId !== null && shape && at > Date.now() - 5 * 60_000) {
+    const longName = tripId.endsWith('_1') ? shape.timetable.route_long_name.split(' - ').reverse().join(' - ') : shape.timetable.route_long_name
+    void follows.start({
+      stopId: stopIdNum.value, stopName: info.stop_name, stopLat: info.stop_lat, stopLon: info.stop_lon,
+      routeId, tripId, line: shape.route_short_name, color: shape.route_color,
+      destination: routeDestination(longName), targetAt: at,
+    })
+  }
+  void router.replace({query: {}})
+}, {immediate: true})
 
 useHead(() => {
   // Don't override server-injected meta until stop data has loaded — otherwise
@@ -157,8 +217,12 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   </div>
 
   <div v-else-if="loadError"
-       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <LoadingIndicator :text="t('loadingStop')"/>
+       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-4">
+    <div class="flex items-center -mb-2">
+      <HeaderNavigation />
+    </div>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ t('loadFailed') }}</p>
+    <button type="button" class="retry-btn self-start" @click="reload">{{ t('retry') }}</button>
   </div>
 
   <div v-else
@@ -183,6 +247,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           data-kbd-item="fav"
           @click="favoritesStore.toggleStopFavorite(stopIdNum)"
         >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
+        <button type="button" class="pp-action" data-kbd-item="directions" @click="planHere">{{ t('directions') }}</button>
         <ShareButton/>
       </div>
     </header>
@@ -205,7 +270,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           class="pp-row"
           role="row"
           :data-kbd-item="`dep-${shape.route_short_name}`"
-          @click="navigateToRoute(shape)"
+          v-bind="press.bind(shape)"
+          @click="press.click(() => navigateToRoute(shape))"
         >
           <span class="pp-cell pp-cell-line">
             <span class="pp-line" :style="{ '--line': shape.route_color }">{{ shape.route_short_name }}</span>
@@ -214,6 +280,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
             <span class="pp-dest">
               {{ routeDestination(shape.route_long_name) }}
               <span v-if="isDepartureFavorite(shape)" class="pp-fav-mark">♥</span>
+              <span v-if="isReminded(shape)" class="pp-fav-mark" :title="t('remindSaved')">⏰</span>
+              <button type="button" class="pp-follow" :aria-pressed="isFollowed(shape)"
+                      :aria-label="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
+                      @click.stop="toggleFollow(shape)">{{ isFollowed(shape) ? '🔔' : '🔕' }}</button>
             </span>
             <span class="pp-from">{{ t('paperFrom') }} {{ routeOrigin(shape.route_long_name) }}</span>
           </span>
@@ -277,6 +347,19 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           {{ stopName }}
         </h1>
       </div>
+      <button
+        type="button"
+        class="directions-btn mt-1 shrink-0"
+        :title="t('directions')"
+        :aria-label="t('directions')"
+        data-kbd-item="directions"
+        @click="planHere"
+      >
+        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🧭</span>
+        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.7 11.3l-9-9a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/>
+        </svg>
+      </button>
       <ShareButton class="mt-1"/>
       <button
         type="button"
@@ -298,6 +381,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         <span
           class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
         {{ t('nextDepartures') }}
+        <span class="dep-hint">{{ pointerHint ? t('departuresClickHint') : t('departuresHoldHint') }}</span>
       </h2>
 
       <div v-if="isComputingDepartures" class="flex flex-col gap-2.5 animate-pulse">
@@ -325,7 +409,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           <div
             v-for="shape in departuresSorted"
             :key="shape.route_short_name"
-            @click="navigateToRoute(shape)"
+            v-bind="press.bind(shape)"
+            @click="press.click(() => navigateToRoute(shape))"
             class="departure-card group"
             :data-kbd-item="`dep-${shape.route_short_name}`"
             :class="{ 'departure-card-fav': isDepartureFavorite(shape) }"
@@ -346,6 +431,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                   {{ t('live') }}
                 </span>
                 <span class="card-dest">→ {{ routeDestination(shape.route_long_name) }}</span>
+                <svg v-if="isReminded(shape)" class="w-3.5 h-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor" stroke-width="2.2" :aria-label="t('remindSaved')">
+                  <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
+                </svg>
               </div>
               <span class="card-origin">{{ routeOrigin(shape.route_long_name) }}</span>
             </div>
@@ -366,11 +455,24 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                 }}{{ formatMinutes(t.minutes) }}</span>
             </div>
 
-            <svg
-              class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
+            <button
+              type="button"
+              class="dep-follow"
+              :class="{ 'is-on': isFollowed(shape) }"
+              :aria-pressed="isFollowed(shape)"
+              :title="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
+              :aria-label="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
+              @click.stop="toggleFollow(shape)"
+              @pointerdown.stop
+            >
+              <span v-if="settings.legacyBlueActive" aria-hidden="true">{{ isFollowed(shape) ? '🔔' : '🔕' }}</span>
+              <svg v-else-if="isFollowed(shape)" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2zM3.6 4.4l1.4-1.4A11 11 0 0 0 1.1 11h2a9 9 0 0 1 .5-6.6zM19 3l1.4 1.4A9 9 0 0 1 20.9 11h2A11 11 0 0 0 19 3z"/>
+              </svg>
+              <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-5-5.9M9 17H4l1.4-1.4A2 2 0 0 0 6 14.2V11a6 6 0 0 1 3-5.2M9 17a3 3 0 0 0 6 0M18 3v4m2-2h-4"/>
+              </svg>
+            </button>
           </div>
         </div>
       </template>
@@ -417,6 +519,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
     </template>
 
+    <BusMenu v-if="menu" :x="menu.x" :y="menu.y" :items="menu.items" @close="menu = null"/>
   </div>
 </template>
 
@@ -548,6 +651,98 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dep-hint {
+  margin-left: auto;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--color-slate-400, #94a3b8);
+}
+
+.directions-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: var(--color-emerald-600, #059669);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.directions-btn:hover {
+  background: var(--color-emerald-50, #ecfdf5);
+}
+
+.directions-btn:active {
+  transform: scale(0.92);
+}
+
+:root.dark .directions-btn {
+  color: var(--color-emerald-400, #34d399);
+}
+
+:root.dark .directions-btn:hover {
+  background: rgb(16 185 129 / 0.15);
+}
+
+.retry-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: var(--color-emerald-100, #d1fae5);
+  color: var(--color-emerald-800, #065f46);
+}
+
+.dep-follow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  border-radius: 9999px;
+  color: var(--color-slate-400, #94a3b8);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.dep-follow:hover {
+  background: var(--color-emerald-50, #ecfdf5);
+  color: var(--color-emerald-600, #059669);
+}
+
+.dep-follow:active {
+  transform: scale(0.9);
+}
+
+.dep-follow.is-on {
+  color: var(--color-emerald-600, #059669);
+  background: var(--color-emerald-100, #d1fae5);
+}
+
+:root.dark .dep-follow:hover {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-emerald-400, #34d399);
+}
+
+:root.dark .dep-follow.is-on {
+  color: var(--color-emerald-400, #34d399);
+  background: rgba(16, 185, 129, 0.2);
+}
+
+:root.dark .retry-btn {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-emerald-300, #6ee7b7);
+}
+
+.pp-follow {
+  margin-left: 0.25rem;
+  font-size: 0.85em;
 }
 
 .fav-btn {

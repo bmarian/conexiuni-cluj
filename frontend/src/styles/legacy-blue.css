@@ -1227,6 +1227,8 @@ html.dark[data-legacy-blue]
   border-color: var(--xp-blue) !important;
 }
 
+html[data-legacy-blue] .directions-btn,
+html[data-legacy-blue] .start-btn,
 html[data-legacy-blue] .rename-btn {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -1235,6 +1237,8 @@ html[data-legacy-blue] .rename-btn {
   border-radius: 3px !important;
 }
 
+html[data-legacy-blue] .directions-btn:hover,
+html[data-legacy-blue] .start-btn:hover,
 html[data-legacy-blue] .rename-btn:hover {
   background: linear-gradient(to bottom, #d0e8ff 0%, #b8d4ff 100%) !important;
   border-color: #4060c0 !important;
@@ -1268,12 +1272,16 @@ html[data-legacy-blue] .rename-cancel-btn:hover {
   background: linear-gradient(to bottom, #e8e8e8 0%, #d0d0d0 100%) !important;
 }
 
+html.dark[data-legacy-blue] .directions-btn,
+html.dark[data-legacy-blue] .start-btn,
 html.dark[data-legacy-blue] .rename-btn {
   background: var(--xp-btn) !important;
   border-color: var(--xp-border) !important;
   color: #6a82a0 !important;
 }
 
+html.dark[data-legacy-blue] .directions-btn:hover,
+html.dark[data-legacy-blue] .start-btn:hover,
 html.dark[data-legacy-blue] .rename-btn:hover {
   background: linear-gradient(to bottom, #1a2840 0%, #0a1828 100%) !important;
   border-color: #4060c0 !important;
@@ -2645,4 +2653,189 @@ html.dark[data-legacy-blue] .app-toast {
 html.dark[data-legacy-blue] .app-toast-title,
 html.dark[data-legacy-blue] .app-toast-body {
   color: var(--xp-text) !important;
+}
+
+/* ---------- followed buses, reminders and trips ---------- */
+
+html[data-legacy-blue] .bus-menu,
+html[data-legacy-blue] .rs-sheet {
+  border-radius: 0 !important;
+  background: var(--xp-tan) !important;
+  color: var(--xp-text) !important;
+  border: 1px solid #003c9c !important;
+  box-shadow: inset 1px 1px 0 #ffffff, 3px 3px 10px rgba(0, 0, 0, 0.32) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .rs-sheet {
+  padding-top: 24px !important;
+  position: relative;
+}
+
+html[data-legacy-blue] .rs-sheet::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, #0058da 0%, #2e84e8 6%, #1a6cd0 14%, #1056c0 50%, #0e54be 51%, #1a66d0 95%, #0e4dac 100%);
+  pointer-events: none;
+}
+
+html[data-legacy-blue] .bus-menu-item {
+  border-radius: 0 !important;
+}
+
+html[data-legacy-blue] .bus-menu-item:hover,
+html[data-legacy-blue] .bus-menu-item:focus-visible {
+  background: var(--xp-blue-hi) !important;
+  color: #ffffff !important;
+}
+
+html[data-legacy-blue] .rs-choice,
+html[data-legacy-blue] .rs-choice button,
+html[data-legacy-blue] .rs-day,
+html[data-legacy-blue] .rs-last,
+html[data-legacy-blue] .rs-time,
+html[data-legacy-blue] .rs-close,
+html[data-legacy-blue] .rs-save,
+html[data-legacy-blue] .rs-text-btn,
+html[data-legacy-blue] .retry-btn,
+html[data-legacy-blue] .follow-stop-btn,
+html[data-legacy-blue] .journey-go,
+html[data-legacy-blue] .journey-text-btn,
+html[data-legacy-blue] .nav-round,
+html[data-legacy-blue] .nav-next,
+html[data-legacy-blue] .nav-end,
+html[data-legacy-blue] .dep-follow,
+html[data-legacy-blue] .reminder-badge,
+html[data-legacy-blue] .follow-badge,
+html[data-legacy-blue] .journey-badge,
+html[data-legacy-blue] .nav-badge,
+html[data-legacy-blue] .nav-step-badge,
+html[data-legacy-blue] .nav-progress,
+html[data-legacy-blue] .follow-time,
+html[data-legacy-blue] .journey-time {
+  border-radius: 0 !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .rs-choice {
+  background: #ffffff !important;
+  border: 1px solid var(--xp-border) !important;
+}
+
+html[data-legacy-blue] .rs-day,
+html[data-legacy-blue] .rs-last,
+html[data-legacy-blue] .rs-time,
+html[data-legacy-blue] .rs-choice button,
+html[data-legacy-blue] .rs-save,
+html[data-legacy-blue] .rs-text-btn,
+html[data-legacy-blue] .retry-btn,
+html[data-legacy-blue] .follow-stop-btn,
+html[data-legacy-blue] .journey-go,
+html[data-legacy-blue] .journey-text-btn,
+html[data-legacy-blue] .nav-round,
+html[data-legacy-blue] .nav-next,
+html[data-legacy-blue] .nav-end {
+  background: var(--xp-btn) !important;
+  color: var(--xp-text) !important;
+  border: 1px solid #003c9c !important;
+  box-shadow: inset 1px 1px 0 #ffffff !important;
+}
+
+html[data-legacy-blue] .rs-day:hover,
+html[data-legacy-blue] .rs-last:hover,
+html[data-legacy-blue] .rs-time:hover,
+html[data-legacy-blue] .rs-save:hover:not(:disabled),
+html[data-legacy-blue] .retry-btn:hover,
+html[data-legacy-blue] .follow-stop-btn:hover,
+html[data-legacy-blue] .journey-go:hover,
+html[data-legacy-blue] .nav-next:hover,
+html[data-legacy-blue] .nav-end:hover {
+  background: var(--xp-btn-hover) !important;
+}
+
+html[data-legacy-blue] .rs-choice button.is-on,
+html[data-legacy-blue] .rs-day.is-on,
+html[data-legacy-blue] .rs-last.is-on,
+html[data-legacy-blue] .rs-time.is-on,
+html[data-legacy-blue] .dep-follow.is-on,
+html[data-legacy-blue] .follow-time.is-live,
+html[data-legacy-blue] .journey-time,
+html[data-legacy-blue] .nav-progress span {
+  background: var(--xp-btn-active) !important;
+  color: #ffffff !important;
+}
+
+html[data-legacy-blue] .rs-hour,
+html[data-legacy-blue] .rs-next,
+html[data-legacy-blue] .nav-eta-minutes {
+  color: var(--xp-blue) !important;
+}
+
+html[data-legacy-blue] .follow-card,
+html[data-legacy-blue] .journey-card,
+html[data-legacy-blue] .nav-then {
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  color: var(--xp-text) !important;
+  border: 1px solid var(--xp-border) !important;
+  border-left: 4px solid var(--xp-blue) !important;
+  box-shadow: inset 1px 1px 0 #ffffff, 1px 1px 0 rgba(0, 0, 0, 0.15) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .nav-banner {
+  border-radius: 0 !important;
+  background: linear-gradient(to bottom, #0058da 0%, #2e84e8 6%, #1a6cd0 14%, #1056c0 50%, #0e54be 51%, #1a66d0 95%, #0e4dac 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #003c9c !important;
+  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.32) !important;
+  font-family: var(--xp-font) !important;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+html[data-legacy-blue] .nav-step-dot {
+  border-radius: 0 !important;
+}
+
+html[data-legacy-blue] .nav-step.is-current .nav-step-dot {
+  background: var(--xp-blue) !important;
+  border-color: var(--xp-blue) !important;
+}
+
+html.dark[data-legacy-blue] .follow-card,
+html.dark[data-legacy-blue] .journey-card,
+html.dark[data-legacy-blue] .nav-then,
+html.dark[data-legacy-blue] .rs-choice {
+  background: #1a2030 !important;
+  color: var(--xp-text) !important;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark[data-legacy-blue] .bus-menu,
+html.dark[data-legacy-blue] .rs-sheet {
+  border-color: #001e5c !important;
+  box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.6) !important;
+}
+
+html.dark[data-legacy-blue] .rs-day,
+html.dark[data-legacy-blue] .rs-last,
+html.dark[data-legacy-blue] .rs-time,
+html.dark[data-legacy-blue] .rs-choice button,
+html.dark[data-legacy-blue] .rs-save,
+html.dark[data-legacy-blue] .rs-text-btn,
+html.dark[data-legacy-blue] .retry-btn,
+html.dark[data-legacy-blue] .follow-stop-btn,
+html.dark[data-legacy-blue] .journey-go,
+html.dark[data-legacy-blue] .journey-text-btn,
+html.dark[data-legacy-blue] .nav-round,
+html.dark[data-legacy-blue] .nav-next,
+html.dark[data-legacy-blue] .nav-end {
+  background: linear-gradient(to bottom, #3a4152 0%, #2e3444 50%, #262b38 100%) !important;
+  color: var(--xp-text) !important;
+  border-color: #001e5c !important;
+  box-shadow: none !important;
 }

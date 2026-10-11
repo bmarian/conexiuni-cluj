@@ -9,6 +9,9 @@ import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AppToast from "@/components/AppToast.vue"
 import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
+import BackgroundTracking from "@/components/BackgroundTracking.vue"
+import ReminderSheet from "@/components/ReminderSheet.vue"
+import {useRemindersStore} from "@/stores/reminders.ts"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
@@ -22,6 +25,7 @@ const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/S
 const {t} = useI18n()
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
+const reminders = useRemindersStore()
 const {isOnline} = useOnline()
 const route = useRoute()
 const {keyboardMode} = useKeyboardNav()
@@ -438,6 +442,8 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   </main>
   <ArcadeTransition/>
   <KeyboardHelp v-if="!isAdminRoute && !appSettings.watchActive"/>
+  <BackgroundTracking v-if="!isAdminRoute && !appSettings.watchActive"/>
+  <ReminderSheet v-if="reminders.editing" :key="`${reminders.editing.stopId}:${reminders.editing.tripId}`" :target="reminders.editing" @close="reminders.closeSheet()"/>
   <SimplifiedLayoutPrompt v-if="!isAdminRoute && appSettings.askSimplified"/>
 </template>
 
