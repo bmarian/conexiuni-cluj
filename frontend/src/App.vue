@@ -2,6 +2,7 @@
 import {computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useRoute, useRouter} from "vue-router"
+import {useHead} from "@unhead/vue"
 import MapComponent from "@/components/MapComponent.vue"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
@@ -23,6 +24,7 @@ const WatchShell = defineAsyncComponent(() => import("@/components/watch/WatchSh
 const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/SimplifiedLayoutPrompt.vue"))
 
 const {t} = useI18n()
+useHead(() => ({title: t('headHomeTitle')}))
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const reminders = useRemindersStore()

@@ -186,6 +186,7 @@ html[data-legacy-blue] .stop-view-container,
 html[data-legacy-blue] .route-view-container,
 html[data-legacy-blue] .home-view-container,
 html[data-legacy-blue] .plan-view-container,
+html[data-legacy-blue] .nav-view-container,
 html[data-legacy-blue] .settings-view-container {
   background: var(--xp-bliss) !important;
   font-family: var(--xp-font) !important;
@@ -612,7 +613,8 @@ html.dark[data-legacy-blue] .app-drawer {
 html.dark[data-legacy-blue] .stop-view-container,
 html.dark[data-legacy-blue] .route-view-container,
 html.dark[data-legacy-blue] .home-view-container,
-html.dark[data-legacy-blue] .plan-view-container {
+html.dark[data-legacy-blue] .plan-view-container,
+html.dark[data-legacy-blue] .nav-view-container {
   background: var(--xp-bliss) !important;
   color: var(--xp-text) !important;
 }

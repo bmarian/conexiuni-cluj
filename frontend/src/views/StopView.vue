@@ -25,6 +25,7 @@ import {getRouteIdFromTripId} from "@/utils/trips.ts";
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts"
+import {useMapStore} from "@/stores/map.ts"
 import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
@@ -92,6 +93,12 @@ function planHere() {
   if (!info) return
   void router.push({name: 'plan', query: {lat: String(info.stop_lat), lon: String(info.stop_lon), name: info.stop_name}})
 }
+
+const mapStore = useMapStore()
+watch(() => stopInfo.value?.stop_id, () => {
+  const info = stopInfo.value
+  if (info && !settings.watchActive) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
+}, {immediate: true})
 
 watch([stopInfo, () => route.query.follow], ([info, tripId]) => {
   const at = Number(route.query.at)
@@ -448,7 +455,8 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
                   i === 0 && !shape.static_time_approximation
                     ? 'time-pill-live'
                     : 'time-pill-sched',
-                  i > 0 ? 'time-pill-extra' : ''
+                  i > 0 ? 'time-pill-extra' : '',
+                  i > 1 ? 'time-pill-third' : ''
                 ]"
               >{{
                   i === 0 && shape.static_time_approximation ? '~\u202f' : ''
@@ -595,6 +603,13 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 }
 
 /* Hide 2nd + 3rd pill when card is narrow */
+@container (max-width: 380px) {
+  .time-pill-third,
+  .live-badge {
+    display: none;
+  }
+}
+
 @container (max-width: 300px) {
   .time-pill-extra {
     display: none;

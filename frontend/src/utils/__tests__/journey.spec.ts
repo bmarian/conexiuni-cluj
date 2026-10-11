@@ -36,6 +36,13 @@ function drive(j: Journey, run: JourneyRun, ticks: [Fix | null, LegDeparture | n
 }
 
 describe('a planned trip', () => {
+  it('starts at the stop when there is no walk to it', () => {
+    const j = journey()
+    j.legs[0]!.walkMinutes = 0
+    expect(startRun(j, null).phase).toEqual({kind: 'wait', leg: 0})
+    expect(startRun(journey(), null).phase).toEqual({kind: 'walk', leg: 0})
+  })
+
   it('goes walk, wait, ride, walk, wait, ride, last walk, arrived as you move', () => {
     const j = journey()
     const start = fixAt(46.76 - 0.004, 23.59)

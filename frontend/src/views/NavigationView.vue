@@ -2,6 +2,7 @@
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
+import {useHead} from '@unhead/vue'
 import {storeToRefs} from 'pinia'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import {useJourneyStore} from '@/stores/journey.ts'
@@ -23,6 +24,11 @@ const {userLocation, userTime} = storeToRefs(useUserStore())
 const FOLLOW_EVERY_MS = 8_000
 
 const journey = computed(() => store.journey)
+
+useHead(() => ({
+  title: journey.value ? t('headPlanToTitle', {dest: journey.value.destination.name}) : t('headPlanTitle'),
+  meta: [{name: 'robots', content: 'noindex'}],
+}))
 const step = computed(() => store.step)
 const now = computed(() => (userTime.value ?? new Date()).getTime())
 const title = computed(() => (step.value ? stepTitle(step.value) : t('followWaiting')))

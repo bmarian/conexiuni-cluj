@@ -461,7 +461,7 @@ useKbdShortcuts({
       </section>
 
       <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
-        <h2 class="section-label">
+        <h2 v-if="hasFavorites" class="section-label">
           <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">❤️</span>
           <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
                viewBox="0 0 24 24">

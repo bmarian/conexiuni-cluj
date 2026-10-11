@@ -121,7 +121,7 @@ export function leftOnBus(fix: Fix, leg: JourneyLeg): boolean {
 export function startRun(journey: Journey, fix: Fix | null): JourneyRun {
   const first = journey.legs[0]!
   return {
-    phase: {kind: 'walk', leg: 0},
+    phase: {kind: first.walkMinutes < 0.5 ? 'wait' : 'walk', leg: 0},
     stepIndex: 0,
     alerted: false,
     rideStop: 0,

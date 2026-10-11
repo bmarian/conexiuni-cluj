@@ -34,7 +34,7 @@ const bus = computed(() => (step.value?.busMinutes != null ? formatMinutesFromNo
       </div>
       <span v-if="bus" class="journey-time">{{ bus }}</span>
     </div>
-    <div class="flex justify-end items-center gap-1">
+    <div class="flex flex-wrap justify-end items-center gap-1">
       <button type="button" class="journey-text-btn" @click="store.stop()">{{ t('journeyEnd') }}</button>
       <button type="button" class="journey-text-btn" @click="store.next()">{{ t('journeyNext') }}</button>
       <button type="button" class="journey-go" @click="router.push('/nav')">
@@ -103,7 +103,8 @@ const bus = computed(() => (step.value?.busMinutes != null ? formatMinutesFromNo
 }
 
 .journey-text-btn {
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.6rem;
+  white-space: nowrap;
   border-radius: 9999px;
   font-size: 0.8125rem;
   font-weight: 700;
@@ -116,6 +117,7 @@ const bus = computed(() => (step.value?.busMinutes != null ? formatMinutesFromNo
 
 .journey-go {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.375rem;
   padding: 0.45rem 0.95rem;

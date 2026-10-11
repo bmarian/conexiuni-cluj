@@ -91,7 +91,7 @@ async function togglePush() {
 
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('language') }}</h2>
-      <p class="setting-note">
+      <p v-if="settings.locale !== 'ro'" class="setting-note">
         <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">⚠️</span>
         <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

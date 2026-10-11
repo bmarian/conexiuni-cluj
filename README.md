@@ -13,6 +13,9 @@ A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired 
 - The times get better on their own: the server watches the buses and learns how long each stretch really takes, hour by hour
 - Full timetables for every line, straight from CTP
 - A route planner: leave now, leave at, arrive by, or the last one today
+- Start a planned trip and it walks you through it: to the stop, onto the bus, off at the right stop
+- Tap the bell on a departure and it tells you when to leave, when the bus is close and when it's there
+- Reminders for the buses you take often, once or on chosen days, sent 20 minutes before the bus even with the site closed
 - Favorite stops, and favorite lines per direction
 - Follow a line and get a notification when CTP changes its timetable or route
 - Installable as an app. After the first visit every stop, line and timetable opens without the server: the whole network comes down once (about 180 KB) and only the buses stay live
@@ -23,7 +26,7 @@ There are a few hidden things scattered around for the curious. 🐣
 
 <p align="center">
   <img src="readme/phone-route.png" width="250" alt="A line's stops with live arrival times">
-  <img src="readme/phone-planner.png" width="250" alt="A planned trip from the train station to Iulius Mall">
+  <img src="readme/phone-planner.png" width="250" alt="A planned trip from the train station to Iulius Mall, ready to start">
   <img src="readme/phone-timetable.png" width="250" alt="A line's timetable, with the times already gone faded out">
 </p>
 
@@ -31,12 +34,12 @@ There are a few hidden things scattered around for the curious. 🐣
 
 <table>
   <tr>
-    <td align="center"><img src="readme/theme-default.png" width="380" alt="The default theme, light and dark"><br><sub>Default</sub></td>
-    <td align="center"><img src="readme/theme-arcade.png" width="380" alt="The Arcade theme, light and dark"><br><sub>Arcade</sub></td>
+    <td align="center"><img src="readme/theme-default.png" width="380" alt="The default theme, light on the left and dark on the right"><br><sub>Default</sub></td>
+    <td align="center"><img src="readme/theme-arcade.png" width="380" alt="The Arcade theme, light on the left and dark on the right"><br><sub>Arcade</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="readme/theme-legacy-blue.png" width="380" alt="The Legacy Blue theme, light and dark"><br><sub>Legacy Blue</sub></td>
-    <td align="center"><img src="readme/theme-paper.png" width="380" alt="The Paper theme, light and dark"><br><sub>Paper</sub></td>
+    <td align="center"><img src="readme/theme-legacy-blue.png" width="380" alt="The Legacy Blue theme, light on the left and dark on the right"><br><sub>Legacy Blue</sub></td>
+    <td align="center"><img src="readme/theme-paper.png" width="380" alt="The Paper theme, light on the left and dark on the right"><br><sub>Paper</sub></td>
   </tr>
 </table>
 
@@ -47,7 +50,7 @@ It runs in a smartwatch browser too, with a simplified layout: favorites, depart
 <p align="center">
   <img src="readme/watch-menu.png" width="180" alt="Simplified layout menu with favorites">
   <img src="readme/watch-stop.png" width="180" alt="Departures from a stop">
-  <img src="readme/watch-route.png" width="180" alt="A line's stops around the one you came from">
+  <img src="readme/watch-route.png" width="180" alt="A line's timetable for today">
   <img src="readme/watch-map.png" width="180" alt="Live buses on the map">
 </p>
 

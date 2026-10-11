@@ -59,6 +59,7 @@ html[data-arcade] .stop-view-container,
 html[data-arcade] .route-view-container,
 html[data-arcade] .home-view-container,
 html[data-arcade] .plan-view-container,
+html[data-arcade] .nav-view-container,
 html[data-arcade] .settings-view-container {
   background-color: #fefce8 !important;
 }
@@ -293,6 +294,7 @@ html.dark[data-arcade] .stop-view-container,
 html.dark[data-arcade] .route-view-container,
 html.dark[data-arcade] .home-view-container,
 html.dark[data-arcade] .plan-view-container,
+html.dark[data-arcade] .nav-view-container,
 html.dark[data-arcade] .settings-view-container {
   background-color: #1c1608 !important;
 }
