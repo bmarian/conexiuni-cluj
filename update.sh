@@ -61,6 +61,7 @@ if ! grep -q '^VAPID_SUBJECT=.' keys.env; then
   echo "VAPID_SUBJECT=https://bus.bmarian.online/" >> keys.env
 fi
 cp keys.env backend/keys.env
+chmod 600 keys.env backend/keys.env
 
 # The planner reads the streets around the stops straight from the country extract.
 mkdir -p backend/services/osm

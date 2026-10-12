@@ -20,9 +20,9 @@ func newTransferApp(t *testing.T) *fiber.App {
 	t.Helper()
 	transferLinksMu.Lock()
 	transferLinks = map[string]*transferLink{}
-	transferClientMisses = map[string]*transferCounter{}
-	transferCreates = map[string]*transferCounter{}
-	transferMisses = transferCounter{}
+	transferClientMisses = map[string]*clientCounter{}
+	transferCreates = map[string]*clientCounter{}
+	transferMisses = clientCounter{}
 	transferLinksMu.Unlock()
 	app := fiber.New()
 	// Stands in for StatsMiddleware, which tells clients apart in production.
@@ -183,8 +183,8 @@ func TestTransferLinkForgetsOldCounters(t *testing.T) {
 	past := time.Now().Add(-time.Second)
 	transferLinksMu.Lock()
 	for i := range 50 {
-		transferClientMisses[fmt.Sprintf("old-%d", i)] = &transferCounter{count: 1, reset: past}
-		transferCreates[fmt.Sprintf("old-%d", i)] = &transferCounter{count: 1, reset: past}
+		transferClientMisses[fmt.Sprintf("old-%d", i)] = &clientCounter{count: 1, reset: past}
+		transferCreates[fmt.Sprintf("old-%d", i)] = &clientCounter{count: 1, reset: past}
 	}
 	transferMisses.reset = past
 	transferLinksMu.Unlock()

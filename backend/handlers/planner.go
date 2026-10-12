@@ -82,8 +82,15 @@ func plannerNetwork(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cach
 		runs += len(p.Trips)
 	}
 	log.Printf("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
-	planner.networks[key] = n
+	if livePlanDay(key, time.Now().In(at.Location())) {
+		planner.networks[key] = n
+	}
 	return n, nil
+}
+
+// Only the days clients keep re-planning on live data stay built; any other date is one request.
+func livePlanDay(key string, now time.Time) bool {
+	return key == now.Format("2006-01-02") || key == now.Add(liveScheduleHorizon).Format("2006-01-02")
 }
 
 // servedStops are the stops some trip calls at; Tranzy also lists stops of other cities.
@@ -285,11 +292,11 @@ func WarmPlanner(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTi
 func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
 	fromLat, fromLng, toLat, toLng, err := parsePlanCoords(c)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	when, arriveBy, err := parsePlanTime(c, tranzyClient.Location())
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if when.IsZero() {
 		when = time.Now().In(tranzyClient.Location())
@@ -310,6 +317,11 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 	}
 
 	from, to := router.Point{Lat: fromLat, Lon: fromLng}, router.Point{Lat: toLat, Lon: toLng}
+	resp := planResponse{Options: []planOption{}, Stops: map[string]planStop{}, Lines: map[string]planLine{}}
+	if !n.Covers(from) || !n.Covers(to) {
+		c.Set("Cache-Control", revalidateCacheControl)
+		return c.JSON(resp)
+	}
 	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: liveEntriesPerRow}
 	var table *liveTable
 	if !arriveBy {
@@ -317,7 +329,6 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 	}
 	options := n.Plan(q)
 
-	resp := planResponse{Options: []planOption{}, Stops: map[string]planStop{}, Lines: map[string]planLine{}}
 	if err := describePlan(&resp, options, tranzyClient, cacheTimes); err != nil {
 		log.Printf("plan: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
@@ -496,30 +507,23 @@ func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err e
 	toLatS := c.Query("to_lat")
 	toLngS := c.Query("to_lng")
 	if fromLatS == "" || fromLngS == "" || toLatS == "" || toLngS == "" {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "from_lat, from_lng, to_lat, to_lng are required"})
+		return 0, 0, 0, 0, errors.New("from_lat, from_lng, to_lat, to_lng are required")
 	}
-	fromLat, err = strconv.ParseFloat(fromLatS, 64)
-	if err != nil {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from_lat"})
+	if fromLat, err = strconv.ParseFloat(fromLatS, 64); err != nil {
+		return 0, 0, 0, 0, errors.New("invalid from_lat")
 	}
-	fromLng, err = strconv.ParseFloat(fromLngS, 64)
-	if err != nil {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid from_lng"})
+	if fromLng, err = strconv.ParseFloat(fromLngS, 64); err != nil {
+		return 0, 0, 0, 0, errors.New("invalid from_lng")
 	}
-	toLat, err = strconv.ParseFloat(toLatS, 64)
-	if err != nil {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to_lat"})
+	if toLat, err = strconv.ParseFloat(toLatS, 64); err != nil {
+		return 0, 0, 0, 0, errors.New("invalid to_lat")
 	}
-	toLng, err = strconv.ParseFloat(toLngS, 64)
-	if err != nil {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid to_lng"})
+	if toLng, err = strconv.ParseFloat(toLngS, 64); err != nil {
+		return 0, 0, 0, 0, errors.New("invalid to_lng")
 	}
-
-	// Validate geographic bounds: reject NaN, Inf, and out-of-range coordinates.
 	if !isValidLat(fromLat) || !isValidLng(fromLng) || !isValidLat(toLat) || !isValidLng(toLng) {
-		return 0, 0, 0, 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "coordinates out of valid range"})
+		return 0, 0, 0, 0, errors.New("coordinates out of valid range")
 	}
-
 	return fromLat, fromLng, toLat, toLng, nil
 }
 
@@ -544,8 +548,7 @@ func parsePlanTime(c fiber.Ctx, loc *time.Location) (time.Time, bool, error) {
 	if t, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, loc); err == nil {
 		return t, arriveBy, nil
 	}
-	return time.Time{}, false, c.Status(fiber.StatusBadRequest).
-		JSON(fiber.Map{"error": "invalid time (expected RFC3339 or 2006-01-02T15:04)"})
+	return time.Time{}, false, errors.New("invalid time (expected RFC3339 or 2006-01-02T15:04)")
 }
 
 func isValidLat(v float64) bool {

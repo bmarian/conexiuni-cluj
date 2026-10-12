@@ -138,6 +138,12 @@ func SyncReminders(c fiber.Ctx) error {
 		}
 		ids[r.ID] = true
 	}
+	if ok, err := admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
+		log.Printf("push: could not look up subscription: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
+	} else if !ok {
+		return c.SendStatus(fiber.StatusTooManyRequests)
+	}
 	locale := "ro"
 	if req.Locale == "en" {
 		locale = "en"

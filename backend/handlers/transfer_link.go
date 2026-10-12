@@ -36,7 +36,7 @@ type transferLink struct {
 	payload []byte
 }
 
-type transferCounter struct {
+type clientCounter struct {
 	count int
 	reset time.Time
 }
@@ -44,9 +44,9 @@ type transferCounter struct {
 var (
 	transferLinksMu      sync.Mutex
 	transferLinks        = map[string]*transferLink{}
-	transferClientMisses = map[string]*transferCounter{}
-	transferCreates      = map[string]*transferCounter{}
-	transferMisses       transferCounter
+	transferClientMisses = map[string]*clientCounter{}
+	transferCreates      = map[string]*clientCounter{}
+	transferMisses       clientCounter
 )
 
 func validTransferCode(code string) bool {
@@ -68,7 +68,7 @@ func pruneTransferLinks(now time.Time) {
 			delete(transferLinks, code)
 		}
 	}
-	for _, counters := range []map[string]*transferCounter{transferClientMisses, transferCreates} {
+	for _, counters := range []map[string]*clientCounter{transferClientMisses, transferCreates} {
 		for client, counter := range counters {
 			if now.After(counter.reset) {
 				delete(counters, client)
@@ -78,16 +78,16 @@ func pruneTransferLinks(now time.Time) {
 }
 
 // Callers hold transferLinksMu.
-func overTransferLimit(counters map[string]*transferCounter, client string, limit int, now time.Time) bool {
+func overTransferLimit(counters map[string]*clientCounter, client string, limit int, now time.Time) bool {
 	counter := counters[client]
 	return counter != nil && !now.After(counter.reset) && counter.count >= limit
 }
 
 // Callers hold transferLinksMu.
-func bumpTransferCounter(counters map[string]*transferCounter, client string, now time.Time) {
+func bumpTransferCounter(counters map[string]*clientCounter, client string, now time.Time) {
 	counter := counters[client]
 	if counter == nil || now.After(counter.reset) {
-		counter = &transferCounter{reset: now.Add(transferLinkTTL)}
+		counter = &clientCounter{reset: now.Add(transferLinkTTL)}
 		counters[client] = counter
 	}
 	counter.count++
@@ -170,7 +170,7 @@ func SendToTransferLink(c fiber.Ctx) error {
 	transferLinksMu.Lock()
 	defer transferLinksMu.Unlock()
 	if now.After(transferMisses.reset) {
-		transferMisses = transferCounter{reset: now.Add(time.Minute)}
+		transferMisses = clientCounter{reset: now.Add(time.Minute)}
 		// Also bounds the per-client counters when nobody is creating codes.
 		pruneTransferLinks(now)
 	}

@@ -18,15 +18,20 @@ import (
 
 // One poll loop feeds every /live subscriber its slice of the prediction table.
 
+// Product choice: the streams one address may hold open, a household or an office behind NAT.
+const maxLiveStreamsPerClient = 32
+
 type liveSubscriber struct {
-	stops map[int]struct{}
-	trips map[string]struct{}
-	ch    chan *liveTable
+	client string
+	stops  map[int]struct{}
+	trips  map[string]struct{}
+	ch     chan *liveTable
 }
 
 type liveHub struct {
 	mu          sync.Mutex
 	subscribers map[int64]*liveSubscriber
+	perClient   map[string]int
 	nextID      int64
 	running     bool
 	tranzy      *tranzy.Client
@@ -36,7 +41,7 @@ type liveHub struct {
 var VehicleHub *liveHub
 
 func InitVehicleHub(tranzyClient *tranzy.Client, intervalCfg VehicleIntervalConfig) {
-	VehicleHub = &liveHub{subscribers: make(map[int64]*liveSubscriber), tranzy: tranzyClient, intervalCfg: intervalCfg}
+	VehicleHub = &liveHub{subscribers: make(map[int64]*liveSubscriber), perClient: make(map[string]int), tranzy: tranzyClient, intervalCfg: intervalCfg}
 }
 
 func (h *liveHub) intervalFor(subscribers int) time.Duration {
@@ -56,8 +61,8 @@ func (h *liveHub) SubscriberCount() int {
 	return len(h.subscribers)
 }
 
-func (h *liveHub) Subscribe(stopIDs []int, tripIDs []string) (*liveSubscriber, int64) {
-	sub := &liveSubscriber{stops: make(map[int]struct{}, len(stopIDs)), trips: make(map[string]struct{}, len(tripIDs)), ch: make(chan *liveTable, 2)}
+func (h *liveHub) Subscribe(client string, stopIDs []int, tripIDs []string) (*liveSubscriber, int64, bool) {
+	sub := &liveSubscriber{client: client, stops: make(map[int]struct{}, len(stopIDs)), trips: make(map[string]struct{}, len(tripIDs)), ch: make(chan *liveTable, 2)}
 	for _, id := range stopIDs {
 		sub.stops[id] = struct{}{}
 	}
@@ -65,6 +70,11 @@ func (h *liveHub) Subscribe(stopIDs []int, tripIDs []string) (*liveSubscriber, i
 		sub.trips[NormalizeTripID(id)] = struct{}{}
 	}
 	h.mu.Lock()
+	if h.perClient[client] >= maxLiveStreamsPerClient {
+		h.mu.Unlock()
+		return nil, 0, false
+	}
+	h.perClient[client]++
 	id := atomic.AddInt64(&h.nextID, 1)
 	h.subscribers[id] = sub
 	start := !h.running
@@ -78,13 +88,18 @@ func (h *liveHub) Subscribe(stopIDs []int, tripIDs []string) (*liveSubscriber, i
 	if start {
 		go h.run()
 	}
-	return sub, id
+	return sub, id, true
 }
 
 func (h *liveHub) Unsubscribe(id int64) {
 	h.mu.Lock()
-	_, ok := h.subscribers[id]
-	delete(h.subscribers, id)
+	sub, ok := h.subscribers[id]
+	if ok {
+		delete(h.subscribers, id)
+		if h.perClient[sub.client]--; h.perClient[sub.client] <= 0 {
+			delete(h.perClient, sub.client)
+		}
+	}
 	remaining := len(h.subscribers)
 	h.mu.Unlock()
 	if ok {
@@ -277,6 +292,10 @@ func ServeLive(c fiber.Ctx) error {
 		return c.JSON(sub.view(table))
 	}
 
+	sub, id, ok := VehicleHub.Subscribe(ClientHashFromLocals(c), stopIDs, tripIDs)
+	if !ok {
+		return c.SendStatus(fiber.StatusTooManyRequests)
+	}
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
@@ -286,7 +305,6 @@ func ServeLive(c fiber.Ctx) error {
 	if gzipped {
 		c.Set("Content-Encoding", "gzip")
 	}
-	sub, id := VehicleHub.Subscribe(stopIDs, tripIDs)
 	return c.SendStreamWriter(func(w *bufio.Writer) {
 		defer VehicleHub.Unsubscribe(id)
 		out := &eventWriter{w: w}

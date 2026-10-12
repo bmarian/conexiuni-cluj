@@ -257,3 +257,15 @@ func TestSameLinesAreOneOption(t *testing.T) {
 		t.Fatalf("got %+v", its)
 	}
 }
+
+func TestCoversOnlyTheWalkGraphArea(t *testing.T) {
+	streets, _ := testStreets(time.Minute)
+	if !streets.Covers(Point{46.77, 23.55}) {
+		t.Error("a point on the street is not covered")
+	}
+	for _, p := range []Point{{0, 0}, {44.43, 26.10}, {46.77, 23.62}} {
+		if streets.Covers(p) {
+			t.Errorf("%v outside the walk graph is covered", p)
+		}
+	}
+}

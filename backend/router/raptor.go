@@ -71,6 +71,9 @@ func NewStreets(walk *WalkGraph, stops []Stop, opt Options) *Streets {
 	return s
 }
 
+// Covers reports whether p lies in the area the walk graph was read for.
+func (s *Streets) Covers(p Point) bool { return s.walk.box.contains(p.Lat, p.Lon) }
+
 func (s *Streets) maxWalkMeters() float64 { return s.opt.WalkSpeed * s.opt.MaxWalk.Seconds() }
 
 func (s *Streets) walkSecs(meters float64) int64 { return int64(math.Round(meters / s.opt.WalkSpeed)) }

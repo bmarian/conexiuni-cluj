@@ -168,6 +168,7 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
+	app.Use(handlers.SecurityHeaders)
 	app.Use(compress.New(compress.Config{
 		Next: func(c fiber.Ctx) bool {
 			return handlers.EncodesItself(c.Path())

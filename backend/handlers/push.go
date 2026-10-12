@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -28,6 +29,10 @@ const (
 
 	pushWindowStartHour = 8
 	pushWindowEndHour   = 20
+
+	// Product choice: the new devices one address may sign up in a day, a household or an office behind NAT.
+	maxPushSignupsPerClient = 16
+	pushSignupWindow        = 24 * time.Hour
 )
 
 // The server POSTs to whatever endpoint it is given, so only browser push services are accepted.
@@ -48,6 +53,9 @@ var (
 	pushCfg    *pushConfig
 	pushWake   chan struct{}
 	pushClient = &http.Client{Timeout: 15 * time.Second}
+
+	pushSignupsMu sync.Mutex
+	pushSignups   = map[string]*clientCounter{}
 )
 
 type pushText struct {
@@ -220,6 +228,12 @@ func SubscribePush(c fiber.Ctx) error {
 	if !validPushKey(req.Keys.P256dh, 65) || !validPushKey(req.Keys.Auth, 16) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid subscription keys"})
 	}
+	if ok, err := admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
+		log.Printf("push: could not look up subscription: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
+	} else if !ok {
+		return c.SendStatus(fiber.StatusTooManyRequests)
+	}
 	locale := "ro"
 	if req.Locale == "en" {
 		locale = "en"
@@ -263,6 +277,35 @@ func validPushEndpoint(endpoint string) bool {
 		}
 	}
 	return false
+}
+
+// Re-saving a known endpoint is free; every new one spends the address's sign-ups.
+func admitPushEndpoint(client, endpoint string, now time.Time) (bool, error) {
+	var known int
+	err := database.DB.QueryRow(`SELECT 1 FROM push_subscriptions WHERE endpoint = ?`, endpoint).Scan(&known)
+	if err == nil {
+		return true, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	pushSignupsMu.Lock()
+	defer pushSignupsMu.Unlock()
+	for c, counter := range pushSignups {
+		if now.After(counter.reset) {
+			delete(pushSignups, c)
+		}
+	}
+	counter := pushSignups[client]
+	if counter == nil {
+		counter = &clientCounter{reset: now.Add(pushSignupWindow)}
+		pushSignups[client] = counter
+	}
+	if counter.count >= maxPushSignupsPerClient {
+		return false, nil
+	}
+	counter.count++
+	return true, nil
 }
 
 func validPushKey(key string, size int) bool {
