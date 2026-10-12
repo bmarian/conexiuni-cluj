@@ -1,13 +1,12 @@
 import {ref, watch} from 'vue'
 import type {Stop} from '@/types/tranzy.ts'
-import {apiRequest, readCachedList, writeCachedList} from '@/utils/api.ts'
-import {network, networkLoaded} from '@/utils/network.ts'
+import {readCachedList, writeCachedList} from '@/utils/api.ts'
+import {network, networkLoaded, refreshNetwork} from '@/utils/network.ts'
 
 const CACHE_KEY = 'cache:stops'
 
 // Starts from the last session's list so favorites render before the network answers.
 const stops = ref<Stop[]>(readCachedList(CACHE_KEY))
-let pending: Promise<void> | null = null
 
 watch(network, (index) => {
   if (!index?.bundle.stops.length) return
@@ -23,17 +22,11 @@ export function useStopsApi() {
     isLoading.value = true
     try {
       await networkLoaded
-      if (network.value) return
-      pending ??= (apiRequest('stops') as Promise<Stop[]>).then((data) => {
-        if (!Array.isArray(data) || !data.length) return
-        stops.value = data
-        writeCachedList(CACHE_KEY, data)
-      })
-      await pending
+      if (!network.value) await refreshNetwork(true)
+      if (!network.value && !stops.value.length) throw new Error('network bundle unavailable')
     } catch (e) {
       error.value = e
       console.error('Failed to fetch stops:', e)
-      pending = null
     } finally {
       isLoading.value = false
     }

@@ -27,6 +27,7 @@ import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import {useOnline} from "@/composables/useOnline.ts"
+import {useStopsApi} from "@/composables/useStopsApi.ts"
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from "@/composables/useKeyboardNav.ts"
 
 import {entriesAt, liveRowKey, useLive} from "@/composables/useLive.ts"
@@ -252,7 +253,7 @@ const selectedRouteLiveEtaMin = ref<number | null>(null)
 const liveEtaByKey = ref<Map<string, StoredLiveEta[]>>(new Map())
 const mapActivationKey = ref(0)
 const isActive = ref(false)
-const allStops = ref<Stop[]>([])
+const {stops: allStops, fetchStops} = useStopsApi()
 
 const allStopsMap = computed(() => {
   const m = new Map<number, Stop>()
@@ -1454,7 +1455,7 @@ onMounted(async () => {
   isActive.value = true
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
-    allStops.value = await apiRequest('stops') as Stop[]
+    await fetchStops()
     if (!hasLocationPermission.value && !customOrigin.value) {
       activeSearchField.value = 'origin'
     }
@@ -1520,9 +1521,7 @@ async function calculateRoutes() {
   const origin = customOrigin.value ?? (hasLocationPermission.value ? userLocation.value : null)
   if (!origin || isNaN(lat) || isNaN(lon)) return
 
-  if (!allStops.value.length) {
-    allStops.value = await apiRequest('stops') as Stop[]
-  }
+  await fetchStops()
 
   const qk = getQueryKey()
   if (qk && qk === currentQueryKey.value && planData.value?.plans.length) return
