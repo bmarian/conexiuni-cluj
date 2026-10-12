@@ -8,6 +8,19 @@ import (
 // A straight street with four stops about 2.3 km apart, too far to walk between.
 func testNetwork(t *testing.T, slack time.Duration) (*Network, time.Time) {
 	t.Helper()
+	streets, day := testStreets(slack)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	return streets.Network([]PatternInput{
+		{RouteID: 1, Key: "1_0", Stops: []int{1, 2, 3, 4}, Trips: [][]int64{
+			{at(8, 0), at(8, 10), at(8, 20), at(8, 30)},
+			{at(8, 30), at(8, 40), at(8, 50), at(9, 0)},
+		}},
+		{RouteID: 2, Key: "2_0", Stops: []int{1, 2}, Trips: [][]int64{{at(7, 55), at(8, 0)}}},
+		{RouteID: 3, Key: "3_0", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 2), at(8, 12)}}},
+	}), day
+}
+
+func testStreets(slack time.Duration) (*Streets, time.Time) {
 	var lat, lon []float64
 	var edges [][2]int32
 	for i := 0; i <= 100; i++ {
@@ -20,17 +33,36 @@ func testNetwork(t *testing.T, slack time.Duration) (*Network, time.Time) {
 	g.box = BBox{46.76, 23.49, 46.78, 23.61}
 	stops := []Stop{{1, 46.77, 23.50}, {2, 46.77, 23.53}, {3, 46.77, 23.56}, {4, 46.77, 23.59}}
 	streets := NewStreets(g, stops, Options{WalkSpeed: 80.0 / 60, MaxWalk: 15 * time.Minute, MaxTransfer: 30 * time.Minute, TransferSlack: slack})
+	return streets, time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+}
 
-	day := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+// A city line and a line on a ticket of its own, both from stop 1 to stop 4.
+func ticketNetwork(ownTicketArrives int) (*Network, time.Time) {
+	streets, day := testStreets(time.Minute)
 	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
 	return streets.Network([]PatternInput{
-		{RouteID: 1, Key: "1_0", Stops: []int{1, 2, 3, 4}, Trips: [][]int64{
-			{at(8, 0), at(8, 10), at(8, 20), at(8, 30)},
-			{at(8, 30), at(8, 40), at(8, 50), at(9, 0)},
-		}},
-		{RouteID: 2, Key: "2_0", Stops: []int{1, 2}, Trips: [][]int64{{at(7, 55), at(8, 0)}}},
-		{RouteID: 3, Key: "3_0", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 2), at(8, 12)}}},
+		{RouteID: 1, Key: "city", Stops: []int{1, 2, 3, 4}, Trips: [][]int64{{at(8, 0), at(8, 10), at(8, 20), at(8, 30)}}},
+		{RouteID: 2, Key: "metro", Stops: []int{1, 4}, Trips: [][]int64{{at(8, 0), at(8, ownTicketArrives)}}, OwnTicket: true},
 	}), day
+}
+
+func TestAnotherTicketComesAfterTheCityOnes(t *testing.T) {
+	n, day := ticketNetwork(20)
+	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute)}))
+	if got := keys(its); len(got) != 2 || got[0] != "city " || got[1] != "metro " {
+		t.Fatalf("got %q", got)
+	}
+	if its[0].Tickets != 0 || its[1].Tickets != 1 {
+		t.Fatalf("tickets %d, %d", its[0].Tickets, its[1].Tickets)
+	}
+}
+
+func TestAnotherTicketThatIsNoFasterGoes(t *testing.T) {
+	n, day := ticketNetwork(40)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute)}))
+	if len(got) != 1 || got[0] != "city " {
+		t.Fatalf("got %q", got)
+	}
 }
 
 func transit(options []Option) []Option {

@@ -20,6 +20,8 @@ type PatternInput struct {
 	Key     string
 	Stops   []int
 	Trips   [][]int64
+	// Riding it takes a ticket of its own.
+	OwnTicket bool
 }
 
 type Options struct {
@@ -93,11 +95,19 @@ func (s *Streets) Walk(from, to Point) (meters float64, secs int64, path []Point
 }
 
 type pattern struct {
-	routeID int
-	key     string
-	stops   []int32
+	routeID   int
+	key       string
+	ownTicket bool
+	stops     []int32
 	// times[pos][run], runs ordered by their time at the first stop.
 	times [][]int64
+}
+
+func (p *pattern) tickets() int32 {
+	if p.ownTicket {
+		return 1
+	}
+	return 0
 }
 
 type stopPos struct{ pattern, pos int32 }
@@ -116,7 +126,7 @@ type Network struct {
 func (s *Streets) Network(inputs []PatternInput) *Network {
 	n := &Network{Streets: s}
 	for _, in := range inputs {
-		p := pattern{routeID: in.RouteID, key: in.Key}
+		p := pattern{routeID: in.RouteID, key: in.Key, ownTicket: in.OwnTicket}
 		known := make([]int, 0, len(in.Stops))
 		for pos, id := range in.Stops {
 			if idx, ok := s.index[id]; ok {
@@ -149,7 +159,7 @@ func (s *Streets) Network(inputs []PatternInput) *Network {
 	n.backward.patterns = make([]pattern, len(n.forward.patterns))
 	for i, p := range n.forward.patterns {
 		last, runs := len(p.stops)-1, len(p.times[0])
-		r := pattern{routeID: p.routeID, key: p.key, stops: make([]int32, len(p.stops)), times: make([][]int64, len(p.stops))}
+		r := pattern{routeID: p.routeID, key: p.key, ownTicket: p.ownTicket, stops: make([]int32, len(p.stops)), times: make([][]int64, len(p.stops))}
 		for pos := range p.stops {
 			r.stops[pos] = p.stops[last-pos]
 			r.times[pos] = make([]int64, runs)
@@ -179,26 +189,27 @@ const (
 	byEgress
 )
 
-// label is one way of reaching a stop, or the destination: when, after how much walking, and how.
+// label is one way of reaching a stop, or the destination: when, after how much walking and how many tickets, and how.
 type label struct {
-	arr    int64
-	walk   float64
-	how    how
-	stop   int32
-	rides  int32
-	parent *label
-	secs   int64
-	meters float64
+	arr     int64
+	walk    float64
+	tickets int32
+	how     how
+	stop    int32
+	rides   int32
+	parent  *label
+	secs    int64
+	meters  float64
 	// Rides only.
 	pattern, run, board, alight int32
 }
 
-// bag keeps the labels no other one beats on both arriving and walking.
+// bag keeps the labels no other one beats on arriving, walking and tickets.
 type bag []*label
 
-func (b bag) beats(arr int64, walk float64) bool {
+func (b bag) beats(arr int64, walk float64, tickets int32) bool {
 	for _, l := range b {
-		if l.arr <= arr && l.walk <= walk {
+		if l.arr <= arr && l.walk <= walk && l.tickets <= tickets {
 			return true
 		}
 	}
@@ -208,7 +219,7 @@ func (b bag) beats(arr int64, walk float64) bool {
 func (b *bag) add(l *label) {
 	kept := (*b)[:0]
 	for _, o := range *b {
-		if l.arr > o.arr || l.walk > o.walk {
+		if l.arr > o.arr || l.walk > o.walk || l.tickets > o.tickets {
 			kept = append(kept, o)
 		}
 	}
@@ -251,10 +262,10 @@ func (r *raptor) round(k int) {
 	}
 }
 
-// beaten: with at most k rides something already gets there as early with as little walking,
+// beaten: with at most k rides something already gets there as early with as little walking and as few tickets,
 // or already reaches the destination so.
-func (r *raptor) beaten(bags [][]bag, k int, p int32, arr int64, walk float64) bool {
-	return r.target[k].beats(arr, walk) || (p >= 0 && bags[k][p].beats(arr, walk))
+func (r *raptor) beaten(bags [][]bag, k int, p int32, arr int64, walk float64, tickets int32) bool {
+	return r.target[k].beats(arr, walk, tickets) || (p >= 0 && bags[k][p].beats(arr, walk, tickets))
 }
 
 func (r *raptor) insert(bags [][]bag, p int32, l *label) {
@@ -293,7 +304,7 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		}
 	}
 	for _, a := range access {
-		if x := depart + a.secs; !r.beaten(r.arr, 0, a.stop, x, a.meters) {
+		if x := depart + a.secs; !r.beaten(r.arr, 0, a.stop, x, a.meters, 0) {
 			r.insert(r.arr, a.stop, &label{arr: x, walk: a.meters, how: byAccess, stop: a.stop, secs: a.secs, meters: a.meters})
 			mark(a.stop)
 		}
@@ -318,14 +329,14 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 			for pos := start; pos < int32(len(p.stops)); pos++ {
 				st := p.stops[pos]
 				for _, o := range route {
-					x := p.times[pos][o.run]
-					if r.beaten(r.ride, k, st, x, o.from.walk) {
+					x, tickets := p.times[pos][o.run], o.from.tickets+p.tickets()
+					if r.beaten(r.ride, k, st, x, o.from.walk, tickets) {
 						continue
 					}
-					l := &label{arr: x, walk: o.from.walk, how: byRide, stop: st, rides: int32(k), parent: o.from, pattern: pi, run: o.run, board: o.board, alight: pos}
+					l := &label{arr: x, walk: o.from.walk, tickets: tickets, how: byRide, stop: st, rides: int32(k), parent: o.from, pattern: pi, run: o.run, board: o.board, alight: pos}
 					r.insert(r.ride, st, l)
 					rode = append(rode, l)
-					if !r.beaten(r.arr, k, st, x, l.walk) {
+					if !r.beaten(r.arr, k, st, x, l.walk, l.tickets) {
 						r.insert(r.arr, st, l)
 						mark(st)
 					}
@@ -348,8 +359,8 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		for _, l := range rode {
 			for _, t := range r.n.transfers[l.stop] {
 				x, w := l.arr+t.secs, l.walk+t.meters
-				if !r.beaten(r.arr, k, t.to, x, w) {
-					r.insert(r.arr, t.to, &label{arr: x, walk: w, how: byWalk, stop: t.to, rides: int32(k), parent: l, secs: t.secs, meters: t.meters})
+				if !r.beaten(r.arr, k, t.to, x, w, l.tickets) {
+					r.insert(r.arr, t.to, &label{arr: x, walk: w, tickets: l.tickets, how: byWalk, stop: t.to, rides: int32(k), parent: l, secs: t.secs, meters: t.meters})
 					mark(t.to)
 				}
 			}
@@ -360,8 +371,8 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 			if !ok {
 				continue
 			}
-			if x, w := l.arr+e.secs, l.walk+e.meters; !r.beaten(nil, k, -1, x, w) {
-				t := &label{arr: x, walk: w, how: byEgress, stop: -1, rides: int32(k), parent: l, secs: e.secs, meters: e.meters}
+			if x, w := l.arr+e.secs, l.walk+e.meters; !r.beaten(nil, k, -1, x, w, l.tickets) {
+				t := &label{arr: x, walk: w, tickets: l.tickets, how: byEgress, stop: -1, rides: int32(k), parent: l, secs: e.secs, meters: e.meters}
 				for j := k; j < len(r.target); j++ {
 					r.target[j].add(t)
 				}
@@ -372,17 +383,18 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 	return found
 }
 
-// board adds a way onto the route unless an earlier run reached with no more walking is already on it.
+// board adds a way onto the route unless one on a run no later, with no more walking and tickets, beats it.
 // The same run caught further along replaces the earlier boarding: less walking to it.
 func board(route []onboard, c onboard) []onboard {
 	for _, o := range route {
-		if (o.run < c.run && o.from.walk <= c.from.walk) || (o.run == c.run && o.from.walk < c.from.walk) {
+		noWorse := o.run <= c.run && o.from.walk <= c.from.walk && o.from.tickets <= c.from.tickets
+		if noWorse && (o.run < c.run || o.from.walk < c.from.walk || o.from.tickets < c.from.tickets) {
 			return route
 		}
 	}
 	kept := route[:0]
 	for _, o := range route {
-		if c.run > o.run || c.from.walk > o.from.walk {
+		if c.run > o.run || c.from.walk > o.from.walk || c.from.tickets > o.from.tickets {
 			kept = append(kept, o)
 		}
 	}

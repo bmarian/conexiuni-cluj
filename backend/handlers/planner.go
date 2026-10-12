@@ -189,7 +189,8 @@ func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 			if len(rows) < 2 {
 				continue
 			}
-			p := router.PatternInput{RouteID: routeID, Key: tripID, Stops: make([]int, len(rows))}
+			// The city ticket does not cover the metropolitan (M) lines.
+			p := router.PatternInput{RouteID: routeID, Key: tripID, Stops: make([]int, len(rows)), OwnTicket: strings.HasPrefix(rsn, "M")}
 			for i, st := range rows {
 				p.Stops[i] = st.StopID
 			}

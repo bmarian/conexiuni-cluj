@@ -61,6 +61,8 @@ type Option struct {
 	Runs       []Run
 	Rides      int
 	WalkMeters float64
+	// Rides that need a ticket of their own.
+	Tickets int
 }
 
 type line struct{ pattern, board, alight int32 }
@@ -71,7 +73,7 @@ type skeleton struct {
 }
 
 // Plan lists one option per sequence of stops, timed from q.Time (or back from it when arriving by),
-// keeping only those no other one beats on arriving, on arriving plus walking, and on rides.
+// keeping only those no other one beats on arriving, on arriving plus walking, on rides and on tickets.
 func (n *Network) Plan(q Query) []Option {
 	access, egress := n.reach(q.From), n.reach(q.To)
 	start := q.Time.Unix()
@@ -131,13 +133,13 @@ func (n *Network) stopsKey(j journey) string {
 	var b strings.Builder
 	for _, s := range j.steps {
 		if s.kind == byRide {
-			b.WriteString(strconv.Itoa(int(s.from)) + ">" + strconv.Itoa(int(s.to)) + "|")
+			b.WriteString(strconv.Itoa(int(s.from)) + ">" + strconv.Itoa(int(s.to)) + ":" + strconv.Itoa(int(n.forward.patterns[s.pattern].tickets())) + "|")
 		}
 	}
 	return b.String()
 }
 
-// skeleton keeps the journey's stops and every line that rides between each pair of them.
+// skeleton keeps the journey's stops and every line that rides between each pair of them on the same ticket.
 func (n *Network) skeleton(j journey) skeleton {
 	sk := skeleton{steps: j.steps}
 	for _, s := range j.steps {
@@ -145,7 +147,11 @@ func (n *Network) skeleton(j journey) skeleton {
 			continue
 		}
 		var lines []line
+		own := n.forward.patterns[s.pattern].ownTicket
 		for _, sp := range n.forward.byStop[s.from] {
+			if n.forward.patterns[sp.pattern].ownTicket != own {
+				continue
+			}
 			stops := n.forward.patterns[sp.pattern].stops
 			for pos := sp.pos + 1; pos < int32(len(stops)); pos++ {
 				if stops[pos] == s.to {
@@ -175,6 +181,7 @@ func (n *Network) option(sk skeleton, runs []Run) Option {
 				leg.Passed = append(leg.Passed, n.stops[st].ID)
 			}
 			o.Rides++
+			o.Tickets += int(p.tickets())
 		} else {
 			o.WalkMeters += s.meters
 		}
@@ -332,9 +339,9 @@ func (n *Network) timeBack(sk skeleton, deadline, before int64) (Run, bool) {
 }
 
 // worthTaking keeps the options someone would take. Options riding the same lines are one journey,
-// kept where it costs least. Then an option goes when another takes no more effort and no more rides
+// kept where it costs least. Then an option goes when another takes no more effort, rides and tickets
 // and is not slower by more than runs here stray from their times. A change costs the margin kept for
-// it, and a minute walked is never better than a minute sat.
+// it, and a minute walked is never better than a minute sat. Options needing another ticket come last.
 func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
 	slack := int64(n.opt.TransferSlack.Seconds())
 	score := func(o Option) (int64, int64) {
@@ -374,8 +381,8 @@ func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
 				continue
 			}
 			bt, bw := score(b)
-			noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides
-			better := b.Rides < a.Rides || bw < aw || bt < at
+			noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides && b.Tickets <= a.Tickets
+			better := b.Rides < a.Rides || b.Tickets < a.Tickets || bw < aw || bt < at
 			if noWorse && (better || j < i) {
 				beaten = true
 				break
@@ -386,6 +393,9 @@ func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Tickets != out[j].Tickets {
+			return out[i].Tickets < out[j].Tickets
+		}
 		if arriveBy {
 			return out[i].Runs[0].Depart > out[j].Runs[0].Depart
 		}
