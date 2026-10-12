@@ -266,13 +266,6 @@ func InitSchemas() error {
             PRIMARY KEY (endpoint, id)
         );
 
-		CREATE TABLE IF NOT EXISTS stats_visitors
-        (
-            client_hash TEXT PRIMARY KEY,
-            first_seen  TEXT NOT NULL,
-            last_seen   TEXT NOT NULL
-        );
-
 		CREATE TABLE IF NOT EXISTS stats_visitors_daily
         (
             date        TEXT NOT NULL,
@@ -360,6 +353,9 @@ func InitSchemas() error {
 	if err := addMissingColumns(); err != nil {
 		return err
 	}
+	if err := retireLifetimeVisitors(); err != nil {
+		return err
+	}
 
 	indexes := `
 		-- Vehicles indexes
@@ -397,8 +393,8 @@ func InitSchemas() error {
 		CREATE INDEX IF NOT EXISTS idx_push_subscription_routes_route ON push_subscription_routes(route_short_name);
 
 		-- Stats indexes
-		CREATE INDEX IF NOT EXISTS idx_stats_visitors_last_seen ON stats_visitors(last_seen);
 		CREATE INDEX IF NOT EXISTS idx_stats_visitors_daily_date ON stats_visitors_daily(date);
+		CREATE INDEX IF NOT EXISTS idx_stats_visitors_daily_hash ON stats_visitors_daily(client_hash);
 		CREATE INDEX IF NOT EXISTS idx_stats_daily_metric_count ON stats_daily(metric, count DESC);
 		CREATE INDEX IF NOT EXISTS idx_stats_daily_metric_date_key ON stats_daily(metric, date, key);
 
@@ -453,6 +449,38 @@ func addMissingColumns() error {
 			log.Printf("schema: added column %s.%s", table, name)
 		}
 	}
+	return nil
+}
+
+// stats_visitors kept every client hash forever. Its counts move into
+// stats_daily and the table goes.
+func retireLifetimeVisitors() error {
+	cols, err := tableColumns("stats_visitors")
+	if err != nil || len(cols) == 0 {
+		return err
+	}
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, stmt := range []string{
+		`INSERT INTO stats_daily (date, metric, key, count)
+			SELECT first_seen, 'new_visitors', '', COUNT(*) FROM stats_visitors WHERE true GROUP BY first_seen
+			ON CONFLICT(date, metric, key) DO UPDATE SET count = excluded.count`,
+		`INSERT INTO stats_daily (date, metric, key, count)
+			SELECT date, 'visitors', '', COUNT(*) FROM stats_visitors_daily WHERE true GROUP BY date
+			ON CONFLICT(date, metric, key) DO UPDATE SET count = excluded.count`,
+		`DROP TABLE stats_visitors`,
+	} {
+		if _, err := tx.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	log.Println("schema: moved stats_visitors into daily counts")
 	return nil
 }
 

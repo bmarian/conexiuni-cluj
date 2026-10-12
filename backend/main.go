@@ -95,7 +95,7 @@ func main() {
 	}
 	database.StartVacuumScheduler()
 	database.StartDSTCacheInvalidationScheduler()
-	database.StartStatsFlusher()
+	database.StartStatsFlusher(config.LogRetentionDays)
 	defer func() {
 		if err := database.FlushStats(); err != nil {
 			log.Printf("Final stats flush failed: %v", err)

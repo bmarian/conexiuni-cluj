@@ -52,10 +52,12 @@ func newStatsBuffer() *statsBuffer {
 }
 
 var (
-	statsMu     sync.Mutex
-	statsBuf    = newStatsBuffer()
-	statsTZ     *time.Location
-	statsTZOnce sync.Once
+	// Client hashes are deleted after this many days, like the access logs.
+	visitorRetentionDays int
+	statsMu              sync.Mutex
+	statsBuf             = newStatsBuffer()
+	statsTZ              *time.Location
+	statsTZOnce          sync.Once
 )
 
 func statsLocation() *time.Location {
@@ -71,6 +73,11 @@ func statsLocation() *time.Location {
 
 func todayKey() string {
 	return time.Now().In(statsLocation()).Format("2006-01-02")
+}
+
+// First day still kept, counting today.
+func visitorCutoffKey() string {
+	return time.Now().In(statsLocation()).AddDate(0, 0, -(visitorRetentionDays - 1)).Format("2006-01-02")
 }
 
 // RecordEvent buffers a single request observation in memory.
@@ -183,15 +190,13 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	visitorUpsert, err := tx.Prepare(`
-		INSERT INTO stats_visitors (client_hash, first_seen, last_seen)
-		VALUES (?, ?, ?)
-		ON CONFLICT(client_hash) DO UPDATE SET last_seen = excluded.last_seen
+	seenBefore, err := tx.Prepare(`
+		SELECT EXISTS(SELECT 1 FROM stats_visitors_daily WHERE client_hash = ? AND date < ?)
 	`)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = visitorUpsert.Close() }()
+	defer func() { _ = seenBefore.Close() }()
 
 	visitorDaily, err := tx.Prepare(`
 		INSERT OR IGNORE INTO stats_visitors_daily (date, client_hash) VALUES (?, ?)
@@ -202,12 +207,25 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	defer func() { _ = visitorDaily.Close() }()
 
 	for hash := range buf.visitors {
-		if _, err := visitorUpsert.Exec(hash, today, today); err != nil {
+		var seen bool
+		if err := seenBefore.QueryRow(hash, today).Scan(&seen); err != nil {
 			return err
 		}
-		if _, err := visitorDaily.Exec(today, hash); err != nil {
+		res, err := visitorDaily.Exec(today, hash)
+		if err != nil {
 			return err
 		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			continue
+		}
+		bumpCounter(buf, "visitors", "", 1)
+		if !seen {
+			bumpCounter(buf, "new_visitors", "", 1)
+		}
+	}
+
+	if _, err := tx.Exec(`DELETE FROM stats_visitors_daily WHERE date < ?`, visitorCutoffKey()); err != nil {
+		return err
 	}
 
 	dailyUpsert, err := tx.Prepare(`
@@ -231,6 +249,15 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	return tx.Commit()
 }
 
+func bumpCounter(buf *statsBuffer, metric, key string, count int) {
+	bucket, ok := buf.counters[metric]
+	if !ok {
+		bucket = make(map[string]int)
+		buf.counters[metric] = bucket
+	}
+	bucket[key] += count
+}
+
 func FlushStats() error {
 	buf := swapBuffer()
 	if len(buf.visitors) == 0 && len(buf.counters) == 0 {
@@ -243,7 +270,8 @@ func FlushStats() error {
 	return nil
 }
 
-func StartStatsFlusher() {
+func StartStatsFlusher(retentionDays int) {
+	visitorRetentionDays = retentionDays
 	go func() {
 		ticker := time.NewTicker(statsFlushInterval)
 		defer ticker.Stop()
@@ -256,20 +284,21 @@ func StartStatsFlusher() {
 }
 
 type VisitorTotals struct {
-	Lifetime int `json:"lifetime"`
-	Last7d   int `json:"last7d"`
-	Today    int `json:"today"`
+	// Someone away longer than the retention window counts again.
+	Lifetime   int `json:"lifetime"`
+	Recent     int `json:"recent"`
+	RecentDays int `json:"recent_days"`
+	Today      int `json:"today"`
 }
 
 func GetVisitorTotals() (VisitorTotals, error) {
-	var t VisitorTotals
+	t := VisitorTotals{RecentDays: visitorRetentionDays}
 	today := todayKey()
-	weekAgo := time.Now().In(statsLocation()).AddDate(0, 0, -6).Format("2006-01-02")
 
-	if err := DB.QueryRow(`SELECT COUNT(*) FROM stats_visitors`).Scan(&t.Lifetime); err != nil {
+	if err := DB.QueryRow(`SELECT COALESCE(SUM(count), 0) FROM stats_daily WHERE metric = 'new_visitors'`).Scan(&t.Lifetime); err != nil {
 		return t, err
 	}
-	if err := DB.QueryRow(`SELECT COUNT(DISTINCT client_hash) FROM stats_visitors_daily WHERE date >= ?`, weekAgo).Scan(&t.Last7d); err != nil {
+	if err := DB.QueryRow(`SELECT COUNT(DISTINCT client_hash) FROM stats_visitors_daily WHERE date >= ?`, visitorCutoffKey()).Scan(&t.Recent); err != nil {
 		return t, err
 	}
 	if err := DB.QueryRow(`SELECT COUNT(*) FROM stats_visitors_daily WHERE date = ?`, today).Scan(&t.Today); err != nil {
@@ -289,8 +318,8 @@ func GetDailyVisitors(days int) ([]DailyVisitorPoint, error) {
 	}
 	start := time.Now().In(statsLocation()).AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 	rows, err := DB.Query(`
-		SELECT date, COUNT(*) FROM stats_visitors_daily
-		WHERE date >= ?
+		SELECT date, SUM(count) FROM stats_daily
+		WHERE metric = 'visitors' AND date >= ?
 		GROUP BY date
 		ORDER BY date ASC
 	`, start)

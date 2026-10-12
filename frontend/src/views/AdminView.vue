@@ -10,7 +10,8 @@ useHead(() => ({
 
 type VisitorTotals = {
   lifetime: number
-  last7d: number
+  recent: number
+  recent_days: number
   today: number
 }
 
@@ -650,8 +651,8 @@ onBeforeUnmount(() => {
               <div class="admin-kpi-sub">unique visitors</div>
             </div>
             <div class="admin-kpi">
-              <div class="admin-kpi-label">Last 7 days</div>
-              <div class="admin-kpi-value">{{ formatNumber(stats.visitors.last7d) }}</div>
+              <div class="admin-kpi-label">Last {{ stats.visitors.recent_days }} days</div>
+              <div class="admin-kpi-value">{{ formatNumber(stats.visitors.recent) }}</div>
               <div class="admin-kpi-sub">unique visitors</div>
             </div>
             <div class="admin-kpi">
