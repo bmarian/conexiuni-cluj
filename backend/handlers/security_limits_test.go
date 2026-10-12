@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -117,5 +119,42 @@ func TestSecurityHeaders(t *testing.T) {
 		if resp.Header.Get(h) == "" {
 			t.Errorf("missing %s", h)
 		}
+	}
+}
+
+func TestRefusedLiveStreamTellsBrowsersWhenToRetry(t *testing.T) {
+	prev := VehicleHub
+	VehicleHub = &liveHub{subscribers: map[int64]*liveSubscriber{}, perClient: map[string]int{"a": maxLiveStreamsPerClient}, running: true}
+	t.Cleanup(func() { VehicleHub = prev })
+	app := fiber.New()
+	app.Use(func(c fiber.Ctx) error {
+		c.Locals(clientHashLocalKey, "a")
+		return c.Next()
+	})
+	app.Get("/live", ServeLive)
+
+	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/live?stop_ids=1", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("status %d, type %q: a browser would not retry", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if want := fmt.Sprintf("retry: %d\n\n", liveKeepAlive.Milliseconds()); string(body) != want {
+		t.Fatalf("body %q, want %q", body, want)
+	}
+}
+
+func TestIPv6ClientsCountPerSlash64(t *testing.T) {
+	same := []string{"2a02:2f0c:8a12:3400::1", "2a02:2f0c:8a12:3400:abcd:1234:5678:9abc"}
+	if clientKey(same[0]) != clientKey(same[1]) {
+		t.Errorf("one /64 gives two clients: %s, %s", clientKey(same[0]), clientKey(same[1]))
+	}
+	if clientKey("2a02:2f0c:8a12:3401::1") == clientKey(same[0]) {
+		t.Error("two /64s give one client")
+	}
+	if got := clientKey("188.24.64.220"); got != "188.24.64.220" {
+		t.Errorf("IPv4 changed to %s", got)
 	}
 }

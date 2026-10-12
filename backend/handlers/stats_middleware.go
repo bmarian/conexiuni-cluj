@@ -19,7 +19,7 @@ var streamedAPIPaths = map[string]struct{}{
 	"/api/vehicles/stream": {},
 }
 
-// ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client IP
+// ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client (its IP, or the /64 for IPv6)
 // using the provided salt. Same scheme as the access log identifier.
 func ComputeClientHash(c fiber.Ctx, salt string) string {
 	ip := ClientIP(c)
@@ -27,7 +27,7 @@ func ComputeClientHash(c fiber.Ctx, salt string) string {
 		return ""
 	}
 	h := hmac.New(sha256.New, []byte(salt))
-	_, _ = h.Write([]byte(ip))
+	_, _ = h.Write([]byte(clientKey(ip)))
 	return hex.EncodeToString(h.Sum(nil)[:8])
 }
 

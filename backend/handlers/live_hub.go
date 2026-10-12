@@ -18,8 +18,12 @@ import (
 
 // One poll loop feeds every /live subscriber its slice of the prediction table.
 
-// Product choice: the streams one address may hold open, a household or an office behind NAT.
-const maxLiveStreamsPerClient = 32
+const (
+	// Product choice: the streams one address may hold open, a household or an office behind NAT.
+	maxLiveStreamsPerClient = 32
+	// Physical: under the 60 s read timeout of nginx and the apps. Also how long a vanished client can hold a slot.
+	liveKeepAlive = 25 * time.Second
+)
 
 type liveSubscriber struct {
 	client string
@@ -292,9 +296,14 @@ func ServeLive(c fiber.Ctx) error {
 		return c.JSON(sub.view(table))
 	}
 
-	sub, id, ok := VehicleHub.Subscribe(ClientHashFromLocals(c), stopIDs, tripIDs)
+	client := ClientHashFromLocals(c)
+	sub, id, ok := VehicleHub.Subscribe(client, stopIDs, tripIDs)
 	if !ok {
-		return c.SendStatus(fiber.StatusTooManyRequests)
+		// A 200 that ends at once makes a browser reconnect after `retry`; a 429 would stop it for good.
+		log.Printf("live hub: refused a stream for client %s, over %d", client, maxLiveStreamsPerClient)
+		c.Set("Content-Type", "text/event-stream")
+		c.Set("Cache-Control", "no-store")
+		return c.SendString(fmt.Sprintf("retry: %d\n\n", liveKeepAlive.Milliseconds()))
 	}
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -312,7 +321,7 @@ func ServeLive(c fiber.Ctx) error {
 			out.gz, _ = gzip.NewWriterLevel(w, gzip.BestSpeed)
 		}
 		defer out.close()
-		keep := time.NewTicker(25 * time.Second)
+		keep := time.NewTicker(liveKeepAlive)
 		defer keep.Stop()
 		started := false
 		var last liveView
