@@ -122,10 +122,6 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 	}
 	log.Printf("warmup: api_stop_times loaded (%d rows) in %s", len(apiStopTimes), time.Since(phase).Round(time.Millisecond))
 
-	phase = time.Now()
-	StopRoutes.Rebuild(apiStopTimes)
-	log.Printf("warmup: stop-route direction index rebuilt in %s", time.Since(phase).Round(time.Millisecond))
-
 	log.Printf("warmup: fanning out stop_times + timetables for %d routes (CTP limiter ~1/s)", len(routes))
 
 	phase = time.Now()
@@ -217,11 +213,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 
 	InvalidateSitemap()
 
-	if err := BuildGTFSZip(tranzyClient, ctpCjClient, cacheTimes); err != nil {
-		log.Printf("warmup: GTFS zip build failed: %v", err)
-	}
-
-	TriggerOTPRebuild()
+	WarmPlanner(tranzyClient, ctpCjClient, cacheTimes)
 
 	log.Printf("warmup: completed full pass in %s", time.Since(start).Round(time.Millisecond))
 }

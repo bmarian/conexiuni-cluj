@@ -1,12 +1,10 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
-import type {PlannedRoute} from '@/utils/trips.ts'
 
 export type PlanTimeMode = 'now' | 'leave' | 'arrive' | 'last'
 
 export const usePlannerStore = defineStore('planner', () => {
   const lastSelectedRouteKeys = ref<Record<string, string>>({})
-  const plannedRoutes = ref<PlannedRoute[]>([])
   const currentQueryKey = ref<string | null>(null)
 
   // Google-style departure time filter — kept across navigations within the session.
@@ -38,7 +36,6 @@ export const usePlannerStore = defineStore('planner', () => {
 
   return {
     lastSelectedRouteKeys,
-    plannedRoutes,
     currentQueryKey,
     timeMode,
     timeValue,

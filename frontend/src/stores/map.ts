@@ -34,6 +34,9 @@ export type DisplayShape = {
   route_type: RouteType,
 }
 
+/** The line the traveller rides, drawn in place of their location while on board. */
+export type RideAs = { line: string; color: string }
+
 export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' }
 
 export const useMapStore = defineStore('map', () => {
@@ -53,6 +56,9 @@ export const useMapStore = defineStore('map', () => {
   const drawerBottomPx = ref(0)
   const drawerRightPx = ref(0)
   const fitWalkingPolylines = ref(false)
+  const rideAs = ref<RideAs | null>(null)
+  // Navigation wants every fix as it comes, not a cached one.
+  const preciseLocation = ref(false)
 
   const setDrawerBottomPx = (px: number) => {
     drawerBottomPx.value = px
@@ -172,6 +178,8 @@ export const useMapStore = defineStore('map', () => {
     drawerRightPx,
     setDrawerRightPx,
     fitWalkingPolylines,
+    rideAs,
+    preciseLocation,
 
     requestShapes,
   }

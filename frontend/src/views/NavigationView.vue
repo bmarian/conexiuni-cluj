@@ -142,9 +142,15 @@ watch(journey, (j, before) => {
   void router.replace('/')
 }, {immediate: true})
 watch(userLocation, () => followMe())
+// On board, the traveller is the bus.
+watch(step, (s) => {
+  const leg = s?.kind === 'ride' ? journey.value?.legs[s.legIndex] : undefined
+  mapStore.rideAs = leg ? {line: s?.line ?? leg.lines[0] ?? '', color: s?.color ?? leg.colors[0] ?? '#64748b'} : null
+}, {immediate: true})
 
 onMounted(() => {
   if (!store.journey) return
+  mapStore.preciseLocation = true
   void keepAwake()
   document.addEventListener('visibilitychange', onVisibility)
   followMe(true)
@@ -152,6 +158,8 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibility)
   void lock?.release().catch(() => {})
+  mapStore.rideAs = null
+  mapStore.preciseLocation = false
   mapStore.setLoadedShapes([])
   mapStore.clearWalkingPolylines()
   mapStore.setHighlightedStops([])
@@ -216,7 +224,9 @@ onUnmounted(() => {
       <li v-for="row in rows" :key="row.key" class="nav-step" :class="{ 'is-current': isCurrent(row, step) }">
         <span class="nav-step-dot"></span>
         <span class="min-w-0 flex-1">{{ row.text }}</span>
-        <span v-for="l in row.lines" :key="l.line" class="nav-step-badge" :style="{ backgroundColor: l.color }">{{ l.line }}</span>
+        <span v-if="row.lines.length" class="nav-step-lines">
+          <span v-for="l in row.lines" :key="l.line" class="nav-step-badge" :style="{ backgroundColor: l.color }">{{ l.line }}</span>
+        </span>
       </li>
       <li class="nav-step" :class="{ 'is-current': step?.kind === 'arrived' }">
         <span class="nav-step-dot is-end"></span>
@@ -392,6 +402,14 @@ onUnmounted(() => {
 
 .nav-step-dot.is-end {
   border-color: var(--color-rose-500, #f43f5e);
+}
+
+.nav-step-lines {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  max-width: 50%;
 }
 
 .nav-step-badge {

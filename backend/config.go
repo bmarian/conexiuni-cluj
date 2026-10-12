@@ -37,7 +37,6 @@ type Config struct {
 	VehicleMaxInterval       time.Duration
 	VehicleLearningEnabled   bool
 	VehicleLearningMaxQuota  int
-	OtpMaxMemory             string
 	VapidPublicKey           string
 	VapidPrivateKey          string
 	VapidSubject             string
@@ -145,7 +144,6 @@ func Load() *Config {
 		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
 		VehicleLearningEnabled:   getBool("VEHICLE_LEARNING_ENABLED", true),
 		VehicleLearningMaxQuota:  getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
-		OtpMaxMemory:             getEnv("OTP_MX", "2G"),
 		VapidPublicKey:           getEnv("VAPID_PUBLIC_KEY", ""),
 		VapidPrivateKey:          getEnv("VAPID_PRIVATE_KEY", ""),
 		VapidSubject:             getEnv("VAPID_SUBJECT", ""),

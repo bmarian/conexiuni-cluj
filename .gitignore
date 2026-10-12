@@ -11,7 +11,4 @@ api-tests/tranzy-api-docs.json
 backend/.gocache
 backend/dist
 backend/services/mobroute/
-backend/services/otp/otp.jar
-backend/services/otp/cluj/cluj.pbf
-backend/services/otp/cluj/gtfs.zip
-backend/services/otp/osmosis
+backend/services/osm/

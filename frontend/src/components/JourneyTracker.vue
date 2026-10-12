@@ -4,7 +4,7 @@ import type {LiveRow} from '@/types/tranzy.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import {useJourneyStore} from '@/stores/journey.ts'
 import {tripDepartures} from '@/utils/legDeparture.ts'
-import type {Fix, LegDeparture} from '@/utils/journey.ts'
+import {NAV_POSITION_OPTIONS, type Fix, type LegDeparture} from '@/utils/journey.ts'
 
 const props = defineProps<{ rows: Map<string, LiveRow>, asOfMs: number | null }>()
 
@@ -27,7 +27,7 @@ function startLocation() {
       fix.value = {lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, speed: p.coords.speed ?? null}
     },
     () => {},
-    {enableHighAccuracy: true, maximumAge: 2_000, timeout: 20_000},
+    NAV_POSITION_OPTIONS,
   )
 }
 

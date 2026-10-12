@@ -9,6 +9,7 @@ const ON_LINE_M = 300
 const BUS_SPEED_MPS = 4.5
 const RIDING_FIXES = 2
 export const JOURNEY_GIVE_UP_MS = 4 * 60 * 60_000
+export const NAV_POSITION_OPTIONS: PositionOptions = {enableHighAccuracy: true, maximumAge: 2_000, timeout: 20_000}
 
 export interface JourneyStop {
   id: number
@@ -35,7 +36,14 @@ export interface Journey {
   /** [lat, lon] */
   walks: [number, number][][]
   planPath?: string
+  /** The plan's timed runs: when each ride's bus leaves (unix s) and when the run arrives. */
+  runs?: PlannedRun[]
   startedAt: number
+}
+
+export interface PlannedRun {
+  arrive: number
+  departs: number[]
 }
 
 export interface Fix {
@@ -239,6 +247,25 @@ function doneMinutes(journey: Journey, run: JourneyRun, parts: Part[], fix: Fix 
   }
 }
 
+// The planned run the traveller is on: its bus on this leg leaves nearest to the one they wait for or
+// boarded, and a late bus makes it that much later. Null when there is no bus to match it by.
+function plannedArrival(journey: Journey, run: JourneyRun, departure: LegDeparture | null, nowMs: number): number | null {
+  const p = run.phase
+  if (!journey.runs?.length || (p.kind !== 'walk' && p.kind !== 'wait' && p.kind !== 'ride')) return null
+  const riding = p.kind === 'ride'
+  const bus = riding ? run.rideStartedAt : departure ? nowMs + departure.minutes * 60_000 : null
+  if (bus === null) return null
+  let best: PlannedRun | null = null
+  for (const planned of journey.runs) {
+    const leaves = planned.departs[p.leg]
+    if (leaves === undefined) continue
+    if (!best || Math.abs(leaves * 1000 - bus) < Math.abs(best.departs[p.leg]! * 1000 - bus)) best = planned
+  }
+  if (!best) return null
+  const late = riding ? 0 : Math.max(0, bus - best.departs[p.leg]! * 1000)
+  return best.arrive * 1000 + late
+}
+
 function arrivalAt(run: JourneyRun, parts: Part[], done: number, departure: LegDeparture | null, nowMs: number): number {
   const total = parts.reduce((acc, part) => acc + part.minutes, 0)
   const left = Math.max(total - done, 0)
@@ -332,7 +359,7 @@ export function stepJourney(journey: Journey, run: JourneyRun, fix: Fix | null, 
     step: {
       ...described,
       progress: Math.min(Math.max(done / total, 0), 1),
-      etaAt: arrivalAt(run, parts, done, legDeparture, nowMs),
+      etaAt: plannedArrival(journey, run, legDeparture, nowMs) ?? arrivalAt(run, parts, done, legDeparture, nowMs),
       stepIndex: run.stepIndex,
     },
     changed: changed || alerted,

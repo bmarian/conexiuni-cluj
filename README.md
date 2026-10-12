@@ -95,7 +95,7 @@ The backend listens on `:6698` and the dev server proxies `/api` to it. Everythi
 
 **Push notifications** need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
 
-**The route planner** needs Java 21+, an `otp.jar` in `backend/services/otp/` and a `cluj.pbf` extract in `backend/services/otp/cluj/`. [`update.sh`](update.sh) downloads and builds all of that: the OTP jar, Osmosis, and a Cluj-cropped OSM extract.
+**The route planner** runs inside the Go server. It reads the walkable streets around the stops from `backend/services/osm/romania-latest.osm.pbf`, which [`update.sh`](update.sh) downloads from Geofabrik (`--update-pbf` refreshes it).
 
 **Production** is `npm run build` in `frontend/`, which writes to `backend/dist/`, and the Go server serves it directly. `update.sh` is what I deploy with.
 

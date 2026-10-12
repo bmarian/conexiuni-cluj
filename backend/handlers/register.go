@@ -82,8 +82,8 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 
 	api.Get("/live", ServeLive)
 
-	api.Get("/plan_routes", func(c fiber.Ctx) error {
-		return handlePlanRoutes(c, tranzyClient, ctpCjClient, cacheTimes)
+	api.Get("/plan", func(c fiber.Ctx) error {
+		return handlePlan(c, tranzyClient, ctpCjClient, cacheTimes)
 	})
 
 	api.Get("/network", NetworkHandler(tranzyClient, ctpCjClient, cacheTimes))

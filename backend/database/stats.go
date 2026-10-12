@@ -20,6 +20,7 @@ var trackedAPIStatsKeys = []string{
 	"/api/vehicles",
 	"/api/vehicles/stream",
 	"/api/plan_routes",
+	"/api/plan",
 	"/api/news",
 }
 

@@ -189,3 +189,27 @@ describe('a planned trip', () => {
     expect(waiting.step.etaAt).toBe(T0 + (20 + 6 + 4 + 4 + 3) * 60_000)
   })
 })
+
+describe('the arrival estimate', () => {
+  const s = (minutes: number) => Math.floor(T0 / 1000) + minutes * 60
+  // The 18:06 bus makes the 18:20 change and arrives 18:40; the 18:16 one waits for the 18:35 and arrives 18:55.
+  const runs = [{arrive: s(40), departs: [s(6), s(20)]}, {arrive: s(55), departs: [s(16), s(35)]}]
+
+  it('takes the planned run of the bus coming, waits at the change included', () => {
+    const j = journey({runs})
+    const run = startRun(j, null)
+    expect(stepJourney(j, run, null, bus(6), T0).step.etaAt).toBe(s(40) * 1000)
+    expect(stepJourney(j, run, null, bus(16), T0).step.etaAt).toBe(s(55) * 1000)
+  })
+
+  it('is later by as much as the bus is', () => {
+    const j = journey({runs})
+    expect(stepJourney(j, startRun(j, null), null, bus(8), T0).step.etaAt).toBe(s(42) * 1000)
+  })
+
+  it('falls back to the timetable sum without planned runs', () => {
+    const j = journey()
+    const eta = stepJourney(j, startRun(j, null), null, bus(6), T0).step.etaAt
+    expect(eta).toBeLessThan(s(40) * 1000)
+  })
+})

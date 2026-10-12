@@ -21,6 +21,7 @@ import {
   makeSelectedStopIcon,
   makeStopIcon,
 } from '@/utils/mapIcons.ts'
+import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
@@ -40,6 +41,8 @@ const {
   directionArrowAtStart,
   drawerBottomPx,
   drawerRightPx,
+  rideAs,
+  preciseLocation,
 } = storeToRefs(mapStore)
 const {showVehicleExtras} = storeToRefs(settingsStore)
 // The watch layout only has the default look.
@@ -252,7 +255,7 @@ const beginLocationWatch = (enableHighAccuracy = false) => {
 
   userStore.setIsLocating(true)
   map.value.stopLocate()
-  map.value.locate({
+  map.value.locate(preciseLocation.value ? {...NAV_POSITION_OPTIONS, watch: true} : {
     watch: true,
     enableHighAccuracy,
     maximumAge: 30000,
@@ -447,6 +450,42 @@ const blueDotIcon = L.divIcon({
   iconAnchor: [8, 8]
 })
 
+// On board the traveller is drawn as their bus, gliding from fix to fix over the time between them.
+let rideHeading = 0
+let headingFrom: L.LatLng | null = null
+let lastFixMs = 0
+let glideFrame = 0
+
+const userIcon = () => {
+  const ride = rideAs.value
+  if (!ride) return blueDotIcon
+  const bus = {route_short_name: ride.line, heading: rideHeading, speed: 0, label: ''} as DisplayVehicle
+  return L.divIcon({
+    className: 'bg-transparent border-none !overflow-visible',
+    html: getVehicleMarkerHtml(bus, ride.color, false, {...themeOpts(), showVehicleExtras: false}, t),
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  })
+}
+
+const moveUserDot = (to: L.LatLng, ms: number) => {
+  const dot = userDot.value
+  if (!dot) return
+  cancelAnimationFrame(glideFrame)
+  if (!rideAs.value || ms <= 0) {
+    dot.setLatLng(to)
+    return
+  }
+  const from = dot.getLatLng()
+  const start = performance.now()
+  const step = (now: number) => {
+    const k = Math.min(1, (now - start) / ms)
+    dot.setLatLng([from.lat + (to.lat - from.lat) * k, from.lng + (to.lng - from.lng) * k])
+    if (k < 1) glideFrame = requestAnimationFrame(step)
+  }
+  glideFrame = requestAnimationFrame(step)
+}
+
 const isInClujCounty = (lat: number, lng: number) => {
   return lat >= CLUJ_COUNTY_SW[0] && lat <= CLUJ_COUNTY_NE[0]
     && lng >= CLUJ_COUNTY_SW[1] && lng <= CLUJ_COUNTY_NE[1]
@@ -482,11 +521,26 @@ const updateLiveLocation = (e: L.LocationEvent) => {
     flyToVisible(e.latlng, DEFAULT_ZOOM)
   }
 
+  const now = Date.now()
+  const sinceLast = lastFixMs ? now - lastFixMs : 0
+  lastFixMs = now
+  // Without a GPS heading, the direction from where the last one was taken, once beyond the fix's accuracy.
+  if (Number.isFinite(e.heading)) {
+    rideHeading = e.heading
+  } else if (!headingFrom) {
+    headingFrom = e.latlng
+  } else if (headingFrom.distanceTo(e.latlng) > e.accuracy) {
+    rideHeading = calculateBearing(headingFrom.lat, headingFrom.lng, e.latlng.lat, e.latlng.lng)
+    headingFrom = e.latlng
+  }
+
   if (userDot.value && accuracyCircle.value) {
-    userDot.value.setLatLng(e.latlng)
+    if (rideAs.value) userDot.value.setIcon(userIcon())
+    moveUserDot(e.latlng, sinceLast)
 
     accuracyCircle.value.setLatLng(e.latlng)
     accuracyCircle.value.setRadius(e.accuracy)
+    accuracyCircle.value.setStyle({opacity: rideAs.value ? 0 : 1, fillOpacity: rideAs.value ? 0 : 0.15})
   } else {
     accuracyCircle.value = L.circle(e.latlng, {
       radius: e.accuracy,
@@ -498,7 +552,7 @@ const updateLiveLocation = (e: L.LocationEvent) => {
     }).addTo(map.value)
 
     userDot.value = L.marker(e.latlng, {
-      icon: blueDotIcon,
+      icon: userIcon(),
       interactive: false,
       zIndexOffset: 10000
     }).addTo(map.value)
@@ -926,6 +980,13 @@ watch([vehiclesToDisplay, () => route.name, selectedVehicleId, arcadeActive, leg
 watch(() => route.name, () => {
   selectedVehicleId.value = null
 })
+
+watch([rideAs, arcadeActive, legacyBlueActive, paperActive], () => {
+  userDot.value?.setIcon(userIcon())
+  accuracyCircle.value?.setStyle({opacity: rideAs.value ? 0 : 1, fillOpacity: rideAs.value ? 0 : 0.15})
+})
+
+watch(preciseLocation, () => beginLocationWatch(preciseLocation.value))
 
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
