@@ -108,7 +108,7 @@ func (n *Network) Plan(q Query) []Option {
 		}
 		options = append(options, n.option(sk, runs))
 	}
-	options = n.worthTaking(options, q.ArriveBy)
+	options = n.worthTaking(options, walk, q.ArriveBy)
 
 	for i := range options {
 		for l := range options[i].Legs {
@@ -339,18 +339,22 @@ func (n *Network) timeBack(sk skeleton, deadline, before int64) (Run, bool) {
 }
 
 // worthTaking keeps the options someone would take. Options riding the same lines are one journey,
-// kept where it costs least. Then an option goes when another takes no more effort, rides and tickets
-// and is not slower by more than runs here stray from their times. A change costs the margin kept for
-// it, and a minute walked is never better than a minute sat. Options needing another ticket come last.
-func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
+// kept where it costs least, and one that only adds rides to another's lines is that journey too unless
+// it gets there sooner. Then an option goes when another takes no more effort, rides and tickets and is
+// not slower by more than runs here stray from their times. A change costs the margin kept for it, a
+// ticket what it is worth, and a minute walked is never better than a minute sat. Walking the whole way
+// counts as an option here too.
+func (n *Network) worthTaking(options []Option, walk Option, arriveBy bool) []Option {
 	slack := int64(n.opt.TransferSlack.Seconds())
-	score := func(o Option) (int64, int64) {
-		r := o.Runs[0]
-		t := r.Arrive
+	ticket := int64(n.opt.TicketCost.Seconds())
+	when := func(o Option) int64 {
 		if arriveBy {
-			t = -r.Depart
+			return -o.Runs[0].Depart
 		}
-		t += int64(o.Rides-1) * slack
+		return o.Runs[0].Arrive
+	}
+	score := func(o Option) (int64, int64) {
+		t := when(o) + int64(max(o.Rides-1, 0))*slack + int64(o.Tickets)*ticket
 		return t, t + n.walkSecs(o.WalkMeters)
 	}
 	var kept []Option
@@ -372,20 +376,22 @@ func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
 			kept[same] = o
 		}
 	}
+	beats := func(b, a Option, tie bool) bool {
+		if b.Rides > 0 && adds(a, b) && when(b) <= when(a)+slack {
+			return true
+		}
+		at, aw := score(a)
+		bt, bw := score(b)
+		noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides && b.Tickets <= a.Tickets
+		better := b.Rides < a.Rides || b.Tickets < a.Tickets || bw < aw || bt < at
+		return noWorse && (better || tie)
+	}
 	var out []Option
 	for i, a := range kept {
-		at, aw := score(a)
-		beaten := false
+		beaten := beats(walk, a, false)
 		for j, b := range kept {
-			if i == j {
-				continue
-			}
-			bt, bw := score(b)
-			noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides && b.Tickets <= a.Tickets
-			better := b.Rides < a.Rides || b.Tickets < a.Tickets || bw < aw || bt < at
-			if noWorse && (better || j < i) {
-				beaten = true
-				break
+			if !beaten && i != j {
+				beaten = beats(b, a, j < i)
 			}
 		}
 		if !beaten {
@@ -393,13 +399,7 @@ func (n *Network) worthTaking(options []Option, arriveBy bool) []Option {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Tickets != out[j].Tickets {
-			return out[i].Tickets < out[j].Tickets
-		}
-		if arriveBy {
-			return out[i].Runs[0].Depart > out[j].Runs[0].Depart
-		}
-		return out[i].Runs[0].Arrive < out[j].Runs[0].Arrive
+		return when(out[i])+int64(out[i].Tickets)*ticket < when(out[j])+int64(out[j].Tickets)*ticket
 	})
 	return out
 }
@@ -410,19 +410,36 @@ func sameLines(a, b Option) bool {
 		return false
 	}
 	for leg := range a.Rides {
-		shared := false
-		for _, ra := range a.Runs {
-			for _, rb := range b.Runs {
-				if ra.Rides[leg].RouteID == rb.Rides[leg].RouteID {
-					shared = true
-				}
-			}
-		}
-		if !shared {
+		if !sharesLine(a, leg, b, leg) {
 			return false
 		}
 	}
 	return true
+}
+
+// adds: a rides b's lines in b's order, with more rides of its own around them.
+func adds(a, b Option) bool {
+	if a.Rides <= b.Rides {
+		return false
+	}
+	j := 0
+	for i := 0; i < a.Rides && j < b.Rides; i++ {
+		if sharesLine(a, i, b, j) {
+			j++
+		}
+	}
+	return j == b.Rides
+}
+
+func sharesLine(a Option, i int, b Option, j int) bool {
+	for _, ra := range a.Runs {
+		for _, rb := range b.Runs {
+			if ra.Rides[i].RouteID == rb.Rides[j].RouteID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (n *Network) unreverse(j journey) journey {

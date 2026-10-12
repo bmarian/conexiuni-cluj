@@ -32,6 +32,8 @@ type Options struct {
 	MaxTransfer time.Duration
 	// Margin kept between alighting and the next boarding.
 	TransferSlack time.Duration
+	// What buying a ticket of its own is worth in time.
+	TicketCost time.Duration
 }
 
 // Streets is everything that depends only on the stops and the walk graph.

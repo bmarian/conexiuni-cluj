@@ -20,7 +20,7 @@ func testNetwork(t *testing.T, slack time.Duration) (*Network, time.Time) {
 	}), day
 }
 
-func testStreets(slack time.Duration) (*Streets, time.Time) {
+func testStreets(slack time.Duration, stops ...Stop) (*Streets, time.Time) {
 	var lat, lon []float64
 	var edges [][2]int32
 	for i := 0; i <= 100; i++ {
@@ -31,8 +31,10 @@ func testStreets(slack time.Duration) (*Streets, time.Time) {
 	}
 	g := buildWalkGraph(lat, lon, edges)
 	g.box = BBox{46.76, 23.49, 46.78, 23.61}
-	stops := []Stop{{1, 46.77, 23.50}, {2, 46.77, 23.53}, {3, 46.77, 23.56}, {4, 46.77, 23.59}}
-	streets := NewStreets(g, stops, Options{WalkSpeed: 80.0 / 60, MaxWalk: 15 * time.Minute, MaxTransfer: 30 * time.Minute, TransferSlack: slack})
+	if len(stops) == 0 {
+		stops = []Stop{{1, 46.77, 23.50}, {2, 46.77, 23.53}, {3, 46.77, 23.56}, {4, 46.77, 23.59}}
+	}
+	streets := NewStreets(g, stops, Options{WalkSpeed: 80.0 / 60, MaxWalk: 15 * time.Minute, MaxTransfer: 30 * time.Minute, TransferSlack: slack, TicketCost: 15 * time.Minute})
 	return streets, time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
 }
 
@@ -46,22 +48,46 @@ func ticketNetwork(ownTicketArrives int) (*Network, time.Time) {
 	}), day
 }
 
-func TestAnotherTicketComesAfterTheCityOnes(t *testing.T) {
-	n, day := ticketNetwork(20)
+func TestATicketSavingMoreThanItIsWorthComesFirst(t *testing.T) {
+	n, day := ticketNetwork(10)
 	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute)}))
-	if got := keys(its); len(got) != 2 || got[0] != "city " || got[1] != "metro " {
+	if got := keys(its); len(got) != 2 || got[0] != "metro " || got[1] != "city " {
 		t.Fatalf("got %q", got)
 	}
-	if its[0].Tickets != 0 || its[1].Tickets != 1 {
+	if its[0].Tickets != 1 || its[1].Tickets != 0 {
 		t.Fatalf("tickets %d, %d", its[0].Tickets, its[1].Tickets)
 	}
 }
 
-func TestAnotherTicketThatIsNoFasterGoes(t *testing.T) {
-	n, day := ticketNetwork(40)
+func TestATicketSavingLessThanItIsWorthGoes(t *testing.T) {
+	n, day := ticketNetwork(20)
 	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute)}))
 	if len(got) != 1 || got[0] != "city " {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestAddingARideToTheSameLinesIsTheSameOption(t *testing.T) {
+	// The second stop is a short walk away, or one stop on the feeder.
+	streets, day := testStreets(time.Minute, Stop{1, 46.77, 23.500}, Stop{2, 46.77, 23.506}, Stop{3, 46.77, 23.580})
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "feeder", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 2)}}},
+		{RouteID: 2, Key: "main", Stops: []int{2, 3}, Trips: [][]int64{{at(8, 6), at(8, 16)}}},
+	})
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5798}, Time: day.Add(7*time.Hour + 55*time.Minute)}))
+	if len(got) != 1 || got[0] != "main " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestWalkingBeatsALateBus(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	// Walking to stop 2 takes about half an hour; the bus there is an hour and a half away.
+	n := streets.Network([]PatternInput{{RouteID: 1, Key: "late", Stops: []int{1, 2}, Trips: [][]int64{{at(9, 30), at(9, 40)}}}})
+	if its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5298}, Time: day.Add(8 * time.Hour)})); len(its) != 0 {
+		t.Fatalf("got %q", keys(its))
 	}
 }
 

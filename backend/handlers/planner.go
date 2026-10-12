@@ -28,6 +28,7 @@ const (
 	// Product choices, what the planner has always allowed: walks to and from stops, and between them.
 	plannerMaxWalk     = 15 * time.Minute
 	plannerMaxTransfer = 30 * time.Minute
+	plannerTicketCost  = 15 * time.Minute
 )
 
 func plannerOSMPath() string { return filepath.Join("services", "osm", "romania-latest.osm.pbf") }
@@ -118,6 +119,7 @@ func buildPlannerStreets(stops []models.Stop) (*router.Streets, error) {
 		MaxWalk:       plannerMaxWalk,
 		MaxTransfer:   plannerMaxTransfer,
 		TransferSlack: time.Duration(learnLiveRules().graceSec * float64(time.Second)),
+		TicketCost:    plannerTicketCost,
 	})
 }
 
