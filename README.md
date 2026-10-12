@@ -109,4 +109,3 @@ The backend listens on `:6698` and the dev server proxies `/api` to it. Everythi
 | [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
 | [CARTO](https://carto.com/)                                  | Map tiles                                                                                  |
 | [Nominatim](https://nominatim.org/)                          | Address search                                                                             |
-| [OpenTripPlanner](https://www.opentripplanner.org/)          | Route planning                                                                             |
