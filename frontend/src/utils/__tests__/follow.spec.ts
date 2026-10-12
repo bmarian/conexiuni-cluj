@@ -79,19 +79,19 @@ describe('a followed bus', () => {
 
 describe('a reminder’s own bus', () => {
   it('only takes the live bus when it is ours', () => {
-    expect(targetMinutes([4, 20], 5, 20)).toBe(20)
-    expect(targetMinutes([4, 20], 7, 4)).toBe(7)
-    expect(targetMinutes([-2], null, -2)).toBe(0)
-    expect(targetMinutes([], null, -5)).toBeNull()
+    expect(targetMinutes([4, 20], 5, 20, 3)).toBe(20)
+    expect(targetMinutes([4, 20], 7, 4, 3)).toBe(7)
+    expect(targetMinutes([-2], null, -2, 3)).toBe(0)
+    expect(targetMinutes([], null, -5, 3)).toBeNull()
   })
 
   it('reads minutes from the target time in Cluj', () => {
     const now = Date.parse('2026-10-09T22:40:00+03:00')
     const target = Date.parse('2026-10-09T22:50:00+03:00')
     expect(clujMinutes(target)).toBe(22 * 60 + 50)
-    expect(targetReading([10, 40], null, target, now)).toEqual({minutes: 10, live: false, later: [40]})
+    expect(targetReading([10, 40], null, target, now, 3)).toEqual({minutes: 10, live: false, later: [40]})
     const late = Date.parse('2026-10-10T00:05:00+03:00')
-    expect(targetReading([25, 85], null, late, now)!.minutes).toBe(85)
+    expect(targetReading([25, 85], null, late, now, 3)!.minutes).toBe(85)
     expect(clockAt(now, 25)).toBe('23:05')
   })
 })

@@ -1,17 +1,12 @@
 package handlers
 
 import (
-	"bufio"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
-	"encoding/json"
-	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -62,61 +57,6 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	api.Get("/routes", func(c fiber.Ctx) error {
-		filter := RouteFilter{}
-		if s := c.Query("route_id"); s != "" {
-			id, err := strconv.Atoi(s)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
-			}
-			filter.RouteID = &id
-		}
-		if s := c.Query("route_short_name"); s != "" {
-			filter.RouteShortName = &s
-		}
-		data, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		if filter.RouteID == nil && filter.RouteShortName == nil && Availability.IsReady() {
-			filtered := make([]models.Route, 0, len(data))
-			for _, r := range data {
-				if Availability.RouteHasTimetable(r.RouteShortName) {
-					filtered = append(filtered, r)
-				}
-			}
-			data = filtered
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/stops", func(c fiber.Ctx) error {
-		filter := StopFilter{}
-		if s := c.Query("stop_id"); s != "" {
-			id, err := strconv.Atoi(s)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid stop_id"})
-			}
-			filter.StopID = &id
-		}
-		data, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		if filter.StopID == nil && Availability.IsReady() {
-			filtered := make([]models.Stop, 0, len(data))
-			for _, s := range data {
-				if Availability.StopHasBuses(s.StopID) {
-					filtered = append(filtered, s)
-				}
-			}
-			data = filtered
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
 	api.Get("/shapes", func(c fiber.Ctx) error {
 		filter := ShapeFilter{}
 		if s := c.Query("shape_id"); s != "" {
@@ -140,183 +80,10 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		return c.JSON(data)
 	})
 
-	api.Get("/vehicles", func(c fiber.Ctx) error {
-		filter := VehicleFilter{}
-		if s := c.Query("route_id"); s != "" {
-			id, err := strconv.Atoi(s)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
-			}
-			filter.RouteID = &id
-		}
-		if s := c.Query("trip_id"); s != "" {
-			filter.TripID = &s
-		}
-		if s := c.Query("trip_ids"); s != "" {
-			for _, id := range strings.Split(s, ",") {
-				if id = strings.TrimSpace(id); id != "" {
-					filter.TripIDs = append(filter.TripIDs, id)
-				}
-			}
-		}
-		data, err := GetVehicles(tranzyClient, VehicleHub.CurrentInterval(), filter)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", "no-store")
-		return c.JSON(data)
-	})
-
-	api.Get("/vehicles/stream", func(c fiber.Ctx) error {
-		if c.Query("v") == "2" {
-			tripIDs := streamTripIDs(c)
-			if len(tripIDs) == 0 {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "trip_ids or route_ids required"})
-			}
-			return serveVehicleStreamV2(c, tripIDs)
-		}
-		var tripIDs []string
-		if s := c.Query("trip_ids"); s != "" {
-			for _, id := range strings.Split(s, ",") {
-				if id = strings.TrimSpace(id); id != "" {
-					tripIDs = append(tripIDs, id)
-				}
-			}
-		}
-		if len(tripIDs) == 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "trip_ids required"})
-		}
-		c.Set("Content-Type", "text/event-stream")
-		c.Set("Cache-Control", "no-cache")
-		c.Set("Connection", "keep-alive")
-		c.Set("X-Accel-Buffering", "no")
-		sub, id := VehicleHub.Subscribe(tripIDs)
-		return c.SendStreamWriter(func(w *bufio.Writer) {
-			defer VehicleHub.Unsubscribe(id)
-			keep := time.NewTicker(25 * time.Second)
-			defer keep.Stop()
-			for {
-				select {
-				case batch, ok := <-sub.Ch():
-					if !ok {
-						return
-					}
-					data, err := json.Marshal(batch)
-					if err != nil {
-						continue
-					}
-					if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-						return
-					}
-					if err := w.Flush(); err != nil {
-						return
-					}
-				case <-keep.C:
-					if _, err := w.WriteString(": ping\n\n"); err != nil {
-						return
-					}
-					if err := w.Flush(); err != nil {
-						return
-					}
-				}
-			}
-		})
-	})
-
-	api.Get("/trips", func(c fiber.Ctx) error {
-		filter := TripFilter{}
-		if s := c.Query("route_id"); s != "" {
-			id, err := strconv.Atoi(s)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route_id"})
-			}
-			filter.RouteID = &id
-		}
-		if s := c.Query("trip_id"); s != "" {
-			filter.TripID = &s
-		}
-		data, err := GetTrips(tranzyClient, cacheTimes.TranzyCacheShelfLife, filter)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/stop_times", func(c fiber.Ctx) error {
-		rsn := c.Query("route_short_name")
-		if rsn == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "route_short_name is required"})
-		}
-		refTime := time.Now().In(tranzyClient.Location())
-		if h := c.Query("ref_hour"); h != "" {
-			if hour, err := strconv.Atoi(h); err == nil && hour >= 0 && hour <= 23 {
-				refTime = time.Date(refTime.Year(), refTime.Month(), refTime.Day(), hour, 0, 0, 0, refTime.Location())
-			}
-		}
-		data, err := GetStopTimesAt(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}, refTime)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/stop_times/hourly", func(c fiber.Ctx) error {
-		rsn := c.Query("route_short_name")
-		if rsn == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "route_short_name is required"})
-		}
-		day := time.Now().In(tranzyClient.Location())
-		if dt := c.Query("day_type"); dt != "" {
-			day = dayOfType(day, dt)
-		}
-		data, err := GetHourlyStopOffsets(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn}, day)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/stop_info", func(c fiber.Ctx) error {
-		s := c.Query("stop_id")
-		if s == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "stop_id is required"})
-		}
-		id, err := strconv.Atoi(s)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid stop_id"})
-		}
-		data, err := GetStopInfo(tranzyClient, ctpCjClient, cacheTimes, StopFilter{StopID: &id})
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
-
-	api.Get("/timetable", func(c fiber.Ctx) error {
-		routeShortName := c.Query("route_short_name")
-		data, err := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, routeShortName)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
-	})
+	api.Get("/live", ServeLive)
 
 	api.Get("/plan_routes", func(c fiber.Ctx) error {
 		return handlePlanRoutes(c, tranzyClient, ctpCjClient, cacheTimes)
-	})
-
-	api.Get("/playdate/export", func(c fiber.Ctx) error {
-		data, err := GetPlaydateExport(tranzyClient, ctpCjClient, cacheTimes)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		c.Set("Cache-Control", revalidateCacheControl)
-		return c.JSON(data)
 	})
 
 	api.Get("/network", NetworkHandler(tranzyClient, ctpCjClient, cacheTimes))

@@ -22,24 +22,17 @@ import {useJourneyStore} from "@/stores/journey.ts"
 import type {JourneyLeg, JourneyStop} from "@/utils/journey.ts"
 import {haversineMeters} from "@/utils/geo.ts"
 import {apiRequest} from "@/utils/api.ts"
-import type {TimeEntry, ShapeInfo, Shape, Vehicle, Stop} from "@/types/tranzy.ts"
+import type {TimeEntry, ShapeInfo, Shape, Stop} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
 import ViewErrorState from "@/components/ViewErrorState.vue"
 import LoadingIndicator from "@/components/LoadingIndicator.vue"
 import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from "@/composables/useKeyboardNav.ts"
 
-import {useVehicleStream} from "@/composables/useVehicleStream.ts"
+import {entriesAt, liveRowKey, useLive} from "@/composables/useLive.ts"
 import type {DisplayShape} from "@/stores/map.ts"
-import {
-  buildShapeIndex,
-  getIndexedVehicles,
-  findClosestShapeIdx,
-  buildStopShapeIdxByStopId,
-  etaForStop,
-  type IndexedVehicle,
-  type ShapeIndex
-} from "@/composables/useVehicleTracking.ts"
+import {findClosestShapeIdx} from "@/utils/geo.ts"
+import type {DisplayVehicle} from "@/utils/mapIcons.ts"
 import {
   formatMinutesFromNow,
   getMinutesFromDate,
@@ -56,7 +49,7 @@ const MAX_MINUTES = 60
 const WALK_SPEED = 80 // m/min
 // How many stops before the boarding stop a live vehicle becomes visible on the map,
 // so riders can see it approaching instead of only once it's on the drawn segment.
-const VEHICLE_LOOKAHEAD_STOPS = 3
+
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -380,7 +373,7 @@ function getTripDeparturesAtStop(
 
   const isOutgoing = tripUsesDepartureIn(shape, tripId)
   const stopTimes = getShapeStopTimes(shape)
-  const offsetMin = getTimeOffsetToStop(stopTimes, tripId, boardingStopId)
+  const offsetMin = getTimeOffsetToStop(stopTimes, tripId, boardingStopId) / 60
   const daySchedule = getTimetableForDay(timetable, now)
   if (!daySchedule?.entries) return []
 
@@ -800,7 +793,11 @@ const streamTripIds = computed(() => {
   }
   return [...ids]
 })
-const {vehiclesByTrip} = useVehicleStream(streamTripIds)
+const boardingStopIds = computed(() => {
+  if (!isActive.value || timeMode.value !== 'now') return []
+  return [...new Set(routesWithTimes.value.map((p) => p.legs[0]?.startStopId).filter((id): id is number => id !== undefined))]
+})
+const {rows: liveRows, vehiclesByTrip, asOfMs: liveAsOfMs} = useLive(boardingStopIds, streamTripIds)
 
 // Rebuild list structure only when API data changes (not on every clock tick)
 watch(planData, (data) => {
@@ -855,13 +852,13 @@ watch(userTime, (uTime) => {
   applyPlanTimingFromSchedule(uTime || new Date())
 })
 
-const shapeIndicesByTripId = ref<Map<string, ShapeIndex>>(new Map())
-const currentVehicles = ref<IndexedVehicle[]>([])
+const shapePointsByTripId = ref<Map<string, Shape[]>>(new Map())
+const currentVehicles = ref<DisplayVehicle[]>([])
 
 // === SINGLE shape geometry fetch: load ALL trip shapes once when route options are known ===
 watch([routesWithTimes, mapActivationKey], async ([plans]) => {
   if (!plans.length) {
-    shapeIndicesByTripId.value = new Map()
+    shapePointsByTripId.value = new Map()
     mapStore.setLoadedShapes([])
     return
   }
@@ -893,29 +890,27 @@ watch([routesWithTimes, mapActivationKey], async ([plans]) => {
   }
 
   if (!toRequest.length) {
-    shapeIndicesByTripId.value = new Map()
+    shapePointsByTripId.value = new Map()
     mapStore.setLoadedShapes([])
     return
   }
 
   try {
     const shapeData = await mapStore.requestShapes(toRequest)
-    const newIndices = new Map<string, ShapeIndex>()
+    const newPoints = new Map<string, Shape[]>()
     for (const [info, pts] of shapeData) {
-      if (pts.length) {
-        newIndices.set(info.trip_id, buildShapeIndex(pts))
-      }
+      if (pts.length) newPoints.set(info.trip_id, pts)
     }
-    shapeIndicesByTripId.value = newIndices
+    shapePointsByTripId.value = newPoints
   } catch (e) {
     console.error('Failed to load shape geometry:', e)
   }
 }, {immediate: true})
 
 // === Display selected plan's shapes on map (uses cached geometry, NO extra request) ===
-watch([selectedPlanSignature, shapeIndicesByTripId, mapActivationKey], ([key, indices]) => {
+watch([selectedPlanSignature, shapePointsByTripId, mapActivationKey], ([key, points]) => {
   const plan = selectedPlan.value
-  if (!key || !plan || !indices.size) {
+  if (!key || !plan || !points.size) {
     mapStore.setLoadedShapes([])
     return
   }
@@ -928,10 +923,9 @@ watch([selectedPlanSignature, shapeIndicesByTripId, mapActivationKey], ([key, in
     if (!tid || routeId === undefined) continue
 
     const s = shapes.value[String(routeId)]
-    const shapeIndex = indices.get(tid)
-    if (!s || !shapeIndex) continue
+    const pts = points.get(tid)
+    if (!s || !pts) continue
 
-    const pts = shapeIndex.shape
     const startStop = getStop(leg.startStopId)
     const destStop = getStop(leg.destStopId)
     if (!startStop || !destStop) continue
@@ -963,194 +957,72 @@ watch([selectedPlanSignature, mapActivationKey], ([key]) => {
   mapStore.setWalkingPolylines(plan.walkSegments.map(s => decodePolyline(s.geometry)))
 }, {immediate: true})
 
-// --- Vehicle tracking: compute live ETAs for ALL plans (like StopView) ---
-// Use a generation counter to discard stale async results
-let vehicleTrackingGen = 0
-
-watch([vehiclesByTrip, shapeIndicesByTripId], async ([byTrip, indices]) => {
+// --- Live ETAs for every plan's boarding stop, from the server's prediction rows ---
+watch([liveRows, liveAsOfMs], ([rowsByKey, asOf]) => {
   if (!isActive.value || timeMode.value !== 'now') return
-  if (!byTrip.size && !indices.size) {
-    currentVehicles.value = []
-    mapStore.setVehiclesToDisplay([])
+  if (asOf === null) {
+    liveEtaByKey.value = new Map()
     selectedRouteIsLive.value = false
     selectedRouteLiveEtaMin.value = null
-    liveEtaByKey.value = new Map()
     return
   }
-
-  const gen = ++vehicleTrackingGen
-  const newLiveEtas = new Map<string, StoredLiveEta[]>()
   const now = userTime.value || new Date()
-
-  // Compute live ETA for every plan's first leg boarding stop, route by route.
+  const newLiveEtas = new Map<string, StoredLiveEta[]>()
   for (const plan of routesWithTimes.value) {
     const leg = plan.legs[0]
     if (!leg) continue
-
     const liveEntries: StoredLiveEta[] = []
-
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
       const routeId = leg.routeIds[i]
       if (!tid || routeId === undefined) continue
-
-      const shape = shapes.value[String(routeId)]
-      const shapeIndex = indices.get(tid)
-      if (!shapeIndex || !shape) continue
-
-      const vehicles = byTrip.get(tid) ?? []
-      if (!vehicles.length) continue
-
-      try {
-        const indexed = await getIndexedVehicles(
-          tid,
-          shape.route_short_name,
-          shape.route_color,
-          shapeIndex,
-          userTime.value,
-          vehicles
-        )
-        if (gen !== vehicleTrackingGen || !isActive.value) return
-
-        if (!indexed.length) continue
-
-        const stopTimes = (shape.stop_times ?? shape.stop_time ?? []).filter(st => st.trip_id === tid)
-        const stopShapeIdx = buildStopShapeIdxByStopId(stopTimes, shapeIndex.shape)
-        const boardingIdx = stopShapeIdx.get(leg.startStopId) ?? -1
-        if (boardingIdx < 0) continue
-
-        const eta = etaForStop(boardingIdx, indexed, shapeIndex, {
-          tripStops: stopTimes,
-          targetStopId: leg.startStopId,
-          referenceTime: userTime.value,
-        })
-        if (eta && eta.etaMinutes <= MAX_MINUTES) {
-          const entry: PlannedTimeEntry = {
-            minutes: eta.etaMinutes,
-            is_live: true,
-            routeId,
-            tripId: tid,
-          }
-          if (hasScheduledConnection(plan, entry, shapes.value, now)) {
-            liveEntries.push({...entry, ts: Date.now()})
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to compute live ETA for trip', tid, e)
+      const row = rowsByKey.get(liveRowKey(tid, leg.startStopId))
+      if (!row) continue
+      for (const e of entriesAt(row, now.getTime())) {
+        if (!e.live || e.minutes > MAX_MINUTES) continue
+        const entry: PlannedTimeEntry = {minutes: e.minutes, is_live: true, routeId, tripId: tid}
+        if (hasScheduledConnection(plan, entry, shapes.value, now)) liveEntries.push({...entry, ts: Date.now()})
       }
     }
-
-    if (liveEntries.length) {
-      newLiveEtas.set(plan.key, liveEntries.sort((a, b) => a.minutes - b.minutes).slice(0, 3))
-    }
+    if (liveEntries.length) newLiveEtas.set(plan.key, liveEntries.sort((a, b) => a.minutes - b.minutes).slice(0, 3))
   }
-
-  // Discard if a newer computation has started
-  if (gen !== vehicleTrackingGen) return
-
   liveEtaByKey.value = newLiveEtas
   applyPlanTimingFromSchedule(now)
-
-  // Compute vehicles for selected plan's map display
-  updateMapVehicles(byTrip, indices)
 }, {deep: true})
 
-// Immediately update map vehicles when selected plan changes
 watch(selectedPlanSignature, () => {
-  // Clear old vehicles immediately to avoid stale markers
   currentVehicles.value = []
   mapStore.setVehiclesToDisplay([])
   updateSelectedLiveState()
-  // Then recompute for new plan
-  updateMapVehicles(vehiclesByTrip.value, shapeIndicesByTripId.value)
+  updateMapVehicles()
 })
+watch(vehiclesByTrip, () => updateMapVehicles(), {deep: true})
 
-// Shape index of the stop `lookahead` stops before the boarding stop along the trip,
-// used as the early-visibility bound for live vehicles. Falls back to the boarding
-// stop's own index when it's the first stop or can't be resolved.
-function lookaheadShapeIdx(
-  shape: ShapeInfo,
-  tripId: string,
-  boardingStopId: number,
-  boardingIdx: number,
-  pts: Shape[],
-  lookahead = VEHICLE_LOOKAHEAD_STOPS,
-): number {
-  const tripStops = getShapeStopTimes(shape)
-    .filter(st => st.trip_id === tripId)
-    .sort((a, b) => a.stop_sequence - b.stop_sequence)
-  const boardingPos = tripStops.findIndex(st => st.stop_id === boardingStopId)
-  if (boardingPos <= 0) return boardingIdx
-  const target = tripStops[Math.max(0, boardingPos - lookahead)]
-  if (!target?.stop_lat || !target?.stop_lon) return boardingIdx
-  return findClosestShapeIdx(target.stop_lat, target.stop_lon, pts)
-}
-
-async function updateMapVehicles(byTrip: Map<string, Vehicle[]>, indices: Map<string, ShapeIndex>) {
+function updateMapVehicles() {
   const plan = selectedPlan.value
-  if (!plan || !indices.size) {
+  if (!plan || !isActive.value) {
     currentVehicles.value = []
     mapStore.setVehiclesToDisplay([])
     return
   }
-
-  const allIndexedVehicles: IndexedVehicle[] = []
+  const seen = new Set<number>()
+  const vehicles: DisplayVehicle[] = []
   for (const leg of plan.legs) {
     for (let i = 0; i < leg.tripIds.length; i++) {
       const tid = leg.tripIds[i]
       const routeId = leg.routeIds[i]
       if (!tid || routeId === undefined) continue
-
       const shape = shapes.value[String(routeId)]
-      const shapeIndex = indices.get(tid)
-      if (!shapeIndex || !shape) continue
-
-      const v = byTrip.get(tid) ?? []
-      if (!v.length) continue
-
-      try {
-        const indexed = await getIndexedVehicles(
-          tid,
-          shape.route_short_name,
-          shape.route_color,
-          shapeIndex,
-          userTime.value,
-          v
-        )
-        if (!isActive.value) return
-
-        const pts = shapeIndex.shape
-        const startStop = getStop(leg.startStopId)
-        const destStop = getStop(leg.destStopId)
-        if (!startStop || !destStop) continue
-
-        const startIdx = findClosestShapeIdx(startStop.stop_lat, startStop.stop_lon, pts)
-        const destIdx = findClosestShapeIdx(destStop.stop_lat, destStop.stop_lon, pts)
-        const [rStart, rEnd] = startIdx < destIdx ? [startIdx, destIdx] : [destIdx, startIdx]
-
-        // Reveal a vehicle a few stops before the boarding stop (so it's visible while
-        // approaching), and keep it until just past the leg's final stop.
-        const lookaheadIdx = lookaheadShapeIdx(shape, tid, leg.startStopId, startIdx, pts)
-        const lowerIdx = Math.max(0, Math.min(rStart, lookaheadIdx))
-
-        const filtered = indexed.filter(iv => iv.shapeIdx >= lowerIdx && iv.shapeIdx <= rEnd + 1)
-        allIndexedVehicles.push(...filtered)
-      } catch (e) {
-        console.warn('Failed to index vehicles for trip', tid, e)
+      if (!shape) continue
+      for (const v of vehiclesByTrip.value.get(tid) ?? []) {
+        if (seen.has(v.id)) continue
+        seen.add(v.id)
+        vehicles.push({...v, route_short_name: shape.route_short_name, route_color: shape.route_color})
       }
     }
   }
-
-  const seenIds = new Set<number>()
-  const deduped: IndexedVehicle[] = []
-  for (const v of allIndexedVehicles) {
-    if (!seenIds.has(v.id)) {
-      seenIds.add(v.id)
-      deduped.push(v)
-    }
-  }
-  currentVehicles.value = deduped
-  mapStore.setVehiclesToDisplay(deduped)
+  currentVehicles.value = vehicles
+  mapStore.setVehiclesToDisplay(vehicles)
 }
 
 function computeTotalMinutes(plan: RichPlan): number {

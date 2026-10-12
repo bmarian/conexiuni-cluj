@@ -16,22 +16,4 @@ type StopTime struct {
 	RouteShortName    string  `json:"route_short_name" db:"route_short_name"`
 	StopLat           float64 `json:"stop_lat" db:"stop_lat"`
 	StopLon           float64 `json:"stop_lon" db:"stop_lon"`
-	// Set on a trip's first stop only: the bus that ends the other direction here
-	// continues as this trip after TurnaroundSec.
-	ThroughRunning   bool    `json:"through_running,omitempty"`
-	TurnaroundSec    float64 `json:"turnaround_sec,omitempty"`
-	TurnaroundLeaves bool    `json:"turnaround_leaves,omitempty"`
-}
-
-// Leaves: buses here go as soon as they can instead of waiting for their slot.
-type Turnaround struct {
-	Through bool    `json:"through"`
-	Sec     float64 `json:"sec"`
-	Leaves  bool    `json:"leaves,omitempty"`
-}
-
-// HourlyOffsetSeconds[hour][i] is the cumulative offset of StopIDs[i] for departures in that hour.
-type HourlyStopOffsets struct {
-	StopIDs             []int         `json:"stop_ids"`
-	HourlyOffsetSeconds map[int][]int `json:"hourly_offset_seconds"`
 }

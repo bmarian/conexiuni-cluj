@@ -75,7 +75,7 @@ func BuildNetworkBundle(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, 
 	}
 	sort.Slice(stops, func(i, j int) bool { return stops[i].StopID < stops[j].StopID })
 
-	bundle := &models.NetworkBundle{Routes: out, Stops: stops}
+	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: learnLiveRules().graceSec / 60}}
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)
 	bundle.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
 	return bundle, nil
@@ -123,11 +123,6 @@ func buildNetworkRoute(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 			hours[hour] = offsets
 		}
 		out.Offsets[dayType] = hours
-	}
-	if routeID != 0 {
-		if t := routeTurnarounds(routeID, base); len(t) > 0 {
-			out.Turnaround = t
-		}
 	}
 	return out
 }

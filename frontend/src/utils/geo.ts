@@ -30,6 +30,19 @@ export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: 
   return earthRadiusMeters * c
 }
 
+export const findClosestShapeIdx = (lat: number, lon: number, shape: {shape_pt_lat: number; shape_pt_lon: number}[]): number => {
+  let idx = -1
+  let best = Infinity
+  for (let i = 0; i < shape.length; i++) {
+    const d = haversineMeters(shape[i]!.shape_pt_lat, shape[i]!.shape_pt_lon, lat, lon)
+    if (d < best) {
+      best = d
+      idx = i
+    }
+  }
+  return idx
+}
+
 export const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const toDeg = (rad: number) => (rad * 180) / Math.PI;

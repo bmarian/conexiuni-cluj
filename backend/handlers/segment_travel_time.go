@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"conexiuni-cluj/predictions"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"database/sql"
@@ -25,7 +26,7 @@ const (
 	minSegmentDurationSec      = 8
 	maxSegmentDurationSec      = 45 * 60
 	minObservedSegmentKmh      = 1.5
-	maxObservedSegmentKmh      = 70.0
+	maxObservedSegmentKmh      = predictions.MaxBusSpeedKmh
 	segmentStopProximityMeters = 80.0
 )
 
@@ -880,36 +881,40 @@ type segmentProfileEstimate struct {
 
 type segmentProfileRow struct {
 	pair        stopPair
+	dayType     string
 	bucket      int
 	sampleCount int
 	medianSec   float64
 }
 
 func loadSegmentProfileDurations(routeID, directionID int, dayType string, bucket int) (map[stopPair]segmentProfileEstimate, error) {
-	rows, err := loadSegmentProfileRows(routeID, directionID, dayType)
+	rows, err := loadSegmentProfileRows(routeID, directionID)
 	if err != nil {
 		return nil, err
 	}
-	return selectSegmentProfiles(rows, bucket), nil
+	return selectSegmentProfiles(rows, dayType, bucket), nil
 }
 
-func loadSegmentProfileRows(routeID, directionID int, dayType string) ([]segmentProfileRow, error) {
+// Every kind of day: a segment nobody has measured on a Sunday yet is still better
+// known from the weekdays than from Tranzy's planned offsets.
+func loadSegmentProfileRows(routeID, directionID int) ([]segmentProfileRow, error) {
 	return queryRows(`
-		SELECT from_stop_id, to_stop_id, bucket_start_min, sample_count, median_sec
+		SELECT from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec
 		FROM segment_travel_time_profiles
 		WHERE route_id = ?
 		  AND direction_id = ?
-		  AND day_type = ?
 		  AND sample_count >= ?`,
-		[]any{routeID, directionID, dayType, minSegmentProfileSamples},
+		[]any{routeID, directionID, minSegmentProfileSamples},
 		func(rows *sql.Rows) (segmentProfileRow, error) {
 			var r segmentProfileRow
-			err := rows.Scan(&r.pair.FromStopID, &r.pair.ToStopID, &r.bucket, &r.sampleCount, &r.medianSec)
+			err := rows.Scan(&r.pair.FromStopID, &r.pair.ToStopID, &r.dayType, &r.bucket, &r.sampleCount, &r.medianSec)
 			return r, err
 		})
 }
 
-func selectSegmentProfiles(rows []segmentProfileRow, bucket int) map[stopPair]segmentProfileEstimate {
+// The closest profile per segment: this kind of day first, by bucket distance, then the
+// other kinds of day the same way.
+func selectSegmentProfiles(rows []segmentProfileRow, dayType string, bucket int) map[stopPair]segmentProfileEstimate {
 	type selectedProfile struct {
 		duration    float64
 		priority    int
@@ -920,6 +925,9 @@ func selectSegmentProfiles(rows []segmentProfileRow, bucket int) map[stopPair]se
 		priority, ok := segmentProfilePriority(r.bucket, bucket)
 		if !ok {
 			continue
+		}
+		if r.dayType != dayType {
+			priority += segmentProfileOtherDayPenalty
 		}
 		if current, exists := selected[r.pair]; !exists || priority < current.priority {
 			selected[r.pair] = selectedProfile{duration: r.medianSec, priority: priority, sampleCount: r.sampleCount}
@@ -937,9 +945,10 @@ func selectSegmentProfiles(rows []segmentProfileRow, bucket int) map[stopPair]se
 }
 
 const (
-	segmentProfileExactPriority  = 0
-	segmentProfileNeighborBase   = 100
-	segmentProfileAllDayPriority = 10_000
+	segmentProfileExactPriority   = 0
+	segmentProfileNeighborBase    = 100
+	segmentProfileAllDayPriority  = 10_000
+	segmentProfileOtherDayPenalty = 100_000
 )
 
 func segmentProfilePriority(profileBucket, wantedBucket int) (int, bool) {
@@ -961,11 +970,15 @@ func segmentProfilePriority(profileBucket, wantedBucket int) (int, bool) {
 
 func segmentProfileConfidence(priority, sampleCount int) float64 {
 	bucketFactor := 1.0
+	if priority >= segmentProfileOtherDayPenalty {
+		priority -= segmentProfileOtherDayPenalty
+		bucketFactor = 0.5
+	}
 	switch {
 	case priority >= segmentProfileAllDayPriority:
-		bucketFactor = 0.4
+		bucketFactor *= 0.4
 	case priority >= segmentProfileNeighborBase:
-		bucketFactor = 1.0 - float64(priority-segmentProfileNeighborBase)/float64(2*segmentProfileNeighborMins)
+		bucketFactor *= 1.0 - float64(priority-segmentProfileNeighborBase)/float64(2*segmentProfileNeighborMins)
 	}
 	countFactor := float64(sampleCount) / float64(sampleCount+10)
 	return bucketFactor * countFactor

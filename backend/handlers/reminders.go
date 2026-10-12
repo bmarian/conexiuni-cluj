@@ -295,12 +295,16 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 			}
 			continue
 		}
-		if bus.Sub(now) > reminderLead || r.lastFiredAt >= bus.UnixMilli() {
+		slot := bus
+		if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
+			bus = at
+		}
+		if bus.Sub(now) > reminderLead || r.lastFiredAt >= slot.UnixMilli() {
 			continue
 		}
 		// Marked before sending, so a failed send can't repeat.
 		if _, err := database.DB.Exec(`UPDATE push_reminders SET last_fired_at = ? WHERE endpoint = ? AND id = ?`,
-			bus.UnixMilli(), r.sub.endpoint, r.ID); err != nil {
+			slot.UnixMilli(), r.sub.endpoint, r.ID); err != nil {
 			log.Printf("push: could not mark a reminder as sent: %v", err)
 			continue
 		}

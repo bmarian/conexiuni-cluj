@@ -15,18 +15,6 @@ export type StopTime = {
   route_short_name: string
   stop_lat: number
   stop_lon: number
-  // On a trip's first stop only: the bus ending the other direction here continues as
-  // this trip after turnaround_sec.
-  through_running?: boolean
-  turnaround_sec?: number
-  turnaround_leaves?: boolean
-}
-
-export type Turnaround = {
-  through: boolean
-  sec: number
-  // Buses here leave as soon as they can rather than waiting for their slot.
-  leaves?: boolean
 }
 
 export type HourlyStopOffsets = {
@@ -77,6 +65,8 @@ export type ShapeInfo = {
   stop_times?: StopTime[]
   stop_time?: StopTime[]
   timetable: Timetable
+  // A timetable run this many minutes late is still coming (learned on the server).
+  late_grace_min?: number
 }
 
 export type StopInfo = {
@@ -90,6 +80,7 @@ export type StopInfo = {
   outgoing_trip_ids: string[]
   incoming_trip_ids: string[]
   shapes_info: ShapeInfo[]
+  late_grace_min?: number
 }
 
 export type Stop = {
@@ -110,25 +101,38 @@ export type Shape = {
   shape_dist_traveled: number
 }
 
-export type Vehicle = {
+// A vehicle as the live feed reports it: snapped and headed by the server.
+export type LiveVehicle = {
   id: number
-  label: string
+  trip_id: string
+  route_id: number
   latitude: number
   longitude: number
+  heading: number
+  // Reported km/h, before any smoothing.
+  speed?: number
   timestamp: string
-  vehicle_type: number
-  bike_accessible: string
-  wheelchair_accessible: string
-  speed: number
-  route_id: number
+  label?: string
+  vehicle_type?: number
+  bike_accessible?: string
+  wheelchair_accessible?: string
+}
+
+export type Vehicle = LiveVehicle
+
+export type LiveEntry = {
+  // Predicted arrival, unix seconds.
+  at: number
+  live: boolean
+  soon?: boolean
+  vehicle_id?: number
+}
+
+// One stop of one trip as the server predicts it; `minutes` count from the row's as_of.
+export type LiveRow = {
   trip_id: string
-  // Tranzy's reading before the backend's smoothing and minimum-speed floor.
-  raw_speed?: number
-  // Vehicle timestamp at which it was last seen away from where it stands now.
-  stationary_since?: string
-  // The trip before this one and the vehicle timestamp of the first fix on this one.
-  prev_trip_id?: string
-  trip_changed_at?: string
+  stop_id: number
+  entries: LiveEntry[]
 }
 
 export type TimeEntry = {

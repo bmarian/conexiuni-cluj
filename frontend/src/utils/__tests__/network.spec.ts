@@ -8,12 +8,14 @@ const index = new NetworkIndex(fixture.bundle as unknown as NetworkBundle)
 function comparable(info: StopInfo): StopInfo {
   const lines = new Set(info.shapes_info.map((s) => s.route_id))
   const onLines = (ids: string[]) => ids.filter((id) => lines.has(Number(id.split('_')[0]))).sort()
+  // The learned grace is the bundle's own addition; the old stop_info answer had none.
+  const {late_grace_min: _, ...rest} = info
   return {
-    ...info,
+    ...rest,
     outgoing_trip_ids: onLines(info.outgoing_trip_ids ?? []),
     incoming_trip_ids: onLines(info.incoming_trip_ids ?? []),
-    shapes_info: info.shapes_info.map((s) => ({...s, stop_time: s.stop_time?.map((st) => Object.fromEntries(Object.entries(st).filter(([key]) => key !== 'offset_confidence')) as typeof st)})),
-  }
+    shapes_info: info.shapes_info.map(({late_grace_min: _grace, ...s}) => ({...s, stop_time: s.stop_time?.map((st) => Object.fromEntries(Object.entries(st).filter(([key]) => key !== 'offset_confidence')) as typeof st)})),
+  } as StopInfo
 }
 
 describe('network bundle', () => {

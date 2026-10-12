@@ -77,13 +77,14 @@ func TestScheduleDelayLearnsHowLateRunsArrive(t *testing.T) {
 		t.Fatalf("recompute: %v", err)
 	}
 	delay, ok := loadScheduleDelay(delayRouteID, 0, "weekday", 8*60)
-	if want := 180.0 * 8 / 18; !ok || math.Abs(delay-want) > 0.01 {
-		t.Fatalf("delay = %.2f (found %t), want %.2f: 3 min late, shrunk for 8 runs", delay, ok, want)
+	// The only hour measured: the direction's whole-day delay it leans on is the same 3 minutes.
+	if want := 180.0; !ok || math.Abs(delay-want) > 0.01 {
+		t.Fatalf("delay = %.2f (found %t), want %.2f: 3 min late", delay, ok, want)
 	}
 
 	served := applySegmentProfilesToStopTimes(stops, delayRouteID, weekdayAt(23, 8, 10))
-	if got := served[0].OffsetArrivalTime; got != 80 {
-		t.Fatalf("first stop offset = %v, want 80", got)
+	if got := served[0].OffsetArrivalTime; got != 180 {
+		t.Fatalf("first stop offset = %v, want 180", got)
 	}
 	for _, st := range served[1:] {
 		if st.OffsetArrivalTime != 120 {

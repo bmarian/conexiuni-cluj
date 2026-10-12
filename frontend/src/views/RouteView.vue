@@ -107,7 +107,7 @@ function wakeMeAt(idx: number) {
       colors: [shapeInfo.value?.route_color ?? '#64748b'],
       stops: legStops,
       walkMinutes: 0,
-      rideMinutes: ride[ride.length - 1]!.timeOffsetFromStart - ride[0]!.timeOffsetFromStart,
+      rideMinutes: (ride[ride.length - 1]!.secondsFromStart - ride[0]!.secondsFromStart) / 60,
     }],
     walkEndMinutes: 0,
     walks: [],
@@ -193,7 +193,7 @@ useHead(() => {
 
 
 function formatAbsoluteMinutes(absMin: number): string {
-  const dayMin = ((absMin % 1440) + 1440) % 1440
+  const dayMin = ((Math.round(absMin) % 1440) + 1440) % 1440
   const h = Math.floor(dayMin / 60)
   const m = dayMin % 60
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
@@ -267,11 +267,10 @@ function tripHourlyOffsets(offsets: Record<string, HourlyStopOffsets>): Record<s
 
 const hourlyTripOffsets = computed(() => tripHourlyOffsets(hourlyOffsets.value))
 
+// Exact minutes from the terminus to each stop for a run leaving at departureMin.
 function offsetsAt(hourly: Record<string, number[]> | null, departureMin: number): number[] {
   const seconds = hourly?.[Math.floor(departureMin / 60) % 24]
-  return seconds
-    ? seconds.map((s) => Math.ceil(s / 60))
-    : stopsForDirection.value.map((stop) => stop.timeOffsetFromStart)
+  return (seconds ?? stopsForDirection.value.map((stop) => stop.secondsFromStart)).map((s) => s / 60)
 }
 
 // Shared by the chips and the trip view so both show the same minute.
@@ -300,7 +299,7 @@ function chipsForDay(day: TimetableTab, hourly: Record<string, number[]> | null,
       if (!raw) return null
       const departureMin = timeStringToMinutes(raw)
       if (departureMin === null) return {time: raw, startMin: null, isPast: false}
-      const startMin = departureMin + (offsetsAt(hourly, departureMin)[0] ?? 0)
+      const startMin = Math.round(departureMin + (offsetsAt(hourly, departureMin)[0] ?? 0))
       return {
         time: raw,
         startMin,
@@ -410,8 +409,8 @@ const selectedDepartureStops = computed((): TripStop[] => {
   if (departureMin === null) return []
   const offsets = tripOffsetsAt(departureMin)
   return stopsForDirection.value.map((stop, idx) => {
-    const offset = offsets[idx] ?? stop.timeOffsetFromStart
-    return {...stop, timeOffsetFromStart: offset, arrivalTimeStr: formatAbsoluteMinutes(departureMin + offset)}
+    const offset = offsets[idx] ?? stop.secondsFromStart / 60
+    return {...stop, arrivalTimeStr: formatAbsoluteMinutes(departureMin + offset)}
   })
 })
 

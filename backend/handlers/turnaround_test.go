@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/predictions"
 	"fmt"
 	"math"
 	"testing"
@@ -106,9 +107,9 @@ func TestTripFlipClosesTheLastSegmentAndTimesTheStand(t *testing.T) {
 	if stored := flushTurnaroundSamples(); stored != 1 {
 		t.Fatalf("stored %d turnaround samples, want 1", stored)
 	}
-	stats := loadTurnaroundStats(turnRouteID, 1)
-	if stats.Count != 1 || math.Abs(stats.MedianSec-120) > 0.5 {
-		t.Fatalf("stats = %+v, want one sample of 120 s", stats)
+	profile := loadTerminusProfile(turnRouteID, 1)
+	if profile.Departures != 1 || profile.Arrivals != 1 {
+		t.Fatalf("profile = %+v, want one arrival that departed", profile)
 	}
 }
 
@@ -152,17 +153,17 @@ func TestThroughRunningFromTheTimetable(t *testing.T) {
 	timetable := &models.Timetable{Weekdays: models.DaySchedule{Entries: entries}}
 
 	toIn := turnaroundFor(7, 1, out, in, timetable)
-	if !toIn.Through || toIn.Sec != bootstrapStandSec {
-		t.Fatalf("direction 1 = %+v, want through after the bootstrap stand", toIn)
+	if !toIn.Through || toIn.StandSec != predictions.DefaultStandSec || toIn.MaxWaitMin != 0 {
+		t.Fatalf("direction 1 = %+v, want through with the default stand", toIn)
 	}
 	// Direction 0 departs 3 minutes after direction 1 arrives, also through.
 	toOut := turnaroundFor(7, 0, in, out, timetable)
-	if !toOut.Through || toOut.Sec != bootstrapStandSec {
-		t.Fatalf("direction 0 = %+v, want through after the bootstrap stand", toOut)
+	if !toOut.Through {
+		t.Fatalf("direction 0 = %+v, want through", toOut)
 	}
 	far := append([]models.StopTime(nil), in...)
 	far[0].StopLat = 46.79
-	if got := turnaroundFor(7, 1, out, far, timetable); got.Through || got.Sec != 0 {
+	if got := turnaroundFor(7, 1, out, far, timetable); got.Through {
 		t.Fatalf("a terminus 1 km away is not a turnaround: %+v", got)
 	}
 }

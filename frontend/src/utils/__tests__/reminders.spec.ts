@@ -17,7 +17,7 @@ const ms = (iso: string) => Date.parse(iso)
 
 describe('stopTimesByDayType', () => {
   it('counts times past midnight on from the day before, and leaves out days without buses', () => {
-    const times = stopTimesByDayType(timetable, true, 2, {}, 10)
+    const times = stopTimesByDayType(timetable, true, 2, {}, 600)
     expect(times.weekday).toEqual([5 * 60 + 40, 23 * 60, 24 * 60 + 5])
     expect(times.saturday).toEqual([6 * 60 + 10, 22 * 60 + 40])
     expect(times.sunday).toBeUndefined()
@@ -25,7 +25,7 @@ describe('stopTimesByDayType', () => {
 
   it('uses each departure hour’s own travel time to the stop', () => {
     const hourly = {stop_ids: [1, 2], hourly_offset_seconds: {'5': [0, 600], '22': [0, 900], '23': [0, 840]}}
-    const times = stopTimesByDayType(timetable, true, 2, {weekday: hourly}, 10)
+    const times = stopTimesByDayType(timetable, true, 2, {weekday: hourly}, 600)
     expect(times.weekday).toEqual([5 * 60 + 40, 23 * 60 + 5, 24 * 60 + 9])
     expect(times.saturday).toEqual([6 * 60 + 10, 22 * 60 + 40])
   })
@@ -39,7 +39,7 @@ describe('stopTimesByDayType', () => {
 
 describe('slots', () => {
   it('takes the day’s last bus, or the one nearest a chosen time', () => {
-    const times = stopTimesByDayType(timetable, true, 2, {}, 10)
+    const times = stopTimesByDayType(timetable, true, 2, {}, 600)
     expect(resolveSlots(times, null)).toEqual({weekday: 24 * 60 + 5, saturday: 22 * 60 + 40})
     expect(resolveSlots(times, 23 * 60)).toEqual({weekday: 23 * 60, saturday: 22 * 60 + 40})
     expect(pickSlot([600, 700], 721)).toBeNull()

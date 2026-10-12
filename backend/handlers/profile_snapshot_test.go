@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"conexiuni-cluj/database"
+	"math"
 	"testing"
 	"time"
 )
@@ -41,7 +42,7 @@ func TestLearnedOffsetsHoldForTheQuarterHour(t *testing.T) {
 	}
 }
 
-func TestConfidenceIsRoundedToTwoDecimals(t *testing.T) {
+func TestConfidenceIsTheSampleShareUnrounded(t *testing.T) {
 	stops := installDelayRoute(t)
 	if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_profiles
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at)
@@ -49,7 +50,7 @@ func TestConfidenceIsRoundedToTwoDecimals(t *testing.T) {
 		t.Fatalf("profile: %v", err)
 	}
 	got := applySegmentProfilesToStopTimes(stops, delayRouteID, weekdayAt(23, 8, 10))[1].OffsetConfidence
-	if got != 0.41 {
-		t.Fatalf("confidence = %v, want 0.41", got)
+	if math.Abs(got-7.0/17.0) > 1e-9 {
+		t.Fatalf("confidence = %v, want 7/17 for seven samples in the exact bucket", got)
 	}
 }

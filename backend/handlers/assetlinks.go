@@ -37,7 +37,7 @@ func AssetLinksHandler(packageName string, fingerprints []string) fiber.Handler 
 
 func EncodesItself(path string) bool {
 	switch path {
-	case "/api/vehicles/stream", "/api/network":
+	case "/api/live", "/api/network":
 		return true
 	}
 	return false

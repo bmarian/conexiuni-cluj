@@ -1,5 +1,5 @@
 import {haversineMeters} from '@/utils/geo.ts'
-import {minutesUntil, SCHEDULE_LATE_GRACE_MIN} from '@/utils/arrivals.ts'
+import {minutesUntil} from '@/utils/arrivals.ts'
 import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
 
 export const SOON_MINUTES = 2
@@ -61,21 +61,21 @@ export function clujMinutes(ms: number): number {
   return hour * 60 + Number(parts.find((p) => p.type === 'minute')?.value ?? 0)
 }
 
-export function targetMinutes(scheduled: number[], live: number | null, expected: number): number | null {
+export function targetMinutes(scheduled: number[], live: number | null, expected: number, graceMinutes: number): number | null {
   const nearest = (to: number) => scheduled.reduce<number | null>((best, m) =>
     best === null || Math.abs(m - to) < Math.abs(best - to) ? m : best, null)
   const close = nearest(expected)
   const ours = close !== null && Math.abs(close - expected) <= 1 ? close : expected
   if (live !== null && nearest(live) === ours) return live
-  if (ours < -SCHEDULE_LATE_GRACE_MIN) return null
-  return Math.max(ours, 0)
+  if (ours < -graceMinutes) return null
+  return Math.max(Math.round(ours), 0)
 }
 
-export function targetReading(scheduled: number[], live: number | null, targetAt: number, nowMs: number): FollowReading | null {
+export function targetReading(scheduled: number[], live: number | null, targetAt: number, nowMs: number, graceMinutes: number): FollowReading | null {
   const expected = minutesUntil(clujMinutes(targetAt), clujMinutes(nowMs))
-  const minutes = targetMinutes(scheduled, live, expected)
+  const minutes = targetMinutes(scheduled, live, expected, graceMinutes)
   if (minutes === null) return null
-  return {minutes, live: minutes === live, later: scheduled.filter((m) => m > minutes + SCHEDULE_LATE_GRACE_MIN).slice(0, 2)}
+  return {minutes, live: minutes === live, later: scheduled.filter((m) => m > minutes + graceMinutes).slice(0, 2).map(Math.round)}
 }
 
 export function leadMinutes(walk: number | null): number | null {

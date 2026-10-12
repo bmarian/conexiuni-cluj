@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -31,48 +30,6 @@ func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, f
 		return stopTimes, err
 	}
 	return applySegmentProfilesToStopTimes(stopTimes, routeID, refTime), nil
-}
-
-func GetHourlyStopOffsets(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter, day time.Time) (map[string]models.HourlyStopOffsets, error) {
-	stopTimes, routeID, err := getBaseStopTimes(tranzyClient, cacheTimes, filter)
-	if err != nil {
-		return nil, err
-	}
-	return hourlyStopOffsets(stopTimes, routeID, day), nil
-}
-
-func hourlyStopOffsets(stopTimes []models.StopTime, routeID int, day time.Time) map[string]models.HourlyStopOffsets {
-	out := make(map[string]models.HourlyStopOffsets)
-	for hour := 0; hour < 24; hour++ {
-		rows := stopTimes
-		if routeID != 0 {
-			refTime := time.Date(day.Year(), day.Month(), day.Day(), hour, 0, 0, 0, day.Location())
-			rows = applySegmentProfilesToStopTimes(stopTimes, routeID, refTime)
-		}
-		byTrip := make(map[string][]models.StopTime)
-		for _, st := range rows {
-			byTrip[st.TripID] = append(byTrip[st.TripID], st)
-		}
-		for tripID, trip := range byTrip {
-			sort.Slice(trip, func(i, j int) bool { return trip[i].StopSequence < trip[j].StopSequence })
-			entry, ok := out[tripID]
-			if !ok {
-				entry = models.HourlyStopOffsets{StopIDs: make([]int, len(trip)), HourlyOffsetSeconds: make(map[int][]int, 24)}
-				for i, st := range trip {
-					entry.StopIDs[i] = st.StopID
-				}
-				out[tripID] = entry
-			}
-			offsets := make([]int, len(trip))
-			cumulative := 0.0
-			for i, st := range trip {
-				cumulative += st.OffsetArrivalTime
-				offsets[i] = int(math.Round(cumulative))
-			}
-			entry.HourlyOffsetSeconds[hour] = offsets
-		}
-	}
-	return out
 }
 
 func dayOfType(from time.Time, dayType string) time.Time {
@@ -189,14 +146,9 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 			currentStop := stopByID[st.StopID]
 			offsetArrivalTime := 0.0
 			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
+				// Tranzy has no arrival times: the shape at a city bus pace is the seed the
+				// learned segment profiles replace.
 				offsetArrivalTime = calculateStopOffset(*previousStop, currentStop, shapes)
-				if stopIndex == 1 {
-					// Generally buses do a funny and are late when leaving the first stop,
-					// so I hardcoded this 🤢
-					offsetArrivalTime = offsetArrivalTime + 30
-				}
-				// And also always round up to the nearest minute
-				offsetArrivalTime = math.Ceil(offsetArrivalTime)
 			}
 			stopIndex++
 			out = append(out, models.StopTime{
@@ -253,11 +205,9 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 		applySegmentProfilesToTrip(out, indexes, profile.segments)
 		// Every timetable consumer sums from the first stop; live ETAs never read it.
 		if profile.hasDelay && len(indexes) > 0 {
-			out[indexes[0]].OffsetArrivalTime = math.Round(profile.delay)
+			out[indexes[0]].OffsetArrivalTime = profile.delay
 		}
 	}
-	applyTurnaroundToStopTimes(out, routeID)
-
 	return out
 }
 
@@ -267,8 +217,8 @@ func applySegmentProfilesToTrip(stopTimes []models.StopTime, ordered []int, prof
 		prev := stopTimes[ordered[pos-1]]
 		curr := &stopTimes[ordered[pos]]
 		if estimate, ok := profiles[stopPair{FromStopID: prev.StopID, ToStopID: curr.StopID}]; ok && estimate.DurationSec > 0 {
-			curr.OffsetArrivalTime = math.Ceil(estimate.DurationSec)
-			curr.OffsetConfidence = math.Round(estimate.Confidence*100) / 100
+			curr.OffsetArrivalTime = estimate.DurationSec
+			curr.OffsetConfidence = estimate.Confidence
 		}
 	}
 }
@@ -435,4 +385,15 @@ func storeAPIStopTimesInDB(stopTimes []models.RequestStopTime) error {
 			}
 			return nil
 		})
+}
+
+func filterAndSortStopTimesBySuffix(rows []models.StopTime, suffix string) []models.StopTime {
+	var out []models.StopTime
+	for _, st := range rows {
+		if strings.HasSuffix(st.TripID, suffix) {
+			out = append(out, st)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StopSequence < out[j].StopSequence })
+	return out
 }

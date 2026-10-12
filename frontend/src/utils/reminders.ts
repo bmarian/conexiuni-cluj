@@ -37,7 +37,7 @@ export function stopTimesByDayType(
   outgoing: boolean,
   stopId: number,
   hourly: Partial<Record<DayType, HourlyStopOffsets | undefined>>,
-  fallbackOffset: number,
+  fallbackOffsetSeconds: number,
 ): Partial<Record<DayType, number[]>> {
   const out: Partial<Record<DayType, number[]>> = {}
   for (const dayType of DAY_TYPES) {
@@ -49,7 +49,7 @@ export function stopTimesByDayType(
       .filter((m): m is number => m !== null)
       .map((departure) => {
         const seconds = index >= 0 ? trip?.hourly_offset_seconds[String(Math.floor(departure / 60) % 24)]?.[index] : undefined
-        const at = departure + (seconds !== undefined ? Math.ceil(seconds / 60) : fallbackOffset)
+        const at = Math.round(departure + (seconds ?? fallbackOffsetSeconds) / 60)
         return at < NIGHT_END_MIN ? at + 1440 : at
       })
       .sort((a, b) => a - b)

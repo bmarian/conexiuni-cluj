@@ -1,5 +1,5 @@
 import {shallowRef} from 'vue'
-import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime, Turnaround} from '@/types/tranzy.ts'
+import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {hasTimetableEntries} from '@/utils/time.ts'
@@ -15,7 +15,6 @@ export type NetworkRoute = Route & {
   timetable: Timetable | null
   trips: NetworkTrip[]
   offsets: Record<string, number[][]>
-  turnaround?: Record<string, Turnaround>
 }
 
 export type NetworkBundle = {
@@ -24,6 +23,7 @@ export type NetworkBundle = {
   generated_at: string
   routes: NetworkRoute[]
   stops: Stop[]
+  rules?: {late_grace_min: number}
 }
 
 export type NetworkVersion = Pick<NetworkBundle, 'version' | 'static_version' | 'generated_at'>
@@ -46,6 +46,11 @@ export class NetworkIndex {
       ({route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color}))
   }
 
+  // A timetable run this many minutes late is still coming; shown to the minute, so one at least.
+  get lateGraceMin(): number {
+    return Math.max(1, this.bundle.rules?.late_grace_min ?? 1)
+  }
+
   shapeHash(tripId: string): string | undefined {
     const route = this.routeById.get(Number(tripId.split('_')[0]))
     return route?.trips.find((t) => t.trip_id === tripId)?.shape_hash
@@ -66,7 +71,6 @@ export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType
   const out: StopTime[] = []
   let i = 0
   for (const trip of route.trips) {
-    const turnaround = route.turnaround?.[trip.trip_id.endsWith(INCOMING_SUFFIX) ? '1' : '0']
     trip.stop_ids.forEach((stopId, k) => {
       const stop = index.stopById.get(stopId)
       out.push({
@@ -78,7 +82,6 @@ export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType
         route_short_name: route.route_short_name,
         stop_lat: stop?.stop_lat ?? 0,
         stop_lon: stop?.stop_lon ?? 0,
-        ...(k === 0 && turnaround ? {through_running: turnaround.through, turnaround_sec: turnaround.sec, turnaround_leaves: !!turnaround.leaves} : {}),
       })
       i++
     })
@@ -105,6 +108,7 @@ export function buildStopInfo(index: NetworkIndex, stopId: number, at: Date = ne
       route_color: route.route_color,
       stop_time: routeStopTimes(index, route, dayType, hour),
       timetable: route.timetable,
+      late_grace_min: index.lateGraceMin,
     })
   }
   const sorted = [...trips].sort()
@@ -119,6 +123,7 @@ export function buildStopInfo(index: NetworkIndex, stopId: number, at: Date = ne
     outgoing_trip_ids: sorted.filter((t) => t.endsWith(OUTGOING_SUFFIX)),
     incoming_trip_ids: sorted.filter((t) => t.endsWith(INCOMING_SUFFIX)),
     shapes_info: shapes,
+    late_grace_min: index.lateGraceMin,
   }
 }
 

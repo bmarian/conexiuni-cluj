@@ -6,6 +6,13 @@ type NetworkBundle struct {
 	GeneratedAt   string         `json:"generated_at"`
 	Routes        []NetworkRoute `json:"routes"`
 	Stops         []Stop         `json:"stops"`
+	Rules         NetworkRules   `json:"rules"`
+}
+
+// What the learners found that an offline timetable list still needs.
+type NetworkRules struct {
+	// A timetable run this many minutes late is still coming.
+	LateGraceMin float64 `json:"late_grace_min"`
 }
 
 type NetworkRoute struct {
@@ -19,7 +26,6 @@ type NetworkRoute struct {
 	Timetable      *Timetable            `json:"timetable"`
 	Trips          []NetworkTrip         `json:"trips"`
 	Offsets        map[string][][]int    `json:"offsets"`
-	Turnaround     map[string]Turnaround `json:"turnaround,omitempty"`
 }
 
 type NetworkTrip struct {

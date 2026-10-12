@@ -25,77 +25,33 @@ export const minutesUntil = (absMinutes: number, nowMinutes: number): number => 
   return diff
 }
 
-// A scheduled run may be this many minutes late and still be listed: buses lose a few
-// minutes in traffic all the time, and dropping the entry only moves the whole list on
-// by a full headway. Past this the run is treated as gone rather than as still pending.
-export const SCHEDULE_LATE_GRACE_MIN = 3
-
 export type ScheduleQuery = {
   /** Departures from the terminus, in minutes past midnight. */
   departureMinutes: number[]
-  /** Minutes this trip takes from the terminus to the stop being asked about. */
-  offsetMinutes: number
-  /** Now, in minutes past midnight. */
+  /** Seconds this trip takes from the terminus to the stop being asked about. */
+  offsetSeconds: number
+  /** Now, in minutes past midnight, with the seconds. */
   nowMinutes: number
   /** Ignore anything further out than this. Defaults to no limit. */
   horizonMinutes?: number
+  /** A run this many minutes late is still listed: the server learned how late runs are. */
+  graceMinutes: number
 }
 
-/** Upcoming timetable arrivals at one stop, soonest first. May start slightly negative. */
+/** Upcoming timetable arrivals at one stop as exact minutes, soonest first. May start slightly negative. */
 export const scheduledArrivals = (query: ScheduleQuery): number[] => {
   const horizon = query.horizonMinutes ?? Number.POSITIVE_INFINITY
   return query.departureMinutes
-    .map((departure) => minutesUntil(departure + query.offsetMinutes, query.nowMinutes))
-    .filter((minutes) => minutes >= -SCHEDULE_LATE_GRACE_MIN && minutes < horizon)
+    .map((departure) => minutesUntil(departure + query.offsetSeconds / 60, query.nowMinutes))
+    .filter((minutes) => minutes >= -query.graceMinutes && minutes < horizon)
     .sort((a, b) => a - b)
 }
 
 export type Arrival = { minutes: number; isLive: boolean }
 
-/** One live estimate, several (one per tracked bus, soonest first after sorting), or none. */
-export type LiveMinutes = number | number[] | null
-
-export type MergeOptions = {
-  /**
-   * Live tracking has vehicles on this trip, so its silence about this stop is
-   * evidence rather than an absence of data: whatever the timetable still has sitting
-   * on zero here is the run that has gone past, not one arriving now.
-   */
-  tracked?: boolean
-  limit?: number
-}
-
-/**
- * One list of arrivals from the two sources, reconciled on time rather than on
- * position. The tracked bus *is* one of the scheduled runs, so the slot it answers for
- * has to come out of the list - otherwise the same vehicle is listed twice, once
- * tracked and once from a timetable that disagrees with it by a few minutes, and the
- * columns stop meaning the same thing from one row to the next.
- */
-export const mergeArrivals = (
-  liveMinutes: LiveMinutes,
-  scheduled: number[],
-  options: MergeOptions = {},
-): Arrival[] => {
-  const limit = options.limit ?? 3
-  const live = (liveMinutes === null ? [] : Array.isArray(liveMinutes) ? liveMinutes : [liveMinutes])
-    .map((minutes) => Math.max(minutes, 0))
-    .sort((a, b) => a - b)
-
-  if (!live.length) {
-    const pending = options.tracked ? scheduled.filter((minutes) => minutes >= 1) : scheduled
-    return pending.slice(0, limit).map((minutes) => ({minutes: Math.max(minutes, 0), isLive: false}))
-  }
-
-  // Everything at or before the last live estimate belongs to a run being tracked, or
-  // to one that is already gone. What is left are the runs that follow them.
-  const last = live[live.length - 1]!
-  const later = scheduled.filter((minutes) => minutes > last + SCHEDULE_LATE_GRACE_MIN)
-  return [
-    ...live.map((minutes) => ({minutes, isLive: true})),
-    ...later.map((minutes) => ({minutes, isLive: false})),
-  ].slice(0, limit)
-}
+/** The next runs from the timetable alone, for a list the live feed is not reaching, as the minutes shown. */
+export const nextArrivals = (scheduled: number[], limit: number): Arrival[] =>
+  scheduled.slice(0, limit).map((minutes) => ({minutes: Math.max(Math.round(minutes), 0), isLive: false}))
 
 const readsNow = (arrival: Arrival | undefined): boolean => arrival !== undefined && Math.round(arrival.minutes) === 0
 

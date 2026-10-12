@@ -49,7 +49,7 @@ export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopI
     timeOffsetSec += st.offset_arrival_time
     if (st.stop_id === stopId) break
   }
-  return Math.ceil(timeOffsetSec / 60)
+  return timeOffsetSec
 }
 
 // Minutes the bus takes to ride from `fromStopId` to `toStopId` on the given
@@ -73,7 +73,7 @@ export const getRideMinutesBetweenStops = (
       continue
     }
     totalSec += st.offset_arrival_time
-    if (st.stop_id === toStopId) return Math.ceil(totalSec / 60)
+    if (st.stop_id === toStopId) return totalSec
   }
   return 0
 }

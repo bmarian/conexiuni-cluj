@@ -303,10 +303,7 @@ export function getVehicleMarkerHtml(
 ): string {
   const routeName = vehicle.route_short_name || ''
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
-  // vehicle.speed is floored at MIN_SPEED_KMH so ETA maths never divides by ~0.
-  // Showing it would claim a bus waiting at a terminus is doing 7 km/h.
-  const reportedSpeed = vehicle.raw_speed !== undefined && vehicle.raw_speed >= 0 ? vehicle.raw_speed : vehicle.speed
-  const roundedSpeed = Math.round(reportedSpeed)
+  const roundedSpeed = Math.round(vehicle.speed ?? 0)
   const label = String(vehicle.label ?? '').replace(/[^\w -]/g, '')
   const speedText = `${label ? `#${label} · ` : ''}${roundedSpeed} km/h`
   const heading = vehicle.heading || 0

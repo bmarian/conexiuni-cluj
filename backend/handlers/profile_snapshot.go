@@ -51,13 +51,13 @@ func resetProfileSnapshots() {
 }
 
 func snapshotSegmentProfiles(routeID, directionID int, dayType string, bucket int) map[stopPair]segmentProfileEstimate {
-	key := profileSnapshotKey{routeID, directionID, dayType}
+	key := profileSnapshotKey{routeID, directionID, ""}
 	profileSnapshots.Lock()
 	profileSnapshotsFor(ProfileSnapshotPeriod())
 	rows, ok := profileSnapshots.segments[key]
 	profileSnapshots.Unlock()
 	if !ok {
-		loaded, err := loadSegmentProfileRows(routeID, directionID, dayType)
+		loaded, err := loadSegmentProfileRows(routeID, directionID)
 		if err != nil {
 			log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
 			return map[stopPair]segmentProfileEstimate{}
@@ -68,7 +68,7 @@ func snapshotSegmentProfiles(routeID, directionID int, dayType string, bucket in
 		profileSnapshots.segments[key] = rows
 		profileSnapshots.Unlock()
 	}
-	return selectSegmentProfiles(rows, bucket)
+	return selectSegmentProfiles(rows, dayType, bucket)
 }
 
 func snapshotScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {

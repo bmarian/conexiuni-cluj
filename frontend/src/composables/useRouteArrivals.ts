@@ -7,32 +7,16 @@ import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
-import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes, tripDepartureMinutes} from '@/utils/time.ts'
+import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
-import {markRepeatedNow, mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
-import {
-  buildShapeIndex,
-  buildStopShapeIdxByStopId,
-  type FeederTrip,
-  getIndexedVehicles,
-  type IndexedVehicle,
-  liveEtasForStop,
-  type ShapeIndex,
-  type ThroughRunOptions,
-  turnaroundOf,
-} from '@/composables/useVehicleTracking.ts'
-import {useVehicleStream} from '@/composables/useVehicleStream.ts'
+import {markRepeatedNow, nextArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
+import {entriesAt, liveRowKey, type ShownEntry, useLive} from '@/composables/useLive.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 
-type DirectionShape = {
-  shape: Shape[]
-  shapeIndex: ShapeIndex
-  stopShapeIdxByStopId: Map<number, number>
-}
-
-export type IndexedStop = StopTime & { timeOffsetFromStart: number }
+export type IndexedStop = StopTime & { secondsFromStart: number }
 
 export interface StopTimeDisplay {
   label: string;
@@ -41,6 +25,7 @@ export interface StopTimeDisplay {
 }
 
 const SCHEDULE_HORIZON_MIN = 480
+const ENTRIES_SHOWN = 3
 
 export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   const {t} = useI18n()
@@ -94,16 +79,10 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     return isOutgoing.value ? tt.route_long_name : `${tt.out_stop_name} - ${tt.in_stop_name}`
   })
 
-  const direction0Shape = ref<DirectionShape | null>(null)
-  const direction1Shape = ref<DirectionShape | null>(null)
-  const direction0Vehicles = ref<IndexedVehicle[]>([])
-  const direction1Vehicles = ref<IndexedVehicle[]>([])
-
+  const direction0Shape = ref<Shape[] | null>(null)
+  const direction1Shape = ref<Shape[] | null>(null)
   const currentDirectionShape = computed(() =>
     currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value
-  )
-  const currentDirectionVehicles = computed(() =>
-    currentDirection.value === '0' ? direction0Vehicles.value : direction1Vehicles.value
   )
 
   const rawStops = computed((): StopTime[] => getShapeStopTimes(shapeInfo.value))
@@ -112,13 +91,12 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     const filtered = rawStops.value
       .filter((st) => st.trip_id === currentTripId.value)
       .sort((a, b) => a.stop_sequence - b.stop_sequence)
-    // offset_arrival_time is the ride from the previous stop into this one, so it has
-    // to be added before the offset is read - otherwise every stop shows the previous
-    // stop's arrival time and the last segment never counts at all.
+    // offset_arrival_time is the ride from the previous stop into this one, added
+    // before it is read: every stop carries the ride up to itself.
     let cumulativeSec = 0
     return filtered.map((st) => {
       cumulativeSec += st.offset_arrival_time
-      return {...st, timeOffsetFromStart: Math.ceil(cumulativeSec / 60)}
+      return {...st, secondsFromStart: cumulativeSec}
     })
   })
 
@@ -176,71 +154,57 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   })
 
   // Offset first, then sort, so runs already under way still count for later stops.
-  function nextArrivalsAtStop(offsetFromStart: number): number[] {
+  function nextArrivalsAtStop(secondsFromStart: number): number[] {
     return scheduledArrivals({
       departureMinutes: departureTimes.value,
-      offsetMinutes: offsetFromStart,
+      offsetSeconds: secondsFromStart,
       nowMinutes: currentMinutes.value,
       horizonMinutes: SCHEDULE_HORIZON_MIN,
+      graceMinutes: shapeInfo.value?.late_grace_min ?? 1,
     })
   }
 
-  // Whether live tracking has anything to say about this direction at all. It is the
-  // difference between "no bus is behind this stop" and "we are not watching", and only
-  // the first of those justifies dropping a timetable slot that reads as due now.
-  const directionIsTracked = computed(() => currentDirectionVehicles.value.length > 0)
+  // Both directions stream: the server chains the other direction's buses onto this one.
+  const streamTripIds = computed<string[]>(() =>
+    shapeInfo.value?.route_id === Number(routeId.value)
+      ? [`${routeId.value}${OUTGOING_SUFFIX}`, `${routeId.value}${INCOMING_SUFFIX}`]
+      : []
+  )
+  const {rows, vehiclesByTrip, asOfMs} = useLive(ref<number[]>([]), streamTripIds)
+  const liveNowMs = computed(() => (userTime.value || new Date()).getTime())
 
-  // On a through-running direction the other direction's buses are this one's next runs.
-  const throughRun = computed((): ThroughRunOptions | null => {
-    const turnaround = turnaroundOf(stopsForDirection.value)
-    if (!turnaround?.through) return null
-    const feederShape = currentDirection.value === '0' ? direction1Shape.value : direction0Shape.value
-    const feederVehicles = currentDirection.value === '0' ? direction1Vehicles.value : direction0Vehicles.value
-    const feederTripId = `${routeId.value}${currentDirection.value === '0' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
-    const feeder: FeederTrip | undefined = feederShape
-      ? {vehicles: feederVehicles, index: feederShape.shapeIndex, tripStops: rawStops.value.filter((st) => st.trip_id === feederTripId)}
-      : undefined
-    return {
-      turnaround,
-      departureMinutes: departureTimes.value,
-      feederDepartureMinutes: tripDepartureMinutes(timetable.value, feederTripId, userTime.value || new Date()),
-      nowMinutes: currentMinutes.value,
-      feeder,
-    }
-  })
-
-  function liveMinutesForStop(stop: IndexedStop): number[] {
-    const dirShape = currentDirectionShape.value
-    if (!dirShape) return []
-    const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
-    if (stopIdx === undefined || stopIdx < 0) return []
-    return liveEtasForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
-      tripStops: stopsForDirection.value,
-      targetStopId: stop.stop_id,
-      referenceTime: userTime.value,
-      throughRun: throughRun.value ?? undefined,
-    }).map((eta) => eta.etaMinutes)
+  function liveEntriesFor(stop: IndexedStop): ShownEntry[] | null {
+    if (asOfMs.value === null) return null
+    const row = rows.value.get(liveRowKey(currentTripId.value, stop.stop_id))
+    return row ? entriesAt(row, liveNowMs.value) : null
   }
 
-  // The live estimate used to be dropped into slot 0 and the timetable kept the rest,
-  // which left the same bus counted twice and made a column mean a different thing on
-  // every row. Merging on time instead keeps the columns comparable down the list.
-  const stopTimesByStop = computed((): StopTimeDisplay[][] => {
-    const rows = stopsForDirection.value.map((stop) =>
-      mergeArrivals(liveMinutesForStop(stop), nextArrivalsAtStop(stop.timeOffsetFromStart), {tracked: directionIsTracked.value}))
-    return markRepeatedNow(rows).map((row) => row.map((arrival) => ({
-      label: arrival.soon ? t('soon') : formatMinutes(arrival.minutes),
-      isLive: arrival.isLive,
-      minutes: arrival.minutes,
-    })))
+  const toDisplay = (minutes: number, isLive: boolean, soon: boolean | undefined): StopTimeDisplay => ({
+    label: soon ? t('soon') : formatMinutes(minutes),
+    isLive,
+    minutes,
   })
 
-  // The header lists departures from the terminus, where no stop has been passed yet, so
-  // it stays on the timetable unless a through-running bus is about to leave.
+  // The server's rows when the live feed has them, the timetable alone otherwise.
+  const stopTimesByStop = computed((): StopTimeDisplay[][] => {
+    const stops = stopsForDirection.value
+    const live = stops.map((stop) => liveEntriesFor(stop))
+    if (live.some((entries) => entries !== null)) {
+      return stops.map((stop, idx) => {
+        const entries = live[idx]
+        if (entries) return entries.map((e) => toDisplay(e.minutes, e.live, e.soon))
+        return nextArrivals(nextArrivalsAtStop(stop.secondsFromStart), ENTRIES_SHOWN).map((a) => toDisplay(a.minutes, false, false))
+      })
+    }
+    const offline = stops.map((stop) => nextArrivals(nextArrivalsAtStop(stop.secondsFromStart), ENTRIES_SHOWN))
+    return markRepeatedNow(offline).map((row) => row.map((a) => toDisplay(a.minutes, false, a.soon)))
+  })
+
   function getHeaderTimes(): string[] {
     const first = stopsForDirection.value[0]
-    const live = first && throughRun.value ? liveMinutesForStop(first) : null
-    return mergeArrivals(live, nextArrivalsAtStop(first?.timeOffsetFromStart ?? 0)).map((arrival) => formatMinutes(arrival.minutes))
+    const entries = first ? liveEntriesFor(first) : null
+    if (entries) return entries.map((e) => formatMinutes(e.minutes))
+    return nextArrivals(nextArrivalsAtStop(first?.secondsFromStart ?? 0), ENTRIES_SHOWN).map((arrival) => formatMinutes(arrival.minutes))
   }
 
   function buildDisplayShape() {
@@ -253,16 +217,26 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
   }
 
+  const displayVehicles = computed((): DisplayVehicle[] => {
+    const info = shapeInfo.value
+    if (!info) return []
+    return (vehiclesByTrip.value.get(currentTripId.value) ?? []).map((v) => ({
+      ...v,
+      route_short_name: info.route_short_name,
+      route_color: info.route_color,
+    }))
+  })
+
   function updateMap() {
     if (!shapeInfo.value) return
     const dirShape = currentDirectionShape.value
     const meta = buildDisplayShape()
     if (dirShape) {
-      mapStore.setLoadedShapes([[meta, dirShape.shape]])
+      mapStore.setLoadedShapes([[meta, dirShape]])
     } else {
       void mapStore.setShapesToDisplay([meta])
     }
-    mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
+    mapStore.setVehiclesToDisplay(displayVehicles.value)
     zoomOut.value = true
   }
 
@@ -278,15 +252,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     mapStore.setHighlightedStops(highlights)
   })
 
-  const streamTripIds = computed<string[]>(() => {
-    const ids: string[] = []
-    if (direction0Shape.value) ids.push(`${routeId.value}${OUTGOING_SUFFIX}`)
-    if (direction1Shape.value) ids.push(`${routeId.value}${INCOMING_SUFFIX}`)
-    return ids
-  })
-  const {vehiclesByTrip} = useVehicleStream(streamTripIds)
-
-  async function loadDirectionShape(dir: '0' | '1'): Promise<DirectionShape | null> {
+  async function loadDirectionShape(dir: '0' | '1'): Promise<Shape[] | null> {
     if (!shapeInfo.value) return null
     const tripId = `${routeId.value}${dir === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
     try {
@@ -298,11 +264,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
         route_type: shapeInfo.value.route_type,
       }])
       const shape = shapeData[0]?.[1] ?? []
-      if (!shape.length) return null
-      const shapeIndex = buildShapeIndex(shape)
-      const tripStops = rawStops.value.filter((st) => st.trip_id === tripId)
-      const stopShapeIdxByStopId = buildStopShapeIdxByStopId(tripStops, shape)
-      return {shape, shapeIndex, stopShapeIdxByStopId}
+      return shape.length ? shape : null
     } catch (e) {
       console.warn(`Failed to load direction ${dir} shape:`, e)
       return null
@@ -315,42 +277,9 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     direction1Shape.value = d1
   }
 
-  async function refreshVehiclesFromStream() {
-    if (!shapeInfo.value) return
-    const name = shapeInfo.value.route_short_name
-    const color = shapeInfo.value.route_color
-    const byTrip = vehiclesByTrip.value
-
-    const refreshDirection = async (
-      direction: '0' | '1',
-      directionShape: DirectionShape | null,
-      setVehicles: (vehicles: IndexedVehicle[]) => void,
-      directionLabel: 'outgoing' | 'incoming',
-    ) => {
-      if (!directionShape) return
-      const tid = `${routeId.value}${direction === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
-      try {
-        setVehicles(await getIndexedVehicles(tid, name, color, directionShape.shapeIndex, userTime.value, byTrip.get(tid) ?? []))
-      } catch (e) {
-        console.warn(`Failed to index ${directionLabel} vehicles:`, e)
-      }
-    }
-
-    await Promise.all([
-      refreshDirection('0', direction0Shape.value, (vehicles) => {
-        direction0Vehicles.value = vehicles
-      }, 'outgoing'),
-      refreshDirection('1', direction1Shape.value, (vehicles) => {
-        direction1Vehicles.value = vehicles
-      }, 'incoming'),
-    ])
-
-    mapStore.setVehiclesToDisplay(currentDirectionVehicles.value)
-  }
-
-  watch(vehiclesByTrip, () => {
-    void refreshVehiclesFromStream()
-  }, {deep: true})
+  watch(displayVehicles, (vehicles) => {
+    mapStore.setVehiclesToDisplay(vehicles)
+  })
   watch(currentDirection, () => {
     updateMap()
   })

@@ -1,9 +1,9 @@
-import type {Shape, StopInfo, Vehicle} from '@/types/tranzy.ts'
+import type {LiveRow, StopInfo} from '@/types/tranzy.ts'
 import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import {getMinutesFromDate, getTimetableForDay, isTimetableAvailableOnDay, timeStringToMinutes} from '@/utils/time.ts'
 import {getRouteIdFromTripId, getShapeStopTimes, getTimeOffsetToStop} from '@/utils/trips.ts'
-import {mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
-import {buildShapeIndex, buildStopShapeIdxByStopId, etaForStop, getIndexedVehicles} from '@/composables/useVehicleTracking.ts'
+import {nextArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
+import {entriesAt, liveRowKey} from '@/composables/useLive.ts'
 
 const HORIZON_MIN = 480
 
@@ -21,13 +21,15 @@ export interface TripDeparture {
   liveMinutes: number | null
 }
 
-export async function tripDepartures(
+// The next departures of some trips from a stop: the server's prediction rows when the
+// live feed has them, the timetable otherwise.
+export function tripDepartures(
   stop: StopInfo,
   tripIds: string[],
-  shapes: Map<string, Shape[]>,
-  vehicles: Map<string, Vehicle[]>,
+  rows: Map<string, LiveRow>,
+  asOfMs: number | null,
   now: Date,
-): Promise<TripDeparture[]> {
+): TripDeparture[] {
   const out: TripDeparture[] = []
   for (const tripId of tripIds) {
     const routeId = getRouteIdFromTripId(tripId)
@@ -40,25 +42,19 @@ export async function tripDepartures(
       .filter((m): m is number => m !== null)
     const scheduled = scheduledArrivals({
       departureMinutes: departures,
-      offsetMinutes: getTimeOffsetToStop(stopTimes, tripId, stop.stop_id),
+      offsetSeconds: getTimeOffsetToStop(stopTimes, tripId, stop.stop_id),
       nowMinutes: getMinutesFromDate(now),
       horizonMinutes: HORIZON_MIN,
+      graceMinutes: stop.late_grace_min ?? 1,
     })
 
-    let liveMinutes: number | null = null
-    let tracked = false
-    const points = shapes.get(tripId) ?? []
-    if (points.length) {
-      const index = buildShapeIndex(points)
-      const indexed = await getIndexedVehicles(tripId, shapeInfo.route_short_name, shapeInfo.route_color, index, now, vehicles.get(tripId) ?? [])
-      tracked = indexed.length > 0
-      const tripStops = stopTimes.filter((st) => st.trip_id === tripId)
-      const stopIdx = buildStopShapeIdxByStopId(tripStops, points).get(stop.stop_id) ?? -1
-      const eta = etaForStop(stopIdx, indexed, index, {tripStops, targetStopId: stop.stop_id, referenceTime: now})
-      liveMinutes = eta ? eta.etaMinutes : null
-    }
-    const merged = mergeArrivals(liveMinutes, scheduled, {tracked, limit: 3})
+    const row = asOfMs === null ? undefined : rows.get(liveRowKey(tripId, stop.stop_id))
+    const entries = row ? entriesAt(row, now.getTime()) : null
+    const merged = entries
+      ? entries.map((e) => ({minutes: e.minutes, isLive: e.live}))
+      : nextArrivals(scheduled, 3)
     if (!merged.length) continue
+    const firstLive = entries?.find((e) => e.live)
     out.push({
       tripId,
       routeId,
@@ -69,7 +65,7 @@ export async function tripDepartures(
       live: merged[0]!.isLive,
       later: merged.slice(1).map((m) => m.minutes),
       scheduled,
-      liveMinutes,
+      liveMinutes: firstLive ? firstLive.minutes : null,
     })
   }
   return out.sort((a, b) => a.minutes - b.minutes)

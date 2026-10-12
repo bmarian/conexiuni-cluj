@@ -145,20 +145,20 @@ func collectScheduleResiduals(
 		continued[chainKey{int64(math.Round(s.StartedAt)), s.FromStopID}] = true
 	}
 
-	profileRows := make(map[string][]segmentProfileRow)
+	var profileRows []segmentProfileRow
+	haveProfiles := false
 	cumulative := make(map[string][]float64)
 	offsetsAt := func(dayType string, bucket int) ([]float64, error) {
 		key := dayType + "|" + strconv.Itoa(bucket)
 		if c, ok := cumulative[key]; ok {
 			return c, nil
 		}
-		rows, ok := profileRows[dayType]
-		if !ok {
+		if !haveProfiles {
 			var err error
-			if rows, err = loadSegmentProfileRows(routeID, directionID, dayType); err != nil {
+			if profileRows, err = loadSegmentProfileRows(routeID, directionID); err != nil {
 				return nil, err
 			}
-			profileRows[dayType] = rows
+			haveProfiles = true
 		}
 		trip := make([]models.StopTime, len(stops))
 		copy(trip, stops)
@@ -166,7 +166,7 @@ func collectScheduleResiduals(
 		for i := range ordered {
 			ordered[i] = i
 		}
-		applySegmentProfilesToTrip(trip, ordered, selectSegmentProfiles(rows, bucket))
+		applySegmentProfilesToTrip(trip, ordered, selectSegmentProfiles(profileRows, dayType, bucket))
 		c := make([]float64, len(trip))
 		total := 0.0
 		for i, st := range trip {
@@ -387,22 +387,43 @@ func storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleResiduals, now 
 	}
 	stmt, err := tx.Prepare(`
 		INSERT INTO schedule_delay_profiles
-		(route_id, direction_id, day_type, bucket_start_min, run_count, delay_sec, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`)
+		(route_id, direction_id, day_type, bucket_start_min, run_count, delay_sec, spread_sec, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = stmt.Close() }()
 
+	// A handful of runs in one hour lean on the direction's delay over the whole day:
+	// buses here are late by about that much at any hour until the hour itself says otherwise.
+	type dayKey struct {
+		RouteID, DirectionID int
+		DayType              string
+	}
+	byDay := make(map[dayKey][]float64)
+	for key, r := range residuals {
+		k := dayKey{key.RouteID, key.DirectionID, key.DayType}
+		byDay[k] = append(byDay[k], r.seconds...)
+	}
 	stored := 0
 	for key, r := range residuals {
 		runs := len(r.runs)
 		if runs < scheduleDelayMinRuns {
 			continue
 		}
-		// Shrunk toward zero so a handful of runs cannot shift a whole hour.
-		delay := median(r.seconds) * float64(runs) / float64(runs+scheduleDelayShrinkRuns)
-		if _, err := stmt.Exec(key.RouteID, key.DirectionID, key.DayType, key.BucketStartMin, runs, delay, now.Unix()); err != nil {
+		prior := median(byDay[dayKey{key.RouteID, key.DirectionID, key.DayType}])
+		centre := median(r.seconds)
+		weight := float64(runs) / float64(runs+scheduleDelayShrinkRuns)
+		delay := weight*centre + (1-weight)*prior
+		// The spread is how far single runs stray from the hour's delay: what a timetable
+		// entry may still be off by.
+		strays := make([]float64, len(r.seconds))
+		for i, s := range r.seconds {
+			strays[i] = math.Abs(s - centre)
+		}
+		sort.Float64s(strays)
+		spread := nearestRank(strays, 0.75)
+		if _, err := stmt.Exec(key.RouteID, key.DirectionID, key.DayType, key.BucketStartMin, runs, delay, spread, now.Unix()); err != nil {
 			return 0, err
 		}
 		stored++

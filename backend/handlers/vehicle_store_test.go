@@ -25,7 +25,7 @@ func storedVehicle(id int, observedAt time.Time) models.Vehicle {
 		ID: id, Label: "bus", Latitude: anchorLat, Longitude: anchorLon,
 		Timestamp: observedAt.Format(time.RFC3339), VehicleType: 3,
 		BikeAccessible: "UNKNOWN", WheelchairAccessible: "UNKNOWN",
-		Speed: MinSpeedFloor, RawSpeed: 0, RouteID: 25, TripID: "25_1",
+		Speed: 7, RawSpeed: 7, RouteID: 25, TripID: "25_1",
 	}
 	v.SetAnchor(anchorLat, anchorLon, observedAt.Format(time.RFC3339), observedAt.UnixMilli())
 	return v
@@ -47,8 +47,8 @@ func TestStoreVehiclesRoundTripsMovementState(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("read %d vehicles, want 1", len(got))
 	}
-	if got[0].RawSpeed != 0 || got[0].Speed != MinSpeedFloor {
-		t.Fatalf("speeds = raw %v / smoothed %v, want 0 / %v", got[0].RawSpeed, got[0].Speed, MinSpeedFloor)
+	if got[0].RawSpeed != 7 || got[0].Speed != 7 {
+		t.Fatalf("speeds = raw %v / %v, want 7 / 7", got[0].RawSpeed, got[0].Speed)
 	}
 	if got[0].StationarySince != v.StationarySince {
 		t.Fatalf("StationarySince = %q, want %q", got[0].StationarySince, v.StationarySince)
@@ -92,7 +92,9 @@ func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
 func TestGraceReservedVehicleKeepsAgeing(t *testing.T) {
 	withTestDB(t)
 
-	observedAt := time.Now().Add(-vehicleMissingGrace + 30*time.Second)
+	livePollInterval = func() time.Duration { return 45 * time.Second }
+	t.Cleanup(func() { livePollInterval = func() time.Duration { return 0 } })
+	observedAt := time.Now().Add(-2*45*time.Second + 30*time.Second)
 	if err := storeVehiclesInDB([]models.Vehicle{storedVehicle(1, observedAt)}); err != nil {
 		t.Fatalf("store: %v", err)
 	}

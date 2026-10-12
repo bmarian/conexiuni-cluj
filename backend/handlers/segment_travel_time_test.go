@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"testing"
 	"time"
@@ -82,54 +81,3 @@ func TestIntermediateStopKeepsItsDwell(t *testing.T) {
 	}
 }
 
-func TestLayoverSamplesAreDroppedOnce(t *testing.T) {
-	withTestDB(t)
-	mustExec := func(q string, args ...any) {
-		t.Helper()
-		if _, err := database.DB.Exec(q, args...); err != nil {
-			t.Fatalf("%s: %v", q, err)
-		}
-	}
-	mustExec(`INSERT INTO trips (trip_id, route_id, direction_id, trip_headsign, block_id, shape_id, wheelchair_accessible, bikes_allowed) VALUES ('25_0', 25, 0, '', 0, '25_0', 0, 0)`)
-	for seq, stop := range []int{100, 200, 300} {
-		mustExec(`INSERT INTO api_stop_times (trip_id, stop_id, stop_sequence) VALUES ('25_0', ?, ?)`, stop, seq)
-	}
-	for _, from := range []int{100, 200} {
-		mustExec(`INSERT INTO segment_travel_time_samples (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at) VALUES (25, 0, ?, ?, 'weekday', 720, 412, ?)`, from, from+100, time.Now().Unix())
-		mustExec(`INSERT INTO segment_travel_time_profiles (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at) VALUES (25, 0, ?, ?, 'weekday', 720, 9, 412, 430, ?)`, from, from+100, time.Now().Unix())
-	}
-	// The same stop leaving the other direction is not that direction's terminus.
-	mustExec(`INSERT INTO segment_travel_time_samples (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at) VALUES (25, 1, 100, 400, 'weekday', 720, 80, ?)`, time.Now().Unix())
-	mustExec(`PRAGMA user_version = 0`)
-
-	if err := database.InitSchemas(); err != nil {
-		t.Fatalf("init schemas: %v", err)
-	}
-
-	count := func(table string, direction, from int) int {
-		var n int
-		if err := database.DB.QueryRow(`SELECT COUNT(*) FROM `+table+` WHERE direction_id = ? AND from_stop_id = ?`, direction, from).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
-	for _, table := range []string{"segment_travel_time_samples", "segment_travel_time_profiles"} {
-		if n := count(table, 0, 100); n != 0 {
-			t.Errorf("%s still has %d rows out of the terminus", table, n)
-		}
-		if n := count(table, 0, 200); n != 1 {
-			t.Errorf("%s lost the intermediate segment: %d rows", table, n)
-		}
-	}
-	if n := count("segment_travel_time_samples", 1, 100); n != 1 {
-		t.Errorf("opposite direction sample was dropped")
-	}
-
-	mustExec(`INSERT INTO segment_travel_time_samples (route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at) VALUES (25, 0, 100, 200, 'weekday', 720, 70, ?)`, time.Now().Unix())
-	if err := database.InitSchemas(); err != nil {
-		t.Fatalf("init schemas: %v", err)
-	}
-	if n := count("segment_travel_time_samples", 0, 100); n != 1 {
-		t.Errorf("a clean sample learned after the cleanup was dropped on restart")
-	}
-}

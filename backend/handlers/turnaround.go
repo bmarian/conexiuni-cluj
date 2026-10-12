@@ -3,9 +3,9 @@ package handlers
 import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/predictions"
 	"database/sql"
 	"log"
-	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -15,17 +15,14 @@ import (
 // A bus that ends one direction and continues as the other after a short stand.
 // Tranzy flips the trip id as the bus rolls in, so the flip is the arrival.
 const (
-	turnaroundWindow           = 14 * 24 * time.Hour
-	turnaroundRetention        = 45 * 24 * time.Hour
-	turnaroundMinSamples       = 10
-	turnaroundThroughMaxSec    = 5 * 60.0
-	throughTerminusMeters      = 150.0
+	turnaroundWindow        = 14 * 24 * time.Hour
+	turnaroundRetention     = 45 * 24 * time.Hour
+	turnaroundMinSamples    = 10
+	throughTerminusMeters   = 150.0
+	turnaroundArrivalRadius = 250.0
+	maxTurnaroundSec        = 30 * 60.0
+	// Timetables planning a longer stand than this are depot turns, not through running.
 	scheduledThroughLayoverMin = 10.0
-	turnaroundArrivalRadius    = 250.0
-	maxTurnaroundSec           = 30 * 60.0
-	minLearnedStandSec         = 45.0
-	bootstrapStandSec          = 90.0
-	leavesEarlyMin             = 2.0
 )
 
 type pendingTurnaround struct {
@@ -44,14 +41,11 @@ type turnaroundSample struct {
 	PairedDepartureMin float64
 }
 
-type turnaroundStats struct {
-	Count     int
-	Arrivals  int
-	MedianSec float64
-	P25Sec    float64
-	// Median of departure minus paired slot, over samples that had a slot.
-	SlotLatenessMin float64
-	SlotSamples     int
+// What the stands seen at one terminus say about the next bus. See predictions.Turnaround.
+type terminusProfile struct {
+	Arrivals   int
+	Departures int
+	Turnaround predictions.Turnaround
 }
 
 var (
@@ -69,8 +63,8 @@ var (
 	turnaroundCache = struct {
 		sync.Mutex
 		period int64
-		stats  map[[2]int]turnaroundStats
-		routes map[int]map[string]models.Turnaround
+		stats  map[[2]int]terminusProfile
+		routes map[int]map[string]predictions.Turnaround
 	}{}
 
 	turnaroundPruneMu   sync.Mutex
@@ -168,8 +162,8 @@ func turnaroundCacheFor(period int64) {
 		return
 	}
 	turnaroundCache.period = period
-	turnaroundCache.stats = make(map[[2]int]turnaroundStats)
-	turnaroundCache.routes = make(map[int]map[string]models.Turnaround)
+	turnaroundCache.stats = make(map[[2]int]terminusProfile)
+	turnaroundCache.routes = make(map[int]map[string]predictions.Turnaround)
 }
 
 func resetTurnaroundCache() {
@@ -179,60 +173,51 @@ func resetTurnaroundCache() {
 	turnaroundCache.Unlock()
 }
 
-func loadTurnaroundStats(routeID, directionID int) turnaroundStats {
+func loadTerminusProfile(routeID, directionID int) terminusProfile {
 	key := [2]int{routeID, directionID}
 	turnaroundCache.Lock()
 	turnaroundCacheFor(ProfileSnapshotPeriod())
-	stats, ok := turnaroundCache.stats[key]
+	profile, ok := turnaroundCache.stats[key]
 	turnaroundCache.Unlock()
 	if ok {
-		return stats
+		return profile
 	}
 	since := profileClock().Add(-turnaroundWindow).Unix()
-	type sampleRow struct {
-		duration, paired float64
-		departed         int64
-	}
-	samples, err := queryRows(`
-		SELECT duration_sec, paired_departure_min, departed_at FROM turnaround_samples
+	stands, err := queryRows(`
+		SELECT duration_sec FROM turnaround_samples
 		WHERE route_id = ? AND direction_id = ? AND departed_at >= ?
 		ORDER BY duration_sec`,
 		[]any{routeID, directionID, since},
-		func(rows *sql.Rows) (sampleRow, error) {
-			var r sampleRow
-			err := rows.Scan(&r.duration, &r.paired, &r.departed)
-			return r, err
+		func(rows *sql.Rows) (float64, error) {
+			var d float64
+			err := rows.Scan(&d)
+			return d, err
 		})
 	if err != nil {
 		log.Printf("turnaround: route=%d direction=%d: %v", routeID, directionID, err)
-		return turnaroundStats{}
+		return terminusProfile{}
 	}
-	stats = turnaroundStats{Count: len(samples)}
+	profile = terminusProfile{Departures: len(stands)}
 	_ = database.DB.QueryRow(`SELECT COUNT(*) FROM turnaround_arrivals WHERE route_id = ? AND direction_id = ? AND arrived_at >= ?`,
-		routeID, directionID, since).Scan(&stats.Arrivals)
-	if len(samples) > 0 {
-		durations := make([]float64, len(samples))
-		var slotLateness []float64
-		loc := time.Local
-		for i, s := range samples {
-			durations[i] = s.duration
-			if s.paired >= 0 {
-				departedMin, _ := localMinutes(float64(s.departed), loc)
-				slotLateness = append(slotLateness, wrapDayMinutes(departedMin-s.paired))
-			}
-		}
-		stats.MedianSec = nearestRank(durations, 0.5)
-		stats.P25Sec = nearestRank(durations, 0.25)
-		stats.SlotSamples = len(slotLateness)
-		if len(slotLateness) > 0 {
-			stats.SlotLatenessMin = median(slotLateness)
-		}
+		routeID, directionID, since).Scan(&profile.Arrivals)
+	if len(stands) >= turnaroundMinSamples {
+		profile.Turnaround = learnTurnaround(stands)
 	}
 	turnaroundCache.Lock()
 	turnaroundCacheFor(ProfileSnapshotPeriod())
-	turnaroundCache.stats[key] = stats
+	turnaroundCache.stats[key] = profile
 	turnaroundCache.Unlock()
-	return stats
+	return profile
+}
+
+// learnTurnaround reads the stands, sorted: the quickest quarter is the stand itself,
+// the rest is waiting for a slot; the longest tenth says how long anyone waits here. Few
+// samples lean on the default.
+func learnTurnaround(stands []float64) predictions.Turnaround {
+	n := float64(len(stands))
+	weight := n / (n + turnaroundMinSamples)
+	stand := weight*nearestRank(stands, 0.25) + (1-weight)*predictions.DefaultStandSec
+	return predictions.Turnaround{Through: true, StandSec: stand, MaxWaitMin: nearestRank(stands, 0.9) / 60}
 }
 
 func sortedTrip(stopTimes []models.StopTime, tripID string) []models.StopTime {
@@ -246,7 +231,8 @@ func sortedTrip(stopTimes []models.StopTime, tripID string) []models.StopTime {
 	return trip
 }
 
-// Minutes the timetable leaves between arriving on the feeder direction and the next departure.
+// What the timetable usually leaves between arriving on the feeder direction and the
+// next departure, over the day's runs.
 func scheduledLayoverMinutes(day models.DaySchedule, fromDurationMin float64, toDirection int) (float64, bool) {
 	var arrivals, departures []float64
 	for _, e := range day.Entries {
@@ -263,12 +249,10 @@ func scheduledLayoverMinutes(day models.DaySchedule, fromDurationMin float64, to
 			departures = append(departures, float64(in))
 		}
 	}
-	if len(arrivals) == 0 {
-		return 0, false
-	}
 	sort.Float64s(departures)
 	var gaps []float64
 	for _, arrival := range arrivals {
+		// A departure a minute before the computed arrival is this run's own slot, rounded.
 		i := sort.SearchFloat64s(departures, arrival-1)
 		if i < len(departures) {
 			gaps = append(gaps, departures[i]-arrival)
@@ -290,42 +274,37 @@ func tripDurationMinutes(trip []models.StopTime) float64 {
 	return total / 60
 }
 
-func turnaroundFor(routeID, directionID int, from, to []models.StopTime, timetable *models.Timetable) models.Turnaround {
+func turnaroundFor(routeID, directionID int, from, to []models.StopTime, timetable *models.Timetable) predictions.Turnaround {
 	if len(from) < 2 || len(to) < 2 {
-		return models.Turnaround{}
+		return predictions.Turnaround{}
 	}
 	last, first := from[len(from)-1], to[0]
 	if last.StopLat == 0 || first.StopLat == 0 || haversineMeters(last.StopLat, last.StopLon, first.StopLat, first.StopLon) > throughTerminusMeters {
-		return models.Turnaround{}
+		return predictions.Turnaround{}
 	}
-	// The quickest quarter is the stand itself, the rest is waiting for a slot. Buses
-	// that mostly leave well before their slot are not keeping that timetable.
-	stats := loadTurnaroundStats(routeID, directionID)
-	if stats.Arrivals >= turnaroundMinSamples && stats.Count*2 < stats.Arrivals {
-		return models.Turnaround{}
+	profile := loadTerminusProfile(routeID, directionID)
+	if profile.Arrivals >= turnaroundMinSamples && profile.Departures*2 < profile.Arrivals {
+		return predictions.Turnaround{}
 	}
-	if stats.Count >= turnaroundMinSamples {
-		leaves := stats.SlotSamples >= turnaroundMinSamples && stats.SlotLatenessMin <= -leavesEarlyMin
-		return models.Turnaround{Through: stats.MedianSec <= turnaroundThroughMaxSec, Sec: math.Round(math.Max(minLearnedStandSec, stats.P25Sec)), Leaves: leaves}
+	if profile.Departures >= turnaroundMinSamples {
+		return profile.Turnaround
 	}
-	// Until the stand has been measured, only a terminus with its own arrival stop
-	// counts: a loop back into the same stop is usually a depot with a long wait.
+	// Until the stands have been seen: a terminus with its own arrival stop where the
+	// timetable plans a short stand. A loop back into the same stop is usually a depot.
 	if timetable == nil || last.StopID == first.StopID {
-		return models.Turnaround{}
+		return predictions.Turnaround{}
 	}
 	duration := tripDurationMinutes(from)
 	for _, day := range []models.DaySchedule{timetable.Weekdays, timetable.Saturday, timetable.Sunday} {
-		layover, ok := scheduledLayoverMinutes(day, duration, directionID)
-		if !ok {
-			continue
+		if layover, ok := scheduledLayoverMinutes(day, duration, directionID); ok {
+			return predictions.Turnaround{Through: layover <= scheduledThroughLayoverMin, StandSec: predictions.DefaultStandSec}
 		}
-		return models.Turnaround{Through: layover <= scheduledThroughLayoverMin, Sec: bootstrapStandSec}
 	}
-	return models.Turnaround{}
+	return predictions.Turnaround{}
 }
 
 // Both termini of a route, keyed by the direction being departed.
-func routeTurnarounds(routeID int, stopTimes []models.StopTime) map[string]models.Turnaround {
+func routeTurnarounds(routeID int, stopTimes []models.StopTime) map[string]predictions.Turnaround {
 	turnaroundCache.Lock()
 	turnaroundCacheFor(ProfileSnapshotPeriod())
 	cached, ok := turnaroundCache.routes[routeID]
@@ -347,11 +326,11 @@ func routeTurnarounds(routeID int, stopTimes []models.StopTime) map[string]model
 	} else if len(in) > 0 {
 		timetable, _ = getTimetableFromDB(in[0].RouteShortName)
 	}
-	result := map[string]models.Turnaround{}
-	if t := turnaroundFor(routeID, 0, in, out, timetable); t.Sec > 0 {
+	result := map[string]predictions.Turnaround{}
+	if t := turnaroundFor(routeID, 0, in, out, timetable); t.Through {
 		result["0"] = t
 	}
-	if t := turnaroundFor(routeID, 1, out, in, timetable); t.Sec > 0 {
+	if t := turnaroundFor(routeID, 1, out, in, timetable); t.Through {
 		result["1"] = t
 	}
 	turnaroundCache.Lock()
@@ -359,28 +338,4 @@ func routeTurnarounds(routeID int, stopTimes []models.StopTime) map[string]model
 	turnaroundCache.routes[routeID] = result
 	turnaroundCache.Unlock()
 	return result
-}
-
-func applyTurnaroundToStopTimes(stopTimes []models.StopTime, routeID int) {
-	turnarounds := routeTurnarounds(routeID, stopTimes)
-	if len(turnarounds) == 0 {
-		return
-	}
-	firstByTrip := make(map[string]int)
-	for i, st := range stopTimes {
-		if j, ok := firstByTrip[st.TripID]; !ok || st.StopSequence < stopTimes[j].StopSequence {
-			firstByTrip[st.TripID] = i
-		}
-	}
-	for tripID, i := range firstByTrip {
-		dir, ok := directionIDFromTripID(tripID)
-		if !ok {
-			continue
-		}
-		if t, ok := turnarounds[strconv.Itoa(dir)]; ok {
-			stopTimes[i].ThroughRunning = t.Through
-			stopTimes[i].TurnaroundSec = t.Sec
-			stopTimes[i].TurnaroundLeaves = t.Leaves
-		}
-	}
 }

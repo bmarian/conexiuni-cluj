@@ -1,9 +1,5 @@
-import type {StopInfo} from "@/types/tranzy.ts";
 import {ref} from "vue";
-import {apiRequest} from "@/utils/api.ts";
-import {buildStopInfo, network} from "@/utils/network.ts";
-
-const pendingRequests = new Map<string, Promise<StopInfo>>()
+import {buildStopInfo, network, networkLoaded, refreshNetwork} from "@/utils/network.ts";
 
 export function useStopInfoApi() {
   const stopInfo = ref()
@@ -12,33 +8,14 @@ export function useStopInfoApi() {
   async function fetchStopData(stopId: string) {
     stopInfo.value = undefined
     error.value = undefined
-
+    await networkLoaded
+    if (!network.value) await refreshNetwork(true)
     const local = network.value && buildStopInfo(network.value, Number(stopId))
     if (local) {
       stopInfo.value = local
       return
     }
-
-    if (pendingRequests.has(stopId)) {
-      try {
-        stopInfo.value = await pendingRequests.get(stopId)
-      } catch (e) {
-        error.value = e
-      }
-      return
-    }
-
-    const requestPromise = apiRequest(`stop_info?stop_id=${stopId}`) as Promise<StopInfo>
-    pendingRequests.set(stopId, requestPromise)
-
-    try {
-      stopInfo.value = await requestPromise
-    } catch (e) {
-      error.value = e
-      console.error(e)
-    } finally {
-      pendingRequests.delete(stopId)
-    }
+    error.value = new Error(`no network data for stop ${stopId}`)
   }
 
   return {stopInfo, error, fetchStopData}

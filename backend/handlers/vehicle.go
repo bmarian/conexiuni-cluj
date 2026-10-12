@@ -13,21 +13,12 @@ import (
 
 const (
 	VehicleCacheId = "VEHICLES"
-	EmaAlpha       = 0.3
-	MinSpeedFloor  = 7.0 // MIN_SPEED_KMH
 
 	// StationaryRadiusMeters is how far a vehicle must travel from its anchor
 	// before we call it moving. Wider than city GPS jitter, narrower than a bus
 	// bay: a bus creeping through traffic re-anchors within seconds, a parked one
-	// keeps accumulating dwell time. Speed can't answer this — it is floored at
-	// MinSpeedFloor before it leaves here, so "parked" and "crawling" read alike.
+	// keeps accumulating dwell time.
 	StationaryRadiusMeters = 30.0
-
-	// vehicleMissingGrace is how long a vehicle Tranzy stopped reporting keeps
-	// being served from its last known position. One dropped poll at the worst-case
-	// 60s interval, no more: every extra second here is a second the frontend
-	// estimates against a position that is no longer moving.
-	vehicleMissingGrace = 90 * time.Second
 
 	// vehicleRetention bounds the table: older rows are neither served nor kept.
 	// Without it every vehicle ever seen came back on the cache-hit path.
@@ -107,6 +98,7 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 	}
 	log.Printf("vehicles: fetched raw=%d valid=%d learning_scope=all response_filter=%s", len(vehicles), len(smoothed), describeVehicleFilter(filter))
 	go ObserveVehicleSegmentTravelTimes(tranzyClient.Location(), smoothed)
+	RecomputeLive(smoothed, time.Now())
 	return smoothed, nil
 }
 
@@ -142,9 +134,6 @@ func smoothVehicles(tranzyClient *tranzy.Client, apiVehicles []models.Vehicle, f
 		for i := range apiVehicles {
 			v := &apiVehicles[i]
 			v.SetAnchor(v.Latitude, v.Longitude, v.Timestamp, parseVehicleTime(v.Timestamp, now))
-			if v.Speed < MinSpeedFloor {
-				v.Speed = MinSpeedFloor
-			}
 		}
 		return apiVehicles, nil
 	}
@@ -159,28 +148,17 @@ func smoothVehicles(tranzyClient *tranzy.Client, apiVehicles []models.Vehicle, f
 		v := &apiVehicles[i]
 		apiMap[v.ID] = true
 		prev, exists := dbMap[v.ID]
-
-		newSpeed := v.Speed
-		if exists {
-			if v.Timestamp != prev.Timestamp {
-				newSpeed = (v.Speed * EmaAlpha) + (prev.Speed * (1 - EmaAlpha))
-			} else {
-				newSpeed = prev.Speed
-			}
-		}
-		if newSpeed < MinSpeedFloor {
-			newSpeed = MinSpeedFloor
-		}
-		v.Speed = newSpeed
 		applyAnchor(v, prev, exists, now)
 		carryTripChange(v, prev, exists)
 	}
 
+	// A vehicle Tranzy dropped from one poll keeps its last position for one more.
+	missingGrace := 2 * livePollInterval()
 	for _, dbV := range dbVehicles {
 		if apiMap[dbV.ID] {
 			continue
 		}
-		if now.Sub(time.UnixMilli(dbV.ObservedAt())) <= vehicleMissingGrace {
+		if now.Sub(time.UnixMilli(dbV.ObservedAt())) <= missingGrace {
 			apiVehicles = append(apiVehicles, dbV)
 		}
 	}

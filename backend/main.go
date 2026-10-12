@@ -190,6 +190,7 @@ func main() {
 			return handlers.EncodesItself(c.Path())
 		},
 	}))
+	handlers.StartLive(tranzyClient, ctpCjClient, cacheTimes)
 	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
 	handlers.RegisterAdminRoutes(api, config.AdminToken, tranzyClient, config.Environment == "production")
 

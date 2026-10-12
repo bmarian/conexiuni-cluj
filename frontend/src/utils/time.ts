@@ -27,7 +27,7 @@ export const timeStringToMinutes = (timeString: string): number | null => {
 
 export const getMinutesFromDate = (dateObject: Date): number => {
   const hours = dateObject.getHours();
-  const minutes = dateObject.getMinutes();
+  const minutes = dateObject.getMinutes() + dateObject.getSeconds() / 60;
 
   return (hours * 60) + minutes;
 }
@@ -110,10 +110,11 @@ export const getAvailableBusesForStop = (
     // instead of wrapping into tomorrow and pushing the whole card on by a headway.
     let upcomingEntries: TimeEntry[] = scheduledArrivals({
       departureMinutes,
-      offsetMinutes: timeOffsetToStop,
+      offsetSeconds: timeOffsetToStop,
       nowMinutes: referenceMinutes,
       horizonMinutes: options.maxMinutes,
-    }).map(minutes => ({minutes: Math.max(minutes, 0), is_live: false}))
+      graceMinutes: shape.late_grace_min ?? 1,
+    }).map(minutes => ({minutes: Math.max(Math.round(minutes), 0), is_live: false}))
 
     if (options.limit !== undefined) {
       upcomingEntries = upcomingEntries.slice(0, options.limit)
