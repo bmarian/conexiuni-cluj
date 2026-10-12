@@ -67,17 +67,26 @@ func TestATicketSavingLessThanItIsWorthGoes(t *testing.T) {
 	}
 }
 
-func TestAddingARideToTheSameLinesIsTheSameOption(t *testing.T) {
-	// The second stop is a short walk away, or one stop on the feeder.
-	streets, day := testStreets(time.Minute, Stop{1, 46.77, 23.500}, Stop{2, 46.77, 23.506}, Stop{3, 46.77, 23.580})
+// The second stop is a walk away, or one stop on the feeder; changes cost three minutes.
+func feederNetwork(secondStopLon float64) (*Network, time.Time) {
+	streets, day := testStreets(3*time.Minute, Stop{1, 46.77, 23.500}, Stop{2, 46.77, secondStopLon}, Stop{3, 46.77, 23.580})
 	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
-	n := streets.Network([]PatternInput{
+	return streets.Network([]PatternInput{
 		{RouteID: 1, Key: "feeder", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 2)}}},
 		{RouteID: 2, Key: "main", Stops: []int{2, 3}, Trips: [][]int64{{at(8, 6), at(8, 16)}}},
-	})
-	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5798}, Time: day.Add(7*time.Hour + 55*time.Minute)}))
-	if len(got) != 1 || got[0] != "main " {
-		t.Fatalf("got %q", got)
+	}), day
+}
+
+func TestAddingARideIsTheSameOptionKeptWhereItCostsLeast(t *testing.T) {
+	for _, c := range []struct {
+		lon  float64
+		want string
+	}{{23.506, "feeder main "}, {23.502, "main "}} {
+		n, day := feederNetwork(c.lon)
+		got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5798}, Time: day.Add(7*time.Hour + 55*time.Minute)}))
+		if len(got) != 1 || got[0] != c.want {
+			t.Fatalf("second stop at %v: got %q", c.lon, got)
+		}
 	}
 }
 

@@ -338,10 +338,9 @@ func (n *Network) timeBack(sk skeleton, deadline, before int64) (Run, bool) {
 	return Run{Depart: t, Arrive: last.Arrive + walked, Rides: rides}, true
 }
 
-// worthTaking keeps the options someone would take. Options riding the same lines are one journey,
-// kept where it costs least, and one that only adds rides to another's lines is that journey too unless
-// it gets there sooner. Then an option goes when another takes no more effort, rides and tickets and is
-// not slower by more than runs here stray from their times. A change costs the margin kept for it, a
+// worthTaking keeps the options someone would take. Options riding the same lines, or one only adding
+// rides to another's lines, are one journey, kept where it costs least. Then an option goes when another
+// takes no more effort, rides and tickets and is not slower by more than runs here stray from their times. A change costs the margin kept for it, a
 // ticket what it is worth, and a minute walked is never better than a minute sat. Walking the whole way
 // counts as an option here too.
 func (n *Network) worthTaking(options []Option, walk Option, arriveBy bool) []Option {
@@ -357,29 +356,43 @@ func (n *Network) worthTaking(options []Option, walk Option, arriveBy bool) []Op
 		t := when(o) + int64(max(o.Rides-1, 0))*slack + int64(o.Tickets)*ticket
 		return t, t + n.walkSecs(o.WalkMeters)
 	}
-	var kept []Option
-	for _, o := range options {
-		same := -1
-		for i, k := range kept {
-			if sameLines(o, k) {
-				same = i
-				break
+	journey := make([]int, len(options))
+	var root func(i int) int
+	root = func(i int) int {
+		if journey[i] != i {
+			journey[i] = root(journey[i])
+		}
+		return journey[i]
+	}
+	for i := range options {
+		journey[i] = i
+		for j := range i {
+			if sameLines(options[i], options[j]) || adds(options[i], options[j]) || adds(options[j], options[i]) {
+				journey[root(j)] = root(i)
 			}
 		}
-		if same < 0 {
-			kept = append(kept, o)
+	}
+	cheapest := make(map[int]int)
+	for i, o := range options {
+		r := root(i)
+		c, seen := cheapest[r]
+		if !seen {
+			cheapest[r] = i
 			continue
 		}
 		ot, ow := score(o)
-		kt, kw := score(kept[same])
-		if ow < kw || (ow == kw && ot < kt) {
-			kept[same] = o
+		ct, cw := score(options[c])
+		if ow < cw || (ow == cw && ot < ct) {
+			cheapest[r] = i
+		}
+	}
+	var kept []Option
+	for i, o := range options {
+		if cheapest[root(i)] == i {
+			kept = append(kept, o)
 		}
 	}
 	beats := func(b, a Option, tie bool) bool {
-		if b.Rides > 0 && adds(a, b) && when(b) <= when(a)+slack {
-			return true
-		}
 		at, aw := score(a)
 		bt, bw := score(b)
 		noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides && b.Tickets <= a.Tickets
