@@ -1,7 +1,3 @@
-# Embedded displays: moving off `/api/stop_info`
-
-`/api/stop_info`, `/api/stop_times`, `/api/stop_times/hourly`, `/api/timetable`, `/api/routes`, `/api/stops`, `/api/trips` and `/api/vehicles` are gone. A display that showed the next buses at one stop has two ways forward. The first is simpler and better.
-
 ## 1. Ask the server for the arrival times
 
 ```
@@ -12,8 +8,22 @@ GET /api/live?stop_ids=391&once=1
 {
   "as_of": 1760246400,
   "rows": [
-    {"trip_id": "5_0",  "stop_id": 391, "entries": [{"at": 1760246520, "live": true, "vehicle_id": 1234}, {"at": 1760247240, "live": false}, {"at": 1760248140, "live": false}]},
-    {"trip_id": "8_1",  "stop_id": 391, "entries": [{"at": 1760246410, "live": true, "soon": true, "vehicle_id": 877}]}
+    {
+      "trip_id": "5_0",
+      "stop_id": 391,
+      "entries": [
+        { "at": 1760246520, "live": true, "vehicle_id": 1234 },
+        { "at": 1760247240, "live": false },
+        { "at": 1760248140, "live": false }
+      ]
+    },
+    {
+      "trip_id": "8_1",
+      "stop_id": 391,
+      "entries": [
+        { "at": 1760246410, "live": true, "soon": true, "vehicle_id": 877 }
+      ]
+    }
   ],
   "vehicles": []
 }
@@ -36,10 +46,6 @@ For the stop:
 2. The trip's offsets for the current hour are a slice of `route.offsets[dayType][hour]`: skip `len(stop_ids)` entries for each earlier trip, then take `len(stop_ids)` entries. They are seconds **from the previous stop**; the first entry is the learned departure delay at the terminus.
 3. Minutes to the stop = `Σ offsets[0..k]` / 60.
 4. Departures: `route.timetable[dayType].entries[].departure_in` for trips ending in `_0`, `departure_out` for `_1`. Arrival = departure + seconds to the stop; round to the minute only when drawing.
-5. Keep runs until `rules.late_grace_min` minutes after the predicted arrival: that is how late runs usually are, learned on the server.
+5. Keep runs until `rules.late_grace_min` minutes after the predicted arrival: that is how late runs usually are.
 
 `dayType` is `weekday`, `saturday` or `sunday` by the device clock. `stops[]` carries names and coordinates.
-
-## Learned data
-
-The learned travel times carry over: the samples are the same, only the way they are summarised changed. Offline offsets move by a few seconds per stop, nothing a display needs to handle.
