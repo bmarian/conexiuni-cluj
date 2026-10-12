@@ -53,6 +53,15 @@ export const getTimetableForDay = (timetable: Timetable, referenceDate: Date): D
   return timetable[getTimetableDayKey(referenceDate)]
 }
 
+// Today's departures of one trip from its first stop, in minutes past midnight.
+export const tripDepartureMinutes = (timetable: Timetable | null | undefined, tripId: string, referenceDate: Date): number[] => {
+  if (!timetable) return []
+  const outgoing = tripId.endsWith(OUTGOING_SUFFIX)
+  return (getTimetableForDay(timetable, referenceDate)?.entries ?? [])
+    .map((entry) => timeStringToMinutes(outgoing ? entry.departure_in : entry.departure_out))
+    .filter((m): m is number => m !== null)
+}
+
 export const hasTimetableEntries = (timetable?: Timetable | null): boolean => {
   return !!(
     timetable?.weekdays?.entries?.length

@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -50,12 +51,13 @@ type trackedSegmentStop struct {
 }
 
 type tripSegmentTracker struct {
-	TripID      string
-	RouteID     int
-	DirectionID int
-	Shape       []models.Shape
-	Cumulative  []float64
-	Stops       []trackedSegmentStop
+	TripID         string
+	RouteID        int
+	RouteShortName string
+	DirectionID    int
+	Shape          []models.Shape
+	Cumulative     []float64
+	Stops          []trackedSegmentStop
 }
 
 type vehicleSegmentState struct {
@@ -65,7 +67,15 @@ type vehicleSegmentState struct {
 	SegmentStartedAt time.Time
 	LastObservedAt   time.Time
 	HasSegmentStart  bool
+	// Timetable departure this run was matched to near its start; -1 until then.
+	MatchedDepartureMin float64
+	MatchedDayType      string
 }
+
+var segmentClock = time.Now
+
+// A paired slot may sit this much before the feeder run's learned arrival.
+const pairedSlotMarginMin = 3.0
 
 type pendingSegmentSample struct {
 	Key        segmentProfileKey
@@ -175,6 +185,7 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			writes.add(storeSegmentTravelSample(sample))
 		}
 	}
+	turnarounds := flushTurnaroundSamples()
 	if summary.Total > 0 {
 		snapshot := segmentLearningRuntimeSnapshot{
 			ObservedAt:         time.Now().In(loc).Format(time.RFC3339),
@@ -196,10 +207,11 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			ProfileErrors:      writes.ProfileError,
 		}
 		rememberSegmentLearningSnapshot(snapshot)
-		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
+		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d turnarounds=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
 			snapshot.Vehicles,
 			snapshot.Accepted,
 			snapshot.Stored,
+			turnarounds,
 			snapshot.ProfilesCreated,
 			snapshot.ProfilesUpdated,
 			snapshot.ProfilesUnchanged,
@@ -283,7 +295,7 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		return pendingSegmentSample{}, segmentObservedInvalid
 	}
 	observedAt = observedAt.In(loc)
-	if time.Since(observedAt) > maxObservedVehicleAge || time.Until(observedAt) > 2*time.Minute {
+	if now := segmentClock(); now.Sub(observedAt) > maxObservedVehicleAge || observedAt.Sub(now) > 2*time.Minute {
 		return pendingSegmentSample{}, segmentObservedStale
 	}
 
@@ -306,8 +318,15 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 	}
 	if !exists || state.TripID != tracker.TripID || observedAt.After(state.LastObservedAt.Add(25*time.Minute)) ||
 		shapeIdx+3 < state.ShapeIdx || (routePos < state.SegmentStartPos && nearStopPos != state.SegmentStartPos) {
+		sample, status := pendingSegmentSample{}, segmentObservedReset
+		gap := !exists || observedAt.After(state.LastObservedAt.Add(25*time.Minute))
+		if !gap && state.TripID != tracker.TripID {
+			sample, status = closeTripAtTurnaround(state, tracker, v, observedAt)
+		} else if gap {
+			clearPendingTurnaround(v.ID)
+		}
 		vehicleSegmentStates.byVehicle[v.ID] = newVehicleSegmentState(tracker, shapeIdx, routePos, nearStopPos, observedAt)
-		return pendingSegmentSample{}, segmentObservedReset
+		return sample, status
 	}
 
 	state.ShapeIdx = shapeIdx
@@ -327,6 +346,10 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		}
 		vehicleSegmentStates.byVehicle[v.ID] = state
 		return pendingSegmentSample{}, segmentObservedNoProgress
+	}
+
+	if state.SegmentStartPos == 0 {
+		recordTurnaroundDeparture(v.ID, tracker.TripID, state.SegmentStartedAt)
 	}
 
 	var sample pendingSegmentSample
@@ -351,6 +374,9 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 			}
 			if isPlausibleSegmentSample(sample) {
 				status = segmentObservedAccepted
+				if nearStopPos <= scheduleDelayMaxAnchorPos && state.MatchedDepartureMin < 0 {
+					state.MatchedDepartureMin, state.MatchedDayType = matchRunDeparture(tracker, nearStopPos, observedAt, loc)
+				}
 			} else {
 				status = segmentObservedRejected
 			}
@@ -372,13 +398,170 @@ func newVehicleSegmentState(tracker *tripSegmentTracker, shapeIdx, routePos, nea
 		hasSegmentStart = nearStopPos < len(tracker.Stops)-1
 	}
 	return vehicleSegmentState{
-		TripID:           tracker.TripID,
-		ShapeIdx:         shapeIdx,
-		SegmentStartPos:  startPos,
-		SegmentStartedAt: observedAt,
-		LastObservedAt:   observedAt,
-		HasSegmentStart:  hasSegmentStart,
+		TripID:              tracker.TripID,
+		ShapeIdx:            shapeIdx,
+		SegmentStartPos:     startPos,
+		SegmentStartedAt:    observedAt,
+		LastObservedAt:      observedAt,
+		HasSegmentStart:     hasSegmentStart,
+		MatchedDepartureMin: -1,
 	}
+}
+
+// Tranzy moved the bus onto its next trip. At a terminus that is the arrival: the
+// last segment of the old trip ends here, and the stand until departure starts.
+func closeTripAtTurnaround(state vehicleSegmentState, next *tripSegmentTracker, v models.Vehicle, observedAt time.Time) (pendingSegmentSample, segmentObservationStatus) {
+	clearPendingTurnaround(v.ID)
+	prev, ok := getTripSegmentTracker(state.TripID)
+	if !ok || prev.RouteID != next.RouteID || prev.DirectionID == next.DirectionID || len(prev.Stops) < 2 {
+		return pendingSegmentSample{}, segmentObservedReset
+	}
+	first := next.Stops[0]
+	if haversineMeters(v.Latitude, v.Longitude, first.Lat, first.Lon) > turnaroundArrivalRadius {
+		return pendingSegmentSample{}, segmentObservedReset
+	}
+	setPendingTurnaround(v.ID, pendingTurnaround{
+		RouteID: next.RouteID, DirectionID: next.DirectionID, TripID: next.TripID, ArrivedAt: observedAt,
+		PairedDepartureMin: pairedDeparture(prev, next, state),
+	})
+
+	lastPos := len(prev.Stops) - 1
+	if !state.HasSegmentStart || state.SegmentStartPos != lastPos-1 {
+		return pendingSegmentSample{}, segmentObservedReset
+	}
+	sample := pendingSegmentSample{
+		Key: segmentProfileKey{
+			RouteID: prev.RouteID, DirectionID: prev.DirectionID,
+			FromStopID: prev.Stops[lastPos-1].StopID, ToStopID: prev.Stops[lastPos].StopID,
+			DayType: segmentDayType(observedAt), BucketStartMin: segmentBucketStartMin(observedAt),
+		},
+		Duration:   observedAt.Sub(state.SegmentStartedAt),
+		DistanceM:  prev.distanceBetweenStopPositions(lastPos-1, lastPos),
+		ObservedAt: observedAt,
+	}
+	if !isPlausibleSegmentSample(sample) {
+		return pendingSegmentSample{}, segmentObservedRejected
+	}
+	return sample, segmentObservedAccepted
+}
+
+// The departure of the new direction that the timetable pairs with the run just finished.
+func pairedDeparture(prev, next *tripSegmentTracker, state vehicleSegmentState) float64 {
+	if state.MatchedDepartureMin < 0 || state.MatchedDayType == "" {
+		return -1
+	}
+	bucket := (int(state.MatchedDepartureMin) / segmentBucketMinutes) * segmentBucketMinutes
+	offsets := tripCumulativeOffsets(prev, state.MatchedDayType, bucket)
+	if len(offsets) == 0 {
+		return -1
+	}
+	arrival := state.MatchedDepartureMin + offsets[len(offsets)-1]/60
+	departures := tripDepartures(next, state.MatchedDayType)
+	for _, d := range departures {
+		if d >= arrival-pairedSlotMarginMin {
+			return d
+		}
+	}
+	for _, d := range departures {
+		if d+1440 >= arrival-pairedSlotMarginMin && d+1440 <= arrival+60 {
+			return d
+		}
+	}
+	return -1
+}
+
+func matchRunDeparture(tracker *tripSegmentTracker, pos int, at time.Time, loc *time.Location) (float64, string) {
+	dayType := segmentDayType(at)
+	departures := tripDepartures(tracker, dayType)
+	if len(departures) < 2 {
+		return -1, ""
+	}
+	minutes, bucket := localMinutes(float64(at.Unix()), loc)
+	offsets := tripCumulativeOffsets(tracker, dayType, bucket)
+	if pos >= len(offsets) {
+		return -1, ""
+	}
+	departure, ok := matchDeparture(departures, minutes-offsets[pos]/60)
+	if !ok {
+		return -1, ""
+	}
+	return departure, dayType
+}
+
+var tripScheduleCache = struct {
+	sync.Mutex
+	period     int64
+	departures map[string][]float64
+	offsets    map[string][]float64
+}{}
+
+func tripScheduleCacheFor(period int64) {
+	if tripScheduleCache.period == period && tripScheduleCache.departures != nil {
+		return
+	}
+	tripScheduleCache.period = period
+	tripScheduleCache.departures = make(map[string][]float64)
+	tripScheduleCache.offsets = make(map[string][]float64)
+}
+
+func tripDepartures(tracker *tripSegmentTracker, dayType string) []float64 {
+	key := tracker.TripID + "|" + dayType
+	tripScheduleCache.Lock()
+	tripScheduleCacheFor(ProfileSnapshotPeriod())
+	deps, ok := tripScheduleCache.departures[key]
+	tripScheduleCache.Unlock()
+	if ok {
+		return deps
+	}
+	deps = []float64{}
+	if database.DB == nil {
+		return deps
+	}
+	if timetable, err := getTimetableFromDB(tracker.RouteShortName); err == nil && timetable != nil {
+		deps = scheduleDepartureMinutes(timetable, dayType, tracker.DirectionID)
+	}
+	tripScheduleCache.Lock()
+	tripScheduleCacheFor(ProfileSnapshotPeriod())
+	tripScheduleCache.departures[key] = deps
+	tripScheduleCache.Unlock()
+	return deps
+}
+
+// Seconds from the trip's first stop to each stop, with this hour's learned segments.
+func tripCumulativeOffsets(tracker *tripSegmentTracker, dayType string, bucket int) []float64 {
+	key := tracker.TripID + "|" + dayType + "|" + strconv.Itoa(bucket)
+	tripScheduleCache.Lock()
+	tripScheduleCacheFor(ProfileSnapshotPeriod())
+	offsets, ok := tripScheduleCache.offsets[key]
+	tripScheduleCache.Unlock()
+	if ok {
+		return offsets
+	}
+	offsets = []float64{}
+	if database.DB == nil {
+		return offsets
+	}
+	if rows, err := getStopTimesForTrips([]string{tracker.TripID}); err == nil && len(rows) > 0 {
+		trip := sortedTrip(rows, tracker.TripID)
+		ordered := make([]int, len(trip))
+		for i := range ordered {
+			ordered[i] = i
+		}
+		applySegmentProfilesToTrip(trip, ordered, snapshotSegmentProfiles(tracker.RouteID, tracker.DirectionID, dayType, bucket))
+		total := 0.0
+		offsets = make([]float64, len(trip))
+		for i, st := range trip {
+			if i > 0 {
+				total += st.OffsetArrivalTime
+			}
+			offsets[i] = total
+		}
+	}
+	tripScheduleCache.Lock()
+	tripScheduleCacheFor(ProfileSnapshotPeriod())
+	tripScheduleCache.offsets[key] = offsets
+	tripScheduleCache.Unlock()
+	return offsets
 }
 
 func isPlausibleSegmentSample(sample pendingSegmentSample) bool {
@@ -465,13 +648,18 @@ func loadTripSegmentTracker(tripID string) (*tripSegmentTracker, bool) {
 		return nil, false
 	}
 
+	shortName := ""
+	if routes, err := getRoutesFromDB(RouteFilter{RouteID: &trip.RouteID}); err == nil && len(routes) > 0 {
+		shortName = routes[0].RouteShortName
+	}
 	return &tripSegmentTracker{
-		TripID:      tripID,
-		RouteID:     trip.RouteID,
-		DirectionID: int(trip.DirectionID),
-		Shape:       shapes,
-		Cumulative:  buildCumulativeShapeDistance(shapes),
-		Stops:       trackedStops,
+		TripID:         tripID,
+		RouteID:        trip.RouteID,
+		RouteShortName: shortName,
+		DirectionID:    int(trip.DirectionID),
+		Shape:          shapes,
+		Cumulative:     buildCumulativeShapeDistance(shapes),
+		Stops:          trackedStops,
 	}, true
 }
 

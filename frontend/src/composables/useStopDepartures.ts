@@ -8,12 +8,15 @@ import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {
   buildShapeIndex,
   buildStopShapeIdxByStopId,
-  etaForStop,
   getIndexedVehicles,
-  type IndexedVehicle
+  type IndexedVehicle,
+  liveEtasForStop,
+  otherDirectionTripId,
+  type ThroughRunOptions,
+  turnaroundOf,
 } from '@/composables/useVehicleTracking.ts'
 import type {Shape, ShapeInfo, Vehicle, VehiclesInStop} from '@/types/tranzy.ts'
-import {getAvailableBusesForStop, hasTimetableEntries} from '@/utils/time.ts'
+import {getAvailableBusesForStop, getMinutesFromDate, hasTimetableEntries, tripDepartureMinutes} from '@/utils/time.ts'
 import {mergeArrivals} from '@/utils/arrivals.ts'
 import {getRouteIdFromTripId, getShapeStopTimes} from '@/utils/trips.ts'
 
@@ -59,19 +62,6 @@ export function useStopDepartures(stopId: Ref<string>) {
     mapStore.setLoadedShapes(entries)
   }
 
-  const streamTripIds = computed<string[]>(() => {
-    const info = stopInfo.value
-    if (!info) return []
-    const shapes = info.shapes_info.filter((s: ShapeInfo) => hasTimetableEntries(s.timetable))
-    const routeIds = new Set(shapes.map((s: ShapeInfo) => s.route_id))
-    return [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
-      .filter((tid) => {
-        const tripRouteId = getRouteIdFromTripId(tid)
-        return tripRouteId !== null && routeIds.has(tripRouteId)
-      })
-  })
-  const {vehiclesByTrip} = useVehicleStream(streamTripIds)
-
   const busesWithAvailableTimetables = computed(() => {
     return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable))
   })
@@ -81,6 +71,31 @@ export function useStopDepartures(stopId: Ref<string>) {
     if (!info) return new Map<number, ShapeInfo>()
     return new Map<number, ShapeInfo>(info.shapes_info.map((shapeInfo: ShapeInfo) => [shapeInfo.route_id, shapeInfo]))
   })
+
+  // The trip whose buses continue as `tripId` at its first stop, when that is how the
+  // route runs; its vehicles are this trip's next runs.
+  function feederTripFor(tripId: string): string | null {
+    const routeId = getRouteIdFromTripId(tripId)
+    const shape = routeId === null ? undefined : shapeInfoByRouteId.value.get(routeId)
+    if (!shape) return null
+    const turnaround = turnaroundOf(getShapeStopTimes(shape).filter((st) => st.trip_id === tripId))
+    return turnaround?.through ? otherDirectionTripId(tripId) : null
+  }
+
+  const streamTripIds = computed<string[]>(() => {
+    const info = stopInfo.value
+    if (!info) return []
+    const shapes = info.shapes_info.filter((s: ShapeInfo) => hasTimetableEntries(s.timetable))
+    const routeIds = new Set(shapes.map((s: ShapeInfo) => s.route_id))
+    const here = [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
+      .filter((tid) => {
+        const tripRouteId = getRouteIdFromTripId(tid)
+        return tripRouteId !== null && routeIds.has(tripRouteId)
+      })
+    const feeders = here.map(feederTripFor).filter((tid): tid is string => tid !== null)
+    return [...new Set([...here, ...feeders])]
+  })
+  const {vehiclesByTrip} = useVehicleStream(streamTripIds)
 
   function isDepartureFavorite(shape: VehiclesInStop): boolean {
     return favoritesStore.isRouteFavorite(shape.route_id)
@@ -100,7 +115,7 @@ export function useStopDepartures(stopId: Ref<string>) {
   // a few minutes off. Reconciling on time drops that duplicate; and when tracking is
   // watching this trip but has no bus behind the stop, a slot the timetable still reads
   // as due now is a run that has already gone past.
-  function withArrivals(shape: VehiclesInStop, liveMinutes: number | null, tracked: boolean): VehiclesInStop | null {
+  function withArrivals(shape: VehiclesInStop, liveMinutes: number[] | null, tracked: boolean): VehiclesInStop | null {
     const scheduled = (shape.next_times ?? []).map((entry) => entry.minutes)
     const merged = mergeArrivals(liveMinutes, scheduled, {tracked, limit: DEPARTURES_SHOWN})
     if (!merged.length) return null
@@ -108,7 +123,7 @@ export function useStopDepartures(stopId: Ref<string>) {
       ...shape,
       minutes_left: merged[0]!.minutes,
       next_times: merged.map((arrival) => ({minutes: arrival.minutes, is_live: arrival.isLive})),
-      static_time_approximation: liveMinutes === null,
+      static_time_approximation: !liveMinutes?.length,
     }
   }
 
@@ -158,10 +173,11 @@ export function useStopDepartures(stopId: Ref<string>) {
     const favoriteTripIds = new Set<string>()
 
     const results: VehiclesInStop[] = []
-    const push = (shape: VehiclesInStop, liveMinutes: number | null, tracked: boolean) => {
+    const push = (shape: VehiclesInStop, liveMinutes: number[] | null, tracked: boolean) => {
       const withTimes = withArrivals(shape, liveMinutes, tracked)
       if (withTimes) results.push(withTimes)
     }
+    const now = userTime.value || new Date()
 
     for (const shape of shapesComingNext) {
       const trip = displayShapesWithTrip.find(([s]) => s.trip_id === shape.trip_id)?.[1] as Shape[]
@@ -202,12 +218,34 @@ export function useStopDepartures(stopId: Ref<string>) {
         continue
       }
 
-      const eta = etaForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex, {
+      let throughRun: ThroughRunOptions | undefined
+      const turnaround = turnaroundOf(tripStops)
+      if (turnaround?.through) {
+        const feederTripId = otherDirectionTripId(shape.trip_id)
+        const feederShape = displayShapesWithTrip.find(([s]) => s.trip_id === feederTripId)?.[1] as Shape[] | undefined
+        throughRun = {
+          turnaround,
+          departureMinutes: tripDepartureMinutes(routeShapeInfo.timetable, shape.trip_id, now),
+          feederDepartureMinutes: tripDepartureMinutes(routeShapeInfo.timetable, feederTripId, now),
+          nowMinutes: getMinutesFromDate(now),
+        }
+        if (Array.isArray(feederShape) && feederShape.length) {
+          const feederIndex = buildShapeIndex(feederShape)
+          throughRun.feeder = {
+            vehicles: await getIndexedVehicles(feederTripId, shape.route_short_name, shape.route_color, feederIndex, userTime.value, vehiclesByTripMap.get(feederTripId) ?? []),
+            index: feederIndex,
+            tripStops: getShapeStopTimes(routeShapeInfo).filter((stopTime) => stopTime.trip_id === feederTripId),
+          }
+        }
+      }
+
+      const etas = liveEtasForStop(stopShapeIdx, vehiclesOnRoute, shapeIndex, {
         tripStops,
         targetStopId: stopIdNum.value,
         referenceTime: userTime.value,
+        throughRun,
       })
-      push(shape, eta ? eta.etaMinutes : null, tracked)
+      push(shape, etas.map((eta) => eta.etaMinutes), tracked)
     }
     shapesComingToTheStopBasedOnVehiclePositions.value = results.sort((a, b) => a.minutes_left - b.minutes_left)
     const highlightedShapes = displayShapesWithTrip.filter(([displayShape, shapePoints]) =>
@@ -232,11 +270,13 @@ export function useStopDepartures(stopId: Ref<string>) {
     if (!availableShapes?.length) return []
     const routeIdsWithAvailableTimetables = new Set(availableShapes.map((shape: ShapeInfo) => shape.route_id))
     const {outgoing_trip_ids, incoming_trip_ids} = stopInfo.value!
-    return [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
+    const here = [...(outgoing_trip_ids || []), ...(incoming_trip_ids || [])]
       .filter((trip_id) => {
         const tripRouteId = getRouteIdFromTripId(trip_id)
         return tripRouteId !== null && routeIdsWithAvailableTimetables.has(tripRouteId)
       })
+    const feeders = here.map(feederTripFor).filter((tid): tid is string => tid !== null)
+    return [...new Set([...here, ...feeders])]
       .reduce((acc: DisplayShape[], trip_id: string) => {
         const routeId = getRouteIdFromTripId(trip_id)
         if (routeId === null) return acc

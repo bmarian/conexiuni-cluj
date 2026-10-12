@@ -1,5 +1,5 @@
 import {shallowRef} from 'vue'
-import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
+import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime, Turnaround} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {hasTimetableEntries} from '@/utils/time.ts'
@@ -15,6 +15,7 @@ export type NetworkRoute = Route & {
   timetable: Timetable | null
   trips: NetworkTrip[]
   offsets: Record<string, number[][]>
+  turnaround?: Record<string, Turnaround>
 }
 
 export type NetworkBundle = {
@@ -65,6 +66,7 @@ export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType
   const out: StopTime[] = []
   let i = 0
   for (const trip of route.trips) {
+    const turnaround = route.turnaround?.[trip.trip_id.endsWith(INCOMING_SUFFIX) ? '1' : '0']
     trip.stop_ids.forEach((stopId, k) => {
       const stop = index.stopById.get(stopId)
       out.push({
@@ -76,6 +78,7 @@ export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType
         route_short_name: route.route_short_name,
         stop_lat: stop?.stop_lat ?? 0,
         stop_lon: stop?.stop_lon ?? 0,
+        ...(k === 0 && turnaround ? {through_running: turnaround.through, turnaround_sec: turnaround.sec, turnaround_leaves: !!turnaround.leaves} : {}),
       })
       i++
     })

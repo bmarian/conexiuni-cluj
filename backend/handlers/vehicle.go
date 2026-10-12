@@ -35,7 +35,8 @@ const (
 )
 
 const vehicleColumns = `id, label, latitude, longitude, timestamp, vehicle_type, bike_accessible, ` +
-	`wheelchair_accessible, speed, route_id, trip_id, raw_speed, anchor_lat, anchor_lon, anchor_at, observed_at`
+	`wheelchair_accessible, speed, route_id, trip_id, raw_speed, anchor_lat, anchor_lon, anchor_at, observed_at, ` +
+	`prev_trip_id, trip_changed_at`
 
 type VehicleFilter struct {
 	RouteID *int
@@ -172,6 +173,7 @@ func smoothVehicles(tranzyClient *tranzy.Client, apiVehicles []models.Vehicle, f
 		}
 		v.Speed = newSpeed
 		applyAnchor(v, prev, exists, now)
+		carryTripChange(v, prev, exists)
 	}
 
 	for _, dbV := range dbVehicles {
@@ -201,6 +203,21 @@ func applyAnchor(v *models.Vehicle, prev models.Vehicle, hadPrev bool, now time.
 		return
 	}
 	v.SetAnchor(anchorLat, anchorLon, prev.StationarySince, observedAt)
+}
+
+// Tranzy flips a bus to its next trip as it rolls into the terminus, so the flip
+// time is the arrival there for anyone predicting the next trip.
+func carryTripChange(v *models.Vehicle, prev models.Vehicle, hadPrev bool) {
+	if !hadPrev {
+		return
+	}
+	if prev.TripID == v.TripID {
+		v.PrevTripID = prev.PrevTripID
+		v.TripChangedAt = prev.TripChangedAt
+		return
+	}
+	v.PrevTripID = prev.TripID
+	v.TripChangedAt = v.Timestamp
 }
 
 func parseVehicleTime(ts string, fallback time.Time) int64 {
@@ -234,7 +251,7 @@ func getVehiclesFromDB(filter VehicleFilter) ([]models.Vehicle, error) {
 			var observedAt int64
 			err := rows.Scan(&v.ID, &v.Label, &v.Latitude, &v.Longitude, &v.Timestamp, &v.VehicleType,
 				&v.BikeAccessible, &v.WheelchairAccessible, &v.Speed, &v.RouteID, &v.TripID,
-				&v.RawSpeed, &anchorLat, &anchorLon, &anchorAt, &observedAt)
+				&v.RawSpeed, &anchorLat, &anchorLon, &anchorAt, &observedAt, &v.PrevTripID, &v.TripChangedAt)
 			if err != nil {
 				return v, err
 			}
@@ -251,13 +268,13 @@ func storeVehiclesInDB(vehicles []models.Vehicle) error {
 	err := batchExec(`
 		INSERT OR REPLACE INTO vehicles
 		(`+vehicleColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		func(stmt *sql.Stmt) error {
 			for _, v := range vehicles {
 				anchorLat, anchorLon := v.Anchor()
 				if _, err := stmt.Exec(v.ID, v.Label, v.Latitude, v.Longitude, v.Timestamp, v.VehicleType,
 					v.BikeAccessible, v.WheelchairAccessible, v.Speed, v.RouteID, v.TripID,
-					v.RawSpeed, anchorLat, anchorLon, v.StationarySince, v.ObservedAt()); err != nil {
+					v.RawSpeed, anchorLat, anchorLon, v.StationarySince, v.ObservedAt(), v.PrevTripID, v.TripChangedAt); err != nil {
 					return fmt.Errorf("error inserting vehicle: %w", err)
 				}
 			}

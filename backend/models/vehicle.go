@@ -26,6 +26,10 @@ type Vehicle struct {
 	// than StationaryRadiusMeters away from where it sits now. Empty only until
 	// the first fix. now - StationarySince is how long it has been standing.
 	StationarySince string `json:"stationary_since" db:"anchor_at"`
+	// The trip Tranzy had this vehicle on before the current one, and the vehicle
+	// timestamp of the first fix on the current one.
+	PrevTripID    string `json:"prev_trip_id,omitempty" db:"prev_trip_id"`
+	TripChangedAt string `json:"trip_changed_at,omitempty" db:"trip_changed_at"`
 
 	// anchor position StationarySince is measured from; persisted, not serialized.
 	anchorLat  float64

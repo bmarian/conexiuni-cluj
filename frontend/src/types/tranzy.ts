@@ -15,6 +15,18 @@ export type StopTime = {
   route_short_name: string
   stop_lat: number
   stop_lon: number
+  // On a trip's first stop only: the bus ending the other direction here continues as
+  // this trip after turnaround_sec.
+  through_running?: boolean
+  turnaround_sec?: number
+  turnaround_leaves?: boolean
+}
+
+export type Turnaround = {
+  through: boolean
+  sec: number
+  // Buses here leave as soon as they can rather than waiting for their slot.
+  leaves?: boolean
 }
 
 export type HourlyStopOffsets = {
@@ -114,6 +126,9 @@ export type Vehicle = {
   raw_speed?: number
   // Vehicle timestamp at which it was last seen away from where it stands now.
   stationary_since?: string
+  // The trip before this one and the vehicle timestamp of the first fix on this one.
+  prev_trip_id?: string
+  trip_changed_at?: string
 }
 
 export type TimeEntry = {

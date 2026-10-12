@@ -124,6 +124,11 @@ func buildNetworkRoute(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, c
 		}
 		out.Offsets[dayType] = hours
 	}
+	if routeID != 0 {
+		if t := routeTurnarounds(routeID, base); len(t) > 0 {
+			out.Turnaround = t
+		}
+	}
 	return out
 }
 

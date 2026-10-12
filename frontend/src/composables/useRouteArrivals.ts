@@ -7,17 +7,20 @@ import {useUserStore} from '@/stores/user.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
-import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
+import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes, tripDepartureMinutes} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
 import {markRepeatedNow, mergeArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
 import {
   buildShapeIndex,
   buildStopShapeIdxByStopId,
-  etaForStop,
+  type FeederTrip,
   getIndexedVehicles,
   type IndexedVehicle,
+  liveEtasForStop,
   type ShapeIndex,
+  type ThroughRunOptions,
+  turnaroundOf,
 } from '@/composables/useVehicleTracking.ts'
 import {useVehicleStream} from '@/composables/useVehicleStream.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
@@ -187,17 +190,36 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   // the first of those justifies dropping a timetable slot that reads as due now.
   const directionIsTracked = computed(() => currentDirectionVehicles.value.length > 0)
 
-  function liveMinutesForStop(stop: IndexedStop): number | null {
+  // On a through-running direction the other direction's buses are this one's next runs.
+  const throughRun = computed((): ThroughRunOptions | null => {
+    const turnaround = turnaroundOf(stopsForDirection.value)
+    if (!turnaround?.through) return null
+    const feederShape = currentDirection.value === '0' ? direction1Shape.value : direction0Shape.value
+    const feederVehicles = currentDirection.value === '0' ? direction1Vehicles.value : direction0Vehicles.value
+    const feederTripId = `${routeId.value}${currentDirection.value === '0' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
+    const feeder: FeederTrip | undefined = feederShape
+      ? {vehicles: feederVehicles, index: feederShape.shapeIndex, tripStops: rawStops.value.filter((st) => st.trip_id === feederTripId)}
+      : undefined
+    return {
+      turnaround,
+      departureMinutes: departureTimes.value,
+      feederDepartureMinutes: tripDepartureMinutes(timetable.value, feederTripId, userTime.value || new Date()),
+      nowMinutes: currentMinutes.value,
+      feeder,
+    }
+  })
+
+  function liveMinutesForStop(stop: IndexedStop): number[] {
     const dirShape = currentDirectionShape.value
-    if (!dirShape) return null
+    if (!dirShape) return []
     const stopIdx = dirShape.stopShapeIdxByStopId.get(stop.stop_id)
-    if (stopIdx === undefined || stopIdx < 0) return null
-    const eta = etaForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
+    if (stopIdx === undefined || stopIdx < 0) return []
+    return liveEtasForStop(stopIdx, currentDirectionVehicles.value, dirShape.shapeIndex, {
       tripStops: stopsForDirection.value,
       targetStopId: stop.stop_id,
       referenceTime: userTime.value,
-    })
-    return eta ? eta.etaMinutes : null
+      throughRun: throughRun.value ?? undefined,
+    }).map((eta) => eta.etaMinutes)
   }
 
   // The live estimate used to be dropped into slot 0 and the timetable kept the rest,
@@ -213,11 +235,12 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     })))
   })
 
-  // The header lists departures from the terminus, where there is no stop to have been
-  // passed, so it stays on the timetable alone.
+  // The header lists departures from the terminus, where no stop has been passed yet, so
+  // it stays on the timetable unless a through-running bus is about to leave.
   function getHeaderTimes(): string[] {
-    const offset = stopsForDirection.value[0]?.timeOffsetFromStart ?? 0
-    return mergeArrivals(null, nextArrivalsAtStop(offset)).map((arrival) => formatMinutes(arrival.minutes))
+    const first = stopsForDirection.value[0]
+    const live = first && throughRun.value ? liveMinutesForStop(first) : null
+    return mergeArrivals(live, nextArrivalsAtStop(first?.timeOffsetFromStart ?? 0)).map((arrival) => formatMinutes(arrival.minutes))
   }
 
   function buildDisplayShape() {

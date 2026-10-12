@@ -25,6 +25,8 @@ type streamVehicle struct {
 	Speed                float64 `json:"speed"`
 	RawSpeed             float64 `json:"raw_speed"`
 	StationarySince      string  `json:"stationary_since"`
+	PrevTripID           string  `json:"prev_trip_id,omitempty"`
+	TripChangedAt        string  `json:"trip_changed_at,omitempty"`
 	Label                *string `json:"label,omitempty"`
 	VehicleType          *int    `json:"vehicle_type,omitempty"`
 	BikeAccessible       *string `json:"bike_accessible,omitempty"`
@@ -55,7 +57,8 @@ func roundedVehicle(v models.Vehicle) models.Vehicle {
 
 func sameMotion(a, b models.Vehicle) bool {
 	return a.TripID == b.TripID && a.RouteID == b.RouteID && a.Latitude == b.Latitude && a.Longitude == b.Longitude &&
-		a.Timestamp == b.Timestamp && a.Speed == b.Speed && a.RawSpeed == b.RawSpeed && a.StationarySince == b.StationarySince
+		a.Timestamp == b.Timestamp && a.Speed == b.Speed && a.RawSpeed == b.RawSpeed && a.StationarySince == b.StationarySince &&
+		a.PrevTripID == b.PrevTripID && a.TripChangedAt == b.TripChangedAt
 }
 
 func sameLook(a, b models.Vehicle) bool {
@@ -67,6 +70,7 @@ func toStreamVehicle(v models.Vehicle, withLook bool) streamVehicle {
 	out := streamVehicle{
 		ID: v.ID, TripID: v.TripID, RouteID: v.RouteID, Latitude: v.Latitude, Longitude: v.Longitude,
 		Timestamp: v.Timestamp, Speed: v.Speed, RawSpeed: v.RawSpeed, StationarySince: v.StationarySince,
+		PrevTripID: v.PrevTripID, TripChangedAt: v.TripChangedAt,
 	}
 	if withLook {
 		label, vehicleType, bike, wheelchair := v.Label, v.VehicleType, v.BikeAccessible, v.WheelchairAccessible

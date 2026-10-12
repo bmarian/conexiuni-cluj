@@ -256,6 +256,7 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 			out[indexes[0]].OffsetArrivalTime = math.Round(profile.delay)
 		}
 	}
+	applyTurnaroundToStopTimes(out, routeID)
 
 	return out
 }

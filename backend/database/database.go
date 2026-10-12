@@ -327,6 +327,27 @@ func InitSchemas() error {
             delay_sec        REAL    NOT NULL,
             updated_at       INTEGER NOT NULL,
             PRIMARY KEY (route_id, direction_id, day_type, bucket_start_min)
+        );
+
+		CREATE TABLE IF NOT EXISTS turnaround_samples
+        (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            route_id              INTEGER NOT NULL,
+            direction_id          INTEGER NOT NULL,
+            day_type              TEXT    NOT NULL,
+            duration_sec          REAL    NOT NULL,
+            arrived_at            INTEGER NOT NULL,
+            departed_at           INTEGER NOT NULL,
+            paired_departure_min  REAL    NOT NULL DEFAULT -1
+        );
+		CREATE INDEX IF NOT EXISTS turnaround_samples_route ON turnaround_samples (route_id, direction_id, departed_at);
+
+		CREATE TABLE IF NOT EXISTS turnaround_arrivals
+        (
+            route_id         INTEGER NOT NULL,
+            direction_id     INTEGER NOT NULL,
+            arrived_at       INTEGER NOT NULL,
+            PRIMARY KEY (route_id, direction_id, arrived_at)
         )
     `
 	_, err := DB.Exec(schema)
@@ -443,6 +464,8 @@ func addMissingColumns() error {
 			"anchor_lon REAL NOT NULL DEFAULT 0",
 			"anchor_at TEXT NOT NULL DEFAULT ''",
 			"observed_at INTEGER NOT NULL DEFAULT 0",
+			"prev_trip_id TEXT NOT NULL DEFAULT ''",
+			"trip_changed_at TEXT NOT NULL DEFAULT ''",
 		},
 		"route_changes": {
 			"push_pending INTEGER NOT NULL DEFAULT 0",

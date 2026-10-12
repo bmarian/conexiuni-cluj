@@ -43,6 +43,12 @@ type runSegment struct {
 	EndedAt    int64
 }
 
+type runDeparture struct {
+	DayType    string
+	DepartedAt int64
+	PairedMin  float64
+}
+
 func StartScheduleDelayLearner(loc *time.Location) {
 	go func() {
 		time.Sleep(2 * time.Minute)
@@ -171,6 +177,54 @@ func collectScheduleResiduals(
 		return c, nil
 	}
 	departures := make(map[string][]float64)
+	departuresFor := func(dayType string) []float64 {
+		deps, ok := departures[dayType]
+		if !ok {
+			deps = scheduleDepartureMinutes(timetable, dayType, directionID)
+			departures[dayType] = deps
+		}
+		return deps
+	}
+
+	// Departures seen at the first stop by the turnaround learner, keyed by the second.
+	turnarounds, err := queryRows(`
+		SELECT day_type, departed_at, paired_departure_min
+		FROM turnaround_samples
+		WHERE route_id = ? AND direction_id = ? AND departed_at >= ?`,
+		[]any{routeID, directionID, now.Add(-scheduleDelayWindow).Unix()},
+		func(rows *sql.Rows) (runDeparture, error) {
+			var d runDeparture
+			err := rows.Scan(&d.DayType, &d.DepartedAt, &d.PairedMin)
+			return d, err
+		})
+	if err != nil {
+		return err
+	}
+	departed := make(map[int64]runDeparture, len(turnarounds))
+	for _, d := range turnarounds {
+		departed[d.DepartedAt] = d
+	}
+	covered := make(map[int64]bool)
+
+	// One lateness per run: its stops agree to within the noise, and a run seen at
+	// twenty stops must not outweigh one seen at three.
+	addRun := func(dayType string, departure float64, residuals []float64) {
+		if len(residuals) == 0 {
+			return
+		}
+		*runID++
+		bucket := (int(departure) / segmentBucketMinutes) * segmentBucketMinutes
+		for _, b := range []int{bucket, allDaySegmentBucket} {
+			key := scheduleDelayKey{routeID, directionID, dayType, b}
+			r := into[key]
+			if r == nil {
+				r = &scheduleResiduals{runs: make(map[int]struct{})}
+				into[key] = r
+			}
+			r.seconds = append(r.seconds, median(residuals))
+			r.runs[*runID] = struct{}{}
+		}
+	}
 
 	for _, tail := range segments {
 		if continued[chainKey{tail.EndedAt, tail.ToStopID}] {
@@ -197,29 +251,37 @@ func collectScheduleResiduals(
 			continue
 		}
 
-		deps, ok := departures[tail.DayType]
-		if !ok {
-			deps = scheduleDepartureMinutes(timetable, tail.DayType, directionID)
-			departures[tail.DayType] = deps
-		}
+		deps := departuresFor(tail.DayType)
 		if len(deps) < 2 {
 			continue
 		}
 
 		anchorMin, anchorBucket := localMinutes(anchorAt, loc)
-		offsets, err := offsetsAt(tail.DayType, anchorBucket)
-		if err != nil {
-			return err
+		var departure float64
+		matched := false
+		if anchorPos == 0 {
+			if d, ok := departed[int64(math.Round(anchorAt))]; ok {
+				covered[d.DepartedAt] = true
+				if d.PairedMin >= 0 {
+					departure, matched = d.PairedMin, true
+				}
+			}
 		}
-		departure, ok := matchDeparture(deps, anchorMin-offsets[anchorPos]/60)
-		if !ok {
+		if !matched {
+			offsets, err := offsetsAt(tail.DayType, anchorBucket)
+			if err != nil {
+				return err
+			}
+			departure, matched = matchDeparture(deps, anchorMin-offsets[anchorPos]/60)
+		}
+		if !matched {
 			continue
 		}
 
-		*runID++
+		var residuals []float64
 		for stopID, at := range seen {
 			pos, ok := position[stopID]
-			if !ok || pos == 0 {
+			if !ok {
 				continue
 			}
 			arrivedMin, bucket := localMinutes(at, loc)
@@ -227,18 +289,28 @@ func collectScheduleResiduals(
 			if err != nil {
 				return err
 			}
-			residual := wrapDayMinutes(arrivedMin-(departure+offsets[pos]/60)) * 60
-			for _, b := range []int{bucket, allDaySegmentBucket} {
-				key := scheduleDelayKey{routeID, directionID, tail.DayType, b}
-				r := into[key]
-				if r == nil {
-					r = &scheduleResiduals{runs: make(map[int]struct{})}
-					into[key] = r
-				}
-				r.seconds = append(r.seconds, residual)
-				r.runs[*runID] = struct{}{}
-			}
+			residuals = append(residuals, wrapDayMinutes(arrivedMin-(departure+offsets[pos]/60))*60)
 		}
+		addRun(tail.DayType, departure, residuals)
+	}
+
+	for _, d := range turnarounds {
+		if covered[d.DepartedAt] {
+			continue
+		}
+		deps := departuresFor(d.DayType)
+		if len(deps) < 2 {
+			continue
+		}
+		departedMin, _ := localMinutes(float64(d.DepartedAt), loc)
+		departure, ok := d.PairedMin, d.PairedMin >= 0
+		if !ok {
+			departure, ok = matchDeparture(deps, departedMin)
+		}
+		if !ok {
+			continue
+		}
+		addRun(d.DayType, departure, []float64{wrapDayMinutes(departedMin-departure) * 60})
 	}
 	return nil
 }

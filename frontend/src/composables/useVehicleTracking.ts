@@ -1,6 +1,7 @@
 import { apiRequest } from "@/utils/api.ts";
 import { calculateBearing, haversineMeters } from "@/utils/geo.ts";
-import type { Shape, StopTime, Vehicle } from "@/types/tranzy.ts";
+import { minutesUntil } from "@/utils/arrivals.ts";
+import type { Shape, StopTime, Turnaround, Vehicle } from "@/types/tranzy.ts";
 
 export const TERMINUS_RADIUS_METERS = 200;
 // Tranzy tags a vehicle with the trip it is *about* to run, so a bus deadheading
@@ -25,6 +26,21 @@ const MAX_PLAUSIBLE_SPEED_MPS = 50 / 3.6;
 // ground the estimate would otherwise still charge for. Capped, because past a minute
 // or so the silence is more likely a gap in the feed than a bus making progress.
 const MAX_FIX_AGE_CREDIT_SEC = 90;
+// A bus arriving early at a through terminus waits for its slot; past this it is read
+// as running late for an earlier one instead.
+const MAX_EARLY_WAIT_MIN = 8;
+// A run is paired with a timetable departure only when it sits clearly on one.
+const MAX_RUN_MATCH_MIN = 8;
+const RUN_MATCH_HEADWAY_SHARE = 0.4;
+const PAIRED_SLOT_MARGIN_MIN = 3;
+// Past this a paired slot is a timetable the bus is not keeping, not a wait.
+const MAX_PAIRED_WAIT_MIN = 10;
+const OVERSTAY_MS = 60_000;
+const NEXT_SLOT_MAX_MIN = 20;
+const STANDING_MAX_MS = 25 * 60_000;
+// Further out than this, a bus still on the other direction predicts no better than the
+// timetable it would replace, and it hides the runs between.
+const FEEDER_HORIZON_MS = 12 * 60_000;
 
 export type TrackedVehicle = Vehicle & {
   route_short_name: string;
@@ -40,6 +56,8 @@ export type IndexedVehicle = TrackedVehicle & {
   // of a live ETA until it is past the trip's first stop - see etaForStop.
   atStartTerminus: boolean;
   dwellMs: number;
+  // When Tranzy moved it onto this trip, which at a terminus is when it arrived there.
+  tripChangedAtMs: number | null;
 };
 export type ShapeIndex = { shape: Shape[]; cumulativeDist: number[] };
 export type StopEta = { vehicle: IndexedVehicle | null; etaMinutes: number; etaSeconds: number };
@@ -67,6 +85,12 @@ function dwellMs(v: Vehicle, now: number): number {
   const since = new Date(v.stationary_since).getTime();
   if (isNaN(since)) return 0;
   return Math.max(0, now - since);
+}
+
+function parseMs(text: string | undefined): number | null {
+  if (!text) return null;
+  const ms = new Date(text).getTime();
+  return isNaN(ms) ? null : ms;
 }
 
 function isTracked(v: Vehicle, now: number): boolean {
@@ -231,6 +255,7 @@ export async function getIndexedVehicles(
         haversineMeters(v.latitude, v.longitude, start.shape_pt_lat, start.shape_pt_lon) <=
         TERMINUS_RADIUS_METERS,
       dwellMs: dwellMs(v, now),
+      tripChangedAtMs: parseMs(v.trip_changed_at),
     });
   }
 
@@ -369,4 +394,182 @@ function profileAwareEtaSeconds(
     MAX_FIX_AGE_CREDIT_SEC,
   );
   return Math.max(0, profileSeconds - fixAgeSec);
+}
+
+// ---- Through running: the bus that ends the other direction continues as this trip.
+
+export type FeederTrip = { vehicles: IndexedVehicle[]; index: ShapeIndex; tripStops: StopTime[] };
+
+export type ThroughRunOptions = {
+  turnaround: Turnaround;
+  // This trip's departures today, in minutes past midnight, and the clock the same way.
+  departureMinutes: number[];
+  nowMinutes: number;
+  // The feeder direction's departures today, so a bus can be tied to the run it is on.
+  feederDepartureMinutes?: number[];
+  feeder?: FeederTrip;
+};
+
+export type LiveEtaOptions = EtaOptions & { throughRun?: ThroughRunOptions };
+
+export function turnaroundOf(tripStops: StopTime[]): Turnaround | null {
+  const first = sortedTripStops(tripStops)[0];
+  if (!first?.turnaround_sec) return null;
+  return { through: !!first.through_running, sec: first.turnaround_sec, leaves: !!first.turnaround_leaves };
+}
+
+export function otherDirectionTripId(tripId: string): string {
+  return tripId.endsWith("_1") ? tripId.slice(0, -2) + "_0" : tripId.slice(0, -2) + "_1";
+}
+
+// The first stop's own offset is the schedule delay, which a bus already here has paid.
+function rideSecondsFromStart(sortedStops: StopTime[], targetPos: number): number {
+  let total = 0;
+  for (let pos = 1; pos <= targetPos; pos++) total += sortedStops[pos]!.offset_arrival_time;
+  return total;
+}
+
+function cameFromOtherDirection(v: IndexedVehicle): boolean {
+  const prev = v.prev_trip_id;
+  return !!prev && prev !== v.trip_id && prev.split("_")[0] === v.trip_id.split("_")[0];
+}
+
+function standingAtStart(v: IndexedVehicle, now: number, firstStopIdx: number): boolean {
+  return (
+    v.atStartTerminus &&
+    v.shapeIdx <= firstStopIdx &&
+    isOnRoute(v) &&
+    isFreshForLiveEta(v, now) &&
+    v.tripChangedAtMs !== null &&
+    now - v.tripChangedAtMs <= STANDING_MAX_MS &&
+    cameFromOtherDirection(v)
+  );
+}
+
+// The timetable departure a run belongs to, unless it sits too far between two.
+export function matchRunDeparture(departureMinutes: number[], impliedMin: number): number | null {
+  let best: number | null = null;
+  let bestDiff = Infinity;
+  const sorted = [...departureMinutes].sort((a, b) => a - b);
+  sorted.forEach((d, i) => {
+    const diff = Math.abs(minutesUntil(d, impliedMin));
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = i;
+    }
+  });
+  if (best === null) return null;
+  let gap = Infinity;
+  if (best > 0) gap = sorted[best]! - sorted[best - 1]!;
+  if (best + 1 < sorted.length) gap = Math.min(gap, sorted[best + 1]! - sorted[best]!);
+  return bestDiff <= Math.min(MAX_RUN_MATCH_MIN, RUN_MATCH_HEADWAY_SHARE * gap) ? sorted[best]! : null;
+}
+
+// The first slot after the feeder run's scheduled arrival: in the past for a late bus.
+function pairedSlotMinutes(options: ThroughRunOptions, arrivalMin: number, feederRideMin: number): number | null {
+  if (!options.feederDepartureMinutes?.length) return null;
+  const matched = matchRunDeparture(options.feederDepartureMinutes, arrivalMin - feederRideMin);
+  if (matched === null) return null;
+  const scheduledArrival = matched + feederRideMin;
+  let slot: number | null = null;
+  for (const d of options.departureMinutes) {
+    const diff = minutesUntil(d, scheduledArrival);
+    if (diff >= -PAIRED_SLOT_MARGIN_MIN && (slot === null || diff < slot)) slot = diff;
+  }
+  return slot === null ? null : scheduledArrival + slot;
+}
+
+// When a bus arriving at `arrivalMs` leaves: after the stand, or at its slot when that
+// comes later. A standing bus that has outstayed that takes the next slot.
+export function projectDeparture(
+  arrivalMs: number,
+  options: ThroughRunOptions,
+  nowMs: number,
+  standing: boolean,
+  feederRideMin: number | null = null,
+): number | null {
+  const ready = arrivalMs + options.turnaround.sec * 1000;
+  const readyMin = options.nowMinutes + (ready - nowMs) / 60_000;
+  const arrivalMin = options.nowMinutes + (arrivalMs - nowMs) / 60_000;
+  let departure = ready;
+  if (!options.turnaround.leaves) {
+    const paired = feederRideMin === null ? null : pairedSlotMinutes(options, arrivalMin, feederRideMin);
+    const pairedWait = paired === null ? null : minutesUntil(paired, readyMin);
+    if (pairedWait !== null && pairedWait <= MAX_PAIRED_WAIT_MIN) {
+      if (pairedWait > 0) departure = ready + pairedWait * 60_000;
+    } else {
+      let nearest: number | null = null;
+      for (const d of options.departureMinutes) {
+        const diff = minutesUntil(d, readyMin);
+        if (nearest === null || Math.abs(diff) < Math.abs(nearest)) nearest = diff;
+      }
+      if (nearest !== null && nearest >= 0 && nearest <= MAX_EARLY_WAIT_MIN) departure = ready + nearest * 60_000;
+    }
+  }
+  if (standing && nowMs > departure + OVERSTAY_MS) {
+    let next: number | null = null;
+    for (const d of options.departureMinutes) {
+      const diff = minutesUntil(d, options.nowMinutes);
+      if (diff >= 0 && diff <= NEXT_SLOT_MAX_MIN && (next === null || diff < next)) next = diff;
+    }
+    if (next === null) return null;
+    departure = nowMs + next * 60_000;
+  }
+  return departure;
+}
+
+function toEta(vehicle: IndexedVehicle, seconds: number): StopEta {
+  return { vehicle, etaMinutes: Math.max(0, Math.round(seconds / 60)), etaSeconds: seconds };
+}
+
+// Every live estimate for one stop, soonest first, including the buses still to arrive
+// from the other direction when the trip runs through.
+export function liveEtasForStop(
+  stopShapeIdx: number,
+  vehicles: IndexedVehicle[],
+  index: ShapeIndex,
+  options: LiveEtaOptions = {},
+): StopEta[] {
+  if (stopShapeIdx < 0) return [];
+  const now = options.referenceTime?.getTime() ?? Date.now();
+  const firstStopIdx = firstStopShapeIdx(index, options.tripStops);
+  const etas: StopEta[] = [];
+  for (const v of vehicles) {
+    if (v.shapeIdx <= stopShapeIdx && canDriveLiveEta(v, now, firstStopIdx)) {
+      etas.push(toEta(v, vehicleEtaSeconds(v, stopShapeIdx, index, options)));
+    }
+  }
+
+  const through = options.throughRun;
+  if (through?.turnaround.through && options.tripStops?.length && options.targetStopId !== undefined) {
+    const stops = sortedTripStops(options.tripStops);
+    const targetPos = stops.findIndex((st) => st.stop_id === options.targetStopId);
+    if (targetPos >= 0) {
+      const ride = rideSecondsFromStart(stops, targetPos);
+      const feeder = through.feeder;
+      const feederStops = feeder ? sortedTripStops(feeder.tripStops) : [];
+      const feederRideMin = feederStops.length ? rideSecondsFromStart(feederStops, feederStops.length - 1) / 60 : null;
+      for (const v of vehicles) {
+        if (!standingAtStart(v, now, firstStopIdx)) continue;
+        const departure = projectDeparture(v.tripChangedAtMs!, through, now, true, feederRideMin);
+        if (departure !== null) etas.push(toEta(v, Math.max(0, (departure - now) / 1000) + ride));
+      }
+      const last = feederStops[feederStops.length - 1];
+      if (feeder && last?.stop_lat && last.stop_lon) {
+        const lastIdx = findClosestShapeIdx(last.stop_lat, last.stop_lon, feeder.index.shape);
+        const feederFirstIdx = firstStopShapeIdx(feeder.index, feeder.tripStops);
+        for (const v of feeder.vehicles) {
+          if (v.shapeIdx > lastIdx || !canDriveLiveEta(v, now, feederFirstIdx)) continue;
+          const toEnd = vehicleEtaSeconds(v, lastIdx, feeder.index, {
+            tripStops: feeder.tripStops,
+            targetStopId: last.stop_id,
+            referenceTime: options.referenceTime,
+          });
+          const departure = projectDeparture(now + toEnd * 1000, through, now, false, feederRideMin);
+          if (departure !== null && departure - now <= FEEDER_HORIZON_MS) etas.push(toEta(v, Math.max(0, (departure - now) / 1000) + ride));
+        }
+      }
+    }
+  }
+  return etas.sort((a, b) => a.etaSeconds - b.etaSeconds);
 }

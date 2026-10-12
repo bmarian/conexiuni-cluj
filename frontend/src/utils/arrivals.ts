@@ -52,6 +52,9 @@ export const scheduledArrivals = (query: ScheduleQuery): number[] => {
 
 export type Arrival = { minutes: number; isLive: boolean }
 
+/** One live estimate, several (one per tracked bus, soonest first after sorting), or none. */
+export type LiveMinutes = number | number[] | null
+
 export type MergeOptions = {
   /**
    * Live tracking has vehicles on this trip, so its silence about this stop is
@@ -70,25 +73,28 @@ export type MergeOptions = {
  * columns stop meaning the same thing from one row to the next.
  */
 export const mergeArrivals = (
-  liveMinutes: number | null,
+  liveMinutes: LiveMinutes,
   scheduled: number[],
   options: MergeOptions = {},
 ): Arrival[] => {
   const limit = options.limit ?? 3
+  const live = (liveMinutes === null ? [] : Array.isArray(liveMinutes) ? liveMinutes : [liveMinutes])
+    .map((minutes) => Math.max(minutes, 0))
+    .sort((a, b) => a - b)
 
-  if (liveMinutes === null) {
+  if (!live.length) {
     const pending = options.tracked ? scheduled.filter((minutes) => minutes >= 1) : scheduled
     return pending.slice(0, limit).map((minutes) => ({minutes: Math.max(minutes, 0), isLive: false}))
   }
 
-  const live = Math.max(liveMinutes, 0)
-  // Everything at or before the live estimate belongs to the run being tracked, or to
-  // one that is already gone. What is left are the runs that follow it.
-  const later = scheduled.filter((minutes) => minutes > live + SCHEDULE_LATE_GRACE_MIN)
+  // Everything at or before the last live estimate belongs to a run being tracked, or
+  // to one that is already gone. What is left are the runs that follow them.
+  const last = live[live.length - 1]!
+  const later = scheduled.filter((minutes) => minutes > last + SCHEDULE_LATE_GRACE_MIN)
   return [
-    {minutes: live, isLive: true},
-    ...later.slice(0, Math.max(limit - 1, 0)).map((minutes) => ({minutes, isLive: false})),
-  ]
+    ...live.map((minutes) => ({minutes, isLive: true})),
+    ...later.map((minutes) => ({minutes, isLive: false})),
+  ].slice(0, limit)
 }
 
 const readsNow = (arrival: Arrival | undefined): boolean => arrival !== undefined && Math.round(arrival.minutes) === 0
