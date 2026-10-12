@@ -12,3 +12,4 @@ backend/.gocache
 backend/dist
 backend/services/mobroute/
 backend/services/osm/
+docs/server-security.md

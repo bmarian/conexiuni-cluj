@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {androidAppHidden, canInstallAndroidApp, hideAndroidApp, openAndroidApp} from '@/utils/androidApp.ts'
+import {androidAppHidden, hideAndroidApp, isAndroid, openAndroidApp} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
-const shown = ref(false)
-if (!androidAppHidden()) void canInstallAndroidApp().then((ok) => { shown.value = ok })
+const shown = ref(!androidAppHidden() && isAndroid())
 
 function dismiss() {
   hideAndroidApp()
@@ -22,8 +21,8 @@ function dismiss() {
         </svg>
       </span>
       <span class="green-friday-text">
-        <span class="beta-badge">{{ t('experimental') }}</span>
-        <span class="green-friday-title">{{ t('androidAppAsk') }}</span>
+        <span class="beta-badge">{{ t('beta') }}</span>
+        <span class="green-friday-title">{{ t('androidBetaAsk') }}</span>
       </span>
     </button>
     <button type="button" class="green-friday-close" :aria-label="t('dismiss')" data-kbd-item="android-banner-dismiss" @click="dismiss">

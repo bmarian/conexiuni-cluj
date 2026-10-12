@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {ANDROID_APP_URL, androidAppDialog, WEAR_APP_URL, WEAR_INSTALLER_URL} from '@/utils/androidApp.ts'
-import {useAppRelease} from '@/composables/useAppRelease.ts'
+import {androidAppDialog, BETA_GROUP_URL, BETA_URL} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
-const phoneRelease = useAppRelease('conexiuni-cluj-mobile')
-const watchRelease = useAppRelease('conexiuni-cluj-wearos')
 
 const close = () => { androidAppDialog.value = false }
 const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
@@ -21,7 +18,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <div class="rs-scroll">
           <header class="aa-head">
             <h2 class="aa-title">{{ t('androidApp') }}</h2>
-            <span class="beta-badge">{{ t('experimental') }}</span>
+            <span class="beta-badge">{{ t('beta') }}</span>
             <button type="button" class="rs-close" :aria-label="t('close')" @click="close">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -30,20 +27,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           </header>
 
           <div class="aa-part">
-            <p>{{ t('androidAppSteps') }}</p>
+            <p>{{ t('androidBetaSteps') }}</p>
             <p class="aa-note">{{ t('androidAppNeeds') }}</p>
-            <a :href="ANDROID_APP_URL" class="rs-save aa-button">{{ t('androidAppDownload') }}</a>
-            <p v-if="phoneRelease" class="aa-note">{{ phoneRelease }}</p>
+            <div class="aa-buttons">
+              <a :href="BETA_GROUP_URL" class="rs-save" target="_blank" rel="noopener">{{ t('androidBetaGroup') }}</a>
+              <a :href="BETA_URL" class="rs-save" target="_blank" rel="noopener">{{ t('androidBetaGet') }}</a>
+            </div>
           </div>
 
           <div class="aa-part">
             <h3 class="aa-subtitle">{{ t('androidAppWatch') }}</h3>
-            <p>{{ t('androidAppWatchSteps') }}</p>
-            <div class="aa-links">
-              <a :href="WEAR_APP_URL" class="rs-text-btn">{{ t('androidAppWatchDownload') }}</a>
-              <a :href="WEAR_INSTALLER_URL" class="rs-text-btn" target="_blank" rel="noopener">Wear Installer 2</a>
-            </div>
-            <p v-if="watchRelease" class="aa-note">{{ watchRelease }}</p>
+            <p>{{ t('androidBetaWatch') }}</p>
           </div>
         </div>
       </section>
@@ -125,23 +119,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   color: var(--color-slate-500, #64748b);
 }
 
-.aa-button {
-  align-self: flex-start;
+.aa-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-top: 0.25rem;
 }
 
-.aa-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-left: -0.75rem;
-}
 
-:root[data-paper] .aa-links,
-:root[data-legacy-blue] .aa-links {
-  gap: 0.5rem;
-  margin-left: 0;
-}
 
 .rs-close {
   width: 2rem;
@@ -165,16 +150,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   color: var(--color-white, #fff);
 }
 
-.rs-text-btn {
-  padding: 0.5rem 0.75rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  color: var(--color-emerald-600, #059669);
-}
 
-.rs-text-btn:hover {
-  background: var(--color-emerald-50, #ecfdf5);
-}
 
 .beta-badge {
   display: inline-flex;
@@ -202,13 +178,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   background: var(--color-slate-800, #1e293b);
 }
 
-:root.dark .rs-text-btn {
-  color: var(--color-emerald-400, #34d399);
-}
 
-:root.dark .rs-text-btn:hover {
-  background: rgb(16 185 129 / 0.12);
-}
 
 :root.dark .beta-badge {
   border-color: rgb(245 158 11 / 0.35);

@@ -408,12 +408,12 @@
   "experimental": "Experimental",
   "androidApp": "Aplicația Android",
   "androidAppDesc": "Pentru telefon și ceas Wear OS.",
-  "androidAppAsk": "Vrei să încerci aplicația Android?",
-  "androidAppSteps": "Descarcă aplicația și deschide fișierul. Dacă telefonul întreabă, permite instalarea din browser.",
   "androidAppNeeds": "Necesită Android 14 sau mai nou.",
-  "androidAppDownload": "Descarcă aplicația",
   "androidAppWatch": "Ceas Wear OS",
-  "androidAppWatchSteps": "Descarcă aplicația pentru ceas pe telefon, apoi trimite-o pe ceas cu o aplicație ca Wear Installer 2.",
-  "androidAppWatchDownload": "Descarcă aplicația pentru ceas",
+  "androidBetaWatch": "După ce intri, deschide Google Play pe ceas și instalează Conexiuni Cluj.",
+  "androidBetaGet": "Ia aplicația",
+  "androidBetaGroup": "Intră în grup",
+  "androidBetaSteps": "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play.",
+  "androidBetaAsk": "Intră în beta și testează aplicația",
   "appVersion": "Versiunea {version} · {date}"
 }

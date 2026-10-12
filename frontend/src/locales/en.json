@@ -408,12 +408,12 @@
   "experimental": "Experimental",
   "androidApp": "Android app",
   "androidAppDesc": "For your phone and Wear OS watch.",
-  "androidAppAsk": "Want to try the Android app?",
-  "androidAppSteps": "Download the app and open the file. If your phone asks, allow installs from your browser.",
   "androidAppNeeds": "Needs Android 14 or newer.",
-  "androidAppDownload": "Download the app",
   "androidAppWatch": "Wear OS watch",
-  "androidAppWatchSteps": "Download the watch app on your phone, then send it to your watch with an app like Wear Installer 2.",
-  "androidAppWatchDownload": "Download the watch app",
+  "androidBetaWatch": "Once you're in, open Google Play on your watch and install Conexiuni Cluj.",
+  "androidBetaGet": "Get the app",
+  "androidBetaGroup": "Join the group",
+  "androidBetaSteps": "Join the testers group with your Google account, then get the app from Google Play.",
+  "androidBetaAsk": "Join the beta to test the app",
   "appVersion": "Version {version} · {date}"
 }

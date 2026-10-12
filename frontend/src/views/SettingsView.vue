@@ -10,13 +10,11 @@ import {usePushStore} from '@/stores/push'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
 import {openAndroidApp} from '@/utils/androidApp.ts'
-import {useAppRelease} from '@/composables/useAppRelease.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
-const phoneRelease = useAppRelease('conexiuni-cluj-mobile')
 const push = usePushStore()
 const routeUpdates = useRouteUpdatesStore()
 
@@ -409,11 +407,10 @@ async function togglePush() {
           </svg>
           <span class="setting-text">
             <span class="setting-title">
-              {{ t('androidAppAsk') }}
-              <span class="beta-badge">{{ t('experimental') }}</span>
+              {{ t('androidBetaAsk') }}
+              <span class="beta-badge">{{ t('beta') }}</span>
             </span>
             <span class="setting-desc">{{ t('androidAppDesc') }}</span>
-            <span v-if="phoneRelease" class="setting-desc">{{ phoneRelease }}</span>
           </span>
         </button>
       </div>
