@@ -175,7 +175,7 @@ func injectMeta(c fiber.Ctx, l ogLocale, m metaInjection) error {
 	}
 
 	if m.bodyHTML != "" {
-		body = reAppMount.ReplaceAllLiteralString(body, `<div id="app">`+m.bodyHTML+`</div>`)
+		body = reAppMount.ReplaceAllLiteralString(body, `<div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">`+m.bodyHTML+`</div></div>`)
 	}
 
 	c.Set("Content-Type", "text/html; charset=utf-8")

@@ -96,18 +96,9 @@ export default defineConfig({
             urlPattern: /^https:\/\/[a-z0-9]+\.basemaps\.cartocdn\.com\/.*/,
             handler: "CacheFirst",
             options: {
-              cacheName: "map-tiles",
-              cacheableResponse: { statuses: [0, 200] },
+              cacheName: "map-tiles-v2",
+              cacheableResponse: { statuses: [200] },
               expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/unpkg\.com\/leaflet.*/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "leaflet-assets",
-              cacheableResponse: { statuses: [0, 200] },
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },
         ],

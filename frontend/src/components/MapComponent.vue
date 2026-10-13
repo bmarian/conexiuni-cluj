@@ -143,6 +143,7 @@ const replaceTileLayer = () => {
     maxZoom: MAX_ZOOM,
     minZoom: MIN_ZOOM,
     bounds: CLUJ_COUNTY_BOUNDS,
+    crossOrigin: true,
   }).addTo(map.value)
 }
 
