@@ -5,6 +5,8 @@ export type DisplayVehicle = Vehicle & {
   route_short_name: string;
   route_color?: string;
   heading: number
+  // Drawn faded: on the other direction now, counted on coming back.
+  faded?: boolean
 }
 
 export interface IconThemeOptions {

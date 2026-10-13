@@ -217,14 +217,23 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
   }
 
+  // The other direction's buses this direction's rows count on coming back, faded.
   const displayVehicles = computed((): DisplayVehicle[] => {
     const info = shapeInfo.value
     if (!info) return []
-    return (vehiclesByTrip.value.get(currentTripId.value) ?? []).map((v) => ({
-      ...v,
-      route_short_name: info.route_short_name,
-      route_color: info.route_color,
-    }))
+    const tripId = currentTripId.value
+    const otherTripId = `${routeId.value}${currentDirection.value === '0' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
+    const counted = new Set<number>()
+    for (const row of rows.value.values()) {
+      if (row.trip_id !== tripId) continue
+      for (const e of row.entries) if (e.vehicle_id) counted.add(e.vehicle_id)
+    }
+    const roundTrip = (vehiclesByTrip.value.get(otherTripId) ?? []).filter((v) => counted.has(v.id))
+    const style = {route_short_name: info.route_short_name, route_color: info.route_color}
+    return [
+      ...roundTrip.map((v) => ({...v, ...style, faded: true})),
+      ...(vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style})),
+    ]
   })
 
   function updateMap() {

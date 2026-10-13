@@ -91,6 +91,8 @@ const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/co
 const MAP_VIEW_STORAGE_KEY = 'map.lastView'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
+const FADED_VEHICLE_OPACITY = 0.5
+const FADED_VEHICLE_SCALE = 0.7
 
 type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
 type GroupedStart = {
@@ -954,7 +956,10 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     if (!resolvedColor) continue
 
     const showStopInfo = selectedVehicleId.value === vehicle.id
-    const markerHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
+    const faded = vehicle.faded && !showStopInfo
+    const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
+    // Scaled around the icon anchor so the bus stays where it is.
+    const markerHtml = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
     const marker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: L.divIcon({
         className: 'bg-transparent border-none !overflow-visible',
@@ -962,7 +967,8 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
         iconSize: [36, 36],
         iconAnchor: [18, 18],
       }),
-      zIndexOffset: showStopInfo ? 5600 : 5000
+      zIndexOffset: showStopInfo ? 5600 : vehicle.faded ? 4000 : 5000,
+      opacity: faded ? FADED_VEHICLE_OPACITY : 1,
     })
 
     marker.on('click', () => {
