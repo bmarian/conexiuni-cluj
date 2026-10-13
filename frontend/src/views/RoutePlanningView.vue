@@ -229,7 +229,7 @@ const journeyMinutes = (plan: PlanOption) => {
   const run = plan.runs[0]
   return run ? (run.arrive - run.depart) / 60 : 0
 }
-const fromNow = (ride: PlanRide) => (ride.live ? '' : '~ ') + formatMinutesFromNow(minutesFrom(ride.depart), now.value, t('now'))
+const fromNow = (ride: PlanRide) => (ride.live ? '' : '~ ') + (timeMode.value === 'now' ? formatMinutesFromNow(minutesFrom(ride.depart), now.value, t('now')) : clock(ride.depart))
 
 function departureLabel(ride: PlanRide) {
   const approx = ride.live ? '' : '~'
@@ -375,7 +375,7 @@ const {pinnedLocationDragged, customOriginLocationDragged} = storeToRefs(mapStor
 
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
-    const result = await reversePlace(lat, lon, locale.value)
+    const result = await reversePlace(lat, lon)
     return result?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   } catch { /* ignore */ }
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
@@ -452,7 +452,7 @@ async function performSearch() {
   searchRequest = request
   isSearching.value = true
   try {
-    const results = await searchPlaces(q, locale.value, 5, request.signal)
+    const results = await searchPlaces(q, 5, request.signal)
     if (!request.signal.aborted) searchResults.value = results
   } finally {
     if (searchRequest === request) {
@@ -464,7 +464,7 @@ async function performSearch() {
 
 watch(searchQuery, () => {
   if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(performSearch, 500)
+  searchTimeout = setTimeout(performSearch, 150)
 })
 
 function selectOrigin(res: Place) {
@@ -1016,7 +1016,7 @@ watch(timeValue, (val) => {
           <span class="trip-summary-stat-value" :class="firstRide(selectedPlan)!.live ? 'is-live' : ''">
             <span v-if="firstRide(selectedPlan)!.live" class="live-dot"></span>{{ fromNow(firstRide(selectedPlan)!) }}
           </span>
-          <span class="trip-summary-stat-label">{{ t('planNextDepartures') }}</span>
+          <span class="trip-summary-stat-label">{{ t(timeMode === 'last' ? 'planLastDeparture' : 'planNextDepartures') }}</span>
         </div>
         <div v-if="selectedPlan.transfers > 0" class="trip-summary-stat">
           <span class="trip-summary-stat-value">{{ selectedPlan.transfers }}</span>
@@ -1446,7 +1446,7 @@ watch(timeValue, (val) => {
                   <span class="live-dot"></span>{{ t('live') }}
                 </span>
                 <span v-if="laterRides(plan).length" class="stat-chip-next">
-                  <span class="stat-chip-label">{{ t('planThen') }}</span>
+                  <span class="stat-chip-label">{{ t(timeMode === 'last' ? 'planEarlier' : 'planThen') }}</span>
                   <template v-for="(ride, i) in laterRides(plan)" :key="i"><span class="stat-chip-time">{{ fromNow(ride) }}</span></template>
                 </span>
               </div>

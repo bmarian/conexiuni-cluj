@@ -282,3 +282,94 @@ func TestTheLastBusCountsEvenWhenWalkingWouldLeaveLater(t *testing.T) {
 		t.Fatalf("last bus leaves at %s", time.Unix(dep, 0).UTC())
 	}
 }
+
+func TestArriveByTakesTheFirstConnection(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "a", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 10)}}},
+		{RouteID: 2, Key: "b", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 15), at(8, 25)}, {at(9, 0), at(9, 10)}}},
+	})
+	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(9*time.Hour + 30*time.Minute), ArriveBy: true}))
+	if len(its) != 1 || len(its[0].Runs[0].Rides) != 2 {
+		t.Fatalf("got %+v", its)
+	}
+	if second := its[0].Runs[0].Rides[1]; second.Depart != at(8, 15) {
+		t.Fatalf("waits for the %s bus", time.Unix(second.Depart, 0).UTC())
+	}
+}
+
+func TestTheLastBusGoesWhenWalkingIsAsFast(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	// Stop 1 to stop 2 is a 28-minute walk; the bus takes an hour.
+	n := streets.Network([]PatternInput{{RouteID: 1, Key: "1_0", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(9, 0)}}}})
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	options := n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5298}, Time: time.Unix(end, 0), ArriveBy: true, Last: true})
+	if len(options) != 1 || options[0].Rides != 0 {
+		t.Fatalf("got %q", keys(options))
+	}
+}
+
+func TestEarlierLastBusesLeaveEarlier(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "a", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 10)}, {at(8, 30), at(8, 40)}}},
+		{RouteID: 2, Key: "b", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 15), at(8, 25)}, {at(8, 45), at(8, 55)}, {at(9, 0), at(9, 10)}, {at(9, 15), at(9, 25)}}},
+	})
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: time.Unix(end, 0), ArriveBy: true, Last: true, Runs: 3}))
+	if len(its) != 1 || len(its[0].Runs) != 2 {
+		t.Fatalf("got %+v", its)
+	}
+	first, second := its[0].Runs[0], its[0].Runs[1]
+	if first.Rides[0].Depart != at(8, 30) || first.Rides[1].Depart != at(8, 45) || second.Rides[0].Depart != at(8, 0) || second.Rides[1].Depart != at(8, 15) {
+		t.Fatalf("got %+v", its[0].Runs)
+	}
+}
+
+func TestABusWalkingBeatsDoesNotHideTheLastBus(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	// Both lines go to stop 2, a 28-minute walk away. Line 1 takes 10 minutes at 20:00. Line 2 leaves
+	// later, at 23:00, and crawls there in an hour: walking beats it.
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "1_0", Stops: []int{1, 2}, Trips: [][]int64{{at(20, 0), at(20, 10)}}},
+		{RouteID: 2, Key: "2_0", Stops: []int{1, 2}, Trips: [][]int64{{at(23, 0), at(24, 0)}}},
+	})
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5298}, Time: time.Unix(end, 0), ArriveBy: true, Last: true}))
+	if got := keys(its); len(got) != 1 || got[0] != "1_0 " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTheLastBusAndAFasterEarlierOneBothStay(t *testing.T) {
+	streets, day := testStreets(time.Minute, Stop{1, 46.77, 23.50}, Stop{4, 46.77, 23.59}, Stop{5, 46.77, 23.585})
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	// Line 1 does the 6.9 km in half an hour at 22:00; the night line leaves at 23:30 and takes an hour to a stop nearby.
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "1_0", Stops: []int{1, 4}, Trips: [][]int64{{at(22, 0), at(22, 30)}}},
+		{RouteID: 2, Key: "n_0", Stops: []int{1, 5}, Trips: [][]int64{{at(23, 30), at(24, 30)}}},
+	})
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: time.Unix(end, 0), ArriveBy: true, Last: true}))
+	if len(got) != 2 || got[0] != "n_0 " || got[1] != "1_0 " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestOfLinesLeavingTogetherTheFasterIsTheLastBus(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "fast", Stops: []int{1, 4}, Trips: [][]int64{{at(22, 0), at(22, 30)}}},
+		{RouteID: 2, Key: "slow", Stops: []int{1, 4}, Trips: [][]int64{{at(22, 0) + 30, at(23, 10)}}},
+	})
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	its := transit(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: time.Unix(end, 0), ArriveBy: true, Last: true}))
+	if got := keys(its); len(got) != 1 || got[0] != "fast " {
+		t.Fatalf("got %q", got)
+	}
+}

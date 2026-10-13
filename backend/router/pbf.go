@@ -11,12 +11,14 @@ import (
 	"sync"
 )
 
-// The OSM PBF reader keeps what the walk graph needs: node coordinates and way refs.
+// The OSM PBF reader keeps what the walk graph needs, node coordinates and way refs, and the places.
 // Files are expected sorted by type (nodes before ways), as Geofabrik writes them.
 
 type pbfFilter struct {
 	node func(lat, lon float64) bool
 	way  func(tag func(key string) string) bool
+	// Tagged nodes in the area and ways that are places; nil keeps none.
+	place func(tag func(key string) string, way bool) (placeTags, bool)
 }
 
 type pbfNode struct {
@@ -25,9 +27,10 @@ type pbfNode struct {
 }
 
 type pbfBlock struct {
-	nodes []pbfNode
-	ways  [][]int64
-	err   error
+	nodes  []pbfNode
+	ways   [][]int64
+	places []pbfPlace
+	err    error
 }
 
 // readPBF decodes blocks on every core and hands them back in file order.
@@ -190,13 +193,7 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 		}
 	}
 	coord := func(offset, v int64) float64 { return 1e-9 * float64(offset+granularity*v) }
-	node := func(id, lat, lon int64) {
-		la, lo := coord(latOffset, lat), coord(lonOffset, lon)
-		if keep.node(la, lo) {
-			out.nodes = append(out.nodes, pbfNode{id, la, lo})
-		}
-	}
-	var keys, vals []uint64
+	var keys, vals, kv []uint64
 	var refs, ids, lats, lons []int64
 	tag := func(k string) string {
 		for i := range min(len(keys), len(vals)) {
@@ -206,15 +203,32 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 		}
 		return ""
 	}
+	node := func(id, lat, lon int64) {
+		la, lo := coord(latOffset, lat), coord(lonOffset, lon)
+		if !keep.node(la, lo) {
+			return
+		}
+		out.nodes = append(out.nodes, pbfNode{id, la, lo})
+		if keep.place != nil && len(keys) > 0 {
+			if p, ok := keep.place(tag, false); ok {
+				out.places = append(out.places, pbfPlace{placeTags: p, node: id, lat: la, lon: lo, placed: true})
+			}
+		}
+	}
 	for _, g := range groups {
 		for p := (pbuf{b: g}); p.more(); {
 			switch f, w := p.key(); f {
 			case 1:
 				var id, lat, lon int64
+				keys, vals = keys[:0], vals[:0]
 				for n := (pbuf{b: p.bytes()}); n.more(); {
 					switch f, w := n.key(); f {
 					case 1:
 						id = zigzag(n.varint())
+					case 2:
+						keys = n.uints(w, keys)
+					case 4:
+						vals = n.uints(w, vals)
 					case 8:
 						lat = zigzag(n.varint())
 					case 9:
@@ -225,7 +239,7 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 				}
 				node(id, lat, lon)
 			case 2:
-				ids, lats, lons = ids[:0], lats[:0], lons[:0]
+				ids, lats, lons, kv = ids[:0], lats[:0], lons[:0], kv[:0]
 				for d := (pbuf{b: p.bytes()}); d.more(); {
 					switch f, w := d.key(); f {
 					case 1:
@@ -234,6 +248,12 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 						lats = d.sints(w, lats)
 					case 9:
 						lons = d.sints(w, lons)
+					case 10:
+						if keep.place != nil {
+							kv = d.uints(w, kv)
+						} else {
+							d.skip(w)
+						}
 					default:
 						d.skip(w)
 					}
@@ -241,9 +261,16 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 				if len(lats) != len(ids) || len(lons) != len(ids) {
 					return pbfBlock{err: fmt.Errorf("pbf: dense nodes with %d ids, %d lats, %d lons", len(ids), len(lats), len(lons))}
 				}
+				// Tags come as key, value pairs per node, each node's ended by a 0.
 				var id, lat, lon int64
+				at := 0
 				for i := range ids {
 					id, lat, lon = id+ids[i], lat+lats[i], lon+lons[i]
+					keys, vals = keys[:0], vals[:0]
+					for ; at+1 < len(kv) && kv[at] != 0; at += 2 {
+						keys, vals = append(keys, kv[at]), append(vals, kv[at+1])
+					}
+					at++
 					node(id, lat, lon)
 				}
 			case 3:
@@ -258,6 +285,11 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 						refs = wp.sints(w, refs)
 					default:
 						wp.skip(w)
+					}
+				}
+				if keep.place != nil && len(refs) > 0 {
+					if p, ok := keep.place(tag, true); ok {
+						out.places = append(out.places, pbfPlace{placeTags: p, node: refs[0]})
 					}
 				}
 				if !keep.way(tag) {

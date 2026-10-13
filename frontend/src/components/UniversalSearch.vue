@@ -37,7 +37,7 @@ const emit = defineEmits<{
   'update:active': [value: boolean]
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const router = useRouter()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
@@ -103,7 +103,7 @@ async function fetchGeo(q: string) {
   const request = new AbortController()
   geoRequest = request
   try {
-    const results = await searchPlaces(q, locale.value, 3, request.signal)
+    const results = await searchPlaces(q, 3, request.signal)
     if (request.signal.aborted) return
     const loc = userStore.userLocation
     geoResults.value = loc && results.length > 1

@@ -37,9 +37,17 @@ var planner = struct {
 	sync.Mutex
 	stopsKey uint64
 	streets  *router.Streets
+	places   *router.Places
 	period   int64
 	networks map[string]*router.Network
 }{}
+
+// plannerPlaces is the area's place index, once the walk graph is read.
+func plannerPlaces() *router.Places {
+	planner.Lock()
+	defer planner.Unlock()
+	return planner.places
+}
 
 // plannerNetwork is the timetable around at's service day, rebuilt when the learned offsets roll over.
 func plannerNetwork(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, at time.Time) (*router.Network, error) {
@@ -56,11 +64,11 @@ func plannerNetwork(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cach
 	}
 	stopsKey := h.Sum64()
 	if planner.streets == nil || planner.stopsKey != stopsKey {
-		streets, err := buildPlannerStreets(stops)
+		streets, places, err := buildPlannerStreets(stops)
 		if err != nil {
 			return nil, err
 		}
-		planner.streets, planner.stopsKey, planner.networks = streets, stopsKey, nil
+		planner.streets, planner.places, planner.stopsKey, planner.networks = streets, places, stopsKey, nil
 	}
 
 	day := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
@@ -120,7 +128,7 @@ func servedStops(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes) ([]m
 	return out, nil
 }
 
-func buildPlannerStreets(stops []models.Stop) (*router.Streets, error) {
+func buildPlannerStreets(stops []models.Stop) (*router.Streets, *router.Places, error) {
 	return buildStreets(stops, router.Options{
 		WalkSpeed:     plannerWalkSpeed,
 		MaxWalk:       plannerMaxWalk,
@@ -130,7 +138,7 @@ func buildPlannerStreets(stops []models.Stop) (*router.Streets, error) {
 	})
 }
 
-func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, error) {
+func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, *router.Places, error) {
 	started := time.Now()
 	box := router.BBox{MinLat: math.Inf(1), MinLon: math.Inf(1), MaxLat: math.Inf(-1), MaxLon: math.Inf(-1)}
 	routerStops := make([]router.Stop, len(stops))
@@ -141,18 +149,18 @@ func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, err
 	}
 	f, err := os.Open(plannerOSMPath())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
-	walk, err := router.LoadWalkGraph(f, box.Grow(opt.WalkSpeed*max(opt.MaxWalk, opt.MaxTransfer).Seconds()))
+	walk, places, err := router.Load(f, box.Grow(opt.WalkSpeed*max(opt.MaxWalk, opt.MaxTransfer).Seconds()))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	streets := router.NewStreets(walk, routerStops, opt)
 	// Reading the country extract peaks far above what the graph keeps.
 	debug.FreeOSMemory()
-	log.Printf("planner: walk graph of %d nodes for %d stops in %s, transfer slack %s", walk.Nodes(), len(stops), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
-	return streets, nil
+	log.Printf("planner: walk graph of %d nodes for %d stops, %d places, in %s, transfer slack %s", walk.Nodes(), len(stops), places.Count(), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
+	return streets, places, nil
 }
 
 // plannerPatterns lists every direction's runs on the day before, the day and the day after,

@@ -205,6 +205,8 @@ type label struct {
 	parent  *label
 	secs    int64
 	meters  float64
+	// Riding, walking and changing so far, waits aside.
+	elapsed int64
 	// Rides only.
 	pattern, run, board, alight int32
 }
@@ -235,6 +237,8 @@ type raptor struct {
 	n     *Network
 	tt    *timetable
 	slack int64
+	// Walking the whole way.
+	walkSecs int64
 	// arr[k][stop]: with at most k rides, by ride or ride and walk; the next round boards from these.
 	arr [][]bag
 	// ride[k][stop]: straight off a ride, at most k of them; walks start from these.
@@ -244,8 +248,8 @@ type raptor struct {
 	marked []bool
 }
 
-func newRaptor(n *Network, tt *timetable, egress []reach) *raptor {
-	r := &raptor{n: n, tt: tt, slack: int64(n.opt.TransferSlack.Seconds()), egress: make(map[int32]reach, len(egress)), marked: make([]bool, len(n.stops))}
+func newRaptor(n *Network, tt *timetable, egress []reach, walkSecs int64) *raptor {
+	r := &raptor{n: n, tt: tt, slack: int64(n.opt.TransferSlack.Seconds()), walkSecs: walkSecs, egress: make(map[int32]reach, len(egress)), marked: make([]bool, len(n.stops))}
 	for _, e := range egress {
 		r.egress[e.stop] = e
 	}
@@ -271,6 +275,12 @@ func (r *raptor) round(k int) {
 // or already reaches the destination so.
 func (r *raptor) beaten(bags [][]bag, k int, p int32, arr int64, walk float64, tickets int32) bool {
 	return r.target[k].beats(arr, walk, tickets) || (p >= 0 && bags[k][p].beats(arr, walk, tickets))
+}
+
+// pointless: even with no wait anywhere, walking the whole way beats the journey so far, so nothing built
+// on it is worth taking, nor should it rule anything else out.
+func (r *raptor) pointless(l *label) bool {
+	return r.n.walkBeats(l.elapsed, l.walk, int(l.rides), int(l.tickets), r.walkSecs)
 }
 
 func (r *raptor) insert(bags [][]bag, p int32, l *label) {
@@ -309,8 +319,9 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		}
 	}
 	for _, a := range access {
-		if x := depart + a.secs; !r.beaten(r.arr, 0, a.stop, x, a.meters, 0) {
-			r.insert(r.arr, a.stop, &label{arr: x, walk: a.meters, how: byAccess, stop: a.stop, secs: a.secs, meters: a.meters})
+		l := &label{arr: depart + a.secs, walk: a.meters, how: byAccess, stop: a.stop, secs: a.secs, meters: a.meters, elapsed: a.secs}
+		if !r.pointless(l) && !r.beaten(r.arr, 0, a.stop, l.arr, l.walk, 0) {
+			r.insert(r.arr, a.stop, l)
 			mark(a.stop)
 		}
 	}
@@ -338,7 +349,13 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 					if r.beaten(r.ride, k, st, x, o.from.walk, tickets) {
 						continue
 					}
-					l := &label{arr: x, walk: o.from.walk, tickets: tickets, how: byRide, stop: st, rides: int32(k), parent: o.from, pattern: pi, run: o.run, board: o.board, alight: pos}
+					l := &label{arr: x, walk: o.from.walk, tickets: tickets, how: byRide, stop: st, rides: int32(k), parent: o.from, pattern: pi, run: o.run, board: o.board, alight: pos, elapsed: o.from.elapsed + x - p.times[o.board][o.run]}
+					if k > 1 {
+						l.elapsed += r.slack
+					}
+					if r.pointless(l) {
+						continue
+					}
 					r.insert(r.ride, st, l)
 					rode = append(rode, l)
 					if !r.beaten(r.arr, k, st, x, l.walk, l.tickets) {
@@ -364,10 +381,15 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		for _, l := range rode {
 			for _, t := range r.n.transfers[l.stop] {
 				x, w := l.arr+t.secs, l.walk+t.meters
-				if !r.beaten(r.arr, k, t.to, x, w, l.tickets) {
-					r.insert(r.arr, t.to, &label{arr: x, walk: w, tickets: l.tickets, how: byWalk, stop: t.to, rides: int32(k), parent: l, secs: t.secs, meters: t.meters})
-					mark(t.to)
+				if r.beaten(r.arr, k, t.to, x, w, l.tickets) {
+					continue
 				}
+				m := &label{arr: x, walk: w, tickets: l.tickets, how: byWalk, stop: t.to, rides: int32(k), parent: l, secs: t.secs, meters: t.meters, elapsed: l.elapsed + t.secs}
+				if r.pointless(m) {
+					continue
+				}
+				r.insert(r.arr, t.to, m)
+				mark(t.to)
 			}
 		}
 		// Only straight off a ride: the walk to the destination already is the shortest from that stop.
@@ -377,7 +399,10 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 				continue
 			}
 			if x, w := l.arr+e.secs, l.walk+e.meters; !r.beaten(nil, k, -1, x, w, l.tickets) {
-				t := &label{arr: x, walk: w, tickets: l.tickets, how: byEgress, stop: -1, rides: int32(k), parent: l, secs: e.secs, meters: e.meters}
+				t := &label{arr: x, walk: w, tickets: l.tickets, how: byEgress, stop: -1, rides: int32(k), parent: l, secs: e.secs, meters: e.meters, elapsed: l.elapsed + e.secs}
+				if r.pointless(t) {
+					continue
+				}
 				for j := k; j < len(r.target); j++ {
 					r.target[j].add(t)
 				}
@@ -428,7 +453,8 @@ func (r *raptor) backtrack(t *label) journey {
 	return j
 }
 
-// search runs the rounds from one departure time and returns every journey that reached the destination better.
-func (n *Network) search(tt *timetable, access, egress []reach, start int64) []journey {
-	return newRaptor(n, tt, egress).iterate(start, access)
+// search runs the rounds from one departure time and returns every journey that reached the destination better,
+// walking the whole way (walkSecs) aside.
+func (n *Network) search(tt *timetable, access, egress []reach, start, walkSecs int64) []journey {
+	return newRaptor(n, tt, egress, walkSecs).iterate(start, access)
 }

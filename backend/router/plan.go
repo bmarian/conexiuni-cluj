@@ -72,6 +72,12 @@ type line struct{ pattern, board, alight int32 }
 type skeleton struct {
 	steps []step
 	lines [][]line
+	// The first ride's step, and the walk before it.
+	first  int
+	access int64
+	// Walked in all, and tickets of its own.
+	walk    float64
+	tickets int
 }
 
 // Plan lists one option per sequence of stops, timed from q.Time (or back from it when arriving by),
@@ -88,17 +94,13 @@ func (n *Network) Plan(q Query) []Option {
 	}
 	var journeys []journey
 	if q.ArriveBy {
-		for _, j := range n.search(&n.backward, egress, access, -start) {
+		for _, j := range n.search(&n.backward, egress, access, -start, walk.Legs[0].Secs) {
 			journeys = append(journeys, n.unreverse(j))
 		}
 	} else {
-		journeys = n.search(&n.forward, access, egress, start)
+		journeys = n.search(&n.forward, access, egress, start, walk.Legs[0].Secs)
 	}
 
-	bound := walk.Runs[0]
-	if q.Last {
-		bound = Run{Depart: math.MinInt64, Arrive: math.MaxInt64}
-	}
 	seen := make(map[string]bool)
 	var options []Option
 	for _, j := range journeys {
@@ -108,7 +110,7 @@ func (n *Network) Plan(q Query) []Option {
 		}
 		seen[key] = true
 		sk := n.skeleton(j)
-		runs := n.runs(sk, start, q, bound)
+		runs := n.runs(sk, start, q, walk.Legs[0].Secs)
 		if len(runs) == 0 {
 			continue
 		}
@@ -151,12 +153,20 @@ func (n *Network) stopsKey(j journey) string {
 // skeleton keeps the journey's stops and every line that rides between each pair of them on the same ticket.
 func (n *Network) skeleton(j journey) skeleton {
 	sk := skeleton{steps: j.steps}
-	for _, s := range j.steps {
+	for i, s := range j.steps {
 		if s.kind != byRide {
+			sk.walk += s.meters
+			if len(sk.lines) == 0 {
+				sk.access += s.arrive - s.depart
+			}
 			continue
+		}
+		if len(sk.lines) == 0 {
+			sk.first = i
 		}
 		var lines []line
 		own := n.forward.patterns[s.pattern].ownTicket
+		sk.tickets += int(n.forward.patterns[s.pattern].tickets())
 		for _, sp := range n.forward.byStop[s.from] {
 			if n.forward.patterns[sp.pattern].ownTicket != own {
 				continue
@@ -199,11 +209,12 @@ func (n *Network) option(sk skeleton, runs []Run) Option {
 	return o
 }
 
-// runs times the option's next departures: q.Runs of them, soonest first (latest first arriving by).
-// After the first, a run only counts while it beats walking the whole way, and when it leaves further
-// from the one before than runs here stray from their times.
-func (n *Network) runs(sk skeleton, start int64, q Query, walk Run) []Run {
+// runs times the option's departures: q.Runs of them, soonest first (latest first arriving by), each
+// leaving further from the one before than runs here stray from their times. After the first, a run only
+// counts while it beats walking the whole way from q.Time; among the day's last buses every run already does.
+func (n *Network) runs(sk skeleton, start int64, q Query, walkSecs int64) []Run {
 	var out []Run
+	slack := int64(n.opt.TransferSlack.Seconds())
 	bound := int64(math.MinInt64)
 	if q.ArriveBy {
 		bound = math.MaxInt64
@@ -212,17 +223,16 @@ func (n *Network) runs(sk skeleton, start int64, q Query, walk Run) []Run {
 		var run Run
 		var ok bool
 		if q.ArriveBy {
-			run, ok = n.timeBack(sk, start, bound)
+			run, ok = n.timeBack(sk, start, bound, walkSecs)
 		} else {
 			run, ok = n.timeForward(sk, start, bound, q.Live)
 		}
-		if !ok || (len(out) > 0 && (run.Arrive > walk.Arrive || run.Depart < walk.Depart)) {
+		if !ok || (len(out) > 0 && !q.Last && !beatsWalk(run, start, q.ArriveBy, walkSecs)) {
 			break
 		}
 		out = append(out, run)
-		slack := int64(n.opt.TransferSlack.Seconds())
 		if q.ArriveBy {
-			bound = run.Rides[len(run.Rides)-1].Arrive - slack
+			bound = run.Rides[0].Depart - slack
 		} else {
 			bound = run.Rides[0].Depart + slack
 		}
@@ -230,57 +240,110 @@ func (n *Network) runs(sk skeleton, start int64, q Query, walk Run) []Run {
 	return out
 }
 
-// timeForward catches the soonest bus on every ride, the first one leaving after `after`.
+// beatsWalk: the run arrives no later than walking the whole way from `start` would, or leaves no earlier
+// than walking to arrive by it.
+func beatsWalk(run Run, start int64, arriveBy bool, walkSecs int64) bool {
+	if arriveBy {
+		return run.Depart >= start-walkSecs
+	}
+	return run.Arrive <= start+walkSecs
+}
+
+// walkBeats: walking the whole way takes no more effort than a journey of that length by worthTaking's
+// rules: the time, walked minutes again, the margin for each change and what tickets cost.
+func (n *Network) walkBeats(trip int64, walkMeters float64, rides, tickets int, walkSecs int64) bool {
+	slack := int64(n.opt.TransferSlack.Seconds())
+	x := int64(max(rides-1, 0))*slack + int64(tickets)*int64(n.opt.TicketCost.Seconds())
+	return trip >= walkSecs-x-slack && trip >= 2*walkSecs-x-n.walkSecs(walkMeters)
+}
+
+// timeForward catches the soonest bus on the first ride leaving after `after`, then on every ride after it.
 func (n *Network) timeForward(sk skeleton, start, after int64, live LiveSource) (Run, bool) {
-	t := start
-	var run Run
-	walked := int64(0)
-	leg := 0
-	for _, s := range sk.steps {
+	first, ok := n.catchAny(sk.lines[0], max(start+sk.access, after+1), live)
+	if !ok {
+		return Run{}, false
+	}
+	return n.ride(sk, first, live)
+}
+
+// timeBack is the latest run worth taking that reaches the destination by `deadline`, its first bus leaving
+// before `before`: that bus, then the soonest on every ride after it, like timeForward.
+func (n *Network) timeBack(sk skeleton, deadline, before, walkSecs int64) (Run, bool) {
+	var runs []Run
+	for _, l := range sk.lines[0] {
+		board := n.forward.patterns[l.pattern].times[l.board]
+		end := sort.Search(len(board), func(i int) bool { return board[i] >= before })
+		// Runs reach the destination in time up to one of them and late from the next on.
+		r := sort.Search(end, func(i int) bool {
+			run, found := n.ride(sk, n.rideOn(l, i), nil)
+			return !found || run.Arrive > deadline
+		}) - 1
+		for ; r >= 0; r-- {
+			if run, _ := n.ride(sk, n.rideOn(l, r), nil); !n.walkBeats(run.Arrive-run.Depart, sk.walk, len(run.Rides), sk.tickets, walkSecs) {
+				runs = append(runs, run)
+				break
+			}
+		}
+	}
+	// The last to leave; of the lines leaving within the margin of it, the first to arrive.
+	last := int64(math.MinInt64)
+	for _, r := range runs {
+		last = max(last, r.Depart)
+	}
+	var best Run
+	ok := false
+	for _, r := range runs {
+		if r.Depart >= last-int64(n.opt.TransferSlack.Seconds()) && (!ok || r.Arrive < best.Arrive) {
+			best, ok = r, true
+		}
+	}
+	return best, ok
+}
+
+// ride takes `first` on the first ride and the soonest bus on every ride after it.
+func (n *Network) ride(sk skeleton, first Ride, live LiveSource) (Run, bool) {
+	run := Run{Depart: first.Depart - sk.access, Rides: []Ride{first}}
+	t := first.Arrive
+	for _, s := range sk.steps[sk.first+1:] {
 		if s.kind != byRide {
 			t += s.arrive - s.depart
-			if leg == 0 {
-				walked += s.arrive - s.depart
-			}
 			continue
 		}
-		ready := t
-		if leg > 0 {
-			ready += int64(n.opt.TransferSlack.Seconds())
-		} else {
-			ready = max(ready, after+1)
-		}
-		best, ok := Ride{}, false
-		for _, l := range sk.lines[leg] {
-			if r, found := n.catch(l, ready, live); found && (!ok || r.Arrive < best.Arrive || (r.Arrive == best.Arrive && r.Live && !best.Live)) {
-				best, ok = r, true
-			}
-		}
+		next, ok := n.catchAny(sk.lines[len(run.Rides)], t+int64(n.opt.TransferSlack.Seconds()), live)
 		if !ok {
 			return Run{}, false
 		}
-		run.Rides = append(run.Rides, best)
-		t = best.Arrive
-		leg++
+		run.Rides = append(run.Rides, next)
+		t = next.Arrive
 	}
-	run.Depart = run.Rides[0].Depart - walked
 	run.Arrive = t
 	return run, true
+}
+
+// catchAny is the first to arrive of the lines' buses from `ready` on, a live one over a timetabled one due the same time.
+func (n *Network) catchAny(lines []line, ready int64, live LiveSource) (Ride, bool) {
+	best, ok := Ride{}, false
+	for _, l := range lines {
+		if r, found := n.catch(l, ready, live); found && (!ok || r.Arrive < best.Arrive || (r.Arrive == best.Arrive && r.Live && !best.Live)) {
+			best, ok = r, true
+		}
+	}
+	return best, ok
 }
 
 // catch is the first bus of a line at its boarding stop from ready on: what the stop page lists, then the timetable.
 func (n *Network) catch(l line, ready int64, live LiveSource) (Ride, bool) {
 	p := &n.forward.patterns[l.pattern]
 	board, alight := p.times[l.board], p.times[l.alight]
-	ride := Ride{RouteID: p.routeID, Key: p.key, FromStop: n.stops[p.stops[l.board]].ID, ToStop: n.stops[p.stops[l.alight]].ID}
 	listed := int64(math.MinInt64)
 	if live != nil {
-		for _, a := range live(p.key, ride.FromStop) {
+		for _, a := range live(p.key, n.stops[p.stops[l.board]].ID) {
 			listed = max(listed, a.At)
 			if a.At < ready {
 				continue
 			}
 			r := nearestRun(board, a.At)
+			ride := n.rideOn(l, r)
 			ride.Depart, ride.Arrive, ride.Live, ride.VehicleID = a.At, a.At+alight[r]-board[r], a.Live, a.VehicleID
 			return ride, true
 		}
@@ -290,8 +353,13 @@ func (n *Network) catch(l line, ready int64, live LiveSource) (Ride, bool) {
 	if r == len(board) {
 		return Ride{}, false
 	}
-	ride.Depart, ride.Arrive = board[r], alight[r]
-	return ride, true
+	return n.rideOn(l, r), true
+}
+
+// rideOn is run r of a line between its boarding and alighting stops.
+func (n *Network) rideOn(l line, r int) Ride {
+	p := &n.forward.patterns[l.pattern]
+	return Ride{RouteID: p.routeID, Key: p.key, FromStop: n.stops[p.stops[l.board]].ID, ToStop: n.stops[p.stops[l.alight]].ID, Depart: p.times[l.board][r], Arrive: p.times[l.alight][r]}
 }
 
 func nearestRun(col []int64, at int64) int {
@@ -302,61 +370,21 @@ func nearestRun(col []int64, at int64) int {
 	return i
 }
 
-// timeBack catches the latest bus on every ride that still makes the next one, arriving before `before`.
-func (n *Network) timeBack(sk skeleton, deadline, before int64) (Run, bool) {
-	t := deadline
-	rides := make([]Ride, len(sk.lines))
-	leg := len(sk.lines) - 1
-	walked := int64(0)
-	for i := len(sk.steps) - 1; i >= 0; i-- {
-		s := sk.steps[i]
-		if s.kind != byRide {
-			t -= s.arrive - s.depart
-			if leg == len(sk.lines)-1 {
-				walked += s.arrive - s.depart
-			}
-			continue
-		}
-		limit := t
-		if leg < len(sk.lines)-1 {
-			limit -= int64(n.opt.TransferSlack.Seconds())
-		} else {
-			limit = min(limit, before-1)
-		}
-		best, ok := Ride{}, false
-		for _, l := range sk.lines[leg] {
-			p := &n.forward.patterns[l.pattern]
-			board, alight := p.times[l.board], p.times[l.alight]
-			r := sort.Search(len(alight), func(i int) bool { return alight[i] > limit }) - 1
-			if r < 0 {
-				continue
-			}
-			if !ok || board[r] > best.Depart {
-				best = Ride{RouteID: p.routeID, Key: p.key, FromStop: n.stops[p.stops[l.board]].ID, ToStop: n.stops[p.stops[l.alight]].ID, Depart: board[r], Arrive: alight[r]}
-				ok = true
-			}
-		}
-		if !ok {
-			return Run{}, false
-		}
-		rides[leg] = best
-		t = best.Depart
-		leg--
-	}
-	last := rides[len(rides)-1]
-	return Run{Depart: t, Arrive: last.Arrive + walked, Rides: rides}, true
-}
-
 // worthTaking keeps the options someone would take. Options riding the same lines, or one only adding
-// rides to another's lines, are one journey, kept where it costs least. Then an option goes when another
-// takes no more effort, rides and tickets and is not slower by more than runs here stray from their times. A change costs the margin kept for it, a
-// ticket what it is worth, and a minute walked is never better than a minute sat. Walking the whole way
-// counts as an option here too.
+// rides to another's lines, are one journey, kept where it costs least. Options walking the whole way
+// beats go next, then an option goes when another takes no more effort, rides and tickets and is not
+// slower by more than runs here stray from their times. A change costs the margin kept for it, a ticket
+// what it is worth, and a minute walked is never better than a minute sat. Among the day's last buses
+// the time is the trip's own, and leaving later is a merit of its own: the last bus and a faster one
+// leaving earlier both stay.
 func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 	slack := int64(n.opt.TransferSlack.Seconds())
 	ticket := int64(n.opt.TicketCost.Seconds())
 	when := func(o Option) int64 {
-		if q.ArriveBy {
+		switch {
+		case q.Last:
+			return o.Runs[0].Arrive - o.Runs[0].Depart
+		case q.ArriveBy:
 			return -o.Runs[0].Depart
 		}
 		return o.Runs[0].Arrive
@@ -406,12 +434,30 @@ func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 		bt, bw := score(b)
 		noWorse := bt <= at+slack && bw <= aw && b.Rides <= a.Rides && b.Tickets <= a.Tickets
 		better := b.Rides < a.Rides || b.Tickets < a.Tickets || bw < aw || bt < at
+		if q.Last {
+			noWorse = noWorse && b.Runs[0].Depart >= a.Runs[0].Depart-slack
+			better = better || b.Runs[0].Depart > a.Runs[0].Depart
+		}
 		return noWorse && (better || tie)
 	}
+	// Among the day's last buses, walking is measured against each option on its own, from when it leaves.
+	walkBeats := func(a Option) bool {
+		if q.Last {
+			r := a.Runs[0]
+			return n.walkBeats(r.Arrive-r.Depart, a.WalkMeters, a.Rides, a.Tickets, walk.Legs[0].Secs)
+		}
+		return beats(walk, a, false)
+	}
+	var worth []Option
+	for _, a := range kept {
+		if !walkBeats(a) {
+			worth = append(worth, a)
+		}
+	}
 	var out []Option
-	for i, a := range kept {
-		beaten := !q.Last && beats(walk, a, false)
-		for j, b := range kept {
+	for i, a := range worth {
+		beaten := false
+		for j, b := range worth {
 			if !beaten && i != j {
 				beaten = beats(b, a, j < i)
 			}
@@ -421,6 +467,9 @@ func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
+		if q.Last {
+			return out[i].Runs[0].Depart > out[j].Runs[0].Depart
+		}
 		return when(out[i])+int64(out[i].Tickets)*ticket < when(out[j])+int64(out[j].Tickets)*ticket
 	})
 	return out

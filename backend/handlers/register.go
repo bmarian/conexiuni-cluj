@@ -85,6 +85,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 	api.Get("/plan", func(c fiber.Ctx) error {
 		return handlePlan(c, tranzyClient, ctpCjClient, cacheTimes)
 	})
+	api.Get("/places", handlePlaces)
 
 	api.Get("/network", NetworkHandler(tranzyClient, ctpCjClient, cacheTimes))
 	api.Get("/network/version", NetworkVersionHandler(tranzyClient, ctpCjClient, cacheTimes))

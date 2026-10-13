@@ -23,7 +23,7 @@ export async function sharedDestination(query: LocationQuery): Promise<RouteLoca
   if (!name) return {name: 'home'}
   const settings = useSettingsStore()
   settings.showToast(t('shareFinding', {name: name.slice(0, 40)}))
-  const [place] = await searchPlaces(name, settings.locale, 1).catch(() => [])
+  const [place] = await searchPlaces(name, 1).catch(() => [])
   if (place) return {name: 'plan', query: {lat: place.lat, lon: place.lon, name: place.label}}
   settings.showToast(t('shareNotFound'))
   return {name: 'plan', query: {q: name}}

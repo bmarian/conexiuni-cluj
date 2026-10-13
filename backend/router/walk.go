@@ -47,11 +47,13 @@ type WalkGraph struct {
 func (g *WalkGraph) Nodes() int { return len(g.lat) }
 
 // LoadWalkGraph keeps the ways a pedestrian may use inside box, then the largest connected piece.
-func LoadWalkGraph(r io.Reader, box BBox) (*WalkGraph, error) {
+// Load reads the walk graph inside box from an OSM PBF file, and the places there.
+func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
 	index := make(map[int64]int32)
 	var lat, lon []float64
 	var edges [][2]int32
-	err := readPBF(bufio.NewReaderSize(r, 1<<20), pbfFilter{node: box.contains, way: walkable}, func(b pbfBlock) {
+	var raw []pbfPlace
+	err := readPBF(bufio.NewReaderSize(r, 1<<20), pbfFilter{node: box.contains, way: walkable, place: placeOf}, func(b pbfBlock) {
 		for _, n := range b.nodes {
 			index[n.id] = int32(len(lat))
 			lat, lon = append(lat, n.lat), append(lon, n.lon)
@@ -65,16 +67,24 @@ func LoadWalkGraph(r io.Reader, box BBox) (*WalkGraph, error) {
 				}
 			}
 		}
+		for _, p := range b.places {
+			if i, ok := index[p.node]; !p.placed && ok {
+				p.lat, p.lon, p.placed = lat[i], lon[i], true
+			}
+			if p.placed {
+				raw = append(raw, p)
+			}
+		}
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(edges) == 0 {
-		return nil, fmt.Errorf("walk graph: no walkable ways inside %+v", box)
+		return nil, nil, fmt.Errorf("walk graph: no walkable ways inside %+v", box)
 	}
 	g := buildWalkGraph(lat, lon, edges)
 	g.box = box
-	return g, nil
+	return g, newPlaces(raw, box), nil
 }
 
 var (
