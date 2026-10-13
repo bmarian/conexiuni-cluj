@@ -3,7 +3,7 @@ import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import {useSettingsStore} from '@/stores/settings'
-import {BETA_GROUP_URL, PLAY_URL} from '@/utils/androidApp.ts'
+import {BETA_GROUP_URL, TESTING_URL} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
 const settings = useSettingsStore()
@@ -39,7 +39,7 @@ useHead(() => ({
         <a :href="BETA_GROUP_URL" class="aa-button" target="_blank" rel="noopener" data-kbd-item="android-group">
           {{ t('androidBetaGroup') }}
         </a>
-        <a :href="PLAY_URL" class="aa-button" target="_blank" rel="noopener" data-kbd-item="android-get">
+        <a :href="TESTING_URL" class="aa-button" target="_blank" rel="noopener" data-kbd-item="android-get">
           {{ t('androidBetaGet') }}
         </a>
       </div>
