@@ -269,3 +269,16 @@ func TestCoversOnlyTheWalkGraphArea(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLastBusCountsEvenWhenWalkingWouldLeaveLater(t *testing.T) {
+	n, day := testNetwork(t, time.Minute)
+	end := n.QuietEnd(day.Add(12 * time.Hour).Unix())
+	options := n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: time.Unix(end, 0), ArriveBy: true, Last: true})
+	its := transit(options)
+	if len(its) == 0 || len(its) != len(options) {
+		t.Fatalf("got %q", keys(options))
+	}
+	if dep := its[0].Runs[0].Rides[0].Depart; dep != day.Add(8*time.Hour+30*time.Minute).Unix() {
+		t.Fatalf("last bus leaves at %s", time.Unix(dep, 0).UTC())
+	}
+}

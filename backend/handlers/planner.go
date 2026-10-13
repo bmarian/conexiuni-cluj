@@ -301,8 +301,10 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 	if when.IsZero() {
 		when = time.Now().In(tranzyClient.Location())
 	}
+	asked := when
+	last := c.Query("last") == "true"
 	n, err := plannerNetwork(tranzyClient, ctpCjClient, cacheTimes, when)
-	if err == nil && c.Query("last") == "true" {
+	if err == nil && last {
 		when, arriveBy = time.Unix(n.QuietEnd(when.Unix()), 0).In(tranzyClient.Location()), true
 		n, err = plannerNetwork(tranzyClient, ctpCjClient, cacheTimes, when)
 	}
@@ -322,12 +324,16 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(resp)
 	}
-	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: liveEntriesPerRow}
+	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: liveEntriesPerRow, Last: last}
 	var table *liveTable
 	if !arriveBy {
 		table, q.Live = plannerLiveAt(when)
 	}
 	options := n.Plan(q)
+	if last && len(options) == 1 && options[0].Rides == 0 {
+		// No bus at all: the walk, from now.
+		options[0].Runs[0] = router.Run{Depart: asked.Unix(), Arrive: asked.Unix() + options[0].Legs[0].Secs}
+	}
 
 	if err := describePlan(&resp, options, tranzyClient, cacheTimes); err != nil {
 		log.Printf("plan: %v", err)

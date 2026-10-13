@@ -25,6 +25,8 @@ type Query struct {
 	Live     LiveSource
 	// How many departures of each option to time.
 	Runs int
+	// The day's last buses: walking the whole way only counts when there are none.
+	Last bool
 }
 
 // Leg is a walk or a ride; stop IDs are 0 at the origin and the destination.
@@ -93,6 +95,10 @@ func (n *Network) Plan(q Query) []Option {
 		journeys = n.search(&n.forward, access, egress, start)
 	}
 
+	bound := walk.Runs[0]
+	if q.Last {
+		bound = Run{Depart: math.MinInt64, Arrive: math.MaxInt64}
+	}
 	seen := make(map[string]bool)
 	var options []Option
 	for _, j := range journeys {
@@ -102,13 +108,13 @@ func (n *Network) Plan(q Query) []Option {
 		}
 		seen[key] = true
 		sk := n.skeleton(j)
-		runs := n.runs(sk, start, q, walk.Runs[0])
+		runs := n.runs(sk, start, q, bound)
 		if len(runs) == 0 {
 			continue
 		}
 		options = append(options, n.option(sk, runs))
 	}
-	options = n.worthTaking(options, walk, q.ArriveBy)
+	options = n.worthTaking(options, walk, q)
 
 	for i := range options {
 		for l := range options[i].Legs {
@@ -125,6 +131,9 @@ func (n *Network) Plan(q Query) []Option {
 			}
 			leg.Meters, leg.Path = n.walk.Path(a, b)
 		}
+	}
+	if q.Last && len(options) > 0 {
+		return options
 	}
 	return append(options, walk)
 }
@@ -343,11 +352,11 @@ func (n *Network) timeBack(sk skeleton, deadline, before int64) (Run, bool) {
 // takes no more effort, rides and tickets and is not slower by more than runs here stray from their times. A change costs the margin kept for it, a
 // ticket what it is worth, and a minute walked is never better than a minute sat. Walking the whole way
 // counts as an option here too.
-func (n *Network) worthTaking(options []Option, walk Option, arriveBy bool) []Option {
+func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 	slack := int64(n.opt.TransferSlack.Seconds())
 	ticket := int64(n.opt.TicketCost.Seconds())
 	when := func(o Option) int64 {
-		if arriveBy {
+		if q.ArriveBy {
 			return -o.Runs[0].Depart
 		}
 		return o.Runs[0].Arrive
@@ -401,7 +410,7 @@ func (n *Network) worthTaking(options []Option, walk Option, arriveBy bool) []Op
 	}
 	var out []Option
 	for i, a := range kept {
-		beaten := beats(walk, a, false)
+		beaten := !q.Last && beats(walk, a, false)
 		for j, b := range kept {
 			if !beaten && i != j {
 				beaten = beats(b, a, j < i)
