@@ -8,8 +8,6 @@ import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AndroidAppBanner from "@/components/AndroidAppBanner.vue"
-import AndroidAppDialog from "@/components/AndroidAppDialog.vue"
-import {androidAppDialog} from "@/utils/androidApp.ts"
 import AppToast from "@/components/AppToast.vue"
 import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
@@ -449,7 +447,6 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   <ArcadeTransition/>
   <KeyboardHelp v-if="!isAdminRoute && !appSettings.watchActive"/>
   <BackgroundTracking v-if="!isAdminRoute && !appSettings.watchActive"/>
-  <AndroidAppDialog v-if="androidAppDialog"/>
   <ReminderSheet v-if="reminders.editing" :key="`${reminders.editing.stopId}:${reminders.editing.tripId}`" :target="reminders.editing" @close="reminders.closeSheet()"/>
   <SimplifiedLayoutPrompt v-if="!isAdminRoute && appSettings.askSimplified"/>
 </template>

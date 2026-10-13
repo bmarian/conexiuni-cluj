@@ -1,5 +1,3 @@
-import {ref} from 'vue'
-
 // Play only lets members of this group into the closed test.
 export const BETA_GROUP_URL = 'https://groups.google.com/g/conexiuni-cluj-beta'
 export const PLAY_URL = 'https://play.google.com/store/apps/details?id=online.bmarian.bus'
@@ -24,10 +22,4 @@ export function hideAndroidApp() {
   try {
     localStorage.setItem(HIDDEN_KEY, 'true')
   } catch {}
-}
-
-export const androidAppDialog = ref(false)
-
-export function openAndroidApp() {
-  androidAppDialog.value = true
 }

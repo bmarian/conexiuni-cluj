@@ -61,6 +61,9 @@ type ogLocale struct {
 	homeDesc           string
 	homeH1             string
 	homeBody           string
+	androidTitle       string
+	androidDesc        string
+	androidBody        string
 }
 
 var ogLocales = map[string]ogLocale{
@@ -86,6 +89,9 @@ var ogLocales = map[string]ogLocale{
 		homeDesc:           "Aplicație pentru transportul public din Cluj-Napoca. Orarele CTP Cluj-Napoca în timp real, plecările de la stații, traseele și planificator de rute.",
 		homeH1:             "Transport public Cluj-Napoca în timp real",
 		homeBody:           "Conexiuni Cluj este o aplicație care afișează în timp real autobuzele, troleibuzele și tramvaiele CTP Cluj-Napoca. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
+		androidTitle:       "Aplicația Android — Conexiuni Cluj",
+		androidDesc:        "Intră în beta și testează aplicația pentru telefon și ceas Wear OS.",
+		androidBody:        "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.",
 	},
 	"en": {
 		lang:               "en",
@@ -109,6 +115,9 @@ var ogLocales = map[string]ogLocale{
 		homeDesc:           "App for Cluj-Napoca public transport. Real-time CTP Cluj-Napoca timetables, live departures, line routes and route planner.",
 		homeH1:             "Cluj-Napoca public transport in real time",
 		homeBody:           "Conexiuni Cluj is an app showing CTP Cluj-Napoca buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
+		androidTitle:       "Android app — Conexiuni Cluj",
+		androidDesc:        "Join the beta to test the app for your phone and Wear OS watch.",
+		androidBody:        "Join the testers group with your Google account, then get the app from Google Play. Needs Android 8 or newer.",
 	},
 }
 
@@ -409,6 +418,27 @@ func HomeOGHandler(c fiber.Ctx) error {
 				"target":      canonicalURL("/?q={search_term_string}"),
 				"query-input": "required name=search_term_string",
 			},
+		}),
+	})
+}
+
+func AndroidOGHandler(c fiber.Ctx) error {
+	l := detectLocale(c)
+	return injectMeta(c, l, metaInjection{
+		title:       l.androidTitle,
+		description: l.androidDesc,
+		canonical:   canonicalURL("/android"),
+		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
+			html.EscapeString(l.androidTitle),
+			html.EscapeString(l.androidBody)),
+		jsonLD: marshalJSONLD(map[string]any{
+			"@context":    "https://schema.org",
+			"@type":       "WebPage",
+			"name":        l.androidTitle,
+			"description": l.androidDesc,
+			"url":         canonicalURL("/android"),
+			"inLanguage":  l.lang,
+			"publisher":   publisherOrg(),
 		}),
 	})
 }

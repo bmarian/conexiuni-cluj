@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {androidAppHidden, hideAndroidApp, isAndroid, openAndroidApp} from '@/utils/androidApp.ts'
+import {useRoute} from 'vue-router'
+import {androidAppHidden, hideAndroidApp, isAndroid} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
+const route = useRoute()
 const shown = ref(!androidAppHidden() && isAndroid())
 
 function dismiss() {
@@ -13,8 +15,8 @@ function dismiss() {
 </script>
 
 <template>
-  <div v-if="shown" class="green-friday-banner android-banner" data-kbd-section="android-banner" data-kbd-axis="x">
-    <button type="button" class="android-banner-open" data-kbd-item="android-app" @click="openAndroidApp">
+  <div v-if="shown && route.name !== 'android'" class="green-friday-banner android-banner" data-kbd-section="android-banner" data-kbd-axis="x">
+    <RouterLink :to="{name: 'android'}" class="android-banner-open" data-kbd-item="android-app">
       <span class="android-banner-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85a.64.64 0 0 0-.83.22l-1.88 3.24a11.4 11.4 0 0 0-8.94 0L5.65 5.67a.64.64 0 0 0-.87-.2c-.28.18-.37.54-.22.83L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/>
@@ -24,7 +26,7 @@ function dismiss() {
         <span class="beta-badge">{{ t('beta') }}</span>
         <span class="green-friday-title">{{ t('androidBetaAsk') }}</span>
       </span>
-    </button>
+    </RouterLink>
     <button type="button" class="green-friday-close" :aria-label="t('dismiss')" data-kbd-item="android-banner-dismiss" @click="dismiss">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M18 6 6 18M6 6l12 12"/>

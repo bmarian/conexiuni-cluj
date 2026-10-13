@@ -61,6 +61,7 @@ func buildSitemap() ([]byte, error) {
 
 	writeURL(&sb, sitemapBaseURL+"/", "daily", "1.0")
 	writeURL(&sb, sitemapBaseURL+"/plan", "monthly", "0.5")
+	writeURL(&sb, sitemapBaseURL+"/android", "monthly", "0.5")
 
 	if err := writeRouteURLs(&sb); err != nil {
 		return nil, err
