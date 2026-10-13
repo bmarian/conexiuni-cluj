@@ -2,7 +2,7 @@ import {ref} from 'vue'
 
 // Play only lets members of this group into the closed test.
 export const BETA_GROUP_URL = 'https://groups.google.com/g/conexiuni-cluj-beta'
-export const BETA_URL = 'https://play.google.com/apps/testing/online.bmarian.bus'
+export const PLAY_URL = 'https://play.google.com/store/apps/details?id=online.bmarian.bus'
 
 const HIDDEN_KEY = 'androidBeta.hidden'
 

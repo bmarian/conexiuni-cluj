@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {androidAppDialog, BETA_GROUP_URL, BETA_URL} from '@/utils/androidApp.ts'
+import {androidAppDialog, BETA_GROUP_URL, PLAY_URL} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
 
@@ -31,7 +31,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
             <p class="aa-note">{{ t('androidAppNeeds') }}</p>
             <div class="aa-buttons">
               <a :href="BETA_GROUP_URL" class="rs-save" target="_blank" rel="noopener">{{ t('androidBetaGroup') }}</a>
-              <a :href="BETA_URL" class="rs-save" target="_blank" rel="noopener">{{ t('androidBetaGet') }}</a>
+              <a :href="PLAY_URL" class="rs-save" target="_blank" rel="noopener">{{ t('androidBetaGet') }}</a>
             </div>
           </div>
 
