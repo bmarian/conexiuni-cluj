@@ -9,6 +9,7 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DaySchedule, Frequency} from '@/types/ctp.ts'
 import {getTimetableDayKey, timeStringToMinutes} from '@/utils/time.ts'
+import {frequencyLabel} from '@/utils/frequencyText.ts'
 import {keepHyphenatedWords} from '@/utils/text.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
 import BusMenu, {type BusMenuItem} from '@/components/BusMenu.vue'
@@ -243,12 +244,6 @@ const activeFrequency = computed((): Frequency | null => {
         tt.weekdays
   return (isOutgoing.value ? sched?.in_frequency : sched?.out_frequency) ?? null
 })
-
-function frequencyLabel(f: Frequency): string {
-  const {min_minutes: min, max_minutes: max} = f
-  if (min && max && min !== max) return t('frequencyEveryRange', {min, max})
-  return t('frequencyEvery', {min: min || max})
-}
 
 const hourlyOffsets = ref<Record<string, HourlyStopOffsets>>({})
 

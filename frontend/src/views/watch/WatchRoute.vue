@@ -10,6 +10,7 @@ import WatchMap, {type WatchMapFocus, type WatchMapLabel} from '@/components/wat
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
+import {frequencyLabel} from '@/utils/frequencyText.ts'
 
 const FROM_STOP_ZOOM = 15
 
@@ -93,14 +94,7 @@ const daySchedule = computed(() => timetable.value ? getTimetableForDay(timetabl
 const frequency = computed(() =>
   (isOutgoing.value ? daySchedule.value?.in_frequency : daySchedule.value?.out_frequency) ?? null)
 
-const frequencyLabel = computed(() => {
-  const f = frequency.value
-  if (!f) return ''
-  if (f.min_minutes && f.max_minutes && f.min_minutes !== f.max_minutes) {
-    return t('frequencyEveryRange', {min: f.min_minutes, max: f.max_minutes})
-  }
-  return t('frequencyEvery', {min: f.min_minutes || f.max_minutes})
-})
+const frequencyText = computed(() => frequency.value ? frequencyLabel(frequency.value) : '')
 
 const departures = computed(() => (daySchedule.value?.entries ?? [])
   .map((entry) => timeStringToMinutes((isOutgoing.value ? entry.departure_in : entry.departure_out) ?? ''))
@@ -158,7 +152,7 @@ const hours = computed(() => {
       {{ isFavorite ? t('removeFromFavorites') : t('addToFavorites') }}
     </button>
 
-    <p v-if="frequencyLabel" class="wt-note">{{ frequencyLabel }}</p>
+    <p v-if="frequencyText" class="wt-note">{{ frequencyText }}</p>
     <p v-else-if="!departures.length" class="wt-note">{{ t('noSchedule') }}</p>
     <p v-else-if="!hours.length" class="wt-note">{{ t('watchNoMoreToday') }}</p>
     <div v-for="row in hours" :key="row.hour" class="wt-tt-row wt-fish">

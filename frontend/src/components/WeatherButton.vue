@@ -58,30 +58,31 @@ const WMO: Record<number, [string, string]> = {
   99: ['thunderstorms-day-rain', 'thunderstorms-night-rain'],
 }
 
-const WMO_LABELS: Record<number, { en: string, ro: string }> = {
-  0: {en: 'Clear sky', ro: 'Cer senin'},
-  1: {en: 'Mostly clear', ro: 'Mai mult senin'},
-  2: {en: 'Partly cloudy', ro: 'Parțial noros'},
+// Wording follows AccuWeather's phrases: Sunny/Însorit by day, Clear/Senin at night.
+const WMO_LABELS: Record<number, { en: string, ro: string, enDay?: string, roDay?: string }> = {
+  0: {en: 'Clear', ro: 'Senin', enDay: 'Sunny', roDay: 'Însorit'},
+  1: {en: 'Mostly clear', ro: 'Predominant senin', enDay: 'Mostly sunny', roDay: 'Predominant însorit'},
+  2: {en: 'Partly cloudy', ro: 'Parțial noros', enDay: 'Partly sunny', roDay: 'Parțial însorit'},
   3: {en: 'Overcast', ro: 'Noros'},
   45: {en: 'Fog', ro: 'Ceață'},
-  48: {en: 'Rime fog', ro: 'Ceață cu depuneri'},
+  48: {en: 'Rime fog', ro: 'Ceață cu chiciură'},
   51: {en: 'Light drizzle', ro: 'Burniță slabă'},
   53: {en: 'Drizzle', ro: 'Burniță'},
-  55: {en: 'Dense drizzle', ro: 'Burniță densă'},
-  56: {en: 'Freezing drizzle', ro: 'Burniță înghețată'},
-  57: {en: 'Dense freezing drizzle', ro: 'Burniță înghețată densă'},
+  55: {en: 'Dense drizzle', ro: 'Burniță deasă'},
+  56: {en: 'Freezing drizzle', ro: 'Burniță care îngheață'},
+  57: {en: 'Dense freezing drizzle', ro: 'Burniță deasă care îngheață'},
   61: {en: 'Light rain', ro: 'Ploaie slabă'},
   63: {en: 'Rain', ro: 'Ploaie'},
   65: {en: 'Heavy rain', ro: 'Ploaie puternică'},
-  66: {en: 'Freezing rain', ro: 'Ploaie înghețată'},
-  67: {en: 'Heavy freezing rain', ro: 'Ploaie înghețată puternică'},
+  66: {en: 'Freezing rain', ro: 'Ploaie care îngheață'},
+  67: {en: 'Heavy freezing rain', ro: 'Ploaie puternică care îngheață'},
   71: {en: 'Light snow', ro: 'Ninsoare slabă'},
   73: {en: 'Snow', ro: 'Ninsoare'},
   75: {en: 'Heavy snow', ro: 'Ninsoare abundentă'},
   77: {en: 'Snow grains', ro: 'Măzăriche'},
-  80: {en: 'Light showers', ro: 'Averse slabe'},
-  81: {en: 'Showers', ro: 'Averse'},
-  82: {en: 'Heavy showers', ro: 'Averse puternice'},
+  80: {en: 'Light showers', ro: 'Averse slabe de ploaie'},
+  81: {en: 'Showers', ro: 'Averse de ploaie'},
+  82: {en: 'Heavy showers', ro: 'Averse puternice de ploaie'},
   85: {en: 'Snow showers', ro: 'Averse de ninsoare'},
   86: {en: 'Heavy snow showers', ro: 'Averse puternice de ninsoare'},
   95: {en: 'Thunderstorm', ro: 'Furtună'},
@@ -100,7 +101,8 @@ const conditionLabel = computed(() => {
   if (code.value == null) return t('weatherUnknown')
   const labels = WMO_LABELS[code.value]
   if (!labels) return t('weatherUnknown')
-  return locale.value === 'en' ? labels.en : labels.ro
+  if (locale.value === 'en') return (isDay.value && labels.enDay) || labels.en
+  return (isDay.value && labels.roDay) || labels.ro
 })
 
 const formattedSunrise = computed(() => formatTime(sunrise.value))
