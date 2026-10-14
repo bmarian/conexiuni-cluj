@@ -390,10 +390,6 @@ html[data-watch] body {
 }
 
 /* Next arrival above each stop on the route map. */
-.wt-map-label-anchor {
-  overflow: visible;
-}
-
 .wt-map-label {
   position: absolute;
   left: 0;
@@ -534,6 +530,6 @@ html[data-watch] body {
 }
 
 /* Map: no controls, the bezel zooms. Credits live at the bottom of the menu. */
-html[data-watch] .leaflet-control-container {
+html[data-watch] .maplibregl-control-container {
   display: none;
 }

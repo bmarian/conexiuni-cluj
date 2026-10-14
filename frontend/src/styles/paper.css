@@ -207,29 +207,19 @@ html[data-paper] .landscape-drawer-toggle {
 
 /* ---------- the map, printed on the same stock ---------- */
 
-html[data-paper] .map-container,
-html[data-paper] .leaflet-container {
+html[data-paper] .map-container {
   background: var(--pp-paper-2) !important;
 }
 
-html[data-paper] .leaflet-tile-pane {
-  filter: url(#pp-map-light);
-}
-
-html.dark[data-paper] .leaflet-tile-pane {
-  filter: url(#pp-map-dark);
-}
-
-html[data-paper] .leaflet-container::after {
-  content: "";
+html[data-paper] .map-grain {
+  display: block;
   position: absolute;
   inset: 0;
-  z-index: 450;
   pointer-events: none;
   background-image: var(--pp-age), var(--pp-grain);
 }
 
-html[data-paper] .leaflet-container .leaflet-bar {
+html[data-paper] .maplibregl-map .map-bar {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -239,12 +229,12 @@ html[data-paper] .leaflet-container .leaflet-bar {
   box-shadow: none !important;
 }
 
-html[data-paper] .leaflet-container .leaflet-bar a,
-html[data-paper] .leaflet-container .leaflet-bar a:visited,
-html[data-paper] .leaflet-container .leaflet-bar a:not(:last-child),
-html[data-paper] .leaflet-container .leaflet-bar a:first-child,
-html[data-paper] .leaflet-container .leaflet-bar a:last-child,
-html[data-paper] .leaflet-container .leaflet-bar a.leaflet-disabled {
+html[data-paper] .maplibregl-map .map-bar a,
+html[data-paper] .maplibregl-map .map-bar a:visited,
+html[data-paper] .maplibregl-map .map-bar a:not(:last-child),
+html[data-paper] .maplibregl-map .map-bar a:first-child,
+html[data-paper] .maplibregl-map .map-bar a:last-child,
+html[data-paper] .maplibregl-map .map-bar a.is-disabled {
   border: 0 !important;
   border-radius: 0 !important;
   background: var(--pp-paper) var(--pp-grain) !important;
@@ -253,34 +243,32 @@ html[data-paper] .leaflet-container .leaflet-bar a.leaflet-disabled {
   font-family: var(--pp-sans) !important;
 }
 
-html[data-paper] .leaflet-container .leaflet-bar a.leaflet-disabled {
+html[data-paper] .maplibregl-map .map-bar a.is-disabled {
   color: var(--pp-ink-3) !important;
 }
 
-html[data-paper] .leaflet-container .leaflet-bar a:hover {
+html[data-paper] .maplibregl-map .map-bar a:hover {
   background-color: var(--pp-paper-3) !important;
 }
 
-html[data-paper] .leaflet-container .leaflet-control-zoom a:first-child { transform: rotate(-1.4deg); }
-html[data-paper] .leaflet-container .leaflet-control-zoom a:last-child { transform: rotate(0.8deg); }
-html[data-paper] .leaflet-container .leaflet-bar:not(.leaflet-control-zoom) a:first-child { transform: rotate(1deg); }
-html[data-paper] .leaflet-container .leaflet-bar:not(.leaflet-control-zoom) a:last-child { transform: rotate(-0.7deg); }
+html[data-paper] .maplibregl-map .map-zoom a:first-child { transform: rotate(-1.4deg); }
+html[data-paper] .maplibregl-map .map-zoom a:last-child { transform: rotate(0.8deg); }
+html[data-paper] .maplibregl-map .map-bar:not(.map-zoom) a:first-child { transform: rotate(1deg); }
+html[data-paper] .maplibregl-map .map-bar:not(.map-zoom) a:last-child { transform: rotate(-0.7deg); }
 
-html[data-paper] .leaflet-control-attribution {
+html[data-paper] .maplibregl-ctrl-attrib {
   background: transparent !important;
   color: var(--pp-ink-2) !important;
   font-family: var(--pp-text) !important;
   font-style: italic;
 }
 
-html[data-paper] .leaflet-control-attribution a {
+html[data-paper] .maplibregl-ctrl-attrib a {
   color: var(--pp-ink) !important;
 }
 
 html[data-paper] .stop-name-tooltip,
-html[data-paper] .pin-tooltip,
-html[data-paper] .leaflet-popup-content-wrapper,
-html[data-paper] .leaflet-popup-tip {
+html[data-paper] .pin-tooltip {
   border-radius: 0 !important;
   background: var(--pp-paper) var(--pp-grain) !important;
   color: var(--pp-ink) !important;

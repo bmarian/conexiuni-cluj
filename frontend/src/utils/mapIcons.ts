@@ -1,4 +1,3 @@
-import L from 'leaflet'
 import type {Vehicle} from '@/types/tranzy.ts'
 
 export type DisplayVehicle = Vehicle & {
@@ -7,6 +6,12 @@ export type DisplayVehicle = Vehicle & {
   heading: number
   // Drawn faded: on the other direction now, counted on coming back.
   faded?: boolean
+}
+
+export interface MarkerIcon {
+  html: string | HTMLElement
+  size: [number, number]
+  anchor: [number, number]
 }
 
 export interface IconThemeOptions {
@@ -47,8 +52,7 @@ function clippySvg(wire: string, wireDark: string, w: number, h: number): string
   </svg>`
 }
 
-export const defaultStopIcon = L.divIcon({
-  className: 'bg-transparent border-none',
+const defaultStopIcon: MarkerIcon = {
   html: `
     <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-sm z-20 bg-slate-500 dark:bg-slate-600 text-white">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
@@ -56,17 +60,15 @@ export const defaultStopIcon = L.divIcon({
       </svg>
     </div>
   `,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
-})
+  size: [24, 24],
+  anchor: [12, 12],
+}
 
-export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon {
+export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): MarkerIcon {
   if (opts.arcadeActive) {
     const body = isFav ? '#f43f5e' : '#94a3b8'
     const pupil = isFav ? '#881337' : '#334155'
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div style="width:20px;height:26px;display:flex;align-items:flex-end;justify-content:center;">
         <svg viewBox="0 0 12 16" width="18" height="24" xmlns="http://www.w3.org/2000/svg">
           <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${body}"/>
@@ -76,45 +78,39 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): L.DivIcon 
           <circle cx="8.2" cy="8.4" r="0.7" fill="${pupil}"/>
         </svg>
       </div>`,
-      iconSize: [20, 26],
-      iconAnchor: [10, 24],
-      popupAnchor: [0, -24],
-    })
+      size: [20, 26],
+      anchor: [10, 24],
+    }
   }
 
   if (opts.legacyBlueActive) {
     const wire = isFav ? '#E89C2A' : '#9CA3AF'
     const wireDark = isFav ? '#A06010' : '#5C6470'
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div style="width:26px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.35));">
         ${clippySvg(wire, wireDark, 24, 30)}
       </div>`,
-      iconSize: [26, 32],
-      iconAnchor: [13, 30],
-      popupAnchor: [0, -30],
-    })
+      size: [26, 32],
+      anchor: [13, 30],
+    }
   }
 
   if (opts.paperActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: isFav
         ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13)
         : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13),
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-      popupAnchor: [0, -10],
-    })
+      size: [20, 20],
+      anchor: [10, 10],
+    }
   }
 
   return defaultStopIcon
 }
 
-export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
+export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
   if (opts.arcadeActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
         <svg viewBox="0 0 12 16" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
           <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#22c55e"/>
@@ -124,30 +120,27 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
           <circle cx="8.4" cy="8.5" r="0.6" fill="#15803d"/>
         </svg>
       </div>`,
-      iconSize: [28, 36], iconAnchor: [14, 34], popupAnchor: [0, -34],
-    })
+      size: [28, 36], anchor: [14, 34],
+    }
   }
 
   if (opts.legacyBlueActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div class="animate-bounce" style="width:34px;height:42px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.45));">
         ${clippySvg('#FFD64A', '#B07A10', 32, 40)}
       </div>`,
-      iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -40],
-    })
+      size: [34, 42], anchor: [17, 40],
+    }
   }
 
   if (opts.paperActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: paperPlate(30, 'var(--pp-ink)', 'var(--pp-paper)', 18, 'outline:2px solid var(--pp-red);outline-offset:2px;'),
-      iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
-    })
+      size: [30, 30], anchor: [15, 15],
+    }
   }
 
-  return L.divIcon({
-    className: 'bg-transparent border-none',
+  return {
     html: `
       <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 bg-emerald-500 text-white animate-bounce">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
@@ -155,14 +148,14 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): L.DivIcon {
         </svg>
       </div>
     `,
-    iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16],
-  })
+    size: [32, 32], anchor: [16, 16],
+  }
 }
 
 export function makeHighlightIcon(
   color: 'green' | 'purple' | 'red' | 'gray' | 'amber',
   opts: IconThemeOptions,
-): L.DivIcon {
+): MarkerIcon {
   const bg =
     color === 'green' ? '#10b981'
       : color === 'purple' ? '#a855f7'
@@ -171,8 +164,7 @@ export function makeHighlightIcon(
             : '#64748b'
 
   if (opts.arcadeActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div style="width:24px;height:30px;display:flex;align-items:flex-end;justify-content:center;">
         <svg viewBox="0 0 12 16" width="22" height="28" xmlns="http://www.w3.org/2000/svg">
           <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${bg}"/>
@@ -182,20 +174,19 @@ export function makeHighlightIcon(
           <circle cx="8.2" cy="8.4" r="0.7" fill="rgba(0,0,0,0.65)"/>
         </svg>
       </div>`,
-      iconSize: [24, 30],
-      iconAnchor: [12, 28],
-    })
+      size: [24, 30],
+      anchor: [12, 28],
+    }
   }
 
   if (opts.legacyBlueActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div style="width:28px;height:34px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.4));">
         ${clippySvg(bg, bg, 26, 32)}
       </div>`,
-      iconSize: [28, 34],
-      iconAnchor: [14, 32],
-    })
+      size: [28, 34],
+      anchor: [14, 32],
+    }
   }
 
   if (opts.paperActive) {
@@ -205,79 +196,69 @@ export function makeHighlightIcon(
           : color === 'red' ? 'var(--pp-red)'
             : color === 'amber' ? 'var(--pp-ochre)'
               : 'var(--pp-ink-2)'
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: paperPlate(22, ink, 'var(--pp-paper)', 14),
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-    })
+      size: [22, 22],
+      anchor: [11, 11],
+    }
   }
 
-  return L.divIcon({
-    className: 'bg-transparent border-none !overflow-visible',
+  return {
     html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
       <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="${BUS_STOP_PATH}"/></svg>
     </div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  })
+    size: [24, 24],
+    anchor: [12, 12],
+  }
 }
 
-export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): L.DivIcon {
+export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): MarkerIcon {
   if (opts.arcadeActive) {
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div class="planner-pin-visual" style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;position:relative;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
         <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
           <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="${color}" stroke="white" stroke-width="1.5"/>
           <path d="M10 10 L15.2 7 A6 6 0 1 0 15.2 13 Z" fill="#fff8e1"/>
         </svg>
       </div>`,
-      iconSize: [24, 32],
-      iconAnchor: [12, 32],
-      popupAnchor: [0, -32],
-    })
+      size: [24, 32],
+      anchor: [12, 32],
+    }
   }
 
   if (opts.legacyBlueActive) {
     const emoji = color === '#0ea5e9' ? '🏁' : '📍'
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div class="planner-pin-visual" style="font-size:28px;line-height:1;position:relative;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.4));display:block;">${emoji}</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-      popupAnchor: [0, -28],
-    })
+      size: [28, 28],
+      anchor: [14, 28],
+    }
   }
 
   if (opts.paperActive) {
     const ink = color === '#22c55e' ? 'var(--pp-green)' : 'var(--pp-red)'
-    return L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    return {
       html: `<div class="planner-pin-visual" style="width:24px;height:32px;display:flex;flex-direction:column;align-items:center;position:relative;">
         <div style="width:18px;height:18px;background:${ink};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;">
           <div style="width:6px;height:6px;background:var(--pp-paper);"></div>
         </div>
         <div style="width:2px;height:14px;background:var(--pp-ink);"></div>
       </div>`,
-      iconSize: [24, 32],
-      iconAnchor: [12, 32],
-      popupAnchor: [0, -32],
-    })
+      size: [24, 32],
+      anchor: [12, 32],
+    }
   }
 
-  return L.divIcon({
-    className: 'bg-transparent border-none !overflow-visible',
+  return {
     html: `<div class="planner-pin-visual" style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;position:relative;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
       <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
         <path d="M10 0C4.48 0 0 4.48 0 10C0 17.5 10 28 10 28C10 28 20 17.5 20 10C20 4.48 15.52 0 10 0Z" fill="${color}" stroke="white" stroke-width="1.5"/>
         <circle cx="10" cy="10" r="3.5" fill="white" opacity="0.9"/>
       </svg>
     </div>`,
-    iconSize: [24, 32],
-    iconAnchor: [12, 32],
-    popupAnchor: [0, -32],
-  })
+    size: [24, 32],
+    anchor: [12, 32],
+  }
 }
 
 function accessibilityIcons(vehicle: DisplayVehicle, color: string): string {

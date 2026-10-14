@@ -267,7 +267,7 @@ function onKeydown(e: KeyboardEvent) {
 
   const nav = e.shiftKey ? undefined : NAV_KEYS[key]
   if (nav) {
-    if (key.startsWith('Arrow') && target?.closest('.leaflet-container')) return
+    if (key.startsWith('Arrow') && target?.closest('.maplibregl-map')) return
     act()
     move(scope, target, nav[0], nav[1])
     return

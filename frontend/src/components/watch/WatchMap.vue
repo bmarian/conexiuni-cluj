@@ -5,10 +5,11 @@ export type WatchMapFocus = { lat: number; lng: number; zoom?: number }
 
 <script setup lang="ts">
 import {nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
-import L from 'leaflet'
+import type {Marker} from 'maplibre-gl'
 import {storeToRefs} from 'pinia'
 import MapComponent from '@/components/MapComponent.vue'
 import {useMapStore} from '@/stores/map.ts'
+import {htmlMarker} from '@/utils/mapMarkers.ts'
 
 // Each bezel click scrolls the document 128px and sends nothing else, so the map sits
 // over a tall empty page and turns those scrolls into zoom steps.
@@ -54,23 +55,20 @@ function frame() {
   }
 }
 
-let labelLayer: L.LayerGroup | null = null
-let labelMarkers: Array<{ label: WatchMapLabel; marker: L.Marker }> = []
+let labelMarkers: Array<{ label: WatchMapLabel; marker: Marker }> = []
 
 function drawLabels() {
-  const leaflet = map.value?.leaflet()
-  if (!leaflet) return
-  labelLayer ??= L.layerGroup().addTo(leaflet)
-  labelLayer.clearLayers()
+  const gl = map.value?.maplibre()
+  if (!gl) return
+  for (const {marker} of labelMarkers) marker.remove()
   labelMarkers = props.labels.map((label) => {
     const text = document.createElement('span')
     text.className = label.live ? 'wt-map-label is-live' : 'wt-map-label'
     text.textContent = label.text
-    const marker = L.marker([label.lat, label.lng], {
-      icon: L.divIcon({className: 'wt-map-label-anchor', html: text, iconSize: [0, 0]}),
+    const marker = htmlMarker(label, {html: text, size: [0, 0], anchor: [0, 0]}, {
       interactive: false,
-      zIndexOffset: 4000,
-    }).addTo(labelLayer!)
+      zIndex: 4000,
+    }).addTo(gl)
     return {label, marker}
   })
   cullLabels()
@@ -81,7 +79,7 @@ function drawLabels() {
 function cullLabels() {
   const placed: DOMRect[] = []
   for (const {marker} of [...labelMarkers].sort((a, b) => a.label.rank - b.label.rank)) {
-    const el = marker.getElement()?.firstElementChild as HTMLElement | null | undefined
+    const el = marker.getElement().querySelector<HTMLElement>('.wt-map-label')
     if (!el) continue
     const box = el.getBoundingClientRect()
     const free = !placed.some((o) =>
@@ -107,7 +105,7 @@ onMounted(() => {
   recenter()
   window.addEventListener('scroll', onScroll, {passive: true})
   window.addEventListener('resize', recenter)
-  map.value?.leaflet()?.on('zoomend moveend', cullLabels)
+  map.value?.maplibre()?.on('moveend', cullLabels)
   frame()
   drawLabels()
 })

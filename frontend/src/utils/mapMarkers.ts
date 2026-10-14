@@ -1,0 +1,100 @@
+import {Marker, type Map as MapLibreMap} from 'maplibre-gl'
+import type {MarkerIcon} from '@/utils/mapIcons.ts'
+
+export type LatLng = { lat: number, lng: number }
+
+// Also the map's clickTolerance, so a marker and the map agree on what a drag is.
+export const CLICK_TOLERANCE_PX = 3
+
+export interface HtmlMarkerOptions {
+  interactive?: boolean
+  draggable?: boolean
+  zIndex?: number
+  opacity?: number
+}
+
+function fillIcon(el: HTMLElement, icon: MarkerIcon) {
+  el.style.width = `${icon.size[0]}px`
+  el.style.height = `${icon.size[1]}px`
+  if (typeof icon.html === 'string') el.innerHTML = icon.html
+  else el.replaceChildren(icon.html)
+}
+
+const offsetOf = (icon: MarkerIcon): [number, number] => [-icon.anchor[0], -icon.anchor[1]]
+
+export function htmlMarker({lat, lng}: LatLng, icon: MarkerIcon, options: HtmlMarkerOptions = {}): Marker {
+  const el = document.createElement('div')
+  fillIcon(el, icon)
+  if (options.interactive === false) el.style.pointerEvents = 'none'
+  if (options.zIndex) el.style.zIndex = String(options.zIndex)
+  return new Marker({
+    element: el,
+    anchor: 'top-left',
+    offset: offsetOf(icon),
+    draggable: options.draggable ?? false,
+    opacity: String(options.opacity ?? 1),
+  }).setLngLat([lng, lat])
+}
+
+// The marker moves with the map while it's dragged, so a pan that starts on it still ends in a click.
+export function onMarkerClick(marker: Marker, handler: () => void) {
+  const el = marker.getElement()
+  let down: { x: number, y: number } | null = null
+  el.style.cursor = 'pointer'
+  el.addEventListener('pointerdown', (e) => {
+    down = {x: e.clientX, y: e.clientY}
+  })
+  el.addEventListener('click', (e) => {
+    const moved = down !== null && Math.hypot(e.clientX - down.x, e.clientY - down.y) > CLICK_TOLERANCE_PX
+    down = null
+    if (!moved) handler()
+  })
+}
+
+export function setMarkerIcon(marker: Marker, icon: MarkerIcon) {
+  fillIcon(marker.getElement(), icon)
+  marker.setOffset(offsetOf(icon))
+}
+
+export function markerLatLng(marker: Marker): LatLng {
+  const {lat, lng} = marker.getLngLat()
+  return {lat, lng}
+}
+
+// One hover label at a time: a bubble with a tip pointing down.
+export function createTooltip(map: MapLibreMap) {
+  const el = document.createElement('div')
+  el.style.pointerEvents = 'none'
+  el.style.zIndex = '20000'
+  const bubble = document.createElement('div')
+  el.append(bubble)
+  const marker = new Marker({element: el, anchor: 'bottom'})
+  let owner: Marker | null = null
+
+  const hide = () => {
+    owner = null
+    marker.remove()
+  }
+
+  const show = (target: Marker, html: string, className: string, lift: number) => {
+    owner = target
+    bubble.className = `map-tooltip ${className}`
+    bubble.innerHTML = html
+    marker.setOffset([0, -lift]).setLngLat(target.getLngLat()).addTo(map)
+  }
+
+  const bind = (target: Marker, html: string, className: string, lift: number) => {
+    const targetEl = target.getElement()
+    targetEl.addEventListener('mouseenter', () => show(target, html, className, lift))
+    targetEl.addEventListener('mouseleave', () => {
+      if (owner === target) hide()
+    })
+    target.on('dragstart', hide)
+  }
+
+  const forget = (target: Marker) => {
+    if (owner === target) hide()
+  }
+
+  return {bind, forget, hide}
+}

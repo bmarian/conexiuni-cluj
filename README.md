@@ -73,7 +73,6 @@ Put your keys in a `keys.env` next to this README.
 
 ```bash
 TRANZY_API_KEY=your_tranzy_key
-CARTO_KEY=your_carto_key
 ```
 
 Then the backend and the frontend, each in its own terminal:
@@ -107,5 +106,5 @@ The backend listens on `:6698` and the dev server proxies `/api` to it. Everythi
 | [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetables                                                                        |
 | [Open-Meteo](https://open-meteo.com/)                        | Weather data                                                                               |
 | [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
-| [CARTO](https://carto.com/)                                  | Map tiles                                                                                  |
+| [OpenFreeMap](https://openfreemap.org/), [OpenMapTiles](https://openmaptiles.org/) | Map tiles                                                         |
 | [Nominatim](https://nominatim.org/)                          | Address search                                                                             |

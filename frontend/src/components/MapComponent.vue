@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import {
+  type GeoJSONSource,
+  type IControl,
+  type LineLayerSpecification,
+  LngLatBounds,
+  Map as MapLibreMap,
+  type Marker,
+  setWorkerUrl,
+  type StyleSpecification,
+} from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+import type {Feature, Polygon} from 'geojson'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {useStopsApi} from "@/composables/useStopsApi.ts";
@@ -14,6 +25,7 @@ import {useFavoritesStore} from "@/stores/favorites.ts";
 import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
 import {
   type DisplayVehicle,
+  type MarkerIcon,
   getVehicleMarkerHtml,
   type IconThemeOptions,
   makeHighlightIcon,
@@ -21,7 +33,20 @@ import {
   makeSelectedStopIcon,
   makeStopIcon,
 } from '@/utils/mapIcons.ts'
+import {
+  CLICK_TOLERANCE_PX,
+  createTooltip,
+  htmlMarker,
+  type HtmlMarkerOptions,
+  type LatLng,
+  markerLatLng,
+  onMarkerClick,
+  setMarkerIcon,
+} from '@/utils/mapMarkers.ts'
+import {MAP_CREDITS_HTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
+
+setWorkerUrl(workerUrl)
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
@@ -51,24 +76,22 @@ const legacyBlueActive = computed(() => settingsStore.legacyBlueActive && !setti
 const paperActive = computed(() => settingsStore.paperActive && !settingsStore.watchActive)
 const router = useRouter()
 const route = useRoute()
-const stopMarkers = new Map<string, L.Marker>()
+const stopMarkers = new Map<string, Marker>()
 const stopNames = new Map<string, string>()
+const shownStops = new Set<string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedVehicleId = ref<number | null>(null)
 const {t} = useI18n()
 const mapContainer = ref()
 
-const map = shallowRef<L.Map>()
-const stopGroup = shallowRef<L.FeatureGroup>()
-const currentTileLayer = shallowRef<L.TileLayer>()
-const userDot = shallowRef<L.Marker>()
-const accuracyCircle = shallowRef<L.Circle>()
-const shapeLayerGroup = shallowRef<L.FeatureGroup>()
-const walkingLayerGroup = shallowRef<L.FeatureGroup>()
-const vehicleLayerGroup = shallowRef<L.FeatureGroup>()
-const highlightedStopLayerGroup = shallowRef<L.FeatureGroup>()
-const pinMarker = shallowRef<L.Marker>()
-const originMarker = shallowRef<L.Marker>()
+const map = shallowRef<MapLibreMap>()
+const userDot = shallowRef<Marker>()
+const pinMarker = shallowRef<Marker>()
+const originMarker = shallowRef<Marker>()
+let shapeMarkers: Marker[] = []
+let vehicleMarkers: Marker[] = []
+let highlightMarkers: Marker[] = []
+let tooltip: ReturnType<typeof createTooltip> | null = null
 const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
@@ -77,23 +100,31 @@ let pendingCenterOnUser = false
 let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
-const DEFAULT_ZOOM = 16
-const DEFAULT_CENTER: L.LatLngTuple = [46.7712, 23.6236]
-L.Marker.mergeOptions({keyboard: false})
+let geoWatchId: number | null = null
+let stopRefreshFrame = 0
+let styleReady = false
 
-const STOP_ZOOM_THRESHOLD = 16
-const CLUJ_COUNTY_SW: L.LatLngTuple = [46.38, 22.75]
-const CLUJ_COUNTY_NE: L.LatLngTuple = [47.50, 24.27]
-const CLUJ_COUNTY_BOUNDS: L.LatLngBoundsLiteral = [CLUJ_COUNTY_SW, CLUJ_COUNTY_NE]
-const MIN_ZOOM = 9
-const MAX_ZOOM = 20
-const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
+// Same camera as the Mobile app. Leaflet's zooms were one higher (256 px tiles).
+const DEFAULT_ZOOM = 15
+const DEFAULT_CENTER: LatLng = {lat: 46.7712, lng: 23.6236}
+const STOP_ZOOM_THRESHOLD = 15
+const FIT_MAX_ZOOM = 15
+const MIN_ZOOM = 8
+const MAX_ZOOM = 19
+const CLUJ_COUNTY_SW: LatLng = {lat: 46.38, lng: 22.75}
+const CLUJ_COUNTY_NE: LatLng = {lat: 47.50, lng: 24.27}
 const MAP_VIEW_STORAGE_KEY = 'map.lastView'
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
+const FLY_DURATION_MS = 1000
+const FIT_DURATION_MS = 800
+const EARTH_RADIUS_M = 6371008.8
+const OVERLAY = 'cc-'
+const SLOTS = ['shapes', 'walks', 'accuracy'] as const
 
+type LatLngTuple = [number, number]
 type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
 type GroupedStart = {
   lat: number
@@ -104,48 +135,25 @@ type GroupedStart = {
 type SavedMapView = {
   lat: number
   lng: number
-  zoom: number
+  glZoom?: number
+  zoom?: number
 }
 
-const getTileLayerConfig = (useDarkMode: boolean, isArcade: boolean, isLegacyBlue: boolean, isPaper: boolean): string => {
-  // Paper re-inks the dark tiles in CSS; the light ones are too faint to survive it.
-  if (isPaper) {
-    return `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-  }
-
-  if (isArcade) {
-    // TODO: Change when you find a better theme that fits
-    return useDarkMode
-      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-  }
-
-  if (isLegacyBlue) {
-    // TODO: Change when you find a better theme that fits
-    return useDarkMode
-      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-      : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-  }
-
-  return useDarkMode
-    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
-    : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${__CARTO_KEY__}`
+type LineGroup = 'shapes' | 'walks'
+type LineSpec = {
+  coords: LatLngTuple[]
+  color: string
+  width: number
+  opacity: number
+  dash?: number[]
+  square: boolean
 }
 
-const replaceTileLayer = () => {
-  if (!map.value) return
-  const tileUrl = getTileLayerConfig(isDarkMode.value, arcadeActive.value, legacyBlueActive.value, paperActive.value)
-  if (currentTileLayer.value) {
-    map.value.removeLayer(currentTileLayer.value)
-  }
-  currentTileLayer.value = L.tileLayer(tileUrl, {
-    attribution: TILE_LAYER_ATTRIBUTION,
-    maxZoom: MAX_ZOOM,
-    minZoom: MIN_ZOOM,
-    bounds: CLUJ_COUNTY_BOUNDS,
-    crossOrigin: true,
-  }).addTo(map.value)
-}
+type Fix = LatLng & { accuracy: number, heading: number | null }
+
+const lines: Record<LineGroup, LineSpec[]> = {shapes: [], walks: []}
+const drawnLines: Record<LineGroup, number> = {shapes: 0, walks: 0}
+let accuracy: (LatLng & { radius: number }) | null = null
 
 const themeOpts = (): IconThemeOptions => ({
   arcadeActive: arcadeActive.value,
@@ -156,84 +164,222 @@ const themeOpts = (): IconThemeOptions => ({
 
 const paperInk = () => isDarkMode.value ? '#efe6cc' : '#1f3a7a'
 
+const mapTheme = (): MapTheme =>
+  paperActive.value ? 'paper' : arcadeActive.value ? 'arcade' : legacyBlueActive.value ? 'legacyBlue' : 'default'
+
+const currentStyle = () => mapStyle(isDarkMode.value, mapTheme())
+
+// Under the basemap's labels, as on Mobile.
+const labelIndex = (layers: StyleSpecification['layers']) => {
+  let ground = -1
+  layers.forEach((layer, i) => {
+    if (layer.type !== 'symbol' && !layer.id.startsWith('boundary') && !layer.id.startsWith(OVERLAY)) ground = i
+  })
+  const label = layers.findIndex((layer, i) => i > ground && layer.type === 'symbol')
+  return label === -1 ? layers.length : label
+}
+
+const slotId = (slot: typeof SLOTS[number]) => `${OVERLAY}slot-${slot}`
+
+const ensureSlots = (m: MapLibreMap) => {
+  if (m.getLayer(slotId('accuracy'))) return
+  const layers = m.getStyle().layers
+  const before = layers[labelIndex(layers)]?.id
+  const empty = `${OVERLAY}empty`
+  if (!m.getSource(empty)) m.addSource(empty, {type: 'geojson', data: {type: 'FeatureCollection', features: []}})
+  for (const slot of SLOTS) m.addLayer({id: slotId(slot), type: 'line', source: empty}, before)
+}
+
+// Dash arrays are in line widths.
+const dashOf = (pattern: string, width: number) =>
+  pattern ? pattern.split(' ').map((n) => Number(n) / width) : undefined
+
+const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
+
+const syncLines = (group: LineGroup) => {
+  const m = map.value
+  if (!m || !styleReady) return
+  for (let i = 0; i < drawnLines[group]; i++) {
+    const id = `${OVERLAY}${group}-${i}`
+    if (m.getLayer(id)) m.removeLayer(id)
+    if (m.getSource(id)) m.removeSource(id)
+  }
+  lines[group].forEach((line, i) => {
+    const id = `${OVERLAY}${group}-${i}`
+    m.addSource(id, {
+      type: 'geojson',
+      data: {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}},
+    })
+    const layer: LineLayerSpecification = {
+      id,
+      type: 'line',
+      source: id,
+      layout: {'line-cap': line.square ? 'butt' : 'round', 'line-join': line.square ? 'miter' : 'round'},
+      paint: {'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity},
+    }
+    if (line.dash) layer.paint!['line-dasharray'] = line.dash
+    m.addLayer(layer, slotId(group))
+  })
+  drawnLines[group] = lines[group].length
+}
+
+const accuracyRing = ({lat, lng}: LatLng, radius: number): Feature<Polygon> => {
+  const dLat = (radius / EARTH_RADIUS_M) * 180 / Math.PI
+  const dLng = dLat / Math.cos(lat * Math.PI / 180)
+  const steps = 64
+  const ring = Array.from({length: steps + 1}, (_, i) => {
+    const a = (i / steps) * 2 * Math.PI
+    return [lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]
+  })
+  return {type: 'Feature', properties: {}, geometry: {type: 'Polygon', coordinates: [ring]}}
+}
+
+const syncAccuracy = () => {
+  const m = map.value
+  if (!m || !styleReady) return
+  const id = `${OVERLAY}accuracy`
+  if (!accuracy) {
+    for (const layer of [`${id}-fill`, `${id}-line`]) if (m.getLayer(layer)) m.removeLayer(layer)
+    if (m.getSource(id)) m.removeSource(id)
+    return
+  }
+  const data = accuracyRing(accuracy, accuracy.radius)
+  const source = m.getSource<GeoJSONSource>(id)
+  if (source) {
+    source.setData(data)
+  } else {
+    m.addSource(id, {type: 'geojson', data})
+    m.addLayer({id: `${id}-fill`, type: 'fill', source: id, paint: {'fill-color': '#3b82f6'}}, slotId('accuracy'))
+    m.addLayer({id: `${id}-line`, type: 'line', source: id, paint: {'line-color': '#3b82f6', 'line-width': 1}}, slotId('accuracy'))
+  }
+  m.setPaintProperty(`${id}-fill`, 'fill-opacity', rideAs.value ? 0 : 0.15)
+  m.setPaintProperty(`${id}-line`, 'line-opacity', rideAs.value ? 0 : 1)
+}
+
+const syncOverlays = () => {
+  const m = map.value
+  if (!m || !styleReady) return
+  ensureSlots(m)
+  syncLines('shapes')
+  syncLines('walks')
+  syncAccuracy()
+}
+
+const applyStyle = () => {
+  const m = map.value
+  if (!m) return
+  // A diff drops our layers; when the style is rebuilt instead, style.load brings them back.
+  m.setStyle(currentStyle(), {diff: true})
+  syncOverlays()
+}
+
+const linesBounds = (...groups: LineSpec[][]) => {
+  const bounds = new LngLatBounds()
+  for (const group of groups) for (const line of group) for (const point of line.coords) bounds.extend(toLngLat(point))
+  return bounds.isEmpty() ? null : bounds
+}
+
+const fitPadding = () => ({
+  top: 24,
+  left: 24,
+  right: 24 + drawerRightPx.value,
+  bottom: 24 + drawerBottomPx.value,
+})
+
+const fitTo = (bounds: LngLatBounds) => {
+  map.value?.fitBounds(bounds, {padding: fitPadding(), maxZoom: FIT_MAX_ZOOM, duration: FIT_DURATION_MS})
+}
+
+const clearMarkers = (markers: Marker[]) => {
+  for (const marker of markers) {
+    tooltip?.forget(marker)
+    marker.remove()
+  }
+}
+
 const useTouchDragLift = () =>
   typeof window !== 'undefined'
   && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
 
-const togglePlannerDragLift = (marker: L.Marker, active: boolean) => {
-  const el = marker.getElement()
-  if (!el) return
-  el.classList.toggle('planner-drag-active', active)
-}
-
-const attachPlannerDragLift = (marker: L.Marker, color: string) => {
+const attachPlannerDragLift = (marker: Marker) => {
   if (!useTouchDragLift()) return
-  marker.on('dragstart', () => togglePlannerDragLift(marker, true))
-  marker.on('dragend', () => {
-    togglePlannerDragLift(marker, false)
-    marker.setIcon(makePinIcon(themeOpts(), color))
-  })
+  marker.on('dragstart', () => marker.getElement().classList.add('planner-drag-active'))
+  marker.on('dragend', () => marker.getElement().classList.remove('planner-drag-active'))
 }
 
 const stopIconForId = (stopId: string) =>
   makeStopIcon(favoritesStore.isStopFavorite(parseInt(stopId)), themeOpts())
 
+// Only the stops around the view are on the map, so panning moves a few dozen markers, not all of them.
+const refreshStops = () => {
+  const m = map.value
+  if (!m) return
+  const wanted = new Set<string>()
+  if (m.getZoom() >= STOP_ZOOM_THRESHOLD) {
+    const bounds = m.getBounds()
+    const padLat = (bounds.getNorth() - bounds.getSouth()) / 2
+    const padLng = (bounds.getEast() - bounds.getWest()) / 2
+    for (const [id, marker] of stopMarkers) {
+      const {lat, lng} = marker.getLngLat()
+      if (lat >= bounds.getSouth() - padLat && lat <= bounds.getNorth() + padLat
+        && lng >= bounds.getWest() - padLng && lng <= bounds.getEast() + padLng) wanted.add(id)
+    }
+  }
+  const selected = currentlyHighlightedStopId.value
+  if (selected && stopMarkers.has(selected)) wanted.add(selected)
+  for (const id of shownStops) {
+    if (wanted.has(id)) continue
+    const marker = stopMarkers.get(id)
+    if (marker) {
+      tooltip?.forget(marker)
+      marker.remove()
+    }
+    shownStops.delete(id)
+  }
+  for (const id of wanted) {
+    if (shownStops.has(id)) continue
+    stopMarkers.get(id)?.addTo(m)
+    shownStops.add(id)
+  }
+}
+
+const scheduleStopRefresh = () => {
+  if (stopRefreshFrame) return
+  stopRefreshFrame = requestAnimationFrame(() => {
+    stopRefreshFrame = 0
+    refreshStops()
+  })
+}
+
 const highlightSelectedStop = (stopId?: string) => {
-  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
-    const oldMarker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    oldMarker.setIcon(stopIconForId(currentlyHighlightedStopId.value))
-    oldMarker.setZIndexOffset(0)
-    if (map.value && map.value.hasLayer(oldMarker)) map.value.removeLayer(oldMarker)
-    if (stopGroup.value && !stopGroup.value.hasLayer(oldMarker)) stopGroup.value.addLayer(oldMarker)
+  const previous = currentlyHighlightedStopId.value
+  if (previous && stopMarkers.has(previous)) {
+    const oldMarker = stopMarkers.get(previous)!
+    setMarkerIcon(oldMarker, stopIconForId(previous))
+    oldMarker.getElement().style.zIndex = ''
   }
   currentlyHighlightedStopId.value = null
   if (stopId && stopMarkers.has(stopId)) {
     const newMarker = stopMarkers.get(stopId)!
-    newMarker.setIcon(makeSelectedStopIcon(themeOpts()))
-    newMarker.setZIndexOffset(1000)
-    if (stopGroup.value && stopGroup.value.hasLayer(newMarker)) stopGroup.value.removeLayer(newMarker)
-    if (map.value && !map.value.hasLayer(newMarker)) newMarker.addTo(map.value)
+    setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts()))
+    newMarker.getElement().style.zIndex = '1000'
     currentlyHighlightedStopId.value = stopId
   }
-}
-
-const handleZoomVisibility = () => {
-  if (!map.value || !stopGroup.value) return
-
-  if (map.value.getZoom() >= STOP_ZOOM_THRESHOLD) {
-    if (!map.value.hasLayer(stopGroup.value)) {
-      map.value.addLayer(stopGroup.value)
-    }
-  } else {
-    if (map.value.hasLayer(stopGroup.value)) {
-      map.value.removeLayer(stopGroup.value)
-    }
-  }
+  refreshStops()
 }
 
 const invalidateMapSize = () => {
-  if (!map.value) return
-  map.value.invalidateSize({pan: false, animate: false})
+  map.value?.resize()
 }
 
-const fitBoundsPadding = () => ({
-  paddingTopLeft: [24, 24] as [number, number],
-  paddingBottomRight: [24 + drawerRightPx.value, 24 + drawerBottomPx.value] as [number, number],
-})
-
-// Offset the latlng so flyTo centres the point in the currently visible map area.
-const flyToVisible = (latlng: L.LatLng, zoom: number, duration = 1) => {
-  const m = map.value
-  if (!m) return
-  const xOffset = drawerRightPx.value / 2
-  const yOffset = drawerBottomPx.value / 2
-  if (xOffset < 4 && yOffset < 4) {
-    m.flyTo(latlng, zoom, {duration})
-    return
-  }
-  const projected = m.project(latlng, zoom)
-  const adjusted = m.unproject(projected.add([xOffset, yOffset]), zoom)
-  m.flyTo(adjusted, zoom, {duration})
+// Offset so flyTo centres the point in the currently visible map area.
+const flyToVisible = ({lat, lng}: LatLng, zoom: number) => {
+  map.value?.flyTo({
+    center: [lng, lat],
+    zoom,
+    offset: [-drawerRightPx.value / 2, -drawerBottomPx.value / 2],
+    duration: FLY_DURATION_MS,
+  })
 }
 
 const scheduleInvalidateMapSize = () => {
@@ -252,18 +398,46 @@ const scheduleInvalidateMapSize = () => {
 const isStandaloneApp = () =>
   window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
 
+const fixOf = ({coords}: GeolocationPosition): Fix => ({
+  lat: coords.latitude,
+  lng: coords.longitude,
+  accuracy: coords.accuracy,
+  heading: coords.heading,
+})
+
+const stopLocate = () => {
+  if (geoWatchId !== null) navigator.geolocation?.clearWatch(geoWatchId)
+  geoWatchId = null
+}
+
+const onLocationError = (error: GeolocationPositionError) => {
+  console.warn("GPS Error:", error.message)
+  userStore.setIsLocating(false)
+  pendingCenterOnUser = false
+  if (error.code === error.PERMISSION_DENIED) {
+    userStore.setHasLocationPermission(false)
+  }
+}
+
 const beginLocationWatch = (enableHighAccuracy = false) => {
   // Location never worked on the watch, so the simplified layout doesn't ask for it.
   if (!map.value || settingsStore.watchActive) return
+  if (!navigator.geolocation) {
+    userStore.setIsLocating(false)
+    return
+  }
 
   userStore.setIsLocating(true)
-  map.value.stopLocate()
-  map.value.locate(preciseLocation.value ? {...NAV_POSITION_OPTIONS, watch: true} : {
-    watch: true,
-    enableHighAccuracy,
-    maximumAge: 30000,
-    timeout: enableHighAccuracy ? 15000 : 6000,
-  })
+  stopLocate()
+  geoWatchId = navigator.geolocation.watchPosition(
+    (position) => updateLiveLocation(fixOf(position)),
+    onLocationError,
+    preciseLocation.value ? NAV_POSITION_OPTIONS : {
+      enableHighAccuracy,
+      maximumAge: 30000,
+      timeout: enableHighAccuracy ? 15000 : 6000,
+    },
+  )
 }
 
 const requestCurrentLocation = (enableHighAccuracy = false) => {
@@ -273,10 +447,7 @@ const requestCurrentLocation = (enableHighAccuracy = false) => {
   navigator.geolocation.getCurrentPosition(
     (position) => {
       if (!map.value) return
-      updateLiveLocation({
-        latlng: L.latLng(position.coords.latitude, position.coords.longitude),
-        accuracy: position.coords.accuracy,
-      } as L.LocationEvent)
+      updateLiveLocation(fixOf(position))
     },
     (error) => {
       userStore.setIsLocating(false)
@@ -299,116 +470,136 @@ const retryLocationForStandaloneApp = () => {
   requestCurrentLocation(false)
 }
 
-const createCenterControl = (mapValue: L.Map) => {
-  const control = new L.Control({position: 'topleft'})
-  control.onAdd = () => {
-    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control')
+const CENTER_SVG = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2"/>
+    <path d="M12 20v2"/>
+    <path d="M5 12H2"/>
+    <path d="M22 12h-3"/>
+  </svg>
+`
 
-    const centerBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
-    centerBtn.href = '#'
-    centerBtn.title = t('Center')
-    centerBtn.setAttribute('role', 'button')
-    centerBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
-        <circle cx="12" cy="12" r="4"/>
-        <path d="M12 2v2"/>
-        <path d="M12 20v2"/>
-        <path d="M5 12H2"/>
-        <path d="M22 12h-3"/>
-      </svg>
-    `
-    L.DomEvent.on(centerBtn, 'click', (e) => {
-      e.preventDefault()
-      const location = userDot.value?.getLatLng()
-      if (!location) {
-        pendingCenterOnUser = true
-        requestCurrentLocation(true)
-        return
-      }
-      flyToVisible(location, DEFAULT_ZOOM)
-    })
+const FIT_SVG = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+    <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+    <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+  </svg>
+`
 
-    const fitBtn = L.DomUtil.create('a', 'flex! items-center justify-center', container)
-    fitBtn.href = '#'
-    fitBtn.title = t('fitRoutes')
-    fitBtn.setAttribute('role', 'button')
-    fitBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
-        <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-        <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-        <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-        <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-      </svg>
-    `
-    L.DomEvent.on(fitBtn, 'click', (e) => {
-      e.preventDefault()
-      const bounds = shapeLayerGroup.value?.getBounds()
-      if (!bounds || !bounds.isValid()) return
-      mapValue.fitBounds(bounds, {
-        ...fitBoundsPadding(),
-        maxZoom: 16,
-        animate: true,
-        duration: 0.8,
-      })
-    })
+const barButton = (bar: HTMLElement, title: string, html: string, className: string, onClick: () => void) => {
+  const button = document.createElement('a')
+  button.className = className
+  button.href = '#'
+  button.title = title
+  button.setAttribute('role', 'button')
+  button.setAttribute('aria-label', title)
+  button.innerHTML = html
+  button.addEventListener('click', (e) => {
+    e.preventDefault()
+    onClick()
+  })
+  bar.append(button)
+  return button
+}
 
-    L.DomEvent.disableClickPropagation(container)
-    return container
+const barControl = (className: string, build: (bar: HTMLElement) => void): IControl => {
+  const bar = document.createElement('div')
+  bar.className = `maplibregl-ctrl map-bar ${className}`
+  build(bar)
+  return {onAdd: () => bar, onRemove: () => bar.remove()}
+}
+
+const createZoomControl = (mapValue: MapLibreMap) => barControl('map-zoom', (bar) => {
+  const inButton = barButton(bar, 'Zoom in', '<span aria-hidden="true">+</span>', 'map-zoom-in', () => mapValue.zoomIn())
+  const outButton = barButton(bar, 'Zoom out', '<span aria-hidden="true">&#x2212;</span>', 'map-zoom-out', () => mapValue.zoomOut())
+  const update = () => {
+    inButton.classList.toggle('is-disabled', mapValue.getZoom() >= mapValue.getMaxZoom())
+    outButton.classList.toggle('is-disabled', mapValue.getZoom() <= mapValue.getMinZoom())
   }
+  mapValue.on('zoom', update)
+  update()
+})
 
-  return control
+const createCenterControl = () => barControl('', (bar) => {
+  barButton(bar, t('Center'), CENTER_SVG, 'flex! items-center justify-center', () => {
+    const location = userDot.value ? markerLatLng(userDot.value) : null
+    if (!location) {
+      pendingCenterOnUser = true
+      requestCurrentLocation(true)
+      return
+    }
+    flyToVisible(location, DEFAULT_ZOOM)
+  })
+  barButton(bar, t('fitRoutes'), FIT_SVG, 'flex! items-center justify-center', () => {
+    const bounds = linesBounds(lines.shapes)
+    if (bounds) fitTo(bounds)
+  })
+})
+
+const createCreditsControl = (): IControl => {
+  const credits = document.createElement('div')
+  credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
+  credits.innerHTML = MAP_CREDITS_HTML
+  return {onAdd: () => credits, onRemove: () => credits.remove()}
 }
 
-const initLayerGroups = (mapValue: L.Map) => {
-  stopGroup.value = L.featureGroup()
-  shapeLayerGroup.value = L.featureGroup().addTo(mapValue)
-  walkingLayerGroup.value = L.featureGroup().addTo(mapValue)
-  vehicleLayerGroup.value = L.featureGroup().addTo(mapValue)
-  highlightedStopLayerGroup.value = L.featureGroup().addTo(mapValue)
-  mapValue.on('zoomend', handleZoomVisibility)
-  handleZoomVisibility()
-}
-
-const mapInit = (lat: number, lon: number, zoom: number) => {
-  const mapValue = L.map(mapContainer.value, {
-    maxBounds: CLUJ_COUNTY_BOUNDS,
-    maxBoundsViscosity: 1.0,
+const mapInit = (center: LatLng, zoom: number) => {
+  const mapValue = new MapLibreMap({
+    container: mapContainer.value,
+    style: currentStyle(),
+    center: [center.lng, center.lat],
+    zoom,
     minZoom: MIN_ZOOM,
-    attributionControl: true,
-    // The watch fits routes between its title and buttons, and whole steps fit them badly.
-    zoomSnap: settingsStore.watchActive ? 0.25 : 1,
-  }).setView([lat, lon], zoom)
-  mapValue.getContainer().tabIndex = -1
+    maxZoom: MAX_ZOOM,
+    maxBounds: [[CLUJ_COUNTY_SW.lng, CLUJ_COUNTY_SW.lat], [CLUJ_COUNTY_NE.lng, CLUJ_COUNTY_NE.lat]],
+    attributionControl: false,
+    clickTolerance: CLICK_TOLERANCE_PX,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+  })
+  mapValue.touchZoomRotate.disableRotation()
+  mapValue.keyboard.disableRotation()
+  mapValue.getCanvas().tabIndex = -1
 
   map.value = mapValue
+  mapValue.on('styledataloading', () => {
+    styleReady = false
+  })
+  mapValue.on('style.load', () => {
+    styleReady = true
+    syncOverlays()
+  })
+  mapValue.on('move', scheduleStopRefresh)
   mapValue.on('moveend', () => {
-    const center = mapValue.getCenter()
+    refreshStops()
+    const mapCenter = mapValue.getCenter()
     const view: SavedMapView = {
-      lat: Number(center.lat.toFixed(6)),
-      lng: Number(center.lng.toFixed(6)),
-      zoom: Number(mapValue.getZoom().toFixed(2)),
+      lat: Number(mapCenter.lat.toFixed(6)),
+      lng: Number(mapCenter.lng.toFixed(6)),
+      glZoom: Number(mapValue.getZoom().toFixed(2)),
     }
     localStorage.setItem(MAP_VIEW_STORAGE_KEY, JSON.stringify(view))
   })
-  mapValue.on('locationfound', updateLiveLocation)
-  mapValue.on('click', () => {
+  mapValue.on('click', (e) => {
+    if ((e.originalEvent.target as Element | null)?.closest?.('.maplibregl-marker')) return
     selectedVehicleId.value = null
   })
-  mapValue.on('locationerror', (e) => {
-    console.warn("GPS Error:", e.message)
-    userStore.setIsLocating(false)
-    pendingCenterOnUser = false
-    if (e.code === 1) {
-      userStore.setHasLocationPermission(false)
-    }
-  })
 
-  replaceTileLayer()
+  // Paper's grain sits over the map and under the markers.
+  const grain = document.createElement('div')
+  grain.className = 'map-grain'
+  mapValue.getCanvas().after(grain)
 
-  mapValue.addControl(createCenterControl(mapValue))
+  tooltip = createTooltip(mapValue)
+  mapValue.addControl(createZoomControl(mapValue), 'top-left')
+  mapValue.addControl(createCenterControl(), 'top-left')
+  mapValue.addControl(createCreditsControl(), 'bottom-right')
   beginLocationWatch()
 
-  initLayerGroups(mapValue)
   mapContainer.value?.classList.toggle('arcade-theme', arcadeActive.value)
   mapContainer.value?.classList.toggle('legacy-blue-theme', legacyBlueActive.value)
 }
@@ -417,167 +608,143 @@ const stopsInit = async () => {
   const {stops: stopsRef, fetchStops} = useStopsApi()
   await fetchStops()
   const stops = stopsRef.value
-  if (!stops.length || !stopGroup.value) return
+  if (!stops.length || !map.value) return
 
-  for (let i = 0; i < stops.length; i++) {
-    const {stop_lat, stop_lon, stop_name, stop_id} = stops[i]!
-
-    const marker = L.marker([stop_lat, stop_lon], {icon: stopIconForId(stop_id.toString())})
-    marker.bindTooltip(stop_name, {
-      direction: 'top',
-      offset: [0, -14],
-      className: 'stop-name-tooltip',
-    })
-    marker.on('click', () => {
+  for (const {stop_lat, stop_lon, stop_name, stop_id} of stops) {
+    const id = stop_id.toString()
+    const marker = htmlMarker({lat: stop_lat, lng: stop_lon}, stopIconForId(id))
+    tooltip?.bind(marker, stop_name, 'stop-name-tooltip', 14)
+    onMarkerClick(marker, () => {
       router.push({name: 'stop', params: {stopId: stop_id}})
     })
-
-    marker.addTo(stopGroup.value)
-    stopMarkers.set(stop_id.toString(), marker)
-    stopNames.set(stop_id.toString(), stop_name)
+    stopMarkers.set(id, marker)
+    stopNames.set(id, stop_name)
   }
   highlightSelectedStop(route.params.stopId as string)
   // Highlights set before the markers existed were skipped.
   renderHighlightedStops()
 }
 
-const blueDotIcon = L.divIcon({
-  className: 'bg-transparent border-none',
+const blueDotIcon: MarkerIcon = {
   html: `
     <div class="relative flex items-center justify-center w-4 h-4">
       <div class="absolute w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-md z-10"></div>
       <div class="absolute w-full h-full bg-blue-400 rounded-full animate-ping opacity-75"></div>
     </div>
   `,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
-})
+  size: [16, 16],
+  anchor: [8, 8]
+}
 
 // On board the traveller is drawn as their bus, gliding from fix to fix over the time between them.
 let rideHeading = 0
-let headingFrom: L.LatLng | null = null
+let headingFrom: LatLng | null = null
 let lastFixMs = 0
 let glideFrame = 0
 
-const userIcon = () => {
+const userIcon = (): MarkerIcon => {
   const ride = rideAs.value
   if (!ride) return blueDotIcon
   const bus = {route_short_name: ride.line, heading: rideHeading, speed: 0, label: ''} as DisplayVehicle
-  return L.divIcon({
-    className: 'bg-transparent border-none !overflow-visible',
+  return {
     html: getVehicleMarkerHtml(bus, ride.color, false, {...themeOpts(), showVehicleExtras: false}, t),
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-  })
+    size: [36, 36],
+    anchor: [18, 18],
+  }
 }
 
-const moveUserDot = (to: L.LatLng, ms: number) => {
+const moveUserDot = (to: LatLng, ms: number) => {
   const dot = userDot.value
   if (!dot) return
   cancelAnimationFrame(glideFrame)
   if (!rideAs.value || ms <= 0) {
-    dot.setLatLng(to)
+    dot.setLngLat([to.lng, to.lat])
     return
   }
-  const from = dot.getLatLng()
+  const from = markerLatLng(dot)
   const start = performance.now()
   const step = (now: number) => {
     const k = Math.min(1, (now - start) / ms)
-    dot.setLatLng([from.lat + (to.lat - from.lat) * k, from.lng + (to.lng - from.lng) * k])
+    dot.setLngLat([from.lng + (to.lng - from.lng) * k, from.lat + (to.lat - from.lat) * k])
     if (k < 1) glideFrame = requestAnimationFrame(step)
   }
   glideFrame = requestAnimationFrame(step)
 }
 
-const isInClujCounty = (lat: number, lng: number) => {
-  return lat >= CLUJ_COUNTY_SW[0] && lat <= CLUJ_COUNTY_NE[0]
-    && lng >= CLUJ_COUNTY_SW[1] && lng <= CLUJ_COUNTY_NE[1]
+const isInClujCounty = ({lat, lng}: LatLng) => {
+  return lat >= CLUJ_COUNTY_SW.lat && lat <= CLUJ_COUNTY_NE.lat
+    && lng >= CLUJ_COUNTY_SW.lng && lng <= CLUJ_COUNTY_NE.lng
 }
 
-const updateLiveLocation = (e: L.LocationEvent) => {
-  if (!map.value) return
+const updateLiveLocation = (fix: Fix) => {
+  const m = map.value
+  if (!m) return
 
   userStore.setIsLocating(false)
-  if (!isInClujCounty(e.latlng.lat, e.latlng.lng)) {
+  if (!isInClujCounty(fix)) {
     pendingCenterOnUser = false
     userStore.setHasLocationPermission(false)
     userStore.clearUserLocation()
-    if (userDot.value) {
-      map.value.removeLayer(userDot.value)
-      userDot.value = undefined
-    }
-    if (accuracyCircle.value) {
-      map.value.removeLayer(accuracyCircle.value)
-      accuracyCircle.value = undefined
-    }
+    userDot.value?.remove()
+    userDot.value = undefined
+    accuracy = null
+    syncAccuracy()
     return
   }
 
   userStore.setHasLocationPermission(true)
-  userStore.setUserLocation(e.latlng.lat, e.latlng.lng)
+  userStore.setUserLocation(fix.lat, fix.lng)
   if (isFirstLocationHandle) {
-    if (settingsStore.autoCenterOnMe && !hasFittedForContent) flyToVisible(e.latlng, DEFAULT_ZOOM)
+    if (settingsStore.autoCenterOnMe && !hasFittedForContent) flyToVisible(fix, DEFAULT_ZOOM)
     isFirstLocationHandle = false
   }
   if (pendingCenterOnUser) {
     pendingCenterOnUser = false
-    flyToVisible(e.latlng, DEFAULT_ZOOM)
+    flyToVisible(fix, DEFAULT_ZOOM)
   }
 
   const now = Date.now()
   const sinceLast = lastFixMs ? now - lastFixMs : 0
   lastFixMs = now
   // Without a GPS heading, the direction from where the last one was taken, once beyond the fix's accuracy.
-  if (Number.isFinite(e.heading)) {
-    rideHeading = e.heading
+  if (fix.heading !== null && Number.isFinite(fix.heading)) {
+    rideHeading = fix.heading
   } else if (!headingFrom) {
-    headingFrom = e.latlng
-  } else if (headingFrom.distanceTo(e.latlng) > e.accuracy) {
-    rideHeading = calculateBearing(headingFrom.lat, headingFrom.lng, e.latlng.lat, e.latlng.lng)
-    headingFrom = e.latlng
+    headingFrom = {lat: fix.lat, lng: fix.lng}
+  } else if (haversineMeters(headingFrom.lat, headingFrom.lng, fix.lat, fix.lng) > fix.accuracy) {
+    rideHeading = calculateBearing(headingFrom.lat, headingFrom.lng, fix.lat, fix.lng)
+    headingFrom = {lat: fix.lat, lng: fix.lng}
   }
 
-  if (userDot.value && accuracyCircle.value) {
-    if (rideAs.value) userDot.value.setIcon(userIcon())
-    moveUserDot(e.latlng, sinceLast)
+  accuracy = {lat: fix.lat, lng: fix.lng, radius: fix.accuracy}
+  syncAccuracy()
 
-    accuracyCircle.value.setLatLng(e.latlng)
-    accuracyCircle.value.setRadius(e.accuracy)
-    accuracyCircle.value.setStyle({opacity: rideAs.value ? 0 : 1, fillOpacity: rideAs.value ? 0 : 0.15})
+  if (userDot.value) {
+    if (rideAs.value) setMarkerIcon(userDot.value, userIcon())
+    moveUserDot(fix, sinceLast)
   } else {
-    accuracyCircle.value = L.circle(e.latlng, {
-      radius: e.accuracy,
-      color: '#3b82f6',
-      fillColor: '#3b82f6',
-      fillOpacity: 0.15,
-      weight: 1,
-      interactive: false
-    }).addTo(map.value)
-
-    userDot.value = L.marker(e.latlng, {
-      icon: userIcon(),
-      interactive: false,
-      zIndexOffset: 10000
-    }).addTo(map.value)
+    userDot.value = htmlMarker(fix, userIcon(), {interactive: false, zIndex: 10000}).addTo(m)
   }
 }
 
 onMounted(() => {
-  let initialView: SavedMapView | null = null
+  let initialView: LatLng & { zoom: number } | null = null
   const raw = localStorage.getItem(MAP_VIEW_STORAGE_KEY)
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<SavedMapView>
+      // Views saved by the Leaflet map are one zoom higher.
+      const zoom = Number.isFinite(parsed.glZoom) ? parsed.glZoom as number : (parsed.zoom ?? NaN) - 1
       if (
         Number.isFinite(parsed.lat)
         && Number.isFinite(parsed.lng)
-        && Number.isFinite(parsed.zoom)
-        && isInClujCounty(parsed.lat as number, parsed.lng as number)
+        && Number.isFinite(zoom)
+        && isInClujCounty({lat: parsed.lat as number, lng: parsed.lng as number})
       ) {
         initialView = {
           lat: parsed.lat as number,
           lng: parsed.lng as number,
-          zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, parsed.zoom as number)),
+          zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)),
         }
       }
     } catch {
@@ -586,9 +753,9 @@ onMounted(() => {
   }
 
   if (initialView) {
-    mapInit(initialView.lat, initialView.lng, initialView.zoom)
+    mapInit(initialView, initialView.zoom)
   } else {
-    mapInit(DEFAULT_CENTER[0], DEFAULT_CENTER[1], DEFAULT_ZOOM)
+    mapInit(DEFAULT_CENTER, DEFAULT_ZOOM)
   }
   void stopsInit()
   // The watch mounts the map on demand, after a view has already filled the store.
@@ -609,50 +776,30 @@ watch(() => route.params.stopId, (newId) => {
   highlightSelectedStop(newId as string)
 })
 
-watch(arcadeActive, (active) => {
-  mapContainer.value?.classList.toggle('arcade-theme', active)
+const refreshStopIcons = () => {
   stopMarkers.forEach((marker, id) => {
     if (id === currentlyHighlightedStopId.value) return
-    marker.setIcon(stopIconForId(id))
+    setMarkerIcon(marker, stopIconForId(id))
   })
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
     const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    marker.setIcon(makeSelectedStopIcon(themeOpts()))
+    setMarkerIcon(marker, makeSelectedStopIcon(themeOpts()))
   }
+}
+
+watch(arcadeActive, (active) => {
+  mapContainer.value?.classList.toggle('arcade-theme', active)
+  refreshStopIcons()
 })
 
 watch(legacyBlueActive, (active) => {
   mapContainer.value?.classList.toggle('legacy-blue-theme', active)
-  stopMarkers.forEach((marker, id) => {
-    if (id === currentlyHighlightedStopId.value) return
-    marker.setIcon(stopIconForId(id))
-  })
-  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
-    const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    marker.setIcon(makeSelectedStopIcon(themeOpts()))
-  }
+  refreshStopIcons()
 })
 
-watch(paperActive, () => {
-  stopMarkers.forEach((marker, id) => {
-    if (id === currentlyHighlightedStopId.value) return
-    marker.setIcon(stopIconForId(id))
-  })
-  if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
-    const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    marker.setIcon(makeSelectedStopIcon(themeOpts()))
-  }
-})
+watch(paperActive, refreshStopIcons)
 
-watch(isDarkMode, () => {
-  if (!map.value) return
-  replaceTileLayer()
-})
-
-watch([arcadeActive, legacyBlueActive, paperActive], () => {
-  if (!map.value) return
-  replaceTileLayer()
-})
+watch([isDarkMode, paperActive, arcadeActive, legacyBlueActive], applyStyle)
 
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
@@ -664,13 +811,13 @@ const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   return colorCounts
 }
 
-const getShapeSignature = (latLngs: L.LatLngTuple[], dashArray: string) => {
+const getShapeSignature = (latLngs: LatLngTuple[], dashArray: string) => {
   return `${dashArray}|${latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')}`
 }
 
 const addGroupedStart = (
   groupedStarts: Map<string, GroupedStart>,
-  startPoint: L.LatLngTuple,
+  startPoint: LatLngTuple,
   routeName: string,
   routeColor: string,
 ) => {
@@ -686,7 +833,7 @@ const addGroupedStart = (
   }
 }
 
-const computeStartBearing = (latLngs: L.LatLngTuple[]): number | null => {
+const computeStartBearing = (latLngs: LatLngTuple[]): number | null => {
   if (latLngs.length < 2) return null
   const [startLat, startLng] = latLngs[0]!
   for (let i = 1; i < Math.min(latLngs.length, 20); i++) {
@@ -699,9 +846,13 @@ const computeStartBearing = (latLngs: L.LatLngTuple[]): number | null => {
   return calculateBearing(startLat, startLng, nextLat, nextLng)
 }
 
+const addShapeMarker = (m: MapLibreMap, [lat, lng]: LatLngTuple, icon: MarkerIcon, options: HtmlMarkerOptions = {}) => {
+  shapeMarkers.push(htmlMarker({lat, lng}, icon, options).addTo(m))
+}
+
 const addDirectionArrowMarker = (
-  layerGroup: L.FeatureGroup,
-  startPoint: L.LatLngTuple,
+  m: MapLibreMap,
+  startPoint: LatLngTuple,
   bearing: number,
 ) => {
   const isLegacyBlue = legacyBlueActive.value
@@ -746,19 +897,16 @@ const addDirectionArrowMarker = (
     </div>`
   }
 
-  const icon = L.divIcon({
-    className: 'bg-transparent border-none !overflow-visible',
+  addShapeMarker(m, startPoint, {
     html,
-    iconSize: [22, 32],
-    iconAnchor: [11, 44],
-  })
-  L.marker(startPoint, {icon, zIndexOffset: 1500, interactive: false}).addTo(layerGroup)
+    size: [22, 32],
+    anchor: [11, 44],
+  }, {zIndex: 1500, interactive: false})
 }
 
-const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, routeColor: string) => {
+const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: string) => {
   const isLegacyBlue = legacyBlueActive.value
-  const endMarkerIcon = L.divIcon({
-    className: 'bg-transparent border-none !overflow-visible',
+  addShapeMarker(m, endPoint, {
     html: paperActive.value
       ? `<div style="width:18px;height:18px;background-color:${routeColor};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;">
            <div style="width:6px;height:6px;background:var(--pp-paper);"></div>
@@ -771,12 +919,11 @@ const addRouteEndMarker = (layerGroup: L.FeatureGroup, endPoint: L.LatLngTuple, 
               style="background-color: ${routeColor};">
            <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
          </div>`,
-    iconSize: [24, 24], iconAnchor: [12, 12]
+    size: [24, 24], anchor: [12, 12]
   })
-  L.marker(endPoint, {icon: endMarkerIcon}).addTo(layerGroup)
 }
 
-const addGroupedStartMarkers = (layerGroup: L.FeatureGroup, groupedStarts: Map<string, GroupedStart>) => {
+const addGroupedStartMarkers = (m: MapLibreMap, groupedStarts: Map<string, GroupedStart>) => {
   const isLegacyBlue = legacyBlueActive.value
   groupedStarts.forEach((data) => {
     const routesHtml = data.routes.map((r) =>
@@ -789,20 +936,20 @@ const addGroupedStartMarkers = (layerGroup: L.FeatureGroup, groupedStarts: Map<s
              ${r.name}
            </div>`
     ).join('')
-    const startMarkerIcon = L.divIcon({
-      className: 'bg-transparent border-none !overflow-visible',
+    addShapeMarker(m, [data.lat, data.lng], {
       html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
-      iconSize: [0, 0], iconAnchor: [0, 0]
+      size: [0, 0], anchor: [0, 0]
     })
-    L.marker([data.lat, data.lng], {icon: startMarkerIcon}).addTo(layerGroup)
   })
 }
 
 const renderShapes = (newShapes: ShapeLayerEntry[]) => {
-  if (!shapeLayerGroup.value) return
+  const m = map.value
+  if (!m) return
 
-  const layerGroup = shapeLayerGroup.value
-  layerGroup.clearLayers()
+  clearMarkers(shapeMarkers)
+  shapeMarkers = []
+  const shapeLines: LineSpec[] = []
   const drawnPaths = new Set<string>()
   const groupedStarts = new Map<string, GroupedStart>()
   const hasHighlights = highlightedStops.value.length > 0
@@ -812,7 +959,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   for (const [displayShape, shapeData] of newShapes) {
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
-    const latLngs: L.LatLngTuple[] = shapeData.map((sd) => [sd.shape_pt_lat, sd.shape_pt_lon])
+    const latLngs: LatLngTuple[] = shapeData.map((sd) => [sd.shape_pt_lat, sd.shape_pt_lon])
     const routeColor = displayShape.route_color
     routeColorsCache.set(displayShape.trip_id, routeColor)
 
@@ -827,20 +974,20 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     drawnPaths.add(signature)
 
     const square = legacyBlueActive.value || paperActive.value
-    L.polyline(latLngs, {
-      color: legacyBlueActive.value ? '#003C9C' : (routeColor || '#94a3b8'),
-      weight: square ? 4 : 5,
+    const width = square ? 4 : 5
+    shapeLines.push({
+      coords: latLngs,
+      color: legacyBlueActive.value ? (isDarkMode.value ? '#4e88d8' : '#003C9C') : (routeColor || '#94a3b8'),
+      width,
       opacity: paperActive.value ? 0.9 : 0.85,
-      dashArray: arcadeActive.value ? '0 14' : (dashArray || undefined),
-      smoothFactor: 1.5,
-      lineJoin: square ? 'miter' : 'round',
-      lineCap: square ? 'butt' : 'round'
-    }).addTo(layerGroup)
+      dash: dashOf(arcadeActive.value ? '0 14' : dashArray, width),
+      square,
+    })
 
     if (directionArrowAtStart.value && latLngs.length >= 2) {
       const bearing = computeStartBearing(latLngs)
       if (bearing !== null) {
-        addDirectionArrowMarker(layerGroup, latLngs[0]!, bearing)
+        addDirectionArrowMarker(m, latLngs[0]!, bearing)
       }
     }
 
@@ -852,14 +999,16 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     }
 
     const endPoint = latLngs[latLngs.length - 1]
-    if (endPoint) addRouteEndMarker(layerGroup, endPoint, routeColor)
+    if (endPoint) addRouteEndMarker(m, endPoint, routeColor)
   }
 
-  if (!hasHighlights) addGroupedStartMarkers(layerGroup, groupedStarts)
+  lines.shapes = shapeLines
+  syncLines('shapes')
+  if (!hasHighlights) addGroupedStartMarkers(m, groupedStarts)
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionArrowAtStart], ([newShapes]) => {
+watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionArrowAtStart, isDarkMode], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
@@ -868,43 +1017,27 @@ watch(shapesToDisplay, (newShapes) => {
   if (!settingsStore.autoFitMap || !map.value || settingsStore.watchActive) return
   if (newShapes.length && mapStore.fitWalkingPolylines) return
   if (newShapes.length) {
-    const bounds = shapeLayerGroup.value?.getBounds()
-    if (bounds?.isValid()) {
-      map.value.fitBounds(bounds, {
-        ...fitBoundsPadding(),
-        maxZoom: 16,
-        animate: true,
-        duration: 0.8,
-      })
+    const bounds = linesBounds(lines.shapes)
+    if (bounds) {
+      fitTo(bounds)
       hasFittedForContent = true
     }
   }
 }, {deep: true})
 
 const renderWalkingPolylines = (polylines: [number, number][][]) => {
-  if (!walkingLayerGroup.value) return
-  walkingLayerGroup.value.clearLayers()
-  for (const points of polylines) {
-    if (!points.length) continue
-    L.polyline(points as L.LatLngTuple[], {
-      color: paperActive.value ? paperInk() : legacyBlueActive.value ? '#245EDC' : '#38bdf8',
-      weight: 3,
-      opacity: 0.85,
-      dashArray: paperActive.value ? '1 7' : '8 6',
-      lineJoin: legacyBlueActive.value ? 'miter' : 'round',
-      lineCap: legacyBlueActive.value ? 'butt' : 'round',
-    }).addTo(walkingLayerGroup.value)
-  }
-  let bounds = walkingLayerGroup.value.getBounds()
-  const shapeBounds = shapeLayerGroup.value?.getBounds()
-  if (shapeBounds?.isValid()) bounds = bounds.isValid() ? bounds.extend(shapeBounds) : shapeBounds
-  if (bounds.isValid() && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
-    map.value.fitBounds(bounds, {
-      ...fitBoundsPadding(),
-      maxZoom: 16,
-      animate: true,
-      duration: 0.8,
-    })
+  lines.walks = polylines.filter((points) => points.length).map((points) => ({
+    coords: points,
+    color: paperActive.value ? paperInk() : legacyBlueActive.value ? '#245EDC' : '#38bdf8',
+    width: 3,
+    opacity: 0.85,
+    dash: dashOf(paperActive.value ? '1 7' : '8 6', 3),
+    square: legacyBlueActive.value,
+  }))
+  syncLines('walks')
+  const bounds = linesBounds(lines.walks, lines.shapes)
+  if (bounds && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
+    fitTo(bounds)
     mapStore.fitWalkingPolylines = false
     hasFittedForContent = true
   }
@@ -916,29 +1049,22 @@ watch([walkingPolylines, arcadeActive, legacyBlueActive, paperActive, isDarkMode
 
 
 const renderHighlightedStops = () => {
-  if (!highlightedStopLayerGroup.value) return
-  highlightedStopLayerGroup.value.clearLayers()
+  const m = map.value
+  if (!m) return
+  clearMarkers(highlightMarkers)
+  highlightMarkers = []
   const selectedId = currentlyHighlightedStopId.value
   for (const {stopId, color} of highlightedStops.value as HighlightedStop[]) {
     if (stopId === selectedId) continue
     const marker = stopMarkers.get(stopId)
     if (!marker) continue
-    const latlng = marker.getLatLng()
     const name = stopNames.get(stopId)
-    const m = L.marker(latlng, {
-      icon: makeHighlightIcon(color, themeOpts()),
-      zIndexOffset: color === 'green' ? 1200 : color === 'red' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
-      interactive: true,
+    const highlight = htmlMarker(markerLatLng(marker), makeHighlightIcon(color, themeOpts()), {
+      zIndex: color === 'green' ? 1200 : color === 'red' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
-    if (name) {
-      m.bindTooltip(name, {
-        direction: 'top',
-        offset: [0, -14],
-        className: 'stop-name-tooltip',
-      })
-    }
-    m.on('click', () => router.push({name: 'stop', params: {stopId}}))
-    m.addTo(highlightedStopLayerGroup.value!)
+    if (name) tooltip?.bind(highlight, name, 'stop-name-tooltip', 14)
+    onMarkerClick(highlight, () => router.push({name: 'stop', params: {stopId}}))
+    highlightMarkers.push(highlight.addTo(m))
   }
 }
 
@@ -946,10 +1072,11 @@ watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueAct
 
 
 const renderVehicles = (vehicles: DisplayVehicle[]) => {
-  if (!vehicleLayerGroup.value) return
+  const m = map.value
+  if (!m) return
 
-  const layerGroup = vehicleLayerGroup.value
-  layerGroup.clearLayers()
+  clearMarkers(vehicleMarkers)
+  vehicleMarkers = []
   for (const vehicle of vehicles) {
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
@@ -961,22 +1088,20 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
     // Scaled around the icon anchor so the bus stays where it is.
     const markerHtml = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
-    const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-      icon: L.divIcon({
-        className: 'bg-transparent border-none !overflow-visible',
-        html: markerHtml,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      }),
-      zIndexOffset: showStopInfo ? 5600 : vehicle.faded ? 4000 : 5000,
+    const marker = htmlMarker({lat: vehicle.latitude, lng: vehicle.longitude}, {
+      html: markerHtml,
+      size: [36, 36],
+      anchor: [18, 18],
+    }, {
+      zIndex: showStopInfo ? 5600 : vehicle.faded ? 4000 : 5000,
       opacity: faded ? FADED_VEHICLE_OPACITY : 1,
     })
 
-    marker.on('click', () => {
+    onMarkerClick(marker, () => {
       selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
     })
 
-    marker.addTo(layerGroup)
+    vehicleMarkers.push(marker.addTo(m))
   }
 }
 
@@ -989,8 +1114,8 @@ watch(() => route.name, () => {
 })
 
 watch([rideAs, arcadeActive, legacyBlueActive, paperActive], () => {
-  userDot.value?.setIcon(userIcon())
-  accuracyCircle.value?.setStyle({opacity: rideAs.value ? 0 : 1, fillOpacity: rideAs.value ? 0 : 0.15})
+  if (userDot.value) setMarkerIcon(userDot.value, userIcon())
+  syncAccuracy()
 })
 
 watch(preciseLocation, () => beginLocationWatch(preciseLocation.value))
@@ -998,7 +1123,7 @@ watch(preciseLocation, () => beginLocationWatch(preciseLocation.value))
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
 
-  const userLocation = userDot.value?.getLatLng()
+  const userLocation = userDot.value ? markerLatLng(userDot.value) : null
   if (!userLocation) return
 
   flyToVisible(userLocation, DEFAULT_ZOOM)
@@ -1007,70 +1132,51 @@ watch(centerOnUser, (shouldCenter) => {
 
 watch(flyToLocation, (loc) => {
   if (!loc || !map.value) return
-  flyToVisible(L.latLng(loc.lat, loc.lng), DEFAULT_ZOOM)
+  flyToVisible(loc, DEFAULT_ZOOM)
   flyToLocation.value = null
 })
 
-watch([pinnedLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
-  if (pinMarker.value) {
-    map.value?.removeLayer(pinMarker.value)
-    pinMarker.value = undefined
-  }
-  if (!loc || !map.value) return
-  const {lat, lng, label} = loc as {lat: number; lng: number; label: string}
+const placeTooltipHtml = (label: string) => {
   const parts = label.split(',').map((p: string) => p.trim())
   const main = parts[0] ?? label
   const sub = parts.slice(1).join(', ')
-  const tooltipHtml = sub
+  return sub
     ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
     : `<div class="pin-tip-main">${main}</div>`
-  pinMarker.value = L.marker([lat, lng], {
-    icon: makePinIcon(themeOpts()),
-    zIndexOffset: 9000,
-    interactive: true,
-    draggable: true,
+}
+
+const placePin = (loc: { lat: number, lng: number, label: string }, color: string | undefined, onDragged: (lat: number, lng: number) => void) => {
+  const marker = htmlMarker(loc, makePinIcon(themeOpts(), color), {zIndex: 9000, draggable: true})
+  attachPlannerDragLift(marker)
+  tooltip?.bind(marker, placeTooltipHtml(loc.label), 'pin-tooltip', 30)
+  marker.on('dragend', () => {
+    const {lat, lng} = marker.getLngLat()
+    onDragged(lat, lng)
   })
-  attachPlannerDragLift(pinMarker.value, '#0ea5e9')
-  pinMarker.value
-    .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
-    .addTo(map.value)
-  pinMarker.value.on('dragend', () => {
-    const newLatLng = pinMarker.value?.getLatLng()
-    if (newLatLng) {
-      mapStore.setPinnedLocationDragged(newLatLng.lat, newLatLng.lng)
-    }
-  })
+  return marker
+}
+
+watch([pinnedLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
+  if (pinMarker.value) {
+    tooltip?.forget(pinMarker.value)
+    pinMarker.value.remove()
+    pinMarker.value = undefined
+  }
+  if (!loc || !map.value) return
+  pinMarker.value = placePin(loc as { lat: number, lng: number, label: string }, undefined,
+    (lat, lng) => mapStore.setPinnedLocationDragged(lat, lng)).addTo(map.value)
 })
 
 watch([customOriginLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
   if (originMarker.value) {
-    map.value?.removeLayer(originMarker.value)
+    tooltip?.forget(originMarker.value)
+    originMarker.value.remove()
     originMarker.value = undefined
   }
   if (!loc || !map.value) return
-  const {lat, lng, label} = loc as {lat: number; lng: number; label: string}
-  const parts = label.split(',').map((p: string) => p.trim())
-  const main = parts[0] ?? label
-  const sub = parts.slice(1).join(', ')
-  const tooltipHtml = sub
-    ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
-    : `<div class="pin-tip-main">${main}</div>`
-  originMarker.value = L.marker([lat, lng], {
-    icon: makePinIcon(themeOpts(), '#22c55e'), // Green pin for origin
-    zIndexOffset: 9000,
-    interactive: true,
-    draggable: true,
-  })
-  attachPlannerDragLift(originMarker.value, '#22c55e')
-  originMarker.value
-    .bindTooltip(tooltipHtml, {direction: 'top', offset: [0, -30], className: 'pin-tooltip'})
-    .addTo(map.value)
-  originMarker.value.on('dragend', () => {
-    const newLatLng = originMarker.value?.getLatLng()
-    if (newLatLng) {
-      mapStore.setCustomOriginLocationDragged(newLatLng.lat, newLatLng.lng)
-    }
-  })
+  // Green pin for origin
+  originMarker.value = placePin(loc as { lat: number, lng: number, label: string }, '#22c55e',
+    (lat, lng) => mapStore.setCustomOriginLocationDragged(lat, lng)).addTo(map.value)
 })
 
 onUnmounted(() => {
@@ -1083,33 +1189,34 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('resize', scheduleInvalidateMapSize)
 
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
+  if (stopRefreshFrame) cancelAnimationFrame(stopRefreshFrame)
+  cancelAnimationFrame(glideFrame)
   if (resizeTimer) clearTimeout(resizeTimer)
   if (locationRetryTimer) clearTimeout(locationRetryTimer)
 
-  if (map.value) {
-    map.value.stopLocate()
-    map.value.off('locationfound', updateLiveLocation)
-    map.value.off('zoomend', handleZoomVisibility)
-
-    map.value.remove()
-  }
+  stopLocate()
+  map.value?.remove()
 })
 
 defineExpose({
-  zoomBy: (delta: number) => map.value?.setZoom(map.value.getZoom() + delta),
+  zoomBy: (delta: number) => map.value?.zoomTo(map.value.getZoom() + delta),
   focus: (lat: number, lng: number, zoom = DEFAULT_ZOOM) => {
     hasFittedForContent = true
-    map.value?.setView([lat, lng], zoom, {animate: false})
+    map.value?.jumpTo({center: [lng, lat], zoom})
   },
-  fitShapes: (paddingTopLeft: L.PointTuple, paddingBottomRight: L.PointTuple): boolean => {
-    const bounds = shapeLayerGroup.value?.getBounds()
-    if (!map.value || !bounds?.isValid()) return false
-    map.value.fitBounds(bounds, {paddingTopLeft, paddingBottomRight, maxZoom: 16, animate: false})
+  fitShapes: (paddingTopLeft: [number, number], paddingBottomRight: [number, number]): boolean => {
+    const bounds = linesBounds(lines.shapes)
+    if (!map.value || !bounds) return false
+    map.value.fitBounds(bounds, {
+      padding: {left: paddingTopLeft[0], top: paddingTopLeft[1], right: paddingBottomRight[0], bottom: paddingBottomRight[1]},
+      maxZoom: FIT_MAX_ZOOM,
+      animate: false,
+    })
     hasFittedForContent = true
     return true
   },
   invalidate: invalidateMapSize,
-  leaflet: () => map.value,
+  maplibre: () => map.value,
 })
 </script>
 

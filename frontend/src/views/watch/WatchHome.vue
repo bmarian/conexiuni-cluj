@@ -6,6 +6,7 @@ import {storeToRefs} from 'pinia'
 import {type FavoriteRoute, useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {MAP_CREDITS_TEXT} from '@/utils/mapStyles.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
@@ -134,6 +135,6 @@ async function openRoute(route: Route, direction: FavoriteRoute['direction']) {
       {{ t('simplifiedTurnOff') }}
     </button>
 
-    <p class="wt-credits">© OpenStreetMap, CARTO · tranzy.ai · CTP Cluj-Napoca</p>
+    <p class="wt-credits">{{ MAP_CREDITS_TEXT }}</p>
   </div>
 </template>

@@ -12,7 +12,7 @@ import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
 
-const FROM_STOP_ZOOM = 15
+const FROM_STOP_ZOOM = 14
 
 const props = defineProps<{ routeId: string; direction: string }>()
 

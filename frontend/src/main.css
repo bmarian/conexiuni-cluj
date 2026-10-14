@@ -1,6 +1,6 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @import "tailwindcss";
-@import "./styles/leaflet.css";
+@import "./styles/map.css";
 @import "./styles/dark.css";
 
 :root {

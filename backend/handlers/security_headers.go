@@ -6,8 +6,8 @@ import "github.com/gofiber/fiber/v3"
 const contentSecurityPolicy = "default-src 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data: blob: https://*.basemaps.cartocdn.com; " +
-	"connect-src 'self' https://*.basemaps.cartocdn.com https://api.open-meteo.com https://api.github.com; " +
+	"img-src 'self' data: blob:; " +
+	"connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; " +
 	"font-src 'self'; " +
 	"object-src 'none'; " +
 	"base-uri 'self'; " +

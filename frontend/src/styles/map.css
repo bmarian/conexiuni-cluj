@@ -1,4 +1,44 @@
-/* Unlayered so these beat the unlayered Leaflet/leaflet-geosearch library CSS. */
+/* Unlayered so these beat MapLibre's unlayered CSS. */
+
+/* Hover labels: a bubble with a tip pointing down. */
+.map-tooltip {
+  position: relative;
+  margin-bottom: 6px;
+  padding: 6px;
+  background-color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  color: #222222;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.map-tooltip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  margin-left: -6px;
+  margin-bottom: -12px;
+  border: 6px solid transparent;
+  border-top-color: #ffffff;
+  pointer-events: none;
+}
+
+.map-bar a {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.map-zoom a {
+  font-family: 'Lucida Console', Monaco, monospace;
+  text-indent: 1px;
+}
+
+.map-grain {
+  display: none;
+}
+
 
 .stop-name-tooltip {
   background-color: #ffffff !important;
@@ -150,18 +190,18 @@
 }
 
 /* SVGs inside bar buttons must inherit so theme color overrides work */
-.leaflet-bar a svg {
+.map-bar a svg {
   color: inherit !important;
 }
 
-.leaflet-bar {
+.map-bar {
   border: none !important;
   border-radius: 0.875rem !important;
   box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-.leaflet-bar a,
-.leaflet-bar a:visited {
+.map-bar a,
+.map-bar a:visited {
   background-color: #ffffff !important;
   color: #334155 !important;
   border: none !important;
@@ -177,88 +217,57 @@
   box-shadow: none !important;
 }
 
-.leaflet-bar a:hover {
+.map-bar a:hover {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
-.leaflet-bar a:first-child {
+.map-bar a:first-child {
   border-radius: 0.875rem 0.875rem 0 0 !important;
 }
 
-.leaflet-bar a:last-child {
+.map-bar a:last-child {
   border-radius: 0 0 0.875rem 0.875rem !important;
 }
 
-.leaflet-bar a:only-child {
+.map-bar a:only-child {
   border-radius: 0.875rem !important;
 }
 
-.leaflet-bar a:not(:last-child) {
+.map-bar a:not(:last-child) {
   border-bottom: 1px solid rgba(0, 0, 0, 0.07) !important;
 }
 
-.leaflet-bar a.leaflet-disabled,
-.leaflet-bar a.leaflet-disabled:hover {
+.map-bar a.is-disabled,
+.map-bar a.is-disabled:hover {
   background-color: #ffffff !important;
   color: #cbd5e1 !important;
   cursor: not-allowed !important;
 }
 
-.leaflet-popup-content-wrapper {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-radius: 1rem !important;
-  border: none !important;
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18) !important;
-}
 
-.leaflet-popup-tip {
-  background-color: #ffffff !important;
-  box-shadow: none !important;
-}
-
-.leaflet-popup-close-button {
-  color: #94a3b8 !important;
-  top: 10px !important;
-  right: 10px !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-}
-
-.leaflet-popup-close-button:hover {
-  color: #0f172a !important;
-}
-
-.leaflet-popup-content {
-  font-size: 0.875rem !important;
-  line-height: 1.6 !important;
-  margin: 14px 18px !important;
-}
-
-
-.leaflet-control-attribution {
+.maplibregl-ctrl-attrib {
   background: none !important;
   padding: 2px 8px !important;
   font-size: 10px !important;
   color: #64748b !important;
 }
 
-.leaflet-control-attribution a {
+.maplibregl-ctrl-attrib a {
   color: #475569 !important;
   text-decoration: none !important;
 }
 
-:root.dark .leaflet-control-attribution {
+:root.dark .maplibregl-ctrl-attrib {
   color: #94a3b8 !important;
 }
 
-:root.dark .leaflet-control-attribution a {
+:root.dark .maplibregl-ctrl-attrib a {
   color: #64748b !important;
 }
 
 @media (max-width: 1023px) and (orientation: portrait) {
-  .leaflet-control-attribution {
+  .maplibregl-ctrl-attrib {
     display: none !important;
   }
 }
@@ -268,141 +277,121 @@
   background-color: #090909;
 }
 
-:root.dark .leaflet-bar {
+:root.dark .map-bar {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(0, 0, 0, 0.24) !important;
 }
 
-:root.dark .leaflet-bar a,
-:root.dark .leaflet-bar a:visited {
+:root.dark .map-bar a,
+:root.dark .map-bar a:visited {
   background-color: #0f172a !important;
   color: #f1f5f9 !important;
 }
 
-:root.dark .leaflet-bar a:hover {
+:root.dark .map-bar a:hover {
   background-color: #1e293b !important;
   color: #f8fafc !important;
 }
 
-:root.dark .leaflet-bar a:not(:last-child) {
+:root.dark .map-bar a:not(:last-child) {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-:root.dark .leaflet-bar a.leaflet-disabled,
-:root.dark .leaflet-bar a.leaflet-disabled:hover {
+:root.dark .map-bar a.is-disabled,
+:root.dark .map-bar a.is-disabled:hover {
   background-color: #0f172a !important;
   color: #475569 !important;
-}
-
-:root.dark .leaflet-popup-content-wrapper {
-  background-color: #0f172a !important;
-  color: #f1f5f9 !important;
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.50) !important;
-}
-
-:root.dark .leaflet-popup-tip {
-  background-color: #0f172a !important;
-}
-
-:root.dark .leaflet-popup-close-button {
-  color: #64748b !important;
-}
-
-:root.dark .leaflet-popup-close-button:hover {
-  color: #f1f5f9 !important;
 }
 
 
 /* arcade-theme uses one extra class so it always wins over the base rules above */
 
-.arcade-theme .leaflet-bar {
+.arcade-theme .map-bar {
   box-shadow: 0 2px 10px -1px rgba(234, 179, 8, 0.35), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
-.arcade-theme .leaflet-bar a,
-.arcade-theme .leaflet-bar a:visited {
+.arcade-theme .map-bar a,
+.arcade-theme .map-bar a:visited {
   background-color: #facc15 !important;
   color: #78350f !important;
 }
 
-.arcade-theme .leaflet-bar a:hover {
+.arcade-theme .map-bar a:hover {
   background-color: #fde047 !important;
   color: #451a03 !important;
 }
 
-.arcade-theme .leaflet-bar a:not(:last-child) {
+.arcade-theme .map-bar a:not(:last-child) {
   border-bottom-color: rgba(120, 53, 15, 0.2) !important;
 }
 
-.arcade-theme .leaflet-bar a.leaflet-disabled,
-.arcade-theme .leaflet-bar a.leaflet-disabled:hover {
+.arcade-theme .map-bar a.is-disabled,
+.arcade-theme .map-bar a.is-disabled:hover {
   background-color: #fef9c3 !important;
   color: #b45309 !important;
 }
 
-:root.dark .arcade-theme .leaflet-bar {
+:root.dark .arcade-theme .map-bar {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(234, 179, 8, 0.15) !important;
 }
 
-:root.dark .arcade-theme .leaflet-bar a,
-:root.dark .arcade-theme .leaflet-bar a:visited {
+:root.dark .arcade-theme .map-bar a,
+:root.dark .arcade-theme .map-bar a:visited {
   background-color: #854d0e !important;
   color: #fde68a !important;
 }
 
-:root.dark .arcade-theme .leaflet-bar a:hover {
+:root.dark .arcade-theme .map-bar a:hover {
   background-color: #a16207 !important;
   color: #fef9c3 !important;
 }
 
-:root.dark .arcade-theme .leaflet-bar a:not(:last-child) {
+:root.dark .arcade-theme .map-bar a:not(:last-child) {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-:root.dark .arcade-theme .leaflet-bar a.leaflet-disabled,
-:root.dark .arcade-theme .leaflet-bar a.leaflet-disabled:hover {
+:root.dark .arcade-theme .map-bar a.is-disabled,
+:root.dark .arcade-theme .map-bar a.is-disabled:hover {
   background-color: #1c1608 !important;
   color: #78350f !important;
 }
 
 /* legacy-blue-theme: Luna blue gradient, square corners, no green chrome */
 
-.legacy-blue-theme .leaflet-bar {
+.legacy-blue-theme .map-bar {
   box-shadow: 0 2px 10px -1px rgba(36, 94, 220, 0.40), 0 1px 3px rgba(0, 0, 0, 0.10) !important;
   border-radius: 0 !important;
 }
 
-.legacy-blue-theme .leaflet-bar a,
-.legacy-blue-theme .leaflet-bar a:visited {
+.legacy-blue-theme .map-bar a,
+.legacy-blue-theme .map-bar a:visited {
   background: linear-gradient(to bottom, #4A88E8 0%, #245EDC 50%, #1A52B8 100%) !important;
   color: #FFFFFF !important;
   border-radius: 0 !important;
 }
 
 
-.legacy-blue-theme .leaflet-bar a:hover {
+.legacy-blue-theme .map-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #316AC5 50%, #2558B0 100%) !important;
   color: #FFFFFF !important;
 }
 
 
-.legacy-blue-theme .leaflet-bar a:not(:last-child) {
+.legacy-blue-theme .map-bar a:not(:last-child) {
   border-bottom-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-.legacy-blue-theme .leaflet-bar a:first-child,
-.legacy-blue-theme .leaflet-bar a:last-child,
-.legacy-blue-theme .leaflet-bar a:only-child {
+.legacy-blue-theme .map-bar a:first-child,
+.legacy-blue-theme .map-bar a:last-child,
+.legacy-blue-theme .map-bar a:only-child {
   border-radius: 0 !important;
 }
 
-.legacy-blue-theme .leaflet-bar a.leaflet-disabled,
-.legacy-blue-theme .leaflet-bar a.leaflet-disabled:hover {
+.legacy-blue-theme .map-bar a.is-disabled,
+.legacy-blue-theme .map-bar a.is-disabled:hover {
   background: #B0C8E8 !important;
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-.legacy-blue-theme .leaflet-popup-content-wrapper,
-.legacy-blue-theme .leaflet-popup-tip,
 .legacy-blue-theme .stop-name-tooltip {
   background: #FFFFE0 !important;
   color: #000000 !important;
@@ -422,74 +411,74 @@
   border-color: #444A5C !important;
 }
 
-.legacy-blue-theme .leaflet-control-zoom-in,
-.legacy-blue-theme .leaflet-control-zoom-out {
+.legacy-blue-theme .map-zoom-in,
+.legacy-blue-theme .map-zoom-out {
   font-size: 20px !important;
   font-weight: 700 !important;
   font-family: 'Tahoma', 'Trebuchet MS', sans-serif !important;
 }
 
-/* Replace SVGs in our custom bar (not zoom, not geosearch) with emojis */
-.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a svg {
+/* Replace SVGs in our custom bar (not zoom) with emojis */
+.legacy-blue-theme .map-bar:not(.map-zoom) a svg {
   display: none !important;
 }
 
-.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(1)::before {
+.legacy-blue-theme .map-bar:not(.map-zoom) a:nth-of-type(1)::before {
   content: '🎯';
   font-size: 18px;
   line-height: 1;
 }
 
-.legacy-blue-theme .leaflet-bar:not(.leaflet-control-zoom):not(.leaflet-control-geosearch) a:nth-of-type(2)::before {
+.legacy-blue-theme .map-bar:not(.map-zoom) a:nth-of-type(2)::before {
   content: '🗺️';
   font-size: 16px;
   line-height: 1;
 }
 
-:root.dark .legacy-blue-theme .leaflet-bar {
+:root.dark .legacy-blue-theme .map-bar {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.45), 0 1px 4px rgba(36, 94, 220, 0.30) !important;
 }
 
-:root.dark .legacy-blue-theme .leaflet-bar a,
-:root.dark .legacy-blue-theme .leaflet-bar a:visited {
+:root.dark .legacy-blue-theme .map-bar a,
+:root.dark .legacy-blue-theme .map-bar a:visited {
   background: linear-gradient(to bottom, #4A88D8 0%, #2A66B8 50%, #1B4F90 100%) !important;
   color: #E0E6F2 !important;
 }
 
-:root.dark .legacy-blue-theme .leaflet-bar a:hover {
+:root.dark .legacy-blue-theme .map-bar a:hover {
   background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%) !important;
   color: #FFFFFF !important;
 }
 
-:root.dark .legacy-blue-theme .leaflet-bar a:not(:last-child) {
+:root.dark .legacy-blue-theme .map-bar a:not(:last-child) {
   border-bottom-color: rgba(0, 0, 0, 0.35) !important;
 }
 
-:root.dark .legacy-blue-theme .leaflet-bar a.leaflet-disabled,
-:root.dark .legacy-blue-theme .leaflet-bar a.leaflet-disabled:hover {
+:root.dark .legacy-blue-theme .map-bar a.is-disabled,
+:root.dark .legacy-blue-theme .map-bar a.is-disabled:hover {
   background: #1A2F5A !important;
   color: rgba(224, 230, 242, 0.40) !important;
 }
 
 @media (pointer: coarse) {
-  .leaflet-marker-icon .planner-pin-visual {
+  .maplibregl-marker .planner-pin-visual {
     transition: transform 90ms linear;
     transform-origin: 50% 100%;
   }
 
-  .leaflet-marker-icon.planner-drag-active .planner-pin-visual {
+  .maplibregl-marker.planner-drag-active .planner-pin-visual {
     transform: translateY(-38px);
   }
 
-  .leaflet-marker-icon .planner-pin-visual::before,
-  .leaflet-marker-icon .planner-pin-visual::after {
+  .maplibregl-marker .planner-pin-visual::before,
+  .maplibregl-marker .planner-pin-visual::after {
     content: '';
     position: absolute;
     opacity: 0;
     pointer-events: none;
   }
 
-  .leaflet-marker-icon.planner-drag-active .planner-pin-visual::before {
+  .maplibregl-marker.planner-drag-active .planner-pin-visual::before {
     left: 50%;
     top: calc(100% + 2px);
     width: 2px;
@@ -499,7 +488,7 @@
     opacity: 1;
   }
 
-  .leaflet-marker-icon.planner-drag-active .planner-pin-visual::after {
+  .maplibregl-marker.planner-drag-active .planner-pin-visual::after {
     left: 50%;
     top: calc(100% + 26px);
     width: 10px;

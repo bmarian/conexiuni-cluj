@@ -4,6 +4,7 @@ import {useI18n} from "vue-i18n"
 import {useRoute, useRouter} from "vue-router"
 import {useHead} from "@unhead/vue"
 import MapComponent from "@/components/MapComponent.vue"
+import {MAP_CREDITS_HTML} from "@/utils/mapStyles.ts"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
@@ -54,7 +55,6 @@ const isDragging = ref(false)
 let mapInsetRaf = 0
 let mapInsetTimer: ReturnType<typeof setTimeout> | null = null
 
-const attributionHtml = '<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" class="leaflet-attribution-flag"><path fill="#4C7BE1" d="M0 0h12v4H0z"></path><path fill="#FFD500" d="M0 4h12v3H0z"></path><path fill="#E0BC00" d="M0 7h12v1H0z"></path></svg> Leaflet</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP Cluj-Napoca</a>'
 
 // Landscape and desktop let CSS handle the transform, so drawerStyle must not set one there.
 const isPortraitMobile = ref(false)
@@ -356,24 +356,6 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   <WatchShell v-else-if="appSettings.watchActive"/>
   <main v-else class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
     <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
-    <svg v-if="appSettings.paperActive" class="absolute w-0 h-0" aria-hidden="true">
-      <filter id="pp-map-light" color-interpolation-filters="sRGB">
-        <feColorMatrix type="saturate" values="0"/>
-        <feComponentTransfer>
-          <feFuncR type="table" tableValues="0.937 0.888 0.591 0.394 0.278 0.213 0.180 0.155 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114 0.114"/>
-          <feFuncG type="table" tableValues="0.898 0.857 0.610 0.445 0.349 0.294 0.267 0.246 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212 0.212"/>
-          <feFuncB type="table" tableValues="0.792 0.771 0.647 0.564 0.516 0.488 0.475 0.464 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447 0.447"/>
-        </feComponentTransfer>
-      </filter>
-      <filter id="pp-map-dark" color-interpolation-filters="sRGB">
-        <feColorMatrix type="saturate" values="0"/>
-        <feComponentTransfer>
-          <feFuncR type="table" tableValues="0.106 0.156 0.455 0.655 0.771 0.837 0.871 0.896 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937 0.937"/>
-          <feFuncG type="table" tableValues="0.145 0.190 0.461 0.642 0.747 0.808 0.838 0.860 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898 0.898"/>
-          <feFuncB type="table" tableValues="0.275 0.306 0.492 0.616 0.689 0.730 0.751 0.766 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792 0.792"/>
-        </feComponentTransfer>
-      </filter>
-    </svg>
     <MapComponent class="app-map"/>
     <SettingsButton
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
@@ -415,7 +397,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       data-kbd-root
       @focusin="onDrawerFocusIn"
     >
-      <div v-if="isPortraitMobile" class="drawer-credits" v-html="attributionHtml"></div>
+      <div v-if="isPortraitMobile" class="drawer-credits" v-html="MAP_CREDITS_HTML"></div>
       <div
         class="drawer-handle lg:hidden"
         role="button"
