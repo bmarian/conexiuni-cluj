@@ -58,11 +58,12 @@ describe('a planned trip', () => {
       [fixAt(46.76 + 4.5 * step, 23.59), bus(7, '35')],
       [at(leg2Stops[0]!), bus(2, '35')],
       [at(leg2Stops[1]!, 7), null],
+      [fixAt(46.76 + 6.5 * step, 23.59, 7), null],
       [at(leg2Stops[2]!, 7), null],
       [fixAt(destination.lat, destination.lon), null],
     ])
     expect(results.map((r) => r.step.kind)).toEqual([
-      'walk', 'walk', 'wait', 'wait', 'ride', 'ride', 'walk', 'walk', 'wait', 'ride', 'walkEnd', 'arrived',
+      'walk', 'walk', 'wait', 'wait', 'wait', 'ride', 'walk', 'walk', 'wait', 'wait', 'ride', 'walkEnd', 'arrived',
     ])
     expect(results.at(-1)!.done).toBe(true)
   })
@@ -86,11 +87,47 @@ describe('a planned trip', () => {
       [at(leg1Stops[0]!), bus(1)],
       [at(leg1Stops[0]!), bus(1)],
       [at(leg1Stops[1]!, 8), bus(0)],
-      [at(leg1Stops[2]!, 8), null],
-      [at(leg1Stops[2]!, 8), null],
+      [fixAt(46.76 + 1.5 * step, 23.59, 8), null],
+      [fixAt(46.76 + 2.2 * step, 23.59, 8), null],
+      [fixAt(46.76 + 2.2 * step, 23.59, 8), null],
     ])
-    expect(results.map((r) => r.alerted)).toEqual([false, true, false, false, true, false])
-    expect(results[4]!.step.stopsLeft).toBe(1)
+    expect(results.map((r) => r.alerted)).toEqual([false, true, false, false, false, true, false])
+    expect(results[5]!.step.stopsLeft).toBe(1)
+  })
+
+  it('needs two fixes away from the stop to believe the bus left', () => {
+    const j = journey()
+    const run = startRun(j, at(leg1Stops[0]!))
+    const results = drive(j, run, [
+      [at(leg1Stops[0]!), bus(3)],
+      [at(leg1Stops[1]!), bus(2)],
+      [at(leg1Stops[1]!), bus(2)],
+      [fixAt(leg1Stops[0]!.lat + 0.0001, 23.59), bus(1)],
+    ])
+    expect(results.map((r) => r.step.kind)).toEqual(['wait', 'wait', 'wait', 'wait'])
+  })
+
+  it('does not skip stops for a stray fix near a later part of the line', () => {
+    // North 1.2 km, then back south on the next street, 40 m east.
+    const east = 40 / (111_320 * Math.cos((46.76 * Math.PI) / 180))
+    const back = (i: number, id: number) => ({id, name: `S${id}`, lat: 46.76 + i * step, lon: 23.59 + east})
+    const stops = [stop(1, 0), stop(2, 1), stop(3, 2), stop(4, 3), back(3, 5), back(2, 6), back(1, 7)]
+    const j = journey({
+      destination: {...stops[6]!},
+      legs: [{
+        routeIds: [25], tripIds: ['25_0'], lines: ['25'], colors: ['#ff0000'], stops, walkMinutes: 0, rideMinutes: 10,
+        path: [[46.76, 23.59], [46.76 + 3 * step, 23.59], [46.76 + 3 * step, 23.59 + east], [46.76, 23.59 + east]],
+      }],
+    })
+    const run = startRun(j, at(stops[0]!))
+    const results = drive(j, run, [
+      [at(stops[0]!), bus(0)],
+      [fixAt(46.76 + 0.6 * step, 23.59, 8), null],
+      [fixAt(46.76 + 1.2 * step, 23.59, 8), null],
+      [fixAt(46.76 + 1.3 * step, 23.59 + east, 8), null],
+    ])
+    expect(results.map((r) => r.step.kind)).toEqual(['wait', 'wait', 'ride', 'ride'])
+    expect(results[3]!.step.stopsLeft).toBe(5)
   })
 
   it('needs two moving fixes to believe you got on while still walking', () => {

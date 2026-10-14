@@ -66,7 +66,7 @@ type reminderText struct {
 }
 
 var reminderTexts = map[string]reminderText{
-	"ro": {title: "Pleacă acum", bus: "%s în %d min · %s"},
+	"ro": {title: "Pleacă acum", bus: "%s peste %d min · %s"},
 	"en": {title: "Leave now", bus: "%s in %d min · %s"},
 }
 

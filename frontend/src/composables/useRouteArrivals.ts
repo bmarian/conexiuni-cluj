@@ -350,6 +350,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     timetable,
     routeDisplayName,
     stopsForDirection,
+    currentDirectionShape,
     directionTerminals,
     hasOutgoing,
     hasIncoming,

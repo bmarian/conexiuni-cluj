@@ -1,10 +1,14 @@
 import {haversineMeters} from '@/utils/geo.ts'
 import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
+import {alongEach, RouteLine} from '@/utils/rideLine.ts'
 
 export const AT_STOP_M = 40
 export const ARRIVED_M = 50
 const LEFT_STOP_M = 150
 const ON_LINE_M = 300
+const RIDE_LINE_M = 75
+// 72 km/h, faster than a bus goes in town.
+const MAX_BUS_MPS = 20
 // ≈16 km/h
 const BUS_SPEED_MPS = 4.5
 const RIDING_FIXES = 2
@@ -26,6 +30,8 @@ export interface JourneyLeg {
   stops: JourneyStop[]
   walkMinutes: number
   rideMinutes: number
+  /** The ride's way along the line, [lat, lon]. */
+  path?: [number, number][]
 }
 
 export interface Journey {
@@ -77,6 +83,11 @@ export interface JourneyRun {
   walkEndStartedAt: number
   walkStartM: number
   ridingInARow: number
+  awayInARow: number
+  rideAlong: number
+  rideFixAt: number
+  atStopAt: number
+  seenFix: string | null
 }
 
 export type StepKind = 'walk' | 'wait' | 'ride' | 'walkEnd' | 'arrived'
@@ -138,13 +149,40 @@ export function startRun(journey: Journey, fix: Fix | null): JourneyRun {
     walkEndStartedAt: 0,
     walkStartM: fix ? distanceTo(fix, boarding(first)) : 0,
     ridingInARow: 0,
+    awayInARow: 0,
+    rideAlong: 0,
+    rideFixAt: 0,
+    atStopAt: 0,
+    seenFix: null,
   }
 }
 
-function onBus(run: JourneyRun, fix: Fix, leg: JourneyLeg): boolean {
-  const moving = fix.speed !== null && fix.speed >= BUS_SPEED_MPS && leftOnBus(fix, leg)
-  run.ridingInARow = moving ? run.ridingInARow + 1 : 0
+// Ticks repeat the last fix, so counts in a row only take new ones.
+const fixKey = (fix: Fix) => `${fix.lat},${fix.lon},${fix.accuracy}`
+
+function onBus(run: JourneyRun, fix: Fix, leg: JourneyLeg, fresh: boolean): boolean {
+  if (fresh) {
+    const moving = fix.speed !== null && fix.speed >= BUS_SPEED_MPS && leftOnBus(fix, leg)
+    run.ridingInARow = moving ? run.ridingInARow + 1 : 0
+  }
   return run.ridingInARow >= RIDING_FIXES
+}
+
+const rideRoute = (leg: JourneyLeg) =>
+  new RouteLine(leg.path && leg.path.length >= 2 ? leg.path : leg.stops.map((s): [number, number] => [s.lat, s.lon]))
+
+// A fix only counts if it is near the line and the bus could have got there since the last one,
+// so a stray fix near a later part of the line does not skip stops.
+function trackRide(run: JourneyRun, route: RouteLine, stops: number[], fix: Fix, nowMs: number) {
+  const error = fix.accuracy
+  const reach = (MAX_BUS_MPS * Math.max(nowMs - run.rideFixAt, 0)) / 1000 + 2 * error + AT_STOP_M
+  const spot = route.locate(fix.lat, fix.lon, run.rideAlong - error, run.rideAlong + reach)
+  if (!spot || spot.off > Math.max(RIDE_LINE_M, 2 * error)) return
+  run.rideAlong = Math.max(run.rideAlong, spot.along - error)
+  run.rideFixAt = nowMs
+  stops.forEach((along, i) => {
+    if (along <= run.rideAlong) run.rideStop = Math.max(run.rideStop, i)
+  })
 }
 
 function busLeft(run: JourneyRun, departure: LegDeparture | null): boolean {
@@ -168,33 +206,43 @@ function advance(journey: Journey, run: JourneyRun, fix: Fix | null, departure: 
     return endsAtStop(journey) ? {kind: 'done'} : {kind: 'walkEnd'}
   }
   const phase = run.phase
+  const fresh = !!fix && fixKey(fix) !== run.seenFix
   switch (phase.kind) {
     case 'walk': {
       const leg = journey.legs[phase.leg]!
       if (skip) return {kind: 'wait', leg: phase.leg}
-      if (fix && within(fix, boarding(leg), AT_STOP_M)) return {kind: 'wait', leg: phase.leg}
-      if (fix && onBus(run, fix, leg)) return {kind: 'ride', leg: phase.leg}
+      if (fix && within(fix, boarding(leg), AT_STOP_M)) {
+        run.atStopAt = nowMs
+        return {kind: 'wait', leg: phase.leg}
+      }
+      if (fix && onBus(run, fix, leg, fresh)) return {kind: 'ride', leg: phase.leg}
       if (!fix && busLeft(run, departure)) return {kind: 'ride', leg: phase.leg}
       return phase
     }
     case 'wait': {
       const leg = journey.legs[phase.leg]!
+      // One fix away from the stop can be the GPS wandering while you wait.
+      if (fix && fresh) {
+        run.awayInARow = leftOnBus(fix, leg) ? run.awayInARow + 1 : 0
+        if (within(fix, boarding(leg), AT_STOP_M)) run.atStopAt = nowMs
+      }
       if (skip) return {kind: 'ride', leg: phase.leg}
-      if (fix && (leftOnBus(fix, leg) || onBus(run, fix, leg))) return {kind: 'ride', leg: phase.leg}
+      if (fix && (run.awayInARow >= 2 || onBus(run, fix, leg, fresh))) return {kind: 'ride', leg: phase.leg}
       if (!fix && busLeft(run, departure)) return {kind: 'ride', leg: phase.leg}
       return phase
     }
     case 'ride': {
       const leg = journey.legs[phase.leg]!
       const last = leg.stops.length - 1
+      const route = rideRoute(leg)
+      const stops = alongEach(route, leg.stops)
       if (fix) {
-        const at = nearestStop(fix, leg)
-        if (at !== null) run.rideStop = Math.max(run.rideStop, at)
+        if (fresh) trackRide(run, route, stops, fix, nowMs)
       } else {
         const perStop = leg.rideMinutes > 0 ? leg.rideMinutes / Math.max(last, 1) : 2
         run.rideStop = Math.max(run.rideStop, Math.min(Math.floor((nowMs - run.rideStartedAt) / 60_000 / perStop), last))
       }
-      const there = !!fix && within(fix, alighting(leg), ARRIVED_M)
+      const there = !!fix && run.rideAlong >= stops[last]! - AT_STOP_M
       return skip || there || run.rideStop >= last ? afterLeg(phase.leg) : phase
     }
     case 'walkEnd': {
@@ -337,14 +385,26 @@ export function stepJourney(journey: Journey, run: JourneyRun, fix: Fix | null, 
     run.stepIndex++
     run.alerted = false
     run.ridingInARow = 0
+    run.awayInARow = 0
     if (next.kind === 'ride' && before.kind !== 'ride') {
+      const leg = journey.legs[next.leg]!
+      const route = rideRoute(leg)
+      const stops = alongEach(route, leg.stops)
       run.rideStop = 0
       run.rideStartedAt = nowMs
+      run.rideAlong = stops[0]!
+      // From the last time you were seen at the stop: the bus may be well on its way by now.
+      run.rideFixAt = run.atStopAt || nowMs
+      if (fix) trackRide(run, route, stops, fix, nowMs)
     }
     if (next.kind === 'walkEnd') run.walkEndStartedAt = nowMs
     if (next.kind === 'walk') run.walkStartM = fix ? distanceTo(fix, boarding(journey.legs[next.leg]!)) : 0
-    if (legOf(next) !== legOf(before)) run.lastDepartureMinutes = null
+    if (legOf(next) !== legOf(before)) {
+      run.lastDepartureMinutes = null
+      run.atStopAt = 0
+    }
   }
+  if (fix) run.seenFix = fixKey(fix)
   const legDeparture = changed && legOf(next) !== legOf(before) ? null : departure
   const parts = journeyParts(journey)
   const total = Math.max(parts.reduce((acc, part) => acc + part.minutes, 0), 1)

@@ -18,6 +18,7 @@ import {useFollowsStore} from '@/stores/follows.ts'
 import {useJourneyStore} from '@/stores/journey.ts'
 import {useRemindersStore, type ReminderTarget} from '@/stores/reminders.ts'
 import type {JourneyStop} from '@/utils/journey.ts'
+import {ridePath} from '@/utils/rideLine.ts'
 import {fetchHourlyStopOffsets} from '@/composables/useRouteShapeInfoApi.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
@@ -51,6 +52,7 @@ const {
   currentTripId,
   timetable,
   stopsForDirection,
+  currentDirectionShape,
   directionTerminals,
   hasOutgoing,
   hasIncoming,
@@ -97,6 +99,8 @@ function wakeMeAt(idx: number) {
   const ride = stops.slice(boarding, idx + 1)
   const js = (s: IndexedStop, i: number): JourneyStop => ({id: s.stop_id, name: getStopLabel(boarding + i, s), lat: s.stop_lat, lon: s.stop_lon})
   const legStops = ride.map(js)
+  const shape = (currentDirectionShape.value ?? []).map((p): [number, number] => [p.shape_pt_lat, p.shape_pt_lon])
+  const path = ridePath(shape, stops.map((s) => ({lat: s.stop_lat, lon: s.stop_lon})), boarding, idx)
   const location = userStore.userLocation
   void journeyStore.start({
     id: crypto.randomUUID(),
@@ -109,6 +113,7 @@ function wakeMeAt(idx: number) {
       stops: legStops,
       walkMinutes: 0,
       rideMinutes: (ride[ride.length - 1]!.secondsFromStart - ride[0]!.secondsFromStart) / 60,
+      path,
     }],
     walkEndMinutes: 0,
     walks: [],

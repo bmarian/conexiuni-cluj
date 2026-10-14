@@ -269,7 +269,7 @@ func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
 	got := client.received()
-	if len(got) != 1 || got[0].Title != "Pleacă acum" || got[0].Body != "57 în 15 min · P-ța Mihai Viteazul Sud" {
+	if len(got) != 1 || got[0].Title != "Pleacă acum" || got[0].Body != "57 peste 15 min · P-ța Mihai Viteazul Sud" {
 		t.Fatalf("push: %v", got)
 	}
 	fireDueReminders(clujTime(t, "2026-10-10 00:03"), cluj)

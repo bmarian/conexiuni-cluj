@@ -110,6 +110,7 @@ export function journeyFromOption(option: PlanOption, plan: PlanResponse, destin
       stops,
       walkMinutes: walkSeconds / 60,
       rideMinutes: leg.seconds / 60,
+      path: decodePolyline(leg.path),
     })
     walkSeconds = 0
   }
