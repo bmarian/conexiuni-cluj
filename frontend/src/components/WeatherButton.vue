@@ -58,7 +58,6 @@ const WMO: Record<number, [string, string]> = {
   99: ['thunderstorms-day-rain', 'thunderstorms-night-rain'],
 }
 
-// Wording follows AccuWeather's phrases: Sunny/Însorit by day, Clear/Senin at night.
 const WMO_LABELS: Record<number, { en: string, ro: string, enDay?: string, roDay?: string }> = {
   0: {en: 'Clear', ro: 'Senin', enDay: 'Sunny', roDay: 'Însorit'},
   1: {en: 'Mostly clear', ro: 'Predominant senin', enDay: 'Mostly sunny', roDay: 'Predominant însorit'},
