@@ -52,7 +52,7 @@ func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClien
 		if !validStatsEvent(req.Metric, req.Key) {
 			return c.SendStatus(fiber.StatusNoContent)
 		}
-		database.RecordEvent(ClientHashFromLocals(c), req.Metric, req.Key)
+		database.RecordEvent(req.Metric, req.Key)
 		c.Set("Cache-Control", "no-store")
 		return c.SendStatus(fiber.StatusNoContent)
 	})

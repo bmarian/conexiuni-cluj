@@ -273,6 +273,14 @@ func InitSchemas() error {
             PRIMARY KEY (date, client_hash)
         );
 
+		CREATE TABLE IF NOT EXISTS stats_clients_daily
+        (
+            date        TEXT NOT NULL,
+            client      TEXT NOT NULL,
+            client_hash TEXT NOT NULL,
+            PRIMARY KEY (date, client, client_hash)
+        );
+
 		CREATE TABLE IF NOT EXISTS stats_daily
         (
             date   TEXT    NOT NULL,

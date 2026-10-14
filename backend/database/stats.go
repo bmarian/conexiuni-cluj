@@ -9,44 +9,19 @@ import (
 
 const statsFlushInterval = 2 * time.Minute
 
-var trackedAPIStatsKeys = []string{
-	"/api/routes",
-	"/api/stops",
-	"/api/shapes",
-	"/api/trips",
-	"/api/stop_times",
-	"/api/timetable",
-	"/api/stop_info",
-	"/api/vehicles",
-	"/api/vehicles/stream",
-	"/api/plan_routes",
-	"/api/plan",
-	"/api/news",
-}
-
-var trackedAPIStatsKeySet = func() map[string]string {
-	keys := make(map[string]string, len(trackedAPIStatsKeys))
-	for _, key := range trackedAPIStatsKeys {
-		keys[key] = key
-	}
-	return keys
-}()
-
-func CanonicalAPIStatsKey(path string) string {
-	if key, ok := trackedAPIStatsKeySet[path]; ok {
-		return key
-	}
-	return ""
+type statsVisit struct {
+	hash   string
+	client string
 }
 
 type statsBuffer struct {
-	visitors map[string]struct{}
+	visits   map[statsVisit]struct{}
 	counters map[string]map[string]int
 }
 
 func newStatsBuffer() *statsBuffer {
 	return &statsBuffer{
-		visitors: make(map[string]struct{}),
+		visits:   make(map[statsVisit]struct{}),
 		counters: make(map[string]map[string]int),
 	}
 }
@@ -60,7 +35,7 @@ var (
 	statsTZOnce          sync.Once
 )
 
-func statsLocation() *time.Location {
+func StatsLocation() *time.Location {
 	statsTZOnce.Do(func() {
 		loc, err := time.LoadLocation("Europe/Bucharest")
 		if err != nil {
@@ -71,86 +46,61 @@ func statsLocation() *time.Location {
 	return statsTZ
 }
 
-func todayKey() string {
-	return time.Now().In(statsLocation()).Format("2006-01-02")
+func StatsDate(t time.Time) string {
+	return t.In(StatsLocation()).Format("2006-01-02")
 }
 
-// First day still kept, counting today.
-func visitorCutoffKey() string {
-	return time.Now().In(statsLocation()).AddDate(0, 0, -(visitorRetentionDays - 1)).Format("2006-01-02")
+func StatsDaysAgo(days int) string {
+	return time.Now().In(StatsLocation()).AddDate(0, 0, -days).Format("2006-01-02")
 }
 
-// RecordEvent buffers a single request observation in memory.
-// Safe to call from hot paths — only a mutex + map writes.
-func RecordEvent(clientHash, metric, key string) {
-	RecordCount(clientHash, metric, key, 1)
-}
-
-func RecordCount(clientHash, metric, key string, count int) {
-	if clientHash == "" && metric == "" {
-		return
-	}
-	if metric != "" && count <= 0 {
-		return
-	}
-	if metric != "" {
-		canonicalKey, ok := canonicalStatsKey(metric, key)
-		if !ok {
-			metric = ""
-		} else {
-			key = canonicalKey
-		}
-	}
-	if clientHash == "" && metric == "" {
+// RecordVisit notes one client of a kind (web, android/1.4, ...) for today's counts.
+func RecordVisit(clientHash, client string) {
+	if clientHash == "" || client == "" {
 		return
 	}
 	statsMu.Lock()
-	if clientHash != "" {
-		statsBuf.visitors[clientHash] = struct{}{}
-	}
-	if metric != "" {
-		incrementCounterLocked(metric, key, count)
-	}
+	statsBuf.visits[statsVisit{hash: clientHash, client: client}] = struct{}{}
 	statsMu.Unlock()
 }
 
-func RecordEndpointTiming(clientHash, key string, duration time.Duration) {
-	key = CanonicalAPIStatsKey(key)
-	if key == "" {
+func RecordEvent(metric, key string) {
+	RecordCount(metric, key, 1)
+}
+
+func RecordCount(metric, key string, count int) {
+	if metric == "" || count <= 0 {
 		return
 	}
+	statsMu.Lock()
+	incrementCounterLocked(metric, strings.Clone(key), count)
+	statsMu.Unlock()
+}
+
+func RecordEndpointTiming(key string, duration time.Duration) {
 	ms := int(duration / time.Millisecond)
 	if duration > 0 && ms == 0 {
 		ms = 1
 	}
 	statsMu.Lock()
-	if clientHash != "" {
-		statsBuf.visitors[clientHash] = struct{}{}
-	}
-	incrementCounterLocked("api_call", key, 1)
-	incrementCounterLocked("api_response_ms", key, ms)
+	incrementCounterLocked("endpoint_call", key, 1)
+	incrementCounterLocked("endpoint_ms", key, ms)
 	statsMu.Unlock()
 }
 
-func canonicalStatsKey(metric, key string) (string, bool) {
-	switch metric {
-	case "api_call", "api_response_ms":
-		key = CanonicalAPIStatsKey(key)
-		return key, key != ""
-	default:
-		return strings.Clone(key), true
-	}
-}
-
 func RecordTranzyQuotaUsage(name string) {
-	RecordEvent("", "tranzy_quota", name)
+	RecordEvent("tranzy_quota", name)
 }
 
 func incrementCounterLocked(metric, key string, count int) {
-	bucket, ok := statsBuf.counters[metric]
+	bumpCounter(statsBuf, metric, key, count)
+}
+
+func bumpCounter(buf *statsBuffer, metric, key string, count int) {
+	bucket, ok := buf.counters[metric]
 	if !ok {
 		bucket = make(map[string]int)
-		statsBuf.counters[metric] = bucket
+		buf.counters[metric] = bucket
 	}
 	bucket[key] += count
 }
@@ -165,24 +115,20 @@ func swapBuffer() *statsBuffer {
 
 func mergeBuffer(buf *statsBuffer) {
 	statsMu.Lock()
-	for hash := range buf.visitors {
-		statsBuf.visitors[hash] = struct{}{}
+	for v := range buf.visits {
+		statsBuf.visits[v] = struct{}{}
 	}
 	for metric, bucket := range buf.counters {
-		current, ok := statsBuf.counters[metric]
-		if !ok {
-			current = make(map[string]int)
-			statsBuf.counters[metric] = current
-		}
 		for key, count := range bucket {
-			current[key] += count
+			incrementCounterLocked(metric, key, count)
 		}
 	}
 	statsMu.Unlock()
 }
 
 func writeStatsBuffer(buf *statsBuffer) error {
-	today := todayKey()
+	today := StatsDate(time.Now())
+	cutoff := StatsDaysAgo(visitorRetentionDays - 1)
 
 	tx, err := DB.Begin()
 	if err != nil {
@@ -190,23 +136,34 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	seenBefore, err := tx.Prepare(`
-		SELECT EXISTS(SELECT 1 FROM stats_visitors_daily WHERE client_hash = ? AND date < ?)
-	`)
+	seenBefore, err := tx.Prepare(`SELECT EXISTS(SELECT 1 FROM stats_visitors_daily WHERE client_hash = ? AND date < ?)`)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = seenBefore.Close() }()
-
-	visitorDaily, err := tx.Prepare(`
-		INSERT OR IGNORE INTO stats_visitors_daily (date, client_hash) VALUES (?, ?)
-	`)
+	visitorDaily, err := tx.Prepare(`INSERT OR IGNORE INTO stats_visitors_daily (date, client_hash) VALUES (?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = visitorDaily.Close() }()
+	clientDaily, err := tx.Prepare(`INSERT OR IGNORE INTO stats_clients_daily (date, client, client_hash) VALUES (?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = clientDaily.Close() }()
 
-	for hash := range buf.visitors {
+	hashes := make(map[string]struct{}, len(buf.visits))
+	for v := range buf.visits {
+		hashes[v.hash] = struct{}{}
+		res, err := clientDaily.Exec(today, v.client, v.hash)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			bumpCounter(buf, "client_visitors", v.client, 1)
+		}
+	}
+	for hash := range hashes {
 		var seen bool
 		if err := seenBefore.QueryRow(hash, today).Scan(&seen); err != nil {
 			return err
@@ -224,7 +181,10 @@ func writeStatsBuffer(buf *statsBuffer) error {
 		}
 	}
 
-	if _, err := tx.Exec(`DELETE FROM stats_visitors_daily WHERE date < ?`, visitorCutoffKey()); err != nil {
+	if _, err := tx.Exec(`DELETE FROM stats_visitors_daily WHERE date < ?`, cutoff); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM stats_clients_daily WHERE date < ?`, cutoff); err != nil {
 		return err
 	}
 
@@ -249,18 +209,9 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	return tx.Commit()
 }
 
-func bumpCounter(buf *statsBuffer, metric, key string, count int) {
-	bucket, ok := buf.counters[metric]
-	if !ok {
-		bucket = make(map[string]int)
-		buf.counters[metric] = bucket
-	}
-	bucket[key] += count
-}
-
 func FlushStats() error {
 	buf := swapBuffer()
-	if len(buf.visitors) == 0 && len(buf.counters) == 0 {
+	if len(buf.visits) == 0 && len(buf.counters) == 0 {
 		return nil
 	}
 	if err := writeStatsBuffer(buf); err != nil {
@@ -283,283 +234,43 @@ func StartStatsFlusher(retentionDays int) {
 	}()
 }
 
-type VisitorTotals struct {
-	// Someone away longer than the retention window counts again.
-	Lifetime   int `json:"lifetime"`
-	Recent     int `json:"recent"`
-	RecentDays int `json:"recent_days"`
-	Today      int `json:"today"`
+type MetricRow struct {
+	Date  string
+	Key   string
+	Count int
 }
 
-func GetVisitorTotals() (VisitorTotals, error) {
-	t := VisitorTotals{RecentDays: visitorRetentionDays}
-	today := todayKey()
-
-	if err := DB.QueryRow(`SELECT COALESCE(SUM(count), 0) FROM stats_daily WHERE metric = 'new_visitors'`).Scan(&t.Lifetime); err != nil {
-		return t, err
-	}
-	if err := DB.QueryRow(`SELECT COUNT(DISTINCT client_hash) FROM stats_visitors_daily WHERE date >= ?`, visitorCutoffKey()).Scan(&t.Recent); err != nil {
-		return t, err
-	}
-	if err := DB.QueryRow(`SELECT COUNT(*) FROM stats_visitors_daily WHERE date = ?`, today).Scan(&t.Today); err != nil {
-		return t, err
-	}
-	return t, nil
-}
-
-type DailyVisitorPoint struct {
-	Date  string `json:"date"`
-	Count int    `json:"count"`
-}
-
-func GetDailyVisitors(days int) ([]DailyVisitorPoint, error) {
-	if days <= 0 {
-		days = 30
-	}
-	start := time.Now().In(statsLocation()).AddDate(0, 0, -(days - 1)).Format("2006-01-02")
-	rows, err := DB.Query(`
-		SELECT date, SUM(count) FROM stats_daily
-		WHERE metric = 'visitors' AND date >= ?
-		GROUP BY date
-		ORDER BY date ASC
-	`, start)
+// MetricRows returns a metric's daily counts from `since` (inclusive), unflushed counts included.
+func MetricRows(metric, since string) ([]MetricRow, error) {
+	rows, err := DB.Query(`SELECT date, key, count FROM stats_daily WHERE metric = ? AND date >= ?`, metric, since)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
-	byDate := make(map[string]int)
+	out := make([]MetricRow, 0)
 	for rows.Next() {
-		var d string
-		var c int
-		if err := rows.Scan(&d, &c); err != nil {
+		var r MetricRow
+		if err := rows.Scan(&r.Date, &r.Key, &r.Count); err != nil {
 			return nil, err
 		}
-		byDate[d] = c
+		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	out := make([]DailyVisitorPoint, 0, days)
-	loc := statsLocation()
-	startDate := time.Now().In(loc).AddDate(0, 0, -(days - 1))
-	for i := 0; i < days; i++ {
-		d := startDate.AddDate(0, 0, i).Format("2006-01-02")
-		out = append(out, DailyVisitorPoint{Date: d, Count: byDate[d]})
+	today := StatsDate(time.Now())
+	statsMu.Lock()
+	for key, count := range statsBuf.counters[metric] {
+		out = append(out, MetricRow{Date: today, Key: key, Count: count})
 	}
+	statsMu.Unlock()
 	return out, nil
 }
 
-type DailyTranzyQuotaPoint struct {
-	Date     string `json:"date"`
-	Vehicles int    `json:"vehicles"`
-	Default  int    `json:"default"`
-	Total    int    `json:"total"`
-}
-
-func GetDailyTranzyQuotaUsage(days int) ([]DailyTranzyQuotaPoint, error) {
-	if days <= 0 {
-		days = 30
-	}
-	start := time.Now().In(statsLocation()).AddDate(0, 0, -(days - 1)).Format("2006-01-02")
-	rows, err := DB.Query(`
-		SELECT date, key, SUM(count)
-		FROM stats_daily
-		WHERE metric = 'tranzy_quota' AND date >= ?
-		GROUP BY date, key
-		ORDER BY date ASC
-	`, start)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	byDate := make(map[string]*DailyTranzyQuotaPoint)
-	for rows.Next() {
-		var date, key string
-		var count int
-		if err := rows.Scan(&date, &key, &count); err != nil {
-			return nil, err
-		}
-		point := byDate[date]
-		if point == nil {
-			point = &DailyTranzyQuotaPoint{Date: date}
-			byDate[date] = point
-		}
-		switch key {
-		case "vehicles":
-			point.Vehicles = count
-		case "default":
-			point.Default = count
-		}
-		point.Total += count
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	out := make([]DailyTranzyQuotaPoint, 0, days)
-	loc := statsLocation()
-	startDate := time.Now().In(loc).AddDate(0, 0, -(days - 1))
-	for i := 0; i < days; i++ {
-		date := startDate.AddDate(0, 0, i).Format("2006-01-02")
-		if point := byDate[date]; point != nil {
-			out = append(out, *point)
-		} else {
-			out = append(out, DailyTranzyQuotaPoint{Date: date})
-		}
-	}
-	return out, nil
-}
-
-func GetAverageDailyTranzyQuotaUsage(key string, days int) (float64, int, error) {
-	if days <= 0 {
-		days = 14
-	}
-	loc := statsLocation()
-	today := time.Now().In(loc).Format("2006-01-02")
-	start := time.Now().In(loc).AddDate(0, 0, -days).Format("2006-01-02")
-
-	rows, err := DB.Query(`
-		SELECT SUM(count)
-		FROM stats_daily
-		WHERE metric = 'tranzy_quota'
-			AND key = ?
-			AND date >= ?
-			AND date < ?
-		GROUP BY date
-		HAVING SUM(count) > 0
-	`, key, start, today)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	total := 0
-	activeDays := 0
-	for rows.Next() {
-		var count int
-		if err := rows.Scan(&count); err != nil {
-			return 0, 0, err
-		}
-		total += count
-		activeDays++
-	}
-	if err := rows.Err(); err != nil {
-		return 0, 0, err
-	}
-	if activeDays == 0 {
-		return 0, 0, nil
-	}
-	return float64(total) / float64(activeDays), activeDays, nil
-}
-
-type TopEntry struct {
-	Key   string `json:"key"`
-	Count int    `json:"count"`
-}
-
-func GetTopMetric(metric string, limit int) ([]TopEntry, error) {
-	if limit <= 0 {
-		limit = 10
-	}
-	queryArgs := []any{metric}
-	extraWhere := ""
-	if metric == "api_call" {
-		filter, args := apiStatsKeyFilter("key")
-		extraWhere = " AND " + filter
-		queryArgs = append(queryArgs, args...)
-	}
-	queryArgs = append(queryArgs, limit)
-	rows, err := DB.Query(`
-		SELECT key, SUM(count) AS total
-		FROM stats_daily
-		WHERE metric = ?`+extraWhere+`
-		GROUP BY key
-		ORDER BY total DESC
-		LIMIT ?
-	`, queryArgs...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	out := make([]TopEntry, 0, limit)
-	for rows.Next() {
-		var e TopEntry
-		if err := rows.Scan(&e.Key, &e.Count); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, rows.Err()
-}
-
-func GetMetricTotal(metric, key string) (int, error) {
+func MetricTotal(metric, key string) (int, error) {
 	var total int
-	err := DB.QueryRow(`
-		SELECT COALESCE(SUM(count), 0)
-		FROM stats_daily
-		WHERE metric = ? AND key = ?
-	`, metric, key).Scan(&total)
+	err := DB.QueryRow(`SELECT COALESCE(SUM(count), 0) FROM stats_daily WHERE metric = ? AND key = ?`, metric, key).Scan(&total)
 	return total, err
-}
-
-type EndpointTimingEntry struct {
-	Key   string  `json:"key"`
-	Count int     `json:"count"`
-	AvgMS float64 `json:"avg_ms"`
-}
-
-func GetEndpointResponseTimes(limit int) ([]EndpointTimingEntry, error) {
-	if limit <= 0 {
-		limit = 10
-	}
-	apiFilter, apiArgs := apiStatsKeyFilter("calls.key")
-	queryArgs := append(apiArgs, limit)
-	rows, err := DB.Query(`
-		SELECT calls.key, SUM(calls.count) AS total_count, SUM(latency.count) AS total_ms
-		FROM stats_daily calls
-		JOIN stats_daily latency
-			ON latency.date = calls.date
-			AND latency.key = calls.key
-			AND latency.metric = 'api_response_ms'
-		WHERE calls.metric = 'api_call'
-			AND `+apiFilter+`
-			AND calls.key != '/api/vehicles/stream'
-		GROUP BY calls.key
-		HAVING SUM(calls.count) > 0
-		ORDER BY (CAST(SUM(latency.count) AS REAL) / SUM(calls.count)) DESC
-		LIMIT ?
-	`, queryArgs...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	out := make([]EndpointTimingEntry, 0, limit)
-	for rows.Next() {
-		var key string
-		var count, totalMS int
-		if err := rows.Scan(&key, &count, &totalMS); err != nil {
-			return nil, err
-		}
-		out = append(out, EndpointTimingEntry{
-			Key:   key,
-			Count: count,
-			AvgMS: float64(totalMS) / float64(count),
-		})
-	}
-	return out, rows.Err()
-}
-
-func apiStatsKeyFilter(column string) (string, []any) {
-	placeholders := make([]string, len(trackedAPIStatsKeys))
-	args := make([]any, len(trackedAPIStatsKeys))
-	for i, key := range trackedAPIStatsKeys {
-		placeholders[i] = "?"
-		args[i] = key
-	}
-	return column + " IN (" + strings.Join(placeholders, ",") + ")", args
 }

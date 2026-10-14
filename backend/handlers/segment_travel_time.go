@@ -166,11 +166,6 @@ var (
 
 	segmentProfilePruneMu   sync.Mutex
 	lastSegmentProfilePrune time.Time
-
-	segmentLearningRuntime = struct {
-		sync.RWMutex
-		snapshot segmentLearningRuntimeSnapshot
-	}{}
 )
 
 func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehicle) {
@@ -207,7 +202,6 @@ func ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles []models.Vehi
 			SampleErrors:       writes.SampleInsertError,
 			ProfileErrors:      writes.ProfileError,
 		}
-		rememberSegmentLearningSnapshot(snapshot)
 		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d turnarounds=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
 			snapshot.Vehicles,
 			snapshot.Accepted,
@@ -275,18 +269,6 @@ func (s *segmentWriteSummary) addProfileResult(result segmentProfileWriteResult)
 	}
 }
 
-func rememberSegmentLearningSnapshot(snapshot segmentLearningRuntimeSnapshot) {
-	segmentLearningRuntime.Lock()
-	segmentLearningRuntime.snapshot = snapshot
-	segmentLearningRuntime.Unlock()
-}
-
-func currentSegmentLearningSnapshot() segmentLearningRuntimeSnapshot {
-	segmentLearningRuntime.RLock()
-	defer segmentLearningRuntime.RUnlock()
-	return segmentLearningRuntime.snapshot
-}
-
 func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegmentSample, segmentObservationStatus) {
 	if v.ID == 0 || v.Latitude <= 0 || v.Longitude <= 0 || v.RouteID < 0 || v.TripID == "" || v.TripID == "-1" {
 		return pendingSegmentSample{}, segmentObservedInvalid
@@ -349,6 +331,7 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
 
+	noteArrival(v.ID, tracker.TripID, tracker.Stops[nearStopPos].StopID, observedAt)
 	if state.SegmentStartPos == 0 {
 		recordTurnaroundDeparture(v.ID, tracker.TripID, state.SegmentStartedAt)
 	}

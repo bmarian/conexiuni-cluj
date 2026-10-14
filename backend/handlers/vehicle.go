@@ -78,6 +78,7 @@ func GetVehicles(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filt
 func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]models.Vehicle, error) {
 	vehicles, err := tranzyFetch[[]models.Vehicle](tranzyClient, "/vehicles")
 	if err != nil {
+		noteFeedError(err)
 		return nil, err
 	}
 	if vehicles == nil {
@@ -97,6 +98,7 @@ func requestVehicles(tranzyClient *tranzy.Client, filter VehicleFilter) ([]model
 		return nil, err
 	}
 	log.Printf("vehicles: fetched raw=%d valid=%d learning_scope=all response_filter=%s", len(vehicles), len(smoothed), describeVehicleFilter(filter))
+	noteFeed(len(vehicles), smoothed)
 	go ObserveVehicleSegmentTravelTimes(tranzyClient.Location(), smoothed)
 	RecomputeLive(smoothed, time.Now())
 	return smoothed, nil

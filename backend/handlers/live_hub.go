@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"compress/gzip"
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"fmt"
@@ -63,6 +64,102 @@ func (h *liveHub) SubscriberCount() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return len(h.subscribers)
+}
+
+type liveWatching struct {
+	Streams int
+	People  int
+	Stops   map[int]int
+	Routes  map[int]int
+}
+
+// Watching counts the people on each stop and line among the open streams.
+func (h *liveHub) Watching() liveWatching {
+	stops := make(map[int]map[string]struct{})
+	trips := make(map[string]map[string]struct{})
+	h.mu.Lock()
+	w := liveWatching{Streams: len(h.subscribers), People: len(h.perClient)}
+	for _, sub := range h.subscribers {
+		for id := range sub.stops {
+			addWatcher(stops, id, sub.client)
+		}
+		for trip := range sub.trips {
+			addWatcher(trips, trip, sub.client)
+		}
+	}
+	h.mu.Unlock()
+
+	w.Stops = make(map[int]int, len(stops))
+	for id, clients := range stops {
+		w.Stops[id] = len(clients)
+	}
+	routes := make(map[int]map[string]struct{})
+	for trip, clients := range trips {
+		if routeID, ok := routeIDOfTrip(trip); ok {
+			for client := range clients {
+				addWatcher(routes, routeID, client)
+			}
+		}
+	}
+	w.Routes = make(map[int]int, len(routes))
+	for id, clients := range routes {
+		w.Routes[id] = len(clients)
+	}
+	return w
+}
+
+func addWatcher[K comparable](m map[K]map[string]struct{}, id K, client string) {
+	if m[id] == nil {
+		m[id] = make(map[string]struct{})
+	}
+	m[id][client] = struct{}{}
+}
+
+func routeIDOfTrip(tripID string) (int, bool) {
+	liveTrips.RLock()
+	lt, ok := liveTrips.byTrip[NormalizeTripID(tripID)]
+	liveTrips.RUnlock()
+	if !ok {
+		return 0, false
+	}
+	return lt.routeID, true
+}
+
+// Each person counts once per stop and line a day, however often their screens reconnect.
+var liveViews = struct {
+	sync.Mutex
+	day  string
+	seen map[string]struct{}
+}{}
+
+func recordLiveViews(client string, stopIDs []int, tripIDs []string) {
+	if client == "" {
+		return
+	}
+	day := database.StatsDate(time.Now())
+	liveViews.Lock()
+	defer liveViews.Unlock()
+	if liveViews.day != day {
+		liveViews.day, liveViews.seen = day, make(map[string]struct{})
+	}
+	note := func(metric string, id int) {
+		key := strconv.Itoa(id)
+		if _, ok := liveViews.seen[client+metric+key]; ok {
+			return
+		}
+		liveViews.seen[client+metric+key] = struct{}{}
+		database.RecordEvent(metric, key)
+	}
+	for _, id := range stopIDs {
+		if !Availability.IsReady() || Availability.StopHasBuses(id) {
+			note("stop_view", id)
+		}
+	}
+	for _, trip := range tripIDs {
+		if routeID, ok := routeIDOfTrip(trip); ok {
+			note("route_view", routeID)
+		}
+	}
 }
 
 func (h *liveHub) Subscribe(client string, stopIDs []int, tripIDs []string) (*liveSubscriber, int64, bool) {
@@ -141,13 +238,15 @@ func (h *liveHub) run() {
 // poll fetches the vehicles (served from the cache within shelfLife) and returns the
 // prediction table that fetch rebuilt.
 func (h *liveHub) poll(shelfLife time.Duration) (*liveTable, error) {
-	if _, err := GetVehicles(h.tranzy, shelfLife, VehicleFilter{}); err != nil {
+	vehicles, err := GetVehicles(h.tranzy, shelfLife, VehicleFilter{})
+	if err != nil {
 		return nil, err
 	}
 	if table := currentLiveTable(); table != nil {
 		return table, nil
 	}
-	return nil, fmt.Errorf("no prediction table yet")
+	// Right after a start the vehicles come from the database while the fetch runs in the background.
+	return RecomputeLive(vehicles, time.Now()), nil
 }
 
 // current is the table as of the latest vehicles, fetching them when the last are stale.
@@ -280,6 +379,7 @@ func ServeLive(c fiber.Ctx) error {
 	if len(stopIDs) == 0 && len(tripIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "stop_ids, trip_ids or route_ids required"})
 	}
+	recordLiveViews(ClientHashFromLocals(c), stopIDs, tripIDs)
 	if c.Query("once") != "" {
 		sub := &liveSubscriber{stops: map[int]struct{}{}, trips: map[string]struct{}{}}
 		for _, id := range stopIDs {

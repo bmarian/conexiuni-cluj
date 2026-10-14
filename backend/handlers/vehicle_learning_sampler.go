@@ -88,46 +88,32 @@ func rememberVehicleLearningSamplerRuntime(tranzyClient *tranzy.Client, cfg Vehi
 	vehicleLearningSamplerRuntime.Unlock()
 }
 
-func currentVehicleLearningQuotaSnapshot() vehicleLearningQuotaSnapshot {
+type vehicleLearningStatus struct {
+	Enabled   bool
+	Dedicated bool
+	Used      int
+	Budget    int
+	Interval  time.Duration
+}
+
+func currentVehicleLearningStatus() vehicleLearningStatus {
 	vehicleLearningSamplerRuntime.RLock()
 	initialized := vehicleLearningSamplerRuntime.initialized
 	tranzyClient := vehicleLearningSamplerRuntime.client
 	cfg := vehicleLearningSamplerRuntime.cfg
 	counter := vehicleLearningSamplerRuntime.counter
-	disabledReason := vehicleLearningSamplerRuntime.disabledReason
 	vehicleLearningSamplerRuntime.RUnlock()
 
-	snapshot := vehicleLearningQuotaSnapshot{
-		Enabled:                initialized && cfg.Enabled && cfg.MaxDailyQuota > 0,
-		DisabledReason:         disabledReason,
-		UsesDedicatedTranzyKey: cfg.UsesDedicatedTranzyKey,
-		MaxDailyQuota:          cfg.MaxDailyQuota,
+	status := vehicleLearningStatus{
+		Enabled:   initialized && cfg.Enabled && cfg.MaxDailyQuota > 0,
+		Dedicated: cfg.UsesDedicatedTranzyKey,
 	}
-	if tranzyClient == nil {
-		return snapshot
+	if tranzyClient == nil || !status.Enabled {
+		return status
 	}
-	now := time.Now()
 	plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
-	snapshot.DailyBudget = plan.DailyBudget
-	snapshot.CallsUsed = plan.LearnerUsed
-	snapshot.CallsRemaining = plan.CallsRemaining
-	snapshot.VehiclesUsed = plan.VehiclesUsed
-	snapshot.VehiclesRemaining = plan.QuotaRemaining
-	snapshot.VehiclesLimit = tranzyClient.VehiclesQuotaLimit()
-	snapshot.Ready = plan.Ready
-	if !snapshot.Enabled {
-		snapshot.CallsRemaining = 0
-		snapshot.Ready = false
-	}
-	snapshot.IntervalMs = plan.Interval.Milliseconds()
-	snapshot.ShelfLifeMs = plan.ShelfLife.Milliseconds()
-	if counter != nil {
-		_, resetAt := counter.Snapshot(now)
-		if !resetAt.IsZero() {
-			snapshot.ResetAt = resetAt.UTC().Format(time.RFC3339)
-		}
-	}
-	return snapshot
+	status.Used, status.Budget, status.Interval = plan.LearnerUsed, plan.DailyBudget, plan.Interval
+	return status
 }
 
 func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) {

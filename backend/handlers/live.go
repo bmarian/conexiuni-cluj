@@ -343,6 +343,7 @@ func RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
 	liveState.Lock()
 	liveState.table = table
 	liveState.Unlock()
+	noteShownTimes(table)
 	return table
 }
 

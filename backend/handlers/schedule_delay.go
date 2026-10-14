@@ -55,7 +55,7 @@ func StartScheduleDelayLearner(loc *time.Location) {
 		for {
 			started := time.Now()
 			if n, err := recomputeScheduleDelays(loc, started); err != nil {
-				log.Printf("schedule delay: %v", err)
+				log.Printf("schedule delay failed: %v", err)
 			} else {
 				log.Printf("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
 			}

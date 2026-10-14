@@ -4,7 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
+	"errors"
 	"strings"
 	"time"
 
@@ -14,10 +14,6 @@ import (
 )
 
 const clientHashLocalKey = "client_hash"
-
-var streamedAPIPaths = map[string]struct{}{
-	"/api/vehicles/stream": {},
-}
 
 // ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client (its IP, or the /64 for IPv6)
 // using the provided salt. Same scheme as the access log identifier.
@@ -40,64 +36,60 @@ func ClientHashFromLocals(c fiber.Ctx) string {
 	return ""
 }
 
-func skipStatsPath(path string) bool {
-	if strings.HasPrefix(path, "/api/admin") || path == "/admin" || strings.HasPrefix(path, "/admin/") {
-		return true
-	}
-	return false
+var appUserAgents = map[string]string{
+	"ConexiuniClujMobile/": "android",
+	"ConexiuniClujWear/":   "wear",
 }
 
-// classifyURL maps a request to a stats metric/key pair. Empty metric means
-// the request is not tracked.
-func classifyURL(method, path string) (metric, key string) {
-	if method != "GET" || skipStatsPath(path) {
-		return "", ""
-	}
-	if key := database.CanonicalAPIStatsKey(path); key != "" {
-		return "api_call", key
-	}
-	return "", ""
-}
+var botUserAgentWords = []string{"bot", "crawl", "spider", "slurp", "preview", "lighthouse", "headless"}
 
-func isSuccessfulStatus(status int) bool {
-	return status >= fiber.StatusOK && status < fiber.StatusBadRequest
-}
-
-// recordEntityView derives route_view / stop_view metrics from the query
-// parameters of API requests that already carry the identity of the entity
-// being viewed. Cheaper than a separate beacon and avoids a frontend round-trip.
-func recordEntityView(c fiber.Ctx, hash string) {
-	switch c.Path() {
-	case "/api/stop_times":
-		rsn := strings.TrimSpace(c.Query("route_short_name"))
-		if rsn == "" {
-			return
-		}
-		// Mirrors the /api/routes filter: only count routes we'd actually
-		// surface in the UI. Keeps bots probing retired short names from
-		// polluting top-routes stats.
-		if Availability.IsReady() && !Availability.RouteHasTimetable(rsn) {
-			return
-		}
-		database.RecordEvent(hash, "route_view", rsn)
-	case "/api/stop_info":
-		id := strings.TrimSpace(c.Query("stop_id"))
-		if id == "" {
-			return
-		}
-		if Availability.IsReady() {
-			n, err := strconv.Atoi(id)
-			if err != nil || !Availability.StopHasBuses(n) {
-				return
+// clientKind is "web", "android/1.4.0", "wear/1.0.2" or "other"; empty for crawlers.
+func clientKind(ua string) string {
+	for prefix, platform := range appUserAgents {
+		if version, ok := strings.CutPrefix(ua, prefix); ok {
+			if validAppVersion(version) {
+				return platform + "/" + version
 			}
+			return platform
 		}
-		database.RecordEvent(hash, "stop_view", id)
 	}
+	lower := strings.ToLower(ua)
+	for _, w := range botUserAgentWords {
+		if strings.Contains(lower, w) {
+			return ""
+		}
+	}
+	if strings.HasPrefix(ua, "Mozilla/") {
+		return "web"
+	}
+	return "other"
 }
 
-// StatsMiddleware computes the client hash once and records a stats event for
-// the request. Must be registered before the access logger so the logger can
-// reuse the cached hash via ClientHashFromLocals.
+func validAppVersion(v string) bool {
+	if v == "" || len(v) > 16 {
+		return false
+	}
+	for _, r := range v {
+		if (r < '0' || r > '9') && r != '.' {
+			return false
+		}
+	}
+	return true
+}
+
+func responseStatus(c fiber.Ctx, err error) int {
+	if err == nil {
+		return c.Response().StatusCode()
+	}
+	var fe *fiber.Error
+	if errors.As(err, &fe) {
+		return fe.Code
+	}
+	return fiber.StatusInternalServerError
+}
+
+// StatsMiddleware computes the client hash once, then counts every API call by its route,
+// the people behind them and the server errors. Must run before the access logger.
 func StatsMiddleware(salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()
@@ -105,19 +97,23 @@ func StatsMiddleware(salt string) fiber.Handler {
 		c.Locals(clientHashLocalKey, hash)
 
 		err := c.Next()
-		if err == nil && isSuccessfulStatus(c.Response().StatusCode()) {
-			if skipStatsPath(c.Path()) {
-				return err
-			}
-			metric, key := classifyURL(c.Method(), c.Path())
-			if metric != "" {
-				if _, streamed := streamedAPIPaths[key]; streamed {
-					database.RecordEvent(hash, metric, key)
-				} else {
-					database.RecordEndpointTiming(hash, key, time.Since(start))
-				}
-			}
-			recordEntityView(c, hash)
+		route := c.Route().Path
+		if !strings.HasPrefix(route, "/api/") || strings.HasPrefix(route, "/api/admin") {
+			return err
+		}
+		key := c.Method() + " " + route
+		status := responseStatus(c, err)
+		if status >= fiber.StatusInternalServerError {
+			database.RecordEvent("endpoint_error", key)
+		}
+		if status >= fiber.StatusBadRequest {
+			return err
+		}
+		database.RecordVisit(hash, clientKind(c.Get(fiber.HeaderUserAgent)))
+		if route == "/api/live" && c.Query("once") == "" {
+			database.RecordEvent("endpoint_call", key+" stream")
+		} else {
+			database.RecordEndpointTiming(key, time.Since(start))
 		}
 		return err
 	}

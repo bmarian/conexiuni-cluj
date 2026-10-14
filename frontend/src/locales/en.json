@@ -277,7 +277,7 @@
   "autoFitMapDesc": "Show the whole line when you open it.",
   "timetableChangesDesc": "Tap the bell on a line to see what changes.",
   "pushNotificationsDesc": "Get notified when a line you follow changes.",
-  "settingsAdminDesc": "Usage stats.",
+  "settingsAdminDesc": "Server, live times and usage.",
   "adminDashboard": "Admin dashboard",
   "beta": "Beta",
   "watchMap": "Map",
