@@ -258,7 +258,7 @@ func RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
 	nowMs := now.UnixMilli()
 	nowMinutes := float64(now.Hour()*60+now.Minute()) + float64(now.Second())/60
 	nowSec := nowMinutes * 60
-	dayType := segmentDayType(now)
+	dayType := scheduleDay(now)
 
 	raw := make(map[string][]predictions.RawVehicle)
 	byID := make(map[int]models.Vehicle, len(vehicles))

@@ -127,7 +127,7 @@ func flushTurnaroundSamples() int {
 			INSERT INTO turnaround_samples
 			(route_id, direction_id, day_type, duration_sec, arrived_at, departed_at, paired_departure_min)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			s.RouteID, s.DirectionID, segmentDayType(s.DepartedAt), s.DepartedAt.Sub(s.ArrivedAt).Seconds(),
+			s.RouteID, s.DirectionID, profileDay(s.DepartedAt), s.DepartedAt.Sub(s.ArrivedAt).Seconds(),
 			s.ArrivedAt.Unix(), s.DepartedAt.Unix(), s.PairedDepartureMin); err != nil {
 			log.Printf("turnaround: sample insert failed: %v", err)
 			continue
@@ -148,7 +148,7 @@ func pruneOldTurnaroundSamples() {
 	}
 	lastTurnaroundPrune = time.Now()
 	cutoff := time.Now().Add(-turnaroundRetention).Unix()
-	if _, err := database.DB.Exec(`DELETE FROM turnaround_samples WHERE departed_at < ?`, cutoff); err != nil {
+	if _, err := pruneByDayWindow("turnaround_samples", "departed_at", turnaroundRetention, time.Now()); err != nil {
 		log.Printf("turnaround: prune failed: %v", err)
 	}
 	if _, err := database.DB.Exec(`DELETE FROM turnaround_arrivals WHERE arrived_at < ?`, cutoff); err != nil {

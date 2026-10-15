@@ -43,6 +43,7 @@ func StartArchiver(loc *time.Location) {
 	go func() {
 		time.Sleep(archiveStartDelay)
 		for {
+			checkObservedSchedule(time.Now())
 			runArchive(time.Now())
 			time.Sleep(time.Until(nextArchiveRun(time.Now(), loc)))
 		}

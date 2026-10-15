@@ -836,6 +836,9 @@ func adminProblems(o *adminOverview, now time.Time) []string {
 	if o.Server.Errors > 0 {
 		out = append(out, fmt.Sprintf("%d server errors today", o.Server.Errors))
 	}
+	if p := calendarProblem(now); p != "" {
+		out = append(out, p)
+	}
 	if a := o.Data.Archive; !a.Enabled {
 		out = append(out, "The archive database is not open, so no history is kept")
 	} else if a.Error != "" {

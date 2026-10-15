@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"compress/gzip"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
 	ctpcj "conexiuni-cluj/services/ctp-cj"
 	"conexiuni-cluj/services/tranzy"
@@ -20,7 +21,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-var networkDayTypes = []string{"weekday", "saturday", "sunday"}
+var networkDayTypes = calendar.ScheduleDays
 
 func BuildNetworkBundle(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) (*models.NetworkBundle, error) {
 	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
@@ -75,7 +76,7 @@ func BuildNetworkBundle(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, 
 	}
 	sort.Slice(stops, func(i, j int) bool { return stops[i].StopID < stops[j].StopID })
 
-	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: learnLiveRules().graceSec / 60}}
+	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: learnLiveRules().graceSec / 60}, ScheduleDays: networkScheduleDays(time.Now())}
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)
 	bundle.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
 	return bundle, nil
@@ -161,7 +162,8 @@ func networkVersions(bundle *models.NetworkBundle) (version, static string) {
 	version = hash(struct {
 		R []models.NetworkRoute
 		S []models.Stop
-	}{bundle.Routes, bundle.Stops})
+		D map[string]string
+	}{bundle.Routes, bundle.Stops, bundle.ScheduleDays})
 	withoutOffsets := make([]models.NetworkRoute, len(bundle.Routes))
 	for i, r := range bundle.Routes {
 		r.Offsets = nil
@@ -170,7 +172,8 @@ func networkVersions(bundle *models.NetworkBundle) (version, static string) {
 	static = hash(struct {
 		R []models.NetworkRoute
 		S []models.Stop
-	}{withoutOffsets, bundle.Stops})
+		D map[string]string
+	}{withoutOffsets, bundle.Stops, bundle.ScheduleDays})
 	return version, static
 }
 

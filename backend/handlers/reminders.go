@@ -218,17 +218,6 @@ func runReminderSender(loc *time.Location) {
 	}
 }
 
-func reminderDayType(day time.Time) string {
-	switch day.Weekday() {
-	case time.Saturday:
-		return "saturday"
-	case time.Sunday:
-		return "sunday"
-	default:
-		return "weekday"
-	}
-}
-
 // Starts a day back: late buses run past midnight.
 func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.Time, bool) {
 	local := after.In(loc)
@@ -249,7 +238,7 @@ func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.
 		if r.Date == "" && !isoDays[iso] {
 			continue
 		}
-		minute, ok := r.Slots[reminderDayType(day)]
+		minute, ok := r.Slots[scheduleDay(day)]
 		if !ok {
 			continue
 		}

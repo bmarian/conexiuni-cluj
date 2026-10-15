@@ -136,4 +136,6 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(overview)
 	})
+
+	registerAdminCalendarRoutes(admin, token)
 }

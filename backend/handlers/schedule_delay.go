@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"database/sql"
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -14,7 +16,6 @@ import (
 
 // How much later than timetable + summed segment profiles buses really arrive.
 const (
-	scheduleDelayWindow     = 14 * 24 * time.Hour
 	scheduleDelayRefresh    = time.Hour
 	scheduleDelayMinRuns    = 5
 	scheduleDelayShrinkRuns = 10
@@ -81,6 +82,7 @@ func recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
 		if err != nil || timetable == nil {
 			continue
 		}
+		changed := timetableChangedAt(route.RouteShortName)
 		rid := strconv.Itoa(route.RouteID)
 		stopTimes, err := getStopTimesForTrips([]string{rid + OUTGOING_SUFFIX, rid + INCOMING_SUFFIX})
 		if err != nil {
@@ -91,7 +93,7 @@ func recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
 			if len(stops) < 2 {
 				continue
 			}
-			if err := collectScheduleResiduals(route.RouteID, directionID, stops, timetable, loc, now, residuals, &runID); err != nil {
+			if err := collectScheduleResiduals(route.RouteID, directionID, stops, timetable, changed, loc, now, residuals, &runID); err != nil {
 				return 0, fmt.Errorf("route %s direction %d: %w", route.RouteShortName, directionID, err)
 			}
 		}
@@ -103,6 +105,7 @@ func collectScheduleResiduals(
 	routeID, directionID int,
 	stops []models.StopTime,
 	timetable *models.Timetable,
+	changed map[string]int64,
 	loc *time.Location,
 	now time.Time,
 	into map[scheduleDelayKey]*scheduleResiduals,
@@ -114,12 +117,22 @@ func collectScheduleResiduals(
 		WHERE route_id = ?
 		  AND direction_id = ?
 		  AND observed_at >= ?`,
-		[]any{routeID, directionID, now.Add(-scheduleDelayWindow).Unix()},
+		[]any{routeID, directionID, earliestDayWindow(now)},
 		func(rows *sql.Rows) (runSegment, error) {
 			var s runSegment
 			err := rows.Scan(&s.FromStopID, &s.ToStopID, &s.DayType, &s.StartedAt, &s.EndedAt)
 			return s, err
 		})
+	cutoffs := map[string]int64{}
+	cutoff := func(dayType string) int64 {
+		c, ok := cutoffs[dayType]
+		if !ok {
+			c = max(dayWindowStart(dayType, now), changed[calendar.ScheduleOf(dayType)])
+			cutoffs[dayType] = c
+		}
+		return c
+	}
+	segments = slices.DeleteFunc(segments, func(s runSegment) bool { return s.EndedAt < cutoff(s.DayType) })
 	if err != nil || len(segments) == 0 {
 		return err
 	}
@@ -191,7 +204,7 @@ func collectScheduleResiduals(
 		SELECT day_type, departed_at, paired_departure_min
 		FROM turnaround_samples
 		WHERE route_id = ? AND direction_id = ? AND departed_at >= ?`,
-		[]any{routeID, directionID, now.Add(-scheduleDelayWindow).Unix()},
+		[]any{routeID, directionID, earliestDayWindow(now)},
 		func(rows *sql.Rows) (runDeparture, error) {
 			var d runDeparture
 			err := rows.Scan(&d.DayType, &d.DepartedAt, &d.PairedMin)
@@ -200,6 +213,7 @@ func collectScheduleResiduals(
 	if err != nil {
 		return err
 	}
+	turnarounds = slices.DeleteFunc(turnarounds, func(d runDeparture) bool { return d.DepartedAt < cutoff(d.DayType) })
 	departed := make(map[int64]runDeparture, len(turnarounds))
 	for _, d := range turnarounds {
 		departed[d.DepartedAt] = d
@@ -470,4 +484,26 @@ func selectScheduleDelay(rows []scheduleDelayRow, bucket int) (float64, bool) {
 		}
 	}
 	return delay, found
+}
+
+func timetableChangedAt(routeShortName string) map[string]int64 {
+	history, err := database.TimetableHistory(routeShortName)
+	if err != nil {
+		log.Printf("schedule delay: timetable history for %s failed: %v", routeShortName, err)
+		return nil
+	}
+	changed := map[string]int64{}
+	for i := 1; i < len(history); i++ {
+		prev, cur := history[i-1], history[i]
+		if cur.Weekdays != prev.Weekdays {
+			changed[calendar.Weekday] = cur.FirstSeenAt
+		}
+		if cur.Saturday != prev.Saturday {
+			changed[calendar.Saturday] = cur.FirstSeenAt
+		}
+		if cur.Sunday != prev.Sunday {
+			changed[calendar.Sunday] = cur.FirstSeenAt
+		}
+	}
+	return changed
 }

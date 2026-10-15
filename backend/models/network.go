@@ -7,6 +7,7 @@ type NetworkBundle struct {
 	Routes        []NetworkRoute `json:"routes"`
 	Stops         []Stop         `json:"stops"`
 	Rules         NetworkRules   `json:"rules"`
+	ScheduleDays  map[string]string `json:"schedule_days,omitempty"`
 }
 
 // What the learners found that an offline timetable list still needs.

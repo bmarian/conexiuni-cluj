@@ -34,7 +34,7 @@ func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, f
 
 func dayOfType(from time.Time, dayType string) time.Time {
 	for i := 0; i < 7; i++ {
-		if d := from.AddDate(0, 0, i); segmentDayType(d) == dayType {
+		if d := from.AddDate(0, 0, i); scheduleDay(d) == dayType {
 			return d
 		}
 	}
@@ -165,7 +165,7 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 
 	out := make([]models.StopTime, len(stopTimes))
 	copy(out, stopTimes)
-	dayType, bucket := segmentDayType(refTime), segmentBucketStartMin(refTime)
+	dayType, bucket := profileDay(refTime), segmentBucketStartMin(refTime)
 
 	type directionProfile struct {
 		segments map[stopPair]segmentProfileEstimate

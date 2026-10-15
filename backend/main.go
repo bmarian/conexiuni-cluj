@@ -98,6 +98,7 @@ func main() {
 	} else {
 		defer func() { _ = database.Archive.Close() }()
 	}
+	handlers.StartCalendar()
 	database.StartVacuumScheduler()
 	database.StartDSTCacheInvalidationScheduler()
 	database.StartStatsFlusher(config.LogRetentionDays)

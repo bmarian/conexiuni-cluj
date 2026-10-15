@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"conexiuni-cluj/calendar"
 	"log"
 	"sync"
 	"time"
@@ -72,6 +73,18 @@ func snapshotSegmentProfiles(routeID, directionID int, dayType string, bucket in
 }
 
 func snapshotScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {
+	if delay, ok := selectScheduleDelay(snapshotScheduleDelayRows(routeID, directionID, dayType), bucket); ok {
+		return delay, true
+	}
+	for _, sibling := range calendar.ProfileDays {
+		if calendar.Siblings(sibling, dayType) {
+			return selectScheduleDelay(snapshotScheduleDelayRows(routeID, directionID, sibling), bucket)
+		}
+	}
+	return 0, false
+}
+
+func snapshotScheduleDelayRows(routeID, directionID int, dayType string) []scheduleDelayRow {
 	key := profileSnapshotKey{routeID, directionID, dayType}
 	profileSnapshots.Lock()
 	profileSnapshotsFor(ProfileSnapshotPeriod())
@@ -81,7 +94,7 @@ func snapshotScheduleDelay(routeID, directionID int, dayType string, bucket int)
 		loaded, err := loadScheduleDelayRows(routeID, directionID, dayType)
 		if err != nil {
 			log.Printf("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
-			return 0, false
+			return nil
 		}
 		rows = loaded
 		profileSnapshots.Lock()
@@ -89,5 +102,5 @@ func snapshotScheduleDelay(routeID, directionID int, dayType string, bucket int)
 		profileSnapshots.delays[key] = rows
 		profileSnapshots.Unlock()
 	}
-	return selectScheduleDelay(rows, bucket)
+	return rows
 }

@@ -138,7 +138,7 @@ func errorBin(errSec int64) int {
 // Scored twice: against our timetable and against CTP's departure alone.
 func noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
 	arrivedMin, bucket := localMinutes(float64(at.Unix()), loc)
-	dayType := segmentDayType(at)
+	dayType := profileDay(at)
 	learned, seed := tripCumulativeOffsets(tracker, dayType, bucket), tripSeedOffsets(tracker)
 	if pos >= len(learned) || pos >= len(seed) {
 		return

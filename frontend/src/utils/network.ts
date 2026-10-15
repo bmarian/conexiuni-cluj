@@ -2,7 +2,7 @@ import {shallowRef} from 'vue'
 import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
-import {hasTimetableEntries} from '@/utils/time.ts'
+import {hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -24,6 +24,7 @@ export type NetworkBundle = {
   routes: NetworkRoute[]
   stops: Stop[]
   rules?: {late_grace_min: number}
+  schedule_days?: Record<string, DayType>
 }
 
 export type NetworkVersion = Pick<NetworkBundle, 'version' | 'static_version' | 'generated_at'>
@@ -57,12 +58,15 @@ export class NetworkIndex {
   }
 }
 
-const CLUJ_TIME = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', weekday: 'short', hour: 'numeric', hourCycle: 'h23'})
+const CLUJ_TIME = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', weekday: 'short', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit'})
 
 export function clujClock(at: Date = new Date()): {dayType: DayType, hour: number} {
   const parts = CLUJ_TIME.formatToParts(at)
   const weekday = parts.find((p) => p.type === 'weekday')?.value
   const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
+  const special = scheduleDayOn(`${part('year')}-${part('month')}-${part('day')}`)
+  if (special) return {dayType: special, hour}
   return {dayType: weekday === 'Sat' ? 'saturday' : weekday === 'Sun' ? 'sunday' : 'weekday', hour}
 }
 
@@ -180,6 +184,7 @@ async function openCache(): Promise<Cache | null> {
 
 function use(bundle: NetworkBundle) {
   if (!Array.isArray(bundle?.routes) || !Array.isArray(bundle?.stops)) return
+  setScheduleDays(bundle.schedule_days)
   network.value = new NetworkIndex(bundle)
 }
 

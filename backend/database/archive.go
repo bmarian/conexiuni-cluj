@@ -106,6 +106,22 @@ const archiveSchema = `
 		name         TEXT PRIMARY KEY,
 		copied_until INTEGER NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS school_years
+	(
+		year       INTEGER PRIMARY KEY,
+		data       TEXT    NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS schedule_overrides
+	(
+		date       TEXT PRIMARY KEY,
+		schedule   TEXT    NOT NULL,
+		source     TEXT    NOT NULL,
+		detail     TEXT    NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL
+	);
 `
 
 func ConnectArchive(path string) error {
@@ -458,4 +474,201 @@ func SummarizeArchive() (ArchiveSummary, error) {
 	err := Archive.QueryRow(`SELECT COUNT(*), MIN(observed_at) FROM segment_travel_time_samples`).Scan(&s.Samples, &oldest)
 	s.OldestAt = oldest.Int64
 	return s, err
+}
+
+func SchoolYears() (map[int]string, error) {
+	out := map[int]string{}
+	if Archive == nil {
+		return out, nil
+	}
+	rows, err := Archive.Query(`SELECT year, data FROM school_years`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var year int
+		var data string
+		if err := rows.Scan(&year, &data); err != nil {
+			return nil, err
+		}
+		out[year] = data
+	}
+	return out, rows.Err()
+}
+
+func SaveSchoolYear(year int, data string, at time.Time) error {
+	if Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
+	_, err := Archive.Exec(`
+		INSERT INTO school_years (year, data, updated_at) VALUES (?, ?, ?)
+		ON CONFLICT(year) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, year, data, at.Unix())
+	return err
+}
+
+type ScheduleOverride struct {
+	Date      string `json:"date"`
+	Schedule  string `json:"schedule"`
+	Source    string `json:"source"`
+	Detail    string `json:"detail"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+func ScheduleOverrides() ([]ScheduleOverride, error) {
+	if Archive == nil {
+		return nil, nil
+	}
+	rows, err := Archive.Query(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides ORDER BY date`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []ScheduleOverride
+	for rows.Next() {
+		var o ScheduleOverride
+		if err := rows.Scan(&o.Date, &o.Schedule, &o.Source, &o.Detail, &o.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+func SaveScheduleOverride(o ScheduleOverride) error {
+	if Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
+	_, err := Archive.Exec(`
+		INSERT INTO schedule_overrides (date, schedule, source, detail, created_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(date) DO UPDATE SET schedule = excluded.schedule, source = excluded.source,
+			detail = excluded.detail, created_at = excluded.created_at`,
+		o.Date, o.Schedule, o.Source, o.Detail, o.CreatedAt)
+	return err
+}
+
+type TimetableAt struct {
+	FirstSeenAt int64
+	Weekdays    string
+	Saturday    string
+	Sunday      string
+}
+
+func TimetableHistory(routeShortName string) ([]TimetableAt, error) {
+	if Archive == nil {
+		return nil, nil
+	}
+	rows, err := Archive.Query(`
+		SELECT first_seen_at, weekdays, saturday, sunday FROM timetable_versions
+		WHERE route_short_name = ? ORDER BY first_seen_at, id`, routeShortName)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []TimetableAt
+	for rows.Next() {
+		var v TimetableAt
+		if err := rows.Scan(&v.FirstSeenAt, &v.Weekdays, &v.Saturday, &v.Sunday); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func RestoreFromArchive(table string, from, to int64, label func(at int64) (string, bool)) (int, error) {
+	if Archive == nil || from >= to {
+		return 0, nil
+	}
+	var t archivedTable
+	for _, candidate := range archivedTables {
+		if candidate.name == table {
+			t = candidate
+		}
+	}
+	timeIdx, dayIdx := -1, -1
+	for i, c := range t.columns {
+		switch c {
+		case t.timeCol:
+			timeIdx = i
+		case "day_type":
+			dayIdx = i
+		}
+	}
+	if timeIdx < 0 || dayIdx < 0 {
+		return 0, fmt.Errorf("%s cannot be restored", table)
+	}
+
+	cols := strings.Join(t.columns, ", ")
+	rows, err := Archive.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	tx, err := DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	stmt, err := tx.Prepare(`INSERT INTO ` + t.name + ` (` + cols + `) VALUES (` + strings.TrimSuffix(strings.Repeat("?,", len(t.columns)), ",") + `)`)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = stmt.Close() }()
+
+	values := make([]any, len(t.columns))
+	targets := make([]any, len(values))
+	for i := range values {
+		targets[i] = &values[i]
+	}
+	n := 0
+	for rows.Next() {
+		if err := rows.Scan(targets...); err != nil {
+			return 0, err
+		}
+		at, ok := values[timeIdx].(int64)
+		if !ok {
+			continue
+		}
+		dayType, keep := label(at)
+		if !keep {
+			continue
+		}
+		values[dayIdx] = dayType
+		if _, err := stmt.Exec(values...); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
+}
+
+func ScheduleOverrideOn(date string) (ScheduleOverride, bool, error) {
+	var o ScheduleOverride
+	if Archive == nil {
+		return o, false, nil
+	}
+	err := Archive.QueryRow(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides WHERE date = ?`, date).
+		Scan(&o.Date, &o.Schedule, &o.Source, &o.Detail, &o.CreatedAt)
+	if err == sql.ErrNoRows {
+		return o, false, nil
+	}
+	return o, err == nil, err
+}
+
+func DeleteScheduleOverride(date string) error {
+	if Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
+	_, err := Archive.Exec(`DELETE FROM schedule_overrides WHERE date = ?`, date)
+	return err
 }

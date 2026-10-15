@@ -2,6 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
+import AdminCalendar from '@/components/admin/AdminCalendar.vue'
 
 useHead(() => ({
   title: 'Admin',
@@ -645,6 +646,11 @@ function quotaShare(used: number, limit: number) {
               </li>
             </ul>
             <p v-else class="line-text">None.</p>
+          </section>
+
+          <section>
+            <div class="label"><span>Calendar</span><i></i></div>
+            <AdminCalendar @saved="load"/>
           </section>
 
           <section>

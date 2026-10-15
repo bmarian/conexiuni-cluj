@@ -53,7 +53,7 @@ func recordRun(t *testing.T, left time.Time) {
 		if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_samples
 			(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 			VALUES (?, 0, ?, ?, ?, ?, ?, ?)`,
-			delayRouteID, 100+i, 101+i, segmentDayType(end), segmentBucketStartMin(end), end.Sub(start).Seconds(), end.Unix()); err != nil {
+			delayRouteID, 100+i, 101+i, profileDay(end), segmentBucketStartMin(end), end.Sub(start).Seconds(), end.Unix()); err != nil {
 			t.Fatalf("sample: %v", err)
 		}
 		start = end

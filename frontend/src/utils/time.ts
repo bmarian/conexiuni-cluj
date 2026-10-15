@@ -1,3 +1,4 @@
+import {shallowRef} from 'vue'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {
   OUTGOING_SUFFIX,
@@ -42,7 +43,22 @@ export const formatMinutesFromNow = (rawMinutes: number, referenceDate: Date, no
 
 export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'
 
+export type ScheduleDay = 'weekday' | 'saturday' | 'sunday'
+
+const scheduleDays = shallowRef<Record<string, ScheduleDay>>({})
+
+export const setScheduleDays = (days: Record<string, ScheduleDay> | undefined) => {
+  scheduleDays.value = days ?? {}
+}
+
+export const scheduleDayOn = (date: string): ScheduleDay | undefined => scheduleDays.value[date]
+
+const localDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 export const getTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
+  const special = scheduleDays.value[localDate(referenceDate)]
+  if (special) return special === 'weekday' ? 'weekdays' : special
   const day = referenceDate.getDay()
   if (day === 0) return 'sunday'
   if (day === 6) return 'saturday'

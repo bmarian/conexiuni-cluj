@@ -181,7 +181,7 @@ func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 		}
 		cumulative := make(map[string]map[string][]float64)
 		offsetsAt := func(departure time.Time, tripID string) []float64 {
-			key := segmentDayType(departure) + "|" + strconv.Itoa(segmentBucketStartMin(departure))
+			key := profileDay(departure) + "|" + strconv.Itoa(segmentBucketStartMin(departure))
 			byTrip, ok := cumulative[key]
 			if !ok {
 				timed := applySegmentProfilesToStopTimes(base, routeID, departure)
@@ -211,7 +211,7 @@ func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 			}
 			for shift := -1; shift <= 1; shift++ {
 				date := day.AddDate(0, 0, shift)
-				for _, m := range scheduleDepartureMinutes(timetable, segmentDayType(date), dir) {
+				for _, m := range scheduleDepartureMinutes(timetable, scheduleDay(date), dir) {
 					departure := time.Date(date.Year(), date.Month(), date.Day(), 0, int(m), 0, 0, date.Location())
 					offsets := offsetsAt(departure, tripID)
 					if len(offsets) != len(rows) {

@@ -1,10 +1,12 @@
 package handlers
 
 import (
-	"conexiuni-cluj/predictions"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/predictions"
 	"database/sql"
+	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -19,9 +21,7 @@ const (
 	minSegmentProfileSamples   = 5
 	segmentProfileNeighborMins = 120
 	segmentSampleRetention     = 45 * 24 * time.Hour
-	// Traffic drifts with the season; profiles follow the last two weeks only.
-	segmentProfileWindow       = 14 * 24 * time.Hour
-	segmentProfileRetention    = 60 * 24 * time.Hour
+	segmentProfileRetention    = 400 * 24 * time.Hour
 	maxObservedVehicleAge      = 10 * time.Minute
 	minSegmentDurationSec      = 8
 	maxSegmentDurationSec      = 45 * 60
@@ -351,7 +351,7 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 					DirectionID:    tracker.DirectionID,
 					FromStopID:     from.StopID,
 					ToStopID:       to.StopID,
-					DayType:        segmentDayType(observedAt),
+					DayType:        profileDay(observedAt),
 					BucketStartMin: segmentBucketStartMin(observedAt),
 				},
 				Duration:   observedAt.Sub(state.SegmentStartedAt),
@@ -418,7 +418,7 @@ func closeTripAtTurnaround(state vehicleSegmentState, next *tripSegmentTracker, 
 		Key: segmentProfileKey{
 			RouteID: prev.RouteID, DirectionID: prev.DirectionID,
 			FromStopID: prev.Stops[lastPos-1].StopID, ToStopID: prev.Stops[lastPos].StopID,
-			DayType: segmentDayType(observedAt), BucketStartMin: segmentBucketStartMin(observedAt),
+			DayType: profileDay(observedAt), BucketStartMin: segmentBucketStartMin(observedAt),
 		},
 		Duration:   observedAt.Sub(state.SegmentStartedAt),
 		DistanceM:  prev.distanceBetweenStopPositions(lastPos-1, lastPos),
@@ -456,7 +456,7 @@ func pairedDeparture(prev, next *tripSegmentTracker, state vehicleSegmentState) 
 }
 
 func matchRunDeparture(tracker *tripSegmentTracker, pos int, at time.Time, loc *time.Location) (float64, string) {
-	dayType := segmentDayType(at)
+	dayType := profileDay(at)
 	departures := tripDepartures(tracker, dayType)
 	if len(departures) < 2 {
 		return -1, ""
@@ -487,6 +487,13 @@ func tripScheduleCacheFor(period int64) {
 	tripScheduleCache.period = period
 	tripScheduleCache.departures = make(map[string][]float64)
 	tripScheduleCache.offsets = make(map[string][]float64)
+}
+
+func resetTripScheduleCache() {
+	tripScheduleCache.Lock()
+	tripScheduleCache.departures = nil
+	tripScheduleCache.offsets = nil
+	tripScheduleCache.Unlock()
 }
 
 func tripDepartures(tracker *tripSegmentTracker, dayType string) []float64 {
@@ -749,7 +756,7 @@ func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 		  AND to_stop_id = ?
 		  AND day_type = ?
 		  AND observed_at >= ?`
-	args := []any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, time.Now().Add(-segmentProfileWindow).Unix()}
+	args := []any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, dayWindowStart(key.DayType, time.Now())}
 	if key.BucketStartMin != allDaySegmentBucket {
 		query += ` AND bucket_start_min = ?`
 		args = append(args, key.BucketStartMin)
@@ -769,21 +776,8 @@ func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 		return segmentProfileUnchanged
 	}
 
-	median := nearestRank(durations, 0.50)
-	p75 := nearestRank(durations, 0.75)
-	if _, err := database.DB.Exec(`
-		INSERT INTO segment_travel_time_profiles
-		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min)
-		DO UPDATE SET
-			sample_count = excluded.sample_count,
-			median_sec = excluded.median_sec,
-			p75_sec = excluded.p75_sec,
-			updated_at = excluded.updated_at`,
-		key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, key.BucketStartMin,
-		len(durations), median, p75, time.Now().Unix(),
-	); err != nil {
+	median, p75, err := upsertSegmentProfile(database.DB, key, durations, time.Now())
+	if err != nil {
 		log.Printf("segment travel: profile upsert failed: %v", err)
 		return segmentProfileFailed
 	}
@@ -795,6 +789,99 @@ func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 		return segmentProfileCreated
 	}
 	return segmentProfileUnchanged
+}
+
+type sqlExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func upsertSegmentProfile(db sqlExecer, key segmentProfileKey, sorted []float64, now time.Time) (float64, float64, error) {
+	median := nearestRank(sorted, 0.50)
+	p75 := nearestRank(sorted, 0.75)
+	_, err := db.Exec(`
+		INSERT INTO segment_travel_time_profiles
+		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min)
+		DO UPDATE SET
+			sample_count = excluded.sample_count,
+			median_sec = excluded.median_sec,
+			p75_sec = excluded.p75_sec,
+			updated_at = excluded.updated_at`,
+		key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, key.BucketStartMin,
+		len(sorted), median, p75, now.Unix(),
+	)
+	return median, p75, err
+}
+
+func rebuildSegmentProfiles(now time.Time) (int, error) {
+	pairs, err := queryRows(`SELECT DISTINCT route_id, direction_id FROM segment_travel_time_samples`, nil, func(rows *sql.Rows) ([2]int, error) {
+		var p [2]int
+		err := rows.Scan(&p[0], &p[1])
+		return p, err
+	})
+	if err != nil {
+		return 0, err
+	}
+	stored := 0
+	for _, p := range pairs {
+		n, err := rebuildRouteSegmentProfiles(p[0], p[1], now)
+		stored += n
+		if err != nil {
+			return stored, fmt.Errorf("route %d direction %d: %w", p[0], p[1], err)
+		}
+	}
+	return stored, nil
+}
+
+func rebuildRouteSegmentProfiles(routeID, directionID int, now time.Time) (int, error) {
+	type sample struct {
+		key        segmentProfileKey
+		duration   float64
+		observedAt int64
+	}
+	samples, err := queryRows(`
+		SELECT from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at
+		FROM segment_travel_time_samples
+		WHERE route_id = ? AND direction_id = ?`,
+		[]any{routeID, directionID},
+		func(rows *sql.Rows) (sample, error) {
+			s := sample{key: segmentProfileKey{RouteID: routeID, DirectionID: directionID}}
+			err := rows.Scan(&s.key.FromStopID, &s.key.ToStopID, &s.key.DayType, &s.key.BucketStartMin, &s.duration, &s.observedAt)
+			return s, err
+		})
+	if err != nil {
+		return 0, err
+	}
+	starts := map[string]int64{}
+	groups := map[segmentProfileKey][]float64{}
+	for _, s := range samples {
+		start, ok := starts[s.key.DayType]
+		if !ok {
+			start = dayWindowStart(s.key.DayType, now)
+			starts[s.key.DayType] = start
+		}
+		if s.observedAt < start {
+			continue
+		}
+		groups[s.key] = append(groups[s.key], s.duration)
+		allDay := s.key
+		allDay.BucketStartMin = allDaySegmentBucket
+		groups[allDay] = append(groups[allDay], s.duration)
+	}
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for key, durations := range groups {
+		sort.Float64s(durations)
+		if _, _, err := upsertSegmentProfile(tx, key, durations, now); err != nil {
+			return 0, err
+		}
+	}
+	return len(groups), tx.Commit()
 }
 
 func loadSegmentProfileSnapshot(key segmentProfileKey) (int, float64, float64, bool) {
@@ -843,13 +930,13 @@ func pruneOldSegmentSamples() {
 		return
 	}
 	lastSegmentPrune = time.Now()
-	res, err := database.DB.Exec(`DELETE FROM segment_travel_time_samples WHERE observed_at < ?`, time.Now().Add(-segmentSampleRetention).Unix())
+	n, err := pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, time.Now())
 	if err != nil {
 		log.Printf("segment travel: sample prune failed: %v", err)
 		return
 	}
-	if n, err := res.RowsAffected(); err == nil && n > 0 {
-		log.Printf("segment travel: pruned %d samples older than %s", n, segmentSampleRetention)
+	if n > 0 {
+		log.Printf("segment travel: pruned %d samples older than %s and outside their day's window", n, segmentSampleRetention)
 	}
 }
 
@@ -920,7 +1007,9 @@ func selectSegmentProfiles(rows []segmentProfileRow, dayType string, bucket int)
 		if !ok {
 			continue
 		}
-		if r.dayType != dayType {
+		if calendar.Siblings(r.dayType, dayType) {
+			priority += segmentProfileSiblingDayPenalty
+		} else if r.dayType != dayType {
 			priority += segmentProfileOtherDayPenalty
 		}
 		if current, exists := selected[r.pair]; !exists || priority < current.priority {
@@ -939,10 +1028,11 @@ func selectSegmentProfiles(rows []segmentProfileRow, dayType string, bucket int)
 }
 
 const (
-	segmentProfileExactPriority   = 0
-	segmentProfileNeighborBase    = 100
-	segmentProfileAllDayPriority  = 10_000
-	segmentProfileOtherDayPenalty = 100_000
+	segmentProfileExactPriority     = 0
+	segmentProfileNeighborBase      = 100
+	segmentProfileAllDayPriority    = 10_000
+	segmentProfileSiblingDayPenalty = 50_000
+	segmentProfileOtherDayPenalty   = 100_000
 )
 
 func segmentProfilePriority(profileBucket, wantedBucket int) (int, bool) {
@@ -964,9 +1054,13 @@ func segmentProfilePriority(profileBucket, wantedBucket int) (int, bool) {
 
 func segmentProfileConfidence(priority, sampleCount int) float64 {
 	bucketFactor := 1.0
-	if priority >= segmentProfileOtherDayPenalty {
+	switch {
+	case priority >= segmentProfileOtherDayPenalty:
 		priority -= segmentProfileOtherDayPenalty
 		bucketFactor = 0.5
+	case priority >= segmentProfileSiblingDayPenalty:
+		priority -= segmentProfileSiblingDayPenalty
+		bucketFactor = 0.75
 	}
 	switch {
 	case priority >= segmentProfileAllDayPriority:
@@ -976,17 +1070,6 @@ func segmentProfileConfidence(priority, sampleCount int) float64 {
 	}
 	countFactor := float64(sampleCount) / float64(sampleCount+10)
 	return bucketFactor * countFactor
-}
-
-func segmentDayType(t time.Time) string {
-	switch t.Weekday() {
-	case time.Saturday:
-		return "saturday"
-	case time.Sunday:
-		return "sunday"
-	default:
-		return "weekday"
-	}
 }
 
 func segmentBucketStartMin(t time.Time) int {
