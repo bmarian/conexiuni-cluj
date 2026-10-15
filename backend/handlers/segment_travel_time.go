@@ -755,8 +755,10 @@ func recomputeSegmentProfile(key segmentProfileKey) segmentProfileWriteResult {
 		  AND from_stop_id = ?
 		  AND to_stop_id = ?
 		  AND day_type = ?
-		  AND observed_at >= ?`
-	args := []any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType, dayWindowStart(key.DayType, time.Now())}
+		  AND `
+	inWindow, windowArgs := currentDayWindow(key.DayType, time.Now()).sql("observed_at")
+	query += inWindow
+	args := append([]any{key.RouteID, key.DirectionID, key.FromStopID, key.ToStopID, key.DayType}, windowArgs...)
 	if key.BucketStartMin != allDaySegmentBucket {
 		query += ` AND bucket_start_min = ?`
 		args = append(args, key.BucketStartMin)
@@ -853,15 +855,15 @@ func rebuildRouteSegmentProfiles(routeID, directionID int, now time.Time) (int, 
 	if err != nil {
 		return 0, err
 	}
-	starts := map[string]int64{}
+	windows := map[string]dayWindow{}
 	groups := map[segmentProfileKey][]float64{}
 	for _, s := range samples {
-		start, ok := starts[s.key.DayType]
+		w, ok := windows[s.key.DayType]
 		if !ok {
-			start = dayWindowStart(s.key.DayType, now)
-			starts[s.key.DayType] = start
+			w = currentDayWindow(s.key.DayType, now)
+			windows[s.key.DayType] = w
 		}
-		if s.observedAt < start {
+		if !w.contains(s.observedAt) {
 			continue
 		}
 		groups[s.key] = append(groups[s.key], s.duration)

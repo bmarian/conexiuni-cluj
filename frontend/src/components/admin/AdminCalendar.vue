@@ -32,8 +32,29 @@ type WindowTuning = {
   at: number
 }
 
+type SeedTuning = {
+  fill: string
+  previous: number
+  last_year: number
+  days: number
+  samples: number
+  changed: boolean
+  at: number
+}
+
+type LearningWindow = {
+  day_type: string
+  days: number
+  from?: string
+  seed: string
+  last_year_days: number
+  last_year_from?: string
+  last_year_to?: string
+  evaluation?: SeedTuning
+}
+
 type Learning = {
-  windows: {day_type: string; days: number; from: string}[]
+  windows: LearningWindow[]
   tuning?: WindowTuning
   candidates: number[]
   min_days: number
@@ -253,6 +274,17 @@ const tuningLine = computed(() => {
   return `${head}: ${scores}; the school-term profile alone missed by ${Math.round(t.baseline)} s. ${verdict}`
 })
 
+function seedLine(w: LearningWindow) {
+  const fill = w.seed === 'last_year' ? 'A new period starts from the same days last year' : 'A new period starts from the days before the break'
+  const e = w.evaluation
+  const minDays = view.value?.learning.min_days ?? 0
+  if (!e) return `${fill}.`
+  const head = `checked ${dayName(dateOf(e.at))} over ${e.days} ${e.days === 1 ? 'day' : 'days'}`
+  if (!e.samples) return `${fill}; ${head}, nothing to compare yet.`
+  const verdict = e.days < minDays ? 'Too few days to decide yet.' : e.changed ? 'Switched.' : 'Kept.'
+  return `${fill}; ${head}: the days before the break missed by ${Math.round(e.previous)} s, last year by ${Math.round(e.last_year)} s. ${verdict}`
+}
+
 const holidays = computed(() => {
   const all = view.value?.holidays ?? []
   return showAllHolidays.value ? all : all.slice(0, 5)
@@ -337,7 +369,11 @@ onMounted(load)
         <li v-for="w in view.learning.windows" :key="w.day_type">
           <span class="name">{{ windowLabels[w.day_type] ?? w.day_type }}</span>
           <span>last {{ w.days }} {{ w.days === 1 ? 'day' : 'days' }}</span>
-          <span class="muted">since {{ dayName(w.from) }}</span>
+          <span v-if="w.from" class="muted">since {{ dayName(w.from) }}</span>
+          <span v-if="w.last_year_days && w.last_year_from && w.last_year_to" class="muted">
+            {{ w.last_year_days }} from last year, {{ dayName(w.last_year_from) }} to {{ dayName(w.last_year_to) }}
+          </span>
+          <span class="muted detail">{{ seedLine(w) }}</span>
         </li>
       </ul>
       <p class="text note">{{ tuningLine }}</p>

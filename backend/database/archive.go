@@ -703,6 +703,15 @@ func ArchivedSegmentSamples(from, to int64, fn func(route, direction, fromStop, 
 	return rows.Err()
 }
 
+func ArchiveHasSegmentSamples(from, to int64) (bool, error) {
+	if Archive == nil {
+		return false, nil
+	}
+	var found bool
+	err := Archive.QueryRow(`SELECT EXISTS (SELECT 1 FROM segment_travel_time_samples WHERE observed_at >= ? AND observed_at < ?)`, from, to).Scan(&found)
+	return found, err
+}
+
 func Tuning(name string) (string, bool, error) {
 	if Archive == nil {
 		return "", false, nil

@@ -72,12 +72,13 @@ func TestDayWindowsCountDaysOfTheirOwnType(t *testing.T) {
 		calendar.Sunday:          "2026-10-18",
 	}
 	for day, want := range cases {
-		got := time.Unix(dayWindowStart(day, now), 0).In(database.StatsLocation()).Format("2006-01-02")
+		since, _ := currentDayWindow(day, now).since()
+		got := time.Unix(since, 0).In(database.StatsLocation()).Format("2006-01-02")
 		if got != want {
 			t.Errorf("%s window starts %s, want %s", day, got, want)
 		}
 	}
-	if got, want := dayWindowStart("bogus", now), now.Add(-legacyDayWindow).Unix(); got != want {
+	if got, want := currentDayWindow("bogus", now).earliest(), now.Add(-legacyDayWindow).Unix(); got != want {
 		t.Errorf("unknown day type window %d, want 14 days back %d", got, want)
 	}
 }

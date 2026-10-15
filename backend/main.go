@@ -73,11 +73,29 @@ func runReplay(archivePath, span string) {
 	}
 }
 
+func runShift(archivePath, date string) {
+	day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
+	if err != nil {
+		log.Fatalf("shift: want a date like 2026-09-28, got %q", date)
+	}
+	if err := database.ConnectArchive(archivePath); err != nil {
+		log.Fatalf("Failed to open the archive: %v", err)
+	}
+	defer func() { _ = database.Archive.Close() }()
+	if err := handlers.LoadCalendar(); err != nil {
+		log.Fatalf("Failed to load the calendar: %v", err)
+	}
+	if err := handlers.RunShift(day, os.Stdout); err != nil {
+		log.Fatalf("shift: %v", err)
+	}
+}
+
 func main() {
 	_ = os.Setenv("TZ", "Europe/Bucharest")
 
 	bustCache := flag.Bool("bust-cache", false, "invalidate all cached entries, then exit without starting the server")
 	replay := flag.String("replay", "", "compare the calendar learning windows with the old 14-day window on archived days FROM:TO (YYYY-MM-DD:YYYY-MM-DD), print the results and exit")
+	shift := flag.String("shift", "", "print whether archived travel times stepped up on YYYY-MM-DD against the 10 days of its kind before it, then exit")
 	flag.Parse()
 
 	config := Load()
@@ -88,6 +106,10 @@ func main() {
 	}
 	if *replay != "" {
 		runReplay(config.ArchiveDatabasePath, *replay)
+		return
+	}
+	if *shift != "" {
+		runShift(config.ArchiveDatabasePath, *shift)
 		return
 	}
 
