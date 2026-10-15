@@ -336,6 +336,11 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		recordTurnaroundDeparture(v.ID, tracker.TripID, state.SegmentStartedAt)
 	}
 
+	// Only stops after the one the run was matched at: that match already sat close to the timetable.
+	if state.MatchedDepartureMin >= 0 {
+		noteTimetableArrival(tracker, nearStopPos, state.MatchedDepartureMin, observedAt, loc)
+	}
+
 	var sample pendingSegmentSample
 	status := segmentObservedReset
 	if state.HasSegmentStart {
@@ -513,7 +518,17 @@ func tripDepartures(tracker *tripSegmentTracker, dayType string) []float64 {
 
 // Seconds from the trip's first stop to each stop, with this hour's learned segments.
 func tripCumulativeOffsets(tracker *tripSegmentTracker, dayType string, bucket int) []float64 {
-	key := tracker.TripID + "|" + dayType + "|" + strconv.Itoa(bucket)
+	return cachedTripOffsets(tracker, tracker.TripID+"|"+dayType+"|"+strconv.Itoa(bucket), func(trip []models.StopTime, ordered []int) {
+		applySegmentProfilesToTrip(trip, ordered, snapshotSegmentProfiles(tracker.RouteID, tracker.DirectionID, dayType, bucket))
+	})
+}
+
+// The same at the seed pace, which is all CTP's departures say about the other stops.
+func tripSeedOffsets(tracker *tripSegmentTracker) []float64 {
+	return cachedTripOffsets(tracker, tracker.TripID+"|seed", nil)
+}
+
+func cachedTripOffsets(tracker *tripSegmentTracker, key string, learn func(trip []models.StopTime, ordered []int)) []float64 {
 	tripScheduleCache.Lock()
 	tripScheduleCacheFor(ProfileSnapshotPeriod())
 	offsets, ok := tripScheduleCache.offsets[key]
@@ -531,7 +546,9 @@ func tripCumulativeOffsets(tracker *tripSegmentTracker, dayType string, bucket i
 		for i := range ordered {
 			ordered[i] = i
 		}
-		applySegmentProfilesToTrip(trip, ordered, snapshotSegmentProfiles(tracker.RouteID, tracker.DirectionID, dayType, bucket))
+		if learn != nil {
+			learn(trip, ordered)
+		}
 		total := 0.0
 		offsets = make([]float64, len(trip))
 		for i, st := range trip {

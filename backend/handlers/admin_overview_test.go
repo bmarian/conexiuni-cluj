@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"conexiuni-cluj/database"
 	"conexiuni-cluj/predictions"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -88,6 +90,45 @@ func TestShownTimesScoredOnArrival(t *testing.T) {
 	noteShownTimes(&liveTable{AsOf: asOf.Add(40 * time.Second)})
 	if len(accuracy.pending) != 0 {
 		t.Fatalf("a bus gone from the table for two polls is still pending")
+	}
+}
+
+func TestTimetableArrivalScoredAgainstOursAndCTP(t *testing.T) {
+	installDelayRoute(t)
+	tripScheduleCache.Lock()
+	tripScheduleCache.departures = nil
+	tripScheduleCache.Unlock()
+	at := weekdayAt(23, 8, 7)
+	if _, err := database.DB.Exec(`INSERT INTO schedule_delay_profiles
+		(route_id, direction_id, day_type, bucket_start_min, run_count, delay_sec, spread_sec, updated_at)
+		VALUES (?, 0, 'weekday', ?, 20, 180, 30, 0)`, delayRouteID, segmentBucketStartMin(at)); err != nil {
+		t.Fatalf("delay: %v", err)
+	}
+	tracker := &tripSegmentTracker{TripID: fmt.Sprintf("%d_0", delayRouteID), RouteID: delayRouteID}
+
+	counts := func() map[string]int {
+		rows, err := database.MetricRows("timetable_error", database.StatsDaysAgo(0))
+		if err != nil {
+			t.Fatalf("rows: %v", err)
+		}
+		out := map[string]int{}
+		for _, r := range rows {
+			out[r.Key] += r.Count
+		}
+		return out
+	}
+	before := counts()
+	// The 08:00 run at the third stop (4 min by the seed pace) at 08:07: three minutes late
+	// by CTP's departure alone, on time by ours, which knows it runs three minutes late.
+	noteTimetableArrival(tracker, 2, 8*60, at, delayZone)
+	got := map[string]int{}
+	for k, n := range counts() {
+		if d := n - before[k]; d != 0 {
+			got[k] = d
+		}
+	}
+	if got["ours|0"] != 1 || got["ctp|6"] != 1 || len(got) != 2 {
+		t.Errorf("want ours on time and ctp 3 min late, got %v", got)
 	}
 }
 

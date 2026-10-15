@@ -75,10 +75,14 @@ type accuracyDay struct {
 }
 
 type adminAccuracy struct {
-	Today []accuracyStats `json:"today"`
-	Week  []accuracyStats `json:"week"`
-	Kinds []accuracyStats `json:"kinds"`
-	Daily []accuracyDay   `json:"daily"`
+	Today     []accuracyStats `json:"today"`
+	Week      []accuracyStats `json:"week"`
+	Kinds     []accuracyStats `json:"kinds"`
+	Daily     []accuracyDay   `json:"daily"`
+	Timetable struct {
+		Today []accuracyStats `json:"today"`
+		Week  []accuracyStats `json:"week"`
+	} `json:"timetable"`
 }
 
 type peopleDay struct {
@@ -347,6 +351,27 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 	for i := adminTrendDays - 1; i >= 0; i-- {
 		date := database.StatsDaysAgo(i)
 		a.Daily = append(a.Daily, accuracyDay{Date: date, accuracyStats: get(daily, date).summarize(date)})
+	}
+
+	rows, err = database.MetricRows("timetable_error", weekStart)
+	if err != nil {
+		return a, err
+	}
+	timetableToday, timetableWeek := map[string]errorHistogram{}, map[string]errorHistogram{}
+	for _, r := range rows {
+		source, rawBin, ok := strings.Cut(r.Key, "|")
+		bin, err := strconv.Atoi(rawBin)
+		if !ok || err != nil {
+			continue
+		}
+		get(timetableWeek, source).add(bin, r.Count)
+		if r.Date == today {
+			get(timetableToday, source).add(bin, r.Count)
+		}
+	}
+	for _, source := range []string{"ours", "ctp"} {
+		a.Timetable.Today = append(a.Timetable.Today, get(timetableToday, source).summarize(source))
+		a.Timetable.Week = append(a.Timetable.Week, get(timetableWeek, source).summarize(source))
 	}
 	return a, nil
 }

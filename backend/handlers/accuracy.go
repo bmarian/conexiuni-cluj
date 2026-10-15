@@ -129,7 +129,27 @@ func accuracyStatsKey(s shownTime, errSec int64) string {
 			horizon = h.Label
 		}
 	}
+	return etaKindNames[s.kind] + "|" + horizon + "|" + strconv.Itoa(errorBin(errSec))
+}
+
+func errorBin(errSec int64) int {
 	errSec = max(-accuracyMaxErrSec, min(accuracyMaxErrSec, errSec))
-	bin := int(math.Floor(float64(errSec) / accuracyBinSec))
-	return etaKindNames[s.kind] + "|" + horizon + "|" + strconv.Itoa(bin)
+	return int(math.Floor(float64(errSec) / accuracyBinSec))
+}
+
+// noteTimetableArrival scores a run matched to its departure at a stop it reached, twice:
+// against our timetable as the prediction table lists it, and against CTP's departure alone.
+func noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
+	arrivedMin, bucket := localMinutes(float64(at.Unix()), loc)
+	dayType := segmentDayType(at)
+	learned, seed := tripCumulativeOffsets(tracker, dayType, bucket), tripSeedOffsets(tracker)
+	if pos >= len(learned) || pos >= len(seed) {
+		return
+	}
+	delay, _ := snapshotScheduleDelay(tracker.RouteID, tracker.DirectionID, dayType, bucket)
+	miss := func(offsetSec float64) string {
+		return strconv.Itoa(errorBin(int64(math.Round(wrapDayMinutes(arrivedMin-departureMin-offsetSec/60) * 60))))
+	}
+	database.RecordEvent("timetable_error", "ours|"+miss(delay+learned[pos]))
+	database.RecordEvent("timetable_error", "ctp|"+miss(seed[pos]))
 }

@@ -41,6 +41,7 @@ type Overview = {
     week: Accuracy[]
     kinds: Accuracy[]
     daily: (Accuracy & {date: string})[]
+    timetable?: {today: Accuracy[]; week: Accuracy[]}
   }
   people: {
     today: number
@@ -228,9 +229,9 @@ function dayName(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})
 }
 
-function bias(sec: number) {
+function came(sec: number) {
   if (Math.abs(sec) < 15) return 'on time'
-  return sec > 0 ? `${dur(sec)} later than shown` : `${dur(sec)} earlier than shown`
+  return sec > 0 ? `${dur(sec)} late` : `${dur(sec)} early`
 }
 
 const horizonLabels: Record<string, string> = {
@@ -270,13 +271,16 @@ const updatedAt = computed(() => data.value
 const accuracyAll = computed(() => data.value?.accuracy.today.find(a => a.label === 'all'))
 const accuracyWeekAll = computed(() => data.value?.accuracy.week.find(a => a.label === 'all'))
 
-const accuracyRows = computed(() => {
-  const d = data.value
-  if (!d) return []
-  return d.accuracy.today
-    .filter(a => a.label !== 'all')
-    .map(today => ({today, week: d.accuracy.week.find(w => w.label === today.label)}))
-})
+const liveRows = computed(() => (data.value?.accuracy.week ?? []).filter(a => a.label !== 'all'))
+
+const timetableLabels: Record<string, string> = {
+  ours: 'Ours',
+  ctp: 'CTP alone',
+}
+
+const timetableRows = computed(() => data.value?.accuracy.timetable?.week ?? [])
+const timetableToday = (label: string) => data.value?.accuracy.timetable?.today.find(a => a.label === label)
+const timetableWeekN = computed(() => timetableRows.value.find(a => a.label === 'ours')?.n ?? 0)
 
 const summary = computed(() => {
   const d = data.value
@@ -442,52 +446,64 @@ function quotaShare(used: number, limit: number) {
           </section>
 
           <section>
-            <div class="label"><span>Live times</span><i></i></div>
-            <template v-if="accuracyAll?.n">
-              <div class="figures">
-                <div>
-                  <b>{{ pct(accuracyAll.within_1) }}</b>
-                  <span>within a minute of when the bus came, today</span>
-                </div>
-                <div>
-                  <b>{{ dur(accuracyAll.median_abs_sec) }}</b>
-                  <span>typical miss; buses come {{ bias(accuracyAll.bias_sec) }}</span>
-                </div>
+            <div class="label"><span>Accuracy</span><i></i></div>
+            <div class="figures">
+              <div>
+                <b>{{ accuracyAll?.n ? pct(accuracyAll.within_1) : '–' }}</b>
+                <span>{{ accuracyAll?.n ? 'of live times right within a minute today' : 'no live times scored yet today' }}</span>
               </div>
-            </template>
-            <p v-else class="line-text">No arrivals scored yet today.</p>
+              <div>
+                <b>{{ timetableToday('ours')?.n ? pct(timetableToday('ours')!.within_1) : '–' }}</b>
+                <span v-if="timetableToday('ours')?.n">
+                  of our timetable right within a minute today; CTP alone {{ pct(timetableToday('ctp')?.within_1 ?? 0) }}
+                </span>
+                <span v-else>timetable not scored yet today</span>
+              </div>
+            </div>
 
-            <table class="table">
+            <p class="line-text">How close each time was to the bus reaching the stop, last 7 days.</p>
+            <table class="table accuracy">
               <thead>
                 <tr>
-                  <th>Shown</th>
-                  <th>Today</th>
-                  <th>7 days</th>
-                  <th>Typical</th>
-                  <th>1 in 10</th>
+                  <th></th>
+                  <th>Right within a minute</th>
+                  <th>1 in 10 off by</th>
+                  <th>Buses came</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="r in accuracyRows" :key="r.today.label">
-                  <td>{{ horizonLabels[r.today.label] ?? r.today.label }}</td>
-                  <td>{{ r.today.n ? pct(r.today.within_1) : '–' }}</td>
-                  <td>{{ r.week?.n ? pct(r.week.within_1) : '–' }}</td>
-                  <td>{{ r.week?.n ? dur(r.week.median_abs_sec) : '–' }}</td>
-                  <td>{{ r.week?.n ? dur(r.week.p90_abs_sec) : '–' }}</td>
+                <tr class="group"><th colspan="4">Live time, when it said</th></tr>
+                <tr v-for="r in liveRows" :key="r.label">
+                  <td>{{ horizonLabels[r.label] ?? r.label }}</td>
+                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
+                  <td>{{ r.n ? dur(r.p90_abs_sec) : '–' }}</td>
+                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
+                </tr>
+              </tbody>
+              <tbody>
+                <tr class="group"><th colspan="4">Timetable</th></tr>
+                <tr v-for="r in timetableRows" :key="r.label">
+                  <td>{{ timetableLabels[r.label] ?? r.label }}</td>
+                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
+                  <td>{{ r.n ? dur(r.p90_abs_sec) : '–' }}</td>
+                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
                 </tr>
               </tbody>
             </table>
             <p class="note">
-              Share of live times within a minute of the bus reaching the stop; typical and worst
-              tenth of misses over 7 days<template v-if="accuracyWeekAll?.n"> ({{ num(accuracyWeekAll.n) }} arrivals)</template>.
+              A live time counts once for every minute a screen showed it<template v-if="accuracyWeekAll?.n"> ({{ num(accuracyWeekAll.n) }})</template>;
+              the timetable at every stop a bus reached after it was matched to its departure<template v-if="timetableWeekN"> ({{ num(timetableWeekN) }})</template>.
+              CTP only prints when buses leave each end, so between stops its time is that departure plus the distance at a flat bus pace,
+              where the app starts before it learns anything.
             </p>
 
             <AdminDayBars :days="accuracyBars" :max="1"/>
 
-            <ul class="rows plain">
+            <h3>Live times by where the bus was, 7 days</h3>
+            <ul class="rows">
               <li v-for="k in data.accuracy.kinds" :key="k.label">
                 <span class="name">{{ kindLabels[k.label] ?? k.label }}</span>
-                <span class="count">{{ k.n ? `${pct(k.within_1)} · ${num(k.n)}` : '–' }}</span>
+                <span class="count">{{ k.n ? `${pct(k.within_1)} of ${num(k.n)}` : '–' }}</span>
               </li>
             </ul>
           </section>
@@ -927,10 +943,6 @@ h3 {
   border-bottom: 0;
 }
 
-.rows.plain {
-  margin-top: 0.75rem;
-}
-
 .rows .name {
   flex: 1;
   min-width: 0;
@@ -993,6 +1005,19 @@ h3 {
 .table th + th,
 .table td + td {
   padding-left: 0.75rem;
+}
+
+.accuracy thead th {
+  vertical-align: bottom;
+}
+
+.table .group th {
+  padding-top: 0.75rem;
+  text-align: left;
+}
+
+.table tbody:first-of-type .group th {
+  padding-top: 0.25rem;
 }
 
 .table + :deep(.day-bars),
