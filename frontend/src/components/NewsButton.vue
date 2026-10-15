@@ -5,14 +5,9 @@ import {useRoute, useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {apiRequest} from '@/utils/api'
-import {changeDirection, changeKindLabels, changeTitle, formatChangeDate} from '@/utils/routeChanges'
+import {changeDirection, changeKindLabels, changeTitle} from '@/utils/routeChanges'
+import {buildNewsFeed, newsSource, type NewsItem} from '@/utils/newsFeed'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-
-interface NewsItem {
-  url: string
-  date: string
-  title: string
-}
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
 
@@ -55,13 +50,21 @@ watch([isOpen, () => routeUpdates.changes], ([open], [wasOpen]) => {
   routeUpdates.markAllSeen()
 })
 
-const changeRows = computed(() => routeUpdates.changes.map((change) => ({
-  change,
-  date: formatChangeDate(change.detected_at, locale.value),
-  title: changeTitle(change, t),
-  kinds: changeKindLabels(change, t).join(' · '),
-  isNew: freshIds.value.has(change.id),
-})))
+const changes = computed(() => settings.showTimetableChanges ? routeUpdates.changes : [])
+
+const feed = computed(() => buildNewsFeed(changes.value, newsItems.value, new Date(), locale.value, t).map((entry) =>
+  entry.kind === 'change'
+    ? {
+      ...entry,
+      title: changeTitle(entry.change, t),
+      meta: [entry.date, ...changeKindLabels(entry.change, t)].join(' · '),
+      isNew: freshIds.value.has(entry.change.id),
+    }
+    : {...entry, title: entry.item.title, meta: `${entry.date} · ${newsSource(entry.item.url)}`, isNew: false},
+))
+
+const feedLoading = computed(() => loading.value || (settings.showTimetableChanges && routeUpdates.loading))
+const feedError = computed(() => error.value || (settings.showTimetableChanges && routeUpdates.error))
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
@@ -147,85 +150,69 @@ const topValue = computed(() => props.topOffset)
       <p class="news-popover-title">{{ t('news') }}</p>
 
       <div class="news-scroll">
-        <section v-if="settings.showTimetableChanges" class="news-section">
-          <div class="news-section-head">
-            <span class="news-section-title section-label-text">{{ t('newsYourLines') }}</span>
-            <span class="news-rule"></span>
-            <span class="news-source">{{ t('newsSourceOurs') }}</span>
-          </div>
-
-          <p v-if="!routeUpdates.followed.length" class="news-hint">{{ t('newsFollowHint') }}</p>
-          <div v-else-if="routeUpdates.loading && !changeRows.length" class="news-state">
-            <span>{{ t('newsLoading') }}</span>
-          </div>
-          <div v-else-if="routeUpdates.error && !changeRows.length" class="news-state news-state-error">
-            <span>{{ t('newsError') }}</span>
-          </div>
-          <p v-else-if="!changeRows.length" class="news-hint">{{ t('newsNoChanges') }}</p>
-          <div v-else class="news-list" data-kbd-section="news-ours">
+        <div v-if="feed.length" class="news-list" data-kbd-section="news">
+          <template v-for="entry in feed" :key="entry.key">
             <button
-              v-for="row in changeRows"
-              :key="row.change.id"
+              v-if="entry.kind === 'change'"
               type="button"
-              class="news-item news-change"
-              :class="{ 'is-new': row.isNew }"
-              :disabled="!row.change.route_id"
-              :data-kbd-item="`change-${row.change.id}`"
-              @click="openChange(row.change)"
+              class="news-item"
+              :class="{ 'is-new': entry.isNew }"
+              :disabled="!entry.change.route_id"
+              :data-kbd-item="entry.key"
+              @click="openChange(entry.change)"
             >
-              <span class="news-change-badge" :style="{ backgroundColor: row.change.route_color || '#64748b' }">
-                {{ row.change.route_short_name }}
-              </span>
-              <span class="news-change-body">
-                <span class="news-date">
-                  {{ row.date }}
-                  <span v-if="row.isNew" class="sr-only">{{ t('newsNew') }}</span>
+              <span class="news-lead">
+                <span class="news-change-badge" :style="{ backgroundColor: entry.change.route_color || '#64748b' }">
+                  {{ entry.change.route_short_name }}
                 </span>
-                <span class="news-change-title">{{ row.title }}</span>
-                <span class="news-change-kinds">{{ row.kinds }}</span>
+              </span>
+              <span class="news-body">
+                <span class="news-title">
+                  {{ entry.title }}
+                  <span v-if="entry.isNew" class="news-unread"><span class="sr-only">{{ t('newsNew') }}</span></span>
+                </span>
+                <span class="news-meta">{{ entry.meta }}</span>
               </span>
             </button>
-          </div>
-        </section>
-
-        <section class="news-section">
-          <div class="news-section-head">
-            <span class="news-section-title section-label-text">{{ t('newsCtp') }}</span>
-            <span class="news-rule"></span>
-            <span class="news-source">ctpcj.ro</span>
-          </div>
-
-          <div v-if="loading && newsItems.length === 0" class="news-state">
-            <span>{{ t('newsLoading') }}</span>
-          </div>
-          <div v-else-if="error && newsItems.length === 0" class="news-state news-state-error">
-            <span>{{ t('newsError') }}</span>
-          </div>
-          <div v-else-if="newsItems.length === 0" class="news-state">
-            <span>{{ t('newsEmpty') }}</span>
-          </div>
-          <div v-else class="news-list" data-kbd-section="news">
             <a
-              v-for="item in newsItems"
-              :key="item.url"
-              :href="item.url"
+              v-else
+              :href="entry.item.url"
               target="_blank"
               rel="noopener noreferrer"
               class="news-item"
-              :data-kbd-item="`news-${item.url}`"
+              :data-kbd-item="entry.key"
             >
-              <span class="news-date">{{ item.date }}</span>
-              <span class="news-title">
-                {{ item.title }}
-                <svg class="news-external" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true">
-                  <path d="M7 17 17 7M8 7h9v9"/>
+              <span class="news-lead" aria-hidden="true">
+                <span v-if="settings.legacyBlueActive" class="emoji-icon">📰</span>
+                <span v-else-if="settings.paperActive" class="news-lead-word">CTP</span>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     width="16" height="16">
+                  <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+                  <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
                 </svg>
               </span>
+              <span class="news-body">
+                <span class="news-title">{{ entry.title }}</span>
+                <span class="news-meta">
+                  {{ entry.meta }}
+                  <svg class="news-external" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                       aria-hidden="true">
+                    <path d="M7 17 17 7M8 7h9v9"/>
+                  </svg>
+                </span>
+              </span>
             </a>
-          </div>
-        </section>
+          </template>
+        </div>
+        <div v-else-if="feedLoading" class="news-state">{{ t('newsLoading') }}</div>
+        <div v-else-if="feedError" class="news-state news-state-error">{{ t('newsError') }}</div>
+        <div v-else class="news-state">{{ t('newsEmpty') }}</div>
+
+        <p v-if="settings.showTimetableChanges && !routeUpdates.followed.length" class="news-hint">
+          {{ t('newsFollowHint') }}
+        </p>
       </div>
     </div>
   </div>
@@ -355,50 +342,8 @@ const topValue = computed(() => props.topOffset)
 .news-scroll {
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
   overflow-y: auto;
   min-height: 0;
-}
-
-.news-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.news-section-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.2rem;
-}
-
-.news-section-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-.news-rule {
-  flex: 1;
-  height: 1px;
-  background: #e2e8f0;
-}
-
-.news-source {
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: #94a3b8;
-  white-space: nowrap;
-}
-
-.news-root.is-dark .news-section-title,
-.news-root.is-dark .news-source {
-  color: #64748b;
-}
-
-.news-root.is-dark .news-rule {
-  background: #334155;
 }
 
 .news-hint {
@@ -435,17 +380,22 @@ const topValue = computed(() => props.topOffset)
 .news-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .news-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: 0.4rem 0.25rem;
-  border-radius: 0.375rem;
-  text-decoration: none;
+  align-items: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.45rem 0.25rem;
+  border: 0;
   border-bottom: 1px solid #f1f5f9;
+  border-radius: 0.375rem;
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
   transition: background 100ms ease;
 }
 
@@ -457,6 +407,11 @@ const topValue = computed(() => props.topOffset)
   background: #f8fafc;
 }
 
+.news-item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .news-root.is-dark .news-item {
   border-bottom-color: #1e293b;
 }
@@ -465,31 +420,25 @@ const topValue = computed(() => props.topOffset)
   background: #334155;
 }
 
-.news-change {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.5rem;
-  width: 100%;
-  border-top: 0;
-  border-left: 0;
-  border-right: 0;
-  background: transparent;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
+.news-lead {
+  flex-shrink: 0;
+  min-width: 2.25rem;
+  height: 1.5rem;
+  margin-top: 0.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
 }
 
-.news-change:disabled {
-  cursor: default;
-  opacity: 0.6;
+.news-root.is-dark .news-lead {
+  color: #94a3b8;
 }
 
 .news-change-badge {
-  flex-shrink: 0;
   min-width: 2rem;
   height: 1.5rem;
   padding: 0 0.375rem;
-  margin-top: 0.1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -499,69 +448,65 @@ const topValue = computed(() => props.topOffset)
   font-weight: 800;
 }
 
-.news-change-body {
+.news-lead-word {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.news-body {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
 }
 
-.news-change-title {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #0f172a;
-  line-height: 1.3;
-}
-
-.news-root.is-dark .news-change-title {
-  color: #f1f5f9;
-}
-
-.news-change.is-new .news-change-title {
-  font-weight: 800;
-}
-
-.news-change-kinds {
-  font-size: 0.7rem;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.news-root.is-dark .news-change-kinds {
-  color: #94a3b8;
-}
-
-.news-date {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #94a3b8;
-  white-space: nowrap;
-}
-
-.news-root.is-dark .news-date {
-  color: #475569;
-}
-
 .news-title {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 400;
   line-height: 1.35;
-  word-break: break-word;
+  color: #0f172a;
   overflow-wrap: anywhere;
-  text-transform: capitalize;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 .news-root.is-dark .news-title {
-  color: #93c5fd;
+  color: #f1f5f9;
+}
+
+.news-item.is-new .news-title {
+  font-weight: 700;
+}
+
+.news-unread {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-left: 0.2rem;
+  border-radius: 9999px;
+  background: #eab308;
+  vertical-align: middle;
+}
+
+.news-meta {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.news-root.is-dark .news-meta {
+  color: #94a3b8;
 }
 
 .news-external {
   display: inline-block;
   width: 0.65rem;
   height: 0.65rem;
-  margin-left: 0.15rem;
+  margin-left: 0.1rem;
   vertical-align: baseline;
   opacity: 0.7;
 }

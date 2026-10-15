@@ -2213,7 +2213,7 @@ html[data-legacy-blue] .news-item:hover {
   background: #fffcea !important;
 }
 
-html[data-legacy-blue] .news-date {
+html[data-legacy-blue] .news-meta {
   color: var(--xp-blue) !important;
   font-family: var(--xp-font) !important;
 }
@@ -2271,7 +2271,7 @@ html.dark[data-legacy-blue] .news-item:hover {
   background: #1a2a50 !important;
 }
 
-html.dark[data-legacy-blue] .news-date {
+html.dark[data-legacy-blue] .news-meta {
   color: var(--xp-blue) !important;
 }
 
@@ -2285,12 +2285,6 @@ html.dark[data-legacy-blue] .news-state {
 
 /* ── Route change news + banner ── */
 
-html[data-legacy-blue] .news-rule {
-  background: var(--xp-border) !important;
-}
-
-html[data-legacy-blue] .news-section-title,
-html[data-legacy-blue] .news-change-title,
 html[data-legacy-blue] .news-hint {
   font-family: var(--xp-font) !important;
 }

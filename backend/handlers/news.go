@@ -132,7 +132,7 @@ func fetchNewsFromCTP() ([]NewsItem, error) {
 					if strings.HasPrefix(u, "/") {
 						u = "https://www.ctpcj.ro" + u
 					}
-					title := strings.TrimSpace(newsNodeText(n))
+					title := strings.Join(strings.Fields(newsNodeText(n)), " ")
 					pending = append(pending, rawItem{url: u, title: title})
 				}
 			case "dateCreated":

@@ -269,7 +269,8 @@ html[data-arcade] .news-item:hover {
   background: #fef9c3 !important;
 }
 
-html[data-arcade] .news-date {
+html[data-arcade] .news-meta,
+html[data-arcade] .news-lead {
   color: #b45309 !important;
 }
 
@@ -507,7 +508,8 @@ html.dark[data-arcade] .news-item:hover {
   background: #2a2006 !important;
 }
 
-html.dark[data-arcade] .news-date {
+html.dark[data-arcade] .news-meta,
+html.dark[data-arcade] .news-lead {
   color: #d97706 !important;
 }
 

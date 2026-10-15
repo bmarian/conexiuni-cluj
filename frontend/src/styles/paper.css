@@ -925,7 +925,6 @@ html[data-paper] .kbd-help {
 html[data-paper] .settings-popover .section-label,
 html[data-paper] .news-popover-title,
 html[data-paper] .weather-popover-title,
-html[data-paper] .news-section-title,
 html[data-paper] .kbd-help-group-title,
 html[data-paper] .kbd-help-title {
   font-family: var(--pp-display) !important;
@@ -975,10 +974,6 @@ html[data-paper] .select-chevron {
 }
 
 /* news */
-html[data-paper] .news-rule {
-  background: var(--pp-ink) !important;
-}
-
 html[data-paper] .news-item {
   border-radius: 0 !important;
   border-bottom: 1px dotted var(--pp-ink) !important;
@@ -988,17 +983,14 @@ html[data-paper] .news-item:hover {
   background: var(--pp-paper-3) !important;
 }
 
-html[data-paper] .news-title,
-html[data-paper] .news-change-title {
+html[data-paper] .news-title {
   color: var(--pp-ink) !important;
   font-family: var(--pp-text) !important;
 }
 
-html[data-paper] .news-date,
-html[data-paper] .news-source,
+html[data-paper] .news-meta,
 html[data-paper] .news-hint,
-html[data-paper] .news-state,
-html[data-paper] .news-change-kinds {
+html[data-paper] .news-state {
   color: var(--pp-ink-2) !important;
   font-style: italic;
 }
@@ -1011,6 +1003,16 @@ html[data-paper] .news-change-badge {
   border-radius: 0 !important;
   font-family: var(--pp-display) !important;
   box-shadow: inset 0 0 0 1.5px var(--pp-ink);
+}
+
+html[data-paper] .news-lead {
+  color: var(--pp-ink) !important;
+  font-family: var(--pp-display);
+}
+
+html[data-paper] .news-unread {
+  border-radius: 0 !important;
+  background: var(--pp-red) !important;
 }
 
 /* weather */
