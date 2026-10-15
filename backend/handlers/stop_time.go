@@ -262,7 +262,7 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 		}
 		return nil
 	}
-	return batchReplace(clear, `
+	err := batchReplace(clear, `
 		INSERT OR REPLACE INTO stop_times
 		(trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -274,6 +274,11 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 			}
 			return nil
 		})
+	if err != nil {
+		return err
+	}
+	archiveStopTimes(stopTimes)
+	return nil
 }
 
 // Deletes orphaned rows and counts rows whose route_short_name drifted.

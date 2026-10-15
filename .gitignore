@@ -6,6 +6,7 @@ CLAUDE.md
 logs
 keys.env
 conexiuni-cluj.db*
+conexiuni-cluj-archive.db*
 api-tests/tranzy-api-docs.json
 .output.txt
 backend/.gocache

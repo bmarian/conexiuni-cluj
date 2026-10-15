@@ -166,6 +166,19 @@ type adminData struct {
 	Profiles       int                `json:"profiles"`
 	StandsToday    int                `json:"stands_today"`
 	DelaysAt       *time.Time         `json:"delays_at"`
+	Archive        adminArchive       `json:"archive"`
+}
+
+type adminArchive struct {
+	Enabled    bool       `json:"enabled"`
+	RanAt      *time.Time `json:"ran_at"`
+	TookSec    float64    `json:"took_sec"`
+	Copied     int        `json:"copied"`
+	Versions   int        `json:"versions"`
+	Error      string     `json:"error,omitempty"`
+	Bytes      int64      `json:"bytes"`
+	Samples    int        `json:"samples"`
+	OldestDate string     `json:"oldest_date,omitempty"`
 }
 
 type endpointToday struct {
@@ -706,7 +719,22 @@ func adminDataSection(now time.Time) (adminData, error) {
 		t := time.Unix(delaysAt, 0)
 		d.DelaysAt = &t
 	}
+	d.Archive = adminArchiveSection(lastArchiveRun())
 	return d, err
+}
+
+func adminArchiveSection(run *archiveRun) adminArchive {
+	a := adminArchive{Enabled: database.Archive != nil}
+	if run == nil {
+		return a
+	}
+	a.RanAt, a.TookSec = &run.At, run.Took.Seconds()
+	a.Copied, a.Versions, a.Error = run.Copied, run.Versions, run.Err
+	a.Bytes, a.Samples = run.Summary.Bytes, run.Summary.Samples
+	if run.Summary.OldestAt > 0 {
+		a.OldestDate = database.StatsDate(time.Unix(run.Summary.OldestAt, 0))
+	}
+	return a
 }
 
 func adminServerSection(now time.Time) (adminServer, error) {
@@ -807,6 +835,15 @@ func adminProblems(o *adminOverview, now time.Time) []string {
 	}
 	if o.Server.Errors > 0 {
 		out = append(out, fmt.Sprintf("%d server errors today", o.Server.Errors))
+	}
+	if a := o.Data.Archive; !a.Enabled {
+		out = append(out, "The archive database is not open, so no history is kept")
+	} else if a.Error != "" {
+		out = append(out, "The nightly archive failed: "+truncateText(a.Error, 160))
+	} else if a.RanAt == nil && now.Sub(serverStartedAt) > archiveStartDelay+time.Hour {
+		out = append(out, "The archive has not run since the server started "+humanDuration(now.Sub(serverStartedAt))+" ago")
+	} else if a.RanAt != nil && now.Sub(*a.RanAt) > archiveOverdue {
+		out = append(out, "The archive last ran "+humanDuration(now.Sub(*a.RanAt))+" ago")
 	}
 	if s := o.Server; s.DiskTotal > 0 {
 		if used := 1 - float64(s.DiskFree)/float64(s.DiskTotal); used >= diskFullWarning {

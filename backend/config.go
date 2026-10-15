@@ -22,6 +22,7 @@ type Config struct {
 	CtpCsvBaseUrl            string
 	Port                     string
 	DatabasePath             string
+	ArchiveDatabasePath      string
 	TranzyApiKey             string
 	TranzyLearningApiKey     string
 	TranzyCacheShelfLife     time.Duration
@@ -129,6 +130,7 @@ func Load() *Config {
 		CtpCsvBaseUrl:            getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
 		Port:                     getEnv("PORT", "6698"),
 		DatabasePath:             getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
+		ArchiveDatabasePath:      getEnv("ARCHIVE_DATABASE_PATH", "../conexiuni-cluj-archive.db"),
 		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
 		TranzyLearningApiKey:     getEnv("TRANZY_API_KEY_LEARNING", ""),
 		TranzyCacheShelfLife:     tranzyCacheShelfLife,

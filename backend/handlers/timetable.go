@@ -220,5 +220,6 @@ func storeTimetableInDB(t *models.Timetable) error {
 		return fmt.Errorf("error storing timetable: %w", err)
 	}
 
+	archiveTimetable(t, string(weekdaysJSON), string(saturdayJSON), string(sundayJSON))
 	return nil
 }

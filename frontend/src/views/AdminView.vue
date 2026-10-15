@@ -78,6 +78,17 @@ type Overview = {
     profiles: number
     stands_today: number
     delays_at: string | null
+    archive: {
+      enabled: boolean
+      ran_at: string | null
+      took_sec: number
+      copied: number
+      versions: number
+      error?: string
+      bytes: number
+      samples: number
+      oldest_date?: string
+    }
   }
   server: {
     started_at: string
@@ -615,6 +626,14 @@ function quotaShare(used: number, limit: number) {
               {{ num(data.data.samples_today) }} stop-to-stop times learned today, {{ num(data.data.samples_hour) }} in the last hour;
               {{ num(data.data.profiles) }} profiles. {{ num(data.data.stands_today) }} terminus stands today.
               Delays relearned {{ ago(data.data.delays_at) }}.
+            </p>
+            <p class="line-text">
+              <template v-if="!data.data.archive.enabled">No archive database, so no history is kept.</template>
+              <template v-else-if="data.data.archive.ran_at">
+                Archive holds {{ num(data.data.archive.samples) }} stop-to-stop times<template v-if="data.data.archive.oldest_date"> since {{ dayName(data.data.archive.oldest_date) }}</template>, {{ bytes(data.data.archive.bytes) }}.
+                Last copied {{ ago(data.data.archive.ran_at) }}: {{ num(data.data.archive.copied) }} rows, {{ num(data.data.archive.versions) }} new timetable or stop versions, in {{ dur(data.data.archive.took_sec) }}.
+              </template>
+              <template v-else>The archive makes its first copy a few minutes after the start.</template>
             </p>
 
             <h3>Timetable changes, 7 days</h3>

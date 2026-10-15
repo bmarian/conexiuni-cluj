@@ -93,6 +93,11 @@ func main() {
 	if err := database.InitSchemas(); err != nil {
 		log.Fatalf("Failed to initialize database schemas: %v", err)
 	}
+	if err := database.ConnectArchive(config.ArchiveDatabasePath); err != nil {
+		log.Printf("Warning: archive database unavailable, no history is kept: %v", err)
+	} else {
+		defer func() { _ = database.Archive.Close() }()
+	}
 	database.StartVacuumScheduler()
 	database.StartDSTCacheInvalidationScheduler()
 	database.StartStatsFlusher(config.LogRetentionDays)
@@ -148,6 +153,7 @@ func main() {
 		UsesDedicatedTranzyKey: usesDedicatedLearningKey,
 	})
 	handlers.StartScheduleDelayLearner(tranzyClient.Location())
+	handlers.StartArchiver(tranzyClient.Location())
 	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
 		log.Printf("Warning: push notifications disabled: %v", err)
 	}
