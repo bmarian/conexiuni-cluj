@@ -22,6 +22,23 @@ type CalendarDay = {
   override?: DayOverride
 }
 
+type WindowTuning = {
+  window: number
+  scores: Record<string, number>
+  baseline: number
+  days: number
+  samples: number
+  changed: boolean
+  at: number
+}
+
+type Learning = {
+  windows: {day_type: string; days: number; from: string}[]
+  tuning?: WindowTuning
+  candidates: number[]
+  min_days: number
+}
+
 type CalendarView = {
   today: {date: string; profile_day: string; schedule_day: string; holiday?: string}
   editable: boolean
@@ -29,6 +46,7 @@ type CalendarView = {
   years: SchoolYear[]
   holidays: {date: string; name: string; schedule: string}[]
   overrides: DayOverride[]
+  learning: Learning
 }
 
 const emit = defineEmits<{saved: []}>()
@@ -66,6 +84,13 @@ const timetableLabels: Record<string, string> = {
   sunday: 'Sunday timetable',
 }
 
+const windowLabels: Record<string, string> = {
+  weekday: 'School-term weekdays',
+  weekday_vacation: 'School-holiday weekdays',
+  saturday: 'Saturdays',
+  sunday: 'Sundays and holidays',
+}
+
 const statusLabels: Record<SchoolYear['status'], string> = {
   saved: 'saved',
   built_in: 'built in',
@@ -74,6 +99,11 @@ const statusLabels: Record<SchoolYear['status'], string> = {
 
 function dayName(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'})
+}
+
+const dateOf = (unix: number) => {
+  const d = new Date(unix * 1000)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 const yearLabel = (year: number) => `${year}–${String(year + 1).slice(2)}`
@@ -206,6 +236,23 @@ const dayLine = computed(() => {
   return `${name} runs the ${runs}, chosen automatically.`
 })
 
+const tuningLine = computed(() => {
+  const l = view.value?.learning
+  if (!l) return ''
+  const t = l.tuning
+  if (!t) {
+    return `The school-holiday window is checked after each school-holiday weekday, once the archive holds ${l.min_days} of them. It tries ${l.candidates.join(', ')} days.`
+  }
+  const scores = l.candidates
+    .filter((n) => t.scores[String(n)] != null)
+    .map((n) => `${n} days missed by ${Math.round(t.scores[String(n)]!)} s`)
+    .join(', ')
+  const head = `Checked ${dayName(dateOf(t.at))} over ${t.days} school-holiday ${t.days === 1 ? 'day' : 'days'}`
+  if (!t.samples) return `${head}: nothing to compare yet.`
+  const verdict = t.days < l.min_days ? 'Too few days to decide yet.' : t.changed ? `Switched to ${t.window} days.` : `Kept ${t.window} days.`
+  return `${head}: ${scores}; the school-term profile alone missed by ${Math.round(t.baseline)} s. ${verdict}`
+})
+
 const holidays = computed(() => {
   const all = view.value?.holidays ?? []
   return showAllHolidays.value ? all : all.slice(0, 5)
@@ -284,6 +331,16 @@ onMounted(load)
         </div>
         <p v-if="saveMessage" class="text" :class="{bad: saveFailed}">{{ saveMessage }}</p>
       </form>
+
+      <h3>What each kind of day learns from</h3>
+      <ul class="list">
+        <li v-for="w in view.learning.windows" :key="w.day_type">
+          <span class="name">{{ windowLabels[w.day_type] ?? w.day_type }}</span>
+          <span>last {{ w.days }} {{ w.days === 1 ? 'day' : 'days' }}</span>
+          <span class="muted">since {{ dayName(w.from) }}</span>
+        </li>
+      </ul>
+      <p class="text note">{{ tuningLine }}</p>
 
       <h3>Public holidays</h3>
       <ul class="list">

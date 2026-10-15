@@ -45,6 +45,7 @@ func StartArchiver(loc *time.Location) {
 		for {
 			checkObservedSchedule(time.Now())
 			runArchive(time.Now())
+			tuneVacationWindow(time.Now())
 			time.Sleep(time.Until(nextArchiveRun(time.Now(), loc)))
 		}
 	}()

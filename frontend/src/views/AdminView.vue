@@ -42,7 +42,12 @@ type Overview = {
     week: Accuracy[]
     kinds: Accuracy[]
     daily: (Accuracy & {date: string})[]
-    timetable?: {today: Accuracy[]; week: Accuracy[]}
+    timetable?: {
+      today: Accuracy[]
+      week: Accuracy[]
+      daily?: {date: string; kind: string; ours: Accuracy; ctp: Accuracy}[]
+      kinds?: {kind: string; days: number; ours: Accuracy; ctp: Accuracy}[]
+    }
   }
   people: {
     today: number
@@ -332,6 +337,30 @@ const accuracyBars = computed<DayBar[]>(() => (data.value?.accuracy.daily ?? [])
     : `${dayName(d.date)} · no arrivals scored`,
 })))
 
+const dayKindLabels: Record<string, string> = {
+  weekday: 'School-term weekdays',
+  weekday_vacation: 'School-holiday weekdays',
+  saturday: 'Saturdays',
+  sunday: 'Sundays and holidays',
+}
+
+const dayKindShort: Record<string, string> = {
+  weekday: 'school day',
+  weekday_vacation: 'school holiday',
+  saturday: 'Saturday',
+  sunday: 'Sunday or holiday',
+}
+
+const timetableKinds = computed(() => data.value?.accuracy.timetable?.kinds ?? [])
+
+const timetableBars = computed<DayBar[]>(() => (data.value?.accuracy.timetable?.daily ?? []).map(d => ({
+  date: d.date,
+  value: d.ours.n ? d.ours.within_1 : 0,
+  caption: d.ours.n
+    ? `${dayName(d.date)}, ${dayKindShort[d.kind] ?? d.kind} · ours ${pct(d.ours.within_1)} within a minute, CTP alone ${pct(d.ctp.within_1)} (${num(d.ours.n)} stops)`
+    : `${dayName(d.date)}, ${dayKindShort[d.kind] ?? d.kind} · timetable not scored`,
+})))
+
 const quotaBars = computed<DayBar[]>(() => (data.value?.quota.daily ?? []).map(d => ({
   date: d.date,
   value: d.vehicles + d.default,
@@ -510,6 +539,28 @@ function quotaShare(used: number, limit: number) {
             </p>
 
             <AdminDayBars :days="accuracyBars" :max="1"/>
+
+            <h3>Our timetable by kind of day, 60 days</h3>
+            <table v-if="timetableKinds.length" class="table accuracy">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Days</th>
+                  <th>Ours within a minute</th>
+                  <th>CTP alone</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="k in timetableKinds" :key="k.kind">
+                  <td>{{ dayKindLabels[k.kind] ?? k.kind }}</td>
+                  <td>{{ num(k.days) }}</td>
+                  <td>{{ k.ours.n ? pct(k.ours.within_1) : '–' }}</td>
+                  <td>{{ k.ctp.n ? pct(k.ctp.within_1) : '–' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-else class="line-text">Not scored yet.</p>
+            <AdminDayBars :days="timetableBars" :max="1"/>
 
             <h3>Live times by where the bus was, 7 days</h3>
             <ul class="rows">

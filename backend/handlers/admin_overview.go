@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"cmp"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
@@ -23,6 +24,7 @@ const (
 	adminTopLimit   = 10
 	adminPeopleDays = 30
 	adminTrendDays  = 14
+	adminKindDays   = 60
 )
 
 type namedCount struct {
@@ -68,6 +70,20 @@ type accuracyStats struct {
 	Bias      int     `json:"bias_sec"`
 }
 
+type timetableDay struct {
+	Date string        `json:"date"`
+	Kind string        `json:"kind"`
+	Ours accuracyStats `json:"ours"`
+	CTP  accuracyStats `json:"ctp"`
+}
+
+type timetableByKind struct {
+	Kind string        `json:"kind"`
+	Days int           `json:"days"`
+	Ours accuracyStats `json:"ours"`
+	CTP  accuracyStats `json:"ctp"`
+}
+
 type accuracyDay struct {
 	Date string `json:"date"`
 	accuracyStats
@@ -79,8 +95,10 @@ type adminAccuracy struct {
 	Kinds     []accuracyStats `json:"kinds"`
 	Daily     []accuracyDay   `json:"daily"`
 	Timetable struct {
-		Today []accuracyStats `json:"today"`
-		Week  []accuracyStats `json:"week"`
+		Today []accuracyStats   `json:"today"`
+		Week  []accuracyStats   `json:"week"`
+		Daily []timetableDay    `json:"daily"`
+		Kinds []timetableByKind `json:"kinds"`
 	} `json:"timetable"`
 }
 
@@ -365,18 +383,25 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 		a.Daily = append(a.Daily, accuracyDay{Date: date, accuracyStats: get(daily, date).summarize(date)})
 	}
 
-	rows, err = database.MetricRows("timetable_error", weekStart)
+	rows, err = database.MetricRows("timetable_error", database.StatsDaysAgo(adminKindDays-1))
 	if err != nil {
 		return a, err
 	}
 	timetableToday, timetableWeek := map[string]errorHistogram{}, map[string]errorHistogram{}
+	timetableByDate := map[string]map[string]errorHistogram{}
 	for _, r := range rows {
 		source, rawBin, ok := strings.Cut(r.Key, "|")
 		bin, err := strconv.Atoi(rawBin)
 		if !ok || err != nil {
 			continue
 		}
-		get(timetableWeek, source).add(bin, r.Count)
+		if timetableByDate[r.Date] == nil {
+			timetableByDate[r.Date] = map[string]errorHistogram{}
+		}
+		get(timetableByDate[r.Date], source).add(bin, r.Count)
+		if r.Date >= weekStart {
+			get(timetableWeek, source).add(bin, r.Count)
+		}
 		if r.Date == today {
 			get(timetableToday, source).add(bin, r.Count)
 		}
@@ -384,6 +409,47 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 	for _, source := range []string{"ours", "ctp"} {
 		a.Timetable.Today = append(a.Timetable.Today, get(timetableToday, source).summarize(source))
 		a.Timetable.Week = append(a.Timetable.Week, get(timetableWeek, source).summarize(source))
+	}
+
+	kindOf := func(date string) string {
+		day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
+		if err != nil {
+			return ""
+		}
+		return profileDay(day)
+	}
+	byKind, kindDays := map[string]map[string]errorHistogram{}, map[string]int{}
+	for date, sources := range timetableByDate {
+		kind := kindOf(date)
+		if byKind[kind] == nil {
+			byKind[kind] = map[string]errorHistogram{}
+		}
+		for source, h := range sources {
+			for bin, count := range h {
+				get(byKind[kind], source).add(bin, count)
+			}
+		}
+		kindDays[kind]++
+	}
+	for _, kind := range calendar.ProfileDays {
+		if kindDays[kind] == 0 {
+			continue
+		}
+		a.Timetable.Kinds = append(a.Timetable.Kinds, timetableByKind{
+			Kind: kind, Days: kindDays[kind],
+			Ours: get(byKind[kind], "ours").summarize("ours"), CTP: get(byKind[kind], "ctp").summarize("ctp"),
+		})
+	}
+	for i := adminTrendDays - 1; i >= 0; i-- {
+		date := database.StatsDaysAgo(i)
+		sources := timetableByDate[date]
+		if sources == nil {
+			sources = map[string]errorHistogram{}
+		}
+		a.Timetable.Daily = append(a.Timetable.Daily, timetableDay{
+			Date: date, Kind: kindOf(date),
+			Ours: get(sources, "ours").summarize("ours"), CTP: get(sources, "ctp").summarize("ctp"),
+		})
 	}
 	return a, nil
 }

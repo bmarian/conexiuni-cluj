@@ -19,11 +19,28 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-var dayWindows = map[string]int{
+var dayWindows = struct {
+	sync.RWMutex
+	days map[string]int
+}{days: map[string]int{
 	calendar.Weekday:         10,
 	calendar.WeekdayVacation: 5,
 	calendar.Saturday:        2,
 	calendar.Sunday:          2,
+}}
+
+func dayWindowSize(dayType string) (int, bool) {
+	dayWindows.RLock()
+	defer dayWindows.RUnlock()
+	n, ok := dayWindows.days[dayType]
+	return n, ok
+}
+
+func setDayWindowSize(dayType string, n int) {
+	dayWindows.Lock()
+	dayWindows.days[dayType] = n
+	dayWindows.Unlock()
+	calendarGeneration.Add(1)
 }
 
 const (
@@ -75,6 +92,7 @@ func StartCalendar() {
 	if err := LoadCalendar(); err != nil {
 		log.Printf("calendar: load failed, using the built-in school year: %v", err)
 	}
+	LoadWindowTuning()
 	go func() {
 		time.Sleep(calendarApplyDelay)
 		applyCalendar(time.Now())
@@ -131,7 +149,7 @@ func localMidnight(t time.Time) time.Time {
 }
 
 func dayWindowStart(dayType string, now time.Time) int64 {
-	n, ok := dayWindows[dayType]
+	n, ok := dayWindowSize(dayType)
 	if !ok {
 		return now.Add(-legacyDayWindow).Unix()
 	}
@@ -163,7 +181,7 @@ func dayWindowStart(dayType string, now time.Time) int64 {
 
 func earliestDayWindow(now time.Time) int64 {
 	earliest := now.Add(-legacyDayWindow).Unix()
-	for day := range dayWindows {
+	for _, day := range calendar.ProfileDays {
 		earliest = min(earliest, dayWindowStart(day, now))
 	}
 	return earliest
@@ -537,6 +555,20 @@ type adminCalendarView struct {
 	Years     []adminCalendarYear         `json:"years"`
 	Holidays  []adminHoliday              `json:"holidays"`
 	Overrides []database.ScheduleOverride `json:"overrides"`
+	Learning  adminLearning               `json:"learning"`
+}
+
+type adminWindow struct {
+	DayType string `json:"day_type"`
+	Days    int    `json:"days"`
+	From    string `json:"from"`
+}
+
+type adminLearning struct {
+	Windows    []adminWindow `json:"windows"`
+	Tuning     *windowTuning `json:"tuning,omitempty"`
+	Candidates []int         `json:"candidates"`
+	MinDays    int           `json:"min_days"`
 }
 
 func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
@@ -606,6 +638,18 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 		if o.Date >= since {
 			v.Overrides = append(v.Overrides, o)
 		}
+	}
+
+	v.Learning = adminLearning{Windows: []adminWindow{}, Candidates: vacationWindowCandidates, MinDays: tuningMinDays}
+	for _, day := range calendar.ProfileDays {
+		n, _ := dayWindowSize(day)
+		from := time.Unix(dayWindowStart(day, now), 0).In(database.StatsLocation()).Format("2006-01-02")
+		v.Learning.Windows = append(v.Learning.Windows, adminWindow{DayType: day, Days: n, From: from})
+	}
+	if t, ok, err := savedWindowTuning(); err != nil {
+		return v, err
+	} else if ok {
+		v.Learning.Tuning = &t
 	}
 	return v, nil
 }

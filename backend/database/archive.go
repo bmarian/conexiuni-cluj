@@ -114,6 +114,13 @@ const archiveSchema = `
 		updated_at INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS tuning
+	(
+		name       TEXT PRIMARY KEY,
+		data       TEXT    NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
+
 	CREATE TABLE IF NOT EXISTS schedule_overrides
 	(
 		date       TEXT PRIMARY KEY,
@@ -670,5 +677,52 @@ func DeleteScheduleOverride(date string) error {
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
 	_, err := Archive.Exec(`DELETE FROM schedule_overrides WHERE date = ?`, date)
+	return err
+}
+
+func ArchivedSegmentSamples(from, to int64, fn func(route, direction, fromStop, toStop, bucket int, duration float64)) error {
+	if Archive == nil {
+		return nil
+	}
+	rows, err := Archive.Query(`
+		SELECT route_id, direction_id, from_stop_id, to_stop_id, bucket_start_min, duration_sec
+		FROM segment_travel_time_samples
+		WHERE observed_at >= ? AND observed_at < ?`, from, to)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var route, direction, fromStop, toStop, bucket int
+		var duration float64
+		if err := rows.Scan(&route, &direction, &fromStop, &toStop, &bucket, &duration); err != nil {
+			return err
+		}
+		fn(route, direction, fromStop, toStop, bucket, duration)
+	}
+	return rows.Err()
+}
+
+func Tuning(name string) (string, bool, error) {
+	if Archive == nil {
+		return "", false, nil
+	}
+	var data string
+	err := Archive.QueryRow(`SELECT data FROM tuning WHERE name = ?`, name).Scan(&data)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	return data, err == nil, err
+}
+
+func SaveTuning(name, data string, at time.Time) error {
+	if Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
+	_, err := Archive.Exec(`
+		INSERT INTO tuning (name, data, updated_at) VALUES (?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, name, data, at.Unix())
 	return err
 }

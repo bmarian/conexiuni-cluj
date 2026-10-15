@@ -48,4 +48,4 @@ For the stop:
 4. Departures: `route.timetable[dayType].entries[].departure_in` for trips ending in `_0`, `departure_out` for `_1`. Arrival = departure + seconds to the stop; round to the minute only when drawing.
 5. Keep runs until `rules.late_grace_min` minutes after the predicted arrival: that is how late runs usually are.
 
-`dayType` is `weekday`, `saturday` or `sunday` by the device clock. `stops[]` carries names and coordinates.
+`dayType` is `weekday`, `saturday` or `sunday`. Look up today's Cluj date (`YYYY-MM-DD`) in `schedule_days` first: public holidays and days set on the admin page are listed there with the timetable they run. Any other date goes by the device clock's weekday. In `timetable` the weekday column is called `weekdays`. `stops[]` carries names and coordinates.

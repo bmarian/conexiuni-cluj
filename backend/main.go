@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
@@ -49,16 +50,44 @@ func runCacheBust(dbPath string) {
 	log.Println("All cache entries invalidated")
 }
 
+func runReplay(archivePath, span string) {
+	fromText, toText, ok := strings.Cut(span, ":")
+	if !ok {
+		log.Fatalf("replay: want FROM:TO, like 2026-09-01:2026-10-15")
+	}
+	from, errFrom := time.ParseInLocation("2006-01-02", fromText, database.StatsLocation())
+	to, errTo := time.ParseInLocation("2006-01-02", toText, database.StatsLocation())
+	if errFrom != nil || errTo != nil || to.Before(from) {
+		log.Fatalf("replay: %q is not a FROM:TO date range", span)
+	}
+	if err := database.ConnectArchive(archivePath); err != nil {
+		log.Fatalf("Failed to open the archive: %v", err)
+	}
+	defer func() { _ = database.Archive.Close() }()
+	if err := handlers.LoadCalendar(); err != nil {
+		log.Fatalf("Failed to load the calendar: %v", err)
+	}
+	handlers.LoadWindowTuning()
+	if err := handlers.RunReplay(from, to, os.Stdout); err != nil {
+		log.Fatalf("replay: %v", err)
+	}
+}
+
 func main() {
 	_ = os.Setenv("TZ", "Europe/Bucharest")
 
 	bustCache := flag.Bool("bust-cache", false, "invalidate all cached entries, then exit without starting the server")
+	replay := flag.String("replay", "", "compare the calendar learning windows with the old 14-day window on archived days FROM:TO (YYYY-MM-DD:YYYY-MM-DD), print the results and exit")
 	flag.Parse()
 
 	config := Load()
 
 	if *bustCache {
 		runCacheBust(config.DatabasePath)
+		return
+	}
+	if *replay != "" {
+		runReplay(config.ArchiveDatabasePath, *replay)
 		return
 	}
 
