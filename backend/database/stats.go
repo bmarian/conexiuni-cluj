@@ -27,7 +27,6 @@ func newStatsBuffer() *statsBuffer {
 }
 
 var (
-	// Client hashes are deleted after this many days, like the access logs.
 	visitorRetentionDays int
 	statsMu              sync.Mutex
 	statsBuf             = newStatsBuffer()

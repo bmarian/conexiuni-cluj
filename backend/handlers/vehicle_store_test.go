@@ -59,8 +59,6 @@ func TestStoreVehiclesRoundTripsMovementState(t *testing.T) {
 	}
 }
 
-// Before retention existed, every vehicle ever seen came back on the cache-hit
-// path and got re-served as if it were live.
 func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
 	withTestDB(t)
 
@@ -87,8 +85,7 @@ func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
 	}
 }
 
-// A vehicle Tranzy skips is re-served from its last known position, but with its
-// original observation time, so repeated re-serving cannot keep it alive forever.
+// Re-served with its original time, so it still ages out.
 func TestGraceReservedVehicleKeepsAgeing(t *testing.T) {
 	withTestDB(t)
 

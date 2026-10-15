@@ -91,7 +91,6 @@ export const getAvailableBusesForStop = (
     const {route_short_name, route_type, route_color, route_id, timetable} = shape
     if (!isTimetableAvailableOnDay(referenceDate, timetable)) continue
 
-    // If a specific tripId is provided, we only care about shapes that match its route
     if (options.tripId && getRouteIdFromTripId(options.tripId) !== route_id) continue
 
     const tripId = options.tripId || getTripIdForRouteAtStop(outgoing_trip_ids ?? [], incoming_trip_ids ?? [], route_id)
@@ -106,8 +105,7 @@ export const getAvailableBusesForStop = (
       .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
       .filter((m): m is number => m !== null)
 
-    // Signed, so a run a couple of minutes behind schedule is still listed as coming
-    // instead of wrapping into tomorrow and pushing the whole card on by a headway.
+    // Signed, so a run a few minutes late is still listed instead of wrapping to tomorrow.
     let upcomingEntries: TimeEntry[] = scheduledArrivals({
       departureMinutes,
       offsetSeconds: timeOffsetToStop,

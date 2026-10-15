@@ -206,8 +206,7 @@ func collectScheduleResiduals(
 	}
 	covered := make(map[int64]bool)
 
-	// One lateness per run: its stops agree to within the noise, and a run seen at
-	// twenty stops must not outweigh one seen at three.
+	// One lateness per run, so a run seen at many stops doesn't outweigh the others.
 	addRun := func(dayType string, departure float64, residuals []float64) {
 		if len(residuals) == 0 {
 			return
@@ -394,8 +393,7 @@ func storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleResiduals, now 
 	}
 	defer func() { _ = stmt.Close() }()
 
-	// A handful of runs in one hour lean on the direction's delay over the whole day:
-	// buses here are late by about that much at any hour until the hour itself says otherwise.
+	// Hours with few runs lean on the direction's whole-day delay.
 	type dayKey struct {
 		RouteID, DirectionID int
 		DayType              string
@@ -415,8 +413,7 @@ func storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleResiduals, now 
 		centre := median(r.seconds)
 		weight := float64(runs) / float64(runs+scheduleDelayShrinkRuns)
 		delay := weight*centre + (1-weight)*prior
-		// The spread is how far single runs stray from the hour's delay: what a timetable
-		// entry may still be off by.
+		// How far single runs stray from the hour's delay.
 		strays := make([]float64, len(r.seconds))
 		for i, s := range r.seconds {
 			strays[i] = math.Abs(s - centre)

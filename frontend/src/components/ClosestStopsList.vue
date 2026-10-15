@@ -144,5 +144,4 @@ onUnmounted(() => {
   font-size: 1.25rem;
 }
 
-/* Specific theme overrides if needed, though most are handled by global CSS */
 </style>

@@ -118,8 +118,7 @@ watch([stopInfo, () => route.query.follow], ([info, tripId]) => {
 }, {immediate: true})
 
 useHead(() => {
-  // Don't override server-injected meta until stop data has loaded — otherwise
-  // a crawler snapshot taken pre-fetch sees a stale "Conexiuni Cluj" title.
+  // Keep the server-injected meta for crawlers until the stop loads.
   if (!stopName.value) return {}
   const title = t('headStopTitle', {stopName: stopName.value})
   const description = t('headStopDesc', {stopName: stopName.value})

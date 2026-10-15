@@ -137,7 +137,6 @@ function openRow(key: string) {
 </template>
 
 <style scoped>
-/* Tinted with the line's own colour, the same one its badge uses further down. */
 .rc-banner {
   display: flex;
   align-items: flex-start;

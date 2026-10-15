@@ -353,7 +353,7 @@ html.dark[data-arcade] .departure-card.is-selected .stat-chip-live {
   border-color: rgba(52, 211, 153, 0.4) !important;
 }
 
-/* Must come after .departure-card — same specificity, last wins */
+/* After .departure-card: same specificity, last wins. */
 html.dark[data-arcade] .departure-card-fav {
   background: #2a1205 !important;
   border-color: #9a3412 !important;
@@ -618,8 +618,6 @@ html.dark[data-arcade] .geo-loading-dot {
   background: #fbbf24 !important;
 }
 
-/* RoutePlanningView */
-
 html[data-arcade] .route-legs-card {
   background: #fffbeb !important;
   border-color: #fde68a !important;
@@ -810,8 +808,6 @@ html.dark[data-arcade] .kbd-help-label {
   color: #fde68a !important;
 }
 
-/* ── Toast ── */
-
 html[data-arcade] .app-toast {
   background: #fffbeb !important;
   border: 2px solid #f59e0b !important;
@@ -863,8 +859,6 @@ html.dark[data-arcade] .app-toast-body {
   color: #d97706 !important;
 }
 
-/* ── Route change banner, dressed like Green Friday ── */
-
 html[data-arcade] .rc-banner {
   background: linear-gradient(135deg, #fef9c3, #fef3c7) !important;
   border-bottom-color: #fde68a !important;
@@ -898,8 +892,6 @@ html.dark[data-arcade] .rc-summary {
 html.dark[data-arcade] .rc-rule {
   background: #78350f !important;
 }
-
-/* ---------- followed buses, reminders and trips ---------- */
 
 html[data-arcade] .bus-menu,
 html[data-arcade] .rs-sheet {

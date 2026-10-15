@@ -2,7 +2,6 @@ package handlers
 
 import "sync"
 
-// Warmup-populated availability index used to filter routes/stops in list endpoints.
 type availabilityRegistry struct {
 	mu                  sync.RWMutex
 	ready               bool

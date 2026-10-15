@@ -11,9 +11,7 @@ import {
 
 const POLL_MS = 2000
 
-// Shows a code, waits for another device to send its export to it, and holds what
-// arrived until the person confirms it: anyone who guesses a waiting code can send too.
-// `describe` returns null for anything that isn't an export.
+// Holds what arrived until confirmed: anyone who guesses a waiting code can send too.
 export function useTransferReceiver<Summary>(
   describe: (data: unknown) => Summary | null,
   apply: (data: unknown) => void,

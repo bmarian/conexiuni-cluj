@@ -457,7 +457,6 @@ async function togglePush() {
   color: #334155;
 }
 
-/* Same badge as .live-badge, in the amber this page already uses for caveats. */
 .beta-badge {
   display: inline-flex;
   align-items: center;
@@ -493,7 +492,6 @@ async function togglePush() {
   color: #94a3b8;
 }
 
-/* Same shape as .suspended-banner, in amber: a caveat, not a failure. */
 .setting-note {
   display: flex;
   align-items: flex-start;
@@ -566,7 +564,6 @@ async function togglePush() {
   border-color: #1d4ed8;
 }
 
-/* A toggle is still an option-btn, just laid out as a full-width row with its explanation. */
 .setting-row {
   flex: none;
   width: 100%;

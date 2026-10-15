@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// ProblemLog sits next to the app log and keeps the latest failures for the dashboard.
+// Latest logged failures, for the admin dashboard.
 var ProblemLog = &problemLog{}
 
 const problemLogSize = 40
@@ -70,7 +70,6 @@ func (p *problemLog) add(text string, now time.Time) {
 	}
 }
 
-// Recent returns the problems seen since `since`, latest first.
 func (p *problemLog) Recent(since time.Time) []problemLine {
 	p.mu.Lock()
 	defer p.mu.Unlock()

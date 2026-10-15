@@ -9,11 +9,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// How many places a search lists at most: a short list to pick from while typing.
 const placesLimit = 10
 
-// handlePlaces serves GET /api/places: `q` searches the area's addresses, named places and streets;
-// `lat` and `lon` name the place at a position.
+// q searches; lat and lon name the place at a position.
 func handlePlaces(c fiber.Ctx) error {
 	places := plannerPlaces()
 	if places == nil {

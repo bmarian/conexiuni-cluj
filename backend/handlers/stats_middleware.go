@@ -15,8 +15,7 @@ import (
 
 const clientHashLocalKey = "client_hash"
 
-// ComputeClientHash returns an 8-byte hex HMAC-SHA256 of the request's client (its IP, or the /64 for IPv6)
-// using the provided salt. Same scheme as the access log identifier.
+// Same scheme as the access log id; IPv6 clients by /64.
 func ComputeClientHash(c fiber.Ctx, salt string) string {
 	ip := ClientIP(c)
 	if ip == "" {
@@ -27,8 +26,6 @@ func ComputeClientHash(c fiber.Ctx, salt string) string {
 	return hex.EncodeToString(h.Sum(nil)[:8])
 }
 
-// ClientHashFromLocals returns the previously-computed client hash stored by
-// StatsMiddleware. Empty if the middleware did not run for this request.
 func ClientHashFromLocals(c fiber.Ctx) string {
 	if v, ok := c.Locals(clientHashLocalKey).(string); ok {
 		return v
@@ -88,8 +85,7 @@ func responseStatus(c fiber.Ctx, err error) int {
 	return fiber.StatusInternalServerError
 }
 
-// StatsMiddleware computes the client hash once, then counts every API call by its route,
-// the people behind them and the server errors. Must run before the access logger.
+// Must run before the access logger.
 func StatsMiddleware(salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()

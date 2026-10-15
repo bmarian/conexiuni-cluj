@@ -66,8 +66,7 @@ func GetShapes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter
 	if err != nil {
 		return nil, err
 	}
-	// On a cache miss HandleCached returns Tranzy's raw (unsorted) order, bypassing
-	// the DB query's ORDER BY — sort here so the polyline always draws in sequence.
+	// A cache miss returns Tranzy's unsorted order.
 	sort.Slice(shapes, func(i, j int) bool {
 		if shapes[i].ShapeID != shapes[j].ShapeID {
 			return shapes[i].ShapeID < shapes[j].ShapeID

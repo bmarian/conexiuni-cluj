@@ -21,8 +21,7 @@ export interface TripDeparture {
   liveMinutes: number | null
 }
 
-// The next departures of some trips from a stop: the server's prediction rows when the
-// live feed has them, the timetable otherwise.
+// The server's rows when the live feed has them, the timetable otherwise.
 export function tripDepartures(
   stop: StopInfo,
   tripIds: string[],

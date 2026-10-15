@@ -11,8 +11,7 @@ import (
 
 const turnRouteID = 9992
 
-// Direction 0 runs north over 100 points; direction 1 runs the same line back, so its
-// first stop sits where direction 0 ends.
+// Direction 1 runs direction 0's line back.
 func installTurnaroundTrackers(t *testing.T) (*tripSegmentTracker, *tripSegmentTracker) {
 	t.Helper()
 	line := func(id string, reverse bool) []models.Shape {
@@ -145,8 +144,7 @@ func TestThroughRunningFromTheTimetable(t *testing.T) {
 	in := []models.StopTime{stop("7_1", 4, 0, 46.7801, 0), stop("7_1", 5, 1, 46.775, 300), stop("7_1", 6, 2, 46.7701, 300)}
 	var entries []models.TimetableEntry
 	for m := 6 * 60; m < 20*60; m += 25 {
-		// Direction 1 leaves 12 minutes after direction 0, two past the ten-minute ride;
-		// direction 0 leaves 3 minutes after direction 1 gets back.
+		// Direction 1 leaves 12 min after direction 0 (a 10 min ride); direction 0 leaves 3 min after it is back.
 		entries = append(entries, models.TimetableEntry{
 			DepartureIn: fmt.Sprintf("%02d:%02d", m/60, m%60), DepartureOut: fmt.Sprintf("%02d:%02d", (m+12)/60, (m+12)%60)})
 	}

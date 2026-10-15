@@ -1,5 +1,3 @@
-// Places come from the backend's own index of the area's addresses, named places and streets.
-
 export interface Place {
   id: string
   lat: string

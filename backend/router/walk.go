@@ -17,7 +17,6 @@ func (b BBox) contains(lat, lon float64) bool {
 	return lat >= b.MinLat && lat <= b.MaxLat && lon >= b.MinLon && lon <= b.MaxLon
 }
 
-// Grow widens the box by meters on every side.
 func (b BBox) Grow(meters float64) BBox {
 	dLat := meters / metersPerDegree
 	dLon := meters / (metersPerDegree * math.Cos((b.MinLat+b.MaxLat)/2*math.Pi/180))
@@ -46,8 +45,7 @@ type WalkGraph struct {
 
 func (g *WalkGraph) Nodes() int { return len(g.lat) }
 
-// LoadWalkGraph keeps the ways a pedestrian may use inside box, then the largest connected piece.
-// Load reads the walk graph inside box from an OSM PBF file, and the places there.
+// The walkable ways inside box, largest connected piece only, and the places there.
 func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
 	index := make(map[int64]int32)
 	var lat, lon []float64

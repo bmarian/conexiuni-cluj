@@ -2,14 +2,12 @@ import type {StyleSpecification} from 'maplibre-gl'
 import dark from '@/assets/map-styles/dark.json'
 import light from '@/assets/map-styles/light.json'
 
-// The Mobile app's styles, copied as they are.
 const DARK = dark as unknown as StyleSpecification
 const LIGHT = light as unknown as StyleSpecification
 
 type Curve = { r: number[], g: number[], b: number[] }
 
-// Paper prints the dark map in greyscale, then takes each grey through these per-channel tables
-// (the feFuncR/G/B tables the raster map was filtered with) onto ink and paper.
+// Paper prints the dark map in greyscale, then maps each grey onto ink and paper per channel.
 const PAPER_LIGHT: Curve = {
   r: [0.937, 0.888, 0.591, 0.394, 0.278, 0.213, 0.180, 0.155, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114, 0.114],
   g: [0.898, 0.857, 0.610, 0.445, 0.349, 0.294, 0.267, 0.246, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212, 0.212],
@@ -136,8 +134,7 @@ function paletteStyle(palette: Palette): StyleSpecification {
   })
 }
 
-// Each theme's map takes its colours from that theme's own stylesheet.
-// Arcade: the amber tokens of arcade.css; main roads are hollow corridors, a maze for the dotted lines.
+// Colours from each theme's stylesheet; arcade's main roads are hollow corridors.
 const ARCADE_LIGHT: Palette = {
   land: '#fefce8', residential: '#fef9c3', green: '#fef3c7', water: '#fde68a',
   building: '#fef3c7', buildingLine: '#fde68a',
@@ -152,7 +149,6 @@ const ARCADE_DARK: Palette = {
   rail: '#422006', boundary: '#78350f',
   label: '#d97706', roadLabel: '#a16207', waterLabel: '#a16207', halo: '#1c1608',
 }
-// Legacy blue: the XP tokens of legacy-blue.css (window tan, Bliss sky and hills, the yellow hover buttons).
 const LEGACY_LIGHT: Palette = {
   land: '#ece9d8', residential: '#ece9d8', green: '#b8c8b0', water: '#8fb3dc',
   building: '#d4d0c8', buildingLine: '#aca899',
@@ -185,6 +181,5 @@ export function mapStyle(isDark: boolean, theme: MapTheme): StyleSpecification {
   return cache.get(key)!
 }
 
-// The Mobile app's credits line; the map's own attribution stays off there too.
 export const MAP_CREDITS_HTML = '&copy; <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP</a>'
 export const MAP_CREDITS_TEXT = '© OpenMapTiles © OpenStreetMap | © tranzy.ai, © CTP'

@@ -30,8 +30,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const locale = ref<AppLocale>(detectInitialLocale())
 
-  // No phone is this small and square, so this alone picks out a watch. The simplified
-  // layout is only offered there, and only used once the user has said yes to it.
+  // No phone is this small and square, so this picks out a watch.
   const watchScreenQuery = window.matchMedia('(max-width: 520px) and (max-height: 520px) and (aspect-ratio: 1/1)')
   const watchScreen = ref(watchScreenQuery.matches)
   watchScreenQuery.addEventListener('change', (e) => {

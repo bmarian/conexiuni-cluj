@@ -10,7 +10,7 @@ const props = withDefaults(defineProps<WeatherIconProps>(), {
   size: 64
 })
 
-// Specifically, include only used icons to avoid bloating the bundle.
+// Only the icons in use, to keep the bundle small.
 const icons = import.meta.glob(
   '../../../node_modules/@meteocons/svg/fill/{clear-day,clear-night,partly-cloudy-day,partly-cloudy-night,cloudy,overcast-night,fog-day,fog-night,partly-cloudy-day-drizzle,partly-cloudy-night-drizzle,drizzle,partly-cloudy-day-sleet,partly-cloudy-night-sleet,sleet,partly-cloudy-day-rain,partly-cloudy-night-rain,rain,partly-cloudy-day-snow,partly-cloudy-night-snow,snow,snowflake,thunderstorms-day-rain,thunderstorms-night-rain,not-available}.svg',
   { query: '?url', import: 'default', eager: true }

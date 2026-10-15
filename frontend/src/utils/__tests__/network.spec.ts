@@ -8,7 +8,7 @@ const index = new NetworkIndex(fixture.bundle as unknown as NetworkBundle)
 function comparable(info: StopInfo): StopInfo {
   const lines = new Set(info.shapes_info.map((s) => s.route_id))
   const onLines = (ids: string[]) => ids.filter((id) => lines.has(Number(id.split('_')[0]))).sort()
-  // The learned grace is the bundle's own addition; the old stop_info answer had none.
+  // The learned grace only exists in the bundle.
   const {late_grace_min: _, ...rest} = info
   return {
     ...rest,

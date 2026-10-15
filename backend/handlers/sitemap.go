@@ -142,8 +142,6 @@ func writeURL(sb *strings.Builder, loc, changeFreq, priority string) {
 	sb.WriteString("</url>\n")
 }
 
-// InvalidateSitemap clears the cached sitemap, forcing rebuild on next request.
-// Called after warmup pass so newly-discovered routes/stops appear.
 func InvalidateSitemap() {
 	sitemapMu.Lock()
 	sitemapCache = nil

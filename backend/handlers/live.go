@@ -14,8 +14,7 @@ import (
 	"time"
 )
 
-// The prediction table: one row per (trip, stop) with the entries every client shows,
-// rebuilt from the latest vehicle positions on every poll.
+// One row per (trip, stop), rebuilt on every vehicle poll.
 
 const (
 	liveScheduleHorizon = 8 * time.Hour
@@ -23,7 +22,7 @@ const (
 	liveTripsRefresh    = 5 * time.Minute
 )
 
-// At is the predicted arrival as unix seconds; screens turn it into minutes themselves.
+// At is unix seconds.
 type liveEntry struct {
 	At        int64 `json:"at"`
 	Live      bool  `json:"live"`
@@ -96,9 +95,7 @@ var (
 	}
 )
 
-// What the schedule-delay learner says about runs here: single runs stray this far from
-// their corrected timetable, so a run this late is still coming, and a prediction this
-// far from a reminder's slot is still that run.
+// Learned from schedule delays: how far single runs stray from their corrected timetable.
 type liveRules struct {
 	graceSec   float64
 	slotWindow time.Duration
@@ -142,8 +139,7 @@ func liveLocation() *time.Location {
 
 var liveRefreshMu sync.Mutex
 
-// Trips are rebuilt when the learned offsets roll to a new period or the day changes.
-// Callers wait for a rebuild in progress, so the first table is never computed on no trips.
+// Callers wait for a rebuild in progress, so the first table never sees empty trips.
 func refreshLiveTrips(force bool) {
 	if liveDeps.tranzy == nil {
 		return
@@ -252,7 +248,6 @@ func rawLiveVehicle(v models.Vehicle, pollInterval time.Duration) predictions.Ra
 	return raw
 }
 
-// RecomputeLive rebuilds the prediction table from one poll's vehicles.
 func RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
 	refreshLiveTrips(false)
 	liveTrips.RLock()
@@ -363,8 +358,7 @@ func otherDirectionTripID(tripID string) string {
 	return tripID[:len(tripID)-2] + INCOMING_SUFFIX
 }
 
-// liveArrivalAt is when the prediction table expects the run scheduled for `slot` at
-// the stop: the entry closest to the slot, live or not, when one is near enough.
+// The entry closest to slot, live or not, when one is near enough.
 func liveArrivalAt(tripID string, stopID int, slot time.Time) (time.Time, bool) {
 	table := currentLiveTable()
 	if table == nil {

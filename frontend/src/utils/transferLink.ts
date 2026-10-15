@@ -3,9 +3,7 @@ export type TransferLink = { code: string; secret: string; expiresIn: number }
 export const TRANSFER_QUERY = 'send'
 const KEY_PARAM = 'k'
 
-// A scanned code also carries a key after the #, which browsers never send to the server,
-// so what the server holds for those transfers is unreadable to it. A typed code can't
-// carry one. WebCrypto only exists on https (and localhost), so elsewhere nothing is sealed.
+// The key after # never reaches the server. WebCrypto needs https, so elsewhere nothing is sealed.
 const canSeal = () => !!globalThis.crypto?.subtle
 
 const toBase64Url = (bytes: Uint8Array) =>

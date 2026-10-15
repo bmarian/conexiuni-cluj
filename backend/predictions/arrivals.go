@@ -1,6 +1,4 @@
-// Package predictions turns vehicle positions, learned stop offsets and the timetable
-// into the arrival rows every client shows. Pure: no database, no clock of its own, and
-// nothing rounded: times stay in seconds until a screen shows them.
+// Package predictions builds arrival rows from vehicles, learned offsets and timetables. No DB, no clock.
 package predictions
 
 import (
@@ -8,8 +6,7 @@ import (
 	"sort"
 )
 
-// MinutesUntil is the signed distance from nowMinutes to absMinutes, both past midnight,
-// read across midnight the short way round.
+// Signed, and wraps across midnight the short way.
 func MinutesUntil(absMinutes, nowMinutes float64) float64 {
 	diff := absMinutes - nowMinutes
 	if diff < -720 {
@@ -21,9 +18,7 @@ func MinutesUntil(absMinutes, nowMinutes float64) float64 {
 	return diff
 }
 
-// ScheduledArrivals lists the timetable arrivals at one stop, soonest first, as seconds
-// from now (nowSec past midnight); horizon <= 0 means no limit. A run up to graceSec
-// late, what runs here usually are, is still listed.
+// Seconds from now to each timetable arrival, soonest first; runs up to graceSec late still count.
 func ScheduledArrivals(departureMinutes []int, offsetSec, nowSec, horizonSec, graceSec float64) []float64 {
 	out := make([]float64, 0, len(departureMinutes))
 	for _, d := range departureMinutes {
@@ -53,9 +48,7 @@ type LiveSeconds struct {
 // Screens show whole minutes; what rounds to zero reads "now".
 func readsNow(seconds float64) bool { return math.Round(seconds/60) == 0 }
 
-// MergeArrivals lists each tracked bus, then only the timetable runs after the last of
-// them: everything at or before a live estimate is a run being tracked or one already
-// gone. With nothing live, a slot still reading "now" on a tracked trip is a run gone past.
+// Tracked buses first, then only the timetable runs after the last of them.
 func MergeArrivals(live []LiveSeconds, scheduled []float64, tracked bool, limit int, graceSec float64) []Arrival {
 	if limit <= 0 {
 		limit = 3
@@ -101,8 +94,7 @@ type Marked struct {
 	Soon bool
 }
 
-// MarkRepeatedNow keeps "now" on the first of consecutive zeros down a column and on the
-// first zero in a row; the rest read "soon".
+// Only the first of consecutive zeros, down a column or along a row, reads "now"; the rest "soon".
 func MarkRepeatedNow(rows [][]Arrival) [][]Marked {
 	out := make([][]Marked, len(rows))
 	for stop, row := range rows {

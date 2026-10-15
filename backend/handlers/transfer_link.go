@@ -14,17 +14,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// Moves settings and favorites between devices: the receiver shows a code, the
-// sender posts its export to it. Links only live in memory, for a few minutes.
+// The receiver shows a code and the sender posts its export to it. Kept in memory only.
 const (
 	transferLinkTTL          = 10 * time.Minute
 	maxTransferLinks         = 1000
 	maxTransferBody          = 32 << 10
 	transferLinkSecretHeader = "X-Link-Secret"
 
-	// Six digits are guessable, so wrong codes are budgeted per client and for everyone
-	// together. The shared budget lets through about 3000 guesses in a code's lifetime,
-	// a 0.3% chance at any one code, however many addresses a bot uses.
+	// Six digits are guessable: misses are budgeted per client and globally, about 0.3% per code.
 	maxTransferMissesPerClient  = 20
 	maxTransferMissesPerMinute  = 300
 	maxTransferCreatesPerClient = 20
@@ -150,8 +147,7 @@ func CreateTransferLink(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"code": code, "secret": link.secret, "expiresIn": int(transferLinkTTL.Seconds())})
 }
 
-// The body is the app's own settings export. Each receiver checks what it applies,
-// so the server only makes sure it is a small JSON object.
+// Receivers check what they apply; the server only checks it is a small JSON object.
 func SendToTransferLink(c fiber.Ctx) error {
 	c.Set("Cache-Control", "no-store")
 	if !sameOriginRequest(c) {
@@ -189,8 +185,7 @@ func SendToTransferLink(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// The link stays until the receiver deletes it, so a reply lost while the watch
-// sleeps can be fetched again.
+// Kept until the receiver deletes it, so a reply lost while the watch sleeps can be fetched again.
 func ReadTransferLink(c fiber.Ctx) error {
 	c.Set("Cache-Control", "no-store")
 	transferLinksMu.Lock()

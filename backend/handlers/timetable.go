@@ -60,13 +60,7 @@ func fetchTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cac
 	return t, nil
 }
 
-// alignTimetableToDirectionIDs ensures DepartureIn / InStopName line up with
-// Tranzy's direction_id=0. CTP-CJ's "in"/"out" labels are independent of
-// Tranzy's direction IDs, so for some routes (e.g. line 57) the frontend's
-// assumption "departure_in ↔ direction 0" renders the wrong column. We compare
-// CTP's stop names against the first stop of trips ending _0 vs _1 and swap
-// columns when the swapped arrangement is the better match. Falls back to as-is
-// when matches are absent or tied.
+// CTP's in/out columns don't follow Tranzy's direction ids, so swap them when the stop names match the other way.
 func alignTimetableToDirectionIDs(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, t *models.Timetable) {
 	if t == nil || (t.InStopName == "" && t.OutStopName == "") {
 		return
@@ -186,8 +180,7 @@ func getTimetableFromDB(routeShortName string) (*models.Timetable, error) {
 	return &t, nil
 }
 
-// normalizeDaySchedule applies GTFS 24+ hour notation to entries read from the
-// DB cache, which may pre-date the parser-level fix.
+// Cached rows may predate 24+ hour notation.
 func normalizeDaySchedule(d *models.DaySchedule) {
 	prevIn, prevOut := -1, -1
 	offIn, offOut := 0, 0

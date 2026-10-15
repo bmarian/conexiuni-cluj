@@ -11,8 +11,7 @@ import (
 	"sync"
 )
 
-// The OSM PBF reader keeps what the walk graph needs, node coordinates and way refs, and the places.
-// Files are expected sorted by type (nodes before ways), as Geofabrik writes them.
+// Expects nodes before ways, as Geofabrik writes them.
 
 type pbfFilter struct {
 	node func(lat, lon float64) bool
@@ -107,7 +106,6 @@ func readPBF(r io.Reader, keep pbfFilter, each func(pbfBlock)) error {
 	return readErr
 }
 
-// nextBlob returns the next OSMData blob, nil at the end of the file.
 func nextBlob(r io.Reader) ([]byte, error) {
 	var size [4]byte
 	for {

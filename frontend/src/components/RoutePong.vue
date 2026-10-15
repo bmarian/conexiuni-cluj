@@ -15,7 +15,7 @@ const {t} = useI18n()
 const {arcadeActive, legacyBlueActive} = storeToRefs(useSettingsStore())
 const {isDarkMode} = storeToRefs(useUserStore())
 
-// canvasTheme and overlayTheme are computed so draw() always reads the current theme each rAF frame.
+// Computed so each frame reads the current theme.
 const canvasTheme = computed(() => {
   const h = arcadeActive.value
   const x = legacyBlueActive.value
@@ -276,11 +276,9 @@ function draw() {
   if (!ctx) return
   const t = canvasTheme.value
 
-  // Court
   ctx.fillStyle = t.court
   ctx.fillRect(0, 0, W, H)
 
-  // Center divider
   ctx.save()
   ctx.setLineDash(t.isXp ? [2, 4] : [5, 7])
   ctx.strokeStyle = t.line
@@ -291,7 +289,6 @@ function draw() {
   ctx.stroke()
   ctx.restore()
 
-  // Score
   ctx.fillStyle = t.score
   ctx.font = t.isXp
     ? 'bold 24px Tahoma, "Trebuchet MS", sans-serif'
@@ -304,7 +301,6 @@ function draw() {
   drawPips(ctx, scoreL, W / 2 - 34, 48)
   drawPips(ctx, scoreR, W / 2 + 34, 48)
 
-  // Paddles
   ctx.fillStyle = t.paddle
   if (t.isXp) {
     ctx.fillRect(0, lpy, PW, PH)
@@ -316,7 +312,6 @@ function draw() {
     ctx.fill()
   }
 
-  // Ball badge
   ctx.font = t.isXp
     ? 'bold 12px Tahoma, "Trebuchet MS", sans-serif'
     : 'bold 13px ui-sans-serif, sans-serif'
@@ -474,7 +469,6 @@ onUnmounted(() => {
   user-select: none;
 }
 
-/* ── XP window chrome ─────────────────────────────────────────────────── */
 .pong-wrap.is-xp {
   border-radius: 0;
   border: 1px solid #003C9C;
@@ -553,7 +547,6 @@ onUnmounted(() => {
   opacity: 0.7;
 }
 
-/* XP close button — repositioned into the title bar's right edge */
 .pong-exit.is-xp {
   top: 4px;
   right: 4px;
@@ -582,7 +575,6 @@ onUnmounted(() => {
   cursor: default;
 }
 
-/* When XP titlebar is present, the overlay sits below it */
 .pong-wrap.is-xp .pong-over {
   inset: 25px 0 0 0;
 }
@@ -619,7 +611,6 @@ onUnmounted(() => {
   opacity: 0.82;
 }
 
-/* XP-style buttons in the message dialog */
 .pong-over-btn.is-xp {
   border-radius: 0;
   background: linear-gradient(to bottom, #FDFDFB 0%, #ECE9D8 50%, #D6D2C0 100%);
@@ -672,7 +663,6 @@ onUnmounted(() => {
   background: linear-gradient(to bottom, #5BA1F0 0%, #3A7EC8 50%, #2A5FA0 100%);
 }
 
-/* XP overlay — opaque XP "message dialog" surface */
 .pong-wrap.is-xp .pong-over {
   background: #ECE9D8 !important;
 }

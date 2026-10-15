@@ -12,8 +12,7 @@ import (
 	"time"
 )
 
-// A bus that ends one direction and continues as the other after a short stand.
-// Tranzy flips the trip id as the bus rolls in, so the flip is the arrival.
+// Tranzy flips the trip id as the bus arrives, so the flip is the arrival.
 const (
 	turnaroundWindow        = 14 * 24 * time.Hour
 	turnaroundRetention     = 45 * 24 * time.Hour
@@ -210,9 +209,7 @@ func loadTerminusProfile(routeID, directionID int) terminusProfile {
 	return profile
 }
 
-// learnTurnaround reads the stands, sorted: the quickest quarter is the stand itself,
-// the rest is waiting for a slot; the longest tenth says how long anyone waits here. Few
-// samples lean on the default.
+// Quickest quarter is the stand, longest tenth the max wait; few samples lean on the default.
 func learnTurnaround(stands []float64) predictions.Turnaround {
 	n := float64(len(stands))
 	weight := n / (n + turnaroundMinSamples)
@@ -231,8 +228,7 @@ func sortedTrip(stopTimes []models.StopTime, tripID string) []models.StopTime {
 	return trip
 }
 
-// What the timetable usually leaves between arriving on the feeder direction and the
-// next departure, over the day's runs.
+// Planned gap between arriving on the feeder direction and the next departure.
 func scheduledLayoverMinutes(day models.DaySchedule, fromDurationMin float64, toDirection int) (float64, bool) {
 	var arrivals, departures []float64
 	for _, e := range day.Entries {
@@ -289,8 +285,7 @@ func turnaroundFor(routeID, directionID int, from, to []models.StopTime, timetab
 	if profile.Departures >= turnaroundMinSamples {
 		return profile.Turnaround
 	}
-	// Until the stands have been seen: a terminus with its own arrival stop where the
-	// timetable plans a short stand. A loop back into the same stop is usually a depot.
+	// Before stands are learned: a short planned stand at its own arrival stop. A loop is usually a depot.
 	if timetable == nil || last.StopID == first.StopID {
 		return predictions.Turnaround{}
 	}

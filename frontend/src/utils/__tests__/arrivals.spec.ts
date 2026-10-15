@@ -36,9 +36,7 @@ describe('a run that is running late', () => {
 })
 
 describe('a stop list with nothing tracked', () => {
-  // Bus 32 towards P-ța Mihai Viteazul at 09:17 on 2026-09-23, while Tranzy reported
-  // none of its buses. The 09:12 run was within its grace at two stops running, so the
-  // list read "now" at both, and the 09:03 run was due at the last stop.
+  // Bus 32 towards P-ța Mihai Viteazul at 09:17 on 2026-09-23, with none of its buses reported.
   const departures32 = [9 * 60 + 3, 9 * 60 + 12, 9 * 60 + 22, 9 * 60 + 31]
   const offsets32 = [0, 1, 2, 4, 7, 9, 14]
   const firstColumn = markRepeatedNow(offsets32.map((offsetMinutes) => nextArrivals(

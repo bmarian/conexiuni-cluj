@@ -19,7 +19,6 @@ import (
 var serverStartedAt = time.Now()
 
 const (
-	// Product choice: the disk gets a word on the dashboard once it is this full.
 	diskFullWarning = 0.9
 	adminTopLimit   = 10
 	adminPeopleDays = 30

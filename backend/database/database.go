@@ -53,10 +53,7 @@ func Connect(dbPath string) error {
 	}
 
 	if err := checkIntegrity(); err != nil {
-		// Don't fail boot — the server can still serve from Tranzy and
-		// recover most caches by re-fetching. But scream loudly: silent
-		// "database disk image is malformed" warnings buried in write paths
-		// (one per cache miss) are easy to miss and waste hours of debugging.
+		// Not fatal: most caches recover by re-fetching.
 		log.Printf("CRITICAL: database integrity check failed: %v -- the server will run but writes to corrupt tables will fail silently; consider running `sqlite3 %s '.recover' | sqlite3 recovered.db` and swapping the file", err, dbPath)
 	}
 
@@ -64,10 +61,6 @@ func Connect(dbPath string) error {
 	return nil
 }
 
-// checkIntegrity runs SQLite's PRAGMA integrity_check. It returns nil if the
-// database reports "ok", or an error containing the first few problems it
-// found otherwise. Cheap (sub-second on our DB size) and worth running every
-// boot — the alternative is per-write warnings buried in app logs.
 func checkIntegrity() error {
 	rows, err := DB.Query(`PRAGMA integrity_check(5)`)
 	if err != nil {
@@ -421,8 +414,7 @@ func InitSchemas() error {
 	return nil
 }
 
-// addMissingColumns brings older databases up to the current shape. SQLite has
-// no "ADD COLUMN IF NOT EXISTS", so existing columns are read first.
+// SQLite has no ADD COLUMN IF NOT EXISTS.
 func addMissingColumns() error {
 	additions := map[string][]string{
 		"vehicles": {
@@ -460,8 +452,7 @@ func addMissingColumns() error {
 	return nil
 }
 
-// stats_visitors kept every client hash forever. Its counts move into
-// stats_daily and the table goes.
+// Moves stats_visitors into stats_daily and drops it.
 func retireLifetimeVisitors() error {
 	cols, err := tableColumns("stats_visitors")
 	if err != nil || len(cols) == 0 {

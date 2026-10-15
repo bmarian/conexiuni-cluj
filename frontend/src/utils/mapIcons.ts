@@ -30,8 +30,6 @@ function paperPlate(size: number, fill: string, ink: string, iconSize: number, e
   </div>`
 }
 
-// Clippy: paperclip body in `wire` color with a `wireDark` shadow below for depth,
-// plus googly eyes and raised eyebrows overlapping the top loop.
 function clippySvg(wire: string, wireDark: string, w: number, h: number): string {
   return `<svg viewBox="0 0 26 32" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="13" cy="30.5" rx="6.5" ry="0.9" fill="rgba(0,0,0,0.22)"/>
@@ -318,7 +316,7 @@ export function getVehicleMarkerHtml(
     const sz = 36
     const cursorRotation = heading + 45
 
-    // Classic XP mouse cursor. Rotated heading+45 so the NW-pointing tip aims at direction of travel.
+    // XP cursor, rotated heading+45 because its tip points NW.
     const cursorSvg = `<svg viewBox="-1 -1 14 20" width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${cursorRotation}deg);transform-origin:center;display:block;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.45));">
       <path d="M 0 0 L 0 16 L 4 12 L 6 18 L 8 17 L 6 11 L 11 11 Z" fill="${resolvedColor}" stroke="black" stroke-width="1" stroke-linejoin="miter" stroke-linecap="round"/>
       <path d="M 1 1 L 1 14" stroke="rgba(255,255,255,0.55)" stroke-width="0.7" stroke-linecap="round" fill="none"/>

@@ -20,9 +20,9 @@ import (
 // One poll loop feeds every /live subscriber its slice of the prediction table.
 
 const (
-	// Product choice: the streams one address may hold open, a household or an office behind NAT.
+	// A household or an office behind NAT.
 	maxLiveStreamsPerClient = 32
-	// Physical: under the 60 s read timeout of nginx and the apps. Also how long a vanished client can hold a slot.
+	// Under the 60 s read timeout of nginx and the apps.
 	liveKeepAlive = 25 * time.Second
 )
 
@@ -235,8 +235,6 @@ func (h *liveHub) run() {
 	}
 }
 
-// poll fetches the vehicles (served from the cache within shelfLife) and returns the
-// prediction table that fetch rebuilt.
 func (h *liveHub) poll(shelfLife time.Duration) (*liveTable, error) {
 	vehicles, err := GetVehicles(h.tranzy, shelfLife, VehicleFilter{})
 	if err != nil {
@@ -249,7 +247,6 @@ func (h *liveHub) poll(shelfLife time.Duration) (*liveTable, error) {
 	return RecomputeLive(vehicles, time.Now()), nil
 }
 
-// current is the table as of the latest vehicles, fetching them when the last are stale.
 func (h *liveHub) current() (*liveTable, error) {
 	if table := currentLiveTable(); table != nil && time.Since(table.AsOf) < 2*time.Minute {
 		return table, nil
@@ -372,8 +369,7 @@ func liveIDs(c fiber.Ctx) ([]int, []string) {
 	return stops, trips
 }
 
-// ServeLive answers /live: the prediction rows for the given stops and trips, and the
-// vehicles on those trips, as an SSE stream of snapshot then deltas, or once as JSON.
+// SSE stream of a snapshot then deltas, or one JSON answer.
 func ServeLive(c fiber.Ctx) error {
 	stopIDs, tripIDs := liveIDs(c)
 	if len(stopIDs) == 0 && len(tripIDs) == 0 {

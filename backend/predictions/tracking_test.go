@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// Route 7: direction 0 runs north along a 1.1 km line, direction 1 runs it back and ends
-// where direction 0 starts. 12:00, departures of direction 0 every 15 minutes.
+// Route 7: direction 0 runs north 1.1 km and direction 1 back, direction 0 every 15 min.
 var (
 	nowMs7      = time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC).UnixMilli() // 12:00 in Cluj
 	nowMinutes7 = 12 * 60.0

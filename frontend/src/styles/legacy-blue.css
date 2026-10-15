@@ -1,13 +1,10 @@
 ﻿/* Windows XP Luna theme */
 
-/* kill all rounded corners - XP is square.
-   Targets explicit classes instead of * to avoid matching every DOM node
-   in the drawer (which triggers full subtree style-recalc on each Vue update). */
+/* Explicit classes, not *: matching every node in the drawer recalcs styles on each update. */
 html[data-legacy-blue] .app-shell,
 html[data-legacy-blue] .app-shell::before,
 html[data-legacy-blue] .app-shell::after,
 html[data-legacy-blue] .app-drawer,
-/* Tailwind rounded utilities used inside the drawer */
 html[data-legacy-blue] .app-drawer .rounded,
 html[data-legacy-blue] .app-drawer .rounded-sm,
 html[data-legacy-blue] .app-drawer .rounded-md,
@@ -16,7 +13,6 @@ html[data-legacy-blue] .app-drawer .rounded-xl,
 html[data-legacy-blue] .app-drawer .rounded-2xl,
 html[data-legacy-blue] .app-drawer .rounded-3xl,
 html[data-legacy-blue] .app-drawer .rounded-full,
-/* component classes that set border-radius in scoped CSS */
 html[data-legacy-blue] .app-drawer .departure-card,
 html[data-legacy-blue] .app-drawer .live-badge,
 html[data-legacy-blue] .app-drawer .time-pill,
@@ -49,14 +45,12 @@ html[data-legacy-blue] .app-drawer .bus-chip,
 html[data-legacy-blue] .app-drawer .stat-chip,
 html[data-legacy-blue] .app-drawer .card-rail,
 html[data-legacy-blue] .app-drawer .plan-time-filter,
-/* settings page */
 html[data-legacy-blue] .app-drawer .option-btn,
 html[data-legacy-blue] .app-drawer .setting-row,
 html[data-legacy-blue] .app-drawer .setting-check,
 html[data-legacy-blue] .app-drawer .setting-note,
 html[data-legacy-blue] .app-drawer .beta-badge,
 html[data-legacy-blue] .app-drawer .theme-select,
-/* settings button and popover */
 html[data-legacy-blue] .settings-btn,
 html[data-legacy-blue] .settings-popover,
 html[data-legacy-blue] .settings-popover .rounded,
@@ -68,16 +62,13 @@ html[data-legacy-blue] .settings-popover .rounded-full,
 html[data-legacy-blue] .settings-popover .option-btn,
 html[data-legacy-blue] .settings-popover .theme-select,
 html[data-legacy-blue] .settings-popover .select-wrap::after,
-/* news button and popover */
 html[data-legacy-blue] .news-btn,
 html[data-legacy-blue] .news-popover,
 html[data-legacy-blue] .news-item,
 html[data-legacy-blue] .news-change-badge,
 html[data-legacy-blue] .app-drawer .rc-close,
-/* export/import buttons */
 html[data-legacy-blue] .ei-btn,
 html[data-legacy-blue] .ei-textarea,
-/* fixed chrome */
 html[data-legacy-blue] .weather-pill,
 html[data-legacy-blue] .weather-popover,
 html[data-legacy-blue] .weather-range,
@@ -1086,9 +1077,7 @@ html[data-legacy-blue] .time-cell-live {
   padding: 0 0.25rem !important;
 }
 
-/* Blanket: all stop-row text → white (Bliss gradient bg is colorful on plain rows,
-   and selected/nearest/fav rows override back below). Avoids triple :not() chains
-   which are evaluated against every child of every row. */
+/* Stop-row text is white on the Bliss gradient; selected rows override below. Avoids slow :not() chains. */
 html[data-legacy-blue] .route-view-container .stop-row .text-slate-500,
 html[data-legacy-blue] .route-view-container .stop-row .text-slate-600,
 html[data-legacy-blue] .route-view-container .stop-row .text-slate-700,
@@ -1831,8 +1820,6 @@ html.dark[data-legacy-blue] .select-wrap::after {
   border-color: #6a7090 #0a0e1c #0a0e1c #6a7090;
 }
 
-/* RoutePlanningView */
-
 html[data-legacy-blue] .departure-card .stat-chip {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -1923,7 +1910,6 @@ html[data-legacy-blue] .departure-card .stat-chip-label {
   font-family: var(--xp-font) !important;
 }
 
-/* Legacy Blue dark – departure card sub-elements */
 html.dark[data-legacy-blue] .departure-card .stat-chip {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -2083,7 +2069,6 @@ html.dark[data-legacy-blue] .plan-view-container .text-sky-400 {
   color: var(--xp-blue) !important;
 }
 
-/* GreenFridayBanner */
 html[data-legacy-blue] .green-friday-banner {
   background: var(--xp-tan) !important;
   border-bottom: 1px solid var(--xp-border) !important;
@@ -2149,8 +2134,6 @@ html.dark[data-legacy-blue] .green-friday-close:hover {
   border-color: #6b1010 !important;
   color: #ffffff !important;
 }
-
-/* ── News button ── */
 
 html[data-legacy-blue] .news-btn {
   background: var(--xp-orb) !important;
@@ -2232,7 +2215,6 @@ html[data-legacy-blue] .news-state-error {
   color: #cc0000 !important;
 }
 
-/* dark news button */
 html.dark[data-legacy-blue] .news-btn {
   background: var(--xp-orb) !important;
   color: #ffffff !important;
@@ -2282,8 +2264,6 @@ html.dark[data-legacy-blue] .news-title {
 html.dark[data-legacy-blue] .news-state {
   color: #8898b0 !important;
 }
-
-/* ── Route change news + banner ── */
 
 html[data-legacy-blue] .news-hint {
   font-family: var(--xp-font) !important;
@@ -2357,8 +2337,6 @@ html.dark[data-legacy-blue] .rc-more {
   color: #8898b0 !important;
 }
 
-/* ── Export / Import (ei-*) XP fix ── */
-
 html[data-legacy-blue] .ei-label {
   color: var(--xp-blue) !important;
   letter-spacing: 0.04em !important;
@@ -2427,7 +2405,6 @@ html[data-legacy-blue] .ei-status.error {
   font-family: var(--xp-font) !important;
 }
 
-/* dark ei-* */
 html.dark[data-legacy-blue] .ei-label {
   color: var(--xp-blue) !important;
 }
@@ -2601,8 +2578,6 @@ html.dark[data-legacy-blue] .kbd-help-keys kbd {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
 
-/* ── Toast: XP tray balloon ── */
-
 html[data-legacy-blue] .app-toast {
   gap: 0.5rem !important;
   padding: 0.55rem 0.75rem 0.6rem 0.6rem !important;
@@ -2650,8 +2625,6 @@ html.dark[data-legacy-blue] .app-toast-title,
 html.dark[data-legacy-blue] .app-toast-body {
   color: var(--xp-text) !important;
 }
-
-/* ---------- followed buses, reminders and trips ---------- */
 
 html[data-legacy-blue] .bus-menu,
 html[data-legacy-blue] .rs-sheet {

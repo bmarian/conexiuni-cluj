@@ -18,9 +18,7 @@ type replayNoPersist struct{}
 func (replayNoPersist) Save(string, int, time.Time) error   { return nil }
 func (replayNoPersist) Load(string) (int, time.Time, error) { return 0, time.Time{}, nil }
 
-// Replays a recording of /api/vehicles through the prediction table and writes the rows
-// of every through-running trip per frame, for the scoring harness. Run with
-// REPLAY_FILE=... REPLAY_DB=... REPLAY_OUT=... go test -run TestReplayLiveRows ./handlers/
+// Feeds the scoring harness. REPLAY_FILE=... REPLAY_DB=... REPLAY_OUT=... go test -run TestReplayLiveRows ./handlers/
 func TestReplayLiveRows(t *testing.T) {
 	file, dbPath, outPath := os.Getenv("REPLAY_FILE"), os.Getenv("REPLAY_DB"), os.Getenv("REPLAY_OUT")
 	if file == "" || dbPath == "" || outPath == "" {

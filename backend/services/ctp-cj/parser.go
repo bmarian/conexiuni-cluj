@@ -14,8 +14,7 @@ type TimetableEntry struct {
 	DepartureOut string
 }
 
-// Frequency describes a headway-based direction (e.g. line M26), where CTP lists
-// no individual departures, only a service window and a "every N-M min" interval.
+// Set for headway-only directions (e.g. M26): a service window and an interval.
 type Frequency struct {
 	Start      string
 	End        string
@@ -37,8 +36,7 @@ type ParsedTimetable struct {
 // Accept HH:MM and annotated values like 07:20* or *07:20.
 var timeCell = regexp.MustCompile(`^\s*\**\d{1,2}:\d{2}\S*\s*$`)
 
-// Headway cells, spread across two rows in one column: a service window
-// ("05:10-22:40") and an interval ("10-20min" or "15min").
+// A window ("05:10-22:40") and an interval ("10-20min"), on two rows of one column.
 var (
 	freqWindowCell   = regexp.MustCompile(`^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$`)
 	freqIntervalCell = regexp.MustCompile(`^(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*min$`)
@@ -55,9 +53,7 @@ func CanonicalTime(s string) string {
 	return bare + s[:len(s)-len(bare)]
 }
 
-// applyFreqCell folds a window or interval cell into freq (allocated on first
-// use) and reports whether s was a frequency cell. The two halves arrive on
-// separate rows, so they accumulate into one struct.
+// Folds a window or interval cell into freq and reports whether s was one.
 func applyFreqCell(freq **Frequency, s string) bool {
 	if m := freqWindowCell.FindStringSubmatch(s); m != nil {
 		if *freq == nil {
@@ -116,9 +112,7 @@ func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 			continue
 		}
 
-		// A headway column carries no individual departures, only the window /
-		// interval cells. Lift them into the frequency descriptor and blank the
-		// cell so the opposite column's real time on that row is still kept.
+		// Blank the headway cell so the other column's time on that row is kept.
 		if applyFreqCell(&t.InFrequency, left) {
 			left = ""
 		}
@@ -139,9 +133,7 @@ func ParseTimetableCSV(data []byte) (*ParsedTimetable, error) {
 	return t, scanner.Err()
 }
 
-// normalizeEntries rewrites post-midnight times to GTFS 24+ hour notation
-// (e.g. "00:30" after "23:30" becomes "24:30") by detecting backward transitions
-// in each direction's sequence independently.
+// Times past midnight become 24+ ("00:30" after "23:30" is "24:30").
 func normalizeEntries(entries []TimetableEntry) {
 	prevIn, prevOut := -1, -1
 	offIn, offOut := 0, 0

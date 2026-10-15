@@ -52,11 +52,7 @@ func getBaseStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes,
 		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
 		storeStopTimesTrackingChanges(*filter.RouteShortName),
 		CacheOpts[[]models.StopTime]{
-			// Per-route stop_times should never be empty for a real route.
-			// Empty almost always means transient state (warmup mid-flight,
-			// Tranzy route_id renumber landing between trips and stop_times).
-			// Short-TTL it so the next request retries quickly instead of
-			// serving fossilized empty for the full hour.
+			// Empty means transient state (warmup, Tranzy renumbering), so retry soon.
 			IsEmpty: func(s []models.StopTime) bool { return len(s) == 0 },
 		},
 	)
@@ -87,13 +83,11 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		return nil, err
 	}
 
-	// Index: trip_id → []RequestStopTime
 	astByTrip := make(map[string][]models.RequestStopTime, len(trips))
 	for _, ast := range apiStopTimes {
 		astByTrip[ast.TripID] = append(astByTrip[ast.TripID], ast)
 	}
 
-	// Index: trip_id → shape_id, collect unique shape IDs
 	shapeByTrip := make(map[string]string, len(trips))
 	shapeIDsSeen := make(map[string]struct{})
 	for _, t := range trips {
@@ -103,7 +97,6 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		}
 	}
 
-	// Batch-fetch all shapes needed for this route
 	shapesByID := make(map[string][]models.Shape)
 	if len(shapeIDsSeen) > 0 {
 		shapeIDs := make([]string, 0, len(shapeIDsSeen))
@@ -117,7 +110,6 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 		}
 	}
 
-	// Fetch all stops at once and index by ID
 	allStops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
 	if err != nil {
 		return nil, err
@@ -146,8 +138,7 @@ func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheT
 			currentStop := stopByID[st.StopID]
 			offsetArrivalTime := 0.0
 			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
-				// Tranzy has no arrival times: the shape at a city bus pace is the seed the
-				// learned segment profiles replace.
+				// Tranzy has no arrival times: seed from the shape at bus pace until segments are learned.
 				offsetArrivalTime = calculateStopOffset(*previousStop, currentStop, shapes)
 			}
 			stopIndex++
@@ -249,11 +240,7 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 	if filter.RouteShortName == nil {
 		return queryRows(`SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scanStopTime)
 	}
-	// Resolve route_short_name → route_id → trip_ids via the live routes/trips
-	// tables instead of trusting the stop_times.route_short_name column. That
-	// column can go stale when Tranzy renumbers route_ids: trip rows persist
-	// under the previous mapping (PK is trip_id + stop_sequence), leaving the
-	// new short_name with no matching rows.
+	// Through routes/trips: stop_times.route_short_name goes stale when Tranzy renumbers routes.
 	return queryRows(`
 		SELECT st.trip_id, st.stop_id, st.offset_arrival_time, st.stop_sequence,
 		       st.stop_headsign, st.route_short_name, st.stop_lat, st.stop_lon
@@ -289,14 +276,7 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 		})
 }
 
-// ScrubStopTimes deletes stop_times rows whose trip_id no longer exists in
-// trips (orphans, e.g. after Tranzy retires a trip_id), and reports rows whose
-// denormalized route_short_name column has drifted from the trip's current
-// route. Drift is harmless for reads now that getStopTimesFromDB resolves
-// route_short_name via JOIN, but logging it makes future renumber events
-// observable and the drift count surface in logs.
-//
-// Returns (orphansDeleted, driftedRows, error).
+// Deletes orphaned rows and counts rows whose route_short_name drifted.
 func ScrubStopTimes() (int64, int64, error) {
 	res, err := database.DB.Exec(`DELETE FROM stop_times WHERE trip_id NOT IN (SELECT trip_id FROM trips)`)
 	if err != nil {

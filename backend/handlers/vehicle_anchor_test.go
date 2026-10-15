@@ -67,9 +67,6 @@ func TestApplyAnchorResetsOnceTheVehicleLeaves(t *testing.T) {
 	}
 }
 
-// The reason the anchor is carried across polls instead of comparing consecutive
-// fixes: a bus creeping out of the terminus never moves far enough between two
-// polls to count as moving, but it does leave the circle it started in.
 func TestApplyAnchorCatchesSlowCreepOutOfTheTerminus(t *testing.T) {
 	prev := vehicleAt(anchorLat, anchorLon, at(0))
 	applyAnchor(&prev, models.Vehicle{}, false, time.Now())

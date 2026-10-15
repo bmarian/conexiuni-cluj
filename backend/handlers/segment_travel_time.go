@@ -319,10 +319,7 @@ func observeVehicleSegment(loc *time.Location, v models.Vehicle) (pendingSegment
 		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
 	if nearStopPos <= state.SegmentStartPos {
-		// A stale mid-segment anchor becoming a real segment start gets re-anchored;
-		// an already valid start keeps its time so from-stop dwell stays in the sample.
-		// Except at the departure terminus: the timetable already says when the bus
-		// leaves, so the layover there must not count as travel to the next stop.
+		// A valid start keeps its time so dwell counts, except at the departure terminus: the layover isn't travel.
 		if nearStopPos == state.SegmentStartPos && (!state.HasSegmentStart || nearStopPos == 0) && nearStopPos < len(tracker.Stops)-1 {
 			state.HasSegmentStart = true
 			state.SegmentStartedAt = observedAt
@@ -397,8 +394,7 @@ func newVehicleSegmentState(tracker *tripSegmentTracker, shapeIdx, routePos, nea
 	}
 }
 
-// Tranzy moved the bus onto its next trip. At a terminus that is the arrival: the
-// last segment of the old trip ends here, and the stand until departure starts.
+// Tranzy moved the bus onto its next trip: at a terminus that is the arrival.
 func closeTripAtTurnaround(state vehicleSegmentState, next *tripSegmentTracker, v models.Vehicle, observedAt time.Time) (pendingSegmentSample, segmentObservationStatus) {
 	clearPendingTurnaround(v.ID)
 	prev, ok := getTripSegmentTracker(state.TripID)
@@ -895,8 +891,7 @@ func loadSegmentProfileDurations(routeID, directionID int, dayType string, bucke
 	return selectSegmentProfiles(rows, dayType, bucket), nil
 }
 
-// Every kind of day: a segment nobody has measured on a Sunday yet is still better
-// known from the weekdays than from Tranzy's planned offsets.
+// All day types: weekday data beats Tranzy's offsets for a segment not yet measured on Sunday.
 func loadSegmentProfileRows(routeID, directionID int) ([]segmentProfileRow, error) {
 	return queryRows(`
 		SELECT from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec
@@ -912,8 +907,7 @@ func loadSegmentProfileRows(routeID, directionID int) ([]segmentProfileRow, erro
 		})
 }
 
-// The closest profile per segment: this kind of day first, by bucket distance, then the
-// other kinds of day the same way.
+// Same day type first, by bucket distance, then the other day types.
 func selectSegmentProfiles(rows []segmentProfileRow, dayType string, bucket int) map[stopPair]segmentProfileEstimate {
 	type selectedProfile struct {
 		duration    float64

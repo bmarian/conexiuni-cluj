@@ -11,8 +11,7 @@ const dismissed = ref(localStorage.getItem("greenFridayDismissed") === todayKey)
 const animationKey = ref(0);
 
 function dismiss() {
-  // The banner is a one-item section, so there is no neighbour to fall back on:
-  // without this, dismissing it drops keyboard focus onto the body.
+  // A one-item section has no neighbour, so focus would drop onto the body.
   const wasKeyboard = kbd.keyboardMode.value;
   const neighbor = wasKeyboard ? kbd.neighborKey() : null;
   localStorage.setItem("greenFridayDismissed", todayKey);

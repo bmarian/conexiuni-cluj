@@ -11,8 +11,7 @@ import MapComponent from '@/components/MapComponent.vue'
 import {useMapStore} from '@/stores/map.ts'
 import {htmlMarker} from '@/utils/mapMarkers.ts'
 
-// Each bezel click scrolls the document 128px and sends nothing else, so the map sits
-// over a tall empty page and turns those scrolls into zoom steps.
+// Each bezel click scrolls the page 128px and nothing else, so scrolls become zoom steps.
 const BEZEL_STEP_PX = 128
 // Keeps a fitted route inside the round screen, clear of the title and the buttons.
 const FIT_SIDE = 0.12
@@ -74,8 +73,7 @@ function drawLabels() {
   cullLabels()
 }
 
-// Soonest first. A label that would cover one already placed stays hidden until
-// zooming in makes room for it.
+// Soonest first; a label that would cover a placed one stays hidden until zooming in.
 function cullLabels() {
   const placed: DOMRect[] = []
   for (const {marker} of [...labelMarkers].sort((a, b) => a.label.rank - b.label.rank)) {

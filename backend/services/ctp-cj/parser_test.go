@@ -2,9 +2,7 @@ package ctp_cj
 
 import "testing"
 
-// Real M26 (lv) shape: the Cluj-Napoca column carries no departures, only a
-// service window and an interval, spread across two consecutive rows. The
-// opposite column has real times on those same rows that must survive.
+// Real M26 (lv): one column has only a window and an interval, the other real times on the same rows.
 const m26WeekdayCSV = `route_long_name,Cluj-Napoca - Floresti / Cetate
 service_name,Luni - Vineri
 service_start,04.05.2026
@@ -23,14 +21,14 @@ func TestParseTimetableCSV_FrequencyDirection(t *testing.T) {
 		t.Fatalf("ParseTimetableCSV: %v", err)
 	}
 
-	// (a) the window cell must never become a bogus departure entry.
+	// The window cell is never a departure.
 	for _, e := range parsed.Entries {
 		if e.DepartureIn != "" {
 			t.Errorf("expected all DepartureIn empty for headway direction, got %q", e.DepartureIn)
 		}
 	}
 
-	// (b) the out-time sharing a row with the interval cell must survive.
+	// The out time on the interval row survives.
 	if !hasOutTime(parsed.Entries, "06:37") {
 		t.Errorf("06:37 (out-time on the interval row) was dropped; entries=%+v", parsed.Entries)
 	}
@@ -38,7 +36,7 @@ func TestParseTimetableCSV_FrequencyDirection(t *testing.T) {
 		t.Errorf("06:23 (out-time on the window row) was dropped; entries=%+v", parsed.Entries)
 	}
 
-	// (c) the window + interval halves fold into one InFrequency descriptor.
+	// Window and interval fold into one InFrequency.
 	if parsed.InFrequency == nil {
 		t.Fatalf("expected InFrequency, got nil")
 	}
@@ -47,7 +45,7 @@ func TestParseTimetableCSV_FrequencyDirection(t *testing.T) {
 		t.Errorf("InFrequency = %+v, want %+v", *parsed.InFrequency, want)
 	}
 
-	// (d) the explicit-time direction stays non-frequency.
+	// The explicit-time direction has no frequency.
 	if parsed.OutFrequency != nil {
 		t.Errorf("expected OutFrequency nil, got %+v", *parsed.OutFrequency)
 	}

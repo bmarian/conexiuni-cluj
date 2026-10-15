@@ -1,5 +1,4 @@
-/* Watch layout: a 412px circle on the Galaxy Watch. Sizes follow the viewport so the
-   browser's own zoom levels (it jumps between 412, 318, 275 and 206px) keep one look. */
+/* Sizes follow the viewport so the browser's zoom levels (412, 318, 275, 206px) keep one look. */
 
 html[data-watch] {
   font-size: calc(100vmin / 25.75);
@@ -448,7 +447,7 @@ html[data-watch] body {
   padding-top: 3.25rem;
 }
 
-/* Dark on white with a light margin, the way phone cameras read QR codes best. */
+/* Dark on white with a margin, for phone cameras. */
 .wt-qr {
   width: 11rem;
   height: 11rem;

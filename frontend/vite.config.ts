@@ -16,7 +16,7 @@ export default defineConfig({
     svgLoader(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["bus.svg", "favicon.ico", "404.png", "apple-touch-icon-180x180.png"],
+      includeAssets: ["bus.svg", "favicon.ico", "apple-touch-icon-180x180.png"],
       manifest: {
         id: "/",
         name: "Conexiuni Cluj",

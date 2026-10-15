@@ -15,7 +15,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// QuotaPersister persists the Tranzy daily quota across restarts (Tranzy doesn't reset it on our end).
+// Tranzy doesn't reset the daily quota when we restart.
 type QuotaPersister interface {
 	Load(name string) (count int, resetAt time.Time, err error)
 	Save(name string, count int, resetAt time.Time) error

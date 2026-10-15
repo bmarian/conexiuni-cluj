@@ -735,7 +735,6 @@ async function calculateRoutes(silent = false) {
   }
 }
 
-// Recalculate when destination changes
 watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
   if (newLat === oldLat && newLon === oldLon) return
   if (!isNaN(oldLat!)) clearPlanSelection()
@@ -745,7 +744,6 @@ watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]
   await calculateRoutes()
 }, {immediate: true})
 
-// Recalculate when custom origin changes
 watch(customOrigin, async (newCO, oldCO) => {
   if (newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon) {
     clearPlanSelection()
@@ -753,7 +751,6 @@ watch(customOrigin, async (newCO, oldCO) => {
   }
 })
 
-// Recalculate when GPS location first arrives (no custom origin, no plan yet)
 watch(userLocation, async (newLoc, oldLoc) => {
   if (!newLoc || oldLoc || customOrigin.value) return
   if (activeSearchField.value === 'origin') closeActiveSearch()
@@ -874,16 +871,11 @@ useKbdShortcuts({
   },
 })
 
-// Auto-populate `timeValue` with "now" when switching out of `now`.
-// NOTE: we intentionally do NOT auto-refresh on time-filter changes — the
-// user must click the explicit "Search" button in `.plan-time-filter-actions`
-// (or switch back to "Leave now") to trigger a recalculation.
+// Changing the time doesn't recalculate; Search does.
 const formatLocalDateTime = (d: Date) => {
   const pad = (x: number) => String(x).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
-// Minimum selectable datetime (current local time) — recomputed on clock tick
-// so users cannot pick a moment in the past.
 const minDateTime = computed(() => formatLocalDateTime(userTime.value || new Date()))
 const minDateObj = computed(() => userTime.value || new Date())
 const isDarkTheme = computed(() => settings.isDark)
@@ -895,7 +887,6 @@ watch(timeMode, (mode) => {
     void refreshRoutes()
   }
 })
-// Clamp `timeValue` to the present if the user picks a past moment.
 watch(timeValue, (val) => {
   if (!val) return
   if (val < minDateTime.value) {
@@ -1515,9 +1506,6 @@ html.dark[data-arcade] .route-legs-card {
   border-radius: 1rem;
 }
 
-/* Dark mode trip-summary styling lives in src/styles/dark.css alongside the
-   other route-legs/route-card overrides. */
-
 .trip-summary-stat {
   flex: 1;
   display: flex;
@@ -1629,7 +1617,6 @@ html[data-arcade] .trip-summary-stat:not(:last-child) {
   border-right-color: #fde68a;
 }
 
-/* ----------- Arcade – departure card sub-elements ----------- */
 html[data-arcade] .card-dest {
   color: #78350f !important;
 }
@@ -1716,7 +1703,6 @@ html[data-arcade] .stat-chip-label {
   color: #b45309 !important;
 }
 
-/* Arcade dark – departure card sub-elements */
 html.dark[data-arcade] .card-dest {
   color: #fde68a !important;
 }
@@ -1865,7 +1851,6 @@ html.dark[data-arcade] .stat-chip-label {
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
 }
 
-/* Arcade Theme Overrides */
 html[data-arcade] .leg-dot-origin {
   background: #f59e0b;
   box-shadow: 0 0 0 3px #fef3c7;
@@ -1880,7 +1865,6 @@ html[data-arcade] .leg-type-badge {
   color: #d97706;
 }
 
-/* Legacy Blue Theme Overrides */
 html[data-legacy-blue] .leg-dot-origin,
 html[data-legacy-blue] .leg-dot-dest {
   background: transparent !important;
@@ -2110,7 +2094,6 @@ html[data-legacy-blue] .transfer-block-content {
   border-radius: 0;
 }
 
-/* ----------- Legacy Blue – departure card sub-elements ----------- */
 html[data-legacy-blue] .departure-card {
   border-radius: 0;
 }
@@ -2278,7 +2261,6 @@ html[data-legacy-blue] .time-pill-sched {
   border: 1px solid var(--xp-border) !important;
 }
 
-/* Legacy Blue dark – departure card sub-elements */
 html.dark[data-legacy-blue] .stat-chip {
   background: var(--xp-btn) !important;
   border: 1px solid var(--xp-border) !important;
@@ -3297,7 +3279,6 @@ html[data-legacy-blue] .mini-spinner {
   border-top-color: #316AC5;
 }
 
-/* Legacy Blue Dark */
 html.dark[data-legacy-blue] .search-results {
   background: #2A2D38;
   border-color: #444A5C;
@@ -3381,7 +3362,6 @@ html[data-arcade] .mini-spinner {
   border-top-color: #F59E0B;
 }
 
-/* Arcade Dark */
 html.dark[data-arcade] .origin-clickable:hover .edit-icon {
   color: #d97706;
 }
@@ -3438,7 +3418,6 @@ html.dark[data-arcade] .mini-spinner {
   border-top-color: #d97706;
 }
 
-/* Plan time filter (dropdown + datetime picker) */
 .plan-time-filter {
   --pt-font-family: inherit;
   --pt-font-size: 1rem;
@@ -4019,9 +3998,6 @@ html[data-legacy-blue] .plan-time-datetime :deep(.dp--input-wrap),
   border-radius: 0 !important;
 }
 
-/* ============================================================
-   Plan time-filter Search button
-   ============================================================ */
 .plan-time-search-btn {
   display: inline-flex;
   align-items: center;
@@ -4069,7 +4045,6 @@ html[data-legacy-blue] .plan-time-datetime :deep(.dp--input-wrap),
   color: #94a3b8;
 }
 
-/* Arcade */
 html[data-arcade] .plan-time-search-btn {
   background: #D97706;
   border: 2px solid #B45309;
@@ -4098,7 +4073,6 @@ html.dark[data-arcade] .plan-time-search-btn:hover {
   background: #b45309;
 }
 
-/* Legacy Blue (Windows XP Luna) */
 html[data-legacy-blue] .plan-time-search-btn {
   background: linear-gradient(to bottom, #FFFFFF 0%, #ECE9D8 50%, #D7D2BC 100%);
   border: 1px solid #003C74;

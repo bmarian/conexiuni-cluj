@@ -45,8 +45,7 @@ function swapDirection() {
   void router.replace({name: 'route', params: {routeId: props.routeId, direction}, query: route.query})
 }
 
-// The map and the timetable are two history entries, so going back after a swap lands
-// on one that still has the old direction. The swap wins.
+// Going back after a swap lands on the old direction's entry, so the swap wins.
 watch(() => props.direction, (direction) => {
   if (direction === currentDirection.value) return
   void router.replace({name: 'route', params: {routeId: props.routeId, direction: currentDirection.value}, query: route.query})
@@ -101,7 +100,7 @@ const departures = computed(() => (daySchedule.value?.entries ?? [])
   .filter((m): m is number => m !== null)
   .sort((a, b) => a - b))
 
-// From the current hour on: on a watch only what is still to come matters.
+// From the current hour on.
 const hours = computed(() => {
   const now = currentMinutes.value
   const byHour = new Map<number, Array<{ text: string; past: boolean }>>()

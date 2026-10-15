@@ -169,10 +169,7 @@ func runWarmup(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTime
 		stopTimesOK.Load()-stopTimesFail.Load(), stopTimesFail.Load(),
 		timetablesOK.Load()-timetablesFail.Load(), timetablesFail.Load())
 
-	// Housekeeping pass: drop stop_times rows whose trip is gone (e.g. after
-	// Tranzy retires a trip_id) and surface route_short_name drift so a
-	// renumber event is visible in logs. Queries already JOIN through trips
-	// for correctness; this just keeps the table from accumulating ghosts.
+	// Drop stop_times of retired trips and log route_short_name drift.
 	if orphans, drifted, err := ScrubStopTimes(); err != nil {
 		log.Printf("warmup: stop_times scrub failed: %v", err)
 	} else if orphans > 0 || drifted > 0 {

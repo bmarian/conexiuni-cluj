@@ -7,7 +7,6 @@ DELETE_DB=false
 DELETE_LOGS=false
 BUST_CACHE=false
 
-# Parse arguments
 for arg in "$@"; do
   if [ "$arg" == "--update-pbf" ]; then
     UPDATE_PBF=true

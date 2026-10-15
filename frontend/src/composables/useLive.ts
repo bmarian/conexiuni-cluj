@@ -14,9 +14,7 @@ export function entriesAt(row: LiveRow | undefined, nowMs: number): ShownEntry[]
   return row.entries.map((e) => ({...e, minutes: Math.max(0, Math.round((e.at * 1000 - nowMs) / 60_000))}))
 }
 
-// The prediction rows and vehicles for some stops and trips, kept current by the
-// server's /live stream. Nothing arrives while offline; views then fall back to the
-// timetable on their own.
+// Kept current by the /live stream; offline, views fall back to the timetable.
 export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
   const rows = ref<Map<string, LiveRow>>(new Map())
   const vehiclesByTrip = ref<Map<string, LiveVehicle[]>>(new Map())

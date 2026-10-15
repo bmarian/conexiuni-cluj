@@ -16,9 +16,7 @@ func IsCacheValid(cacheId string) bool {
 	return GetCacheState(cacheId) == CacheStateFresh
 }
 
-// CacheState distinguishes "never populated" from "populated but past TTL",
-// enabling stale-while-revalidate: stale rows can be served immediately while
-// a background refresh runs.
+// Stale rows are served while a background refresh runs.
 type CacheState int
 
 const (

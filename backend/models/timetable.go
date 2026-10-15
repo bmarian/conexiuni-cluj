@@ -5,9 +5,7 @@ type TimetableEntry struct {
 	DepartureOut string `json:"departure_out"`
 }
 
-// Frequency describes a headway-based direction (no individual departures, just
-// a service window and an "every N-M min" interval); nil when the direction
-// lists explicit times.
+// Set for headway-only directions, which list no departures.
 type Frequency struct {
 	Start      string `json:"start"`
 	End        string `json:"end"`

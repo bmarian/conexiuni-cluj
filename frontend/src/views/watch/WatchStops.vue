@@ -5,8 +5,7 @@ import {useRouter} from 'vue-router'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import type {Stop} from '@/types/tranzy.ts'
 
-// 800 stops is far too many to scroll with a bezel, so they are picked by initial
-// first, and by the first two letters when one initial holds more than this.
+// Too many stops for a bezel: grouped by initial, then by two letters past this many.
 const SPLIT_OVER = 40
 // Metropolitan stops are named "M-Name", "M - Name" or "M Name" and filed under the name.
 const METRO_PREFIX = /^M(\s*-\s*|\s+)(?=\S)/

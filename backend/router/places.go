@@ -11,9 +11,6 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// Places are the area's addresses, named places and streets, from the same OSM file as the walk graph:
-// searched as you type, and looked up by position.
-
 type placeKind uint8
 
 const (
@@ -41,7 +38,6 @@ type pbfPlace struct {
 
 var namedKeys = []string{"amenity", "shop", "tourism", "leisure", "office", "craft", "healthcare", "historic", "railway", "aeroway", "building"}
 
-// placeOf reads what makes an element a place: a town, a district, an address, a street (ways only) or a named place.
 func placeOf(tag func(string) string, way bool) (placeTags, bool) {
 	name := strings.TrimSpace(tag("name"))
 	switch p := tag("place"); p {
@@ -69,7 +65,6 @@ func placeOf(tag func(string) string, way bool) (placeTags, bool) {
 	return placeTags{}, false
 }
 
-// Place is one result: where it is and how it reads.
 type Place struct {
 	ID    string  `json:"id"`
 	Lat   float64 `json:"lat"`
@@ -197,11 +192,9 @@ func (p *Places) add(kind placeKind, lat, lon float64, label string, own int, nu
 	}
 }
 
-// Count is how many places are known.
 func (p *Places) Count() int { return len(p.entries) }
 
-// Search ranks the places matching every word of the query at the start of one of their own words:
-// by how well they match, then by distance from the centre of the area.
+// Every query word must start a word of the place; best match first, then nearest the centre.
 func (p *Places) Search(query string, limit int) []Place {
 	tokens := words(query)
 	if len(tokens) == 0 || limit <= 0 {
@@ -240,9 +233,7 @@ func (p *Places) Search(query string, limit int) []Place {
 	return out
 }
 
-// match scores how the entry's words answer the query's: 2 for a whole word, 1 for the start of one, 3 more
-// for the house number asked for, 1 more when the place's own words are all matched; each of the entry's
-// words left unmatched costs a tenth. A query word matching nothing is no hit.
+// 2 per whole word, 1 per prefix, +3 for the house number, +1 when all own words match, -0.1 per unmatched word.
 func (e *placeEntry) match(tokens []string) (float64, bool) {
 	score := 0.0
 	used := make([]bool, len(e.words))

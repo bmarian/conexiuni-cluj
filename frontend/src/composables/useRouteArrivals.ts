@@ -42,8 +42,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   const fromStopId = computed(() => routeStore.fromStopId)
   const fromStopName = computed(() => routeStore.fromStopName)
 
-  // 'auto' (from homepage/search) opens the direction whose nearest stop is closest
-  // to the user. Resolved synchronously so the first paint already shows it.
+  // 'auto' opens the direction whose nearest stop is closest to the user, before the first paint.
   function resolveDirection(): '0' | '1' {
     if (direction.value === '1') return '1'
     if (direction.value !== 'auto') return '0'
@@ -91,8 +90,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     const filtered = rawStops.value
       .filter((st) => st.trip_id === currentTripId.value)
       .sort((a, b) => a.stop_sequence - b.stop_sequence)
-    // offset_arrival_time is the ride from the previous stop into this one, added
-    // before it is read: every stop carries the ride up to itself.
+    // offset_arrival_time is the ride into each stop, so add it before reading.
     let cumulativeSec = 0
     return filtered.map((st) => {
       cumulativeSec += st.offset_arrival_time
@@ -317,8 +315,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     if (!shapeInfo.value || storeRouteId !== Number(routeId.value)) {
       isInitialLoading.value = true
       const ok = await loadShapeInfoFromApi()
-      // Deep-linked 'auto': stops load async, so resolve once they arrive (still on
-      // the skeleton, so no flicker).
+      // Deep-linked 'auto': resolve once the stops load, still on the skeleton.
       if (ok && direction.value === 'auto') currentDirection.value = resolveDirection()
       isInitialLoading.value = false
       if (!ok) return

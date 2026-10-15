@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	TerminusRadiusMeters = 200.0
-	// GPS and feed limits.
+	TerminusRadiusMeters    = 200.0
 	maxOffRouteMeters       = 150.0
 	vehicleGracePeriodMs    = 10 * 60_000
 	layoverHideMs           = 30 * 60_000
@@ -16,20 +15,16 @@ const (
 	liveEtaMaxClockSkewMs   = 60_000
 	// No bus in Cluj goes faster; the learner rejects the same.
 	MaxBusSpeedKmh = 70.0
-	// Matching a bus to its timetable run: within this, and within less than half the
-	// headway so that it is not nearer another run.
+	// Within this and under half the headway, so the bus isn't nearer another run.
 	maxRunMatchMin       = 8.0
 	runMatchHeadwayShare = 0.4
 	pairedSlotMarginMin  = 3.0
-	// Measured on the Oct 2026 recordings; each terminus replaces them as its stands are
-	// seen (handlers/turnaround.go). Buses wait for a slot about as long as the timetable
-	// plans, never under ten minutes, never over twenty.
+	// Measured defaults until each terminus learns its own (handlers/turnaround.go).
 	DefaultStandSec = 90.0
 	minSlotWaitMin  = 10.0
 	maxSlotWaitMin  = 20.0
 	layoverSlackMin = 5.0
-	// Further out, a bus still on the other direction predicts no better than the
-	// timetable (scored at 5, 8, 12 and 18 minutes on the same recordings).
+	// Beyond this a bus still on the other direction predicts no better than the timetable.
 	FeederHorizonMs = 12 * 60_000.0
 )
 
@@ -66,17 +61,14 @@ func (s *ShapeIndex) Distance(from, to int) float64 {
 	return s.Cumulative[to] - s.Cumulative[from]
 }
 
-// Stop is one stop of a trip; OffsetSec is the ride into it from the previous stop, and
-// on the first stop the learned schedule delay.
+// OffsetSec is the ride from the previous stop; on the first stop, the learned schedule delay.
 type Stop struct {
 	ID        int
 	Lat, Lon  float64
 	OffsetSec float64
 }
 
-// Turnaround is how buses ending the other direction here continue as this trip: after
-// the stand, or at the next timetable slot when that is later and within the waits seen
-// here. Learned per terminus; the defaults and the timetable stand in until then.
+// A bus ending the other direction leaves after its stand, or at its slot when later and within the waits seen.
 type Turnaround struct {
 	Through  bool
 	StandSec float64
@@ -202,7 +194,6 @@ func heading(lat, lon float64, shape *ShapeIndex, idx int) float64 {
 	return Bearing(lat, lon, target.Lat, target.Lon)
 }
 
-// IndexVehicles snaps the trip's reported vehicles onto its shape.
 func IndexVehicles(trip *Trip, raw []RawVehicle, nowMs int64) []Vehicle {
 	if trip == nil || trip.Shape == nil || len(trip.Shape.Points) == 0 {
 		return nil
@@ -232,8 +223,7 @@ func canDriveLiveEta(v *Vehicle, nowMs int64, firstStopIdx int) bool {
 	return v.OnRoute() && !waiting && isFreshForLiveEta(v.RawVehicle, nowMs)
 }
 
-// Learned segment times for the rest of the ride, with the current segment's remaining
-// share; the fix age is credited since the bus has driven on since it reported.
+// The fix age counts as already driven.
 func profileAwareEtaSeconds(trip *Trip, v *Vehicle, targetPos int, nowMs int64) (float64, bool) {
 	if targetPos <= 0 || targetPos >= len(trip.Stops) {
 		return 0, false
@@ -279,9 +269,7 @@ func profileAwareEtaSeconds(trip *Trip, v *Vehicle, targetPos int, nowMs int64) 
 	return math.Max(0, seconds-fixAge), true
 }
 
-// VehicleEtaSeconds is the ride from the vehicle to the stop at targetPos: the learned
-// segment times, or the trip's learned pace where it is between stops nobody has timed;
-// never faster than a bus goes.
+// Learned segment times, or the trip's learned pace; never faster than MaxBusSpeedKmh.
 func VehicleEtaSeconds(trip *Trip, v *Vehicle, targetPos int, nowMs int64) float64 {
 	meters := trip.Shape.Distance(v.ShapeIdx, trip.StopIdx[targetPos])
 	est, ok := profileAwareEtaSeconds(trip, v, targetPos, nowMs)
@@ -357,8 +345,7 @@ func standingAtStart(v *Vehicle, nowMs int64, firstStopIdx int, through *Through
 		v.TripChangedAtMs != 0 && float64(nowMs-v.TripChangedAtMs) <= maxStandMs && cameFromOtherDirection(v)
 }
 
-// MatchRunDeparture is the timetable departure a run belongs to, unless it sits too far
-// between two.
+// The run's timetable departure, unless it sits too far between two.
 func MatchRunDeparture(departures []int, impliedMin float64) (int, bool) {
 	sorted := append([]int(nil), departures...)
 	sort.Ints(sorted)
@@ -408,9 +395,7 @@ func pairedSlotMinutes(through *ThroughRun, arrivalMin, feederRideMin float64) (
 	return scheduledArrival + slot, true
 }
 
-// ProjectDeparture is when a bus arriving at arrivalMs leaves: after its stand, or at
-// its slot when that comes later and is within the waits seen here. A standing bus past
-// that moment takes the next slot.
+// After the stand, or at the slot when later and within the waits seen. A bus standing past that takes the next slot.
 func ProjectDeparture(arrivalMs float64, through *ThroughRun, nowMs int64, standing bool, feederRideMin float64, hasFeederRide bool) (float64, bool) {
 	now := float64(nowMs)
 	minute := func(ms float64) float64 { return through.NowMinutes + (ms-now)/60_000 }
@@ -439,7 +424,6 @@ func ProjectDeparture(arrivalMs float64, through *ThroughRun, nowMs int64, stand
 	return departure, true
 }
 
-// The first slot at or after fromMin.
 func nextSlotMinutes(departures []int, fromMin float64) (float64, bool) {
 	next, found := 0.0, false
 	for _, d := range departures {
@@ -455,8 +439,7 @@ func toEta(v *Vehicle, seconds float64, kind EtaKind) Eta {
 	return Eta{VehicleID: v.ID, Seconds: math.Max(0, seconds), Kind: kind}
 }
 
-// LiveEtasForStop lists every live estimate for the stop at targetPos, soonest first,
-// including the buses still to arrive from the other direction when the trip runs through.
+// Includes buses still on the other direction when the trip runs through.
 func LiveEtasForStop(trip *Trip, targetPos int, vehicles []Vehicle, nowMs int64, through *ThroughRun) []Eta {
 	if targetPos < 0 || targetPos >= len(trip.Stops) || trip.StopIdx[targetPos] < 0 {
 		return nil

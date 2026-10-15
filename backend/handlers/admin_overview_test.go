@@ -118,8 +118,7 @@ func TestTimetableArrivalScoredAgainstOursAndCTP(t *testing.T) {
 		return out
 	}
 	before := counts()
-	// The 08:00 run at the third stop (4 min by the seed pace) at 08:07: three minutes late
-	// by CTP's departure alone, on time by ours, which knows it runs three minutes late.
+	// 08:00 run at the third stop at 08:07: 3 min late by CTP, on time by our learned delay.
 	noteTimetableArrival(tracker, 2, 8*60, at, delayZone)
 	got := map[string]int{}
 	for k, n := range counts() {

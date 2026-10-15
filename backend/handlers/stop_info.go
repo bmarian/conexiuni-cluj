@@ -148,7 +148,6 @@ func buildShapesInfoParallel(
 			if stErr != nil || ttErr != nil || timetable == nil {
 				return
 			}
-			// Ignore metadata-only timetables with no departures.
 			if len(timetable.Weekdays.Entries) == 0 &&
 				len(timetable.Saturday.Entries) == 0 &&
 				len(timetable.Sunday.Entries) == 0 {

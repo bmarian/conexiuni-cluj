@@ -1,5 +1,3 @@
-/* Paper: printed timetable theme */
-
 html[data-paper] {
   --pp-paper: #efe5ca;
   --pp-paper-2: #e6dabb;
@@ -118,8 +116,6 @@ html.dark[data-paper] {
   --color-rose-500: #e0705a;
 }
 
-/* ---------- the sheet ---------- */
-
 html[data-paper] body,
 html[data-paper] .app-shell,
 html[data-paper] .stop-view-container,
@@ -204,8 +200,6 @@ html[data-paper] .landscape-drawer-toggle {
   border: 0 !important;
   box-shadow: var(--pp-slip-shadow), inset 0 0 0 1px var(--pp-ink) !important;
 }
-
-/* ---------- the map, printed on the same stock ---------- */
 
 html[data-paper] .map-container {
   background: var(--pp-paper-2) !important;
@@ -294,7 +288,6 @@ html[data-paper] .pin-tip-sub {
   letter-spacing: 0;
 }
 
-/* paper slips lying on the map */
 html[data-paper] .settings-btn,
 html[data-paper] .news-btn,
 html[data-paper] .weather-pill {
@@ -332,8 +325,6 @@ html[data-paper] .offline-pill {
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
-
-/* ---------- printed pieces (paper-only markup) ---------- */
 
 html[data-paper] .pp-masthead {
   position: relative;
@@ -454,7 +445,6 @@ html[data-paper] :is(.pp-masthead, .plan-view-container > header) .share-btn.is-
   color: var(--pp-green) !important;
 }
 
-/* the line number is a small rubber stamp in the line's own colour */
 html[data-paper] .pp-masthead-stamped {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
@@ -497,7 +487,6 @@ html[data-paper] .pp-line-stamp small {
   text-transform: uppercase;
 }
 
-/* home cover: engraving beside the title */
 html[data-paper] .pp-cover {
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
@@ -518,7 +507,6 @@ html[data-paper] .pp-cover .pp-title {
   font-size: clamp(1.5rem, 7vw, 1.875rem) !important;
 }
 
-/* the planner's own header, set like the other mastheads */
 html[data-paper] .plan-view-container > header {
   position: relative;
   flex-wrap: wrap;
@@ -797,8 +785,6 @@ html[data-paper] .pp-index-ref {
   color: var(--pp-ink-2);
 }
 
-/* ---------- type ---------- */
-
 html[data-paper] .app-drawer h1:not(.pp-title) {
   font-family: var(--pp-display) !important;
   font-weight: 600 !important;
@@ -873,8 +859,6 @@ html[data-paper] .app-drawer button[class*="text-slate-500"][class*="rounded-xl"
   border-color: var(--pp-ink);
 }
 
-/* ---------- icon buttons ---------- */
-
 html[data-paper] .fav-btn,
 html[data-paper] .bell-btn,
 html[data-paper] .share-btn {
@@ -906,8 +890,6 @@ html[data-paper] .share-btn.is-copied {
   border-color: var(--pp-green) !important;
   color: var(--pp-paper) !important;
 }
-
-/* ---------- popovers ---------- */
 
 html[data-paper] .settings-popover,
 html[data-paper] .news-popover,
@@ -973,7 +955,6 @@ html[data-paper] .select-chevron {
   color: var(--pp-ink) !important;
 }
 
-/* news */
 html[data-paper] .news-item {
   border-radius: 0 !important;
   border-bottom: 1px dotted var(--pp-ink) !important;
@@ -1015,7 +996,6 @@ html[data-paper] .news-unread {
   background: var(--pp-red) !important;
 }
 
-/* weather */
 html[data-paper] .weather-condition,
 html[data-paper] .weather-popover-temp,
 html[data-paper] .weather-stat-value {
@@ -1041,7 +1021,6 @@ html[data-paper] .weather-sun {
   font-style: italic;
 }
 
-/* keyboard help */
 html[data-paper] .kbd-help-backdrop {
   background: rgb(17 33 77 / 0.35) !important;
 }
@@ -1067,7 +1046,6 @@ html[data-paper] .kbd-help-label {
   color: var(--pp-ink) !important;
 }
 
-/* toast */
 html[data-paper] .app-toast {
   border-radius: 0 !important;
   background-color: var(--pp-paper) !important;
@@ -1097,8 +1075,6 @@ html[data-paper] .app-toast-body {
 html[data-paper] .app-toast-progress {
   background: var(--pp-ink) !important;
 }
-
-/* ---------- loading / errors / banners ---------- */
 
 html[data-paper] .loading-indicator {
   border-radius: 0 !important;
@@ -1205,9 +1181,6 @@ html[data-paper] .rc-close {
   color: var(--pp-ink) !important;
 }
 
-/* ---------- home ---------- */
-
-/* search is a printed form field */
 html[data-paper] .search-wrap {
   border: 0 !important;
   border-bottom: 1.5px solid var(--pp-ink) !important;
@@ -1240,7 +1213,6 @@ html[data-paper] .search-clear {
   color: var(--pp-ink) !important;
 }
 
-/* section headings set between rules */
 html[data-paper] .home-view-container .section-label {
   justify-content: center;
   gap: 0.75rem;
@@ -1272,7 +1244,6 @@ html[data-paper] .home-view-container .sub-label {
   color: var(--pp-ink-2) !important;
 }
 
-/* favourite lines are tickets, on stock tinted with the line's colour */
 html[data-paper] .fav-route-chip {
   border-radius: 0 !important;
   border: 1px solid var(--pp-ink) !important;
@@ -1339,7 +1310,6 @@ html[data-paper] .drag-chosen {
   box-shadow: 3px 4px 6px rgb(40 25 5 / 0.35) !important;
 }
 
-/* stops, places and lines read as an index with dotted leaders, search results too */
 html[data-paper] .home-view-container .fav-stop-row,
 html[data-paper] .home-view-container .long-list-row,
 html[data-paper] .universal-search :is(.all-route-row, .geo-result-row) {
@@ -1473,7 +1443,6 @@ html[data-paper] .no-favorites-hint {
   font-size: 0.875rem !important;
 }
 
-/* search results */
 html[data-paper] .all-route-row,
 html[data-paper] .stop-result-row,
 html[data-paper] .geo-result-row {
@@ -1542,8 +1511,6 @@ html[data-paper] .app-drawer :is(.w-7, .w-8).rounded-full.items-center {
 html[data-paper] .app-drawer :is(.w-7, .w-8).rounded-full.items-center svg {
   color: var(--pp-ink) !important;
 }
-
-/* ---------- route ---------- */
 
 html[data-paper] .route-view-container header > div[style*="background-color"] {
   border-radius: 0 !important;
@@ -1700,8 +1667,6 @@ html[data-paper] .suspended-banner {
   letter-spacing: 0.04em;
 }
 
-/* ---------- settings ---------- */
-
 html[data-paper] .setting-title {
   color: var(--pp-ink) !important;
   font-family: var(--pp-display) !important;
@@ -1820,8 +1785,6 @@ html[data-paper] .ei-status {
   color: var(--pp-ink-2) !important;
   font-style: italic;
 }
-
-/* ---------- planner ---------- */
 
 html[data-paper] .plan-time-filter {
   --pt-font-family: var(--pp-sans) !important;
@@ -2015,7 +1978,6 @@ html[data-paper] .transfer-block-label {
   letter-spacing: 0.1em;
 }
 
-/* journey options are rows of one ruled table */
 html[data-paper] .plan-view-container .departure-card {
   border-radius: 0 !important;
   border: 1px solid var(--pp-ink) !important;
@@ -2211,8 +2173,6 @@ html[data-paper] .mini-spinner {
   border-top-color: var(--pp-ink) !important;
 }
 
-/* ---------- printed timetable (route page) ---------- */
-
 html[data-paper] .pp-tt {
   border: 1px solid var(--pp-ink);
   font-family: var(--pp-sans);
@@ -2360,7 +2320,7 @@ html[data-paper] .pp-tt-freq i {
   color: var(--pp-ink-2);
 }
 
-/* ---------- words instead of icons ---------- */
+/* Words instead of icons */
 
 html[data-paper] .pp-slip-label {
   font-family: var(--pp-sans);
@@ -2428,8 +2388,6 @@ html[data-paper] .stops-header .uppercase {
   font-family: var(--pp-sans);
   letter-spacing: 0.08em !important;
 }
-
-/* ---------- the route's stops as a printed line diagram ---------- */
 
 html[data-paper] .route-view-container .relative > .absolute.left-\[10px\] {
   left: 9px !important;
@@ -2567,8 +2525,6 @@ html[data-paper] .bus-chip:not([style*="background"]) {
   }
 }
 
-/* ---------- line numbers are stamped wherever they appear ---------- */
-
 html[data-paper] :is(
   .pp-line,
   .pp-line-stamp,
@@ -2621,8 +2577,6 @@ html[data-paper] .pp-masthead .pp-line-stamp {
     --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
   }
 }
-
-/* ---------- followed buses, reminders and trips ---------- */
 
 html[data-paper] .bus-menu,
 html[data-paper] .rs-sheet {

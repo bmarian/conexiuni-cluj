@@ -171,8 +171,7 @@ function onBus(run: JourneyRun, fix: Fix, leg: JourneyLeg, fresh: boolean): bool
 const rideRoute = (leg: JourneyLeg) =>
   new RouteLine(leg.path && leg.path.length >= 2 ? leg.path : leg.stops.map((s): [number, number] => [s.lat, s.lon]))
 
-// A fix only counts if it is near the line and the bus could have got there since the last one,
-// so a stray fix near a later part of the line does not skip stops.
+// A fix counts only near the line and within reach since the last, so a stray fix can't skip stops.
 function trackRide(run: JourneyRun, route: RouteLine, stops: number[], fix: Fix, nowMs: number) {
   const error = fix.accuracy
   const reach = (MAX_BUS_MPS * Math.max(nowMs - run.rideFixAt, 0)) / 1000 + 2 * error + AT_STOP_M
@@ -295,8 +294,7 @@ function doneMinutes(journey: Journey, run: JourneyRun, parts: Part[], fix: Fix 
   }
 }
 
-// The planned run the traveller is on: its bus on this leg leaves nearest to the one they wait for or
-// boarded, and a late bus makes it that much later. Null when there is no bus to match it by.
+// The planned run nearest the bus being waited for or ridden, later by however late it is.
 function plannedArrival(journey: Journey, run: JourneyRun, departure: LegDeparture | null, nowMs: number): number | null {
   const p = run.phase
   if (!journey.runs?.length || (p.kind !== 'walk' && p.kind !== 'wait' && p.kind !== 'ride')) return null

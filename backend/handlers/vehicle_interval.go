@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// Slot is a time-of-day window with a target polling interval. If Idle is set,
-// it's used instead of Normal when subscribers < IdleThreshold.
+// Idle replaces Normal while subscribers < IdleThreshold.
 type Slot struct {
 	StartSec      int // seconds since local midnight, inclusive
 	EndSec        int // seconds since local midnight, exclusive (86400 for end-of-day)
@@ -47,7 +46,6 @@ func (c VehicleIntervalConfig) slotsFor(localNow time.Time) []Slot {
 	return c.Weekday
 }
 
-// SlotAt returns the slot containing localNow, or (Slot{}, false) if none matches.
 func (c VehicleIntervalConfig) SlotAt(localNow time.Time) (Slot, bool) {
 	s := localNow.Hour()*3600 + localNow.Minute()*60 + localNow.Second()
 	for _, sl := range c.slotsFor(localNow) {
@@ -58,9 +56,7 @@ func (c VehicleIntervalConfig) SlotAt(localNow time.Time) (Slot, bool) {
 	return Slot{}, false
 }
 
-// ParseSchedule parses a schedule spec into an ordered list of slots.
-// Format: "HH:MM-HH:MM;NORMAL[;IDLE@THRESHOLD]" entries separated by commas.
-// Example: "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s"
+// "HH:MM-HH:MM;NORMAL[;IDLE@THRESHOLD]", comma separated, e.g. "00:00-06:00;30s;60s@20, 06:00-07:00;20s".
 func ParseSchedule(spec string) ([]Slot, error) {
 	entries := strings.Split(spec, ",")
 	slots := make([]Slot, 0, len(entries))
@@ -155,9 +151,7 @@ func parseIdle(s string) (time.Duration, int, error) {
 	return d, thr, nil
 }
 
-// ComputeVehicleInterval picks a polling interval from the current slot's target
-// and smoothly scales it by projected-spend / quota-remaining so the day's budget
-// is spread out. Scaling is clamped to [MinInterval, MaxInterval].
+// Scales the slot's target by projected spend over remaining quota, within [MinInterval, MaxInterval].
 func ComputeVehicleInterval(cfg VehicleIntervalConfig, subscribers, quotaRemaining int, now time.Time, loc *time.Location) time.Duration {
 	localNow := now.In(loc)
 
@@ -193,8 +187,7 @@ func ComputeVehicleInterval(cfg VehicleIntervalConfig, subscribers, quotaRemaini
 	ratio := projected / float64(quotaRemaining)
 	interval := time.Duration(float64(target) * ratio)
 
-	// Cap speedup at target/2 so a large quota surplus early in the day
-	// can't pin the interval to MinInterval and drain the daily budget.
+	// At most twice as fast as the target, so an early surplus can't drain the day's budget.
 	if half := target / 2; interval < half {
 		interval = half
 	}

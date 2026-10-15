@@ -462,13 +462,11 @@ async function doImport() {
   gap: 0.25rem;
 }
 
-/* ── button group ── */
 .ei-group {
   display: flex;
   gap: 0.25rem;
 }
 
-/* ── buttons (base) ── */
 .ei-btn {
   flex: 1;
   display: inline-flex;
@@ -513,7 +511,6 @@ async function doImport() {
   border-color: #fecaca;
 }
 
-/* default dark */
 .ei-root.is-dark .ei-btn { color: #64748b; }
 .ei-root.is-dark .ei-btn:hover { background: #334155; color: #e2e8f0; }
 .ei-root.is-dark .ei-btn.ei-btn-primary { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
@@ -521,19 +518,16 @@ async function doImport() {
 .ei-root.is-dark .ei-btn.ei-btn-success { background: #052e16; color: #4ade80; border-color: #14532d; }
 .ei-root.is-dark .ei-btn.ei-btn-error { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
 
-/* arcade light */
 .ei-root.is-arcade .ei-btn { color: #92400e; }
 .ei-root.is-arcade .ei-btn:hover { background: #fef9c3; color: #78350f; }
 .ei-root.is-arcade .ei-btn.ei-btn-primary { background: #fef9c3; color: #92400e; border-color: #fcd34d; }
 .ei-root.is-arcade .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #fef08a; color: #78350f; border-color: #f59e0b; }
 
-/* arcade dark */
 .ei-root.is-arcade.is-dark .ei-btn { color: #d97706; }
 .ei-root.is-arcade.is-dark .ei-btn:hover { background: #422006; color: #fde68a; }
 .ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary { background: #422006; color: #fde68a; border-color: #d97706; }
 .ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #5c2d06; color: #fef08a; border-color: #f59e0b; }
 
-/* legacy blue light */
 .ei-root.is-legacy-blue .ei-btn { color: #4A6FA5; }
 .ei-root.is-legacy-blue .ei-btn:hover { background: #EEF3FF; color: #1A3A8C; }
 .ei-root.is-legacy-blue .ei-btn.ei-btn-primary { background: #EEF3FF; color: #1A3A8C; border-color: #245EDC; }
@@ -541,7 +535,6 @@ async function doImport() {
 .ei-root.is-legacy-blue .ei-btn.ei-btn-success { background: #EEF8EE; color: #1A6A2A; border-color: #4CAF50; }
 .ei-root.is-legacy-blue .ei-btn.ei-btn-error { background: #FEF0EE; color: #8A1A1A; border-color: #DC4444; }
 
-/* legacy blue dark */
 .ei-root.is-legacy-blue.is-dark .ei-btn { color: #90B4E0; }
 .ei-root.is-legacy-blue.is-dark .ei-btn:hover { background: #172040; color: #B8D4F0; }
 .ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-primary { background: #10193A; color: #90B4E0; border-color: #2A508C; }
@@ -549,7 +542,6 @@ async function doImport() {
 .ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-success { background: #0A2010; color: #4ADE80; border-color: #1A6A2A; }
 .ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-error { background: #200A0A; color: #F87171; border-color: #6A1A1A; }
 
-/* ── textarea ── */
 .ei-textarea {
   width: 100%;
   padding: 0.5rem 0.625rem;
@@ -569,23 +561,18 @@ async function doImport() {
 .ei-textarea:focus { border-color: #93c5fd; background: #fff; }
 .ei-textarea[readonly] { cursor: text; }
 
-/* default dark */
 .ei-root.is-dark .ei-textarea { border-color: #334155; background: #0f172a; color: #cbd5e1; }
 .ei-root.is-dark .ei-textarea:focus { border-color: #3b82f6; background: #0f172a; }
 
-/* arcade light */
 .ei-root.is-arcade .ei-textarea { border-color: #fcd34d; background: #fefce8; color: #78350f; }
 .ei-root.is-arcade .ei-textarea:focus { border-color: #f59e0b; background: #fefce8; }
 
-/* arcade dark */
 .ei-root.is-arcade.is-dark .ei-textarea { border-color: #d97706; background: #1c0a00; color: #fde68a; }
 .ei-root.is-arcade.is-dark .ei-textarea:focus { border-color: #f59e0b; background: #1c0a00; }
 
-/* legacy blue light */
 .ei-root.is-legacy-blue .ei-textarea { border-color: #B8CAEE; background: #F5F8FF; color: #1A3A8C; }
 .ei-root.is-legacy-blue .ei-textarea:focus { border-color: #245EDC; background: #fff; }
 
-/* legacy blue dark */
 .ei-root.is-legacy-blue.is-dark .ei-textarea { border-color: #2A508C; background: #0A1020; color: #90B4E0; }
 .ei-root.is-legacy-blue.is-dark .ei-textarea:focus { border-color: #3d70c0; background: #0A1020; }
 
@@ -671,7 +658,6 @@ async function doImport() {
   text-align: center;
 }
 
-/* ── actions row ── */
 .ei-actions {
   display: flex;
   gap: 0.25rem;

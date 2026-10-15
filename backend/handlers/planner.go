@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	// Physical: the pace the clients assume too (80 m/min).
-	plannerWalkSpeed = 80.0 / 60
-	// Product choices, what the planner has always allowed: walks to and from stops, and between them.
+	// Must match the clients' walking pace.
+	plannerWalkSpeed   = 80.0 / 60
 	plannerMaxWalk     = 15 * time.Minute
 	plannerMaxTransfer = 30 * time.Minute
 	plannerTicketCost  = 15 * time.Minute
@@ -42,7 +41,7 @@ var planner = struct {
 	networks map[string]*router.Network
 }{}
 
-// plannerPlaces is the area's place index, once the walk graph is read.
+// nil until the walk graph is read.
 func plannerPlaces() *router.Places {
 	planner.Lock()
 	defer planner.Unlock()
@@ -163,8 +162,7 @@ func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, *ro
 	return streets, places, nil
 }
 
-// plannerPatterns lists every direction's runs on the day before, the day and the day after,
-// timed like the stop pages: timetable departures plus the learned offsets of their hour.
+// Runs of the day before, the day and the day after, timed like the stop pages.
 func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, day time.Time) ([]router.PatternInput, error) {
 	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
 	if err != nil {
@@ -256,7 +254,7 @@ type planRide struct {
 	VehicleID int    `json:"vehicle_id,omitempty"`
 }
 
-// One timed departure of an option, in unix seconds: leaving the origin, the bus on every ride, arriving.
+// Unix seconds.
 type planRun struct {
 	Depart int64      `json:"depart"`
 	Arrive int64      `json:"arrive"`
@@ -283,7 +281,7 @@ type planOption struct {
 	Runs      []planRun `json:"runs"`
 }
 
-// RefreshIn is how many seconds until the timings change: a new vehicle poll or a first bus leaving; 0 when they don't.
+// Seconds until the timings change; 0 when they don't.
 type planResponse struct {
 	Options   []planOption        `json:"options"`
 	Stops     map[string]planStop `json:"stops"`
@@ -374,8 +372,7 @@ func plannerLiveAt(when time.Time) (*liveTable, router.LiveSource) {
 	return table, plannerLive(table)
 }
 
-// refreshIn is how many seconds until the timings change: when the first bus leaves, never sooner than
-// the vehicles are polled.
+// Never sooner than the next vehicle poll.
 func refreshIn(table *liveTable, firsts []int64) int64 {
 	if table == nil || len(firsts) == 0 {
 		return 0
@@ -541,9 +538,7 @@ func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err e
 	return fromLat, fromLng, toLat, toLng, nil
 }
 
-// parsePlanTime parses optional `time` and `arrive_by` query params.
-// `time` may be RFC3339 ("2006-01-02T15:04:05Z07:00") or local "2006-01-02T15:04".
-// When `time` is omitted or empty, returns a zero time meaning "now".
+// time is RFC3339 or local "2006-01-02T15:04"; empty means now.
 func parsePlanTime(c fiber.Ctx, loc *time.Location) (time.Time, bool, error) {
 	timeStr := strings.TrimSpace(c.Query("time"))
 	arriveBy := strings.EqualFold(strings.TrimSpace(c.Query("arrive_by")), "true") ||

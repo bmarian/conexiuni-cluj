@@ -25,8 +25,7 @@ func TestNormalizeDayScheduleMovesLeadingAnnotation(t *testing.T) {
 	}
 }
 
-// Real line 25 (d) rows, where CTP typed 21:08 for 22:08. The cached copy used to
-// read that as past midnight and push the rest of the evening into the next day.
+// Real line 25 (d) rows, where CTP typed 21:08 for 22:08.
 func TestNormalizeDayScheduleTypoIsNotMidnight(t *testing.T) {
 	d := models.DaySchedule{Entries: []models.TimetableEntry{
 		{DepartureIn: "21:44", DepartureOut: "21:50"},

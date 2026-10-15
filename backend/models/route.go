@@ -45,7 +45,6 @@ func (r *Route) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ResolveRouteDisplayColor deterministically maps a route short name to a display color
 func ResolveRouteDisplayColor(routeShortName string) string {
 	key := strings.TrimSpace(strings.ToUpper(routeShortName))
 	if key == "" {

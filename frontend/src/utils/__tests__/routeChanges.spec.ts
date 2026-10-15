@@ -7,7 +7,7 @@ import ro from '@/locales/ro.json'
 
 const t = (key: string, named?: Record<string, unknown>) => (named ? `${key} ${JSON.stringify(named)}` : key)
 
-// Line 1 after the September 2026 reissue, trimmed from what the backend recorded against ctpcj.ro.
+// Line 1 after the September 2026 reissue, as recorded from ctpcj.ro.
 const line1: RouteChange = {
   id: 7,
   route_short_name: '1',

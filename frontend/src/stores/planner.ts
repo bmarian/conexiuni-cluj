@@ -7,7 +7,6 @@ export const usePlannerStore = defineStore('planner', () => {
   const lastSelectedRouteKeys = ref<Record<string, string>>({})
   const currentQueryKey = ref<string | null>(null)
 
-  // Google-style departure time filter — kept across navigations within the session.
   const timeMode = ref<PlanTimeMode>('now')
   // Local datetime in the form "YYYY-MM-DDTHH:mm" (matches <input type="datetime-local">).
   const timeValue = ref<string>('')
@@ -23,7 +22,6 @@ export const usePlannerStore = defineStore('planner', () => {
   function setTimeMode(mode: PlanTimeMode) {
     timeMode.value = mode
     if (mode !== 'now' && mode !== 'last' && !timeValue.value) {
-      // Default to current local time, rounded to the next minute.
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')
       timeValue.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`

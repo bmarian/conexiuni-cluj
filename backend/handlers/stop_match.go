@@ -7,9 +7,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// normalizeStopLabelForMatch mirrors the frontend's normalization:
-// NFD decompose, drop combining marks, lowercase ASCII, collapse non-alphanumerics to single spaces.
-// "Disp. Clăbucet" and "P-ța Alverna" → "disp clabucet" / "p ta alverna".
+// Must match the frontend: "P-ța Alverna" becomes "p ta alverna".
 func normalizeStopLabelForMatch(label string) string {
 	decomposed := norm.NFD.String(label)
 	var b strings.Builder
@@ -36,8 +34,7 @@ func normalizeStopLabelForMatch(label string) string {
 	return strings.TrimSpace(b.String())
 }
 
-// stopMatchScore ranks how closely two stop labels refer to the same place.
-// 3 exact, 2 substring containment, 1 Levenshtein ≤ 2, 0 otherwise.
+// 3 exact, 2 substring, 1 within Levenshtein 2, 0 otherwise.
 func stopMatchScore(a, b string) int {
 	na := normalizeStopLabelForMatch(a)
 	nb := normalizeStopLabelForMatch(b)

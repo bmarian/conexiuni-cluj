@@ -14,14 +14,10 @@ import (
 const (
 	VehicleCacheId = "VEHICLES"
 
-	// StationaryRadiusMeters is how far a vehicle must travel from its anchor
-	// before we call it moving. Wider than city GPS jitter, narrower than a bus
-	// bay: a bus creeping through traffic re-anchors within seconds, a parked one
-	// keeps accumulating dwell time.
+	// Wider than GPS jitter, narrower than a bus bay.
 	StationaryRadiusMeters = 30.0
 
-	// vehicleRetention bounds the table: older rows are neither served nor kept.
-	// Without it every vehicle ever seen came back on the cache-hit path.
+	// Older rows are neither served nor kept.
 	vehicleRetention = 15 * time.Minute
 )
 
@@ -167,10 +163,7 @@ func smoothVehicles(tranzyClient *tranzy.Client, apiVehicles []models.Vehicle, f
 	return apiVehicles, nil
 }
 
-// applyAnchor carries the anchor position forward across polls so dwell time is
-// measured against where the vehicle actually stood, not against the previous
-// fix. Comparing consecutive fixes would let a bus inching forward in a queue
-// reset its dwell time every frame and never read as waiting.
+// Dwell is measured from the anchor, not the last fix, so a bus inching forward still reads as waiting.
 func applyAnchor(v *models.Vehicle, prev models.Vehicle, hadPrev bool, now time.Time) {
 	observedAt := parseVehicleTime(v.Timestamp, now)
 	if !hadPrev || prev.StationarySince == "" {
@@ -185,8 +178,7 @@ func applyAnchor(v *models.Vehicle, prev models.Vehicle, hadPrev bool, now time.
 	v.SetAnchor(anchorLat, anchorLon, prev.StationarySince, observedAt)
 }
 
-// Tranzy flips a bus to its next trip as it rolls into the terminus, so the flip
-// time is the arrival there for anyone predicting the next trip.
+// Tranzy flips the trip as the bus reaches the terminus, so the flip time is its arrival.
 func carryTripChange(v *models.Vehicle, prev models.Vehicle, hadPrev bool) {
 	if !hadPrev {
 		return

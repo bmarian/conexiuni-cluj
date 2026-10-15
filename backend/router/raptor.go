@@ -1,5 +1,4 @@
-// Package router plans walk + transit journeys: RAPTOR over the timetable, walks on the OSM
-// street graph. Pure: no database and no clock of its own.
+// Package router plans walk + transit journeys: RAPTOR over the timetable, walks on the OSM street graph.
 package router
 
 import (
@@ -36,7 +35,6 @@ type Options struct {
 	TicketCost time.Duration
 }
 
-// Streets is everything that depends only on the stops and the walk graph.
 type Streets struct {
 	walk      *WalkGraph
 	stops     []Stop
@@ -71,7 +69,6 @@ func NewStreets(walk *WalkGraph, stops []Stop, opt Options) *Streets {
 	return s
 }
 
-// Covers reports whether p lies in the area the walk graph was read for.
 func (s *Streets) Covers(p Point) bool { return s.walk.box.contains(p.Lat, p.Lon) }
 
 func (s *Streets) maxWalkMeters() float64 { return s.opt.WalkSpeed * s.opt.MaxWalk.Seconds() }
@@ -93,7 +90,6 @@ func (s *Streets) reach(p Point) []reach {
 	return out
 }
 
-// Walk is the walk-only alternative between two points.
 func (s *Streets) Walk(from, to Point) (meters float64, secs int64, path []Point) {
 	meters, path = s.walk.Path(s.walk.Snap(from), s.walk.Snap(to))
 	return meters, s.walkSecs(meters), path
@@ -194,7 +190,7 @@ const (
 	byEgress
 )
 
-// label is one way of reaching a stop, or the destination: when, after how much walking and how many tickets, and how.
+// One way of reaching a stop or the destination.
 type label struct {
 	arr     int64
 	walk    float64
@@ -271,14 +267,12 @@ func (r *raptor) round(k int) {
 	}
 }
 
-// beaten: with at most k rides something already gets there as early with as little walking and as few tickets,
-// or already reaches the destination so.
+// Something with at most k rides already gets there as early, with no more walking and tickets.
 func (r *raptor) beaten(bags [][]bag, k int, p int32, arr int64, walk float64, tickets int32) bool {
 	return r.target[k].beats(arr, walk, tickets) || (p >= 0 && bags[k][p].beats(arr, walk, tickets))
 }
 
-// pointless: even with no wait anywhere, walking the whole way beats the journey so far, so nothing built
-// on it is worth taking, nor should it rule anything else out.
+// Walking the whole way already beats this journey, even with no waits.
 func (r *raptor) pointless(l *label) bool {
 	return r.n.walkBeats(l.elapsed, l.walk, int(l.rides), int(l.tickets), r.walkSecs)
 }
@@ -413,8 +407,7 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 	return found
 }
 
-// board adds a way onto the route unless one on a run no later, with no more walking and tickets, beats it.
-// The same run caught further along replaces the earlier boarding: less walking to it.
+// Adds c unless a run no later, with no more walking and tickets, beats it.
 func board(route []onboard, c onboard) []onboard {
 	for _, o := range route {
 		noWorse := o.run <= c.run && o.from.walk <= c.from.walk && o.from.tickets <= c.from.tickets
@@ -453,8 +446,6 @@ func (r *raptor) backtrack(t *label) journey {
 	return j
 }
 
-// search runs the rounds from one departure time and returns every journey that reached the destination better,
-// walking the whole way (walkSecs) aside.
 func (n *Network) search(tt *timetable, access, egress []reach, start, walkSecs int64) []journey {
 	return newRaptor(n, tt, egress, walkSecs).iterate(start, access)
 }

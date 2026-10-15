@@ -9,17 +9,15 @@ import (
 	"time"
 )
 
-// Every live time a screen showed, scored against when the bus was really seen at the stop.
+// Shown live ETAs, scored against when the bus actually reached the stop.
 
 const (
-	// Product choice: nobody plans by a live time further out than this.
 	accuracyMaxShownMin = 30
 	accuracyBinSec      = 30
 	// Misses beyond this land in the last bin.
 	accuracyMaxErrSec = 15 * 60
 )
 
-// Product choice: how the shown minutes are grouped on the dashboard.
 var accuracyHorizons = []struct {
 	Label    string
 	From, To int
@@ -137,8 +135,7 @@ func errorBin(errSec int64) int {
 	return int(math.Floor(float64(errSec) / accuracyBinSec))
 }
 
-// noteTimetableArrival scores a run matched to its departure at a stop it reached, twice:
-// against our timetable as the prediction table lists it, and against CTP's departure alone.
+// Scored twice: against our timetable and against CTP's departure alone.
 func noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
 	arrivedMin, bucket := localMinutes(float64(at.Unix()), loc)
 	dayType := segmentDayType(at)

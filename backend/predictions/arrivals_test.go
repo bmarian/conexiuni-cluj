@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// Route 45 towards Bulgaria, 14:42: departures every 25 minutes, the bus on the road
-// ~3 minutes ahead of its timetable between Trifoiului Sud and Pinului.
+// Route 45 at 14:42, every 25 min, the bus ~3 min ahead between Trifoiului Sud and Pinului.
 const now45 = 14*60 + 42
 
 var departures45 = func() []int {

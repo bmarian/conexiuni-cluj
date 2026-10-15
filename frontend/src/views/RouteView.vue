@@ -175,8 +175,7 @@ function dismissChange() {
 
 useHead(() => {
   const shortName = shapeInfo.value?.route_short_name ?? ''
-  // Don't override server-injected meta until route data has loaded — otherwise
-  // a crawler snapshot taken pre-fetch sees a stale "Conexiuni Cluj" title.
+  // Keep the server-injected meta for crawlers until the route loads.
   if (!shortName) return {}
   const longName = timetable.value?.route_long_name ?? ''
   const title = t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
@@ -238,8 +237,7 @@ const availableTabs = computed(() => {
   return tabs
 })
 
-// A headway direction (e.g. M26 toward Floreşti) lists no individual departures,
-// so the chip grid is empty for it; show the frequency card instead.
+// Headway directions (e.g. M26) list no departures, so show the frequency card.
 const activeFrequency = computed((): Frequency | null => {
   const tt = timetable.value
   if (!tt) return null
@@ -419,7 +417,7 @@ const selectedDepartureTimeDisplay = computed(
 )
 
 
-// Pong secret: spam the direction toggle 5× within 2 s to activate
+// Pong: tap the direction toggle 5 times within 2 s.
 const pongActive = ref(false)
 const dirTapTimes: number[] = []
 
@@ -487,7 +485,6 @@ useKbdShortcuts({
   t: () => kbd.focusSection('tt-minutes') || kbd.focusSection('tt-tabs'),
 })
 
-// Secret: chomp animation for the route badge
 const mouthOpen = ref(true)
 let chompTimer: ReturnType<typeof setInterval> | null = null
 

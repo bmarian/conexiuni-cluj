@@ -11,9 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// "no-cache" forces ETag revalidation on every request so backend fixes
-// reach clients on the next round-trip. Unchanged bodies short-circuit to
-// 304 via the etag middleware on the /api group.
+// Always revalidate, so fixes reach clients on the next request.
 const revalidateCacheControl = "no-cache"
 
 type statsEventRequest struct {

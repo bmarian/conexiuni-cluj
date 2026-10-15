@@ -91,8 +91,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     )
   })
 
-  // The server's row for this trip at this stop replaces the timetable list; without
-  // one (offline, or nothing coming) the timetable stands.
+  // The server's row replaces the timetable list; without one the timetable stands.
   function withArrivals(shape: VehiclesInStop): VehiclesInStop | null {
     const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(shape.trip_id, stopIdNum.value))
     if (row) {

@@ -17,17 +17,11 @@ type Vehicle struct {
 	RouteID              int     `json:"route_id" db:"route_id"`
 	TripID               string  `json:"trip_id" db:"trip_id"`
 
-	// RawSpeed is Tranzy's reading before the EMA smoothing and the minimum-speed
-	// floor applied to Speed. Speed is floored so ETA maths never divides by ~0,
-	// which also makes it useless for telling "parked" from "crawling" — that is
-	// what RawSpeed and StationarySince are for.
+	// Tranzy's unsmoothed reading; Speed is floored, so it can't tell parked from crawling.
 	RawSpeed float64 `json:"raw_speed" db:"raw_speed"`
-	// StationarySince is the vehicle timestamp at which it was last seen more
-	// than StationaryRadiusMeters away from where it sits now. Empty only until
-	// the first fix. now - StationarySince is how long it has been standing.
+	// Last time it was more than StationaryRadiusMeters from where it is now.
 	StationarySince string `json:"stationary_since" db:"anchor_at"`
-	// The trip Tranzy had this vehicle on before the current one, and the vehicle
-	// timestamp of the first fix on the current one.
+	// The previous trip, and when the current one was first seen.
 	PrevTripID    string `json:"prev_trip_id,omitempty" db:"prev_trip_id"`
 	TripChangedAt string `json:"trip_changed_at,omitempty" db:"trip_changed_at"`
 

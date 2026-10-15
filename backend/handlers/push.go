@@ -30,7 +30,7 @@ const (
 	pushWindowStartHour = 8
 	pushWindowEndHour   = 20
 
-	// Product choice: the new devices one address may sign up in a day, a household or an office behind NAT.
+	// A household or an office behind NAT.
 	maxPushSignupsPerClient = 16
 	pushSignupWindow        = 24 * time.Hour
 )

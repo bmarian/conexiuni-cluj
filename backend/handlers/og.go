@@ -217,8 +217,7 @@ func marshalJSONLD(data map[string]any) string {
 	if err != nil {
 		return ""
 	}
-	// Prevent script-injection inside <script type="application/ld+json"> by escaping
-	// any literal "</" sequences (the only way the script tag could be terminated early).
+	// Escape "</" so the JSON can't close the script tag.
 	return strings.ReplaceAll(string(b), "</", `<\/`)
 }
 
@@ -343,8 +342,6 @@ func StopOGHandler(c fiber.Ctx) error {
 	})
 }
 
-// shortPlaceName returns the first comma-delimited segment of a geocoded address.
-// "The Office Wine Bar, 77, Bulevardul 21 Decembrie..." → "The Office Wine Bar"
 func shortPlaceName(name string) string {
 	if i := strings.IndexByte(name, ','); i > 0 {
 		return strings.TrimSpace(name[:i])

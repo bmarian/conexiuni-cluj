@@ -7,9 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// ClientIP is the address nginx saw. nginx runs on the same machine and appends that
-// address to X-Forwarded-For, so only the last entry is trusted, and only on requests
-// that came through it: anything before it, or on a direct request, the client wrote.
+// nginx on this host appends the peer to X-Forwarded-For, so only the last entry is trusted.
 func ClientIP(c fiber.Ctx) string {
 	return clientIPFrom(c.RequestCtx().RemoteIP(), c.Get(fiber.HeaderXForwardedFor))
 }

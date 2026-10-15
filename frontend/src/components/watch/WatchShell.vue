@@ -38,8 +38,7 @@ const clock = computed(() => {
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
 })
 
-// The bezel only scrolls the page itself, so every screen scrolls the document and
-// going back has to put it where it was. Map screens park it in their scroll sink.
+// The bezel only scrolls the document, so going back restores each screen's scroll.
 const savedScroll = new Map<number, number>()
 const browserRestoration = window.history.scrollRestoration
 window.history.scrollRestoration = 'manual'

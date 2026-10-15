@@ -6,7 +6,7 @@ import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-// What the person is shown before an export they received replaces theirs: only what would be kept.
+// Summary shown before a received export replaces the current one.
 export function describeExport(data: unknown) {
   if (!isRecord(data) || (!isRecord(data.favorites) && !isRecord(data.settings))) return null
   const favorites = isRecord(data.favorites) ? data.favorites : {}

@@ -61,7 +61,7 @@ export function markerLatLng(marker: Marker): LatLng {
   return {lat, lng}
 }
 
-// One hover label at a time: a bubble with a tip pointing down.
+// One hover label at a time.
 export function createTooltip(map: MapLibreMap) {
   const el = document.createElement('div')
   el.style.pointerEvents = 'none'

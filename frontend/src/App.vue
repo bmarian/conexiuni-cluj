@@ -65,8 +65,7 @@ let maxViewportHeight = 0
 let vvResizeHandler: (() => void) | null = null
 
 type VirtualKeyboard = EventTarget & { overlaysContent: boolean, boundingRect: DOMRect }
-// Android PWAs don't move the page for the keyboard, so we lift the drawer ourselves there.
-// Browser tabs already handle it, and their reported keyboard height leaves a gap.
+// Installed Android PWAs don't move the page for the keyboard; browser tabs do.
 const virtualKeyboard = window.matchMedia('(display-mode: standalone)').matches
   ? (navigator as unknown as { virtualKeyboard?: VirtualKeyboard }).virtualKeyboard
   : undefined
@@ -250,7 +249,7 @@ function onPointerDown(e: PointerEvent) {
   lastT = e.timeStamp
   isDragging.value = true
   el.style.transition = 'none'
-  // Pin the drawer at its current position immediately so there's no jump on drag start
+  // Pin the drawer where it is so the drag doesn't jump.
   const bottom = viewportPx() - keyboardPx.value
   el.style.transform = `translateY(${bottom - startHeight}px)`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -285,11 +284,9 @@ function endDrag() {
     if (drawerState.value === 'minimized' || drawerState.value === 'fullscreen') best = 'half'
     else best = 'minimized'
   } else if (velocityY > FLICK_THRESHOLD) {
-    // positive velocityY = moving down = collapsing
     const cur = snapStates.indexOf(drawerState.value)
     best = snapStates[Math.max(0, cur - 1)]!
   } else if (velocityY < -FLICK_THRESHOLD) {
-    // negative velocityY = moving up = expanding
     const cur = snapStates.indexOf(drawerState.value)
     best = snapStates[Math.min(snapStates.length - 1, cur + 1)]!
   } else {

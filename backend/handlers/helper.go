@@ -14,21 +14,13 @@ import (
 
 var cacheSingleflight singleflight.Group
 
-// emptyResultTTL is the cache lifespan used when a fetch succeeds but produced
-// no data, AND the caller opted in via CacheOpts.IsEmpty. The point is to
-// avoid fossilizing a transient empty (Tranzy renumber mid-flight, partial
-// warmup, brief upstream hiccup) for the full shelf life. 5 minutes is short
-// enough that drift self-heals quickly, long enough not to hammer the API.
+// Shorter TTL for suspicious empty results, so a transient empty doesn't stick.
 const emptyResultTTL = 5 * time.Minute
 
 type CacheOpts[T any] struct {
 	Optimize    bool
 	PostProcess func(T) T
-	// IsEmpty, when non-nil, is consulted after a successful API fetch. If it
-	// returns true the cache entry is written with emptyResultTTL instead of
-	// the normal shelfLife. Use only for caches where "empty" is suspicious;
-	// leave nil where empty is a legitimate steady state (e.g. timetables for
-	// routes CTP-CJ doesn't publish).
+	// When it returns true, the entry is cached for emptyResultTTL only.
 	IsEmpty func(T) bool
 }
 
@@ -49,15 +41,11 @@ func HandleCached[T any](
 	case database.CacheStateFresh:
 		return applyPostProcess(data, opts), nil
 	case database.CacheStateStale:
-		// Stale-while-revalidate: serve the existing row immediately and refresh
-		// from the API in the background. Avoids the 8h-idle cascade where every
-		// cache miss serialized behind Tranzy + CTP-CJ rate limiters.
+		// Stale-while-revalidate.
 		go backgroundRefresh(cacheID, shelfLife, apiFetcher, dbStorer, opts)
 		return applyPostProcess(data, opts), nil
 	}
 
-	// CacheStateMissing: deduplicate concurrent cache-miss callers via
-	// singleflight so only one API request goes out; everyone else waits.
 	raw, err, _ := cacheSingleflight.Do(cacheID, func() (any, error) {
 		if data, state, err := readFromCache(cacheID, dbFetcher); err == nil && state != database.CacheStateMissing {
 			return data, nil
@@ -135,8 +123,6 @@ func writeCache[T any](
 	}
 	ttl := shelfLife
 	if opts.IsEmpty != nil && opts.IsEmpty(data) {
-		// Empty + IsEmpty opt-in: shorten TTL so a transient empty doesn't
-		// lock in for the full shelf life. Clamp so we never extend it.
 		if emptyResultTTL < ttl {
 			ttl = emptyResultTTL
 		}
@@ -175,7 +161,6 @@ func readFromCache[T any](cacheID string, dbFetcher func() (T, error)) (T, datab
 	return data, state, err
 }
 
-// tranzyFetch fetches endpoint from the Tranzy API and unmarshals the response into T.
 func tranzyFetch[T any](client *tranzy.Client, endpoint string) (T, error) {
 	data, err := client.DoRequest(endpoint, nil)
 	if err != nil {

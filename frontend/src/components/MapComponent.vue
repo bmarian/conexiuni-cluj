@@ -104,7 +104,6 @@ let geoWatchId: number | null = null
 let stopRefreshFrame = 0
 let styleReady = false
 
-// Same camera as the Mobile app. Leaflet's zooms were one higher (256 px tiles).
 const DEFAULT_ZOOM = 15
 const DEFAULT_CENTER: LatLng = {lat: 46.7712, lng: 23.6236}
 const STOP_ZOOM_THRESHOLD = 15
@@ -169,7 +168,7 @@ const mapTheme = (): MapTheme =>
 
 const currentStyle = () => mapStyle(isDarkMode.value, mapTheme())
 
-// Under the basemap's labels, as on Mobile.
+// Under the basemap's labels.
 const labelIndex = (layers: StyleSpecification['layers']) => {
   let ground = -1
   layers.forEach((layer, i) => {
@@ -420,7 +419,7 @@ const onLocationError = (error: GeolocationPositionError) => {
 }
 
 const beginLocationWatch = (enableHighAccuracy = false) => {
-  // Location never worked on the watch, so the simplified layout doesn't ask for it.
+  // The watch has no usable location.
   if (!map.value || settingsStore.watchActive) return
   if (!navigator.geolocation) {
     userStore.setIsLocating(false)
@@ -636,7 +635,7 @@ const blueDotIcon: MarkerIcon = {
   anchor: [8, 8]
 }
 
-// On board the traveller is drawn as their bus, gliding from fix to fix over the time between them.
+// On board the traveller is drawn as their bus, gliding between fixes.
 let rideHeading = 0
 let headingFrom: LatLng | null = null
 let lastFixMs = 0
@@ -1174,7 +1173,6 @@ watch([customOriginLocation, arcadeActive, legacyBlueActive, paperActive], ([loc
     originMarker.value = undefined
   }
   if (!loc || !map.value) return
-  // Green pin for origin
   originMarker.value = placePin(loc as { lat: number, lng: number, label: string }, '#22c55e',
     (lat, lng) => mapStore.setCustomOriginLocationDragged(lat, lng)).addTo(map.value)
 })
