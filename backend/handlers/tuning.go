@@ -35,10 +35,18 @@ func LoadWindowTuning() {
 	t, ok, err := savedWindowTuning()
 	if err != nil {
 		log.Printf("tuning: load failed: %v", err)
-		return
-	}
-	if ok && slices.Contains(vacationWindowCandidates, t.Window) {
+	} else if ok && slices.Contains(vacationWindowCandidates, t.Window) {
 		setDayWindowSize(calendar.WeekdayVacation, t.Window)
+	}
+	for _, day := range calendar.ProfileDays {
+		s, ok, err := savedSeedTuning(day)
+		if err != nil {
+			log.Printf("tuning: loading the %s fill failed: %v", day, err)
+			continue
+		}
+		if ok && (s.Fill == seedPrevious || s.Fill == seedLastYear) {
+			setSeedFill(day, s.Fill)
+		}
 	}
 }
 
@@ -193,6 +201,138 @@ func tuneVacationWindow(now time.Time) {
 	log.Printf("tuning: school-holiday window %d (was %d): %s, in %s", result.Window, current, describeTuning(result), time.Since(started).Round(time.Millisecond))
 	if result.Changed {
 		setDayWindowSize(calendar.WeekdayVacation, result.Window)
+		applyCalendar(now)
+	}
+}
+
+const seedTuningPrefix = "seed_"
+
+type seedTuning struct {
+	Fill     string  `json:"fill"`
+	Previous float64 `json:"previous"`
+	LastYear float64 `json:"last_year"`
+	Days     int     `json:"days"`
+	Samples  int     `json:"samples"`
+	Changed  bool    `json:"changed"`
+	At       int64   `json:"at"`
+}
+
+func savedSeedTuning(dayType string) (seedTuning, bool, error) {
+	var t seedTuning
+	data, ok, err := database.Tuning(seedTuningPrefix + dayType)
+	if err != nil || !ok {
+		return t, false, err
+	}
+	if err := json.Unmarshal([]byte(data), &t); err != nil {
+		return t, false, err
+	}
+	return t, true, nil
+}
+
+func evaluateSeedFill(cal *calendar.Calendar, dayType string, n int, today time.Time) (seedTuning, error) {
+	result := seedTuning{}
+	days := newReplayDays()
+	var sumPrevious, sumLastYear float64
+	for _, d := range daysOfType(cal, today, dayType, replaySearchDays) {
+		if result.Days >= tuningEvalDays {
+			break
+		}
+		run := dayRun(cal, dayType, d, n)
+		if len(run) >= n {
+			continue
+		}
+		seeded := planDayWindow(cal, dayType, d, n, seedLastYear, archiveCovers)
+		if seeded.fill != seedLastYear {
+			continue
+		}
+		samples, err := days.day(d)
+		if err != nil {
+			return result, err
+		}
+		if len(samples) == 0 {
+			continue
+		}
+		previousDays, err := days.days(daysOfType(cal, d, dayType, n-1))
+		if err != nil {
+			return result, err
+		}
+		seededDays, err := days.days(append(slices.Clone(run[1:]), seeded.lastYear...))
+		if err != nil {
+			return result, err
+		}
+		previous := replayPredictor(replayProfiles(previousDays, replayAnyDay), replayAnyDay)
+		lastYear := replayPredictor(replayProfiles(seededDays, replayAnyDay), replayAnyDay)
+		compared := 0
+		for _, s := range samples {
+			a, okA := previous(s)
+			b, okB := lastYear(s)
+			if !okA || !okB {
+				continue
+			}
+			compared++
+			sumPrevious += replayError(s, a)
+			sumLastYear += replayError(s, b)
+		}
+		if compared > 0 {
+			result.Days++
+			result.Samples += compared
+		}
+	}
+	if result.Samples > 0 {
+		result.Previous = sumPrevious / float64(result.Samples)
+		result.LastYear = sumLastYear / float64(result.Samples)
+	}
+	return result, nil
+}
+
+func pickSeedFill(result seedTuning, current string) (string, bool) {
+	if result.Days < tuningMinDays {
+		return current, false
+	}
+	scores := map[string]float64{seedPrevious: result.Previous, seedLastYear: result.LastYear}
+	other := seedLastYear
+	if current == seedLastYear {
+		other = seedPrevious
+	}
+	if scores[other] < scores[current]*(1-tuningMinGain) {
+		return other, true
+	}
+	return current, false
+}
+
+func tuneSeedFill(now time.Time) {
+	if database.Archive == nil {
+		return
+	}
+	cal := currentCalendar()
+	today := localMidnight(now)
+	yesterday := today.AddDate(0, 0, -1)
+	dayType := cal.ProfileDay(yesterday)
+	n, ok := dayWindowSize(dayType)
+	if !ok || len(dayRun(cal, dayType, yesterday, n)) >= n {
+		return
+	}
+	started := time.Now()
+	result, err := evaluateSeedFill(cal, dayType, n, today)
+	if err != nil {
+		log.Printf("tuning: %s fill check failed: %v", dayType, err)
+		return
+	}
+	current := seedFill(dayType)
+	result.Fill, result.Changed = pickSeedFill(result, current)
+	result.At = now.Unix()
+	data, err := json.Marshal(result)
+	if err == nil {
+		err = database.SaveTuning(seedTuningPrefix+dayType, string(data), now)
+	}
+	if err != nil {
+		log.Printf("tuning: saving the %s fill failed: %v", dayType, err)
+		return
+	}
+	log.Printf("tuning: %s fill %s (was %s): previous period %.0f s, last year %.0f s, over %d days and %d stop-to-stop times, in %s",
+		dayType, result.Fill, current, result.Previous, result.LastYear, result.Days, result.Samples, time.Since(started).Round(time.Millisecond))
+	if result.Changed {
+		setSeedFill(dayType, result.Fill)
 		applyCalendar(now)
 	}
 }

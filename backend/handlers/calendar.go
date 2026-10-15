@@ -71,10 +71,35 @@ var (
 
 	dayWindowCache = struct {
 		sync.Mutex
-		key    string
-		starts map[string]int64
+		key     string
+		windows map[string]dayWindow
 	}{}
+
+	seedFills = struct {
+		sync.RWMutex
+		fills map[string]string
+	}{fills: map[string]string{}}
 )
+
+const (
+	runMaxGapDays     = 14
+	lastYearReachDays = 60
+	seedPrevious      = "previous"
+	seedLastYear      = "last_year"
+)
+
+func seedFill(dayType string) string {
+	seedFills.RLock()
+	defer seedFills.RUnlock()
+	return cmp.Or(seedFills.fills[dayType], seedPrevious)
+}
+
+func setSeedFill(dayType, fill string) {
+	seedFills.Lock()
+	seedFills.fills[dayType] = fill
+	seedFills.Unlock()
+	calendarGeneration.Add(1)
+}
 
 func currentCalendar() *calendar.Calendar {
 	if c := activeCalendar.Load(); c != nil {
@@ -152,41 +177,148 @@ func localMidnight(t time.Time) time.Time {
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
 }
 
-func dayWindowStart(dayType string, now time.Time) int64 {
+type windowRange struct {
+	from, to int64
+}
+
+type dayWindow struct {
+	ranges   []windowRange
+	fill     string
+	runDays  int
+	lastYear []time.Time
+}
+
+func (w dayWindow) contains(at int64) bool {
+	for _, r := range w.ranges {
+		if at >= r.from && at < r.to {
+			return true
+		}
+	}
+	return false
+}
+
+func (w dayWindow) sql(col string) (string, []any) {
+	if len(w.ranges) == 0 {
+		return "0", nil
+	}
+	parts := make([]string, 0, len(w.ranges))
+	args := make([]any, 0, 2*len(w.ranges))
+	for _, r := range w.ranges {
+		if r.to == math.MaxInt64 {
+			parts = append(parts, col+" >= ?")
+			args = append(args, r.from)
+			continue
+		}
+		parts = append(parts, "("+col+" >= ? AND "+col+" < ?)")
+		args = append(args, r.from, r.to)
+	}
+	return "(" + strings.Join(parts, " OR ") + ")", args
+}
+
+func (w dayWindow) earliest() int64 {
+	earliest := int64(math.MaxInt64)
+	for _, r := range w.ranges {
+		earliest = min(earliest, r.from)
+	}
+	return earliest
+}
+
+func (w dayWindow) since() (int64, bool) {
+	for _, r := range w.ranges {
+		if r.to == math.MaxInt64 {
+			return r.from, true
+		}
+	}
+	return 0, false
+}
+
+func dayRun(cal *calendar.Calendar, dayType string, today time.Time, n int) []time.Time {
+	var run []time.Time
+	last := 0
+	for i := 0; i < dayWindowMaxReach && len(run) < n && i-last <= runMaxGapDays; i++ {
+		if d := today.AddDate(0, 0, -i); cal.ProfileDay(d) == dayType {
+			run = append(run, d)
+			last = i
+		}
+	}
+	return run
+}
+
+func lastYearDays(cal *calendar.Calendar, dayType string, from time.Time, missing int) []time.Time {
+	anchor := from.AddDate(-1, 0, 0)
+	var out []time.Time
+	for i := 0; i < lastYearReachDays && len(out) < missing; i++ {
+		if d := anchor.AddDate(0, 0, i); cal.ProfileDay(d) == dayType {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func planDayWindow(cal *calendar.Calendar, dayType string, today time.Time, n int, fill string, covered func([]time.Time) bool) dayWindow {
+	run := dayRun(cal, dayType, today, n)
+	w := dayWindow{fill: seedPrevious, runDays: len(run)}
+	if missing := n - len(run); missing > 0 && fill == seedLastYear {
+		from := today
+		if len(run) > 0 {
+			from = run[len(run)-1]
+		}
+		if extra := lastYearDays(cal, dayType, from, missing); len(extra) > 0 && covered(extra) {
+			w.fill, w.lastYear = seedLastYear, extra
+			if len(run) > 0 {
+				w.ranges = append(w.ranges, windowRange{run[len(run)-1].Unix(), math.MaxInt64})
+			}
+			w.ranges = append(w.ranges, windowRange{extra[0].Unix(), extra[len(extra)-1].AddDate(0, 0, 1).Unix()})
+			return w
+		}
+	}
+	start := today.AddDate(0, 0, -dayWindowMaxReach).Unix()
+	if days := daysOfType(cal, today.AddDate(0, 0, 1), dayType, n); len(days) == n {
+		start = days[n-1].Unix()
+	}
+	w.ranges = []windowRange{{start, math.MaxInt64}}
+	return w
+}
+
+func archiveCovers(days []time.Time) bool {
+	covered := 0
+	for _, d := range days {
+		ok, err := database.ArchiveHasSegmentSamples(d.Unix(), d.AddDate(0, 0, 1).Unix())
+		if err != nil {
+			log.Printf("calendar: archive check for %s failed: %v", d.Format("2006-01-02"), err)
+			return false
+		}
+		if ok {
+			covered++
+		}
+	}
+	return 2*covered >= len(days)
+}
+
+func currentDayWindow(dayType string, now time.Time) dayWindow {
 	n, ok := dayWindowSize(dayType)
 	if !ok {
-		return now.Add(-legacyDayWindow).Unix()
+		return dayWindow{fill: seedPrevious, ranges: []windowRange{{now.Add(-legacyDayWindow).Unix(), math.MaxInt64}}}
 	}
 	today := localMidnight(now)
 	key := today.Format("2006-01-02") + "|" + strconv.FormatInt(calendarGeneration.Load(), 10)
 	dayWindowCache.Lock()
 	defer dayWindowCache.Unlock()
 	if dayWindowCache.key != key {
-		dayWindowCache.key, dayWindowCache.starts = key, make(map[string]int64)
+		dayWindowCache.key, dayWindowCache.windows = key, make(map[string]dayWindow)
 	}
-	if start, ok := dayWindowCache.starts[dayType]; ok {
-		return start
+	if w, ok := dayWindowCache.windows[dayType]; ok {
+		return w
 	}
-	cal := currentCalendar()
-	start := today.AddDate(0, 0, -dayWindowMaxReach).Unix()
-	for i, found := 0, 0; i < dayWindowMaxReach; i++ {
-		d := today.AddDate(0, 0, -i)
-		if cal.ProfileDay(d) != dayType {
-			continue
-		}
-		if found++; found == n {
-			start = d.Unix()
-			break
-		}
-	}
-	dayWindowCache.starts[dayType] = start
-	return start
+	w := planDayWindow(currentCalendar(), dayType, today, n, seedFill(dayType), archiveCovers)
+	dayWindowCache.windows[dayType] = w
+	return w
 }
 
-func earliestDayWindow(now time.Time) int64 {
+func earliestWindowStart(now time.Time) int64 {
 	earliest := now.Add(-legacyDayWindow).Unix()
 	for _, day := range calendar.ProfileDays {
-		earliest = min(earliest, dayWindowStart(day, now))
+		earliest = min(earliest, currentDayWindow(day, now).earliest())
 	}
 	return earliest
 }
@@ -197,7 +329,9 @@ func pruneByDayWindow(table, timeCol string, retention time.Duration, now time.T
 	known := make([]any, 0, len(calendar.ProfileDays))
 	for _, day := range calendar.ProfileDays {
 		known = append(known, day)
-		res, err := database.DB.Exec(`DELETE FROM `+table+` WHERE day_type = ? AND `+timeCol+` < ?`, day, min(floor, dayWindowStart(day, now)))
+		inWindow, args := currentDayWindow(day, now).sql(timeCol)
+		res, err := database.DB.Exec(`DELETE FROM `+table+` WHERE day_type = ? AND `+timeCol+` < ? AND NOT `+inWindow,
+			append([]any{day, floor}, args...)...)
 		if err != nil {
 			return pruned, err
 		}
@@ -246,28 +380,62 @@ func restoreWindowsFromArchive(now time.Time) (int, error) {
 	if database.Archive == nil {
 		return 0, nil
 	}
-	earliest := earliestDayWindow(now)
 	loc := database.StatsLocation()
 	total := 0
 	for _, t := range labelledTables {
-		var oldest sql.NullInt64
-		if err := database.DB.QueryRow(`SELECT MIN(` + t.timeCol + `) FROM ` + t.table).Scan(&oldest); err != nil {
-			return total, err
-		}
-		until := now.Unix()
-		if oldest.Valid {
-			until = oldest.Int64
-		}
-		n, err := database.RestoreFromArchive(t.table, earliest, until, func(at int64) (string, bool) {
-			day := profileDay(time.Unix(at, 0).In(loc))
-			return day, at >= dayWindowStart(day, now)
-		})
-		total += n
-		if err != nil {
-			return total, fmt.Errorf("%s: %w", t.table, err)
+		for _, day := range calendar.ProfileDays {
+			for _, r := range restoreRanges(currentDayWindow(day, now), now) {
+				var oldest sql.NullInt64
+				if err := database.DB.QueryRow(`SELECT MIN(`+t.timeCol+`) FROM `+t.table+` WHERE day_type = ? AND `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`,
+					day, r.from, r.to).Scan(&oldest); err != nil {
+					return total, err
+				}
+				until := r.to
+				if oldest.Valid {
+					until = oldest.Int64
+				}
+				n, err := database.RestoreFromArchive(t.table, r.from, until, func(at int64) (string, bool) {
+					return day, profileDay(time.Unix(at, 0).In(loc)) == day
+				})
+				total += n
+				if err != nil {
+					return total, fmt.Errorf("%s: %w", t.table, err)
+				}
+			}
 		}
 	}
 	return total, nil
+}
+
+func restoreRanges(w dayWindow, now time.Time) []windowRange {
+	var out []windowRange
+	if since, ok := w.since(); ok {
+		out = append(out, windowRange{since, now.Unix()})
+	}
+	for _, d := range w.lastYear {
+		out = append(out, windowRange{d.Unix(), d.AddDate(0, 0, 1).Unix()})
+	}
+	return out
+}
+
+func restoreSeededWindows(now time.Time) {
+	seeded := false
+	for _, day := range calendar.ProfileDays {
+		seeded = seeded || len(currentDayWindow(day, now).lastYear) > 0
+	}
+	if !seeded || database.DB == nil {
+		return
+	}
+	applyCalendarMu.Lock()
+	restored, err := restoreWindowsFromArchive(now)
+	applyCalendarMu.Unlock()
+	if err != nil {
+		log.Printf("calendar: restoring last year's days failed: %v", err)
+	}
+	if restored > 0 {
+		log.Printf("calendar: restored %d samples of last year's days; relearning", restored)
+		applyCalendar(now)
+	}
 }
 
 func applyCalendar(now time.Time) {
@@ -563,9 +731,14 @@ type adminCalendarView struct {
 }
 
 type adminWindow struct {
-	DayType string `json:"day_type"`
-	Days    int    `json:"days"`
-	From    string `json:"from"`
+	DayType      string      `json:"day_type"`
+	Days         int         `json:"days"`
+	From         string      `json:"from,omitempty"`
+	Seed         string      `json:"seed"`
+	LastYearDays int         `json:"last_year_days"`
+	LastYearFrom string      `json:"last_year_from,omitempty"`
+	LastYearTo   string      `json:"last_year_to,omitempty"`
+	Evaluation   *seedTuning `json:"evaluation,omitempty"`
 }
 
 type adminLearning struct {
@@ -645,10 +818,24 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 	}
 
 	v.Learning = adminLearning{Windows: []adminWindow{}, Candidates: vacationWindowCandidates, MinDays: tuningMinDays}
+	dateOf := func(at int64) string { return time.Unix(at, 0).In(database.StatsLocation()).Format("2006-01-02") }
 	for _, day := range calendar.ProfileDays {
 		n, _ := dayWindowSize(day)
-		from := time.Unix(dayWindowStart(day, now), 0).In(database.StatsLocation()).Format("2006-01-02")
-		v.Learning.Windows = append(v.Learning.Windows, adminWindow{DayType: day, Days: n, From: from})
+		w := currentDayWindow(day, now)
+		a := adminWindow{DayType: day, Days: n, Seed: seedFill(day), LastYearDays: len(w.lastYear)}
+		if since, ok := w.since(); ok {
+			a.From = dateOf(since)
+		}
+		if len(w.lastYear) > 0 {
+			a.LastYearFrom = w.lastYear[0].Format("2006-01-02")
+			a.LastYearTo = w.lastYear[len(w.lastYear)-1].Format("2006-01-02")
+		}
+		if t, ok, err := savedSeedTuning(day); err != nil {
+			return v, err
+		} else if ok {
+			a.Evaluation = &t
+		}
+		v.Learning.Windows = append(v.Learning.Windows, a)
 	}
 	if t, ok, err := savedWindowTuning(); err != nil {
 		return v, err

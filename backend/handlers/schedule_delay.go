@@ -117,22 +117,22 @@ func collectScheduleResiduals(
 		WHERE route_id = ?
 		  AND direction_id = ?
 		  AND observed_at >= ?`,
-		[]any{routeID, directionID, earliestDayWindow(now)},
+		[]any{routeID, directionID, earliestWindowStart(now)},
 		func(rows *sql.Rows) (runSegment, error) {
 			var s runSegment
 			err := rows.Scan(&s.FromStopID, &s.ToStopID, &s.DayType, &s.StartedAt, &s.EndedAt)
 			return s, err
 		})
-	cutoffs := map[string]int64{}
-	cutoff := func(dayType string) int64 {
-		c, ok := cutoffs[dayType]
+	windows := map[string]dayWindow{}
+	outside := func(dayType string, at int64) bool {
+		w, ok := windows[dayType]
 		if !ok {
-			c = max(dayWindowStart(dayType, now), changed[calendar.ScheduleOf(dayType)])
-			cutoffs[dayType] = c
+			w = currentDayWindow(dayType, now)
+			windows[dayType] = w
 		}
-		return c
+		return !w.contains(at) || at < changed[calendar.ScheduleOf(dayType)]
 	}
-	segments = slices.DeleteFunc(segments, func(s runSegment) bool { return s.EndedAt < cutoff(s.DayType) })
+	segments = slices.DeleteFunc(segments, func(s runSegment) bool { return outside(s.DayType, s.EndedAt) })
 	if err != nil || len(segments) == 0 {
 		return err
 	}
@@ -204,7 +204,7 @@ func collectScheduleResiduals(
 		SELECT day_type, departed_at, paired_departure_min
 		FROM turnaround_samples
 		WHERE route_id = ? AND direction_id = ? AND departed_at >= ?`,
-		[]any{routeID, directionID, earliestDayWindow(now)},
+		[]any{routeID, directionID, earliestWindowStart(now)},
 		func(rows *sql.Rows) (runDeparture, error) {
 			var d runDeparture
 			err := rows.Scan(&d.DayType, &d.DepartedAt, &d.PairedMin)
@@ -213,7 +213,7 @@ func collectScheduleResiduals(
 	if err != nil {
 		return err
 	}
-	turnarounds = slices.DeleteFunc(turnarounds, func(d runDeparture) bool { return d.DepartedAt < cutoff(d.DayType) })
+	turnarounds = slices.DeleteFunc(turnarounds, func(d runDeparture) bool { return outside(d.DayType, d.DepartedAt) })
 	departed := make(map[int64]runDeparture, len(turnarounds))
 	for _, d := range turnarounds {
 		departed[d.DepartedAt] = d
