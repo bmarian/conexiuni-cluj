@@ -1,7 +1,9 @@
 package database
 
 import (
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -212,5 +214,32 @@ func TestArchiveCallsAreNoOpsWithoutArchive(t *testing.T) {
 	}
 	if n, err := ArchiveTripStops(map[string]string{"x": "[]"}, time.Now()); err != nil || n != 0 {
 		t.Fatalf("stops without archive: %d %v", n, err)
+	}
+}
+
+func TestArchiveVersionsSurviveConcurrentWriters(t *testing.T) {
+	withArchiveTestDBs(t)
+	errs := make(chan error, 80)
+	var wg sync.WaitGroup
+	for i := range 40 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			trip := fmt.Sprintf("%d_0", i)
+			if _, err := ArchiveTripStops(map[string]string{trip: "[1]", trip + "x": "[2]"}, time.Now()); err != nil {
+				errs <- err
+			}
+			if _, err := ArchiveTimetables([]TimetableVersion{{RouteShortName: trip, Weekdays: "[]"}}, time.Now()); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent archive write: %v", err)
+	}
+	if n := archiveRows(t, "stop_times_versions"); n != 80 {
+		t.Fatalf("%d trip versions, want 80", n)
 	}
 }

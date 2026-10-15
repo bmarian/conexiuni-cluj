@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 )
 
 var Archive *sql.DB
+
+var archiveWrites sync.Mutex
 
 const archiveCopyChunkSec = int64(24 * time.Hour / time.Second)
 
@@ -106,7 +109,7 @@ const archiveSchema = `
 `
 
 func ConnectArchive(path string) error {
-	db, err := sql.Open("sqlite3", path+"?mode=rwc&_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL")
+	db, err := sql.Open("sqlite3", path+"?mode=rwc&_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_txlock=immediate")
 	if err != nil {
 		return err
 	}
@@ -173,6 +176,8 @@ func copyTableToArchive(t archivedTable, until int64) (int, error) {
 }
 
 func copyArchiveRange(t archivedTable, from, to int64) (int, error) {
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
 	cols := strings.Join(t.columns, ", ")
 	rows, err := DB.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
 	if err != nil {
@@ -220,6 +225,8 @@ func copyArchiveRange(t archivedTable, from, to int64) (int, error) {
 }
 
 func copyStatsToArchive(until time.Time) (int, error) {
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
 	from, err := archiveWatermark("stats_daily")
 	if err != nil {
 		return 0, err
@@ -301,6 +308,8 @@ func PruneArchive(before time.Time) (int, error) {
 	if Archive == nil {
 		return 0, nil
 	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
 	cutoff := before.Unix()
 	pruned := 0
 	for _, t := range archivedTables {
@@ -349,6 +358,8 @@ func ArchiveTimetables(versions []TimetableVersion, at time.Time) (int, error) {
 	if Archive == nil || len(versions) == 0 {
 		return 0, nil
 	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
 	tx, err := Archive.Begin()
 	if err != nil {
 		return 0, err
@@ -380,6 +391,8 @@ func ArchiveTripStops(stopsByTrip map[string]string, at time.Time) (int, error) 
 	if Archive == nil || len(stopsByTrip) == 0 {
 		return 0, nil
 	}
+	archiveWrites.Lock()
+	defer archiveWrites.Unlock()
 	tx, err := Archive.Begin()
 	if err != nil {
 		return 0, err
