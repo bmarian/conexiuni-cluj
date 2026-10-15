@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 import fixture from './fixtures/network_fixture.json'
 import {buildHourlyOffsets, buildStopInfo, clujClock, decodePolyline, NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
 import type {StopInfo} from '@/types/tranzy.ts'
-import {getTimetableDayKey, setScheduleDays} from '@/utils/time.ts'
+import {getTimetableDayKey, plainTimetableDayKey, setScheduleDays, specialDayOn} from '@/utils/time.ts'
 
 const index = new NetworkIndex(fixture.bundle as unknown as NetworkBundle)
 
@@ -52,12 +52,15 @@ describe('network bundle', () => {
   })
 
   it('runs the timetable the calendar names on a holiday', () => {
-    setScheduleDays({'2026-12-01': 'sunday'})
+    setScheduleDays({'2026-12-01': 'sunday'}, {'2026-12-01': {reason: 'holiday', holiday: 'national_day'}})
     try {
       expect(clujClock(new Date('2026-12-01T08:00:00Z'))).toEqual({dayType: 'sunday', hour: 10})
       expect(clujClock(new Date('2026-12-02T08:00:00Z'))).toEqual({dayType: 'weekday', hour: 10})
       expect(getTimetableDayKey(new Date(2026, 11, 1, 10))).toBe('sunday')
       expect(getTimetableDayKey(new Date(2026, 11, 2, 10))).toBe('weekdays')
+      expect(plainTimetableDayKey(new Date(2026, 11, 1, 10))).toBe('weekdays')
+      expect(specialDayOn(new Date(2026, 11, 1, 10))).toEqual({schedule: 'sunday', note: {reason: 'holiday', holiday: 'national_day'}})
+      expect(specialDayOn(new Date(2026, 11, 2, 10))).toBeNull()
     } finally {
       setScheduleDays({})
     }

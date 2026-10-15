@@ -2,7 +2,7 @@ import {shallowRef} from 'vue'
 import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
-import {hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
+import {type DayNote, hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -25,6 +25,7 @@ export type NetworkBundle = {
   stops: Stop[]
   rules?: {late_grace_min: number}
   schedule_days?: Record<string, DayType>
+  day_notes?: Record<string, DayNote>
 }
 
 export type NetworkVersion = Pick<NetworkBundle, 'version' | 'static_version' | 'generated_at'>
@@ -184,7 +185,7 @@ async function openCache(): Promise<Cache | null> {
 
 function use(bundle: NetworkBundle) {
   if (!Array.isArray(bundle?.routes) || !Array.isArray(bundle?.stops)) return
-  setScheduleDays(bundle.schedule_days)
+  setScheduleDays(bundle.schedule_days, bundle.day_notes)
   network.value = new NetworkIndex(bundle)
 }
 

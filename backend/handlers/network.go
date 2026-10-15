@@ -76,7 +76,8 @@ func BuildNetworkBundle(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, 
 	}
 	sort.Slice(stops, func(i, j int) bool { return stops[i].StopID < stops[j].StopID })
 
-	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: learnLiveRules().graceSec / 60}, ScheduleDays: networkScheduleDays(time.Now())}
+	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: learnLiveRules().graceSec / 60}}
+	bundle.ScheduleDays, bundle.DayNotes = networkScheduleDays(time.Now())
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)
 	bundle.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
 	return bundle, nil
@@ -163,7 +164,8 @@ func networkVersions(bundle *models.NetworkBundle) (version, static string) {
 		R []models.NetworkRoute
 		S []models.Stop
 		D map[string]string
-	}{bundle.Routes, bundle.Stops, bundle.ScheduleDays})
+		N map[string]models.DayNote
+	}{bundle.Routes, bundle.Stops, bundle.ScheduleDays, bundle.DayNotes})
 	withoutOffsets := make([]models.NetworkRoute, len(bundle.Routes))
 	for i, r := range bundle.Routes {
 		r.Offsets = nil
@@ -173,7 +175,8 @@ func networkVersions(bundle *models.NetworkBundle) (version, static string) {
 		R []models.NetworkRoute
 		S []models.Stop
 		D map[string]string
-	}{withoutOffsets, bundle.Stops, bundle.ScheduleDays})
+		N map[string]models.DayNote
+	}{withoutOffsets, bundle.Stops, bundle.ScheduleDays, bundle.DayNotes})
 	return version, static
 }
 

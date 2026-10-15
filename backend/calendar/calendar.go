@@ -39,6 +39,7 @@ type SchoolYear struct {
 type Holiday struct {
 	Date string `json:"date"`
 	Name string `json:"name"`
+	Key  string `json:"key"`
 }
 
 type Calendar struct {
@@ -46,7 +47,7 @@ type Calendar struct {
 	overrides map[string]string
 
 	mu       sync.Mutex
-	holidays map[int]map[string]string
+	holidays map[int]map[string]Holiday
 }
 
 func New(years []SchoolYear, overrides map[string]string) *Calendar {
@@ -56,7 +57,7 @@ func New(years []SchoolYear, overrides map[string]string) *Calendar {
 	for date, day := range overrides {
 		o[date] = day
 	}
-	return &Calendar{years: sorted, overrides: o, holidays: make(map[int]map[string]string)}
+	return &Calendar{years: sorted, overrides: o, holidays: make(map[int]map[string]Holiday)}
 }
 
 func (c *Calendar) Years() []SchoolYear {
@@ -160,16 +161,15 @@ func (c *Calendar) Holiday(t time.Time) (Holiday, bool) {
 	c.mu.Lock()
 	byDate, ok := c.holidays[t.Year()]
 	if !ok {
-		byDate = make(map[string]string)
+		byDate = make(map[string]Holiday)
 		for _, h := range PublicHolidays(t.Year()) {
-			byDate[h.Date] = h.Name
+			byDate[h.Date] = h
 		}
 		c.holidays[t.Year()] = byDate
 	}
 	c.mu.Unlock()
-	date := t.Format(dateLayout)
-	name, ok := byDate[date]
-	return Holiday{Date: date, Name: name}, ok
+	h, ok := byDate[t.Format(dateLayout)]
+	return h, ok
 }
 
 func OrthodoxEaster(year int) time.Time {
@@ -182,31 +182,31 @@ func OrthodoxEaster(year int) time.Time {
 }
 
 func PublicHolidays(year int) []Holiday {
-	fixed := func(month time.Month, day int, name string) Holiday {
-		return Holiday{Date: time.Date(year, month, day, 0, 0, 0, 0, time.UTC).Format(dateLayout), Name: name}
+	fixed := func(month time.Month, day int, key, name string) Holiday {
+		return Holiday{Date: time.Date(year, month, day, 0, 0, 0, 0, time.UTC).Format(dateLayout), Name: name, Key: key}
 	}
 	easter := OrthodoxEaster(year)
-	around := func(days int, name string) Holiday {
-		return Holiday{Date: easter.AddDate(0, 0, days).Format(dateLayout), Name: name}
+	around := func(days int, key, name string) Holiday {
+		return Holiday{Date: easter.AddDate(0, 0, days).Format(dateLayout), Name: name, Key: key}
 	}
 	out := []Holiday{
-		fixed(time.January, 1, "New Year's Day"),
-		fixed(time.January, 2, "New Year holiday"),
-		fixed(time.January, 6, "Epiphany"),
-		fixed(time.January, 7, "Saint John"),
-		fixed(time.January, 24, "Union Day"),
-		around(-2, "Good Friday"),
-		around(0, "Easter Sunday"),
-		around(1, "Easter Monday"),
-		fixed(time.May, 1, "Labour Day"),
-		fixed(time.June, 1, "Children's Day"),
-		around(49, "Pentecost Sunday"),
-		around(50, "Pentecost Monday"),
-		fixed(time.August, 15, "Assumption"),
-		fixed(time.November, 30, "Saint Andrew"),
-		fixed(time.December, 1, "National Day"),
-		fixed(time.December, 25, "Christmas Day"),
-		fixed(time.December, 26, "Christmas holiday"),
+		fixed(time.January, 1, "new_year", "New Year's Day"),
+		fixed(time.January, 2, "new_year_2", "New Year holiday"),
+		fixed(time.January, 6, "epiphany", "Epiphany"),
+		fixed(time.January, 7, "saint_john", "Saint John"),
+		fixed(time.January, 24, "union_day", "Union Day"),
+		around(-2, "good_friday", "Good Friday"),
+		around(0, "easter", "Easter Sunday"),
+		around(1, "easter_monday", "Easter Monday"),
+		fixed(time.May, 1, "labour_day", "Labour Day"),
+		fixed(time.June, 1, "childrens_day", "Children's Day"),
+		around(49, "pentecost", "Pentecost Sunday"),
+		around(50, "pentecost_monday", "Pentecost Monday"),
+		fixed(time.August, 15, "assumption", "Assumption"),
+		fixed(time.November, 30, "saint_andrew", "Saint Andrew"),
+		fixed(time.December, 1, "national_day", "National Day"),
+		fixed(time.December, 25, "christmas", "Christmas Day"),
+		fixed(time.December, 26, "christmas_2", "Christmas holiday"),
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Date < out[j].Date })
 	return out

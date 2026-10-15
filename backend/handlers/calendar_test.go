@@ -330,7 +330,10 @@ func TestCalendarProblemAsksForTheNextYearFromAugust(t *testing.T) {
 
 func TestNetworkScheduleDaysListHolidaysOnly(t *testing.T) {
 	withSeedCalendar(t)
-	days := networkScheduleDays(clujAt("2026-10-15", 12))
+	days, notes := networkScheduleDays(clujAt("2026-10-15", 12))
+	if n := notes["2026-12-01"]; n.Reason != dayNoteHoliday || n.Holiday != "national_day" {
+		t.Fatalf("1 Dec note %+v", n)
+	}
 	if days["2026-11-30"] != calendar.Sunday || days["2026-12-01"] != calendar.Sunday {
 		t.Fatalf("30 Nov and 1 Dec: %q %q, want sunday", days["2026-11-30"], days["2026-12-01"])
 	}
@@ -467,8 +470,8 @@ func TestAdminSetsTheTimetableForADay(t *testing.T) {
 	if scheduleDay(day) != calendar.Saturday {
 		t.Fatalf("%s does not run the Saturday timetable", date)
 	}
-	if day.Weekday() != time.Saturday && networkScheduleDays(time.Now())[date] != calendar.Saturday {
-		t.Fatalf("the network bundle does not tell the apps about %s", date)
+	if days, notes := networkScheduleDays(time.Now()); day.Weekday() != time.Saturday && (days[date] != calendar.Saturday || notes[date].Reason != dayNoteSet) {
+		t.Fatalf("the network bundle says %q (%+v) for %s", days[date], notes[date], date)
 	}
 
 	req := httptest.NewRequest("GET", "/api/admin/calendar/day?date="+date, nil)

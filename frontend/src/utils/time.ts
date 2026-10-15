@@ -45,10 +45,16 @@ export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'
 
 export type ScheduleDay = 'weekday' | 'saturday' | 'sunday'
 
-const scheduleDays = shallowRef<Record<string, ScheduleDay>>({})
+export type DayNote = {reason: 'holiday' | 'set' | 'observed'; holiday?: string}
 
-export const setScheduleDays = (days: Record<string, ScheduleDay> | undefined) => {
+export type SpecialDay = {schedule: ScheduleDay; note: DayNote | null}
+
+const scheduleDays = shallowRef<Record<string, ScheduleDay>>({})
+const dayNotes = shallowRef<Record<string, DayNote>>({})
+
+export const setScheduleDays = (days: Record<string, ScheduleDay> | undefined, notes?: Record<string, DayNote>) => {
   scheduleDays.value = days ?? {}
+  dayNotes.value = notes ?? {}
 }
 
 export const scheduleDayOn = (date: string): ScheduleDay | undefined => scheduleDays.value[date]
@@ -56,13 +62,23 @@ export const scheduleDayOn = (date: string): ScheduleDay | undefined => schedule
 const localDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-export const getTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
-  const special = scheduleDays.value[localDate(referenceDate)]
-  if (special) return special === 'weekday' ? 'weekdays' : special
+export const plainTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
   const day = referenceDate.getDay()
   if (day === 0) return 'sunday'
   if (day === 6) return 'saturday'
   return 'weekdays'
+}
+
+export const getTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
+  const special = scheduleDays.value[localDate(referenceDate)]
+  if (special) return special === 'weekday' ? 'weekdays' : special
+  return plainTimetableDayKey(referenceDate)
+}
+
+export const specialDayOn = (referenceDate: Date): SpecialDay | null => {
+  const date = localDate(referenceDate)
+  const schedule = scheduleDays.value[date]
+  return schedule ? {schedule, note: dayNotes.value[date] ?? null} : null
 }
 
 export const getTimetableForDay = (timetable: Timetable, referenceDate: Date): DaySchedule => {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -56,6 +57,9 @@ const (
 	adminDayReach      = 400
 	overrideByAdmin    = "admin"
 	overrideObserved   = "observed"
+	dayNoteHoliday     = "holiday"
+	dayNoteSet         = "set"
+	dayNoteObserved    = "observed"
 )
 
 var (
@@ -810,10 +814,16 @@ func buildAdminCalendarDay(day time.Time) (adminCalendarDay, error) {
 	return d, nil
 }
 
-func networkScheduleDays(now time.Time) map[string]string {
+func networkScheduleDays(now time.Time) (map[string]string, map[string]models.DayNote) {
 	cal := currentCalendar()
+	sources := map[string]string{}
+	if overrides, err := database.ScheduleOverrides(); err == nil {
+		for _, o := range overrides {
+			sources[o.Date] = o.Source
+		}
+	}
 	local := now.In(database.StatsLocation())
-	out := map[string]string{}
+	days, notes := map[string]string{}, map[string]models.DayNote{}
 	end := time.Date(local.Year()+2, time.January, 1, 12, 0, 0, 0, local.Location())
 	for d := time.Date(local.Year(), time.January, 1, 12, 0, 0, 0, local.Location()); d.Before(end); d = d.AddDate(0, 0, 1) {
 		plain := calendar.Weekday
@@ -823,9 +833,23 @@ func networkScheduleDays(now time.Time) map[string]string {
 		case time.Sunday:
 			plain = calendar.Sunday
 		}
-		if s := cal.ScheduleDay(d); s != plain {
-			out[d.Format("2006-01-02")] = s
+		s := cal.ScheduleDay(d)
+		if s == plain {
+			continue
 		}
+		date := d.Format("2006-01-02")
+		days[date] = s
+		var note models.DayNote
+		if h, ok := cal.Holiday(d); ok {
+			note = models.DayNote{Reason: dayNoteHoliday, Holiday: h.Key}
+		}
+		switch sources[date] {
+		case overrideByAdmin:
+			note.Reason = dayNoteSet
+		case overrideObserved:
+			note.Reason = dayNoteObserved
+		}
+		notes[date] = note
 	}
-	return out
+	return days, notes
 }

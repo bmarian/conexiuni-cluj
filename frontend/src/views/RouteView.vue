@@ -8,7 +8,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DaySchedule, Frequency} from '@/types/ctp.ts'
-import {getTimetableDayKey, timeStringToMinutes} from '@/utils/time.ts'
+import {getTimetableDayKey, plainTimetableDayKey, specialDayOn, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
 import {keepHyphenatedWords} from '@/utils/text.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
@@ -215,6 +215,22 @@ const todayTab = computed((): TimetableTab => getTimetableDayKey(userTime.value 
 
 const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
 
+watch(todayTab, (tab, previous) => {
+  if (selectedTimetableTab.value === previous) selectedTimetableTab.value = tab
+})
+
+const plainTodayTab = computed((): TimetableTab => plainTimetableDayKey(userTime.value || new Date()))
+
+const todayNotice = computed(() => {
+  const special = specialDayOn(userTime.value || new Date())
+  if (!special) return ''
+  const timetable = t(`timetableName_${special.schedule}`)
+  const holiday = special.note?.holiday
+  return holiday
+    ? t('specialDayHoliday', {holiday: t(`holiday_${holiday}`), timetable})
+    : t('specialDayChanged', {timetable})
+})
+
 const timetableTabOrder: Record<TimetableTab, number> = {
   weekdays: 0,
   saturday: 1,
@@ -222,7 +238,7 @@ const timetableTabOrder: Record<TimetableTab, number> = {
 }
 
 const isPastTab = (tab: TimetableTab): boolean =>
-  timetableTabOrder[tab] < timetableTabOrder[todayTab.value]
+  timetableTabOrder[tab] < timetableTabOrder[plainTodayTab.value]
 
 const dayHasContent = (d?: DaySchedule | null): boolean =>
   !!(d?.entries?.length || d?.in_frequency || d?.out_frequency)
@@ -818,6 +834,9 @@ onUnmounted(() => {
         </div>
 
         <template v-if="settings.paperActive">
+          <p v-if="todayNotice" class="flex items-center gap-1.5 mb-3! text-xs text-slate-500 dark:text-slate-400">
+            <span class="tt-today-dot"></span>{{ todayNotice }}
+          </p>
           <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
           <div class="pp-tt" role="table" data-kbd-section="tt-minutes" data-kbd-axis="grid"
                :style="{ '--pp-tt-cols': paperTimetable.days.length }">
@@ -888,6 +907,10 @@ onUnmounted(() => {
             <span v-if="tab.key === todayTab" class="tt-today-dot"></span>
           </button>
         </div>
+
+        <p v-if="todayNotice" class="flex items-center gap-1.5 -mt-2! mb-4! text-xs text-slate-500 dark:text-slate-400">
+          <span class="tt-today-dot"></span>{{ todayNotice }}
+        </p>
 
         <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
 
