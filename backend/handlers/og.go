@@ -27,7 +27,8 @@ var (
 	reAppMount  = regexp.MustCompile(`<div\s+id="app"\s*>\s*</div>`)
 )
 
-const siteOrigin = "https://bus.bmarian.online"
+// Canonical even when a page is served from the old host.
+const siteOrigin = "https://ceautobuziau.ro"
 
 var indexHTMLContent string
 
@@ -69,53 +70,53 @@ type ogLocale struct {
 var ogLocales = map[string]ogLocale{
 	"ro": {
 		lang:               "ro",
-		routeTitleFmt:      "Orar Linia %s Cluj-Napoca — %s | Conexiuni Cluj",
+		routeTitleFmt:      "Orar Linia %s Cluj-Napoca — %s | Ce autobuz iau?",
 		routeDescFmt:       "Orar, traseu, opriri și plecări live pentru linia %s (%s) din Cluj-Napoca.",
 		routeH1Fmt:         "Orar Linia %s Cluj-Napoca",
-		routeBodyFmt:       "Linia %s (%s) face parte din transportul public din Cluj-Napoca, operat de CTP Cluj-Napoca. Conexiuni Cluj este o aplicație care afișează orarele publice și pozițiile live ale vehiculelor.",
-		stopTitleFmt:       "Stația %s, Cluj-Napoca — Plecări live | Conexiuni Cluj",
+		routeBodyFmt:       "Linia %s (%s) face parte din transportul public din Cluj-Napoca, operat de CTP Cluj-Napoca. Aici găsești orarul public și pozițiile live ale vehiculelor.",
+		stopTitleFmt:       "Stația %s, Cluj-Napoca — Plecări live | Ce autobuz iau?",
 		stopDescFmt:        "Plecări în timp real de la stația %s din Cluj-Napoca. Liniile care opresc aici și orarele actuale.",
 		stopH1Fmt:          "Stația %s, Cluj-Napoca",
 		stopBodyFmt:        "Plecări în timp real de la stația %s din Cluj-Napoca. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.",
-		planTitle:          "Planificator rute — Conexiuni Cluj",
+		planTitle:          "Planificator rute — Ce autobuz iau?",
 		planDesc:           "Planifică-ți călătoria cu transportul în comun din Cluj-Napoca. Găsește rute, orare și conexiuni între stații.",
 		planH1:             "Planifică-ți călătoria în Cluj-Napoca",
 		planBody:           "Planifică-ți ruta cu transportul în comun din Cluj-Napoca. Compară opțiuni, vezi conexiunile între linii și orele estimate de sosire.",
-		planToTitleFmt:     "Rută la %s — Cluj-Napoca | Conexiuni Cluj",
+		planToTitleFmt:     "Rută la %s — Cluj-Napoca | Ce autobuz iau?",
 		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din Cluj-Napoca.",
-		planFromToTitleFmt: "Rută de la %s la %s — Cluj-Napoca | Conexiuni Cluj",
+		planFromToTitleFmt: "Rută de la %s la %s — Cluj-Napoca | Ce autobuz iau?",
 		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din Cluj-Napoca.",
-		homeTitle:          "Conexiuni Cluj — Transport public Cluj-Napoca în timp real",
+		homeTitle:          "Ce autobuz iau? — Transport public Cluj-Napoca în timp real",
 		homeDesc:           "Aplicație pentru transportul public din Cluj-Napoca. Orarele CTP Cluj-Napoca în timp real, plecările de la stații, traseele și planificator de rute.",
 		homeH1:             "Transport public Cluj-Napoca în timp real",
-		homeBody:           "Conexiuni Cluj este o aplicație care afișează în timp real autobuzele, troleibuzele și tramvaiele CTP Cluj-Napoca. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
-		androidTitle:       "Aplicația Android — Conexiuni Cluj",
+		homeBody:           "Autobuzele, troleibuzele și tramvaiele CTP Cluj-Napoca în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
+		androidTitle:       "Aplicația Android — Ce autobuz iau?",
 		androidDesc:        "Intră în beta și testează aplicația pentru telefon și ceas Wear OS.",
 		androidBody:        "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.",
 	},
 	"en": {
 		lang:               "en",
-		routeTitleFmt:      "Line %s Timetable Cluj-Napoca — %s | Conexiuni Cluj",
+		routeTitleFmt:      "Line %s Timetable Cluj-Napoca — %s | Ce autobuz iau?",
 		routeDescFmt:       "Timetable, route, stops and live departures for line %s (%s) in Cluj-Napoca.",
 		routeH1Fmt:         "Line %s Timetable — Cluj-Napoca",
-		routeBodyFmt:       "Line %s (%s) is part of Cluj-Napoca public transport, operated by CTP Cluj-Napoca. Conexiuni Cluj is an app showing public schedules and live vehicle positions.",
-		stopTitleFmt:       "%s stop, Cluj-Napoca — Live departures | Conexiuni Cluj",
+		routeBodyFmt:       "Line %s (%s) is part of Cluj-Napoca public transport, operated by CTP Cluj-Napoca. Here you'll find its public timetable and live vehicle positions.",
+		stopTitleFmt:       "%s stop, Cluj-Napoca — Live departures | Ce autobuz iau?",
 		stopDescFmt:        "Live departures from %s stop in Cluj-Napoca. Lines stopping here and current schedules.",
 		stopH1Fmt:          "%s stop, Cluj-Napoca",
 		stopBodyFmt:        "Live departures from %s in Cluj-Napoca. See bus, trolleybus and tram lines stopping here, estimated times and vehicle positions on the map.",
-		planTitle:          "Route planner — Conexiuni Cluj",
+		planTitle:          "Route planner — Ce autobuz iau?",
 		planDesc:           "Plan your journey with public transport in Cluj-Napoca. Find routes, timetables and connections.",
 		planH1:             "Plan your journey in Cluj-Napoca",
 		planBody:           "Plan your route with public transport in Cluj-Napoca. Compare options, see line connections and estimated arrival times.",
-		planToTitleFmt:     "Trip to %s — Cluj-Napoca | Conexiuni Cluj",
+		planToTitleFmt:     "Trip to %s — Cluj-Napoca | Ce autobuz iau?",
 		planToDescFmt:      "Plan your trip to %s with public transport in Cluj-Napoca.",
-		planFromToTitleFmt: "Trip from %s to %s — Cluj-Napoca | Conexiuni Cluj",
+		planFromToTitleFmt: "Trip from %s to %s — Cluj-Napoca | Ce autobuz iau?",
 		planFromToDescFmt:  "Plan your trip from %s to %s with public transport in Cluj-Napoca.",
-		homeTitle:          "Conexiuni Cluj — Cluj-Napoca public transport in real time",
+		homeTitle:          "Ce autobuz iau? — Cluj-Napoca public transport in real time",
 		homeDesc:           "App for Cluj-Napoca public transport. Real-time CTP Cluj-Napoca timetables, live departures, line routes and route planner.",
 		homeH1:             "Cluj-Napoca public transport in real time",
-		homeBody:           "Conexiuni Cluj is an app showing CTP Cluj-Napoca buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
-		androidTitle:       "Android app — Conexiuni Cluj",
+		homeBody:           "CTP Cluj-Napoca buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
+		androidTitle:       "Android app — Ce autobuz iau?",
 		androidDesc:        "Join the beta to test the app for your phone and Wear OS watch.",
 		androidBody:        "Join the testers group with your Google account, then get the app from Google Play. Needs Android 8 or newer.",
 	},
@@ -282,7 +283,7 @@ func RouteOGHandler(c fiber.Ctx) error {
 func publisherOrg() map[string]any {
 	return map[string]any{
 		"@type": "Organization",
-		"name":  "Conexiuni Cluj",
+		"name":  "Ce autobuz iau?",
 		"url":   siteOrigin + "/",
 	}
 }
@@ -406,10 +407,11 @@ func HomeOGHandler(c fiber.Ctx) error {
 			html.EscapeString(l.homeH1),
 			html.EscapeString(l.homeBody)),
 		jsonLD: marshalJSONLD(map[string]any{
-			"@context": "https://schema.org",
-			"@type":    "WebSite",
-			"name":     "Conexiuni Cluj",
-			"url":      canonicalURL("/"),
+			"@context":      "https://schema.org",
+			"@type":         "WebSite",
+			"name":          "Ce autobuz iau?",
+			"alternateName": "Conexiuni Cluj",
+			"url":           canonicalURL("/"),
 			"potentialAction": map[string]any{
 				"@type":       "SearchAction",
 				"target":      canonicalURL("/?q={search_term_string}"),

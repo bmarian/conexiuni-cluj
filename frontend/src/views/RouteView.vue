@@ -33,6 +33,7 @@ import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import RoutePong from '@/components/RoutePong.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {siteUrl} from '@/utils/site.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -182,7 +183,7 @@ useHead(() => {
   const longName = timetable.value?.route_long_name ?? ''
   const title = t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
   const description = t('headRouteDesc', {shortName})
-  const url = `https://bus.bmarian.online/route/${props.routeId}/${props.direction}`
+  const url = siteUrl(`/route/${props.routeId}/${props.direction}`)
   return {
     title,
     meta: [

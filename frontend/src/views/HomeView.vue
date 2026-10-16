@@ -25,6 +25,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {nextOf} from '@/utils/reminders.ts'
 import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {siteUrl} from '@/utils/site.ts'
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -52,11 +53,11 @@ useHead(() => ({
     {name: 'description', content: t('headHomeDesc')},
     {property: 'og:title', content: t('headHomeTitle')},
     {property: 'og:description', content: t('headHomeDesc')},
-    {property: 'og:url', content: 'https://bus.bmarian.online/'},
+    {property: 'og:url', content: siteUrl('/')},
     {name: 'twitter:title', content: t('headHomeTitle')},
     {name: 'twitter:description', content: t('headHomeDesc')},
   ],
-  link: [{rel: 'canonical', href: 'https://bus.bmarian.online/'}],
+  link: [{rel: 'canonical', href: siteUrl('/')}],
 }))
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
@@ -409,7 +410,7 @@ useKbdShortcuts({
         </g>
       </svg>
       <p class="pp-kicker">{{ t('paperEdition', {year: new Date().getFullYear()}) }}</p>
-      <h1 class="pp-title">Conexiuni Cluj</h1>
+      <h1 class="pp-title">Ce autobuz iau?</h1>
     </header>
 
     <UniversalSearch

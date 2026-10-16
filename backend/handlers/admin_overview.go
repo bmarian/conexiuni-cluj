@@ -140,6 +140,15 @@ type adminPeople struct {
 	PushFollowers int             `json:"push_followers"`
 	Reminders     int             `json:"reminders"`
 	ReminderUsers int             `json:"reminder_users"`
+	Moves         hostMoves       `json:"moves"`
+}
+
+// Visits the old host passed on to the canonical one today, and push subscriptions still held there.
+type hostMoves struct {
+	Sent     int `json:"sent"`
+	Empty    int `json:"empty"`
+	Received int `json:"received"`
+	OldPush  int `json:"old_push"`
 }
 
 type quotaUse struct {
@@ -579,7 +588,32 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		SELECT (SELECT COUNT(DISTINCT endpoint) FROM push_subscription_routes),
 		       (SELECT COUNT(*) FROM push_reminders),
 		       (SELECT COUNT(DISTINCT endpoint) FROM push_reminders)`).Scan(&p.PushFollowers, &p.Reminders, &p.ReminderUsers)
+	if err != nil {
+		return p, err
+	}
+	p.Moves, err = hostMovesToday(today)
 	return p, err
+}
+
+func hostMovesToday(today string) (hostMoves, error) {
+	var m hostMoves
+	rows, err := database.MetricRows("host_move", today)
+	if err != nil {
+		return m, err
+	}
+	for _, r := range rows {
+		switch r.Key {
+		case "sent":
+			m.Sent += r.Count
+		case "empty":
+			m.Empty += r.Count
+		case "received":
+			m.Received += r.Count
+		}
+	}
+	host := strings.TrimPrefix(siteOrigin, "https://")
+	err = database.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE host <> ?`, host).Scan(&m.OldPush)
+	return m, err
 }
 
 func compareVersions(a, b string) int {

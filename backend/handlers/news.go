@@ -89,7 +89,7 @@ func fetchNewsFromCTP() ([]NewsItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ConexiuniCluj/1.0)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; CeAutobuzIau/1.0; +https://ceautobuziau.ro)")
 	req.Header.Set("Accept-Language", "ro,en;q=0.8")
 
 	resp, err := client.Do(req)

@@ -132,7 +132,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("Starting Conexiuni Cluj server in %s mode on port %s", config.Environment, config.Port)
+	log.Printf("Starting Ce autobuz iau? server in %s mode on port %s", config.Environment, config.Port)
 
 	if err := database.Connect(config.DatabasePath); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -211,7 +211,7 @@ func main() {
 	}
 
 	app := fiber.New(fiber.Config{
-		AppName: "Conexiuni Cluj",
+		AppName: "Ce autobuz iau?",
 	})
 	app.Use(handlers.StatsMiddleware(logHashSalt))
 	app.Use(logger.New(logger.Config{

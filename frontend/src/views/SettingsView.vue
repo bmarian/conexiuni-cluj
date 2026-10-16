@@ -54,7 +54,7 @@ function toggleSimplified() {
     </div>
 
     <header v-if="settings.paperActive" class="pp-masthead">
-      <p class="pp-kicker">Conexiuni Cluj</p>
+      <p class="pp-kicker">Ce autobuz iau?</p>
       <h1 class="pp-title pp-title-sm">{{ t('settings') }}</h1>
       <p class="pp-subtitle">{{ t('paperSettingsSubtitle') }}</p>
     </header>

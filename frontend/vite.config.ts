@@ -19,8 +19,8 @@ export default defineConfig({
       includeAssets: ["bus.svg", "favicon.ico", "apple-touch-icon-180x180.png"],
       manifest: {
         id: "/",
-        name: "Conexiuni Cluj",
-        short_name: "Conexiuni",
+        name: "Ce autobuz iau?",
+        short_name: "Ce autobuz iau?",
         description: "Transport public Cluj-Napoca în timp real",
         theme_color: "#0f172a",
         background_color: "#0f172a",

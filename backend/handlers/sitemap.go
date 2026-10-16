@@ -11,10 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-const (
-	sitemapBaseURL = "https://bus.bmarian.online"
-	sitemapTTL     = 1 * time.Hour
-)
+const sitemapTTL = 1 * time.Hour
 
 var (
 	sitemapMu       sync.RWMutex
@@ -59,9 +56,9 @@ func buildSitemap() ([]byte, error) {
 	sb.WriteString(xml.Header)
 	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 
-	writeURL(&sb, sitemapBaseURL+"/", "daily", "1.0")
-	writeURL(&sb, sitemapBaseURL+"/plan", "monthly", "0.5")
-	writeURL(&sb, sitemapBaseURL+"/android", "monthly", "0.5")
+	writeURL(&sb, siteOrigin+"/", "daily", "1.0")
+	writeURL(&sb, siteOrigin+"/plan", "monthly", "0.5")
+	writeURL(&sb, siteOrigin+"/android", "monthly", "0.5")
 
 	if err := writeRouteURLs(&sb); err != nil {
 		return nil, err
@@ -96,7 +93,7 @@ func writeRouteURLs(sb *strings.Builder) error {
 			continue
 		}
 		writeURL(sb,
-			sitemapBaseURL+"/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID),
+			siteOrigin+"/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID),
 			"weekly", "0.8")
 	}
 	return rows.Err()
@@ -119,7 +116,7 @@ func writeStopURLs(sb *strings.Builder) error {
 			continue
 		}
 		writeURL(sb,
-			sitemapBaseURL+"/stop/"+strconv.Itoa(stopID),
+			siteOrigin+"/stop/"+strconv.Itoa(stopID),
 			"weekly", "0.6")
 	}
 	return rows.Err()

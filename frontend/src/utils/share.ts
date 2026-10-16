@@ -2,8 +2,8 @@ import type {LocationQuery, RouteLocationRaw} from 'vue-router'
 import {searchPlaces} from '@/utils/places.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {isSiteHost} from '@/utils/site.ts'
 
-const SITE_HOST = 'bus.bmarian.online'
 export const SHARE_PARAMS = ['shared_title', 'shared_text', 'shared_url'] as const
 
 const param = (query: LocationQuery, key: string) => (typeof query[key] === 'string' ? (query[key] as string) : '')
@@ -16,7 +16,7 @@ export async function sharedDestination(query: LocationQuery): Promise<RouteLoca
   if (link) {
     try {
       const url = new URL(link)
-      if (url.host === SITE_HOST) return url.pathname + url.search
+      if (isSiteHost(url.host)) return url.pathname + url.search
     } catch {}
   }
   const name = text.split('\n').map((line) => line.trim()).find((line) => line && !line.startsWith('http')) ?? text.trim()

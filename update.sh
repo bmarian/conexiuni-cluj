@@ -57,7 +57,7 @@ if ! grep -Eq '^VAPID_(PUBLIC|PRIVATE)_KEY=.+' keys.env; then
 fi
 if ! grep -q '^VAPID_SUBJECT=.' keys.env; then
   sed -i '/^VAPID_SUBJECT=/d' keys.env
-  echo "VAPID_SUBJECT=https://bus.bmarian.online/" >> keys.env
+  echo "VAPID_SUBJECT=https://ceautobuziau.ro/" >> keys.env
 fi
 cp keys.env backend/keys.env
 chmod 600 keys.env backend/keys.env
