@@ -17,13 +17,19 @@ import (
 )
 
 const (
-	reminderLead        = 20 * time.Minute
+	leaveBuffer = 5 * time.Minute
+	// How early to go when the walk isn't known.
+	noLocationLead = 20 * time.Minute
+	// The heads-up comes this long before it's time to leave.
+	reminderHeadsUp     = 10 * time.Minute
+	clockFromMinutes    = 60
 	reminderCheckEvery  = 30 * time.Second
 	maxRemindersPerSub  = 20
 	maxReminderTextLen  = 120
 	maxReminderShortLen = 32
 	// Minutes after midnight; can exceed 1440.
 	maxReminderSlot = 1440 + 180
+	maxReminderWalk = 1440
 )
 
 var (
@@ -43,6 +49,8 @@ type pushReminder struct {
 	Days        []int          `json:"days"`
 	Date        string         `json:"date"`
 	Slots       map[string]int `json:"slots"`
+	// Minutes to the stop from where it was set; nil when unknown.
+	Walk *int `json:"walk,omitempty"`
 }
 
 type reminderSyncRequest struct {
@@ -62,12 +70,26 @@ type storedReminder struct {
 }
 
 type reminderText struct {
-	title, bus string
+	leaveBy, arriving, in, at, walk string
 }
 
 var reminderTexts = map[string]reminderText{
-	"ro": {title: "Pleacă acum", bus: "%s peste %d min · %s"},
-	"en": {title: "Leave now", bus: "%s in %d min · %s"},
+	"ro": {
+		leaveBy: "Trebuie să te pornești înainte de %s pentru a prinde autobuzul", arriving: "Sosește în stația %s",
+		in: "%s peste %d min", at: "%s la %s", walk: "%s · %d min de mers",
+	},
+	"en": {
+		leaveBy: "Leave by %s to catch your bus", arriving: "Arriving at %s",
+		in: "%s in %d min", at: "%s at %s", walk: "%s · %d min walk",
+	},
+}
+
+// How long before the bus to set off.
+func reminderLead(walk *int) time.Duration {
+	if walk == nil {
+		return noLocationLead
+	}
+	return time.Duration(*walk)*time.Minute + leaveBuffer
 }
 
 func validReminder(r pushReminder) bool {
@@ -80,7 +102,7 @@ func validReminder(r pushReminder) bool {
 	if r.StopName == "" || len(r.StopName) > maxReminderTextLen || len(r.Destination) > maxReminderTextLen {
 		return false
 	}
-	if len(r.Slots) == 0 {
+	if len(r.Slots) == 0 || (r.Walk != nil && (*r.Walk < 0 || *r.Walk > maxReminderWalk)) {
 		return false
 	}
 	for dayType, minute := range r.Slots {
@@ -199,10 +221,10 @@ func saveReminders(sub pushSubscriber, reminders []pushReminder) error {
 			return err
 		}
 		if _, err := tx.Exec(`
-			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, last_fired_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, last_fired_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.endpoint, r.ID, r.StopID, r.StopName, r.RouteID, r.TripID, r.Line, r.Destination,
-			strings.Join(days, ","), r.Date, string(slots), fired[r.ID]); err != nil {
+			strings.Join(days, ","), r.Date, string(slots), r.Walk, fired[r.ID]); err != nil {
 			return err
 		}
 	}
@@ -253,16 +275,21 @@ func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.
 func loadReminders() ([]storedReminder, error) {
 	return queryRows(`
 		SELECT r.endpoint, r.id, r.stop_id, r.stop_name, r.route_id, r.trip_id, r.line, r.destination, r.days, r.date, r.slots,
-		       r.last_fired_at, s.p256dh, s.auth, s.locale
+		       r.walk, r.last_fired_at, s.p256dh, s.auth, s.locale
 		FROM push_reminders r
 		JOIN push_subscriptions s ON s.endpoint = r.endpoint`,
 		nil,
 		func(rows *sql.Rows) (storedReminder, error) {
 			var r storedReminder
 			var days, slots string
+			var walk sql.NullInt64
 			if err := rows.Scan(&r.sub.endpoint, &r.ID, &r.StopID, &r.StopName, &r.RouteID, &r.TripID, &r.Line, &r.Destination,
-				&days, &r.Date, &slots, &r.lastFiredAt, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
+				&days, &r.Date, &slots, &walk, &r.lastFiredAt, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
 				return r, err
+			}
+			if walk.Valid {
+				minutes := int(walk.Int64)
+				r.Walk = &minutes
 			}
 			for _, part := range strings.Split(days, ",") {
 				if d, err := strconv.Atoi(part); err == nil {
@@ -294,7 +321,7 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 		if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
 			bus = at
 		}
-		if bus.Sub(now) > reminderLead || r.lastFiredAt >= slot.UnixMilli() {
+		if bus.Sub(now) > reminderLead(r.Walk)+reminderHeadsUp || r.lastFiredAt >= slot.UnixMilli() {
 			continue
 		}
 		// Marked before sending, so a failed send can't repeat.
@@ -303,7 +330,7 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 			log.Printf("push: could not mark a reminder as sent: %v", err)
 			continue
 		}
-		payload, err := json.Marshal(reminderPushMessage(r.pushReminder, r.sub.locale, bus, now))
+		payload, err := json.Marshal(reminderPushMessage(r.pushReminder, r.sub.locale, bus, now, loc))
 		if err != nil {
 			continue
 		}
@@ -315,7 +342,7 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 	}
 }
 
-func reminderPushMessage(r pushReminder, locale string, bus, now time.Time) pushMessage {
+func reminderPushMessage(r pushReminder, locale string, bus, now time.Time, loc *time.Location) pushMessage {
 	text, ok := reminderTexts[locale]
 	if !ok {
 		text = reminderTexts["ro"]
@@ -324,9 +351,25 @@ func reminderPushMessage(r pushReminder, locale string, bus, now time.Time) push
 	if minutes < 0 {
 		minutes = 0
 	}
+	coming := fmt.Sprintf(text.in, r.Line, minutes)
+	if minutes >= clockFromMinutes {
+		coming = fmt.Sprintf(text.at, r.Line, bus.In(loc).Format("15:04"))
+	}
+	title := fmt.Sprintf(text.arriving, r.StopName)
+	body := coming
+	// At the stop, or too late to walk there, it only says the bus is coming.
+	leaveAt := bus.Add(-reminderLead(r.Walk)).Truncate(time.Minute)
+	if (r.Walk == nil || *r.Walk > 0) && leaveAt.After(now) {
+		title = fmt.Sprintf(text.leaveBy, leaveAt.In(loc).Format("15:04"))
+		if r.Walk != nil {
+			body = fmt.Sprintf(text.walk, coming, *r.Walk)
+		} else {
+			body = coming + " · " + r.StopName
+		}
+	}
 	return pushMessage{
-		Title:     text.title,
-		Body:      fmt.Sprintf(text.bus, r.Line, minutes, r.StopName),
+		Title:     title,
+		Body:      body,
 		URL:       fmt.Sprintf("/stop/%d?follow=%s&at=%d", r.StopID, r.TripID, bus.UnixMilli()),
 		Tag:       "reminder-" + r.ID,
 		Timestamp: now.UnixMilli(),

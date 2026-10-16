@@ -39,6 +39,11 @@ func reminder(id string, days []int, date string, slots map[string]int) pushRemi
 	}
 }
 
+func withWalk(r pushReminder, minutes int) pushReminder {
+	r.Walk = &minutes
+	return r
+}
+
 func TestValidReminder(t *testing.T) {
 	ok := reminder("a-1", []int{1, 2, 3, 4, 5}, "", map[string]int{"weekday": 1385})
 	if !validReminder(ok) {
@@ -47,6 +52,9 @@ func TestValidReminder(t *testing.T) {
 	once := reminder("a-2", nil, "2026-10-09", map[string]int{"weekday": 1445})
 	if !validReminder(once) {
 		t.Fatal("a one-off past midnight was refused")
+	}
+	if !validReminder(withWalk(ok, 12)) {
+		t.Fatal("a reminder with its walk was refused")
 	}
 	bad := map[string]func(r *pushReminder){
 		"empty id":           func(r *pushReminder) { r.ID = "" },
@@ -68,6 +76,8 @@ func TestValidReminder(t *testing.T) {
 		"repeated day":       func(r *pushReminder) { r.Days = []int{1, 1} },
 		"bad date":           func(r *pushReminder) { r.Days = nil; r.Date = "2026-13-01" },
 		"both days and date": func(r *pushReminder) { r.Date = "2026-10-09" },
+		"negative walk":      func(r *pushReminder) { *r = withWalk(*r, -1) },
+		"walk over a day":    func(r *pushReminder) { *r = withWalk(*r, 1441) },
 	}
 	for name, change := range bad {
 		r := ok
@@ -233,11 +243,11 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fireDueReminders(clujTime(t, "2026-10-09 22:25"), cluj)
+	fireDueReminders(clujTime(t, "2026-10-09 22:15"), cluj)
 	if got := client.received(); len(got) != 0 {
-		t.Fatalf("sent 25 min early: %v", got)
+		t.Fatalf("sent 35 min early: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 22:31"), cluj)
+	fireDueReminders(clujTime(t, "2026-10-09 22:21"), cluj)
 	fireDueReminders(clujTime(t, "2026-10-09 22:40"), cluj)
 	got := client.received()
 	if len(got) != 1 {
@@ -245,15 +255,15 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 	}
 	bus := clujTime(t, "2026-10-09 22:50").UnixMilli()
 	want := pushMessage{
-		Title: "Leave now", Body: "57 in 19 min · P-ța Mihai Viteazul Sud",
-		URL: "/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:31").UnixMilli(),
+		Title: "Leave by 22:30 to catch your bus", Body: "57 in 29 min · P-ța Mihai Viteazul Sud",
+		URL: "/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:21").UnixMilli(),
 	}
 	if got[0] != want {
 		t.Fatalf("push:\n got %+v\nwant %+v", got[0], want)
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 22:55"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-10 22:12"), cluj)
-	if got := client.received(); len(got) != 2 || got[1].Body != "57 in 18 min · P-ța Mihai Viteazul Sud" {
+	fireDueReminders(clujTime(t, "2026-10-10 22:02"), cluj)
+	if got := client.received(); len(got) != 2 || got[1].Body != "57 in 28 min · P-ța Mihai Viteazul Sud" {
 		t.Fatalf("Saturday: %v", got)
 	}
 }
@@ -269,7 +279,7 @@ func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
 	got := client.received()
-	if len(got) != 1 || got[0].Title != "Pleacă acum" || got[0].Body != "57 peste 15 min · P-ța Mihai Viteazul Sud" {
+	if len(got) != 1 || got[0].Title != "Sosește în stația P-ța Mihai Viteazul Sud" || got[0].Body != "57 peste 15 min" {
 		t.Fatalf("push: %v", got)
 	}
 	fireDueReminders(clujTime(t, "2026-10-10 00:03"), cluj)
@@ -302,5 +312,45 @@ func TestFireDueRemindersSkipsMissedBusesAndDropsDeadSubscriptions(t *testing.T)
 	}
 	if got := storedReminders(t, gone.sub.endpoint); len(got) != 0 {
 		t.Fatalf("reminders kept for a dead subscription: %v", got)
+	}
+}
+
+func TestFireDueRemindersTimesTheWalk(t *testing.T) {
+	withTestDB(t)
+	withTestPush(t)
+	client := newTestPushClient(t, "en", http.StatusCreated)
+	if err := saveReminders(client.sub, []pushReminder{
+		withWalk(reminder("walk", []int{5}, "", map[string]int{"weekday": 8 * 60}), 12),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	fireDueReminders(clujTime(t, "2026-10-09 07:32"), cluj)
+	if got := client.received(); len(got) != 0 {
+		t.Fatalf("sent before the heads-up: %v", got)
+	}
+	fireDueReminders(clujTime(t, "2026-10-09 07:33"), cluj)
+	got := client.received()
+	if len(got) != 1 || got[0].Title != "Leave by 07:43 to catch your bus" || got[0].Body != "57 in 27 min · 12 min walk" {
+		t.Fatalf("push: %v", got)
+	}
+}
+
+func TestReminderPushMessage(t *testing.T) {
+	bus := clujTime(t, "2026-10-09 08:00")
+	cases := []struct {
+		name, now, title, body string
+		r                      pushReminder
+	}{
+		{"walk", "07:33", "Leave by 07:43 to catch your bus", "57 in 27 min · 12 min walk", withWalk(reminder("x", nil, "", nil), 12)},
+		{"no location", "07:30", "Leave by 07:40 to catch your bus", "57 in 30 min · P-ța Mihai Viteazul Sud", reminder("x", nil, "", nil)},
+		{"at the stop", "07:45", "Arriving at P-ța Mihai Viteazul Sud", "57 in 15 min", withWalk(reminder("x", nil, "", nil), 0)},
+		{"too late to walk", "07:50", "Arriving at P-ța Mihai Viteazul Sud", "57 in 10 min", withWalk(reminder("x", nil, "", nil), 12)},
+		{"a long walk", "06:55", "Leave by 07:05 to catch your bus", "57 at 08:00 · 50 min walk", withWalk(reminder("x", nil, "", nil), 50)},
+	}
+	for _, c := range cases {
+		got := reminderPushMessage(c.r, "en", bus, clujTime(t, "2026-10-09 "+c.now), cluj)
+		if got.Title != c.title || got.Body != c.body {
+			t.Errorf("%s: got %q / %q", c.name, got.Title, got.Body)
+		}
 	}
 }

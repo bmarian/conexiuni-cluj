@@ -6,16 +6,12 @@ import {useRoute, useRouter} from 'vue-router'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
-import {usePushStore} from '@/stores/push'
-import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
-const push = usePushStore()
-const routeUpdates = useRouteUpdatesStore()
 
 useHead(() => ({
   title: t('headSettingsTitle'),
@@ -47,32 +43,6 @@ function toggleSimplified() {
   const on = !settings.watchActive
   settings.setSimplified(on)
   if (on) void router.push({name: 'home'})
-}
-
-async function togglePush() {
-  if (push.busy) return
-  if (push.enabled) {
-    await push.disable()
-    settings.showToast(t('pushOffToast'), {icon: 'bell-off'})
-    return
-  }
-  const result = await push.enable()
-  if (result === 'enabled') {
-    settings.showToast(t('pushOnToast'), {
-      body: t(routeUpdates.followed.length ? 'pushOnToastBody' : 'pushOnToastNoLines'),
-      icon: 'bell',
-    })
-    return
-  }
-  const key = {
-    unsupported: 'pushUnsupportedToast',
-    denied: 'pushDeniedToast',
-    brave: 'pushBraveToast',
-    failed: 'pushFailedToast',
-  }[result]
-  const isIOS = /iPhone|iPad/.test(navigator.userAgent)
-  const body = result === 'unsupported' && !isIOS ? undefined : t(`${key}Body`)
-  settings.showToast(t(key), {body, icon: 'bell-off'})
 }
 </script>
 
@@ -285,56 +255,6 @@ async function togglePush() {
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('settingsNotifications') }}</h2>
       <div class="setting-rows" data-kbd-section="notifications">
-        <button type="button" class="option-btn setting-row"
-                :class="{ active: settings.showTimetableChanges }"
-                :aria-pressed="settings.showTimetableChanges" data-kbd-item="timetable-changes"
-                @click="settings.setShowTimetableChanges(!settings.showTimetableChanges)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🔔</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">
-              {{ t('timetableChanges') }}
-              <span class="beta-badge">{{ t('beta') }}</span>
-            </span>
-            <span class="setting-desc">{{ t('timetableChangesDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showTimetableChanges" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
-                 stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
-        <button v-if="settings.showTimetableChanges" type="button" class="option-btn setting-row"
-                :class="{ active: push.enabled }" :aria-pressed="push.enabled"
-                :aria-busy="push.busy" data-kbd-item="push-notifications" @click="togglePush">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📲</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            <path d="M2 8c0-2.2.7-4.3 2-6M22 8a10 10 0 0 0-2-6"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">
-              {{ t('pushNotifications') }}
-              <span class="beta-badge">{{ t('beta') }}</span>
-            </span>
-            <span class="setting-desc">{{ t('pushNotificationsDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="push.enabled" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
         <button type="button" class="option-btn setting-row"
                 :class="{ active: settings.busAlerts }"
                 :aria-pressed="settings.busAlerts" data-kbd-item="bus-alerts"

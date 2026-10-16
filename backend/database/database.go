@@ -255,6 +255,7 @@ func InitSchemas() error {
             days          TEXT    NOT NULL,
             date          TEXT    NOT NULL,
             slots         TEXT    NOT NULL,
+            walk          INTEGER,
             last_fired_at INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (endpoint, id)
         );
@@ -431,6 +432,9 @@ func addMissingColumns() error {
 		},
 		"route_changes": {
 			"push_pending INTEGER NOT NULL DEFAULT 0",
+		},
+		"push_reminders": {
+			"walk INTEGER",
 		},
 	}
 	for table, columns := range additions {

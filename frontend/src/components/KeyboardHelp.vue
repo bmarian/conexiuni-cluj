@@ -63,7 +63,7 @@ const groups = computed(() => [
     title: t('route'),
     rows: [
       {keys: ['d'], label: t('kbdDirection')},
-      ...(settings.showTimetableChanges ? [{keys: ['b'], label: t('kbdFollow')}] : []),
+      {keys: ['b'], label: t('kbdFollow')},
       {keys: ['t'], label: t('kbdTimetable')},
     ],
   },

@@ -40,7 +40,7 @@ async function fetchNews() {
   }
 }
 
-const hasUpdates = computed(() => settings.showTimetableChanges && routeUpdates.hasUnseen)
+const hasUpdates = computed(() => routeUpdates.hasUnseen)
 
 watch([isOpen, () => routeUpdates.changes], ([open], [wasOpen]) => {
   if (!open) return
@@ -50,9 +50,7 @@ watch([isOpen, () => routeUpdates.changes], ([open], [wasOpen]) => {
   routeUpdates.markAllSeen()
 })
 
-const changes = computed(() => settings.showTimetableChanges ? routeUpdates.changes : [])
-
-const feed = computed(() => buildNewsFeed(changes.value, newsItems.value, new Date(), locale.value, t).map((entry) =>
+const feed = computed(() => buildNewsFeed(routeUpdates.changes, newsItems.value, new Date(), locale.value, t).map((entry) =>
   entry.kind === 'change'
     ? {
       ...entry,
@@ -63,8 +61,8 @@ const feed = computed(() => buildNewsFeed(changes.value, newsItems.value, new Da
     : {...entry, title: entry.item.title, meta: `${entry.date} · ${newsSource(entry.item.url)}`, isNew: false},
 ))
 
-const feedLoading = computed(() => loading.value || (settings.showTimetableChanges && routeUpdates.loading))
-const feedError = computed(() => error.value || (settings.showTimetableChanges && routeUpdates.error))
+const feedLoading = computed(() => loading.value || routeUpdates.loading)
+const feedError = computed(() => error.value || routeUpdates.error)
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
@@ -102,14 +100,11 @@ function onDocumentPointerDown(e: PointerEvent) {
 }
 
 function onVisibilityChange() {
-  if (document.visibilityState === 'visible' && settings.showTimetableChanges) routeUpdates.refreshIfStale()
+  if (document.visibilityState === 'visible') routeUpdates.refreshIfStale()
 }
 
-watch(() => settings.showTimetableChanges, (enabled) => {
-  if (enabled) void routeUpdates.fetchChanges()
-}, {immediate: true})
-
 onMounted(() => {
+  void routeUpdates.fetchChanges()
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('visibilitychange', onVisibilityChange)
   void fetchNews()
@@ -210,7 +205,7 @@ const topValue = computed(() => props.topOffset)
         <div v-else-if="feedError" class="news-state news-state-error">{{ t('newsError') }}</div>
         <div v-else class="news-state">{{ t('newsEmpty') }}</div>
 
-        <p v-if="settings.showTimetableChanges && !routeUpdates.followed.length" class="news-hint">
+        <p v-if="!routeUpdates.followed.length" class="news-hint">
           {{ t('newsFollowHint') }}
         </p>
       </div>

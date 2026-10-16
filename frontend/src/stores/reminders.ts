@@ -4,7 +4,7 @@ import {apiPost} from '@/utils/api.ts'
 import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import {buildHourlyOffsets, buildStopInfo, network, type DayType} from '@/utils/network.ts'
 import {getShapeStopTimes, getTimeOffsetToStop} from '@/utils/trips.ts'
-import {DAY_TYPES, MAX_REMINDERS, nextOf, resolveSlots, stopTimesByDayType, type Reminder} from '@/utils/reminders.ts'
+import {DAY_TYPES, MAX_REMINDERS, nextDeparture, nextOf, resolveSlots, stopTimesByDayType, type Reminder} from '@/utils/reminders.ts'
 import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
@@ -33,7 +33,15 @@ export function reminderTimes(stopId: number, routeId: number, tripId: string): 
   return stopTimesByDayType(route.timetable, tripId.endsWith(OUTGOING_SUFFIX), stopId, hourly, fallback)
 }
 
-export type ReminderTarget = Pick<Reminder, 'stopId' | 'stopName' | 'routeId' | 'tripId' | 'line' | 'color' | 'destination'>
+export type ReminderTarget = Pick<Reminder, 'stopId' | 'stopName' | 'stopLat' | 'stopLon' | 'routeId' | 'tripId' | 'line' | 'color' | 'destination'>
+
+/** A one-off reminder for the next bus of [target]; null when the timetable has none. */
+export function nextBusReminder(target: ReminderTarget, walk: number | null, nowMs = Date.now()): Reminder | null {
+  const times = reminderTimes(target.stopId, target.routeId, target.tripId)
+  const next = times && nextDeparture(times, nowMs)
+  if (!times || !next) return null
+  return {id: crypto.randomUUID(), ...target, time: next.minute, days: [], date: next.date, slots: resolveSlots(times, next.minute), walk}
+}
 
 export const useRemindersStore = defineStore('reminders', () => {
   const settings = useSettingsStore()
@@ -66,6 +74,7 @@ export const useRemindersStore = defineStore('reminders', () => {
       days: r.date ? [] : r.days,
       date: r.date ?? '',
       slots: r.slots,
+      walk: r.walk ?? undefined,
     }))
   }
 
@@ -161,5 +170,5 @@ export const useRemindersStore = defineStore('reminders', () => {
     editing.value = null
   }
 
-  return {reminders, syncing, editing, forBus, save, remove, refresh, sync, openSheet, closeSheet}
+  return {reminders, syncing, editing, forBus, full, save, remove, refresh, sync, openSheet, closeSheet}
 })

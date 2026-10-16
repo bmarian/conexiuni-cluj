@@ -165,7 +165,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
   const showGreenFriday = ref(localStorage.getItem('settings.showGreenFriday') !== 'false')
-  const showTimetableChanges = ref(persistedBool('settings.showTimetableChanges'))
 
   function setShowWeather(val: boolean) {
     showWeather.value = val
@@ -204,11 +203,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.busAlerts', val ? 'true' : 'false')
   }
 
-  function setShowTimetableChanges(val: boolean) {
-    showTimetableChanges.value = val
-    localStorage.setItem('settings.showTimetableChanges', val ? 'true' : 'false')
-  }
-
   const toast = ref<Toast | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let toastSeq = 0
@@ -238,7 +232,6 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
     showGreenFriday, setShowGreenFriday,
-    showTimetableChanges, setShowTimetableChanges,
     busAlerts, setBusAlerts,
     toast, showToast, dismissToast,
   }

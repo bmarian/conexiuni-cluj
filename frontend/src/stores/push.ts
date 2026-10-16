@@ -5,6 +5,7 @@ import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {useRemindersStore} from '@/stores/reminders'
 import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription'
+import {translate as t} from '@/i18n.ts'
 
 const ENABLED_KEY = 'settings.pushNotifications'
 const SYNC_DELAY_MS = 1000
@@ -54,6 +55,21 @@ export const usePushStore = defineStore('push', () => {
     }
   }
 
+  async function ask() {
+    if (enabled.value || busy.value) return
+    const result = await enable()
+    if (result === 'enabled') return
+    const key = {
+      unsupported: 'pushUnsupportedToast',
+      denied: 'pushDeniedToast',
+      brave: 'pushBraveToast',
+      failed: 'pushFailedToast',
+    }[result]
+    const isIOS = /iPhone|iPad/.test(navigator.userAgent)
+    const body = result === 'unsupported' && !isIOS ? undefined : t(`${key}Body`)
+    settings.showToast(t(key), {body, icon: 'bell-off'})
+  }
+
   async function disable() {
     setEnabled(false)
     if (!supported) return
@@ -74,7 +90,7 @@ export const usePushStore = defineStore('push', () => {
 
   async function sync() {
     if (!enabled.value) return
-    if (!settings.showTimetableChanges || Notification.permission !== 'granted') return disable()
+    if (!routeUpdates.followed.length || Notification.permission !== 'granted') return disable()
     try {
       const reg = await pushRegistration()
       if (reg) await register(await pushSubscription(reg))
@@ -91,7 +107,6 @@ export const usePushStore = defineStore('push', () => {
 
   watch(() => [...routeUpdates.followed], scheduleSync)
   watch(() => settings.locale, scheduleSync)
-  watch(() => settings.showTimetableChanges, scheduleSync)
 
-  return {supported, enabled, busy, enable, disable, sync}
+  return {supported, enabled, busy, ask, disable, sync}
 })

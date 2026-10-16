@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {
-  clockAt, clujMinutes, freshProgress, GIVE_UP_MS, leadMinutes, leaveInMinutes, stepFollow, targetMinutes, targetReading,
-  walkMinutes, type FollowProgress, type FollowReading,
+  clockAt, clujMinutes, freshProgress, GIVE_UP_MS, justNotify, leadMinutes, leaveInMinutes, stepFollow, targetMinutes,
+  targetReading, walkFrom, walkMinutes, type FollowProgress, type FollowReading,
 } from '@/utils/follow.ts'
 
 const read = (minutes: number, live = false): FollowReading => ({minutes, live, later: []})
@@ -28,6 +28,17 @@ describe('walking', () => {
     expect(leadMinutes(12)).toBe(17)
     expect(leadMinutes(0)).toBe(5)
     expect(leadMinutes(null)).toBeNull()
+    expect(walkFrom(null, 46.77, 23.59)).toBeNull()
+    expect(walkFrom({latitude: 46.77, longitude: 23.59}, undefined, undefined)).toBeNull()
+    expect(walkFrom({latitude: 46.77, longitude: 23.59}, 46.779, 23.59)).toBe(16)
+  })
+
+  it('only says the bus is coming at the stop or when it is too late to walk there', () => {
+    expect(justNotify(0, 30)).toBe(true)
+    expect(justNotify(12, 17)).toBe(true)
+    expect(justNotify(12, 18)).toBe(false)
+    expect(justNotify(null, 20)).toBe(true)
+    expect(justNotify(null, 21)).toBe(false)
   })
 })
 
