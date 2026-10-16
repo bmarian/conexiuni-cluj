@@ -36,6 +36,7 @@ import {journeyFromOption, legTrips, planQuery, rideLegs, type PlanOption, type 
 import {reversePlace, searchPlaces, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
+import {siteUrl} from '@/utils/site.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -79,11 +80,11 @@ useHead(() => {
         {name: 'description', content: t('headPlanDesc')},
         {property: 'og:title', content: t('headPlanTitle')},
         {property: 'og:description', content: t('headPlanDesc')},
-        {property: 'og:url', content: 'https://bus.bmarian.online/plan'},
+        {property: 'og:url', content: siteUrl('/plan')},
         {name: 'twitter:title', content: t('headPlanTitle')},
         {name: 'twitter:description', content: t('headPlanDesc')},
       ],
-      link: [{rel: 'canonical', href: 'https://bus.bmarian.online/plan'}],
+      link: [{rel: 'canonical', href: siteUrl('/plan')}],
     }
   }
 
@@ -96,7 +97,7 @@ useHead(() => {
   const descKey = originName ? 'headPlanFromToDesc' : 'headPlanToDesc'
   const title = t(titleKey, params)
   const desc = t(descKey, params)
-  const url = 'https://bus.bmarian.online' + route.fullPath
+  const url = siteUrl(route.fullPath)
 
   return {
     title,

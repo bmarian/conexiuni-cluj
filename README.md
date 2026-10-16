@@ -1,8 +1,8 @@
-# Conexiuni Cluj
+# Ce autobuz iau?
 
 A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired of the official site, so I built the one I actually wanted to use.
 
-**[bus.bmarian.online](https://bus.bmarian.online)**
+**[ceautobuziau.ro](https://ceautobuziau.ro)** (formerly Conexiuni Cluj)
 
 ![A stop with live departures, and the favorite lines moving on the map](readme/desktop-stop.png)
 

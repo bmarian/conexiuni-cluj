@@ -232,6 +232,7 @@ func InitSchemas() error {
             p256dh     TEXT    NOT NULL,
             auth       TEXT    NOT NULL,
             locale     TEXT    NOT NULL,
+            host       TEXT    NOT NULL DEFAULT '',
             updated_at INTEGER NOT NULL
         );
 
@@ -435,6 +436,9 @@ func addMissingColumns() error {
 		},
 		"push_reminders": {
 			"walk INTEGER",
+		},
+		"push_subscriptions": {
+			"host TEXT NOT NULL DEFAULT ''",
 		},
 	}
 	for table, columns := range additions {

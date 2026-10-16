@@ -65,6 +65,7 @@ type Overview = {
     push_followers: number
     reminders: number
     reminder_users: number
+    moves: {sent: number; empty: number; received: number; old_push: number}
   }
   quota: {
     vehicles: {used: number; limit: number}
@@ -426,7 +427,7 @@ function quotaShare(used: number, limit: number) {
 
       <div v-else class="page">
         <header class="top">
-          <span class="title">Conexiuni Cluj</span>
+          <span class="title">Ce autobuz iau?</span>
           <span class="top-actions">
             <button type="button" class="text-button" :disabled="loading" @click="load">
               {{ loading ? 'Updating…' : `Updated ${updatedAt}` }}
@@ -639,6 +640,11 @@ function quotaShare(used: number, limit: number) {
               {{ num(data.people.push_followers) }} follow line changes,
               {{ num(data.people.reminder_users) }} have {{ num(data.people.reminders) }} reminders.
               The web app was installed {{ num(data.people.installs) }} times.
+            </p>
+            <p class="line-text">
+              bus.bmarian.online sent {{ num(data.people.moves.sent + data.people.moves.empty) }} visits on today,
+              {{ num(data.people.moves.sent) }} with saved data, of which {{ num(data.people.moves.received) }} arrived.
+              {{ num(data.people.moves.old_push) }} push {{ data.people.moves.old_push === 1 ? 'subscription is' : 'subscriptions are' }} still there.
             </p>
           </section>
 

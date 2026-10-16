@@ -5,4 +5,4 @@ Disallow: /admin
 Disallow: /linii/
 Disallow: /statii/
 
-Sitemap: https://bus.bmarian.online/sitemap.xml
+Sitemap: https://ceautobuziau.ro/sitemap.xml

@@ -33,7 +33,13 @@ func sameOriginRequest(c fiber.Ctx) bool {
 }
 
 func validStatsEvent(metric, key string) bool {
-	return metric == "pwa_install" && key == "appinstalled"
+	switch metric {
+	case "pwa_install":
+		return key == "appinstalled"
+	case "host_move":
+		return key == "sent" || key == "empty" || key == "received"
+	}
+	return false
 }
 
 func RegisterAPIRoutes(api fiber.Router, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
