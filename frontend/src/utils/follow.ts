@@ -6,6 +6,8 @@ export const SOON_MINUTES = 2
 export const MAX_FOLLOWS = 10
 export const GIVE_UP_MS = 90 * 60_000
 export const LEAVE_BUFFER_MIN = 5
+// How early to go when the walk isn't known.
+export const NO_LOCATION_LEAD_MIN = 20
 export const CLOCK_FROM_MINUTES = 60
 const WALK_DETOUR = 1.25
 const AT_STOP_METERS = 60
@@ -54,6 +56,11 @@ export function walkMinutes(fromLat: number, fromLon: number, toLat: number, toL
   return Math.ceil(meters * WALK_DETOUR / WALKING_SPEED_M_PER_MIN)
 }
 
+export function walkFrom(here: {latitude: number, longitude: number} | null, stopLat?: number, stopLon?: number): number | null {
+  if (!here || stopLat === undefined || stopLon === undefined) return null
+  return walkMinutes(here.latitude, here.longitude, stopLat, stopLon)
+}
+
 export function clujMinutes(ms: number): number {
   const parts = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'})
     .formatToParts(new Date(ms))
@@ -81,6 +88,10 @@ export function targetReading(scheduled: number[], live: number | null, targetAt
 export function leadMinutes(walk: number | null): number | null {
   return walk === null ? null : walk + LEAVE_BUFFER_MIN
 }
+
+/** At the stop, or too late to walk there for a bus [minutes] away: just told when it comes. */
+export const justNotify = (walk: number | null, minutes: number) =>
+  walk === 0 || minutes <= (leadMinutes(walk) ?? NO_LOCATION_LEAD_MIN)
 
 export interface FollowStep {
   progress: FollowProgress

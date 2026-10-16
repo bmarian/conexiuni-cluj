@@ -27,6 +27,7 @@ import IconBellFilled from '@/components/icons/IconBellFilled.vue'
 import IconBellOutline from '@/components/icons/IconBellOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
+import {usePushStore} from '@/stores/push.ts'
 import ShareButton from '@/components/ShareButton.vue'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import RoutePong from '@/components/RoutePong.vue'
@@ -40,6 +41,7 @@ const userStore = useUserStore()
 const favoritesStore = useFavoritesStore()
 const settings = useSettingsStore()
 const routeUpdates = useRouteUpdatesStore()
+const push = usePushStore()
 const router = useRouter()
 const currentRoute = useRoute()
 const {userTime} = storeToRefs(userStore)
@@ -125,11 +127,10 @@ function wakeMeAt(idx: number) {
 
 const stopMenu = ref<{ x: number, y: number, items: BusMenuItem[] } | null>(null)
 const stopPress = useLongPress<{ stop: IndexedStop, idx: number }>(({stop, idx}, x, y) => {
-  const followed = isStopFollowed(stop)
-  const items: BusMenuItem[] = [
-    {key: 'notify', label: t(followed ? 'notifyMeOff' : 'notifyMe'), icon: followed ? 'bell-off' : 'bell', action: () => follows.toggle(busAtStop(idx, stop))},
-    {key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAtStop(idx, stop))},
-  ]
+  const followed = follows.find(stop.stop_id, routeIdNum.value, currentTripId.value)
+  const items: BusMenuItem[] = []
+  if (followed) items.push({key: 'notify', label: t('notifyMeOff'), icon: 'bell-off', action: () => follows.remove(followed.id)})
+  items.push({key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAtStop(idx, stop))})
   if (idx > 0) items.push({key: 'wake', label: t('wakeMe'), icon: 'wake', action: () => wakeMeAt(idx)})
   stopMenu.value = {x, y, items}
 })
@@ -141,7 +142,7 @@ const isFollowing = computed(() =>
 
 function toggleFollow() {
   const name = shapeInfo.value?.route_short_name
-  if (!name || !settings.showTimetableChanges) return
+  if (!name) return
   const following = routeUpdates.toggleFollow(name)
   if (following === null) {
     settings.showToast(t('limitReached', {n: MAX_FOLLOWED_LINES}), {icon: 'bell-off'})
@@ -151,6 +152,7 @@ function toggleFollow() {
     body: t(following ? 'followLineToastBody' : 'unfollowLineToastBody'),
     icon: following ? 'bell' : 'bell-off',
   })
+  if (following) void push.ask()
 }
 
 const activeChange = ref<RouteChange | null>(null)
@@ -592,7 +594,6 @@ onUnmounted(() => {
           @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
         >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
         <button
-          v-if="settings.showTimetableChanges"
           type="button"
           class="pp-action"
           :aria-pressed="isFollowing"
@@ -626,7 +627,6 @@ onUnmounted(() => {
           </div>
           <ShareButton class="mt-1"/>
           <button
-            v-if="settings.showTimetableChanges"
             type="button"
             class="bell-btn mt-1 shrink-0"
             :class="{ 'is-following': isFollowing }"

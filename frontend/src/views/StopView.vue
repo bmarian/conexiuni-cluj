@@ -20,7 +20,12 @@ import {useRoute, useRouter} from "vue-router";
 import BusMenu, {type BusMenuItem} from "@/components/BusMenu.vue";
 import {useLongPress} from "@/composables/useLongPress.ts";
 import {useFollowsStore} from "@/stores/follows.ts";
-import {useRemindersStore, type ReminderTarget} from "@/stores/reminders.ts";
+import {nextBusReminder, useRemindersStore, type ReminderTarget} from "@/stores/reminders.ts";
+import {justNotify, walkFrom} from "@/utils/follow.ts";
+import {MAX_REMINDERS, nextOf} from "@/utils/reminders.ts";
+import {reminderWhen} from "@/utils/reminderText.ts";
+import {askNotifications} from "@/utils/notify.ts";
+import {pushSupported} from "@/utils/pushSubscription.ts";
 import {getRouteIdFromTripId} from "@/utils/trips.ts";
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
@@ -32,7 +37,7 @@ import {keepHyphenatedWords} from "@/utils/text.ts";
 
 const props = defineProps<{ stopId: string }>()
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const userStore = useUserStore()
 const settings = useSettingsStore()
 const routeStore = useRouteStore()
@@ -45,7 +50,7 @@ const stopIdNum = computed(() => Number(props.stopId))
 const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
 
 useKbdShortcuts({f: () => favoritesStore.toggleStopFavorite(stopIdNum.value)})
-const {userTime} = storeToRefs(userStore)
+const {userTime, userLocation} = storeToRefs(userStore)
 const {
   stopInfo,
   stopName,
@@ -74,18 +79,44 @@ function busAt(shape: VehiclesInStop): ReminderTarget & {stopLat: number, stopLo
   }
 }
 
-const isFollowed = (shape: VehiclesInStop) => !!follows.find(stopIdNum.value, shape.route_id, shape.trip_id)
-const isReminded = (shape: VehiclesInStop) => !!remindersStore.forBus(stopIdNum.value, shape.route_id, shape.trip_id)
-const toggleFollow = (shape: VehiclesInStop) => follows.toggle(busAt(shape))
+const following = (shape: VehiclesInStop) => follows.find(stopIdNum.value, shape.route_id, shape.trip_id)
+const busReminders = (shape: VehiclesInStop) => remindersStore.reminders.filter((r) =>
+  r.stopId === stopIdNum.value && r.routeId === shape.route_id && r.tripId === shape.trip_id)
+const isReminded = (shape: VehiclesInStop) => busReminders(shape).some((r) => !r.date)
+const isRemindOn = (shape: VehiclesInStop) => !!following(shape) || busReminders(shape).some((r) => r.date)
+
+// At the stop, or too late to walk there, it's told when the bus comes; otherwise reminded when to leave for it.
+async function remind(shape: VehiclesInStop) {
+  const target = busAt(shape)
+  const walk = walkFrom(userLocation.value, target.stopLat, target.stopLon)
+  const reminder = justNotify(walk, shape.next_times?.[0]?.minutes ?? shape.minutes_left) || !pushSupported()
+    ? null
+    : nextBusReminder(target, walk)
+  if (!reminder) return follows.start(target)
+  if (remindersStore.full()) return settings.showToast(t('limitReached', {n: MAX_REMINDERS}), {icon: 'bell-off'})
+  if ((await askNotifications()) !== 'granted') return settings.showToast(t('notificationsBlocked'), {icon: 'bell-off'})
+  const next = nextOf(reminder, Date.now())
+  if (await remindersStore.save(reminder)) {
+    settings.showToast(t('remindSaved'), {body: next === null ? undefined : reminderWhen(next, locale.value), icon: 'bell'})
+  } else {
+    settings.showToast(t('remindFailed'), {icon: 'bell-off'})
+  }
+}
+
+function toggleRemind(shape: VehiclesInStop) {
+  if (!isRemindOn(shape)) return void remind(shape)
+  const followed = following(shape)
+  if (followed) follows.remove(followed.id)
+  for (const r of busReminders(shape)) if (r.date) void remindersStore.remove(r.id)
+}
 
 const menu = ref<{ x: number, y: number, items: BusMenuItem[] } | null>(null)
 const press = useLongPress<VehiclesInStop>((shape, x, y) => {
-  menu.value = {
-    x, y, items: [
-      {key: 'notify', label: t(isFollowed(shape) ? 'notifyMeOff' : 'notifyMe'), icon: isFollowed(shape) ? 'bell-off' : 'bell', action: () => toggleFollow(shape)},
-      {key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAt(shape))},
-    ],
-  }
+  const followed = following(shape)
+  const items: BusMenuItem[] = []
+  if (followed) items.push({key: 'notify', label: t('notifyMeOff'), icon: 'bell-off', action: () => follows.remove(followed.id)})
+  items.push({key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAt(shape))})
+  menu.value = {x, y, items}
 })
 
 function planHere() {
@@ -288,9 +319,9 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
               {{ routeDestination(shape.route_long_name) }}
               <span v-if="isDepartureFavorite(shape)" class="pp-fav-mark">♥</span>
               <span v-if="settings.busAlerts && isReminded(shape)" class="pp-fav-mark" :title="t('remindSaved')">⏰</span>
-              <button v-if="settings.busAlerts" type="button" class="pp-follow" :aria-pressed="isFollowed(shape)"
-                      :aria-label="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
-                      @click.stop="toggleFollow(shape)">{{ isFollowed(shape) ? '🔔' : '🔕' }}</button>
+              <button v-if="settings.busAlerts" type="button" class="pp-follow" :aria-pressed="isRemindOn(shape)"
+                      :aria-label="isRemindOn(shape) ? t('notifyMeOff') : t('remindSet')"
+                      @click.stop="toggleRemind(shape)">⏰</button>
             </span>
             <span class="pp-from">{{ t('paperFrom') }} {{ routeOrigin(shape.route_long_name) }}</span>
           </span>
@@ -467,19 +498,20 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
               v-if="settings.busAlerts"
               type="button"
               class="dep-follow"
-              :class="{ 'is-on': isFollowed(shape) }"
-              :aria-pressed="isFollowed(shape)"
-              :title="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
-              :aria-label="isFollowed(shape) ? t('notifyMeOff') : t('notifyMe')"
-              @click.stop="toggleFollow(shape)"
+              :class="{ 'is-on': isRemindOn(shape) }"
+              :aria-pressed="isRemindOn(shape)"
+              :title="isRemindOn(shape) ? t('notifyMeOff') : t('remindSet')"
+              :aria-label="isRemindOn(shape) ? t('notifyMeOff') : t('remindSet')"
+              @click.stop="toggleRemind(shape)"
               @pointerdown.stop
             >
-              <span v-if="settings.legacyBlueActive" aria-hidden="true">{{ isFollowed(shape) ? '🔔' : '🔕' }}</span>
-              <svg v-else-if="isFollowed(shape)" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2zM3.6 4.4l1.4-1.4A11 11 0 0 0 1.1 11h2a9 9 0 0 1 .5-6.6zM19 3l1.4 1.4A9 9 0 0 1 20.9 11h2A11 11 0 0 0 19 3z"/>
-              </svg>
-              <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-5-5.9M9 17H4l1.4-1.4A2 2 0 0 0 6 14.2V11a6 6 0 0 1 3-5.2M9 17a3 3 0 0 0 6 0M18 3v4m2-2h-4"/>
+              <span v-if="settings.legacyBlueActive" aria-hidden="true">⏰</span>
+              <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13" r="8"/>
+                <path d="M5 3 2 6m17-3 3 3"/>
+                <path v-if="isRemindOn(shape)" d="m9 13 2 2 4-4"/>
+                <path v-else d="M12 10v6m-3-3h6"/>
               </svg>
             </button>
           </div>
@@ -759,6 +791,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 .pp-follow {
   margin-left: 0.25rem;
   font-size: 0.85em;
+}
+
+.pp-follow[aria-pressed="false"] {
+  opacity: 0.4;
 }
 
 .fav-btn {

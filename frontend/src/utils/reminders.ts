@@ -1,7 +1,7 @@
 import type {Timetable} from '@/types/ctp.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DayType} from '@/utils/network.ts'
-import {timeStringToMinutes} from '@/utils/time.ts'
+import {scheduleDayOn, timeStringToMinutes} from '@/utils/time.ts'
 
 // Earlier times belong to the previous service day.
 const NIGHT_END_MIN = 180
@@ -15,6 +15,8 @@ export interface Reminder {
   id: string
   stopId: number
   stopName: string
+  stopLat?: number
+  stopLon?: number
   routeId: number
   tripId: string
   line: string
@@ -27,6 +29,8 @@ export interface Reminder {
   /** YYYY-MM-DD, once only. */
   date: string | null
   slots: Slots
+  /** Minutes to the stop from where it was set; null when unknown. */
+  walk?: number | null
 }
 
 const scheduleFor = (timetable: Timetable, dayType: DayType) =>
@@ -112,6 +116,8 @@ export function isoWeekday(date: string): number {
 }
 
 export function dayTypeOf(date: string): DayType {
+  const special = scheduleDayOn(date)
+  if (special) return special
   const day = isoWeekday(date)
   return day === 6 ? 'saturday' : day === 7 ? 'sunday' : 'weekday'
 }
@@ -132,6 +138,24 @@ export function nextOccurrence(slots: Slots, days: number[], date: string | null
 }
 
 export const nextOf = (reminder: Reminder, afterMs: number) => nextOccurrence(reminder.slots, reminder.days, reminder.date, afterMs)
+
+/** The first of the timetable [times] after [afterMs]: its service day and its minute in that day. */
+export function nextDeparture(times: Partial<Record<DayType, number[]>>, afterMs: number): {date: string, minute: number} | null {
+  const today = clujDate(afterMs)
+  let first: {date: string, minute: number} | null = null
+  let firstAt = Infinity
+  for (let i = -1; i <= 8; i++) {
+    const date = addDays(today, i)
+    for (const minute of times[dayTypeOf(date)] ?? []) {
+      const at = clujAt(date, minute)
+      if (at > afterMs && at < firstAt) {
+        first = {date, minute}
+        firstAt = at
+      }
+    }
+  }
+  return first
+}
 
 export function formatSlot(minutes: number): string {
   const m = ((minutes % 1440) + 1440) % 1440

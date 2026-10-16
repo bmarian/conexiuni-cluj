@@ -1,8 +1,10 @@
 import {describe, expect, it} from 'vitest'
 import type {Timetable} from '@/types/ctp.ts'
 import {
-  addDays, clujAt, clujDate, dayTypeOf, formatSlot, isoWeekday, nextOccurrence, pickSlot, resolveSlots, stopTimesByDayType,
+  addDays, clujAt, clujDate, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOccurrence, pickSlot, resolveSlots,
+  stopTimesByDayType,
 } from '@/utils/reminders.ts'
+import {setScheduleDays} from '@/utils/time.ts'
 
 const day = (times: string[]) => ({service_name: '', service_start: '', entries: times.map((t) => ({departure_in: t, departure_out: ''}))})
 const timetable = {
@@ -95,5 +97,30 @@ describe('nextOccurrence', () => {
   it('finds nothing without slots or days', () => {
     expect(nextOccurrence({}, [1, 2, 3, 4, 5, 6, 7], null, at('2026-10-09T08:00'))).toBeNull()
     expect(nextOccurrence({weekday: 600}, [], null, at('2026-10-09T08:00'))).toBeNull()
+  })
+})
+
+describe('nextDeparture', () => {
+  const times = {weekday: [8 * 60, 23 * 60, 24 * 60 + 5], saturday: [10 * 60]}
+
+  it('finds the next bus, a late one on its own service day', () => {
+    // 2026-10-09 is a Friday.
+    expect(nextDeparture(times, ms('2026-10-09T07:00:00+03:00'))).toEqual({date: '2026-10-09', minute: 8 * 60})
+    expect(nextDeparture(times, ms('2026-10-09T23:30:00+03:00'))).toEqual({date: '2026-10-09', minute: 24 * 60 + 5})
+    expect(nextDeparture(times, ms('2026-10-10T00:10:00+03:00'))).toEqual({date: '2026-10-10', minute: 10 * 60})
+  })
+
+  it('runs the holiday timetable on special days', () => {
+    setScheduleDays({'2026-10-12': 'saturday'})
+    try {
+      expect(dayTypeOf('2026-10-12')).toBe('saturday')
+      expect(nextDeparture(times, ms('2026-10-12T07:00:00+03:00'))).toEqual({date: '2026-10-12', minute: 10 * 60})
+    } finally {
+      setScheduleDays(undefined)
+    }
+  })
+
+  it('is null without buses', () => {
+    expect(nextDeparture({}, ms('2026-10-09T07:00:00+03:00'))).toBeNull()
   })
 })

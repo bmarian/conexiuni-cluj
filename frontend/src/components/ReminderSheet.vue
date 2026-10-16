@@ -3,10 +3,11 @@ import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRemindersStore, reminderTimes, type ReminderTarget} from '@/stores/reminders.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {useUserStore} from '@/stores/user.ts'
 import {useKbdEscape} from '@/composables/useKeyboardNav.ts'
 import {network, type DayType} from '@/utils/network.ts'
-import {addDays, clujDate, dayTypeOf, formatSlot, isoWeekday, nextOf, resolveSlots, type Reminder} from '@/utils/reminders.ts'
-import {clujMinutes} from '@/utils/follow.ts'
+import {addDays, clujDate, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOf, resolveSlots, type Reminder} from '@/utils/reminders.ts'
+import {clujMinutes, walkFrom} from '@/utils/follow.ts'
 import {dayLetter, reminderWhen} from '@/utils/reminderText.ts'
 import {askNotifications} from '@/utils/notify.ts'
 import {pushSupported} from '@/utils/pushSubscription.ts'
@@ -17,11 +18,14 @@ const emit = defineEmits<{ close: [] }>()
 const {t, locale} = useI18n()
 const store = useRemindersStore()
 const settings = useSettingsStore()
+const userStore = useUserStore()
 
 const existing = store.forBus(props.target.stopId, props.target.routeId, props.target.tripId)
 const repeat = ref(existing ? !existing.date : false)
 const days = ref<number[]>(existing?.days.length ? [...existing.days] : [1, 2, 3, 4, 5, 6, 7])
 const last = ref(existing ? existing.time === null : false)
+// A new reminder starts on the next bus: the one the user is likely after.
+const soonest = ref(!existing)
 const time = ref<number | null>(existing?.time ?? null)
 const now = ref(Date.now())
 const permission = ref(typeof Notification === 'undefined' ? 'denied' : Notification.permission)
@@ -41,6 +45,7 @@ const times = computed(() => {
   return reminderTimes(props.target.stopId, props.target.routeId, props.target.tripId) ?? {}
 })
 const today = computed(() => clujDate(now.value))
+const upcoming = computed(() => nextDeparture(times.value, now.value))
 
 const dayTimes = computed<number[]>(() => {
   const all = times.value as Partial<Record<DayType, number[]>>
@@ -65,8 +70,9 @@ const groups = computed(() => {
 const lastToday = computed(() => (dayTimes.value.length ? Math.max(...dayTimes.value) : null))
 
 const draft = computed<Reminder | null>(() => {
-  if (!last.value && time.value === null) return null
-  const chosen = last.value ? null : time.value
+  const next = soonest.value && !repeat.value ? upcoming.value : null
+  const chosen = last.value ? null : soonest.value && !repeat.value ? next?.minute ?? null : time.value
+  if (!last.value && chosen === null) return null
   const base: Reminder = {
     id: existing?.id ?? crypto.randomUUID(),
     ...props.target,
@@ -74,8 +80,10 @@ const draft = computed<Reminder | null>(() => {
     days: repeat.value ? [...days.value].sort((a, b) => a - b) : [],
     date: null,
     slots: resolveSlots(times.value, chosen),
+    walk: walkFrom(userStore.userLocation, props.target.stopLat, props.target.stopLon) ?? existing?.walk ?? null,
   }
   if (repeat.value) return base.days.length ? base : null
+  if (next && !last.value) return {...base, date: next.date}
   return [today.value, addDays(today.value, 1)].map((date) => ({...base, date})).find((r) => nextOf(r, now.value) !== null) ?? null
 })
 
@@ -95,7 +103,27 @@ function toggleDay(day: number) {
 
 function pick(minute: number) {
   last.value = false
+  soonest.value = false
   time.value = minute
+}
+
+function pickLast() {
+  last.value = true
+  soonest.value = false
+}
+
+function pickNext() {
+  last.value = false
+  soonest.value = true
+}
+
+function setRepeat(on: boolean) {
+  // The next bus is a one-off; repeating keeps its time.
+  if (on && soonest.value) {
+    soonest.value = false
+    time.value = upcoming.value?.minute ?? time.value
+  }
+  repeat.value = on
 }
 
 async function allow() {
@@ -150,8 +178,8 @@ function remove() {
           </header>
 
           <div class="rs-choice" role="radiogroup">
-            <button type="button" role="radio" :aria-checked="!repeat" :class="{ 'is-on': !repeat }" @click="repeat = false">{{ t('remindOnce') }}</button>
-            <button type="button" role="radio" :aria-checked="repeat" :class="{ 'is-on': repeat }" @click="repeat = true">{{ t('remindRepeat') }}</button>
+            <button type="button" role="radio" :aria-checked="!repeat" :class="{ 'is-on': !repeat }" @click="setRepeat(false)">{{ t('remindOnce') }}</button>
+            <button type="button" role="radio" :aria-checked="repeat" :class="{ 'is-on': repeat }" @click="setRepeat(true)">{{ t('remindRepeat') }}</button>
           </div>
 
           <div v-if="repeat" class="rs-days">
@@ -160,16 +188,25 @@ function remove() {
           </div>
 
           <template v-if="dayTimes.length">
-            <button type="button" class="rs-last" :class="{ 'is-on': last }" :aria-pressed="last" @click="last = true">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.3 2a10 10 0 1 0 9.7 12.4A8 8 0 0 1 12.3 2z"/></svg>
-              {{ t('remindLastBus') }}<template v-if="lastToday !== null"> · {{ formatSlot(lastToday) }}</template>
-            </button>
+            <div class="rs-pair">
+              <button v-if="!repeat && upcoming" type="button" class="rs-last" :class="{ 'is-on': soonest && !last }"
+                      :aria-pressed="soonest && !last" @click="pickNext">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2zM3.6 4.4l1.4-1.4A11 11 0 0 0 1.1 11h2a9 9 0 0 1 .5-6.6zM19 3l1.4 1.4A9 9 0 0 1 20.9 11h2A11 11 0 0 0 19 3z"/>
+                </svg>
+                {{ t('remindNext') }} · {{ formatSlot(upcoming.minute) }}
+              </button>
+              <button type="button" class="rs-last" :class="{ 'is-on': last }" :aria-pressed="last" @click="pickLast">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.3 2a10 10 0 1 0 9.7 12.4A8 8 0 0 1 12.3 2z"/></svg>
+                {{ t(!repeat && upcoming ? 'remindLast' : 'remindLastBus') }}<template v-if="lastToday !== null"> · {{ formatSlot(lastToday) }}</template>
+              </button>
+            </div>
             <div class="rs-hours">
               <div v-for="group in groups" :key="group.hour" class="rs-hour-row">
                 <span class="rs-hour" :class="{ 'is-next-day': group.hour >= 24 }">{{ String(group.hour % 24).padStart(2, '0') }}</span>
                 <div class="rs-minutes">
                   <button v-for="minute in group.minutes" :key="minute" type="button" class="rs-time"
-                          :class="{ 'is-on': !last && time === minute }" :aria-pressed="!last && time === minute"
+                          :class="{ 'is-on': !last && !soonest && time === minute }" :aria-pressed="!last && !soonest && time === minute"
                           @click="pick(minute)">{{ formatSlot(minute).slice(3) }}</button>
                 </div>
               </div>
@@ -331,6 +368,16 @@ function remove() {
 .rs-day.is-on {
   background: var(--color-emerald-100, #d1fae5);
   color: var(--color-emerald-700, #047857);
+}
+
+.rs-pair {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rs-pair .rs-last {
+  flex: 1;
+  min-width: 0;
 }
 
 .rs-last {

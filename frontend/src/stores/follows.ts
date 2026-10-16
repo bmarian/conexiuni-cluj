@@ -77,12 +77,6 @@ export const useFollowsStore = defineStore('follows', () => {
     if (permission === 'denied') settings.showToast(t('notificationsBlocked'), {icon: 'bell-off'})
   }
 
-  function toggle(followed: Omit<Followed, 'id' | 'startedAt'>) {
-    const existing = find(followed.stopId, followed.routeId, followed.tripId)
-    if (existing) remove(existing.id)
-    else void start(followed)
-  }
-
   function end(followed: Followed, reason: FollowEnd) {
     remove(followed.id)
     const line = `${followed.line} → ${followed.destination}`
@@ -119,5 +113,5 @@ export const useFollowsStore = defineStore('follows', () => {
     }
   }
 
-  return {follows, live, find, start, toggle, remove, onReading}
+  return {follows, live, find, start, remove, onReading}
 })
