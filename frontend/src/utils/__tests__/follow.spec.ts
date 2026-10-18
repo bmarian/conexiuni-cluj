@@ -1,21 +1,21 @@
 import {describe, expect, it} from 'vitest'
 import {
-  clockAt, clujMinutes, freshProgress, GIVE_UP_MS, justNotify, leadMinutes, leaveInMinutes, stepFollow, targetMinutes,
+  clockAt, clujMinutes, freshProgress, GIVE_UP_MS, justNotify, leadMinutes, stepFollow, targetMinutes,
   targetReading, walkFrom, walkMinutes, type FollowProgress, type FollowReading,
 } from '@/utils/follow.ts'
 
 const read = (minutes: number, live = false): FollowReading => ({minutes, live, later: []})
 const T0 = Date.parse('2026-10-09T18:00:00+03:00')
 
-function run(minutesSeq: (number | null)[], options: {target?: boolean, walk?: number | null} = {}) {
+function run(minutesSeq: (number | null)[], options: {target?: boolean} = {}) {
   let progress: FollowProgress = freshProgress()
-  const out: {alerts: string[], end?: string, leaveAt: number | null}[] = []
+  const out: {alerts: string[], end?: string}[] = []
   minutesSeq.forEach((minutes, i) => {
     const step = stepFollow(progress, minutes === null ? null : read(minutes), {
-      target: options.target ?? false, walk: options.walk ?? null, nowMs: T0 + i * 60_000, startedAt: T0,
+      target: options.target ?? false, nowMs: T0 + i * 60_000, startedAt: T0,
     })
     progress = step.progress
-    out.push({alerts: step.alerts, end: step.end, leaveAt: step.leaveAt})
+    out.push({alerts: step.alerts, end: step.end})
   })
   return out
 }
@@ -65,25 +65,13 @@ describe('a followed bus', () => {
   })
 
   it('stops after an hour and a half', () => {
-    const step = stepFollow(freshProgress(), read(30), {target: false, walk: null, nowMs: T0 + GIVE_UP_MS + 1, startedAt: T0})
+    const step = stepFollow(freshProgress(), read(30), {target: false, nowMs: T0 + GIVE_UP_MS + 1, startedAt: T0})
     expect(step.end).toBe('stopped')
   })
 
-  it('tells you when to leave from how far you are, once', () => {
-    const steps = run([20, 17, 15, 14, 2], {walk: 10})
-    expect(steps.map((s) => s.alerts)).toEqual([[], [], ['leave'], [], ['soon']])
-    expect(steps[0]!.leaveAt).toBe(T0 + 5 * 60_000)
-    expect(leaveInMinutes(steps[0]!.leaveAt!, T0)).toBe(5)
-    expect(steps[4]!.leaveAt).toBeNull()
-  })
-
-  it('has no leave time at the stop or without a location', () => {
-    expect(run([20], {walk: 0})[0]!.leaveAt).toBeNull()
-    expect(run([20], {walk: null})[0]!.leaveAt).toBeNull()
-  })
-
-  it('tells a reminder to leave straight away when it is already time', () => {
-    expect(run([12], {target: true, walk: 10})[0]!.alerts).toEqual(['leave'])
+  it('follows a reminder’s bus like any other, opened from its notification', () => {
+    expect(run([12, 2, 0], {target: true}).map((s) => s.alerts)).toEqual([[], ['soon'], ['arrived']])
+    expect(run([1], {target: true})[0]!.alerts).toEqual([])
     expect(run([null], {target: true})[0]!.end).toBe('left')
   })
 })

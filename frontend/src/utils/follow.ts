@@ -38,13 +38,12 @@ export interface FollowProgress {
   lastMinutes: number | null
   alertedSoon: boolean
   arrived: boolean
-  toldToLeave: boolean
 }
 
-export type FollowAlert = 'soon' | 'arrived' | 'leave'
+export type FollowAlert = 'soon' | 'arrived'
 export type FollowEnd = 'left' | 'none' | 'stopped'
 
-export const freshProgress = (): FollowProgress => ({lastMinutes: null, alertedSoon: false, arrived: false, toldToLeave: false})
+export const freshProgress = (): FollowProgress => ({lastMinutes: null, alertedSoon: false, arrived: false})
 
 export function followId(stopId: number, routeId: number, tripId: string, targetAt?: number): string {
   return targetAt ? `${stopId}:${routeId}:${tripId}@${targetAt}` : `${stopId}:${routeId}:${tripId}`
@@ -97,31 +96,21 @@ export interface FollowStep {
   progress: FollowProgress
   alerts: FollowAlert[]
   end?: FollowEnd
-  leaveAt: number | null
 }
 
 export function stepFollow(
   progress: FollowProgress,
   reading: FollowReading | null,
-  options: {target: boolean, walk: number | null, nowMs: number, startedAt: number},
+  options: {target: boolean, nowMs: number, startedAt: number},
 ): FollowStep {
   const p = {...progress}
-  if (options.nowMs - options.startedAt > GIVE_UP_MS) return {progress: p, alerts: [], end: 'stopped', leaveAt: null}
-  if (!reading) return {progress: p, alerts: [], end: options.target || p.alertedSoon ? 'left' : 'none', leaveAt: null}
+  if (options.nowMs - options.startedAt > GIVE_UP_MS) return {progress: p, alerts: [], end: 'stopped'}
+  if (!reading) return {progress: p, alerts: [], end: options.target || p.alertedSoon ? 'left' : 'none'}
   const minutes = reading.minutes
-  if (p.alertedSoon && minutes > (p.lastMinutes ?? 0) + 2) return {progress: p, alerts: [], end: 'left', leaveAt: null}
-  const opening = p.lastMinutes === null && !options.target
+  if (p.alertedSoon && minutes > (p.lastMinutes ?? 0) + 2) return {progress: p, alerts: [], end: 'left'}
+  // Nothing buzzes on the first reading: the user just asked.
+  const opening = p.lastMinutes === null
   const alerts: FollowAlert[] = []
-  let leaveAt: number | null = null
-  const lead = leadMinutes(options.walk)
-  if (lead !== null && options.walk !== 0) {
-    const leaveIn = minutes - lead
-    if (leaveIn <= 0 && !p.toldToLeave) {
-      p.toldToLeave = true
-      if (!opening) alerts.push('leave')
-    }
-    if (minutes > SOON_MINUTES) leaveAt = options.nowMs + leaveIn * 60_000
-  }
   if (minutes <= SOON_MINUTES && !p.alertedSoon) {
     p.alertedSoon = true
     if (!opening && minutes > 0) alerts.push('soon')
@@ -131,7 +120,7 @@ export function stepFollow(
     if (!opening) alerts.push('arrived')
   }
   p.lastMinutes = minutes
-  return {progress: p, alerts, leaveAt}
+  return {progress: p, alerts}
 }
 
 export const isClockTime = (minutes: number) => minutes >= CLOCK_FROM_MINUTES
@@ -139,8 +128,4 @@ export const isClockTime = (minutes: number) => minutes >= CLOCK_FROM_MINUTES
 export function clockAt(nowMs: number, minutes: number): string {
   return new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})
     .format(new Date(nowMs + minutes * 60_000))
-}
-
-export function leaveInMinutes(leaveAt: number, nowMs: number): number {
-  return Math.max(0, Math.round((leaveAt - nowMs) / 60_000))
 }

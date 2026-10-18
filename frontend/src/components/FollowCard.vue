@@ -3,7 +3,7 @@ import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {storeToRefs} from 'pinia'
-import {useFollowsStore, leaveText} from '@/stores/follows.ts'
+import {useFollowsStore} from '@/stores/follows.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
 import type {Followed} from '@/utils/follow.ts'
@@ -17,7 +17,6 @@ const {userTime} = storeToRefs(useUserStore())
 
 const live = computed(() => follows.live[props.followed.id])
 const now = computed(() => userTime.value ?? new Date())
-const leave = computed(() => (live.value?.leaveAt != null ? leaveText(live.value.leaveAt, now.value.getTime()) : null))
 const minutes = computed(() => (live.value ? formatMinutesFromNow(live.value.minutes, now.value, t('now')) : null))
 </script>
 
@@ -26,13 +25,10 @@ const minutes = computed(() => (live.value ? formatMinutesFromNow(live.value.min
        @click="router.push(`/stop/${followed.stopId}`)" @keydown.enter.prevent="router.push(`/stop/${followed.stopId}`)">
     <div class="min-w-0 flex-1 flex flex-col gap-1">
       <p class="follow-kicker">
-        <svg v-if="leave" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M13.5 5.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3A7.3 7.3 0 0 0 19 13v-2a5 5 0 0 1-4.3-2.4l-1-1.6a2 2 0 0 0-1.7-1c-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/>
-        </svg>
-        <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9"/>
         </svg>
-        {{ leave ?? t('following') }}
+        {{ t('following') }}
       </p>
       <div class="flex items-center gap-2 min-w-0">
         <span class="follow-badge" :style="{ backgroundColor: followed.color }">{{ followed.line }}</span>

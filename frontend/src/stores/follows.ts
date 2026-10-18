@@ -1,7 +1,7 @@
 import {ref} from 'vue'
 import {defineStore} from 'pinia'
 import {
-  MAX_FOLLOWS, clockAt, followId, freshProgress, isClockTime, leaveInMinutes, stepFollow,
+  MAX_FOLLOWS, clockAt, followId, freshProgress, isClockTime, stepFollow,
   type FollowEnd, type FollowProgress, type FollowReading, type Followed,
 } from '@/utils/follow.ts'
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
@@ -14,8 +14,6 @@ export interface FollowLive {
   minutes: number
   live: boolean
   later: number[]
-  leaveAt: number | null
-  walk: number | null
 }
 
 function load(): Followed[] {
@@ -32,12 +30,6 @@ export const minutesText = (minutes: number, nowMs: number) =>
 
 export const busWhen = (minutes: number, nowMs: number) =>
   isClockTime(minutes) ? t('followAtClock', {time: clockAt(nowMs, minutes)}) : t('followIn', {time: t('etaMinutes', {n: minutes})})
-
-export function leaveText(leaveAt: number, nowMs: number): string {
-  const leave = leaveInMinutes(leaveAt, nowMs)
-  if (leave <= 0) return t('leaveNow')
-  return isClockTime(leave) ? t('leaveAt', {time: clockAt(nowMs, leave)}) : t('leaveIn', {time: t('etaMinutes', {n: leave})})
-}
 
 export const useFollowsStore = defineStore('follows', () => {
   const settings = useSettingsStore()
@@ -88,24 +80,20 @@ export const useFollowsStore = defineStore('follows', () => {
     }
   }
 
-  function onReading(id: string, reading: FollowReading | null, walk: number | null, nowMs = Date.now()) {
+  function onReading(id: string, reading: FollowReading | null, nowMs = Date.now()) {
     const followed = follows.value.find((f) => f.id === id)
     if (!followed) return
     const step = stepFollow(progress[id] ?? freshProgress(), reading, {
-      target: followed.targetAt !== undefined, walk, nowMs, startedAt: followed.startedAt,
+      target: followed.targetAt !== undefined, nowMs, startedAt: followed.startedAt,
     })
     progress[id] = step.progress
     if (step.end) return end(followed, step.end)
     if (!reading) return
-    live.value = {...live.value, [id]: {minutes: reading.minutes, live: reading.live, later: reading.later, leaveAt: step.leaveAt, walk}}
+    live.value = {...live.value, [id]: {minutes: reading.minutes, live: reading.live, later: reading.later}}
     const title = `${followed.line} → ${followed.destination}`
     const url = `/stop/${followed.stopId}`
     for (const alert of step.alerts) {
-      if (alert === 'leave') {
-        const bus = busWhen(reading.minutes, nowMs)
-        const body = walk ? t('leaveDetail', {line: followed.line, bus, walk: t('etaMinutes', {n: walk})}) : `${followed.line} ${bus}`
-        void notify({title: t('leaveNow'), body, tag: `follow-${id}`, url, buzz: true})
-      } else if (alert === 'soon') {
+      if (alert === 'soon') {
         void notify({title, body: `${t('followArrivingStop', {stop: followed.stopName})} ${busWhen(reading.minutes, nowMs)}`, tag: `follow-${id}`, url, buzz: true})
       } else {
         void notify({title, body: t('followNowStop', {stop: followed.stopName}), tag: `follow-${id}`, url, buzz: true})

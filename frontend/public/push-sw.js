@@ -16,6 +16,7 @@ self.addEventListener('push', (event) => {
     body: message.body,
     tag: message.tag,
     renotify: Boolean(message.tag),
+    requireInteraction: Boolean(message.alert),
     timestamp: message.timestamp,
     icon: '/pwa-192x192.png',
     data: {url: message.url || '/'},

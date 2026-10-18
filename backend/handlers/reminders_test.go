@@ -44,6 +44,11 @@ func withWalk(r pushReminder, minutes int) pushReminder {
 	return r
 }
 
+func walkedAt(r pushReminder, at time.Time) pushReminder {
+	r.WalkAt = at.UnixMilli()
+	return r
+}
+
 func TestValidReminder(t *testing.T) {
 	ok := reminder("a-1", []int{1, 2, 3, 4, 5}, "", map[string]int{"weekday": 1385})
 	if !validReminder(ok) {
@@ -244,10 +249,11 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 	}
 
 	fireDueReminders(clujTime(t, "2026-10-09 22:15"), cluj)
+	fireDueReminders(clujTime(t, "2026-10-09 22:29"), cluj)
 	if got := client.received(); len(got) != 0 {
-		t.Fatalf("sent 35 min early: %v", got)
+		t.Fatalf("sent over 20 min early without a walk: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 22:21"), cluj)
+	fireDueReminders(clujTime(t, "2026-10-09 22:31"), cluj)
 	fireDueReminders(clujTime(t, "2026-10-09 22:40"), cluj)
 	got := client.received()
 	if len(got) != 1 {
@@ -255,15 +261,16 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 	}
 	bus := clujTime(t, "2026-10-09 22:50").UnixMilli()
 	want := pushMessage{
-		Title: "Leave by 22:30 to catch your bus", Body: "57 in 29 min · P-ța Mihai Viteazul Sud",
-		URL: "/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:21").UnixMilli(),
+		Title: "Your bus leaves at 22:50, get ready", Body: "57 in 19 min",
+		URL: "/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:31").UnixMilli(),
+		Alert: true,
 	}
 	if got[0] != want {
 		t.Fatalf("push:\n got %+v\nwant %+v", got[0], want)
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 22:55"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-10 22:02"), cluj)
-	if got := client.received(); len(got) != 2 || got[1].Body != "57 in 28 min · P-ța Mihai Viteazul Sud" {
+	fireDueReminders(clujTime(t, "2026-10-10 22:12"), cluj)
+	if got := client.received(); len(got) != 2 || got[1].Body != "57 in 18 min" {
 		t.Fatalf("Saturday: %v", got)
 	}
 }
@@ -279,7 +286,7 @@ func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
 	got := client.received()
-	if len(got) != 1 || got[0].Title != "Sosește în stația P-ța Mihai Viteazul Sud" || got[0].Body != "57 peste 15 min" {
+	if len(got) != 1 || got[0].Title != "Autobuzul tău pleacă la 00:05, pregătește-te" || got[0].Body != "57 peste 15 min" {
 		t.Fatalf("push: %v", got)
 	}
 	fireDueReminders(clujTime(t, "2026-10-10 00:03"), cluj)
@@ -319,8 +326,11 @@ func TestFireDueRemindersTimesTheWalk(t *testing.T) {
 	withTestDB(t)
 	withTestPush(t)
 	client := newTestPushClient(t, "en", http.StatusCreated)
+	walked := clujTime(t, "2026-10-09 07:00")
+	every := map[string]int{"weekday": 8 * 60}
 	if err := saveReminders(client.sub, []pushReminder{
-		withWalk(reminder("walk", []int{5}, "", map[string]int{"weekday": 8 * 60}), 12),
+		walkedAt(withWalk(reminder("walk", []int{5}, "", every), 12), walked),
+		walkedAt(withWalk(reminder("stale", []int{5}, "", every), 12), walked.Add(-2*time.Hour)),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -330,8 +340,18 @@ func TestFireDueRemindersTimesTheWalk(t *testing.T) {
 	}
 	fireDueReminders(clujTime(t, "2026-10-09 07:33"), cluj)
 	got := client.received()
-	if len(got) != 1 || got[0].Title != "Leave by 07:43 to catch your bus" || got[0].Body != "57 in 27 min · 12 min walk" {
-		t.Fatalf("push: %v", got)
+	if len(got) != 1 || got[0].Title != "Leave by 07:43 to catch your bus" || got[0].Body != "57 in 27 min · 12 min walk" || got[0].Alert {
+		t.Fatalf("heads-up: %v", got)
+	}
+	fireDueReminders(clujTime(t, "2026-10-09 07:40"), cluj)
+	if got := client.received(); len(got) != 2 || got[1].Tag != "reminder-stale" || got[1].Title != "Your bus leaves at 08:00, get ready" {
+		t.Fatalf("a walk measured hours ago still timed the bus: %v", got)
+	}
+	fireDueReminders(clujTime(t, "2026-10-09 07:43"), cluj)
+	fireDueReminders(clujTime(t, "2026-10-09 07:45"), cluj)
+	got = client.received()
+	if len(got) != 3 || got[2].Title != "Leave now" || got[2].Body != "57 in 17 min · 12 min walk" || !got[2].Alert {
+		t.Fatalf("time to leave: %v", got)
 	}
 }
 
@@ -339,18 +359,20 @@ func TestReminderPushMessage(t *testing.T) {
 	bus := clujTime(t, "2026-10-09 08:00")
 	cases := []struct {
 		name, now, title, body string
-		r                      pushReminder
+		kind                   reminderKind
+		walk                   *int
 	}{
-		{"walk", "07:33", "Leave by 07:43 to catch your bus", "57 in 27 min · 12 min walk", withWalk(reminder("x", nil, "", nil), 12)},
-		{"no location", "07:30", "Leave by 07:40 to catch your bus", "57 in 30 min · P-ța Mihai Viteazul Sud", reminder("x", nil, "", nil)},
-		{"at the stop", "07:45", "Arriving at P-ța Mihai Viteazul Sud", "57 in 15 min", withWalk(reminder("x", nil, "", nil), 0)},
-		{"too late to walk", "07:50", "Arriving at P-ța Mihai Viteazul Sud", "57 in 10 min", withWalk(reminder("x", nil, "", nil), 12)},
-		{"a long walk", "06:55", "Leave by 07:05 to catch your bus", "57 at 08:00 · 50 min walk", withWalk(reminder("x", nil, "", nil), 50)},
+		{"heads-up", "07:33", "Leave by 07:43 to catch your bus", "57 in 27 min · 12 min walk", reminderLeaveBy, ptr(12)},
+		{"time to leave", "07:43", "Leave now", "57 in 17 min · 12 min walk", reminderLeaveNow, ptr(12)},
+		{"no fresh walk", "07:40", "Your bus leaves at 08:00, get ready", "57 in 20 min", reminderGetReady, nil},
+		{"a long walk", "06:55", "Leave by 07:05 to catch your bus", "57 at 08:00 · 50 min walk", reminderLeaveBy, ptr(50)},
 	}
 	for _, c := range cases {
-		got := reminderPushMessage(c.r, "en", bus, clujTime(t, "2026-10-09 "+c.now), cluj)
-		if got.Title != c.title || got.Body != c.body {
-			t.Errorf("%s: got %q / %q", c.name, got.Title, got.Body)
+		got := reminderPushMessage(reminder("x", nil, "", nil), "en", c.kind, c.walk, bus, bus, clujTime(t, "2026-10-09 "+c.now), cluj)
+		if got.Title != c.title || got.Body != c.body || got.Alert != (c.kind != reminderLeaveBy) {
+			t.Errorf("%s: got %q / %q alert %v", c.name, got.Title, got.Body, got.Alert)
 		}
 	}
 }
+
+func ptr(n int) *int { return &n }

@@ -31,6 +31,8 @@ export interface Reminder {
   slots: Slots
   /** Minutes to the stop from where it was set; null when unknown. */
   walk?: number | null
+  /** Epoch ms when the walk was measured. */
+  walkAt?: number
 }
 
 const scheduleFor = (timetable: Timetable, dayType: DayType) =>
