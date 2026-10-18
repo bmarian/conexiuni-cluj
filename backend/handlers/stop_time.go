@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
 	"database/sql"
 	"fmt"
@@ -85,13 +86,31 @@ func (city *City) applySegmentProfilesToStopTimes(stopTimes []models.StopTime, r
 		sort.Slice(indexes, func(i, j int) bool {
 			return out[indexes[i]].StopSequence < out[indexes[j]].StopSequence
 		})
-		applySegmentProfilesToTrip(out, indexes, profile.segments)
+		city.timeTrip(out, indexes, tripID, dayType, bucket, profile.segments)
 		// Every timetable consumer sums from the first stop; live ETAs never read it.
 		if profile.hasDelay && len(indexes) > 0 {
 			out[indexes[0]].OffsetArrivalTime = profile.delay
 		}
 	}
 	return out
+}
+
+// The feed's times for runs leaving in this hour, then learned segments wherever there are any.
+func (city *City) timeTrip(stopTimes []models.StopTime, ordered []int, tripID, profileDay string, bucket int, profiles map[stopPair]segmentProfileEstimate) {
+	applyScheduledOffsets(stopTimes, ordered, city.snapshotScheduledOffsets(tripID, calendar.ScheduleOf(profileDay), bucket))
+	applySegmentProfilesToTrip(stopTimes, ordered, profiles)
+}
+
+func applyScheduledOffsets(stopTimes []models.StopTime, ordered []int, offsets []float64) {
+	// Derived with the stop times, so a different length is a trip that changed since.
+	if len(offsets) != len(ordered) {
+		return
+	}
+	for pos := 1; pos < len(ordered); pos++ {
+		if offsets[pos] >= 0 {
+			stopTimes[ordered[pos]].OffsetArrivalTime = offsets[pos]
+		}
+	}
 }
 
 // ordered indexes one trip's rows in stop_sequence order.

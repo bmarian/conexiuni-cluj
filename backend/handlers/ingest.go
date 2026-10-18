@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/sources"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -311,6 +312,42 @@ func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 			city.log("ingest: stop times %s: %v", route.RouteShortName, err)
 		}
 	}
+	if snap.HourlyOffsets != nil {
+		if err := city.storeScheduledOffsets(snap.HourlyOffsets); err != nil {
+			city.log("ingest: scheduled offsets: %v", err)
+		}
+	}
+}
+
+// Replaced whole, like the feed it comes from.
+func (city *City) storeScheduledOffsets(byTrip map[string]map[string][][]float64) error {
+	clear := func(tx *sql.Tx) error {
+		_, err := tx.Exec(`DELETE FROM scheduled_offsets`)
+		return err
+	}
+	err := batchReplace(city.DB, clear, `INSERT INTO scheduled_offsets (trip_id, day_type, bucket_start_min, offsets) VALUES (?, ?, ?, ?)`,
+		func(stmt *sql.Stmt) error {
+			for tripID, byDay := range byTrip {
+				for dayType, hours := range byDay {
+					for hour, offsets := range hours {
+						data, err := json.Marshal(offsets)
+						if err != nil {
+							return err
+						}
+						if _, err := stmt.Exec(tripID, dayType, hour*60, string(data)); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+	city.resetProfileSnapshots()
+	city.resetTripScheduleCache()
+	return nil
 }
 
 type availabilityRegistry struct {

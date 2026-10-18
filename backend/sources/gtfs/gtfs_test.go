@@ -3,6 +3,8 @@ package gtfs
 import (
 	"archive/zip"
 	"bytes"
+	"conexiuni-cluj/calendar"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -122,13 +124,55 @@ func TestSnapshotKeepsTheUsualPatternOnly(t *testing.T) {
 	}
 }
 
+func TestRunsAreTimedByTheHourTheyLeave(t *testing.T) {
+	snap, err := testFeed(t).snapshot(ids{}, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hourly := snap.HourlyOffsets[snap.Trips[0].TripID]
+	weekday := hourly[calendar.Weekday]
+	// t1 leaves at 6 and rides 5 minutes to B, t2 at 7 and rides 6; no run leaves at 5 or 8, so they take the nearest hour's.
+	if len(weekday) != 24 || weekday[6][1] != 300 || weekday[7][1] != 360 || weekday[8][1] != 360 || weekday[5][1] != 300 || weekday[7][3] != 480 {
+		t.Fatalf("weekday hours %v", weekday)
+	}
+	if saturday := hourly[calendar.Saturday]; len(saturday) != 24 || saturday[20][1] != 300 {
+		t.Fatalf("saturday hours %v", saturday)
+	}
+	if _, ok := hourly[calendar.Sunday]; ok {
+		t.Fatal("a kind of day with no runs got times")
+	}
+}
+
+func TestRidesAddUpToTimesTheRunsKeep(t *testing.T) {
+	run := func(start int, at ...int) []stopTime {
+		out := []stopTime{{stopID: "A", arrival: start, departure: start}}
+		for i, m := range at {
+			out = append(out, stopTime{stopID: string(rune('B' + i)), arrival: m, departure: m})
+		}
+		return out
+	}
+	stops := tripStops{
+		"a": run(420, 421, 422, 424),
+		"b": run(430, 432, 433, 434),
+		"c": run(440, 441, 443, 444),
+		"untimed": run(450, -1, 453, 454),
+	}
+	// Medians per segment (1, 1, 1) would reach D in 3 minutes; every run takes 4.
+	if got := rideMedians([]string{"a", "b", "c"}, 4, stops); !slices.Equal(got, []float64{0, 60, 120, 60}) {
+		t.Fatalf("rides %v", got)
+	}
+	if got := rideMedians([]string{"untimed"}, 4, stops); !slices.Equal(got, []float64{0, -1, -1, 60}) {
+		t.Fatalf("a stop no run times gave %v", got)
+	}
+}
+
 func TestRepresentativeDaysStartWhereTheFeedDoes(t *testing.T) {
 	f := testFeedWith(t, map[string]string{
 		"calendar.txt": "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n" +
 			"WK,1,1,1,1,1,0,0,20261021,20270121\nWE,0,0,0,0,0,1,1,20261021,20270121\n",
 	})
 	days := f.representativeDays(time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)) // a Sunday
-	if days["weekdays"].Day() != 21 || days["saturday"].Day() != 24 || days["sunday"].Day() != 25 {
+	if days[calendar.Weekday].Day() != 21 || days[calendar.Saturday].Day() != 24 || days[calendar.Sunday].Day() != 25 {
 		t.Fatalf("days %v", days)
 	}
 }
@@ -141,12 +185,12 @@ func TestAHolidayDoesNotStandForItsKindOfDay(t *testing.T) {
 		"calendar_dates.txt": "service_id,date,exception_type\nE2026,20261130,2\nE2026,20261201,2\n",
 	})
 	now := time.Date(2026, 11, 30, 9, 0, 0, 0, time.UTC)
-	day := f.representativeDays(now)["weekdays"]
+	day := f.representativeDays(now)[calendar.Weekday]
 	if day.Format("20060102") != "20261202" || !f.servicesOn(day)["E2026"] {
 		t.Fatalf("weekdays stand for %s, running %v", day.Format("20060102"), f.servicesOn(day))
 	}
 	// After the school year the plain weekday is all there is.
-	if day := f.representativeDays(time.Date(2027, 6, 21, 0, 0, 0, 0, time.UTC))["weekdays"]; f.servicesOn(day)["E2026"] {
+	if day := f.representativeDays(time.Date(2027, 6, 21, 0, 0, 0, 0, time.UTC))[calendar.Weekday]; f.servicesOn(day)["E2026"] {
 		t.Fatalf("summer weekdays run the school extras on %s", day.Format("20060102"))
 	}
 }

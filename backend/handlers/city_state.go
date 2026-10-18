@@ -77,9 +77,10 @@ type plannerState struct {
 
 type profileSnapshotsState struct {
 	sync.Mutex
-	period   int64
-	segments map[profileSnapshotKey][]segmentProfileRow
-	delays   map[profileSnapshotKey][]scheduleDelayRow
+	period    int64
+	segments  map[profileSnapshotKey][]segmentProfileRow
+	delays    map[profileSnapshotKey][]scheduleDelayRow
+	scheduled map[string]map[scheduledOffsetsKey][]float64
 }
 
 type tripSegmentTrackersState struct {

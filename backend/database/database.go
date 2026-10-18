@@ -191,6 +191,16 @@ func (s *Store) initSchemas() error {
             PRIMARY KEY (trip_id, stop_sequence)
         );
 
+		-- A feed's own stop_times offsets for the runs leaving in each hour, a JSON array by stop position
+		CREATE TABLE IF NOT EXISTS scheduled_offsets
+        (
+            trip_id          TEXT    NOT NULL,
+            day_type         TEXT    NOT NULL,
+            bucket_start_min INTEGER NOT NULL,
+            offsets          TEXT    NOT NULL,
+            PRIMARY KEY (trip_id, day_type, bucket_start_min)
+        );
+
 		CREATE TABLE IF NOT EXISTS timetable
         (
             route_short_name TEXT PRIMARY KEY,

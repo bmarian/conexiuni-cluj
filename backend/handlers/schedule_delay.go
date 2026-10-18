@@ -177,7 +177,7 @@ func (city *City) collectScheduleResiduals(
 		for i := range ordered {
 			ordered[i] = i
 		}
-		applySegmentProfilesToTrip(trip, ordered, selectSegmentProfiles(profileRows, dayType, bucket))
+		city.timeTrip(trip, ordered, trip[0].TripID, dayType, bucket, selectSegmentProfiles(profileRows, dayType, bucket))
 		c := make([]float64, len(trip))
 		total := 0.0
 		for i, st := range trip {

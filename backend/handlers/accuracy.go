@@ -131,7 +131,8 @@ func errorBin(errSec int64) int {
 func (city *City) noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
 	arrivedMin, bucket := localMinutes(float64(at.Unix()), loc)
 	dayType := city.profileDay(at)
-	learned, seed := city.tripCumulativeOffsets(tracker, dayType, bucket), city.tripSeedOffsets(tracker)
+	departureBucket := int(departureMin) % 1440 / segmentBucketMinutes * segmentBucketMinutes
+	learned, seed := city.tripCumulativeOffsets(tracker, dayType, bucket), city.tripSeedOffsets(tracker, dayType, departureBucket)
 	if pos >= len(learned) || pos >= len(seed) {
 		return
 	}

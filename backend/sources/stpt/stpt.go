@@ -1,4 +1,4 @@
-// Package stpt reads the vehicles of STPT Timișoara's live map (live.stpt.ro).
+// Package stpt reads the vehicles of live.stpt.ro, a Timișoara live map; its terms forbid automated use without permission.
 package stpt
 
 import (

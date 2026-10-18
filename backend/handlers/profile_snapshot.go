@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
+	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -11,6 +13,11 @@ type profileSnapshotKey struct {
 	routeID     int
 	directionID int
 	dayType     string
+}
+
+type scheduledOffsetsKey struct {
+	dayType string
+	bucket  int
 }
 
 type scheduleDelayRow struct {
@@ -33,6 +40,7 @@ func (city *City) profileSnapshotsFor(period int64) {
 	city.profileSnapshots.period = period
 	city.profileSnapshots.segments = make(map[profileSnapshotKey][]segmentProfileRow)
 	city.profileSnapshots.delays = make(map[profileSnapshotKey][]scheduleDelayRow)
+	city.profileSnapshots.scheduled = make(map[string]map[scheduledOffsetsKey][]float64)
 }
 
 func (city *City) resetProfileSnapshots() {
@@ -40,6 +48,7 @@ func (city *City) resetProfileSnapshots() {
 	defer city.profileSnapshots.Unlock()
 	city.profileSnapshots.segments = nil
 	city.profileSnapshots.delays = nil
+	city.profileSnapshots.scheduled = nil
 }
 
 func (city *City) snapshotSegmentProfiles(routeID, directionID int, dayType string, bucket int) map[stopPair]segmentProfileEstimate {
@@ -94,4 +103,44 @@ func (city *City) snapshotScheduleDelayRows(routeID, directionID int, dayType st
 		city.profileSnapshots.Unlock()
 	}
 	return rows
+}
+
+// Nil when the feed has no times of its own for that kind of day.
+func (city *City) snapshotScheduledOffsets(tripID, scheduleDay string, bucket int) []float64 {
+	city.profileSnapshots.Lock()
+	city.profileSnapshotsFor(ProfileSnapshotPeriod())
+	byKey, ok := city.profileSnapshots.scheduled[tripID]
+	city.profileSnapshots.Unlock()
+	if !ok {
+		loaded, err := city.loadScheduledOffsets(tripID)
+		if err != nil {
+			city.log("stop_times: scheduled offsets %s: %v", tripID, err)
+			return nil
+		}
+		byKey = loaded
+		city.profileSnapshots.Lock()
+		city.profileSnapshotsFor(ProfileSnapshotPeriod())
+		city.profileSnapshots.scheduled[tripID] = byKey
+		city.profileSnapshots.Unlock()
+	}
+	return byKey[scheduledOffsetsKey{scheduleDay, bucket}]
+}
+
+func (city *City) loadScheduledOffsets(tripID string) (map[scheduledOffsetsKey][]float64, error) {
+	out := map[scheduledOffsetsKey][]float64{}
+	_, err := queryRows(city.DB, `SELECT day_type, bucket_start_min, offsets FROM scheduled_offsets WHERE trip_id = ?`, []any{tripID},
+		func(rows *sql.Rows) (struct{}, error) {
+			var key scheduledOffsetsKey
+			var offsets string
+			if err := rows.Scan(&key.dayType, &key.bucket, &offsets); err != nil {
+				return struct{}{}, err
+			}
+			var seconds []float64
+			if err := json.Unmarshal([]byte(offsets), &seconds); err != nil {
+				return struct{}{}, err
+			}
+			out[key] = seconds
+			return struct{}{}, nil
+		})
+	return out, err
 }

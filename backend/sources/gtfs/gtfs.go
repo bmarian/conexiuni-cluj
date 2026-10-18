@@ -4,6 +4,7 @@ package gtfs
 import (
 	"archive/zip"
 	"bytes"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/sources"
 	"encoding/csv"
@@ -264,11 +265,11 @@ func (f *feed) validity() (start, end time.Time) {
 func dayKind(day time.Time) string {
 	switch day.Weekday() {
 	case time.Saturday:
-		return "saturday"
+		return calendar.Saturday
 	case time.Sunday:
-		return "sunday"
+		return calendar.Sunday
 	}
-	return "weekdays"
+	return calendar.Weekday
 }
 
 // For each kind of day, the first date running what most days of that kind run until the feed ends,
@@ -317,6 +318,23 @@ func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 	return out
 }
 
+// The services running on each kind of day's representative date.
+func (f *feed) servicesByKind(now time.Time) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for kind, day := range f.representativeDays(now) {
+		out[kind] = f.servicesOn(day)
+	}
+	return out
+}
+
+// Minutes of the run's first-stop departure, -1 when missing.
+func startMinutes(run []stopTime) int {
+	if run[0].departure >= 0 {
+		return run[0].departure
+	}
+	return run[0].arrival
+}
+
 // Matched to the Snapshot's routes by line number.
 func (f *Feed) Timetables(snap *sources.Snapshot) (map[string]*models.Timetable, error) {
 	data, err := f.fetch()
@@ -337,11 +355,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 	for _, row := range routes.rows {
 		routeShort[routes.get(row, "route_id")] = routes.get(row, "route_short_name")
 	}
-	days := f.representativeDays(now)
-	services := map[string]map[string]bool{}
-	for kind, day := range days {
-		services[kind] = f.servicesOn(day)
-	}
+	services := f.servicesByKind(now)
 
 	// First-stop departures per line, direction and kind of day.
 	type key struct {
@@ -357,11 +371,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 		}
 		termini[k] = p.stops[0]
 		for _, tripID := range p.trips {
-			st := f.stops[tripID]
-			minutes := st[0].departure
-			if minutes < 0 {
-				minutes = st[0].arrival
-			}
+			minutes := startMinutes(f.stops[tripID])
 			if minutes < 0 || minutes >= serviceDayEndHour*60 {
 				continue
 			}
@@ -391,7 +401,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 			InStopName:     f.stopName[in],
 			OutStopName:    f.stopName[back],
 		}
-		for kind, schedule := range map[string]*models.DaySchedule{"weekdays": &t.Weekdays, "saturday": &t.Saturday, "sunday": &t.Sunday} {
+		for kind, schedule := range map[string]*models.DaySchedule{calendar.Weekday: &t.Weekdays, calendar.Saturday: &t.Saturday, calendar.Sunday: &t.Sunday} {
 			*schedule = daySchedule(sortedTimes(departures[key{lineDir{short, 0}, kind}]), sortedTimes(departures[key{lineDir{short, 1}, kind}]))
 		}
 		sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID), "gtfs "+f.url)
@@ -517,10 +527,7 @@ func patterns(trips map[string]tripInfo, stops tripStops) (map[string]*pattern, 
 
 // The run's worst timing gap to the pattern, at the pattern's stops.
 func deviationSec(patternStops []string, offsets []float64, run []stopTime) float64 {
-	start := run[0].departure
-	if start < 0 {
-		start = run[0].arrival
-	}
+	start := startMinutes(run)
 	worst, cum, i := 0.0, 0.0, 0
 	for _, st := range run {
 		if i >= len(patternStops) || st.stopID != patternStops[i] {
@@ -550,7 +557,7 @@ func passesAll(pattern, run []string) bool {
 func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, error) {
 	routes := f.files["routes"]
 	routeIDs := map[string]int{}
-	snap := &sources.Snapshot{Offsets: map[string][]float64{}}
+	snap := &sources.Snapshot{Offsets: map[string][]float64{}, HourlyOffsets: map[string]map[string][][]float64{}}
 	for _, row := range routes.rows {
 		external := routes.get(row, "route_id")
 		id, err := ids.ExternalID("route", external)
@@ -617,6 +624,7 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 		}
 	}
 
+	services := f.servicesByKind(now)
 	keys := make([]string, 0, len(f.patterns))
 	for id := range f.patterns {
 		keys = append(keys, id)
@@ -651,6 +659,7 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 			snap.Shapes = append(snap.Shapes, points[i])
 		}
 		snap.Offsets[patternID] = scheduledOffsets(p, f.stops)
+		snap.HourlyOffsets[patternID] = f.hourlyOffsets(p, services)
 	}
 
 	snap.Timetables = f.timetables(snap, now)
@@ -706,6 +715,85 @@ func scheduledOffsets(p *pattern, stops tripStops) []float64 {
 		}
 		sort.Float64s(samples[i])
 		out[i] = samples[i][len(samples[i])/2]
+	}
+	return out
+}
+
+// Operators schedule longer rides at rush hour, so each hour gets the medians of the runs leaving in it.
+// An hour none leaves takes the nearest one's, earlier first: a bus still out then left earlier.
+func (f *feed) hourlyOffsets(p *pattern, services map[string]map[string]bool) map[string][][]float64 {
+	out := map[string][][]float64{}
+	for kind, active := range services {
+		var byHour [24][]string
+		for _, tripID := range p.trips {
+			st := f.stops[tripID]
+			start := startMinutes(st)
+			if len(st) != len(p.stops) || !active[f.trips[tripID].service] || start < 0 || start >= serviceDayEndHour*60 {
+				continue
+			}
+			byHour[start/60%24] = append(byHour[start/60%24], tripID)
+		}
+		var own [24][]float64
+		running := false
+		for hour, trips := range byHour {
+			if len(trips) > 0 {
+				own[hour], running = rideMedians(trips, len(p.stops), f.stops), true
+			}
+		}
+		if !running {
+			continue
+		}
+		hours := make([][]float64, 24)
+		for hour := range hours {
+			for d := 0; hours[hour] == nil; d++ {
+				if earlier := own[(hour-d+24)%24]; earlier != nil {
+					hours[hour] = earlier
+				} else {
+					hours[hour] = own[(hour+d)%24]
+				}
+			}
+		}
+		out[kind] = hours
+	}
+	return out
+}
+
+// Seconds from the previous stop, from the median time the runs reach each stop after leaving the first:
+// medians per segment would add up to times no run keeps. -1 where no run times a stop.
+func rideMedians(trips []string, n int, stops tripStops) []float64 {
+	samples := make([][]int, n)
+	for _, tripID := range trips {
+		st := stops[tripID]
+		start := startMinutes(st)
+		if len(st) != n || start < 0 {
+			continue
+		}
+		for i := 1; i < n; i++ {
+			at := st[i].arrival
+			if at < 0 {
+				at = st[i].departure
+			}
+			if at >= start {
+				samples[i] = append(samples[i], at-start)
+			}
+		}
+	}
+	reached := make([]int, n)
+	for i := 1; i < n; i++ {
+		if len(samples[i]) == 0 {
+			reached[i] = -1
+			continue
+		}
+		sort.Ints(samples[i])
+		reached[i] = samples[i][len(samples[i])/2]
+	}
+	out := make([]float64, n)
+	for i := 1; i < n; i++ {
+		if reached[i] < 0 || reached[i-1] < 0 {
+			out[i] = -1
+			continue
+		}
+		out[i] = float64(max(reached[i]-reached[i-1], 0) * 60)
 	}
 	return out
 }

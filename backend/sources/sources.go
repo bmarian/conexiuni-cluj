@@ -15,6 +15,8 @@ type Snapshot struct {
 	TripStops []models.TripStop
 	// Seconds from the previous stop, by pattern id; only feeds with times fill it.
 	Offsets map[string][]float64
+	// The same by pattern id, kind of day (calendar.ScheduleDays) and hour of first-stop departure, 24 hours each; -1 where no run times a segment.
+	HourlyOffsets map[string]map[string][][]float64
 	// By route short name.
 	Timetables map[string]*models.Timetable
 }

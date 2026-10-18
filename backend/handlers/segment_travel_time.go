@@ -496,13 +496,15 @@ func (city *City) tripDepartures(tracker *tripSegmentTracker, dayType string) []
 // Seconds from the trip's first stop to each stop, with this hour's learned segments.
 func (city *City) tripCumulativeOffsets(tracker *tripSegmentTracker, dayType string, bucket int) []float64 {
 	return city.cachedTripOffsets(tracker, tracker.TripID+"|"+dayType+"|"+strconv.Itoa(bucket), func(trip []models.StopTime, ordered []int) {
-		applySegmentProfilesToTrip(trip, ordered, city.snapshotSegmentProfiles(tracker.RouteID, tracker.DirectionID, dayType, bucket))
+		city.timeTrip(trip, ordered, tracker.TripID, dayType, bucket, city.snapshotSegmentProfiles(tracker.RouteID, tracker.DirectionID, dayType, bucket))
 	})
 }
 
-// The same at the seed pace, which is all CTP's departures say about the other stops.
-func (city *City) tripSeedOffsets(tracker *tripSegmentTracker) []float64 {
-	return city.cachedTripOffsets(tracker, tracker.TripID+"|seed", nil)
+// The same at the seed pace for a run leaving in that hour, which is all the operator's departures say about the other stops.
+func (city *City) tripSeedOffsets(tracker *tripSegmentTracker, dayType string, bucket int) []float64 {
+	return city.cachedTripOffsets(tracker, tracker.TripID+"|seed|"+dayType+"|"+strconv.Itoa(bucket), func(trip []models.StopTime, ordered []int) {
+		city.timeTrip(trip, ordered, tracker.TripID, dayType, bucket, nil)
+	})
 }
 
 func (city *City) cachedTripOffsets(tracker *tripSegmentTracker, key string, learn func(trip []models.StopTime, ordered []int)) []float64 {
