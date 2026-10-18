@@ -8,6 +8,7 @@ import (
 	"conexiuni-cluj/sources/eltrans"
 	"conexiuni-cluj/sources/gtfs"
 	"conexiuni-cluj/sources/gtfsrt"
+	"conexiuni-cluj/sources/stpt"
 	"conexiuni-cluj/sources/tranzy"
 	"fmt"
 	"log"
@@ -134,9 +135,16 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		}
 		cities = append(cities, city)
 	}
+	gtfsRealtime := func(url string) func(sources.IDMap) sources.Realtime {
+		return func(ids sources.IDMap) sources.Realtime { return gtfsrt.New(url, ids) }
+	}
+	stptMap := func(url string) func(sources.IDMap) sources.Realtime {
+		return func(ids sources.IDMap) sources.Realtime { return stpt.New(url, ids) }
+	}
 	feeds := []gtfsCity{
-		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs", ""},
-		{"bucuresti", "București", "TPBI", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", "https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions"},
+		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs", nil},
+		{"bucuresti", "București", "TPBI", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", gtfsRealtime("https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions")},
+		{"timisoara", "Timișoara", "STPT Timișoara", "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip", stptMap("https://live.stpt.ro/gtfs-vehicles.php")},
 	}
 	for _, g := range feeds {
 		city, err := g.city(cfg, opts)
@@ -153,7 +161,8 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 
 type gtfsCity struct {
 	slug, name, operator, url string
-	realtime                  string
+	// nil means schedule-only.
+	realtime func(sources.IDMap) sources.Realtime
 }
 
 func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {
@@ -162,15 +171,13 @@ func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, erro
 		return nil, err
 	}
 	feed := gtfs.New(g.url, cfg.TimetableRefresh, store)
-	var rt *gtfsrt.Source
 	var realtime sources.Realtime
-	if g.realtime != "" {
-		rt = gtfsrt.New(g.realtime, store)
-		realtime = rt
+	if g.realtime != nil {
+		realtime = g.realtime(store)
 	}
 	city := handlers.NewCity(g.slug, g.name, store, feed, nil, realtime, nil, learningFor(g.slug, opts))
 	city.Operator = g.operator
-	if rt != nil {
+	if rt, ok := realtime.(*gtfsrt.Source); ok {
 		rt.Placement = city
 	}
 	return city, nil
