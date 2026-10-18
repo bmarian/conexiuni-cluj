@@ -204,7 +204,7 @@ func (city *City) SyncReminders(c fiber.Ctx) error {
 		locale = "en"
 	}
 	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
-	if err := city.saveReminders(sub, req.Reminders); err != nil {
+	if err := city.saveReminders(sub, req.Reminders, time.Now()); err != nil {
 		city.log("push: could not save reminders: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
 	}
@@ -212,7 +212,7 @@ func (city *City) SyncReminders(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder) error {
+func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder, now time.Time) error {
 	tx, err := city.DB.Begin()
 	if err != nil {
 		return err
@@ -253,11 +253,18 @@ func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder) er
 		if err != nil {
 			return err
 		}
+		told, leaveAt := fired[r.ID][0], fired[r.ID][1]
+		// Set after its heads-up was due: that moment has passed, only the time to leave is still ahead.
+		if _, known := fired[r.ID]; !known {
+			if step, ok := city.reminderStep(r, now); ok && step.kind == reminderLeaveBy {
+				told, leaveAt = step.slot.UnixMilli(), step.leaveAt.UnixMilli()
+			}
+		}
 		if _, err := tx.Exec(`
 			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, walk_at, last_fired_at, leave_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.endpoint, r.ID, r.StopID, r.StopName, r.RouteID, r.TripID, r.Line, r.Destination,
-			strings.Join(days, ","), r.Date, string(slots), r.Walk, r.WalkAt, fired[r.ID][0], fired[r.ID][1]); err != nil {
+			strings.Join(days, ","), r.Date, string(slots), r.Walk, r.WalkAt, told, leaveAt); err != nil {
 			return err
 		}
 	}
@@ -353,33 +360,57 @@ func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 			}
 			continue
 		}
-		slot := bus
-		if at, ok := city.liveArrivalAt(r.TripID, r.StopID, slot); ok {
-			bus = at
-		}
-		walk := r.walkNow(now)
-		if bus.Sub(now) > tellLead(walk) || r.lastFiredAt >= slot.UnixMilli() {
+		tell, due := city.tellFor(r.pushReminder, bus, now)
+		if !due || r.lastFiredAt >= tell.slot.UnixMilli() {
 			continue
 		}
-		kind, leaveAt := reminderGetReady, time.Time{}
-		if walk != nil && *walk > 0 {
-			kind, leaveAt = reminderLeaveNow, bus.Add(-reminderLead(walk)).Truncate(time.Minute)
-			if leaveAt.Sub(now) > leaveSlack {
-				kind = reminderLeaveBy
-			}
-		}
 		var pending int64
-		if kind == reminderLeaveBy {
-			pending = leaveAt.UnixMilli()
+		if tell.kind == reminderLeaveBy {
+			pending = tell.leaveAt.UnixMilli()
 		}
 		// Marked before sending, so a failed send can't repeat.
 		if _, err := city.DB.Exec(`UPDATE push_reminders SET last_fired_at = ?, leave_at = ? WHERE endpoint = ? AND id = ?`,
-			slot.UnixMilli(), pending, r.sub.endpoint, r.ID); err != nil {
+			tell.slot.UnixMilli(), pending, r.sub.endpoint, r.ID); err != nil {
 			city.log("push: could not mark a reminder as sent: %v", err)
 			continue
 		}
-		city.sendReminder(r, reminderPushMessage(city.Slug, r.pushReminder, r.sub.locale, kind, walk, slot, bus, now, loc), bus, now)
+		city.sendReminder(r, reminderPushMessage(city.Slug, r.pushReminder, r.sub.locale, tell.kind, tell.walk, tell.slot, tell.bus, now, loc), tell.bus, now)
 	}
+}
+
+type reminderTell struct {
+	// The timetable time, and the live one when known.
+	slot, bus time.Time
+	kind      reminderKind
+	walk      *int
+	leaveAt   time.Time
+}
+
+// How the bus at slot is told at now; false while it's too early to tell.
+func (city *City) tellFor(r pushReminder, slot, now time.Time) (reminderTell, bool) {
+	tell := reminderTell{slot: slot, bus: slot, kind: reminderGetReady, walk: r.walkNow(now)}
+	if at, ok := city.liveArrivalAt(r.TripID, r.StopID, slot); ok {
+		tell.bus = at
+	}
+	if tell.bus.Sub(now) > tellLead(tell.walk) {
+		return tell, false
+	}
+	if tell.walk != nil && *tell.walk > 0 {
+		tell.kind, tell.leaveAt = reminderLeaveNow, tell.bus.Add(-reminderLead(tell.walk)).Truncate(time.Minute)
+		if tell.leaveAt.Sub(now) > leaveSlack {
+			tell.kind = reminderLeaveBy
+		}
+	}
+	return tell, true
+}
+
+// The reminder's next bus, if it is already to be told.
+func (city *City) reminderStep(r pushReminder, now time.Time) (reminderTell, bool) {
+	slot, ok := city.nextReminderBus(r, now, city.Location)
+	if !ok {
+		return reminderTell{}, false
+	}
+	return city.tellFor(r, slot, now)
 }
 
 // The told bus's time to leave, with the walk it was timed from.

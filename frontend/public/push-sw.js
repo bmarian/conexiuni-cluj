@@ -12,15 +12,20 @@ self.addEventListener('push', (event) => {
     return
   }
   if (!message?.title) return
-  event.waitUntil(self.registration.showNotification(message.title, {
-    body: message.body,
-    tag: message.tag,
-    renotify: Boolean(message.tag),
-    requireInteraction: Boolean(message.alert),
-    timestamp: message.timestamp,
-    icon: '/pwa-192x192.png',
-    data: {url: message.url || '/'},
-  }))
+  event.waitUntil((async () => {
+    // The page marks a reminder it cancelled (retractReminder in pushSubscription.ts).
+    const cancelled = message.tag && await caches.match(`/cancelled/${message.tag}`, {cacheName: 'cancelled-reminders'})
+    if (cancelled && Number(await cancelled.text()) >= Date.now()) return
+    await self.registration.showNotification(message.title, {
+      body: message.body,
+      tag: message.tag,
+      renotify: Boolean(message.tag),
+      requireInteraction: Boolean(message.alert),
+      timestamp: message.timestamp,
+      icon: '/pwa-192x192.png',
+      data: {url: message.url || '/'},
+    })
+  })())
 })
 
 self.addEventListener('notificationclick', (event) => {

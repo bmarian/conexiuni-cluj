@@ -5,7 +5,7 @@ import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import {buildHourlyOffsets, buildStopInfo, network, type DayType} from '@/utils/network.ts'
 import {getShapeStopTimes, getTimeOffsetToStop} from '@/utils/trips.ts'
 import {DAY_TYPES, MAX_REMINDERS, nextDeparture, nextOf, resolveSlots, stopTimesByDayType, type Reminder} from '@/utils/reminders.ts'
-import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription.ts'
+import {pushRegistration, pushSubscription, pushSupported, retractReminder} from '@/utils/pushSubscription.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {usePushStore} from '@/stores/push.ts'
@@ -135,6 +135,8 @@ export const useRemindersStore = defineStore('reminders', () => {
   }
 
   function remove(id: string) {
+    const gone = reminders.value.find((r) => r.id === id)
+    if (gone && pushSupported()) void retractReminder(id, nextOf(gone, Date.now()) ?? Date.now())
     reminders.value = reminders.value.filter((r) => r.id !== id)
     persist()
     return sync()

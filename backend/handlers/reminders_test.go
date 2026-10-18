@@ -244,7 +244,7 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 	every := []int{1, 2, 3, 4, 5, 6, 7}
 	if err := city.saveReminders(client.sub, []pushReminder{
 		reminder("night", every, "", map[string]int{"weekday": 22*60 + 50, "saturday": 22*60 + 30}),
-	}); err != nil {
+	}, clujTime(t, "2026-10-09 22:00")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -281,7 +281,7 @@ func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
 	client := newTestPushClient(t, "ro", http.StatusCreated)
 	if err := city.saveReminders(client.sub, []pushReminder{
 		reminder("once", nil, "2026-10-09", map[string]int{"weekday": 24*60 + 5}),
-	}); err != nil {
+	}, clujTime(t, "2026-10-09 23:00")); err != nil {
 		t.Fatal(err)
 	}
 	city.fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
@@ -306,7 +306,7 @@ func TestFireDueRemindersSkipsMissedBusesAndDropsDeadSubscriptions(t *testing.T)
 	city := newTestCity(t)
 	city.withTestPush(t)
 	gone := newTestPushClient(t, "en", http.StatusGone)
-	if err := city.saveReminders(gone.sub, []pushReminder{reminder("a", []int{5}, "", map[string]int{"weekday": 600})}); err != nil {
+	if err := city.saveReminders(gone.sub, []pushReminder{reminder("a", []int{5}, "", map[string]int{"weekday": 600})}, clujTime(t, "2026-10-09 09:00")); err != nil {
 		t.Fatal(err)
 	}
 	city.fireDueReminders(clujTime(t, "2026-10-09 10:05"), cluj)
@@ -331,7 +331,7 @@ func TestFireDueRemindersTimesTheWalk(t *testing.T) {
 	if err := city.saveReminders(client.sub, []pushReminder{
 		walkedAt(withWalk(reminder("walk", []int{5}, "", every), 12), walked),
 		walkedAt(withWalk(reminder("stale", []int{5}, "", every), 12), walked.Add(-2*time.Hour)),
-	}); err != nil {
+	}, walked); err != nil {
 		t.Fatal(err)
 	}
 	city.fireDueReminders(clujTime(t, "2026-10-09 07:32"), cluj)
@@ -351,6 +351,29 @@ func TestFireDueRemindersTimesTheWalk(t *testing.T) {
 	city.fireDueReminders(clujTime(t, "2026-10-09 07:45"), cluj)
 	got = client.received()
 	if len(got) != 3 || got[2].Title != "Leave now" || got[2].Body != "57 in 17 min · 12 min walk" || !got[2].Alert {
+		t.Fatalf("time to leave: %v", got)
+	}
+}
+
+// Set at 20:45 for the 21:01 bus with a 4 minute walk: the 20:42 heads-up has passed, the 20:52 alert has not.
+func TestReminderSetAfterItsHeadsUpOnlySaysWhenToLeave(t *testing.T) {
+	city := newTestCity(t)
+	city.withTestPush(t)
+	client := newTestPushClient(t, "en", http.StatusCreated)
+	set := clujTime(t, "2026-10-09 20:45")
+	if err := city.saveReminders(client.sub, []pushReminder{
+		walkedAt(withWalk(reminder("late", nil, "2026-10-09", map[string]int{"weekday": 21*60 + 1}), 4), set),
+	}, set); err != nil {
+		t.Fatal(err)
+	}
+	city.fireDueReminders(set, cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 20:51"), cluj)
+	if got := client.received(); len(got) != 0 {
+		t.Fatalf("the passed heads-up was sent: %v", got)
+	}
+	city.fireDueReminders(clujTime(t, "2026-10-09 20:52"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 20:53"), cluj)
+	if got := client.received(); len(got) != 1 || got[0].Title != "Leave now" || !got[0].Alert {
 		t.Fatalf("time to leave: %v", got)
 	}
 }
