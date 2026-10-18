@@ -18,10 +18,16 @@ export function readCachedList<T>(key: string): T[] {
   }
 }
 
+// Written when the page is idle: a big city's list is long enough to stall a map flight.
 export function writeCachedList(key: string, list: unknown[]) {
-  try {
-    localStorage.setItem(cacheKey(key), JSON.stringify(list))
-  } catch { /* noop */ }
+  const fullKey = cacheKey(key)
+  const write = () => {
+    try {
+      localStorage.setItem(fullKey, JSON.stringify(list))
+    } catch { /* noop */ }
+  }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(write)
+  else setTimeout(write)
 }
 
 export async function apiPost(url: string, body: unknown): Promise<void> {

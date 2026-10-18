@@ -2,13 +2,15 @@
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
-import {cities, cityChoice, cityInfo, currentCity, locationGranted, switchCity} from '@/utils/city.ts'
+import {useRouter} from 'vue-router'
+import {chooseCity, cities, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
 
 const {t} = useI18n()
 const settings = useSettingsStore()
+const router = useRouter()
 const isDark = computed(() => settings.isDark)
 const topValue = computed(() => props.topOffset)
 
@@ -35,10 +37,10 @@ function toggle() {
   isOpen.value = !isOpen.value
 }
 
-function choose(slug: string | null) {
+async function choose(slug: string | null) {
   isOpen.value = false
-  if (slug === cityChoice.value) return
-  void switchCity(slug)
+  const target = await chooseCity(slug)
+  if (target !== currentCity.value) void router.push(`/${target}/`)
 }
 
 function onDocumentPointerDown(e: PointerEvent) {

@@ -1,8 +1,11 @@
 import {type HourlyStopOffsets, OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {buildHourlyOffsets, clujClock, network, networkLoaded, refreshNetwork, routeStopTimes} from '@/utils/network.ts'
+import {currentCity} from '@/utils/city.ts'
+import {watch} from 'vue'
 
 const pending = new Map<number, Promise<ShapeInfo>>()
+watch(currentCity, () => pending.clear(), {flush: 'sync'})
 
 const emptyDay = (): DaySchedule => ({service_name: '', service_start: '', entries: []})
 
@@ -26,7 +29,7 @@ function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): 
 }
 
 async function loadedNetwork() {
-  await networkLoaded
+  await networkLoaded()
   if (!network.value) await refreshNetwork(true)
   return network.value
 }

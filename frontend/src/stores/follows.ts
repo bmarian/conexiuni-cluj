@@ -1,4 +1,4 @@
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {
   MAX_FOLLOWS, clockAt, followId, freshProgress, isClockTime, stepFollow,
@@ -7,9 +7,9 @@ import {
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
-import {cacheKey, cityPath} from '@/utils/city.ts'
+import {cacheKey, cityPath, currentCity} from '@/utils/city.ts'
 
-const STORAGE_KEY = cacheKey('follows.v1')
+const storageKey = () => cacheKey('follows.v1')
 
 export interface FollowLive {
   minutes: number
@@ -19,7 +19,7 @@ export interface FollowLive {
 
 function load(): Followed[] {
   try {
-    const list = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const list = JSON.parse(localStorage.getItem(storageKey()) ?? '[]')
     return Array.isArray(list) ? list.filter((f) => f && typeof f.id === 'string' && typeof f.tripId === 'string') : []
   } catch {
     return []
@@ -36,11 +36,17 @@ export const useFollowsStore = defineStore('follows', () => {
   const settings = useSettingsStore()
   const follows = ref<Followed[]>(load())
   const live = ref<Record<string, FollowLive>>({})
-  const progress: Record<string, FollowProgress> = {}
+  let progress: Record<string, FollowProgress> = {}
+
+  watch(currentCity, () => {
+    follows.value = load()
+    live.value = {}
+    progress = {}
+  }, {flush: 'sync'})
 
   function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(follows.value))
+      localStorage.setItem(storageKey(), JSON.stringify(follows.value))
     } catch {}
   }
 

@@ -181,7 +181,7 @@ export const useSettingsStore = defineStore('settings', () => {
     regionValues.value[storageKey] = val
     localStorage.setItem(storageKey, val ? 'true' : 'false')
   }
-  const showGreenFriday = computed(() => regionSetting(currentCity, 'showGreenFriday'))
+  const showGreenFriday = computed(() => regionSetting(currentCity.value, 'showGreenFriday'))
 
   function setAutoCenterOnMe(val: boolean) {
     autoCenterOnMe.value = val

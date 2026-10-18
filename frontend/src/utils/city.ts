@@ -1,7 +1,5 @@
 import {ref} from 'vue'
 
-// Fixed for the page's lifetime: every cache is keyed by it, so switching reloads.
-
 export type City = {
   slug: string
   name: string
@@ -76,11 +74,13 @@ function cityFromPath(): string | null {
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))
 
-export const currentCity: string = typeof window === 'undefined' ? DEFAULT_CITY
-  : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY)
+// Every per-city store and cache reloads when it changes.
+export const currentCity = ref(typeof window === 'undefined' ? DEFAULT_CITY
+  : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY))
 
-export function rememberCity(slug: string) {
+export function setCity(slug: string) {
   store(LAST_KEY, slug)
+  currentCity.value = slug
 }
 
 export function knownCity(slug: string): boolean {
@@ -88,12 +88,12 @@ export function knownCity(slug: string): boolean {
 }
 
 export function cityInfo(): City | undefined {
-  return cities.value.find((city) => city.slug === currentCity)
+  return cities.value.find((city) => city.slug === currentCity.value)
 }
 
 export function cityParams(): {city: string; operator: string} {
   const info = cityInfo()
-  return {city: info?.name ?? currentCity, operator: info?.operator ?? ''}
+  return {city: info?.name ?? currentCity.value, operator: info?.operator ?? ''}
 }
 
 export function cityCenter(): {lat: number; lon: number} {
@@ -101,11 +101,11 @@ export function cityCenter(): {lat: number; lon: number} {
   return info ? {lat: info.lat, lon: info.lon} : {lat: 46.7712, lon: 23.6236}
 }
 
-export const cityPath = (path: string) => `/${currentCity}${path.startsWith('/') ? path : '/' + path}`
+export const cityPath = (path: string) => `/${currentCity.value}${path.startsWith('/') ? path : '/' + path}`
 
-export const apiPath = (path: string) => `/api/${currentCity}/${path.replace(/^\//, '')}`
+export const apiPath = (path: string) => `/api/${currentCity.value}/${path.replace(/^\//, '')}`
 
-export const cacheKey = (key: string) => `${currentCity}:${key}`
+export const cacheKey = (key: string, city = currentCity.value) => `${city}:${key}`
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
   const toRad = (d: number) => d * Math.PI / 180
@@ -153,11 +153,9 @@ export async function resolveCity(): Promise<string> {
   return nearest.slug
 }
 
-// null goes back to choosing by location.
-export async function switchCity(slug: string | null) {
+// The city to show; null goes back to choosing by location.
+export async function chooseCity(slug: string | null): Promise<string> {
   cityChoice.value = slug
   store(CHOICE_KEY, slug)
-  const target = slug ?? await resolveCity()
-  rememberCity(target)
-  window.location.href = `/${target}/`
+  return slug ?? await resolveCity()
 }

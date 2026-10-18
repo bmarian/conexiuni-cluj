@@ -109,7 +109,7 @@ const loginError = ref('')
 const loadError = ref('')
 const data = ref<Overview | null>(null)
 const loading = ref(false)
-const adminCity = ref(currentCity)
+const adminCity = ref(currentCity.value)
 const cityOpen = ref(false)
 const cityName = computed(() => cities.value.find((c) => c.slug === adminCity.value)?.name ?? adminCity.value)
 

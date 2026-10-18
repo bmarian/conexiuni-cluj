@@ -9,14 +9,14 @@ import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSub
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {usePushStore} from '@/stores/push.ts'
-import {cacheKey} from '@/utils/city.ts'
+import {cacheKey, currentCity} from '@/utils/city.ts'
 
-const STORAGE_KEY = cacheKey('reminders.v1')
-const SYNCED_KEY = cacheKey('reminders.synced')
+const storageKey = () => cacheKey('reminders.v1')
+const syncedKey = () => cacheKey('reminders.synced')
 
 function load(): Reminder[] {
   try {
-    const list = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const list = JSON.parse(localStorage.getItem(storageKey()) ?? '[]')
     return Array.isArray(list) ? list.filter((r) => r && typeof r.id === 'string' && r.slots) : []
   } catch {
     return []
@@ -54,9 +54,14 @@ export const useRemindersStore = defineStore('reminders', () => {
   const syncing = ref(false)
   let again = false
 
+  watch(currentCity, () => {
+    reminders.value = load()
+    editing.value = null
+  }, {flush: 'sync'})
+
   function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders.value))
+      localStorage.setItem(storageKey(), JSON.stringify(reminders.value))
     } catch {}
   }
 
@@ -85,7 +90,7 @@ export const useRemindersStore = defineStore('reminders', () => {
 
   async function sync(): Promise<boolean> {
     if (!pushSupported()) return false
-    const hadServer = localStorage.getItem(SYNCED_KEY) === 'true'
+    const hadServer = localStorage.getItem(syncedKey()) === 'true'
     const list = payload()
     if (!list.length && !hadServer) return true
     if (Notification.permission !== 'granted') return false
@@ -99,7 +104,7 @@ export const useRemindersStore = defineStore('reminders', () => {
       if (!reg) return false
       const sub = await pushSubscription(reg)
       await apiPost('push/reminders', {...sub.toJSON(), locale: settings.locale, reminders: list})
-      localStorage.setItem(SYNCED_KEY, list.length ? 'true' : 'false')
+      localStorage.setItem(syncedKey(), list.length ? 'true' : 'false')
       if (!list.length && !usePushStore().enabled) await usePushStore().disable()
       return true
     } catch (err) {

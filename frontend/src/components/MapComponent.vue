@@ -45,7 +45,8 @@ import {
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
-import {cacheKey, cityCenter} from '@/utils/city.ts'
+import {cacheKey, cities, cityCenter, currentCity, type City} from '@/utils/city.ts'
+import {network} from '@/utils/network.ts'
 
 setWorkerUrl(workerUrl)
 
@@ -77,8 +78,9 @@ const legacyBlueActive = computed(() => settingsStore.legacyBlueActive && !setti
 const paperActive = computed(() => settingsStore.paperActive && !settingsStore.watchActive)
 const router = useRouter()
 const route = useRoute()
+const stopData = new Map<string, {lat: number; lng: number; name: string}>()
+// Built the first time a stop comes into view.
 const stopMarkers = new Map<string, Marker>()
-const stopNames = new Map<string, string>()
 const shownStops = new Set<string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedVehicleId = ref<number | null>(null)
@@ -112,12 +114,13 @@ const MIN_ZOOM = 8
 const MAX_ZOOM = 19
 const ROMANIA_SW: LatLng = {lat: 43.4, lng: 20.0}
 const ROMANIA_NE: LatLng = {lat: 48.5, lng: 30.0}
-const MAP_VIEW_STORAGE_KEY = cacheKey('map.lastView')
+const mapViewKey = () => cacheKey('map.lastView')
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
 const FLY_DURATION_MS = 1000
+const CITY_FLIGHT_MS = 2500
 const FIT_DURATION_MS = 800
 const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
@@ -318,14 +321,13 @@ const refreshStops = () => {
     const bounds = m.getBounds()
     const padLat = (bounds.getNorth() - bounds.getSouth()) / 2
     const padLng = (bounds.getEast() - bounds.getWest()) / 2
-    for (const [id, marker] of stopMarkers) {
-      const {lat, lng} = marker.getLngLat()
+    for (const [id, {lat, lng}] of stopData) {
       if (lat >= bounds.getSouth() - padLat && lat <= bounds.getNorth() + padLat
         && lng >= bounds.getWest() - padLng && lng <= bounds.getEast() + padLng) wanted.add(id)
     }
   }
   const selected = currentlyHighlightedStopId.value
-  if (selected && stopMarkers.has(selected)) wanted.add(selected)
+  if (selected && stopData.has(selected)) wanted.add(selected)
   for (const id of shownStops) {
     if (wanted.has(id)) continue
     const marker = stopMarkers.get(id)
@@ -337,7 +339,7 @@ const refreshStops = () => {
   }
   for (const id of wanted) {
     if (shownStops.has(id)) continue
-    stopMarkers.get(id)?.addTo(m)
+    stopMarker(id)?.addTo(m)
     shownStops.add(id)
   }
 }
@@ -358,8 +360,8 @@ const highlightSelectedStop = (stopId?: string) => {
     oldMarker.getElement().style.zIndex = ''
   }
   currentlyHighlightedStopId.value = null
-  if (stopId && stopMarkers.has(stopId)) {
-    const newMarker = stopMarkers.get(stopId)!
+  const newMarker = stopId ? stopMarker(stopId) : null
+  if (stopId && newMarker) {
     setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts()))
     newMarker.getElement().style.zIndex = '1000'
     currentlyHighlightedStopId.value = stopId
@@ -538,9 +540,10 @@ const createCenterControl = () => barControl('', (bar) => {
   })
 })
 
+const credits = document.createElement('div')
+credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
+
 const createCreditsControl = (): IControl => {
-  const credits = document.createElement('div')
-  credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
   credits.innerHTML = mapCreditsHTML()
   return {onAdd: () => credits, onRemove: () => credits.remove()}
 }
@@ -576,12 +579,14 @@ const mapInit = (center: LatLng, zoom: number) => {
   mapValue.on('moveend', () => {
     refreshStops()
     const mapCenter = mapValue.getCenter()
+    // A flight between cities ends or is cut off over another city; that view is not this city's.
+    if (!network.value?.covers(mapCenter.lat, mapCenter.lng)) return
     const view: SavedMapView = {
       lat: Number(mapCenter.lat.toFixed(6)),
       lng: Number(mapCenter.lng.toFixed(6)),
       glZoom: Number(mapValue.getZoom().toFixed(2)),
     }
-    localStorage.setItem(MAP_VIEW_STORAGE_KEY, JSON.stringify(view))
+    localStorage.setItem(mapViewKey(), JSON.stringify(view))
   })
   mapValue.on('click', (e) => {
     if ((e.originalEvent.target as Element | null)?.closest?.('.maplibregl-marker')) return
@@ -603,6 +608,20 @@ const mapInit = (center: LatLng, zoom: number) => {
   mapContainer.value?.classList.toggle('legacy-blue-theme', legacyBlueActive.value)
 }
 
+const stopMarker = (id: string): Marker | undefined => {
+  const existing = stopMarkers.get(id)
+  if (existing) return existing
+  const stop = stopData.get(id)
+  if (!stop) return undefined
+  const marker = htmlMarker(stop, stopIconForId(id))
+  tooltip?.bind(marker, stop.name, 'stop-name-tooltip', 14)
+  onMarkerClick(marker, () => {
+    router.push({name: 'stop', params: {stopId: id}})
+  })
+  stopMarkers.set(id, marker)
+  return marker
+}
+
 const stopsInit = async () => {
   const {stops: stopsRef, fetchStops} = useStopsApi()
   await fetchStops()
@@ -610,14 +629,7 @@ const stopsInit = async () => {
   if (!stops.length || !map.value) return
 
   for (const {stop_lat, stop_lon, stop_name, stop_id} of stops) {
-    const id = stop_id.toString()
-    const marker = htmlMarker({lat: stop_lat, lng: stop_lon}, stopIconForId(id))
-    tooltip?.bind(marker, stop_name, 'stop-name-tooltip', 14)
-    onMarkerClick(marker, () => {
-      router.push({name: 'stop', params: {stopId: stop_id}})
-    })
-    stopMarkers.set(id, marker)
-    stopNames.set(id, stop_name)
+    stopData.set(stop_id.toString(), {lat: stop_lat, lng: stop_lon, name: stop_name})
   }
   highlightSelectedStop(route.params.stopId as string)
   // Highlights set before the markers existed were skipped.
@@ -726,31 +738,53 @@ const updateLiveLocation = (fix: Fix) => {
   }
 }
 
-onMounted(() => {
-  let initialView: LatLng & { zoom: number } | null = null
-  const raw = localStorage.getItem(MAP_VIEW_STORAGE_KEY)
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as Partial<SavedMapView>
-      // Views saved by the Leaflet map are one zoom higher.
-      const zoom = Number.isFinite(parsed.glZoom) ? parsed.glZoom as number : (parsed.zoom ?? NaN) - 1
-      if (
-        Number.isFinite(parsed.lat)
-        && Number.isFinite(parsed.lng)
-        && Number.isFinite(zoom)
-        && isInRomania({lat: parsed.lat as number, lng: parsed.lng as number})
-      ) {
-        initialView = {
-          lat: parsed.lat as number,
-          lng: parsed.lng as number,
-          zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)),
-        }
-      }
-    } catch {
-      initialView = null
-    }
+const savedView = (key: string): LatLng & { zoom: number } | null => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<SavedMapView> | null
+    if (!parsed) return null
+    // Views saved by the Leaflet map are one zoom higher.
+    const zoom = Number.isFinite(parsed.glZoom) ? parsed.glZoom as number : (parsed.zoom ?? NaN) - 1
+    if (
+      !Number.isFinite(parsed.lat)
+      || !Number.isFinite(parsed.lng)
+      || !Number.isFinite(zoom)
+      || !isInRomania({lat: parsed.lat as number, lng: parsed.lng as number})
+    ) return null
+    return {lat: parsed.lat as number, lng: parsed.lng as number, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))}
+  } catch {
+    return null
   }
+}
 
+const openingView = (city: Pick<City, 'slug' | 'lat' | 'lon'>) =>
+  savedView(cacheKey('map.lastView', city.slug)) ?? {lat: city.lat, lng: city.lon, zoom: DEFAULT_ZOOM}
+
+const clearStops = () => {
+  for (const id of shownStops) {
+    const marker = stopMarkers.get(id)
+    if (!marker) continue
+    tooltip?.forget(marker)
+    marker.remove()
+  }
+  shownStops.clear()
+  stopMarkers.clear()
+  stopData.clear()
+  routeColorsCache.clear()
+}
+
+watch(currentCity, (slug) => {
+  const m = map.value
+  const city = cities.value.find((c) => c.slug === slug)
+  credits.innerHTML = mapCreditsHTML()
+  if (!m || !city) return
+  clearStops()
+  const view = openingView(city)
+  m.flyTo({center: [view.lng, view.lat], zoom: view.zoom, duration: CITY_FLIGHT_MS})
+  void stopsInit()
+})
+
+onMounted(() => {
+  const initialView = savedView(mapViewKey())
   if (initialView) {
     mapInit(initialView, initialView.zoom)
   } else {
@@ -1055,13 +1089,12 @@ const renderHighlightedStops = () => {
   const selectedId = currentlyHighlightedStopId.value
   for (const {stopId, color} of highlightedStops.value as HighlightedStop[]) {
     if (stopId === selectedId) continue
-    const marker = stopMarkers.get(stopId)
-    if (!marker) continue
-    const name = stopNames.get(stopId)
-    const highlight = htmlMarker(markerLatLng(marker), makeHighlightIcon(color, themeOpts()), {
+    const stop = stopData.get(stopId)
+    if (!stop) continue
+    const highlight = htmlMarker(stop, makeHighlightIcon(color, themeOpts()), {
       zIndex: color === 'green' ? 1200 : color === 'red' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
-    if (name) tooltip?.bind(highlight, name, 'stop-name-tooltip', 14)
+    tooltip?.bind(highlight, stop.name, 'stop-name-tooltip', 14)
     onMarkerClick(highlight, () => router.push({name: 'stop', params: {stopId}}))
     highlightMarkers.push(highlight.addTo(m))
   }

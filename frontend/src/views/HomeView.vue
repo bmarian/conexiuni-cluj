@@ -195,16 +195,15 @@ const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
     .slice(0, 5)
 })
 
+// One collator: localeCompare with options builds a new one per comparison.
+const byName = new Intl.Collator(undefined, {numeric: true})
+
 const sortedRoutes = computed<Route[]>(() => {
-  return [...routes.value].sort((a, b) =>
-    a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true}),
-  )
+  return [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name))
 })
 
 const sortedStops = computed<Stop[]>(() => {
-  return [...stops.value].sort((a, b) =>
-    a.stop_name.localeCompare(b.stop_name, undefined, {numeric: true}),
-  )
+  return [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
 })
 
 const FIRST_CHUNK = 30

@@ -1,9 +1,9 @@
-import {shallowRef} from 'vue'
+import {shallowRef, watch} from 'vue'
 import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {type DayNote, hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
-import {apiPath, cacheKey} from '@/utils/city.ts'
+import {apiPath, cacheKey, currentCity} from '@/utils/city.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -169,8 +169,8 @@ export function buildHourlyOffsets(index: NetworkIndex, route: NetworkRoute, day
 export const network = shallowRef<NetworkIndex | null>(null)
 
 const CACHE_NAME = 'network-bundle'
-const BUNDLE_URL = apiPath('network')
-const META_KEY = cacheKey('network:meta')
+const bundleUrl = () => apiPath('network')
+const metaKey = () => cacheKey('network:meta')
 const MAX_AGE_MS = 12 * 60 * 60_000
 const CHECK_EVERY_MS = 15 * 60_000
 
@@ -178,7 +178,7 @@ type Meta = {version: string, static_version: string, fetchedAt: number}
 
 function readMeta(): Meta | null {
   try {
-    return JSON.parse(localStorage.getItem(META_KEY) ?? 'null')
+    return JSON.parse(localStorage.getItem(metaKey()) ?? 'null')
   } catch {
     return null
   }
@@ -186,7 +186,7 @@ function readMeta(): Meta | null {
 
 function writeMeta(meta: Meta) {
   try {
-    localStorage.setItem(META_KEY, JSON.stringify(meta))
+    localStorage.setItem(metaKey(), JSON.stringify(meta))
   } catch { /* noop */ }
 }
 
@@ -198,8 +198,9 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
-function use(bundle: NetworkBundle) {
-  if (!Array.isArray(bundle?.routes) || !Array.isArray(bundle?.stops)) return
+// A bundle that arrives after the city changed belongs to the old one.
+function use(bundle: NetworkBundle, city: string) {
+  if (city !== currentCity.value || !Array.isArray(bundle?.routes) || !Array.isArray(bundle?.stops)) return
   setScheduleDays(bundle.schedule_days, bundle.day_notes)
   network.value = new NetworkIndex(bundle)
 }
@@ -207,49 +208,66 @@ function use(bundle: NetworkBundle) {
 let lastCheck = 0
 let checking: Promise<void> | null = null
 
+async function fetchBundle(city: string) {
+  const url = bundleUrl()
+  try {
+    const meta = readMeta()
+    const response = await fetch(`${url}/version`, {cache: 'no-store'})
+    if (!response.ok) return
+    const latest = await response.json() as NetworkVersion
+    if (city !== currentCity.value) return
+    const fresh = meta && network.value && meta.static_version === latest.static_version && Date.now() - meta.fetchedAt < MAX_AGE_MS
+    if (fresh) return
+    if (meta && network.value && meta.version === latest.version) {
+      writeMeta({...meta, fetchedAt: Date.now()})
+      return
+    }
+    const bundleResponse = await fetch(url, {cache: 'no-cache'})
+    if (!bundleResponse.ok) return
+    const cache = await openCache()
+    await cache?.put(url, bundleResponse.clone())
+    const bundle = await bundleResponse.json() as NetworkBundle
+    if (city !== currentCity.value) return
+    use(bundle, city)
+    writeMeta({version: bundle.version, static_version: bundle.static_version, fetchedAt: Date.now()})
+  } catch (e) {
+    console.warn('network bundle:', e)
+  }
+}
+
 export function refreshNetwork(now = false): Promise<void> {
   if (checking) return checking
   if (!now && Date.now() - lastCheck < CHECK_EVERY_MS) return Promise.resolve()
   lastCheck = Date.now()
-  checking = (async () => {
-    try {
-      const meta = readMeta()
-      const response = await fetch(`${BUNDLE_URL}/version`, {cache: 'no-store'})
-      if (!response.ok) return
-      const latest = await response.json() as NetworkVersion
-      const fresh = meta && network.value && meta.static_version === latest.static_version && Date.now() - meta.fetchedAt < MAX_AGE_MS
-      if (fresh) return
-      if (meta && network.value && meta.version === latest.version) {
-        writeMeta({...meta, fetchedAt: Date.now()})
-        return
-      }
-      const bundleResponse = await fetch(BUNDLE_URL, {cache: 'no-cache'})
-      if (!bundleResponse.ok) return
-      const cache = await openCache()
-      await cache?.put(BUNDLE_URL, bundleResponse.clone())
-      const bundle = await bundleResponse.json() as NetworkBundle
-      use(bundle)
-      writeMeta({version: bundle.version, static_version: bundle.static_version, fetchedAt: Date.now()})
-    } catch (e) {
-      console.warn('network bundle:', e)
-    } finally {
-      checking = null
-    }
-  })()
-  return checking
+  const check = fetchBundle(currentCity.value).finally(() => {
+    if (checking === check) checking = null
+  })
+  checking = check
+  return check
 }
 
 async function loadStored() {
+  const city = currentCity.value
   try {
-    const cached = await (await openCache())?.match(BUNDLE_URL)
-    if (cached) use(await cached.json() as NetworkBundle)
+    const cached = await (await openCache())?.match(bundleUrl())
+    if (cached) use(await cached.json() as NetworkBundle, city)
   } catch { /* noop */ }
 }
 
-export const networkLoaded: Promise<void> = typeof window === 'undefined' ? Promise.resolve() : loadStored()
+let loaded: Promise<void> = typeof window === 'undefined' ? Promise.resolve() : loadStored()
+
+export const networkLoaded = () => loaded
+
+watch(currentCity, () => {
+  network.value = null
+  lastCheck = 0
+  checking = null
+  loaded = loadStored()
+  void loaded.then(() => refreshNetwork(true))
+}, {flush: 'sync'})
 
 export async function startNetwork() {
-  await networkLoaded
+  await networkLoaded()
   const saveData = (navigator as Navigator & {connection?: {saveData?: boolean}}).connection?.saveData
   if (!network.value && saveData) return
   const later = (fn: () => void) => ('requestIdleCallback' in window ? window.requestIdleCallback(fn, {timeout: 5000}) : setTimeout(fn, 3000))

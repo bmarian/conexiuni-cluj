@@ -1,7 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
-import {citiesLoaded, currentCity, knownCity, rememberCity, resolveCity} from '@/utils/city.ts'
+import {citiesLoaded, currentCity, knownCity, resolveCity, setCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
@@ -77,7 +77,7 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      redirect: {name: 'home', params: {city: currentCity}},
+      redirect: () => ({name: 'home', params: {city: currentCity.value}}),
     },
   ],
 })
@@ -86,14 +86,8 @@ router.beforeEach(async (to) => {
   const slug = to.params.city
   if (typeof slug !== 'string') return true
   await citiesLoaded
-  if (!knownCity(slug)) return `/${currentCity}/`
-  if (slug !== currentCity) {
-    // Every cache is keyed by the page's city, so another city needs a full load.
-    rememberCity(slug)
-    window.location.href = to.fullPath
-    return false
-  }
-  rememberCity(slug)
+  if (!knownCity(slug)) return `/${currentCity.value}/`
+  setCity(slug)
   return true
 })
 

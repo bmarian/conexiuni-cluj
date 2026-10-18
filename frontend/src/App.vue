@@ -421,7 +421,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
           <RouterView v-slot="{ Component, route: viewRoute }">
             <KeepAlive include="RoutePlanningView">
               <component :is="Component"
-                         :key="viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)"/>
+                         :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
             </KeepAlive>
           </RouterView>
         </div>

@@ -1,10 +1,10 @@
 import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
-import {cacheKey} from '@/utils/city.ts'
+import {cacheKey, currentCity} from '@/utils/city.ts'
 
-const FOLLOWED_KEY = cacheKey('follows:routes')
-const SEEN_KEY = cacheKey('route-changes:seen')
+const followedKey = () => cacheKey('follows:routes')
+const seenKey = () => cacheKey('route-changes:seen')
 const MAX_SEEN_IDS = 500
 const REFRESH_AFTER_MS = 30 * 60_000
 
@@ -54,13 +54,20 @@ const isString = (v: unknown): v is string => typeof v === 'string' && v.length 
 const isNumber = (v: unknown): v is number => typeof v === 'number'
 
 export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
-  const followed = ref<string[]>(readList(FOLLOWED_KEY, isString).slice(0, MAX_FOLLOWED_LINES))
-  const seenIds = ref(new Set(readList(SEEN_KEY, isNumber)))
+  const followed = ref<string[]>(readList(followedKey(), isString).slice(0, MAX_FOLLOWED_LINES))
+  const seenIds = ref(new Set(readList(seenKey(), isNumber)))
   const changes = ref<RouteChange[]>([])
   const loading = ref(false)
   const error = ref(false)
   let lastFetchAt = 0
   let fetchSeq = 0
+
+  watch(currentCity, () => {
+    followed.value = readList(followedKey(), isString).slice(0, MAX_FOLLOWED_LINES)
+    seenIds.value = new Set(readList(seenKey(), isNumber))
+    changes.value = []
+    lastFetchAt = 0
+  }, {flush: 'sync'})
 
   const unseenIds = computed(() => new Set(changes.value.filter((c) => !seenIds.value.has(c.id)).map((c) => c.id)))
   const hasUnseen = computed(() => unseenIds.value.size > 0)
@@ -75,13 +82,13 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     if (idx === -1 && followed.value.length >= MAX_FOLLOWED_LINES) return null
     if (idx === -1) followed.value.push(routeShortName)
     else followed.value.splice(idx, 1)
-    writeList(FOLLOWED_KEY, followed.value)
+    writeList(followedKey(), followed.value)
     return idx === -1
   }
 
   function importFollowed(raw: unknown) {
     followed.value = Array.isArray(raw) ? [...new Set(raw.filter(isString))].slice(0, MAX_FOLLOWED_LINES) : []
-    writeList(FOLLOWED_KEY, followed.value)
+    writeList(followedKey(), followed.value)
   }
 
   async function fetchChanges() {
@@ -115,7 +122,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     ids.forEach((id) => next.add(id))
     if (next.size === seenIds.value.size) return
     seenIds.value = new Set([...next].sort((a, b) => b - a).slice(0, MAX_SEEN_IDS))
-    writeList(SEEN_KEY, [...seenIds.value])
+    writeList(seenKey(), [...seenIds.value])
   }
 
   function markAllSeen() {

@@ -13,7 +13,7 @@ import {regionSettingsFor} from '@/utils/regionSettings.ts'
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
-const regionSlug = ref(currentCity)
+const regionSlug = ref(currentCity.value)
 const regionOpen = ref(false)
 const regionSettings = computed(() => regionSettingsFor(regionSlug.value))
 const regionName = computed(() => cities.value.find((c) => c.slug === regionSlug.value)?.name ?? regionSlug.value)

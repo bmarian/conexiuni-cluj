@@ -1,4 +1,4 @@
-import {computed, ref, shallowRef} from 'vue'
+import {computed, ref, shallowRef, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {
   JOURNEY_GIVE_UP_MS, startRun, stepJourney,
@@ -7,9 +7,9 @@ import {
 import {stepDetail, stepTitle} from '@/utils/journeyText.ts'
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
 import {translate as t} from '@/i18n.ts'
-import {cacheKey} from '@/utils/city.ts'
+import {cacheKey, cityPath, currentCity} from '@/utils/city.ts'
 
-const STORAGE_KEY = cacheKey('journey.v1')
+const storageKey = () => cacheKey('journey.v1')
 const NOTICE_TAG = 'journey'
 
 interface Saved {
@@ -19,7 +19,7 @@ interface Saved {
 
 function load(): Saved | null {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Saved | null
+    const saved = JSON.parse(localStorage.getItem(storageKey()) ?? 'null') as Saved | null
     if (!saved?.journey?.legs?.length || !saved.run?.phase) return null
     if (Date.now() - saved.journey.startedAt > JOURNEY_GIVE_UP_MS) return null
     return saved
@@ -35,6 +35,14 @@ export const useJourneyStore = defineStore('journey', () => {
   const step = shallowRef<JourneyStep | null>(null)
   const skips = ref(0)
 
+  watch(currentCity, () => {
+    const next = load()
+    journey.value = next?.journey ?? null
+    run.value = next?.run ?? null
+    step.value = null
+    skips.value = 0
+  }, {flush: 'sync'})
+
   const legIndex = computed(() => {
     const phase = run.value?.phase
     return phase && 'leg' in phase ? phase.leg : -1
@@ -43,8 +51,8 @@ export const useJourneyStore = defineStore('journey', () => {
 
   function persist() {
     try {
-      if (journey.value && run.value) localStorage.setItem(STORAGE_KEY, JSON.stringify({journey: journey.value, run: run.value}))
-      else localStorage.removeItem(STORAGE_KEY)
+      if (journey.value && run.value) localStorage.setItem(storageKey(), JSON.stringify({journey: journey.value, run: run.value}))
+      else localStorage.removeItem(storageKey())
     } catch {}
   }
 
@@ -77,10 +85,10 @@ export const useJourneyStore = defineStore('journey', () => {
     const result = stepJourney(current, state, fix, departure, nowMs, skip)
     step.value = result.step
     persist()
-    const url = '/nav'
+    const url = cityPath('/nav')
     if (result.done) {
       stop()
-      void notify({title: t('journeyArrived'), body: current.destination.name, tag: NOTICE_TAG, url: '/', buzz: true})
+      void notify({title: t('journeyArrived'), body: current.destination.name, tag: NOTICE_TAG, url: cityPath('/'), buzz: true})
       return
     }
     if (result.changed) {
