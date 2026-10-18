@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"conexiuni-cluj/sources"
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -132,7 +131,7 @@ func (city *City) runVehicleLearningSample(cfg VehicleLearningSamplerConfig, cou
 
 	plan := city.currentVehicleLearningPlan(cfg, counter)
 	if plan.CallsRemaining <= 0 || !plan.Ready {
-		log.Printf("vehicle learner: skip, ready=%t interval=%s learner_used=%d vehicles_used=%d calls_remaining=%d daily_budget=%d quota_remaining=%d",
+		city.log("vehicle learner: skip, ready=%t interval=%s learner_used=%d vehicles_used=%d calls_remaining=%d daily_budget=%d quota_remaining=%d",
 			plan.Ready,
 			plan.Interval,
 			plan.LearnerUsed,
@@ -147,7 +146,7 @@ func (city *City) runVehicleLearningSample(cfg VehicleLearningSamplerConfig, cou
 	counter.Record(time.Now())
 	_, err := city.observeVehicles(city.learner.source)
 	if err != nil {
-		log.Printf("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
+		city.log("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
 			plan.Interval,
 			plan.LearnerUsed+1,
 			plan.VehiclesUsed,
@@ -256,7 +255,7 @@ func (city *City) newVehicleLearningDailyCounter(name string, loc *time.Location
 	counter := &vehicleLearningDailyCounter{city: city, name: name, loc: loc}
 	count, resetAt, err := city.LoadTranzyQuota(name)
 	if err != nil {
-		log.Printf("vehicle learner: failed to load persisted quota %q: %v", name, err)
+		city.log("vehicle learner: failed to load persisted quota %q: %v", name, err)
 	} else {
 		counter.count = count
 		counter.resetAt = resetAt
@@ -304,7 +303,7 @@ func (counter *vehicleLearningDailyCounter) rolloverLocked(now time.Time) {
 
 func (counter *vehicleLearningDailyCounter) persistLocked() {
 	if err := counter.city.SaveTranzyQuota(counter.name, counter.count, counter.resetAt); err != nil {
-		log.Printf("vehicle learner: failed to persist quota %q: %v", counter.name, err)
+		counter.city.log("vehicle learner: failed to persist quota %q: %v", counter.name, err)
 	}
 }
 

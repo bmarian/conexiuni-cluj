@@ -187,7 +187,7 @@ func TestDiffRouteStops(t *testing.T) {
 	previous := append(stopsFor("25_0", 1, 2, 3, 4, 5), stopsFor("25_1", 5, 4, 3, 2, 1)...)
 	current := append(stopsFor("25_0", 1, 2, 9, 4, 5), stopsFor("25_1", 5, 3, 4, 2, 1)...)
 
-	items := diffRouteStops(previous, current)
+	items := (&City{Slug: "test"}).diffRouteStops(previous, current)
 	want := []RouteChangeItem{
 		{Kind: changeStopsRemoved, Direction: "0", Toward: "S5", Stops: []string{"S3"}},
 		{Kind: changeStopsAdded, Direction: "0", Toward: "S5", Stops: []string{"S9"}},
@@ -201,7 +201,7 @@ func TestDiffRouteStopsSkipsRewrittenRoutes(t *testing.T) {
 	previous := stopsFor("25_0", 1, 2, 3, 4, 5, 6)
 	current := stopsFor("25_0", 1, 7, 8, 9, 10, 6)
 
-	if items := diffRouteStops(previous, current); len(items) != 0 {
+	if items := (&City{Slug: "test"}).diffRouteStops(previous, current); len(items) != 0 {
 		t.Fatalf("want nothing for a mostly different stop list, got %+v", items)
 	}
 }

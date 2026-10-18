@@ -5,7 +5,6 @@ import (
 	"conexiuni-cluj/models"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"slices"
 	"sort"
@@ -55,9 +54,9 @@ func (city *City) StartScheduleDelayLearner(loc *time.Location) {
 		for {
 			started := time.Now()
 			if n, err := city.recomputeScheduleDelays(loc, started); err != nil {
-				log.Printf("schedule delay failed: %v", err)
+				city.log("schedule delay failed: %v", err)
 			} else {
-				log.Printf("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
+				city.log("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
 			}
 			time.Sleep(scheduleDelayRefresh)
 		}
@@ -455,7 +454,7 @@ func median(values []float64) float64 {
 func (city *City) loadScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {
 	rows, err := city.loadScheduleDelayRows(routeID, directionID, dayType)
 	if err != nil {
-		log.Printf("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
+		city.log("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
 		return 0, false
 	}
 	return selectScheduleDelay(rows, bucket)
@@ -488,7 +487,7 @@ func selectScheduleDelay(rows []scheduleDelayRow, bucket int) (float64, bool) {
 func (city *City) timetableChangedAt(routeShortName string) map[string]int64 {
 	history, err := city.TimetableHistory(routeShortName)
 	if err != nil {
-		log.Printf("schedule delay: timetable history for %s failed: %v", routeShortName, err)
+		city.log("schedule delay: timetable history for %s failed: %v", routeShortName, err)
 		return nil
 	}
 	changed := map[string]int64{}

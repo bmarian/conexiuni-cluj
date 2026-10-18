@@ -4,7 +4,6 @@ import (
 	"conexiuni-cluj/calendar"
 	"encoding/json"
 	"fmt"
-	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,14 +32,14 @@ type windowTuning struct {
 func (city *City) LoadWindowTuning() {
 	t, ok, err := city.savedWindowTuning()
 	if err != nil {
-		log.Printf("tuning: load failed: %v", err)
+		city.log("tuning: load failed: %v", err)
 	} else if ok && slices.Contains(vacationWindowCandidates, t.Window) {
 		city.setDayWindowSize(calendar.WeekdayVacation, t.Window)
 	}
 	for _, day := range calendar.ProfileDays {
 		s, ok, err := city.savedSeedTuning(day)
 		if err != nil {
-			log.Printf("tuning: loading the %s fill failed: %v", day, err)
+			city.log("tuning: loading the %s fill failed: %v", day, err)
 			continue
 		}
 		if ok && (s.Fill == seedPrevious || s.Fill == seedLastYear) {
@@ -183,7 +182,7 @@ func (city *City) tuneVacationWindow(now time.Time) {
 	started := time.Now()
 	result, err := city.evaluateVacationWindows(cal, today)
 	if err != nil {
-		log.Printf("tuning: school-holiday window check failed: %v", err)
+		city.log("tuning: school-holiday window check failed: %v", err)
 		return
 	}
 	current, _ := city.dayWindowSize(calendar.WeekdayVacation)
@@ -194,10 +193,10 @@ func (city *City) tuneVacationWindow(now time.Time) {
 		err = city.SaveTuning(vacationWindowTuning, string(data), now)
 	}
 	if err != nil {
-		log.Printf("tuning: saving the school-holiday window failed: %v", err)
+		city.log("tuning: saving the school-holiday window failed: %v", err)
 		return
 	}
-	log.Printf("tuning: school-holiday window %d (was %d): %s, in %s", result.Window, current, describeTuning(result), time.Since(started).Round(time.Millisecond))
+	city.log("tuning: school-holiday window %d (was %d): %s, in %s", result.Window, current, describeTuning(result), time.Since(started).Round(time.Millisecond))
 	if result.Changed {
 		city.setDayWindowSize(calendar.WeekdayVacation, result.Window)
 		city.applyCalendar(now)
@@ -314,7 +313,7 @@ func (city *City) tuneSeedFill(now time.Time) {
 	started := time.Now()
 	result, err := city.evaluateSeedFill(cal, dayType, n, today)
 	if err != nil {
-		log.Printf("tuning: %s fill check failed: %v", dayType, err)
+		city.log("tuning: %s fill check failed: %v", dayType, err)
 		return
 	}
 	current := city.seedFill(dayType)
@@ -325,10 +324,10 @@ func (city *City) tuneSeedFill(now time.Time) {
 		err = city.SaveTuning(seedTuningPrefix+dayType, string(data), now)
 	}
 	if err != nil {
-		log.Printf("tuning: saving the %s fill failed: %v", dayType, err)
+		city.log("tuning: saving the %s fill failed: %v", dayType, err)
 		return
 	}
-	log.Printf("tuning: %s fill %s (was %s): previous period %.0f s, last year %.0f s, over %d days and %d stop-to-stop times, in %s",
+	city.log("tuning: %s fill %s (was %s): previous period %.0f s, last year %.0f s, over %d days and %d stop-to-stop times, in %s",
 		dayType, result.Fill, current, result.Previous, result.LastYear, result.Days, result.Samples, time.Since(started).Round(time.Millisecond))
 	if result.Changed {
 		city.setSeedFill(dayType, result.Fill)

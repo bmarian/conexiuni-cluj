@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
-	"log"
 	"time"
 )
 
@@ -52,7 +51,7 @@ func (city *City) snapshotSegmentProfiles(routeID, directionID int, dayType stri
 	if !ok {
 		loaded, err := city.loadSegmentProfileRows(routeID, directionID)
 		if err != nil {
-			log.Printf("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
+			city.log("stop_times: segment profiles route=%d direction=%d: %v", routeID, directionID, err)
 			return map[stopPair]segmentProfileEstimate{}
 		}
 		rows = loaded
@@ -85,7 +84,7 @@ func (city *City) snapshotScheduleDelayRows(routeID, directionID int, dayType st
 	if !ok {
 		loaded, err := city.loadScheduleDelayRows(routeID, directionID, dayType)
 		if err != nil {
-			log.Printf("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
+			city.log("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
 			return nil
 		}
 		rows = loaded

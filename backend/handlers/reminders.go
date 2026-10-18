@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"regexp"
 	"sort"
 	"strconv"
@@ -195,7 +194,7 @@ func (city *City) SyncReminders(c fiber.Ctx) error {
 		ids[r.ID] = true
 	}
 	if ok, err := city.admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
-		log.Printf("push: could not look up subscription: %v", err)
+		city.log("push: could not look up subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
 	} else if !ok {
 		return c.SendStatus(fiber.StatusTooManyRequests)
@@ -206,7 +205,7 @@ func (city *City) SyncReminders(c fiber.Ctx) error {
 	}
 	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
 	if err := city.saveReminders(sub, req.Reminders); err != nil {
-		log.Printf("push: could not save reminders: %v", err)
+		city.log("push: could not save reminders: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
 	}
 	c.Set("Cache-Control", "no-store")
@@ -337,7 +336,7 @@ func (city *City) loadReminders() ([]storedReminder, error) {
 func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 	reminders, err := city.loadReminders()
 	if err != nil {
-		log.Printf("push: could not load reminders: %v", err)
+		city.log("push: could not load reminders: %v", err)
 		return
 	}
 	sort.Slice(reminders, func(i, j int) bool { return reminders[i].ID < reminders[j].ID })
@@ -349,7 +348,7 @@ func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 		if !ok {
 			if r.Date != "" {
 				if _, err := city.DB.Exec(`DELETE FROM push_reminders WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
-					log.Printf("push: could not drop a past reminder: %v", err)
+					city.log("push: could not drop a past reminder: %v", err)
 				}
 			}
 			continue
@@ -376,7 +375,7 @@ func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 		// Marked before sending, so a failed send can't repeat.
 		if _, err := city.DB.Exec(`UPDATE push_reminders SET last_fired_at = ?, leave_at = ? WHERE endpoint = ? AND id = ?`,
 			slot.UnixMilli(), pending, r.sub.endpoint, r.ID); err != nil {
-			log.Printf("push: could not mark a reminder as sent: %v", err)
+			city.log("push: could not mark a reminder as sent: %v", err)
 			continue
 		}
 		city.sendReminder(r, reminderPushMessage(city.Slug, r.pushReminder, r.sub.locale, kind, walk, slot, bus, now, loc), bus, now)
@@ -386,7 +385,7 @@ func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 // The told bus's time to leave, with the walk it was timed from.
 func (city *City) sendLeaveNow(r storedReminder, now time.Time, loc *time.Location) {
 	if _, err := city.DB.Exec(`UPDATE push_reminders SET leave_at = 0 WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
-		log.Printf("push: could not mark a reminder's time to leave as sent: %v", err)
+		city.log("push: could not mark a reminder's time to leave as sent: %v", err)
 		return
 	}
 	slot := time.UnixMilli(r.lastFiredAt)

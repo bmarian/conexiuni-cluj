@@ -329,16 +329,17 @@ func (city *City) refreshAvailability() {
 		JOIN trips t ON ts.trip_id = t.trip_id
 		JOIN routes r ON t.route_id = r.route_id
 		JOIN timetable tt ON tt.route_short_name = r.route_short_name`
-	// Without departure times every route with a pattern counts, and every stop on it.
-	if city.Timetables == nil {
-		routesSQL = `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`
-		stopsSQL = `SELECT DISTINCT stop_id FROM trip_stops`
-	}
-	routes, err := queryRows(city.DB, routesSQL, nil, func(rows *sql.Rows) (string, error) {
+	names := func(rows *sql.Rows) (string, error) {
 		var s string
 		err := rows.Scan(&s)
 		return s, err
-	})
+	}
+	routes, err := queryRows(city.DB, routesSQL, nil, names)
+	// A city with no departure times anywhere: every route with a pattern counts, and every stop on it.
+	if err == nil && len(routes) == 0 {
+		stopsSQL = `SELECT DISTINCT stop_id FROM trip_stops`
+		routes, err = queryRows(city.DB, `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`, nil, names)
+	}
 	if err != nil {
 		city.log("availability: routes: %v", err)
 		return

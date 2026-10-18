@@ -4,7 +4,6 @@ import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/predictions"
 	"database/sql"
-	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -90,7 +89,7 @@ func (city *City) learnLiveRules() liveRules {
 			return d, err
 		})
 	if err != nil {
-		log.Printf("live: schedule delays: %v", err)
+		city.log("live: schedule delays: %v", err)
 	}
 	// A run that still reads "now" on a screen (half a minute late) is always listed.
 	rules := liveRules{graceSec: 30, slotWindow: time.Minute}
@@ -125,7 +124,7 @@ func (city *City) refreshLiveTrips(force bool) {
 	}
 	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
-		log.Printf("live: routes: %v", err)
+		city.log("live: routes: %v", err)
 		return
 	}
 	started := time.Now()
@@ -139,7 +138,7 @@ func (city *City) refreshLiveTrips(force bool) {
 	city.liveTrips.Lock()
 	city.liveTrips.byTrip, city.liveTrips.period, city.liveTrips.day, city.liveTrips.rules = byTrip, period, day, rules
 	city.liveTrips.Unlock()
-	log.Printf("live: %d trips prepared in %s, grace %.0fs, reminder window %s", len(byTrip), time.Since(started).Round(time.Millisecond), rules.graceSec, rules.slotWindow)
+	city.log("live: %d trips prepared in %s, grace %.0fs, reminder window %s", len(byTrip), time.Since(started).Round(time.Millisecond), rules.graceSec, rules.slotWindow)
 }
 
 func (city *City) buildLiveTrips(route models.Route, now time.Time) []*liveTrip {

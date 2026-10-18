@@ -30,8 +30,8 @@ export function writeCachedList(key: string, list: unknown[]) {
   else setTimeout(write)
 }
 
-export async function apiPost(url: string, body: unknown): Promise<void> {
-  const response = await fetch(apiPath(url), {
+export async function apiPost(url: string, body: unknown, city?: string): Promise<void> {
+  const response = await fetch(apiPath(url, city), {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),

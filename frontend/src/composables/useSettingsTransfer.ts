@@ -1,23 +1,38 @@
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
-import {parseFavoriteRoutes, parsePlans, parseStopIds, useFavoritesStore} from '@/stores/favorites'
-import {useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {FAVORITE_KEYS, parseFavoriteRoutes, parsePlans, parseStopIds, savedFavorites, useFavoritesStore} from '@/stores/favorites'
+import {FOLLOWS_KEY, useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {usePushStore} from '@/stores/push'
 import {REGION_SETTINGS, regionSettingsFor} from '@/utils/regionSettings.ts'
-import {cities, DEFAULT_CITY} from '@/utils/city.ts'
+import {cities, citiesSaving, currentCity, DEFAULT_CITY, knownCity} from '@/utils/city.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const citiesWithFavorites = () => new Set([...FAVORITE_KEYS, FOLLOWS_KEY].flatMap(citiesSaving))
+
+// An export from before cities, or from the apps, holds only Cluj's.
+function exportedCities(data: Record<string, unknown>): Record<string, Record<string, unknown>> {
+  if (!isRecord(data.cities)) return {[DEFAULT_CITY]: {favorites: data.favorites, followedLines: data.followedLines}}
+  const out: Record<string, Record<string, unknown>> = {}
+  for (const [slug, entry] of Object.entries(data.cities)) {
+    if (/^[a-z][a-z0-9-]*$/.test(slug) && knownCity(slug) && isRecord(entry)) out[slug] = entry
+  }
+  return out
+}
+
 // Summary shown before a received export replaces the current one.
 export function describeExport(data: unknown) {
   if (!isRecord(data) || (!isRecord(data.favorites) && !isRecord(data.settings))) return null
-  const favorites = isRecord(data.favorites) ? data.favorites : {}
-  return {
-    stops: parseStopIds(favorites.stops).length,
-    lines: parseFavoriteRoutes(favorites.routes).length,
-    places: parsePlans(favorites.plans).length,
-    followed: Array.isArray(data.followedLines) ? data.followedLines.filter((x) => typeof x === 'string').length : 0,
+  const summary = {stops: 0, lines: 0, places: 0, followed: 0}
+  for (const entry of Object.values(exportedCities(data))) {
+    const favorites = isRecord(entry.favorites) ? entry.favorites : {}
+    summary.stops += parseStopIds(favorites.stops).length
+    summary.lines += parseFavoriteRoutes(favorites.routes).length
+    summary.places += parsePlans(favorites.plans).length
+    summary.followed += Array.isArray(entry.followedLines) ? entry.followedLines.filter((x) => typeof x === 'string').length : 0
   }
+  return summary
 }
 
 function regionsExport() {
@@ -55,13 +70,27 @@ export function useSettingsTransfer() {
         regions: regionsExport(),
         busAlerts: settings.busAlerts,
       },
-      favorites: {
-        routes: favs.favoriteRoutes,
-        stops: favs.favoriteStopIds,
-        plans: favs.favoritePlans,
-        recentPlans: favs.recentPlans,
-      },
-      followedLines: routeUpdates.followed,
+      // The apps read these and know only Cluj.
+      favorites: savedFavorites(DEFAULT_CITY),
+      followedLines: routeUpdates.followedIn(DEFAULT_CITY),
+      cities: Object.fromEntries([...citiesWithFavorites()].map((city) => [city, {
+        favorites: savedFavorites(city),
+        followedLines: routeUpdates.followedIn(city),
+      }])),
+    }
+  }
+
+  // Replaces every city the export speaks for, each in its own city.
+  function importFavorites(data: Record<string, unknown>, withFollowed: boolean) {
+    const byCity = exportedCities(data)
+    const targets = isRecord(data.cities) ? new Set([...Object.keys(byCity), ...citiesWithFavorites()]) : new Set(Object.keys(byCity))
+    for (const city of targets) {
+      const entry = byCity[city] ?? {}
+      favs.importAll(isRecord(entry.favorites) ? entry.favorites : {}, city)
+      if (!withFollowed || (city in byCity && !Array.isArray(entry.followedLines))) continue
+      routeUpdates.importFollowed(entry.followedLines, city)
+      // The city on screen syncs itself when its list changes.
+      if (city !== currentCity.value) void usePushStore().sync(city)
     }
   }
 
@@ -96,14 +125,13 @@ export function useSettingsTransfer() {
       }
     }
     if (typeof s.busAlerts === 'boolean') settings.setBusAlerts(s.busAlerts)
-    favs.importAll(isRecord(data.favorites) ? data.favorites : {})
-    if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
+    importFavorites(data, true)
   }
 
   // The simplified layout keeps its own look, so it only takes favorites and the language.
   function applyFavorites(data: unknown) {
     if (!isRecord(data)) throw new Error('not a settings export')
-    favs.importAll(isRecord(data.favorites) ? data.favorites : {})
+    importFavorites(data, false)
     applyLocale(isRecord(data.settings) ? data.settings.locale : undefined)
   }
 

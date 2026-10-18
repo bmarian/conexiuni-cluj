@@ -10,6 +10,10 @@ import (
 
 // One line A-B-C-D: three full trips, a short run, a run from B, an on-time and a late run via X; two trips back.
 func testFeed(t *testing.T) *feed {
+	return testFeedWith(t, nil)
+}
+
+func testFeedWith(t *testing.T, replace map[string]string) *feed {
 	t.Helper()
 	files := map[string]string{
 		"routes.txt": "route_id,route_short_name,route_long_name,route_type,route_color\nL1,7,A - D,3,FF0000\n",
@@ -30,6 +34,9 @@ func testFeed(t *testing.T) *feed {
 			"detour,11:00:00,11:00:00,A,1\ndetour,11:05:00,11:05:00,B,2\ndetour,11:12:00,11:12:00,X,3\ndetour,11:18:00,11:18:00,C,4\ndetour,11:26:00,11:26:00,D,5\n" +
 			"b1,06:30:00,06:30:00,D,1\nb1,06:38:00,06:38:00,C,2\nb1,06:45:00,06:45:00,B,3\nb1,06:50:00,06:50:00,A,4\n" +
 			"b2,07:30:00,07:30:00,D,1\nb2,07:38:00,07:38:00,C,2\nb2,07:45:00,07:45:00,B,3\nb2,07:50:00,07:50:00,A,4\n",
+	}
+	for name, content := range replace {
+		files[name] = content
 	}
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
@@ -116,11 +123,31 @@ func TestSnapshotKeepsTheUsualPatternOnly(t *testing.T) {
 }
 
 func TestRepresentativeDaysStartWhereTheFeedDoes(t *testing.T) {
-	now := time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC) // a Sunday
-	start := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
-	days := representativeDays(now, start, start.AddDate(0, 3, 0))
+	f := testFeedWith(t, map[string]string{
+		"calendar.txt": "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n" +
+			"WK,1,1,1,1,1,0,0,20261021,20270121\nWE,0,0,0,0,0,1,1,20261021,20270121\n",
+	})
+	days := f.representativeDays(time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)) // a Sunday
 	if days["weekdays"].Day() != 21 || days["saturday"].Day() != 24 || days["sunday"].Day() != 25 {
 		t.Fatalf("days %v", days)
+	}
+}
+
+// Sibiu's feed drops its school runs on 30 November and 1 December 2026.
+func TestAHolidayDoesNotStandForItsKindOfDay(t *testing.T) {
+	f := testFeedWith(t, map[string]string{
+		"calendar.txt": "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n" +
+			"WK,1,1,1,1,1,0,0,20230601,20270630\nSA,0,0,0,0,0,1,0,20230601,20270630\nE2026,1,1,1,1,1,0,0,20260826,20270618\n",
+		"calendar_dates.txt": "service_id,date,exception_type\nE2026,20261130,2\nE2026,20261201,2\n",
+	})
+	now := time.Date(2026, 11, 30, 9, 0, 0, 0, time.UTC)
+	day := f.representativeDays(now)["weekdays"]
+	if day.Format("20060102") != "20261202" || !f.servicesOn(day)["E2026"] {
+		t.Fatalf("weekdays stand for %s, running %v", day.Format("20060102"), f.servicesOn(day))
+	}
+	// After the school year the plain weekday is all there is.
+	if day := f.representativeDays(time.Date(2027, 6, 21, 0, 0, 0, 0, time.UTC))["weekdays"]; f.servicesOn(day)["E2026"] {
+		t.Fatalf("summer weekdays run the school extras on %s", day.Format("20060102"))
 	}
 }
 

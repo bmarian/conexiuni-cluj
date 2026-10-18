@@ -1,7 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
-import {citiesLoaded, currentCity, knownCity, resolveCity, setCity} from '@/utils/city.ts'
+import {citiesLoaded, currentCity, DEFAULT_CITY, knownCity, LEGACY_SECTIONS, resolveCity, setCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
@@ -30,6 +30,15 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: AdminView,
+    },
+    {
+      // A share sent to the installed app is for the city on screen.
+      path: `/:section(${LEGACY_SECTIONS.join('|')})/:rest(.*)*`,
+      redirect: (to) => ({
+        path: `/${to.params.section === 'plan' && isShare(to.query) ? currentCity.value : DEFAULT_CITY}${to.path}`,
+        query: to.query,
+        hash: to.hash,
+      }),
     },
     {
       path: '/:city',
@@ -86,7 +95,7 @@ router.beforeEach(async (to) => {
   const slug = to.params.city
   if (typeof slug !== 'string') return true
   await citiesLoaded
-  if (!knownCity(slug)) return `/${currentCity.value}/`
+  if (!knownCity(slug)) return `/${await resolveCity()}/`
   setCity(slug)
   return true
 })

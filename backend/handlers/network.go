@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strings"
@@ -93,7 +92,7 @@ func (city *City) buildNetworkRoute(route models.Route) models.NetworkRoute {
 	}
 	base, routeID, err := city.getBaseStopTimes(StopTimeFilter{RouteShortName: &rsn})
 	if err != nil {
-		log.Printf("network: stop times for %s: %v", rsn, err)
+		city.log("network: stop times for %s: %v", rsn, err)
 		return out
 	}
 	for _, st := range base {
@@ -139,7 +138,7 @@ func (city *City) addShapeHashes(routes []models.NetworkRoute) {
 	}
 	points, err := city.GetShapes(ids)
 	if err != nil {
-		log.Printf("network: shapes: %v", err)
+		city.log("network: shapes: %v", err)
 		return
 	}
 	polylines := shapePolylines(points)
@@ -221,7 +220,7 @@ func (city *City) buildNetwork() (*builtNetwork, error) {
 	city.networkCache.Lock()
 	city.networkCache.current = built
 	city.networkCache.Unlock()
-	log.Printf("network: built version=%s static=%s routes=%d json=%dKB gzip=%dKB in %s",
+	city.log("network: built version=%s static=%s routes=%d json=%dKB gzip=%dKB in %s",
 		built.version.Version, built.version.StaticVersion, len(bundle.Routes), len(data)/1024, len(built.gzipped)/1024,
 		time.Since(started).Round(time.Millisecond))
 	return built, nil
@@ -240,7 +239,7 @@ func (city *City) currentNetwork() (*builtNetwork, error) {
 				city.networkCache.Unlock()
 			}()
 			if _, err := city.buildNetwork(); err != nil {
-				log.Printf("network: rebuild failed: %v", err)
+				city.log("network: rebuild failed: %v", err)
 			}
 		}()
 	}
@@ -253,7 +252,7 @@ func (city *City) currentNetwork() (*builtNetwork, error) {
 
 func (city *City) WarmNetwork() {
 	if _, err := city.buildNetwork(); err != nil {
-		log.Printf("network: warm build failed: %v", err)
+		city.log("network: warm build failed: %v", err)
 	}
 }
 

@@ -3,7 +3,8 @@ import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
 import {cacheKey, currentCity} from '@/utils/city.ts'
 
-const followedKey = () => cacheKey('follows:routes')
+export const FOLLOWS_KEY = 'follows:routes'
+const followedKey = (city?: string) => cacheKey(FOLLOWS_KEY, city)
 const seenKey = () => cacheKey('route-changes:seen')
 const MAX_SEEN_IDS = 500
 const REFRESH_AFTER_MS = 30 * 60_000
@@ -86,9 +87,12 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     return idx === -1
   }
 
-  function importFollowed(raw: unknown) {
-    followed.value = Array.isArray(raw) ? [...new Set(raw.filter(isString))].slice(0, MAX_FOLLOWED_LINES) : []
-    writeList(followedKey(), followed.value)
+  const followedIn = (city: string) => (city === currentCity.value ? followed.value : readList(followedKey(city), isString))
+
+  function importFollowed(raw: unknown, city = currentCity.value) {
+    const list = Array.isArray(raw) ? [...new Set(raw.filter(isString))].slice(0, MAX_FOLLOWED_LINES) : []
+    writeList(followedKey(city), list)
+    if (city === currentCity.value) followed.value = list
   }
 
   async function fetchChanges() {
@@ -151,6 +155,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     hasUnseen,
     isFollowing,
     toggleFollow,
+    followedIn,
     importFollowed,
     fetchChanges,
     refreshIfStale,

@@ -3,6 +3,7 @@ import {searchPlaces} from '@/utils/places.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {isSiteHost} from '@/utils/site.ts'
+import {currentCity} from '@/utils/city.ts'
 
 export const SHARE_PARAMS = ['shared_title', 'shared_text', 'shared_url'] as const
 
@@ -20,11 +21,11 @@ export async function sharedDestination(query: LocationQuery): Promise<RouteLoca
     } catch {}
   }
   const name = text.split('\n').map((line) => line.trim()).find((line) => line && !line.startsWith('http')) ?? text.trim()
-  if (!name) return {name: 'home'}
+  if (!name) return {name: 'home', params: {city: currentCity.value}}
   const settings = useSettingsStore()
   settings.showToast(t('shareFinding', {name: name.slice(0, 40)}))
   const [place] = await searchPlaces(name, 1).catch(() => [])
-  if (place) return {name: 'plan', query: {lat: place.lat, lon: place.lon, name: place.label}}
+  if (place) return {name: 'plan', params: {city: currentCity.value}, query: {lat: place.lat, lon: place.lon, name: place.label}}
   settings.showToast(t('shareNotFound'))
-  return {name: 'plan', query: {q: name}}
+  return {name: 'plan', params: {city: currentCity.value}, query: {q: name}}
 }

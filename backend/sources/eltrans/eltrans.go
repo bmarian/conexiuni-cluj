@@ -6,8 +6,6 @@ import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/sources"
 	"fmt"
-	"io"
-	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -192,17 +190,9 @@ func (s *Source) Timetables(snap *sources.Snapshot) (map[string]*models.Timetabl
 }
 
 func (s *Source) rows() ([]string, error) {
-	resp, err := http.Get(s.url)
+	data, err := sources.Download(s.url)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("eltrans: %s: status %d", s.url, resp.StatusCode)
-	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("eltrans: %w", err)
 	}
 	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {

@@ -1,7 +1,6 @@
 package database
 
 import (
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -223,7 +222,7 @@ func (s *Store) StartStatsFlusher() {
 		defer ticker.Stop()
 		for range ticker.C {
 			if err := s.FlushStats(); err != nil {
-				log.Printf("stats flush failed: %v", err)
+				s.logf("stats flush failed: %v", err)
 			}
 		}
 	}()

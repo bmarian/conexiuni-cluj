@@ -5,7 +5,6 @@ import (
 	"conexiuni-cluj/models"
 	"database/sql"
 	"encoding/json"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -79,9 +78,9 @@ func (city *City) runArchive(now time.Time) {
 	run.Err = strings.Join(errs, "; ")
 	run.Took = time.Since(started)
 	if run.Err != "" {
-		log.Printf("archive failed: %s", run.Err)
+		city.log("archive failed: %s", run.Err)
 	} else {
-		log.Printf("archive: copied %d rows, %d new timetable or stop versions, pruned %d in %s", run.Copied, run.Versions, run.Pruned, run.Took.Round(time.Millisecond))
+		city.log("archive: copied %d rows, %d new timetable or stop versions, pruned %d in %s", run.Copied, run.Versions, run.Pruned, run.Took.Round(time.Millisecond))
 	}
 	city.lastArchive.Lock()
 	city.lastArchive.run = &run
@@ -129,13 +128,13 @@ func (city *City) archiveTimetable(t *models.Timetable, weekdays, saturday, sund
 		Sunday:         sunday,
 	}}, time.Now())
 	if err != nil {
-		log.Printf("archive: timetable %s failed: %v", t.RouteShortName, err)
+		city.log("archive: timetable %s failed: %v", t.RouteShortName, err)
 	}
 }
 
 func (city *City) archiveStopTimes(stopTimes []models.StopTime) {
 	if _, err := city.ArchiveTripStops(tripStopsJSON(stopTimes), time.Now()); err != nil {
-		log.Printf("archive: stop times failed: %v", err)
+		city.log("archive: stop times failed: %v", err)
 	}
 }
 

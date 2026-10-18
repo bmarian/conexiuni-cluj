@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/predictions"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -184,7 +183,7 @@ func (city *City) ObserveVehicleSegmentTravelTimes(loc *time.Location, vehicles 
 			SampleErrors:       writes.SampleInsertError,
 			ProfileErrors:      writes.ProfileError,
 		}
-		log.Printf("segment travel: snapshot vehicles=%d accepted=%d stored=%d turnarounds=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
+		city.log("segment travel: snapshot vehicles=%d accepted=%d stored=%d turnarounds=%d profiles_created=%d profiles_updated=%d profiles_unchanged=%d rejected=%d ignored_reset=%d ignored_duplicate=%d ignored_no_progress=%d ignored_non_adjacent=%d ignored_no_tracker=%d stale=%d invalid=%d sample_errors=%d profile_errors=%d",
 			snapshot.Vehicles,
 			snapshot.Accepted,
 			snapshot.Stored,
@@ -706,7 +705,7 @@ func (city *City) storeSegmentTravelSample(sample pendingSegmentSample) segmentW
 		sample.Duration.Seconds(),
 		sample.ObservedAt.Unix(),
 	); err != nil {
-		log.Printf("segment travel: sample insert failed: %v", err)
+		city.log("segment travel: sample insert failed: %v", err)
 		summary.SampleInsertError++
 		return summary
 	}
@@ -748,7 +747,7 @@ func (city *City) recomputeSegmentProfile(key segmentProfileKey) segmentProfileW
 	})
 	if err != nil || len(durations) == 0 {
 		if err != nil {
-			log.Printf("segment travel: profile recompute failed: %v", err)
+			city.log("segment travel: profile recompute failed: %v", err)
 			return segmentProfileFailed
 		}
 		return segmentProfileUnchanged
@@ -756,7 +755,7 @@ func (city *City) recomputeSegmentProfile(key segmentProfileKey) segmentProfileW
 
 	median, p75, err := upsertSegmentProfile(city.DB, key, durations, time.Now())
 	if err != nil {
-		log.Printf("segment travel: profile upsert failed: %v", err)
+		city.log("segment travel: profile upsert failed: %v", err)
 		return segmentProfileFailed
 	}
 
@@ -910,11 +909,11 @@ func (city *City) pruneOldSegmentSamples() {
 	city.lastSegmentPrune = time.Now()
 	n, err := city.pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, time.Now())
 	if err != nil {
-		log.Printf("segment travel: sample prune failed: %v", err)
+		city.log("segment travel: sample prune failed: %v", err)
 		return
 	}
 	if n > 0 {
-		log.Printf("segment travel: pruned %d samples older than %s and outside their day's window", n, segmentSampleRetention)
+		city.log("segment travel: pruned %d samples older than %s and outside their day's window", n, segmentSampleRetention)
 	}
 }
 
@@ -927,11 +926,11 @@ func (city *City) pruneStaleSegmentProfiles() {
 	city.lastSegmentProfilePrune = time.Now()
 	res, err := city.DB.Exec(`DELETE FROM segment_travel_time_profiles WHERE updated_at < ?`, time.Now().Add(-segmentProfileRetention).Unix())
 	if err != nil {
-		log.Printf("segment travel: profile prune failed: %v", err)
+		city.log("segment travel: profile prune failed: %v", err)
 		return
 	}
 	if n, err := res.RowsAffected(); err == nil && n > 0 {
-		log.Printf("segment travel: pruned %d profiles not updated in %s", n, segmentProfileRetention)
+		city.log("segment travel: pruned %d profiles not updated in %s", n, segmentProfileRetention)
 	}
 }
 

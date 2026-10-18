@@ -231,7 +231,7 @@ func (city *City) SubscribePush(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid subscription keys"})
 	}
 	if ok, err := city.admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
-		log.Printf("push: could not look up subscription: %v", err)
+		city.log("push: could not look up subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
 	} else if !ok {
 		return c.SendStatus(fiber.StatusTooManyRequests)
@@ -242,7 +242,7 @@ func (city *City) SubscribePush(c fiber.Ctx) error {
 	}
 	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
 	if err := city.savePushSubscription(sub, cleanPushRouteNames(req.Routes)); err != nil {
-		log.Printf("push: could not save subscription: %v", err)
+		city.log("push: could not save subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
 	}
 	c.Set("Cache-Control", "no-store")
@@ -257,7 +257,7 @@ func (city *City) UnsubscribePush(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
 	if err := city.deletePushSubscription(req.Endpoint); err != nil {
-		log.Printf("push: could not delete subscription: %v", err)
+		city.log("push: could not delete subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not delete subscription"})
 	}
 	c.Set("Cache-Control", "no-store")
@@ -405,7 +405,7 @@ func (city *City) flushPendingPushes() {
 			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
 		})
 	if err != nil {
-		log.Printf("push: could not load pending changes: %v", err)
+		city.log("push: could not load pending changes: %v", err)
 		return
 	}
 	if len(changes) == 0 {
@@ -422,7 +422,7 @@ func (city *City) flushPendingPushes() {
 	}
 	if _, err := city.DB.Exec(`UPDATE route_changes SET push_pending = 0 WHERE push_pending = 1 AND id <= ?`,
 		changes[0].ID); err != nil {
-		log.Printf("push: could not mark changes as sent: %v", err)
+		city.log("push: could not mark changes as sent: %v", err)
 	}
 }
 
@@ -438,7 +438,7 @@ func (city *City) sendRouteChangePush(change RouteChange) {
 			return s, rows.Scan(&s.endpoint, &s.p256dh, &s.auth, &s.locale)
 		})
 	if err != nil {
-		log.Printf("push: could not load followers of line %s: %v", change.RouteShortName, err)
+		city.log("push: could not load followers of line %s: %v", change.RouteShortName, err)
 		return
 	}
 	if len(subscribers) == 0 {
@@ -453,14 +453,14 @@ func (city *City) sendRouteChangePush(change RouteChange) {
 	for _, sub := range subscribers {
 		payload, err := json.Marshal(routeChangePushMessage(city.Slug, change, sub.locale))
 		if err != nil {
-			log.Printf("push: could not encode line %s change: %v", change.RouteShortName, err)
+			city.log("push: could not encode line %s change: %v", change.RouteShortName, err)
 			return
 		}
 		if city.sendPush(sub, payload) {
 			delivered++
 		}
 	}
-	log.Printf("push: line %s change %d sent to %d/%d followers", change.RouteShortName, change.ID, delivered, len(subscribers))
+	city.log("push: line %s change %d sent to %d/%d followers", change.RouteShortName, change.ID, delivered, len(subscribers))
 }
 
 func (city *City) sendPush(sub pushSubscriber, payload []byte) bool {
@@ -482,7 +482,7 @@ func (city *City) sendPushWith(sub pushSubscriber, payload []byte, ttl int, urge
 	})
 	host := pushEndpointHost(sub.endpoint)
 	if err != nil {
-		log.Printf("push: sending to %s failed: %v", host, err)
+		city.log("push: sending to %s failed: %v", host, err)
 		return false
 	}
 	defer resp.Body.Close()
@@ -493,10 +493,10 @@ func (city *City) sendPushWith(sub pushSubscriber, payload []byte, ttl int, urge
 		return true
 	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone:
 		if err := city.deletePushSubscription(sub.endpoint); err != nil {
-			log.Printf("push: could not drop expired subscription on %s: %v", host, err)
+			city.log("push: could not drop expired subscription on %s: %v", host, err)
 		}
 	default:
-		log.Printf("push: %s rejected a notification with status %d: %s", host, resp.StatusCode, strings.TrimSpace(string(body)))
+		city.log("push: %s rejected a notification with status %d: %s", host, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return false
 }

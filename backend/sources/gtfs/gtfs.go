@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"math"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -53,22 +52,27 @@ type feed struct {
 	stops    tripStops
 	patterns map[string]*pattern
 	stopName map[string]string
+	// By date, as calendar_dates writes it.
+	exceptions map[string][]exception
+	// Trips on no pattern.
+	dropped int
+	url     string
 }
 
 func (f *Feed) fetch() (*feed, error) {
-	resp, err := http.Get(f.url)
+	data, err := sources.Download(f.url)
+	if err != nil {
+		return nil, fmt.Errorf("gtfs: %w", err)
+	}
+	out, err := parse(data)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gtfs: %s: status %d", f.url, resp.StatusCode)
+	out.url = f.url
+	if out.dropped > 0 {
+		log.Printf("gtfs %s: %d trips run only part of their line and are not listed", f.url, out.dropped)
 	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return parse(data)
+	return out, nil
 }
 
 func parse(data []byte) (*feed, error) {
@@ -100,11 +104,8 @@ func parse(data []byte) (*feed, error) {
 			return nil, fmt.Errorf("gtfs: no %s.txt", name)
 		}
 	}
-	out.trips, out.stops = out.readTrips(), out.readStopTimes()
-	var dropped int
-	if out.patterns, dropped = patterns(out.trips, out.stops); dropped > 0 {
-		log.Printf("gtfs: %d trips run only part of their line and are not listed", dropped)
-	}
+	out.trips, out.stops, out.exceptions = out.readTrips(), out.readStopTimes(), out.readExceptions()
+	out.patterns, out.dropped = patterns(out.trips, out.stops)
 	stops := out.files["stops"]
 	out.stopName = make(map[string]string, len(stops.rows))
 	for _, row := range stops.rows {
@@ -200,62 +201,118 @@ func (f *feed) servicesOn(day time.Time) map[string]bool {
 		}
 		active[cal.get(row, "service_id")] = true
 	}
-	if dates, ok := f.files["calendar_dates"]; ok {
-		for _, row := range dates.rows {
-			if dates.get(row, "date") != date {
-				continue
-			}
-			switch dates.get(row, "exception_type") {
-			case "1":
-				active[dates.get(row, "service_id")] = true
-			case "2":
-				delete(active, dates.get(row, "service_id"))
-			}
+	for _, e := range f.exceptions[date] {
+		if e.added {
+			active[e.service] = true
+		} else {
+			delete(active, e.service)
 		}
 	}
 	return active
 }
 
+type exception struct {
+	service string
+	added   bool
+}
+
+func (f *feed) readExceptions() map[string][]exception {
+	out := map[string][]exception{}
+	dates, ok := f.files["calendar_dates"]
+	if !ok {
+		return out
+	}
+	for _, row := range dates.rows {
+		switch kind := dates.get(row, "exception_type"); kind {
+		case "1", "2":
+			date := dates.get(row, "date")
+			out[date] = append(out[date], exception{service: dates.get(row, "service_id"), added: kind == "1"})
+		}
+	}
+	return out
+}
+
 func (f *feed) validity() (start, end time.Time) {
+	widen := func(s, e string) {
+		from, errS := time.Parse("20060102", s)
+		to, errE := time.Parse("20060102", e)
+		if errS != nil || errE != nil {
+			return
+		}
+		if start.IsZero() || from.Before(start) {
+			start = from
+		}
+		if to.After(end) {
+			end = to
+		}
+	}
 	cal := f.files["calendar"]
 	for _, row := range cal.rows {
-		s, errS := time.Parse("20060102", cal.get(row, "start_date"))
-		e, errE := time.Parse("20060102", cal.get(row, "end_date"))
-		if errS != nil || errE != nil {
-			continue
-		}
-		if start.IsZero() || s.Before(start) {
-			start = s
-		}
-		if e.After(end) {
-			end = e
+		widen(cal.get(row, "start_date"), cal.get(row, "end_date"))
+	}
+	for date, list := range f.exceptions {
+		for _, e := range list {
+			if e.added {
+				widen(date, date)
+				break
+			}
 		}
 	}
 	return start, end
 }
 
-// The first date of each kind of day, from today or from the feed's start.
-func representativeDays(now, start, end time.Time) map[string]time.Time {
+func dayKind(day time.Time) string {
+	switch day.Weekday() {
+	case time.Saturday:
+		return "saturday"
+	case time.Sunday:
+		return "sunday"
+	}
+	return "weekdays"
+}
+
+// For each kind of day, the first date running what most days of that kind run until the feed ends,
+// so a holiday or a one-off change never stands for the whole kind.
+func (f *feed) representativeDays(now time.Time) map[string]time.Time {
+	start, end := f.validity()
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	if start.After(from) {
 		from = start
 	}
+	if end.Before(from) {
+		end = from.AddDate(0, 0, 6)
+	}
+	type tally struct {
+		first time.Time
+		days  int
+	}
+	byKind := map[string]map[string]*tally{}
+	for day := from; !day.After(end); day = day.AddDate(0, 0, 1) {
+		active := f.servicesOn(day)
+		services := make([]string, 0, len(active))
+		for id := range active {
+			services = append(services, id)
+		}
+		sort.Strings(services)
+		kind, sig := dayKind(day), strings.Join(services, "\x00")
+		if byKind[kind] == nil {
+			byKind[kind] = map[string]*tally{}
+		}
+		if t := byKind[kind][sig]; t != nil {
+			t.days++
+		} else {
+			byKind[kind][sig] = &tally{first: day, days: 1}
+		}
+	}
 	out := map[string]time.Time{}
-	for i := 0; i < 7 && len(out) < 3; i++ {
-		day := from.AddDate(0, 0, i)
-		if !end.IsZero() && day.After(end) {
-			break
+	for kind, tallies := range byKind {
+		var best *tally
+		for _, t := range tallies {
+			if best == nil || t.days > best.days || (t.days == best.days && t.first.Before(best.first)) {
+				best = t
+			}
 		}
-		kind := "weekdays"
-		switch day.Weekday() {
-		case time.Saturday:
-			kind = "saturday"
-		case time.Sunday:
-			kind = "sunday"
-		}
-		if _, ok := out[kind]; !ok {
-			out[kind] = day
-		}
+		out[kind] = best.first
 	}
 	return out
 }
@@ -280,8 +337,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 	for _, row := range routes.rows {
 		routeShort[routes.get(row, "route_id")] = routes.get(row, "route_short_name")
 	}
-	start, end := f.validity()
-	days := representativeDays(now, start, end)
+	days := f.representativeDays(now)
 	services := map[string]map[string]bool{}
 	for kind, day := range days {
 		services[kind] = f.servicesOn(day)
@@ -338,7 +394,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 		for kind, schedule := range map[string]*models.DaySchedule{"weekdays": &t.Weekdays, "saturday": &t.Saturday, "sunday": &t.Sunday} {
 			*schedule = daySchedule(sortedTimes(departures[key{lineDir{short, 0}, kind}]), sortedTimes(departures[key{lineDir{short, 1}, kind}]))
 		}
-		sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID))
+		sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID), "gtfs "+f.url)
 		out[short] = t
 	}
 	return out

@@ -6,10 +6,11 @@ import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import type {RouteDirection} from '@/types/tranzy.ts'
 import {cacheKey, currentCity} from '@/utils/city.ts'
 
-const routesKey = () => cacheKey('favorites:routes')
-const stopsKey = () => cacheKey('favorites:stops')
-const plansKey = () => cacheKey('favorites:plans')
-const recentPlansKey = () => cacheKey('recents:plans')
+export const FAVORITE_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans']
+const routesKey = (city?: string) => cacheKey('favorites:routes', city)
+const stopsKey = (city?: string) => cacheKey('favorites:stops', city)
+const plansKey = (city?: string) => cacheKey('favorites:plans', city)
+const recentPlansKey = (city?: string) => cacheKey('recents:plans', city)
 
 const MAX_RECENT_PLANS = 10
 
@@ -55,6 +56,24 @@ export function parsePlans(raw: unknown): FavoritePlan[] {
   if (!Array.isArray(raw)) return []
   return raw.filter((p): p is FavoritePlan =>
     typeof p?.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lon))
+}
+
+function readSaved(key: string): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? 'null')
+  } catch {
+    return null
+  }
+}
+
+// A city's favorites live only in storage until it is opened.
+export function savedFavorites(city: string) {
+  return {
+    routes: parseFavoriteRoutes(readSaved(routesKey(city))),
+    stops: parseStopIds(readSaved(stopsKey(city))),
+    plans: parsePlans(readSaved(plansKey(city))),
+    recentPlans: parsePlans(readSaved(recentPlansKey(city))),
+  }
 }
 
 export const useFavoritesStore = defineStore('favorites', () => {
@@ -195,15 +214,20 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistRecentPlans()
   }
 
-  function importAll(data: { routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown }) {
-    favoriteRoutes.value = parseFavoriteRoutes(data.routes)
-    favoriteStopIds.value = parseStopIds(data.stops)
-    favoritePlans.value = parsePlans(data.plans)
-    recentPlans.value = parsePlans(data.recentPlans)
-    persistRoutes()
-    persistStops()
-    persistPlans()
-    persistRecentPlans()
+  function importAll(data: { routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown }, city = currentCity.value) {
+    const routes = parseFavoriteRoutes(data.routes)
+    const stops = parseStopIds(data.stops)
+    const plans = parsePlans(data.plans)
+    const recents = parsePlans(data.recentPlans)
+    localStorage.setItem(routesKey(city), JSON.stringify(routes))
+    localStorage.setItem(stopsKey(city), JSON.stringify(stops))
+    localStorage.setItem(plansKey(city), JSON.stringify(plans))
+    localStorage.setItem(recentPlansKey(city), JSON.stringify(recents))
+    if (city !== currentCity.value) return
+    favoriteRoutes.value = routes
+    favoriteStopIds.value = stops
+    favoritePlans.value = plans
+    recentPlans.value = recents
   }
 
   async function preloadFavorites() {

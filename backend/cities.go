@@ -18,15 +18,23 @@ import (
 )
 
 type quotaPersister struct {
+	slug  string
 	store *database.Store
 	stats bool
 }
 
 func (p quotaPersister) Load(name string) (int, time.Time, error) {
-	return p.store.LoadTranzyQuota(name)
+	count, resetAt, err := p.store.LoadTranzyQuota(name)
+	if err != nil {
+		err = fmt.Errorf("%s: %w", p.slug, err)
+	}
+	return count, resetAt, err
 }
 func (p quotaPersister) Save(name string, count int, resetAt time.Time) error {
-	return p.store.SaveTranzyQuota(name, count, resetAt)
+	if err := p.store.SaveTranzyQuota(name, count, resetAt); err != nil {
+		return fmt.Errorf("%s: %w", p.slug, err)
+	}
+	return nil
 }
 func (p quotaPersister) RecordUsage(name string) {
 	if p.stats {
@@ -81,12 +89,12 @@ func (a tranzyAgency) city(cfg *Config, opts handlers.Options) (*handlers.City, 
 	if err != nil {
 		return nil, err
 	}
-	client := tranzy.NewClient(cfg.TranzyBaseUrl, key, a.agencyID, cfg.TranzyRateLimit, cfg.TranzyVehiclesDailyQuota, cfg.TranzyDefaultDailyQuota, quotaPersister{store, true})
+	client := tranzy.NewClient(cfg.TranzyBaseUrl, key, a.agencyID, cfg.TranzyRateLimit, cfg.TranzyVehiclesDailyQuota, cfg.TranzyDefaultDailyQuota, quotaPersister{a.slug, store, true})
 	static := tranzy.New(client)
 	var learning sources.Realtime
 	if learningKey != "" && learningKey != key {
 		learningClient := tranzy.NewClientWithQuotaNames(cfg.TranzyBaseUrl, learningKey, a.agencyID, cfg.TranzyRateLimit, cfg.TranzyVehiclesDailyQuota, cfg.TranzyDefaultDailyQuota,
-			tranzy.QuotaNames{Vehicles: "vehicle_learning_vehicles", Default: "vehicle_learning_default"}, quotaPersister{store, false})
+			tranzy.QuotaNames{Vehicles: "vehicle_learning_vehicles", Default: "vehicle_learning_default"}, quotaPersister{a.slug, store, false})
 		learning = tranzy.New(learningClient)
 	}
 	city := handlers.NewCity(a.slug, a.name, store, static, a.timetables, static, learning, learningFor(a.slug, opts))

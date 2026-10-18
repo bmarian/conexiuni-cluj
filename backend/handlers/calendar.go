@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -92,7 +91,7 @@ func (city *City) scheduleDay(t time.Time) string { return city.currentCalendar(
 
 func (city *City) StartCalendar() {
 	if err := city.LoadCalendar(); err != nil {
-		log.Printf("calendar: load failed, using the built-in school year: %v", err)
+		city.log("calendar: load failed, using the built-in school year: %v", err)
 	}
 	city.LoadWindowTuning()
 	go func() {
@@ -258,7 +257,7 @@ func (city *City) archiveCovers(days []time.Time) bool {
 	for _, d := range days {
 		ok, err := city.ArchiveHasSegmentSamples(d.Unix(), d.AddDate(0, 0, 1).Unix())
 		if err != nil {
-			log.Printf("calendar: archive check for %s failed: %v", d.Format("2006-01-02"), err)
+			city.log("calendar: archive check for %s failed: %v", d.Format("2006-01-02"), err)
 			return false
 		}
 		if ok {
@@ -403,10 +402,10 @@ func (city *City) restoreSeededWindows(now time.Time) {
 	restored, err := city.restoreWindowsFromArchive(now)
 	city.applyCalendarMu.Unlock()
 	if err != nil {
-		log.Printf("calendar: restoring last year's days failed: %v", err)
+		city.log("calendar: restoring last year's days failed: %v", err)
 	}
 	if restored > 0 {
-		log.Printf("calendar: restored %d samples of last year's days; relearning", restored)
+		city.log("calendar: restored %d samples of last year's days; relearning", restored)
 		city.applyCalendar(now)
 	}
 }
@@ -420,24 +419,24 @@ func (city *City) applyCalendar(now time.Time) {
 	started := time.Now()
 	relabelled, err := city.relabelSamples(now)
 	if err != nil {
-		log.Printf("calendar: relabel failed: %v", err)
+		city.log("calendar: relabel failed: %v", err)
 	}
 	restored, err := city.restoreWindowsFromArchive(now)
 	if err != nil {
-		log.Printf("calendar: restore from the archive failed: %v", err)
+		city.log("calendar: restore from the archive failed: %v", err)
 	}
 	rebuilt, err := city.rebuildSegmentProfiles(now)
 	if err != nil {
-		log.Printf("calendar: profile rebuild failed: %v", err)
+		city.log("calendar: profile rebuild failed: %v", err)
 	}
 	city.resetProfileSnapshots()
 	city.resetTripScheduleCache()
 	delays, err := city.recomputeScheduleDelays(city.Location, now)
 	if err != nil {
-		log.Printf("calendar: schedule delay failed: %v", err)
+		city.log("calendar: schedule delay failed: %v", err)
 	}
 	city.invalidateScheduleCaches()
-	log.Printf("calendar: relabelled %d samples, restored %d from the archive, rebuilt %d profiles and %d delays in %s",
+	city.log("calendar: relabelled %d samples, restored %d from the archive, rebuilt %d profiles and %d delays in %s",
 		relabelled, restored, rebuilt, delays, time.Since(started).Round(time.Millisecond))
 }
 
@@ -621,12 +620,12 @@ func (city *City) checkObservedSchedule(now time.Time) {
 	date := day.Format("2006-01-02")
 	fits, observed, err := city.observedScheduleFits(day)
 	if err != nil {
-		log.Printf("calendar: timetable check for %s failed: %v", date, err)
+		city.log("calendar: timetable check for %s failed: %v", date, err)
 		return
 	}
 	expected := city.scheduleDay(day)
 	if observed < observedMinRuns {
-		log.Printf("calendar: %s had %d runs, too few to tell which timetable ran", date, observed)
+		city.log("calendar: %s had %d runs, too few to tell which timetable ran", date, observed)
 		return
 	}
 	best, current := fits[0], scheduleFit{}
@@ -635,12 +634,12 @@ func (city *City) checkObservedSchedule(now time.Time) {
 			current = f
 		}
 	}
-	log.Printf("calendar: %s fits %s", date, describeFits(fits, observed))
+	city.log("calendar: %s fits %s", date, describeFits(fits, observed))
 	if best.Day == expected || best.Fit < observedMinFit || best.Fit-current.Fit < observedMinLead {
 		return
 	}
 	if existing, ok, err := city.ScheduleOverrideOn(date); err == nil && ok && existing.Source == overrideByAdmin {
-		log.Printf("calendar: %s looked like the %s timetable, but it was set to %s on the admin page; keeping that", date, best.Day, existing.Schedule)
+		city.log("calendar: %s looked like the %s timetable, but it was set to %s on the admin page; keeping that", date, best.Day, existing.Schedule)
 		return
 	}
 	err = city.SaveScheduleOverride(database.ScheduleOverride{
@@ -649,12 +648,12 @@ func (city *City) checkObservedSchedule(now time.Time) {
 		CreatedAt: now.Unix(),
 	})
 	if err != nil {
-		log.Printf("calendar: saving the %s override for %s failed: %v", best.Day, date, err)
+		city.log("calendar: saving the %s override for %s failed: %v", best.Day, date, err)
 		return
 	}
-	log.Printf("calendar: %s ran the %s timetable, not %s; relearning", date, best.Day, expected)
+	city.log("calendar: %s ran the %s timetable, not %s; relearning", date, best.Day, expected)
 	if err := city.LoadCalendar(); err != nil {
-		log.Printf("calendar: reload failed: %v", err)
+		city.log("calendar: reload failed: %v", err)
 		return
 	}
 	city.applyCalendar(now)
@@ -853,7 +852,7 @@ func registerAdminCalendarRoutes(admin fiber.Router, cityOf func(fiber.Ctx) *Cit
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		city.invalidateScheduleCaches()
-		log.Printf("calendar: school year %d–%d saved from the admin page", year.Year, year.Year+1)
+		city.log("calendar: school year %d–%d saved from the admin page", year.Year, year.Year+1)
 		relearnAfterCalendarChange(city, time.Now())
 		view, err := city.buildAdminCalendar(time.Now())
 		if err != nil {
@@ -909,7 +908,7 @@ func registerAdminCalendarRoutes(admin fiber.Router, cityOf func(fiber.Ctx) *Cit
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		city.invalidateScheduleCaches()
-		log.Printf("calendar: %s set to %s on the admin page", date, cmp.Or(req.Schedule, "automatic"))
+		city.log("calendar: %s set to %s on the admin page", date, cmp.Or(req.Schedule, "automatic"))
 		if !day.After(city.localMidnight(now)) {
 			relearnAfterCalendarChange(city, now)
 		}

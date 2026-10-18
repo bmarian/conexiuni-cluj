@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 type Store struct {
 	DB      *sql.DB
 	Archive *sql.DB
+	// The city, for the log.
+	name string
 
 	lastOptimize time.Time
 
@@ -50,7 +53,7 @@ func Open(dbPath, archivePath string, visitorRetentionDays int) (*Store, error) 
 		// Not fatal: the network is fetched again on the next ingest.
 		log.Printf("CRITICAL: %s integrity check failed: %v -- writes to corrupt tables will fail silently; consider `sqlite3 %s '.recover' | sqlite3 recovered.db`", dbPath, err, dbPath)
 	}
-	s := &Store{DB: db, statsBuf: newStatsBuffer(), visitorRetentionDays: visitorRetentionDays}
+	s := &Store{DB: db, name: strings.TrimSuffix(filepath.Base(dbPath), ".db"), statsBuf: newStatsBuffer(), visitorRetentionDays: visitorRetentionDays}
 	if err := s.initSchemas(); err != nil {
 		return nil, err
 	}
@@ -60,6 +63,10 @@ func Open(dbPath, archivePath string, visitorRetentionDays int) (*Store, error) 
 		}
 	}
 	return s, nil
+}
+
+func (s *Store) logf(format string, args ...any) {
+	log.Printf(s.name+": "+format, args...)
 }
 
 func (s *Store) Close() {
@@ -421,7 +428,7 @@ func (s *Store) initSchemas() error {
 		return err
 	}
 
-	log.Println("Database schema and indexes initialized")
+	s.logf("Database schema and indexes initialized")
 	return nil
 }
 
@@ -465,7 +472,7 @@ func (s *Store) addMissingColumns() error {
 			if _, err := s.DB.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, def)); err != nil {
 				return fmt.Errorf("add %s.%s: %w", table, name, err)
 			}
-			log.Printf("schema: added column %s.%s", table, name)
+			s.logf("schema: added column %s.%s", table, name)
 		}
 	}
 	return nil
@@ -498,7 +505,7 @@ func (s *Store) retireLifetimeVisitors() error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	log.Println("schema: moved stats_visitors into daily counts")
+	s.logf("schema: moved stats_visitors into daily counts")
 	return nil
 }
 
@@ -535,7 +542,7 @@ func (s *Store) Optimize() error {
 	if _, err := s.DB.Exec("ANALYZE"); err != nil {
 		return err
 	}
-	log.Println("Database optimized")
+	s.logf("Database optimized")
 	return nil
 }
 
@@ -543,14 +550,14 @@ func (s *Store) Vacuum() error {
 	if _, err := s.DB.Exec("VACUUM"); err != nil {
 		return err
 	}
-	log.Println("Database vacuumed")
+	s.logf("Database vacuumed")
 	return nil
 }
 
 func (s *Store) StartVacuumScheduler() {
 	loc, err := time.LoadLocation("Europe/Bucharest")
 	if err != nil {
-		log.Printf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
+		s.logf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
 		loc = time.UTC
 	}
 	go func() {
@@ -560,10 +567,10 @@ func (s *Store) StartVacuumScheduler() {
 			if !next.After(now) {
 				next = next.Add(24 * time.Hour)
 			}
-			log.Printf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
+			s.logf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
 			time.Sleep(time.Until(next))
 			if err := s.Vacuum(); err != nil {
-				log.Printf("Scheduled vacuum failed: %v", err)
+				s.logf("Scheduled vacuum failed: %v", err)
 			}
 		}
 	}()

@@ -32,7 +32,7 @@ func (s *Source) Timetables(snap *sources.Snapshot) (map[string]*models.Timetabl
 				log.Printf("ctpcsv: %s: %v", route.RouteShortName, err)
 				return
 			}
-			sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID))
+			sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID), "ctpcsv")
 			mu.Lock()
 			out[route.RouteShortName] = t
 			mu.Unlock()

@@ -68,9 +68,15 @@ export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Pro
   return cities.value
 })()
 
+// Pages from before cities; links to them are Cluj's.
+export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav', 'bsod']
+
 function cityFromPath(): string | null {
   const first = window.location.pathname.split('/')[1] ?? ''
-  return /^[a-z][a-z0-9-]*$/.test(first) && first !== 'android' && first !== 'admin' ? first : null
+  // The router decides where an old /plan goes.
+  if (first === 'plan') return null
+  if (LEGACY_SECTIONS.includes(first)) return DEFAULT_CITY
+  return /^[a-z][a-z0-9-]*$/.test(first) && first !== 'android' && first !== 'admin' && knownCity(first) ? first : null
 }
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))
@@ -104,9 +110,24 @@ export function cityCenter(): {lat: number; lon: number} {
 
 export const cityPath = (path: string) => `/${currentCity.value}${path.startsWith('/') ? path : '/' + path}`
 
-export const apiPath = (path: string) => `/api/${currentCity.value}/${path.replace(/^\//, '')}`
+export const apiPath = (path: string, city = currentCity.value) => `/api/${city}/${path.replace(/^\//, '')}`
 
 export const cacheKey = (key: string, city = currentCity.value) => `${city}:${key}`
+
+// Every city whose saved list under key holds something, whichever city is on screen.
+export function citiesSaving(key: string): string[] {
+  const out: string[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const name = localStorage.key(i)
+      const slug = name?.endsWith(`:${key}`) ? name.slice(0, -key.length - 1) : ''
+      if (!/^[a-z][a-z0-9-]*$/.test(slug)) continue
+      const list = JSON.parse(localStorage.getItem(name!) ?? 'null')
+      if (Array.isArray(list) && list.length) out.push(slug)
+    }
+  } catch { /* noop */ }
+  return out
+}
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
   const toRad = (d: number) => d * Math.PI / 180
@@ -142,7 +163,8 @@ function locate(): Promise<GeolocationPosition | null> {
 export async function resolveCity(): Promise<string> {
   const list = await citiesLoaded
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
-  const fallback = stored(LAST_KEY) ?? list[0]?.slug ?? DEFAULT_CITY
+  // Cluj was the only city before, so a newcomer without a location starts there.
+  const fallback = [stored(LAST_KEY), DEFAULT_CITY].find((slug) => slug && knownCity(slug)) ?? list[0]?.slug ?? DEFAULT_CITY
   if (list.length < 2 || !await checkLocationGranted()) return fallback
   const position = await locate()
   if (!position) return fallback

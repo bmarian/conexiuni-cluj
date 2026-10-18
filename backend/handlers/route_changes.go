@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -78,12 +77,12 @@ func (city *City) storeTimetableTrackingChanges(t *models.Timetable) error {
 func (city *City) storeStopTimesTrackingChanges(routeShortName string, stopTimes []models.StopTime) error {
 	previous, err := city.getStopTimesForTrips(tripIDsOf(stopTimes))
 	if err != nil {
-		log.Printf("route changes: could not read previous stops for line %s: %v", routeShortName, err)
+		city.log("route changes: could not read previous stops for line %s: %v", routeShortName, err)
 	}
 	if err := city.storeStopTimesInDB(stopTimes); err != nil {
 		return err
 	}
-	city.recordRouteChanges(routeShortName, routeChangeSourceStops, diffRouteStops(previous, stopTimes))
+	city.recordRouteChanges(routeShortName, routeChangeSourceStops, city.diffRouteStops(previous, stopTimes))
 	return nil
 }
 
@@ -318,7 +317,7 @@ func mergeChangeDays(items []RouteChangeItem) []RouteChangeItem {
 	return merged
 }
 
-func diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
+func (city *City) diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
 	before := stopsByTrip(previous)
 	after := stopsByTrip(current)
 
@@ -340,7 +339,7 @@ func diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
 			continue
 		}
 		if common*2 < min(len(old), len(cur)) {
-			log.Printf("route changes: ignoring stop diff for %s, only %d of %d/%d stops in common", tripID, common, len(old), len(cur))
+			city.log("route changes: ignoring stop diff for %s, only %d of %d/%d stops in common", tripID, common, len(old), len(cur))
 			continue
 		}
 		base := RouteChangeItem{
@@ -447,7 +446,7 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 	}
 	payload, err := json.Marshal(items)
 	if err != nil {
-		log.Printf("route changes: could not encode changes for line %s: %v", routeShortName, err)
+		city.log("route changes: could not encode changes for line %s: %v", routeShortName, err)
 		return
 	}
 	sum := sha1.Sum(append([]byte(source+"|"), payload...))
@@ -457,13 +456,13 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 
 	tx, err := city.DB.Begin()
 	if err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(`DELETE FROM route_changes WHERE detected_at < ?`, cutoff); err != nil {
-		log.Printf("route changes: could not prune: %v", err)
+		city.log("route changes: could not prune: %v", err)
 		return
 	}
 	// Upstream data that flaps back and forth would otherwise repeat the same news.
@@ -475,17 +474,17 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 		return
 	}
 	if err != sql.ErrNoRows {
-		log.Printf("route changes: could not check line %s: %v", routeShortName, err)
+		city.log("route changes: could not check line %s: %v", routeShortName, err)
 		return
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO route_changes (route_short_name, source, changes, signature, detected_at, push_pending) VALUES (?, ?, ?, ?, ?, ?)`,
 		routeShortName, source, string(payload), signature, now.UnixMilli(), pushCfg != nil); err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	city.wakePushSender()
@@ -494,7 +493,7 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 	for i, item := range items {
 		kinds[i] = item.Kind + "/" + item.Direction
 	}
-	log.Printf("route changes: line %s %s changed (%s)", routeShortName, source, strings.Join(kinds, ", "))
+	city.log("route changes: line %s %s changed (%s)", routeShortName, source, strings.Join(kinds, ", "))
 }
 
 func (city *City) GetRouteChanges(c fiber.Ctx) error {

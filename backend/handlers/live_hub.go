@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/database"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -191,7 +190,7 @@ func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs [
 	}
 	total := len(h.subscribers)
 	h.mu.Unlock()
-	log.Printf("live hub: +subscriber %d (total=%d, stops=%d, trips=%d)", id, total, len(stopIDs), len(tripIDs))
+	h.city.log("live hub: +subscriber %d (total=%d, stops=%d, trips=%d)", id, total, len(stopIDs), len(tripIDs))
 	go h.sendTo(sub)
 	if start {
 		go h.run()
@@ -211,7 +210,7 @@ func (h *liveHub) Unsubscribe(id int64) {
 	remaining := len(h.subscribers)
 	h.mu.Unlock()
 	if ok {
-		log.Printf("live hub: -subscriber %d (remaining=%d)", id, remaining)
+		h.city.log("live hub: -subscriber %d (remaining=%d)", id, remaining)
 	}
 }
 
@@ -232,7 +231,7 @@ func (h *liveHub) run() {
 
 		interval := h.intervalFor(n)
 		if table, err := h.poll(); err != nil {
-			log.Printf("live hub: poll failed interval=%s subs=%d err=%v", interval, n, err)
+			h.city.log("live hub: poll failed interval=%s subs=%d err=%v", interval, n, err)
 		} else {
 			for _, sub := range subs {
 				sub.offer(table)
@@ -263,7 +262,7 @@ func (h *liveHub) current() (*liveTable, error) {
 func (h *liveHub) sendTo(sub *liveSubscriber) {
 	table, err := h.current()
 	if err != nil {
-		log.Printf("live hub: initial fetch failed: %v", err)
+		h.city.log("live hub: initial fetch failed: %v", err)
 		return
 	}
 	sub.offer(table)
@@ -404,7 +403,7 @@ func (city *City) ServeLive(c fiber.Ctx) error {
 	sub, id, ok := city.hub.Subscribe(client, person, stopIDs, tripIDs)
 	if !ok {
 		// A 200 that ends at once makes a browser reconnect after `retry`; a 429 would stop it for good.
-		log.Printf("live hub: refused a stream for client %s, over %d", client, maxLiveStreamsPerClient)
+		city.log("live hub: refused a stream for client %s, over %d", client, maxLiveStreamsPerClient)
 		c.Set("Content-Type", "text/event-stream")
 		c.Set("Cache-Control", "no-store")
 		return c.SendString(fmt.Sprintf("retry: %d\n\n", liveKeepAlive.Milliseconds()))

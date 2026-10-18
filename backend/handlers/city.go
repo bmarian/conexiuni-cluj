@@ -111,6 +111,15 @@ func (city *City) RegisterPages(app fiber.Router) {
 	app.Get("/plan", city.PlanOGHandler)
 }
 
+// Pages from before cities were Cluj's, and old links and shares still point at them.
+func RegisterLegacyPages(app fiber.Router, slug string) {
+	for _, path := range []string{"/stop/*", "/route/*", "/plan", "/settings", "/nav"} {
+		app.Get(path, func(c fiber.Ctx) error {
+			return c.Redirect().Status(fiber.StatusMovedPermanently).To("/" + slug + c.OriginalURL())
+		})
+	}
+}
+
 func sameOriginRequest(c fiber.Ctx) bool {
 	switch c.Get("Sec-Fetch-Site") {
 	case "same-origin", "same-site", "none":

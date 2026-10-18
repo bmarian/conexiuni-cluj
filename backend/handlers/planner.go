@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -76,7 +75,7 @@ func (city *City) plannerNetwork(at time.Time) (*router.Network, error) {
 	for _, p := range patterns {
 		runs += len(p.Trips)
 	}
-	log.Printf("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
+	city.log("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
 	if livePlanDay(key, time.Now().In(at.Location())) {
 		city.planner.networks[key] = n
 	}
@@ -146,7 +145,7 @@ func (city *City) buildStreets(stops []models.Stop, opt router.Options) (*router
 	streets := router.NewStreets(walk, routerStops, opt)
 	// Reading the country extract peaks far above what the graph keeps.
 	debug.FreeOSMemory()
-	log.Printf("planner: walk graph of %d nodes for %d stops, %d places, in %s, transfer slack %s", walk.Nodes(), len(stops), places.Count(), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
+	city.log("planner: walk graph of %d nodes for %d stops, %d places, in %s, transfer slack %s", walk.Nodes(), len(stops), places.Count(), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
 	return streets, places, nil
 }
 
@@ -279,7 +278,7 @@ type planResponse struct {
 
 func (city *City) WarmPlanner() {
 	if _, err := city.plannerNetwork(time.Now().In(city.Location)); err != nil {
-		log.Printf("planner: %v", err)
+		city.log("planner: %v", err)
 	}
 }
 
@@ -303,7 +302,7 @@ func (city *City) handlePlan(c fiber.Ctx) error {
 		n, err = city.plannerNetwork(when)
 	}
 	if err != nil {
-		log.Printf("plan: %v", err)
+		city.log("plan: %v", err)
 		var starting plannerUnavailableError
 		if errors.As(err, &starting) {
 			c.Set("Retry-After", "10")
@@ -330,7 +329,7 @@ func (city *City) handlePlan(c fiber.Ctx) error {
 	}
 
 	if err := city.describePlan(&resp, options); err != nil {
-		log.Printf("plan: %v", err)
+		city.log("plan: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
@@ -354,7 +353,7 @@ func (city *City) plannerLiveAt(when time.Time) (*liveTable, router.LiveSource) 
 	}
 	table, err := city.hub.current()
 	if err != nil {
-		log.Printf("plan: live: %v", err)
+		city.log("plan: live: %v", err)
 		return nil, nil
 	}
 	return table, plannerLive(table)
@@ -443,7 +442,12 @@ func (city *City) describePlan(resp *planResponse, options []router.Option) erro
 			}
 			for _, id := range leg.Lines {
 				if r, ok := routeByID[id]; ok {
-					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: models.ResolveRouteDisplayColor(r.RouteShortName), Type: r.RouteType}
+					// The colour the map and the line page use.
+					color := r.RouteColor
+					if color == "" {
+						color = models.ResolveRouteDisplayColor(r.RouteShortName)
+					}
+					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Type: r.RouteType}
 				}
 			}
 			first := po.Runs[0].Rides[ride]

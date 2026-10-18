@@ -4,7 +4,6 @@ import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/predictions"
 	"database/sql"
-	"log"
 	"sort"
 	"strconv"
 	"time"
@@ -95,7 +94,7 @@ func (city *City) flushTurnaroundSamples() int {
 	for _, a := range arrivals {
 		if _, err := city.DB.Exec(`INSERT OR IGNORE INTO turnaround_arrivals (route_id, direction_id, arrived_at) VALUES (?, ?, ?)`,
 			a.RouteID, a.DirectionID, a.ArrivedAt.Unix()); err != nil {
-			log.Printf("turnaround: arrival insert failed: %v", err)
+			city.log("turnaround: arrival insert failed: %v", err)
 		}
 	}
 	stored := 0
@@ -106,7 +105,7 @@ func (city *City) flushTurnaroundSamples() int {
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			s.RouteID, s.DirectionID, city.profileDay(s.DepartedAt), s.DepartedAt.Sub(s.ArrivedAt).Seconds(),
 			s.ArrivedAt.Unix(), s.DepartedAt.Unix(), s.PairedDepartureMin); err != nil {
-			log.Printf("turnaround: sample insert failed: %v", err)
+			city.log("turnaround: sample insert failed: %v", err)
 			continue
 		}
 		stored++
@@ -126,10 +125,10 @@ func (city *City) pruneOldTurnaroundSamples() {
 	city.lastTurnaroundPrune = time.Now()
 	cutoff := time.Now().Add(-turnaroundRetention).Unix()
 	if _, err := city.pruneByDayWindow("turnaround_samples", "departed_at", turnaroundRetention, time.Now()); err != nil {
-		log.Printf("turnaround: prune failed: %v", err)
+		city.log("turnaround: prune failed: %v", err)
 	}
 	if _, err := city.DB.Exec(`DELETE FROM turnaround_arrivals WHERE arrived_at < ?`, cutoff); err != nil {
-		log.Printf("turnaround: arrivals prune failed: %v", err)
+		city.log("turnaround: arrivals prune failed: %v", err)
 	}
 }
 
@@ -170,7 +169,7 @@ func (city *City) loadTerminusProfile(routeID, directionID int) terminusProfile 
 			return d, err
 		})
 	if err != nil {
-		log.Printf("turnaround: route=%d direction=%d: %v", routeID, directionID, err)
+		city.log("turnaround: route=%d direction=%d: %v", routeID, directionID, err)
 		return terminusProfile{}
 	}
 	profile = terminusProfile{Departures: len(stands)}

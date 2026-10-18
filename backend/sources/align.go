@@ -31,7 +31,7 @@ func FirstStopNames(snap *Snapshot, routeID int) [2]string {
 }
 
 // AlignDirections swaps in and out when the termini match the Snapshot's directions the other way round.
-func AlignDirections(t *models.Timetable, first [2]string) {
+func AlignDirections(t *models.Timetable, first [2]string, source string) {
 	if (t.InStopName == "" && t.OutStopName == "") || first[0] == "" || first[1] == "" {
 		return
 	}
@@ -40,7 +40,7 @@ func AlignDirections(t *models.Timetable, first [2]string) {
 	if swap <= keep {
 		return
 	}
-	log.Printf("timetable %s: swapping directions (in=%q out=%q, first stops %q / %q)", t.RouteShortName, t.InStopName, t.OutStopName, first[0], first[1])
+	log.Printf("%s: timetable %s: swapping directions (in=%q out=%q, first stops %q / %q)", source, t.RouteShortName, t.InStopName, t.OutStopName, first[0], first[1])
 	t.InStopName, t.OutStopName = t.OutStopName, t.InStopName
 	for _, d := range []*models.DaySchedule{&t.Weekdays, &t.Saturday, &t.Sunday} {
 		for i := range d.Entries {

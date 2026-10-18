@@ -209,6 +209,9 @@ func main() {
 		})
 
 		app.Get("/android", handlers.AndroidOGHandler)
+		if _, ok := bySlug["cluj"]; ok {
+			handlers.RegisterLegacyPages(app, "cluj")
+		}
 		for _, city := range cities {
 			city.RegisterPages(app.Group("/" + city.Slug))
 		}
