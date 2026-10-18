@@ -1,5 +1,7 @@
 import {ref} from 'vue'
 
+export type Bounds = {south: number; west: number; north: number; east: number}
+
 export type City = {
   slug: string
   name: string
@@ -7,6 +9,7 @@ export type City = {
   realtime: boolean
   lat: number
   lon: number
+  bounds?: Bounds
   credits?: {name: string; url: string}[]
 }
 
@@ -106,6 +109,16 @@ export function cityParams(): {city: string; operator: string} {
 export function cityCenter(): {lat: number; lon: number} {
   const info = cityInfo()
   return info ? {lat: info.lat, lon: info.lon} : {lat: 46.7712, lon: 23.6236}
+}
+
+export function cityBounds(slug = currentCity.value): Bounds | undefined {
+  return cities.value.find((city) => city.slug === slug)?.bounds
+}
+
+// Anywhere counts until the server knows the city's area.
+export function inCity(lat: number, lon: number, slug = currentCity.value): boolean {
+  const b = cityBounds(slug)
+  return !b || (lat >= b.south && lat <= b.north && lon >= b.west && lon <= b.east)
 }
 
 export const cityPath = (path: string) => `/${currentCity.value}${path.startsWith('/') ? path : '/' + path}`

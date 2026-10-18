@@ -45,8 +45,7 @@ import {
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
-import {cacheKey, cities, cityCenter, currentCity, type City} from '@/utils/city.ts'
-import {network} from '@/utils/network.ts'
+import {cacheKey, cities, cityBounds, cityCenter, currentCity, inCity, type City} from '@/utils/city.ts'
 
 setWorkerUrl(workerUrl)
 
@@ -112,9 +111,7 @@ const STOP_ZOOM_THRESHOLD = 15
 const FIT_MAX_ZOOM = 15
 const MIN_ZOOM = 8
 const MAX_ZOOM = 19
-const ROMANIA_SW: LatLng = {lat: 43.4, lng: 20.0}
-const ROMANIA_NE: LatLng = {lat: 48.5, lng: 30.0}
-const mapViewKey = () => cacheKey('map.lastView')
+const mapViewKey = (slug = currentCity.value) => cacheKey('map.lastView', slug)
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
@@ -273,6 +270,11 @@ const applyStyle = () => {
   // A diff drops our layers; when the style is rebuilt instead, style.load brings them back.
   m.setStyle(currentStyle(), {diff: true})
   syncOverlays()
+}
+
+const cityMaxBounds = (): LngLatBounds | null => {
+  const b = cityBounds()
+  return b ? new LngLatBounds([b.west, b.south], [b.east, b.north]) : null
 }
 
 const linesBounds = (...groups: LineSpec[][]) => {
@@ -555,7 +557,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     zoom,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
-    maxBounds: [[ROMANIA_SW.lng, ROMANIA_SW.lat], [ROMANIA_NE.lng, ROMANIA_NE.lat]],
+    maxBounds: cityMaxBounds() ?? undefined,
     attributionControl: false,
     clickTolerance: CLICK_TOLERANCE_PX,
     dragRotate: false,
@@ -579,7 +581,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     refreshStops()
     const mapCenter = mapValue.getCenter()
     // A flight between cities ends or is cut off over another city; that view is not this city's.
-    if (!network.value?.covers(mapCenter.lat, mapCenter.lng)) return
+    if (!inCity(mapCenter.lat, mapCenter.lng)) return
     const view: SavedMapView = {
       lat: Number(mapCenter.lat.toFixed(6)),
       lng: Number(mapCenter.lng.toFixed(6)),
@@ -681,17 +683,12 @@ const moveUserDot = (to: LatLng, ms: number) => {
   glideFrame = requestAnimationFrame(step)
 }
 
-const isInRomania = ({lat, lng}: LatLng) => {
-  return lat >= ROMANIA_SW.lat && lat <= ROMANIA_NE.lat
-    && lng >= ROMANIA_SW.lng && lng <= ROMANIA_NE.lng
-}
-
 const updateLiveLocation = (fix: Fix) => {
   const m = map.value
   if (!m) return
 
   userStore.setIsLocating(false)
-  if (!isInRomania(fix)) {
+  if (!inCity(fix.lat, fix.lng)) {
     pendingCenterOnUser = false
     userStore.setHasLocationPermission(false)
     userStore.clearUserLocation()
@@ -737,9 +734,9 @@ const updateLiveLocation = (fix: Fix) => {
   }
 }
 
-const savedView = (key: string): LatLng & { zoom: number } | null => {
+const savedView = (slug: string): LatLng & { zoom: number } | null => {
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<SavedMapView> | null
+    const parsed = JSON.parse(localStorage.getItem(mapViewKey(slug)) ?? 'null') as Partial<SavedMapView> | null
     if (!parsed) return null
     // Views saved by the Leaflet map are one zoom higher.
     const zoom = Number.isFinite(parsed.glZoom) ? parsed.glZoom as number : (parsed.zoom ?? NaN) - 1
@@ -747,7 +744,7 @@ const savedView = (key: string): LatLng & { zoom: number } | null => {
       !Number.isFinite(parsed.lat)
       || !Number.isFinite(parsed.lng)
       || !Number.isFinite(zoom)
-      || !isInRomania({lat: parsed.lat as number, lng: parsed.lng as number})
+      || !inCity(parsed.lat as number, parsed.lng as number, slug)
     ) return null
     return {lat: parsed.lat as number, lng: parsed.lng as number, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))}
   } catch {
@@ -756,7 +753,7 @@ const savedView = (key: string): LatLng & { zoom: number } | null => {
 }
 
 const openingView = (city: Pick<City, 'slug' | 'lat' | 'lon'>) =>
-  savedView(cacheKey('map.lastView', city.slug)) ?? {lat: city.lat, lng: city.lon, zoom: DEFAULT_ZOOM}
+  savedView(city.slug) ?? {lat: city.lat, lng: city.lon, zoom: DEFAULT_ZOOM}
 
 const clearStops = () => {
   for (const id of shownStops) {
@@ -771,18 +768,37 @@ const clearStops = () => {
   routeColorsCache.clear()
 }
 
+let cityFlight = 0
+let flyingBetweenCities = false
+
+const clampToCity = () => {
+  if (!flyingBetweenCities) map.value?.setMaxBounds(cityMaxBounds())
+}
+
+watch(cities, clampToCity)
+
 watch(currentCity, (slug) => {
   const m = map.value
   const city = cities.value.find((c) => c.slug === slug)
   if (!m || !city) return
   clearStops()
   const view = openingView(city)
+  const flight = ++cityFlight
+  m.stop()
+  // The old city's area would hold the camera back.
+  flyingBetweenCities = true
+  m.setMaxBounds(null)
+  m.once('moveend', () => {
+    if (flight !== cityFlight) return
+    flyingBetweenCities = false
+    clampToCity()
+  })
   m.flyTo({center: [view.lng, view.lat], zoom: view.zoom, duration: CITY_FLIGHT_MS})
   void stopsInit()
 })
 
 onMounted(() => {
-  const initialView = savedView(mapViewKey())
+  const initialView = savedView(currentCity.value)
   if (initialView) {
     mapInit(initialView, initialView.zoom)
   } else {

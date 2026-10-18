@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/router"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -20,10 +21,13 @@ import (
 
 var networkDayTypes = calendar.ScheduleDays
 
-func (city *City) BuildNetworkBundle() (*models.NetworkBundle, error) {
+// How far past its outermost line a city's map pans and a location still counts as in the city.
+const cityAreaMarginMeters = 10_000
+
+func (city *City) BuildNetworkBundle() (*models.NetworkBundle, *Bounds, error) {
 	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
-		return nil, fmt.Errorf("routes: %w", err)
+		return nil, nil, fmt.Errorf("routes: %w", err)
 	}
 	if city.availability.IsReady() {
 		kept := make([]models.Route, 0, len(routes))
@@ -38,7 +42,7 @@ func (city *City) BuildNetworkBundle() (*models.NetworkBundle, error) {
 
 	allStops, err := city.GetStops(StopFilter{})
 	if err != nil {
-		return nil, fmt.Errorf("stops: %w", err)
+		return nil, nil, fmt.Errorf("stops: %w", err)
 	}
 
 	out := make([]models.NetworkRoute, len(routes))
@@ -55,7 +59,8 @@ func (city *City) BuildNetworkBundle() (*models.NetworkBundle, error) {
 	}
 	wg.Wait()
 
-	city.addShapeHashes(out)
+	shapes := city.tripShapes(out)
+	addShapeHashes(out, shapes)
 
 	used := make(map[int]bool)
 	for _, r := range out {
@@ -77,7 +82,7 @@ func (city *City) BuildNetworkBundle() (*models.NetworkBundle, error) {
 	bundle.ScheduleDays, bundle.DayNotes = city.networkScheduleDays(time.Now())
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)
 	bundle.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
-	return bundle, nil
+	return bundle, areaAround(shapes), nil
 }
 
 func (city *City) buildNetworkRoute(route models.Route) models.NetworkRoute {
@@ -126,7 +131,7 @@ func (city *City) buildNetworkRoute(route models.Route) models.NetworkRoute {
 	return out
 }
 
-func (city *City) addShapeHashes(routes []models.NetworkRoute) {
+func (city *City) tripShapes(routes []models.NetworkRoute) []models.Shape {
 	var ids []string
 	for _, r := range routes {
 		for _, t := range r.Trips {
@@ -134,13 +139,16 @@ func (city *City) addShapeHashes(routes []models.NetworkRoute) {
 		}
 	}
 	if len(ids) == 0 {
-		return
+		return nil
 	}
 	points, err := city.GetShapes(ids)
 	if err != nil {
 		city.log("network: shapes: %v", err)
-		return
 	}
+	return points
+}
+
+func addShapeHashes(routes []models.NetworkRoute, points []models.Shape) {
 	polylines := shapePolylines(points)
 	for i := range routes {
 		for j := range routes[i].Trips {
@@ -149,6 +157,19 @@ func (city *City) addShapeHashes(routes []models.NetworkRoute) {
 			}
 		}
 	}
+}
+
+func areaAround(points []models.Shape) *Bounds {
+	if len(points) == 0 {
+		return nil
+	}
+	box := router.BBox{MinLat: math.Inf(1), MinLon: math.Inf(1), MaxLat: math.Inf(-1), MaxLon: math.Inf(-1)}
+	for _, p := range points {
+		box.MinLat, box.MaxLat = math.Min(box.MinLat, p.ShapePtLat), math.Max(box.MaxLat, p.ShapePtLat)
+		box.MinLon, box.MaxLon = math.Min(box.MinLon, p.ShapePtLon), math.Max(box.MaxLon, p.ShapePtLon)
+	}
+	box = box.Grow(cityAreaMarginMeters)
+	return &Bounds{South: box.MinLat, West: box.MinLon, North: box.MaxLat, East: box.MaxLon}
 }
 
 func networkVersions(bundle *models.NetworkBundle) (version, static string) {
@@ -182,6 +203,7 @@ type builtNetwork struct {
 	json    []byte
 	gzipped []byte
 	version models.NetworkVersion
+	bounds  *Bounds
 }
 
 func (city *City) buildNetwork() (*builtNetwork, error) {
@@ -196,7 +218,7 @@ func (city *City) buildNetwork() (*builtNetwork, error) {
 	}
 
 	started := time.Now()
-	bundle, err := city.BuildNetworkBundle()
+	bundle, bounds, err := city.BuildNetworkBundle()
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +235,10 @@ func (city *City) buildNetwork() (*builtNetwork, error) {
 		json:    data,
 		gzipped: gz.Bytes(),
 		version: models.NetworkVersion{Version: bundle.Version, StaticVersion: bundle.StaticVersion, GeneratedAt: bundle.GeneratedAt},
+		bounds:  bounds,
 	}
 	if current != nil && current.version.Version == built.version.Version {
-		built = &builtNetwork{period: period, json: current.json, gzipped: current.gzipped, version: current.version}
+		built = &builtNetwork{period: period, json: current.json, gzipped: current.gzipped, version: current.version, bounds: bounds}
 	}
 	city.networkCache.Lock()
 	city.networkCache.current = built

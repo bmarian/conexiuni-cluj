@@ -2,14 +2,14 @@ import {computed, ref} from 'vue'
 import {defineStore} from 'pinia'
 import type {UserLocation} from "@/types/tranzy.ts"
 import {useSettingsStore} from './settings'
-import {network} from '@/utils/network.ts'
+import {inCity} from '@/utils/city.ts'
 
 export const useUserStore = defineStore('user', () => {
   const rawLocation = ref<UserLocation | null>(null)
   // From another city, nothing here is near the person.
   const userLocation = computed(() => {
     const loc = rawLocation.value
-    return loc && network.value?.covers(loc.latitude, loc.longitude) ? loc : null
+    return loc && inCity(loc.latitude, loc.longitude) ? loc : null
   })
   const hasLocationPermission = ref(false)
   const isLocating = ref(false)

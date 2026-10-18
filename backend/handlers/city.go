@@ -191,7 +191,16 @@ type cityInfo struct {
 	Realtime bool             `json:"realtime"`
 	Lat      float64          `json:"lat"`
 	Lon      float64          `json:"lon"`
+	Bounds   *Bounds          `json:"bounds,omitempty"`
 	Credits  []sources.Credit `json:"credits"`
+}
+
+// The city's area: its lines with room around them.
+type Bounds struct {
+	South float64 `json:"south"`
+	West  float64 `json:"west"`
+	North float64 `json:"north"`
+	East  float64 `json:"east"`
 }
 
 func (city *City) credits() []sources.Credit {
@@ -219,6 +228,11 @@ func (city *City) info() (cityInfo, bool) {
 	sort.Float64s(lats)
 	sort.Float64s(lons)
 	info.Lat, info.Lon = lats[len(lats)/2], lons[len(lons)/2]
+	city.networkCache.Lock()
+	if built := city.networkCache.current; built != nil {
+		info.Bounds = built.bounds
+	}
+	city.networkCache.Unlock()
 	return info, true
 }
 
