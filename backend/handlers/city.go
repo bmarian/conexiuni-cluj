@@ -26,10 +26,11 @@ type Options struct {
 }
 
 type City struct {
-	Slug     string
-	Name     string
-	Operator string
-	Location *time.Location
+	Slug        string
+	Name        string
+	Operator    string
+	OperatorURL string
+	Location    *time.Location
 	*database.Store
 
 	Static     sources.Static
@@ -185,14 +186,15 @@ func (city *City) shapesHandler(c fiber.Ctx) error {
 }
 
 type cityInfo struct {
-	Slug     string           `json:"slug"`
-	Name     string           `json:"name"`
-	Operator string           `json:"operator"`
-	Realtime bool             `json:"realtime"`
-	Lat      float64          `json:"lat"`
-	Lon      float64          `json:"lon"`
-	Bounds   *Bounds          `json:"bounds,omitempty"`
-	Credits  []sources.Credit `json:"credits"`
+	Slug        string           `json:"slug"`
+	Name        string           `json:"name"`
+	Operator    string           `json:"operator"`
+	OperatorURL string           `json:"operatorUrl"`
+	Realtime    bool             `json:"realtime"`
+	Lat         float64          `json:"lat"`
+	Lon         float64          `json:"lon"`
+	Bounds      *Bounds          `json:"bounds,omitempty"`
+	Credits     []sources.Credit `json:"credits"`
 }
 
 // The city's area: its lines with room around them.
@@ -215,7 +217,7 @@ func (city *City) credits() []sources.Credit {
 
 // The median, so outlying villages on long lines do not pull the centre away.
 func (city *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, Realtime: city.Realtime != nil, Credits: city.credits()}
+	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, OperatorURL: city.OperatorURL, Realtime: city.Realtime != nil, Credits: city.credits()}
 	stops, err := city.GetStops(StopFilter{})
 	if err != nil || len(stops) == 0 {
 		return info, false

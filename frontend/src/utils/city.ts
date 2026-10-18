@@ -6,6 +6,7 @@ export type City = {
   slug: string
   name: string
   operator: string
+  operatorUrl?: string
   realtime: boolean
   lat: number
   lon: number

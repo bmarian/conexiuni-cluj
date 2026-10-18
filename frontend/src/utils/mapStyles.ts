@@ -182,7 +182,7 @@ export function mapStyle(isDark: boolean, theme: MapTheme): StyleSpecification {
   return cache.get(key)!
 }
 
-const cityCredits = () => [...cityInfo()?.credits ?? [], {name: cityParams().operator, url: ''}].filter((credit) => credit.name)
+const cityCredits = () => [...cityInfo()?.credits ?? [], {name: cityParams().operator, url: cityInfo()?.operatorUrl ?? ''}].filter((credit) => credit.name)
 
 const creditLink = (name: string, url: string) => url
   ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener">${escapeHTML(name)}</a>`

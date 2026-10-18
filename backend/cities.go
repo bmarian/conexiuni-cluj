@@ -74,7 +74,7 @@ func cityOptions(cfg *Config) (handlers.Options, error) {
 }
 
 type tranzyAgency struct {
-	slug, name, operator, agencyID string
+	slug, name, operator, operatorURL, agencyID string
 	// Tranzy has no departure times; nil leaves only learned ones.
 	timetables sources.Timetables
 }
@@ -99,7 +99,7 @@ func (a tranzyAgency) city(cfg *Config, opts handlers.Options) (*handlers.City, 
 		learning = tranzy.New(learningClient)
 	}
 	city := handlers.NewCity(a.slug, a.name, store, static, a.timetables, static, learning, learningFor(a.slug, opts))
-	city.Operator = a.operator
+	city.Operator, city.OperatorURL = a.operator, a.operatorURL
 	return city, nil
 }
 
@@ -117,11 +117,11 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		return gtfs.New("https://external.gtfs.ro/"+city+"/"+strings.ToUpper(city)+".zip", cfg.TimetableRefresh, nil)
 	}
 	agencies := []tranzyAgency{
-		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh)},
-		{"iasi", "Iași", "CTP Iași", "1", feed("iasi")},
-		{"botosani", "Botoșani", "Eltrans Botoșani", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh)},
-		{"oradea", "Oradea", "OTL Oradea", "9", feed("oradea")},
-		{"constanta", "Constanța", "CT BUS Constanța", "10", feed("constanta")},
+		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "https://ctpcj.ro/", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh)},
+		{"iasi", "Iași", "CTP Iași", "https://www.sctpiasi.ro/", "1", feed("iasi")},
+		{"botosani", "Botoșani", "Eltrans Botoșani", "https://eltransbt.ro/", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh)},
+		{"oradea", "Oradea", "OTL Oradea", "https://www.otl.ro/", "9", feed("oradea")},
+		{"constanta", "Constanța", "CT BUS Constanța", "https://www.ctbus.ro/", "10", feed("constanta")},
 	}
 	var cities []*handlers.City
 	for _, a := range agencies {
@@ -142,9 +142,9 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		return func(ids sources.IDMap) sources.Realtime { return stpt.New(url, ids) }
 	}
 	feeds := []gtfsCity{
-		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs", nil},
-		{"bucuresti", "București", "TPBI", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", gtfsRealtime("https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions")},
-		{"timisoara", "Timișoara", "STPT Timișoara", "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip", stptMap("https://live.stpt.ro/gtfs-vehicles.php")},
+		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/", "https://tursib.ro/trasee/gtfs", nil},
+		{"bucuresti", "București", "TPBI", "https://tpbi.ro/", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", gtfsRealtime("https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions")},
+		{"timisoara", "Timișoara", "STPT Timișoara", "https://stpt.ro/", "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip", stptMap("https://live.stpt.ro/gtfs-vehicles.php")},
 	}
 	for _, g := range feeds {
 		city, err := g.city(cfg, opts)
@@ -160,7 +160,7 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 }
 
 type gtfsCity struct {
-	slug, name, operator, url string
+	slug, name, operator, operatorURL, url string
 	// nil means schedule-only.
 	realtime func(sources.IDMap) sources.Realtime
 }
@@ -176,7 +176,7 @@ func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, erro
 		realtime = g.realtime(store)
 	}
 	city := handlers.NewCity(g.slug, g.name, store, feed, nil, realtime, nil, learningFor(g.slug, opts))
-	city.Operator = g.operator
+	city.Operator, city.OperatorURL = g.operator, g.operatorURL
 	if rt, ok := realtime.(*gtfsrt.Source); ok {
 		rt.Placement = city
 	}

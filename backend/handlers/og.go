@@ -290,6 +290,7 @@ func (city *City) RouteOGHandler(c fiber.Ctx) error {
 			"provider": map[string]any{
 				"@type": "Organization",
 				"name":  city.Operator,
+				"url":   city.OperatorURL,
 			},
 		},
 	})
