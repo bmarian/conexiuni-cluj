@@ -40,7 +40,10 @@ export function nextBusReminder(target: ReminderTarget, walk: number | null, now
   const times = reminderTimes(target.stopId, target.routeId, target.tripId)
   const next = times && nextDeparture(times, nowMs)
   if (!times || !next) return null
-  return {id: crypto.randomUUID(), ...target, time: next.minute, days: [], date: next.date, slots: resolveSlots(times, next.minute), walk}
+  return {
+    id: crypto.randomUUID(), ...target, time: next.minute, days: [], date: next.date, slots: resolveSlots(times, next.minute),
+    walk, walkAt: walk === null ? undefined : nowMs,
+  }
 }
 
 export const useRemindersStore = defineStore('reminders', () => {
@@ -75,6 +78,7 @@ export const useRemindersStore = defineStore('reminders', () => {
       date: r.date ?? '',
       slots: r.slots,
       walk: r.walk ?? undefined,
+      walk_at: r.walk == null ? undefined : r.walkAt,
     }))
   }
 

@@ -5,7 +5,7 @@ import type {LiveRow} from '@/types/tranzy.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import {useFollowsStore} from '@/stores/follows.ts'
 import {useUserStore} from '@/stores/user.ts'
-import {targetReading, walkMinutes, type FollowReading, type Followed} from '@/utils/follow.ts'
+import {targetReading, type FollowReading, type Followed} from '@/utils/follow.ts'
 import {tripDepartures} from '@/utils/legDeparture.ts'
 
 const props = defineProps<{ followed: Followed, rows: Map<string, LiveRow>, asOfMs: number | null }>()
@@ -13,7 +13,7 @@ const props = defineProps<{ followed: Followed, rows: Map<string, LiveRow>, asOf
 const STOP_REFRESH_MS = 10 * 60_000
 
 const follows = useFollowsStore()
-const {userTime, userLocation} = storeToRefs(useUserStore())
+const {userTime} = storeToRefs(useUserStore())
 const {stopInfo, fetchStopData} = useStopInfoApi()
 let refresh: ReturnType<typeof setInterval> | null = null
 
@@ -33,9 +33,7 @@ function read() {
   } else {
     reading = departure ? {minutes: departure.minutes, live: departure.live, later: departure.later} : null
   }
-  const here = userLocation.value
-  const walk = here ? walkMinutes(here.latitude, here.longitude, followed.stopLat, followed.stopLon) : null
-  follows.onReading(followed.id, reading, walk, nowMs)
+  follows.onReading(followed.id, reading, nowMs)
 }
 
 onMounted(() => {

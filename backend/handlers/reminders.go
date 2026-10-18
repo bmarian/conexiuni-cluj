@@ -18,10 +18,14 @@ import (
 
 const (
 	leaveBuffer = 5 * time.Minute
-	// How early to go when the walk isn't known.
+	// How early to get ready when the walk isn't known.
 	noLocationLead = 20 * time.Minute
 	// The heads-up comes this long before it's time to leave.
-	reminderHeadsUp     = 10 * time.Minute
+	reminderHeadsUp = 10 * time.Minute
+	// A walk measured longer ago than this is taken as unknown.
+	walkFreshFor = time.Hour
+	// Closer than this to the time to leave, it says to go now.
+	leaveSlack          = 2 * time.Minute
 	clockFromMinutes    = 60
 	reminderCheckEvery  = 30 * time.Second
 	maxRemindersPerSub  = 20
@@ -51,6 +55,8 @@ type pushReminder struct {
 	Slots       map[string]int `json:"slots"`
 	// Minutes to the stop from where it was set; nil when unknown.
 	Walk *int `json:"walk,omitempty"`
+	// Unix ms when the walk was measured.
+	WalkAt int64 `json:"walk_at,omitempty"`
 }
 
 type reminderSyncRequest struct {
@@ -67,20 +73,33 @@ type storedReminder struct {
 	pushReminder
 	sub         pushSubscriber
 	lastFiredAt int64
+	// Unix ms of the told bus's time to leave, until it's sent.
+	leaveAt int64
 }
 
+// What a reminder says: when to go by, to go now, or, without a fresh walk or at the stop, to get ready.
+type reminderKind int
+
+const (
+	reminderLeaveBy reminderKind = iota
+	reminderLeaveNow
+	reminderGetReady
+)
+
 type reminderText struct {
-	leaveBy, arriving, in, at, walk string
+	leaveBy, leaveNow, getReady, in, at, walk string
 }
 
 var reminderTexts = map[string]reminderText{
 	"ro": {
-		leaveBy: "Trebuie să te pornești înainte de %s pentru a prinde autobuzul", arriving: "Sosește în stația %s",
-		in: "%s peste %d min", at: "%s la %s", walk: "%s · %d min de mers",
+		leaveBy: "Trebuie să te pornești înainte de %s pentru a prinde autobuzul", leaveNow: "Pleacă acum",
+		getReady: "Autobuzul tău pleacă la %s, pregătește-te",
+		in:       "%s peste %d min", at: "%s la %s", walk: "%s · %d min de mers",
 	},
 	"en": {
-		leaveBy: "Leave by %s to catch your bus", arriving: "Arriving at %s",
-		in: "%s in %d min", at: "%s at %s", walk: "%s · %d min walk",
+		leaveBy: "Leave by %s to catch your bus", leaveNow: "Leave now",
+		getReady: "Your bus leaves at %s, get ready",
+		in:       "%s in %d min", at: "%s at %s", walk: "%s · %d min walk",
 	},
 }
 
@@ -90,6 +109,22 @@ func reminderLead(walk *int) time.Duration {
 		return noLocationLead
 	}
 	return time.Duration(*walk)*time.Minute + leaveBuffer
+}
+
+// How long before the bus a reminder first speaks: the heads-up before the walk, or the flat lead without a walk or at the stop.
+func tellLead(walk *int) time.Duration {
+	if walk == nil || *walk == 0 {
+		return noLocationLead
+	}
+	return reminderLead(walk) + reminderHeadsUp
+}
+
+// The walk while it's fresh.
+func (r pushReminder) walkNow(now time.Time) *int {
+	if r.Walk == nil || now.Sub(time.UnixMilli(r.WalkAt)) > walkFreshFor {
+		return nil
+	}
+	return r.Walk
 }
 
 func validReminder(r pushReminder) bool {
@@ -102,7 +137,7 @@ func validReminder(r pushReminder) bool {
 	if r.StopName == "" || len(r.StopName) > maxReminderTextLen || len(r.Destination) > maxReminderTextLen {
 		return false
 	}
-	if len(r.Slots) == 0 || (r.Walk != nil && (*r.Walk < 0 || *r.Walk > maxReminderWalk)) {
+	if len(r.Slots) == 0 || r.WalkAt < 0 || (r.Walk != nil && (*r.Walk < 0 || *r.Walk > maxReminderWalk)) {
 		return false
 	}
 	for dayType, minute := range r.Slots {
@@ -193,19 +228,19 @@ func saveReminders(sub pushSubscriber, reminders []pushReminder) error {
 		sub.endpoint, sub.p256dh, sub.auth, sub.locale, sub.host, time.Now().UnixMilli()); err != nil {
 		return err
 	}
-	fired := map[string]int64{}
-	rows, err := tx.Query(`SELECT id, last_fired_at FROM push_reminders WHERE endpoint = ?`, sub.endpoint)
+	fired := map[string][2]int64{}
+	rows, err := tx.Query(`SELECT id, last_fired_at, leave_at FROM push_reminders WHERE endpoint = ?`, sub.endpoint)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var id string
-		var at int64
-		if err := rows.Scan(&id, &at); err != nil {
+		var at, leave int64
+		if err := rows.Scan(&id, &at, &leave); err != nil {
 			rows.Close()
 			return err
 		}
-		fired[id] = at
+		fired[id] = [2]int64{at, leave}
 	}
 	rows.Close()
 	if _, err := tx.Exec(`DELETE FROM push_reminders WHERE endpoint = ?`, sub.endpoint); err != nil {
@@ -221,10 +256,10 @@ func saveReminders(sub pushSubscriber, reminders []pushReminder) error {
 			return err
 		}
 		if _, err := tx.Exec(`
-			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, last_fired_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, walk_at, last_fired_at, leave_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.endpoint, r.ID, r.StopID, r.StopName, r.RouteID, r.TripID, r.Line, r.Destination,
-			strings.Join(days, ","), r.Date, string(slots), r.Walk, fired[r.ID]); err != nil {
+			strings.Join(days, ","), r.Date, string(slots), r.Walk, r.WalkAt, fired[r.ID][0], fired[r.ID][1]); err != nil {
 			return err
 		}
 	}
@@ -275,7 +310,7 @@ func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.
 func loadReminders() ([]storedReminder, error) {
 	return queryRows(`
 		SELECT r.endpoint, r.id, r.stop_id, r.stop_name, r.route_id, r.trip_id, r.line, r.destination, r.days, r.date, r.slots,
-		       r.walk, r.last_fired_at, s.p256dh, s.auth, s.locale
+		       r.walk, r.walk_at, r.last_fired_at, r.leave_at, s.p256dh, s.auth, s.locale
 		FROM push_reminders r
 		JOIN push_subscriptions s ON s.endpoint = r.endpoint`,
 		nil,
@@ -284,7 +319,7 @@ func loadReminders() ([]storedReminder, error) {
 			var days, slots string
 			var walk sql.NullInt64
 			if err := rows.Scan(&r.sub.endpoint, &r.ID, &r.StopID, &r.StopName, &r.RouteID, &r.TripID, &r.Line, &r.Destination,
-				&days, &r.Date, &slots, &walk, &r.lastFiredAt, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
+				&days, &r.Date, &slots, &walk, &r.WalkAt, &r.lastFiredAt, &r.leaveAt, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
 				return r, err
 			}
 			if walk.Valid {
@@ -308,6 +343,9 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 	}
 	sort.Slice(reminders, func(i, j int) bool { return reminders[i].ID < reminders[j].ID })
 	for _, r := range reminders {
+		if r.leaveAt > 0 && !now.Before(time.UnixMilli(r.leaveAt)) {
+			sendLeaveNow(r, now, loc)
+		}
 		bus, ok := nextReminderBus(r.pushReminder, now, loc)
 		if !ok {
 			if r.Date != "" {
@@ -321,28 +359,62 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 		if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
 			bus = at
 		}
-		if bus.Sub(now) > reminderLead(r.Walk)+reminderHeadsUp || r.lastFiredAt >= slot.UnixMilli() {
+		walk := r.walkNow(now)
+		if bus.Sub(now) > tellLead(walk) || r.lastFiredAt >= slot.UnixMilli() {
 			continue
 		}
+		kind, leaveAt := reminderGetReady, time.Time{}
+		if walk != nil && *walk > 0 {
+			kind, leaveAt = reminderLeaveNow, bus.Add(-reminderLead(walk)).Truncate(time.Minute)
+			if leaveAt.Sub(now) > leaveSlack {
+				kind = reminderLeaveBy
+			}
+		}
+		var pending int64
+		if kind == reminderLeaveBy {
+			pending = leaveAt.UnixMilli()
+		}
 		// Marked before sending, so a failed send can't repeat.
-		if _, err := database.DB.Exec(`UPDATE push_reminders SET last_fired_at = ? WHERE endpoint = ? AND id = ?`,
-			slot.UnixMilli(), r.sub.endpoint, r.ID); err != nil {
+		if _, err := database.DB.Exec(`UPDATE push_reminders SET last_fired_at = ?, leave_at = ? WHERE endpoint = ? AND id = ?`,
+			slot.UnixMilli(), pending, r.sub.endpoint, r.ID); err != nil {
 			log.Printf("push: could not mark a reminder as sent: %v", err)
 			continue
 		}
-		payload, err := json.Marshal(reminderPushMessage(r.pushReminder, r.sub.locale, bus, now, loc))
-		if err != nil {
-			continue
-		}
-		ttl := int(bus.Sub(now).Seconds())
-		if ttl < 60 {
-			ttl = 60
-		}
-		sendPushWith(r.sub, payload, ttl, webpush.UrgencyHigh)
+		sendReminder(r, reminderPushMessage(r.pushReminder, r.sub.locale, kind, walk, slot, bus, now, loc), bus, now)
 	}
 }
 
-func reminderPushMessage(r pushReminder, locale string, bus, now time.Time, loc *time.Location) pushMessage {
+// The told bus's time to leave, with the walk it was timed from.
+func sendLeaveNow(r storedReminder, now time.Time, loc *time.Location) {
+	if _, err := database.DB.Exec(`UPDATE push_reminders SET leave_at = 0 WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
+		log.Printf("push: could not mark a reminder's time to leave as sent: %v", err)
+		return
+	}
+	slot := time.UnixMilli(r.lastFiredAt)
+	bus := slot
+	if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
+		bus = at
+	}
+	if !now.Before(bus) || r.Walk == nil {
+		return
+	}
+	sendReminder(r, reminderPushMessage(r.pushReminder, r.sub.locale, reminderLeaveNow, r.Walk, slot, bus, now, loc), bus, now)
+}
+
+func sendReminder(r storedReminder, message pushMessage, bus, now time.Time) {
+	payload, err := json.Marshal(message)
+	if err != nil {
+		return
+	}
+	ttl := int(bus.Sub(now).Seconds())
+	if ttl < 60 {
+		ttl = 60
+	}
+	sendPushWith(r.sub, payload, ttl, webpush.UrgencyHigh)
+}
+
+// [slot] is the bus's timetable time, which a tap follows; [bus] its live time when known.
+func reminderPushMessage(r pushReminder, locale string, kind reminderKind, walk *int, slot, bus, now time.Time, loc *time.Location) pushMessage {
 	text, ok := reminderTexts[locale]
 	if !ok {
 		text = reminderTexts["ro"]
@@ -355,23 +427,20 @@ func reminderPushMessage(r pushReminder, locale string, bus, now time.Time, loc 
 	if minutes >= clockFromMinutes {
 		coming = fmt.Sprintf(text.at, r.Line, bus.In(loc).Format("15:04"))
 	}
-	title := fmt.Sprintf(text.arriving, r.StopName)
-	body := coming
-	// At the stop, or too late to walk there, it only says the bus is coming.
-	leaveAt := bus.Add(-reminderLead(r.Walk)).Truncate(time.Minute)
-	if (r.Walk == nil || *r.Walk > 0) && leaveAt.After(now) {
-		title = fmt.Sprintf(text.leaveBy, leaveAt.In(loc).Format("15:04"))
-		if r.Walk != nil {
-			body = fmt.Sprintf(text.walk, coming, *r.Walk)
-		} else {
-			body = coming + " · " + r.StopName
+	title, body := fmt.Sprintf(text.getReady, bus.In(loc).Format("15:04")), coming
+	if kind != reminderGetReady && walk != nil {
+		body = fmt.Sprintf(text.walk, coming, *walk)
+		title = text.leaveNow
+		if kind == reminderLeaveBy {
+			title = fmt.Sprintf(text.leaveBy, bus.Add(-reminderLead(walk)).Truncate(time.Minute).In(loc).Format("15:04"))
 		}
 	}
 	return pushMessage{
 		Title:     title,
 		Body:      body,
-		URL:       fmt.Sprintf("/stop/%d?follow=%s&at=%d", r.StopID, r.TripID, bus.UnixMilli()),
+		URL:       fmt.Sprintf("/stop/%d?follow=%s&at=%d", r.StopID, r.TripID, slot.UnixMilli()),
 		Tag:       "reminder-" + r.ID,
 		Timestamp: now.UnixMilli(),
+		Alert:     kind != reminderLeaveBy,
 	}
 }

@@ -114,6 +114,8 @@ type pushMessage struct {
 	URL       string `json:"url"`
 	Tag       string `json:"tag"`
 	Timestamp int64  `json:"timestamp"`
+	// Stays up until it's dealt with.
+	Alert bool `json:"alert,omitempty"`
 }
 
 type pushSubscriber struct {

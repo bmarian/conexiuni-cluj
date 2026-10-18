@@ -257,7 +257,9 @@ func InitSchemas() error {
             date          TEXT    NOT NULL,
             slots         TEXT    NOT NULL,
             walk          INTEGER,
+            walk_at       INTEGER NOT NULL DEFAULT 0,
             last_fired_at INTEGER NOT NULL DEFAULT 0,
+            leave_at      INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (endpoint, id)
         );
 
@@ -436,6 +438,8 @@ func addMissingColumns() error {
 		},
 		"push_reminders": {
 			"walk INTEGER",
+			"walk_at INTEGER NOT NULL DEFAULT 0",
+			"leave_at INTEGER NOT NULL DEFAULT 0",
 		},
 		"push_subscriptions": {
 			"host TEXT NOT NULL DEFAULT ''",

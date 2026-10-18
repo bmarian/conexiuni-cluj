@@ -73,6 +73,7 @@ const draft = computed<Reminder | null>(() => {
   const next = soonest.value && !repeat.value ? upcoming.value : null
   const chosen = last.value ? null : soonest.value && !repeat.value ? next?.minute ?? null : time.value
   if (!last.value && chosen === null) return null
+  const walk = walkFrom(userStore.userLocation, props.target.stopLat, props.target.stopLon)
   const base: Reminder = {
     id: existing?.id ?? crypto.randomUUID(),
     ...props.target,
@@ -80,7 +81,8 @@ const draft = computed<Reminder | null>(() => {
     days: repeat.value ? [...days.value].sort((a, b) => a - b) : [],
     date: null,
     slots: resolveSlots(times.value, chosen),
-    walk: walkFrom(userStore.userLocation, props.target.stopLat, props.target.stopLon) ?? existing?.walk ?? null,
+    walk: walk ?? existing?.walk ?? null,
+    walkAt: walk === null ? existing?.walkAt : now.value,
   }
   if (repeat.value) return base.days.length ? base : null
   if (next && !last.value) return {...base, date: next.date}
