@@ -14,8 +14,15 @@ type Snapshot struct {
 	Trips     []models.Trip
 	Shapes    []models.Shape
 	TripStops []models.TripStop
+	// Seconds from each stop to the next along a pattern, by pattern id, when the feed carries times; the first is 0.
+	Offsets map[string][]float64
 	// By route short name; a source without departure times leaves it empty.
 	Timetables map[string]*models.Timetable
+}
+
+// IDMap turns a feed's own ids into the ints the app uses, the same way every time.
+type IDMap interface {
+	ExternalID(kind, external string) (int, error)
 }
 
 type Static interface {

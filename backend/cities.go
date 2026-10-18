@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/handlers"
 	"conexiuni-cluj/sources"
 	"conexiuni-cluj/sources/ctpcsv"
+	"conexiuni-cluj/sources/eltrans"
 	"conexiuni-cluj/sources/gtfs"
 	"conexiuni-cluj/sources/tranzy"
 	"fmt"
@@ -101,14 +102,14 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		return nil, err
 	}
 	feed := func(city string) sources.Timetables {
-		return gtfs.New("https://external.gtfs.ro/"+city+"/"+strings.ToUpper(city)+".zip", cfg.TimetableRefresh)
+		return gtfs.New("https://external.gtfs.ro/"+city+"/"+strings.ToUpper(city)+".zip", cfg.TimetableRefresh, nil)
 	}
 	agencies := []tranzyAgency{
 		// CTP's own CSVs are the better timetable for Cluj.
 		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh)},
 		{"iasi", "Iași", "CTP Iași", "1", feed("iasi")},
-		// Eltrans publishes no feed with times.
-		{"botosani", "Botoșani", "Eltrans Botoșani", "6", nil},
+		// Eltrans has no feed; the town hall publishes the headways as a PDF.
+		{"botosani", "Botoșani", "Eltrans Botoșani", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh)},
 		{"oradea", "Oradea", "OTL Oradea", "9", feed("oradea")},
 		{"constanta", "Constanța", "CT BUS Constanța", "10", feed("constanta")},
 	}
@@ -124,10 +125,36 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		}
 		cities = append(cities, city)
 	}
+	// Cities whose operator publishes a GTFS zip and nothing live: the zip is the whole network.
+	feeds := []gtfsCity{
+		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs"},
+	}
+	for _, g := range feeds {
+		city, err := g.city(cfg, opts)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", g.slug, err)
+		}
+		cities = append(cities, city)
+	}
 	if len(cities) == 0 {
 		return nil, fmt.Errorf("no city has a key")
 	}
 	return cities, nil
+}
+
+type gtfsCity struct {
+	slug, name, operator, url string
+}
+
+func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {
+	store, err := openStore(cfg, g.slug)
+	if err != nil {
+		return nil, err
+	}
+	feed := gtfs.New(g.url, cfg.TimetableRefresh, store)
+	city := handlers.NewCity(g.slug, g.name, store, feed, nil, nil, nil, opts)
+	city.Operator = g.operator
+	return city, nil
 }
 
 // The city a maintenance command works on, with its database but no sources.

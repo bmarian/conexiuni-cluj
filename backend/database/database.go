@@ -196,6 +196,14 @@ func (s *Store) initSchemas() error {
             sunday           TEXT NOT NULL
         );
 
+		CREATE TABLE IF NOT EXISTS external_ids
+        (
+            kind     TEXT    NOT NULL,
+            external TEXT    NOT NULL,
+            id       INTEGER NOT NULL,
+            PRIMARY KEY (kind, external)
+        );
+
 		CREATE TABLE IF NOT EXISTS ingest_state
         (
             source    TEXT PRIMARY KEY,

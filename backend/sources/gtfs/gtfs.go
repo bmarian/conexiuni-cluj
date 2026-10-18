@@ -1,4 +1,5 @@
-// Package gtfs reads a static GTFS zip. For now it lays departure times over a Snapshot that has none.
+// Package gtfs reads a static GTFS zip, either as a city's whole network or as the departure times
+// laid over a Snapshot that has none.
 package gtfs
 
 import (
@@ -9,6 +10,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -22,10 +24,13 @@ const serviceDayEndHour = 28
 type Feed struct {
 	url     string
 	cadence time.Duration
+	// Maps the feed's ids to the app's ints; only a Static feed needs one.
+	ids sources.IDMap
 }
 
-func New(url string, cadence time.Duration) *Feed {
-	return &Feed{url: url, cadence: cadence}
+// New reads the zip at url. ids may be nil when the feed only lays times over another source's Snapshot.
+func New(url string, cadence time.Duration, ids sources.IDMap) *Feed {
+	return &Feed{url: url, cadence: cadence, ids: ids}
 }
 
 func (f *Feed) Cadence() time.Duration { return f.cadence }
@@ -60,15 +65,19 @@ func (f *Feed) fetch() (*feed, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parse(data)
+}
+
+func parse(data []byte) (*feed, error) {
 	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return nil, fmt.Errorf("gtfs: %s: %w", f.url, err)
+		return nil, fmt.Errorf("gtfs: %w", err)
 	}
 	out := &feed{files: map[string]table{}}
 	for _, file := range archive.File {
 		name := strings.TrimSuffix(file.Name, ".txt")
 		switch name {
-		case "routes", "trips", "stops", "stop_times", "calendar", "calendar_dates":
+		case "routes", "trips", "stops", "stop_times", "calendar", "calendar_dates", "shapes":
 		default:
 			continue
 		}
@@ -85,7 +94,7 @@ func (f *Feed) fetch() (*feed, error) {
 	}
 	for _, name := range []string{"routes", "trips", "stops", "stop_times", "calendar"} {
 		if _, ok := out.files[name]; !ok {
-			return nil, fmt.Errorf("gtfs: %s has no %s.txt", f.url, name)
+			return nil, fmt.Errorf("gtfs: no %s.txt", name)
 		}
 	}
 	return out, nil
@@ -107,6 +116,67 @@ func readTable(r io.Reader) (table, error) {
 		header[strings.TrimPrefix(strings.TrimSpace(name), "\ufeff")] = i
 	}
 	return table{header: header, rows: rows[1:]}, nil
+}
+
+// ---- what the files say
+
+type tripInfo struct {
+	routeID, service, headsign, shapeID string
+	direction                           int
+}
+
+type stopTime struct {
+	stopID    string
+	seq       int
+	arrival   int // minutes, -1 when missing
+	departure int
+}
+
+type tripStops map[string][]stopTime
+
+func (f *feed) trips() map[string]tripInfo {
+	trips := f.files["trips"]
+	out := make(map[string]tripInfo, len(trips.rows))
+	for _, row := range trips.rows {
+		direction, _ := strconv.Atoi(trips.get(row, "direction_id"))
+		out[trips.get(row, "trip_id")] = tripInfo{
+			routeID: trips.get(row, "route_id"), service: trips.get(row, "service_id"),
+			headsign: trips.get(row, "trip_headsign"), shapeID: trips.get(row, "shape_id"), direction: direction,
+		}
+	}
+	return out
+}
+
+// Every trip's stops in sequence order.
+func (f *feed) stopTimes() tripStops {
+	st := f.files["stop_times"]
+	out := tripStops{}
+	for _, row := range st.rows {
+		tripID := st.get(row, "trip_id")
+		seq, _ := strconv.Atoi(st.get(row, "stop_sequence"))
+		out[tripID] = append(out[tripID], stopTime{
+			stopID: st.get(row, "stop_id"), seq: seq,
+			arrival: minutesOrMissing(st.get(row, "arrival_time")), departure: minutesOrMissing(st.get(row, "departure_time")),
+		})
+	}
+	for _, stops := range out {
+		sort.Slice(stops, func(i, j int) bool { return stops[i].seq < stops[j].seq })
+	}
+	return out
+}
+
+// Minutes of a GTFS time, which may pass 24:00; -1 when missing.
+func minutesOrMissing(hhmmss string) int {
+	parts := strings.Split(hhmmss, ":")
+	if len(parts) < 2 {
+		return -1
+	}
+	h, errH := strconv.Atoi(strings.TrimSpace(parts[0]))
+	m, errM := strconv.Atoi(parts[1])
+	if errH != nil || errM != nil {
+		return -1
+	}
+	return h*60 + m
 }
 
 // The services running on a date, from calendar.txt and the exceptions in calendar_dates.txt.
@@ -182,127 +252,102 @@ func representativeDays(now, start, end time.Time) map[string]time.Time {
 	return out
 }
 
-type firstStop struct {
-	stopID    string
-	departure string
-}
+// ---- timetables
 
-// Minutes of a GTFS time, which may pass 24:00; false when it belongs to the next service day.
-func minutesOf(hhmmss string) (int, bool) {
-	parts := strings.Split(hhmmss, ":")
-	if len(parts) < 2 {
-		return 0, false
-	}
-	h, errH := strconv.Atoi(strings.TrimSpace(parts[0]))
-	m, errM := strconv.Atoi(parts[1])
-	if errH != nil || errM != nil || h >= serviceDayEndHour {
-		return 0, false
-	}
-	return h*60 + m, true
-}
-
+// Timetables lays the feed's departure times over a Snapshot from another source, matched by line number.
 func (f *Feed) Timetables(snap *sources.Snapshot) (map[string]*models.Timetable, error) {
 	data, err := f.fetch()
 	if err != nil {
 		return nil, err
 	}
-	routes := data.files["routes"]
+	return data.timetables(snap, time.Now()), nil
+}
+
+type lineDir struct {
+	line      string
+	direction int
+}
+
+func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*models.Timetable {
+	routes := f.files["routes"]
 	routeShort := map[string]string{}
 	for _, row := range routes.rows {
 		routeShort[routes.get(row, "route_id")] = routes.get(row, "route_short_name")
 	}
-	stops := data.files["stops"]
+	stopsTable := f.files["stops"]
 	stopName := map[string]string{}
-	for _, row := range stops.rows {
-		stopName[stops.get(row, "stop_id")] = stops.get(row, "stop_name")
+	for _, row := range stopsTable.rows {
+		stopName[stopsTable.get(row, "stop_id")] = stopsTable.get(row, "stop_name")
+	}
+	trips := f.trips()
+	stops := f.stopTimes()
+	pats, dropped := patterns(trips, stops)
+	if dropped > 0 {
+		log.Printf("gtfs: %d trips run only part of their line and are not listed", dropped)
 	}
 
-	type tripInfo struct {
-		short, service string
-		direction      int
-	}
-	trips := data.files["trips"]
-	tripOf := map[string]tripInfo{}
-	for _, row := range trips.rows {
-		direction, _ := strconv.Atoi(trips.get(row, "direction_id"))
-		tripOf[trips.get(row, "trip_id")] = tripInfo{short: routeShort[trips.get(row, "route_id")], service: trips.get(row, "service_id"), direction: direction}
-	}
-
-	// The first stop of every trip.
-	stopTimes := data.files["stop_times"]
-	firstOf := map[string]firstStop{}
-	firstSeq := map[string]int{}
-	for _, row := range stopTimes.rows {
-		tripID := stopTimes.get(row, "trip_id")
-		seq, _ := strconv.Atoi(stopTimes.get(row, "stop_sequence"))
-		if prev, ok := firstSeq[tripID]; ok && seq >= prev {
-			continue
-		}
-		firstSeq[tripID] = seq
-		firstOf[tripID] = firstStop{stopID: stopTimes.get(row, "stop_id"), departure: stopTimes.get(row, "departure_time")}
-	}
-
-	start, end := data.validity()
-	days := representativeDays(time.Now(), start, end)
+	start, end := f.validity()
+	days := representativeDays(now, start, end)
 	services := map[string]map[string]bool{}
 	for kind, day := range days {
-		services[kind] = data.servicesOn(day)
+		services[kind] = f.servicesOn(day)
 	}
 
-	// Departures per line, kind of day and direction, and each direction's first stop.
+	// Per line, direction and kind of day: when the trips following the pattern leave its first stop.
 	type key struct {
-		short, kind string
-		direction   int
+		lineDir
+		kind string
 	}
 	departures := map[key]map[int]string{}
-	termini := map[string][2]string{}
-	for tripID, info := range tripOf {
-		first, ok := firstOf[tripID]
-		if !ok || info.short == "" || info.direction < 0 || info.direction > 1 {
+	termini := map[lineDir]string{}
+	for _, p := range pats {
+		k := lineDir{routeShort[p.routeID], p.dir}
+		if k.line == "" {
 			continue
 		}
-		if name := stopName[first.stopID]; name != "" {
-			t := termini[info.short]
-			if t[info.direction] == "" {
-				t[info.direction] = name
-				termini[info.short] = t
+		termini[k] = p.stops[0]
+		for _, tripID := range p.trips {
+			st := stops[tripID]
+			minutes := st[0].departure
+			if minutes < 0 {
+				minutes = st[0].arrival
 			}
-		}
-		minutes, ok := minutesOf(first.departure)
-		if !ok {
-			continue
-		}
-		for kind, active := range services {
-			if !active[info.service] {
+			if minutes < 0 || minutes >= serviceDayEndHour*60 {
 				continue
 			}
-			k := key{info.short, kind, info.direction}
-			if departures[k] == nil {
-				departures[k] = map[int]string{}
+			for kind, active := range services {
+				if !active[trips[tripID].service] {
+					continue
+				}
+				dk := key{k, kind}
+				if departures[dk] == nil {
+					departures[dk] = map[int]string{}
+				}
+				departures[dk][minutes] = fmt.Sprintf("%02d:%02d", minutes/60, minutes%60)
 			}
-			departures[k][minutes] = fmt.Sprintf("%02d:%02d", minutes/60, minutes%60)
 		}
 	}
 
 	out := make(map[string]*models.Timetable, len(snap.Routes))
 	for _, route := range snap.Routes {
 		short := route.RouteShortName
-		if _, ok := termini[short]; !ok {
+		in, back := termini[lineDir{short, 0}], termini[lineDir{short, 1}]
+		if in == "" && back == "" {
 			continue
 		}
 		t := &models.Timetable{
 			RouteShortName: short,
 			RouteLongName:  route.RouteLongName,
-			InStopName:     termini[short][0],
-			OutStopName:    termini[short][1],
+			InStopName:     stopName[in],
+			OutStopName:    stopName[back],
 		}
 		for kind, schedule := range map[string]*models.DaySchedule{"weekdays": &t.Weekdays, "saturday": &t.Saturday, "sunday": &t.Sunday} {
-			*schedule = daySchedule(sortedTimes(departures[key{short, kind, 0}]), sortedTimes(departures[key{short, kind, 1}]))
+			*schedule = daySchedule(sortedTimes(departures[key{lineDir{short, 0}, kind}]), sortedTimes(departures[key{lineDir{short, 1}, kind}]))
 		}
 		sources.AlignDirections(t, sources.FirstStopNames(snap, route.RouteID))
 		out[short] = t
 	}
-	return out, nil
+	return out
 }
 
 func sortedTimes(byMinute map[int]string) []string {
@@ -331,4 +376,275 @@ func daySchedule(in, out []string) models.DaySchedule {
 		}
 	}
 	return models.DaySchedule{Entries: entries}
+}
+
+// ---- the whole network
+
+// Snapshot builds the network: one pattern per route and direction, the stop sequence most trips follow.
+func (f *Feed) Snapshot() (*sources.Snapshot, error) {
+	if f.ids == nil {
+		return nil, fmt.Errorf("gtfs: %s has no id map, so it can only lay times over another source", f.url)
+	}
+	data, err := f.fetch()
+	if err != nil {
+		return nil, err
+	}
+	return data.snapshot(f.ids, time.Now())
+}
+
+type pattern struct {
+	routeID  string
+	dir      int
+	stops    []string
+	trips    []string // the trips following it exactly, then those folded in
+	headsign string
+	shapeID  string
+	// Runs that pass every stop of the pattern with extra stops of their own, folded in when their timing agrees.
+	candidates []string
+}
+
+// The app shows whole minutes, so a run whose timing along the pattern stays under one is the same bus to a rider.
+const foldToleranceSec = 60
+
+// patterns picks, per route and direction, the stop sequence most trips follow. Trips that pass every stop of it,
+// with extra stops of their own, are folded in when they keep the pattern's timing. A short run would show buses
+// at stops it never reaches, so it is left out, like a run on another path; those are counted.
+func patterns(trips map[string]tripInfo, stops tripStops) (map[string]*pattern, int) {
+	type group struct {
+		bySignature map[string][]string
+		order       map[string][]string
+	}
+	groups := map[lineDir]*group{}
+	for tripID, info := range trips {
+		st := stops[tripID]
+		if len(st) < 2 || info.direction < 0 || info.direction > 1 {
+			continue
+		}
+		seq := make([]string, len(st))
+		for i, s := range st {
+			seq[i] = s.stopID
+		}
+		k := lineDir{info.routeID, info.direction}
+		g := groups[k]
+		if g == nil {
+			g = &group{bySignature: map[string][]string{}, order: map[string][]string{}}
+			groups[k] = g
+		}
+		sig := strings.Join(seq, "\x00")
+		g.bySignature[sig] = append(g.bySignature[sig], tripID)
+		g.order[sig] = seq
+	}
+	out := map[string]*pattern{}
+	dropped := 0
+	for k, g := range groups {
+		best, n := "", -1
+		for sig, ts := range g.bySignature {
+			if len(ts) > n || (len(ts) == n && sig < best) {
+				best, n = sig, len(ts)
+			}
+		}
+		id := k.line + "_" + strconv.Itoa(k.direction)
+		p := &pattern{routeID: k.line, dir: k.direction, stops: g.order[best], trips: g.bySignature[best]}
+		sort.Strings(p.trips)
+		first := trips[p.trips[0]]
+		p.headsign, p.shapeID = first.headsign, first.shapeID
+		out[id] = p
+		for sig, ts := range g.bySignature {
+			switch {
+			case sig == best:
+			case passesAll(p.stops, g.order[sig]):
+				p.candidates = append(p.candidates, ts...)
+			default:
+				dropped += len(ts)
+			}
+		}
+		sort.Strings(p.candidates)
+		offsets := scheduledOffsets(p, stops)
+		for _, tripID := range p.candidates {
+			if deviationSec(p.stops, offsets, stops[tripID]) < foldToleranceSec {
+				p.trips = append(p.trips, tripID)
+			} else {
+				dropped++
+			}
+		}
+	}
+	return out, dropped
+}
+
+// How far a run strays, at worst, from the pattern's timing at the pattern's stops.
+func deviationSec(patternStops []string, offsets []float64, run []stopTime) float64 {
+	start := run[0].departure
+	if start < 0 {
+		start = run[0].arrival
+	}
+	worst, cum, i := 0.0, 0.0, 0
+	for _, st := range run {
+		if i >= len(patternStops) || st.stopID != patternStops[i] {
+			continue
+		}
+		cum += offsets[i]
+		at := st.arrival
+		if at < 0 {
+			at = st.departure
+		}
+		if d := float64((at-start)*60) - cum; d > worst || -d > worst {
+			worst = max(d, -d)
+		}
+		i++
+	}
+	return worst
+}
+
+// passesAll is true when every stop of the pattern comes up, in order, along the run.
+func passesAll(pattern, run []string) bool {
+	i := 0
+	for _, stop := range run {
+		if i < len(pattern) && stop == pattern[i] {
+			i++
+		}
+	}
+	return i == len(pattern)
+}
+
+func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, error) {
+	trips := f.trips()
+	stops := f.stopTimes()
+	pats, _ := patterns(trips, stops)
+
+	routes := f.files["routes"]
+	routeIDs := map[string]int{}
+	snap := &sources.Snapshot{Offsets: map[string][]float64{}}
+	for _, row := range routes.rows {
+		external := routes.get(row, "route_id")
+		id, err := ids.ExternalID("route", external)
+		if err != nil {
+			return nil, err
+		}
+		routeIDs[external] = id
+		routeType, _ := strconv.Atoi(routes.get(row, "route_type"))
+		color := strings.TrimPrefix(routes.get(row, "route_color"), "#")
+		if len(color) == 6 {
+			color = "#" + strings.ToUpper(color)
+		} else {
+			color = models.ResolveRouteDisplayColor(routes.get(row, "route_short_name"))
+		}
+		snap.Routes = append(snap.Routes, models.Route{
+			RouteID: id, RouteShortName: routes.get(row, "route_short_name"), RouteLongName: routes.get(row, "route_long_name"),
+			RouteType: models.RouteType(routeType), RouteDesc: routes.get(row, "route_desc"), RouteColor: color,
+		})
+	}
+
+	stopsTable := f.files["stops"]
+	stopIDs := map[string]int{}
+	stopByExternal := map[string]models.Stop{}
+	used := map[string]bool{}
+	for _, p := range pats {
+		for _, s := range p.stops {
+			used[s] = true
+		}
+	}
+	for _, row := range stopsTable.rows {
+		external := stopsTable.get(row, "stop_id")
+		if !used[external] {
+			continue
+		}
+		id, err := ids.ExternalID("stop", external)
+		if err != nil {
+			return nil, err
+		}
+		lat, _ := strconv.ParseFloat(stopsTable.get(row, "stop_lat"), 64)
+		lon, _ := strconv.ParseFloat(stopsTable.get(row, "stop_lon"), 64)
+		locationType, _ := strconv.Atoi(stopsTable.get(row, "location_type"))
+		stop := models.Stop{
+			StopID: id, StopName: stopsTable.get(row, "stop_name"), StopDesc: stopsTable.get(row, "stop_desc"),
+			StopLat: lat, StopLon: lon, LocationType: models.LocationType(locationType), StopCode: stopsTable.get(row, "stop_code"),
+		}
+		stopIDs[external] = id
+		stopByExternal[external] = stop
+		snap.Stops = append(snap.Stops, stop)
+	}
+
+	shapePoints := map[string][]models.Shape{}
+	if shapes, ok := f.files["shapes"]; ok {
+		for _, row := range shapes.rows {
+			id := shapes.get(row, "shape_id")
+			lat, _ := strconv.ParseFloat(shapes.get(row, "shape_pt_lat"), 64)
+			lon, _ := strconv.ParseFloat(shapes.get(row, "shape_pt_lon"), 64)
+			seq, _ := strconv.Atoi(shapes.get(row, "shape_pt_sequence"))
+			dist, _ := strconv.ParseFloat(shapes.get(row, "shape_dist_traveled"), 64)
+			shapePoints[id] = append(shapePoints[id], models.Shape{ShapeID: id, ShapePtLat: lat, ShapePtLon: lon, ShapePtSequence: seq, ShapeDistTraveled: dist})
+		}
+	}
+
+	keys := make([]string, 0, len(pats))
+	for id := range pats {
+		keys = append(keys, id)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		p := pats[key]
+		routeID, ok := routeIDs[p.routeID]
+		if !ok {
+			continue
+		}
+		patternID := strconv.Itoa(routeID) + "_" + strconv.Itoa(p.dir)
+		snap.Trips = append(snap.Trips, models.Trip{
+			TripID: patternID, RouteID: routeID, DirectionID: models.DirectionType(p.dir), TripHeadsign: p.headsign, ShapeID: patternID,
+		})
+		for i, external := range p.stops {
+			snap.TripStops = append(snap.TripStops, models.TripStop{TripID: patternID, StopID: stopIDs[external], StopSequence: i})
+		}
+		points := append([]models.Shape(nil), shapePoints[p.shapeID]...)
+		if len(points) < 2 {
+			// No drawn line: straight legs between the stops keep the map and the offsets working.
+			points = points[:0]
+			for i, external := range p.stops {
+				s := stopByExternal[external]
+				points = append(points, models.Shape{ShapePtLat: s.StopLat, ShapePtLon: s.StopLon, ShapePtSequence: i})
+			}
+		}
+		sort.Slice(points, func(i, j int) bool { return points[i].ShapePtSequence < points[j].ShapePtSequence })
+		for i := range points {
+			points[i].ShapeID = patternID
+			points[i].ShapePtSequence = i
+			snap.Shapes = append(snap.Shapes, points[i])
+		}
+		snap.Offsets[patternID] = scheduledOffsets(p, stops)
+	}
+
+	snap.Timetables = f.timetables(snap, now)
+	return snap, nil
+}
+
+// Seconds between consecutive stops, the median over the trips that follow the pattern exactly.
+func scheduledOffsets(p *pattern, stops tripStops) []float64 {
+	n := len(p.stops)
+	samples := make([][]float64, n)
+	for _, tripID := range p.trips {
+		st := stops[tripID]
+		if len(st) != n {
+			continue
+		}
+		for i := 1; i < n; i++ {
+			from, to := st[i-1].departure, st[i].arrival
+			if from < 0 {
+				from = st[i-1].arrival
+			}
+			if to < 0 {
+				to = st[i].departure
+			}
+			if from >= 0 && to >= from {
+				samples[i] = append(samples[i], float64(to-from)*60)
+			}
+		}
+	}
+	out := make([]float64, n)
+	for i := 1; i < n; i++ {
+		if len(samples[i]) == 0 {
+			continue
+		}
+		sort.Float64s(samples[i])
+		out[i] = samples[i][len(samples[i])/2]
+	}
+	return out
 }

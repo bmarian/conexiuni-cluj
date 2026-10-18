@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/sources"
 	"database/sql"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -45,7 +46,7 @@ func (city *City) StartIngest() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				city.log("ingest: recovered from panic: %v", r)
+				city.log("ingest: recovered from panic: %v\n%s", r, debug.Stack())
 			}
 		}()
 		for {
@@ -265,7 +266,7 @@ func (city *City) loadSnapshot() (*sources.Snapshot, error) {
 	return &sources.Snapshot{Routes: routes, Stops: stops, Trips: trips, Shapes: shapes, TripStops: tripStops}, nil
 }
 
-// Offsets between stops are seeded from the shape at bus pace; learning overwrites them.
+// Offsets between stops come from the feed's own times when it has them, else from the shape at bus pace; learning overwrites them.
 func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 	stopsByID := make(map[int]models.Stop, len(snap.Stops))
 	for _, s := range snap.Stops {
@@ -290,11 +291,14 @@ func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 		var rows []models.StopTime
 		for _, trip := range tripsByRoute[route.RouteID] {
 			shape := shapesByID[trip.ShapeID]
+			scheduled := snap.Offsets[trip.TripID]
 			var previous *models.Stop
-			for _, ts := range tripStops[trip.TripID] {
+			for i, ts := range tripStops[trip.TripID] {
 				current := stopsByID[ts.StopID]
 				offset := 0.0
-				if previous != nil && ts.StopSequence != 0 && len(shape) > 0 {
+				if i < len(scheduled) && scheduled[i] > 0 {
+					offset = scheduled[i]
+				} else if previous != nil && ts.StopSequence != 0 && len(shape) > 0 {
 					offset = calculateStopOffset(*previous, current, shape)
 				}
 				rows = append(rows, models.StopTime{
