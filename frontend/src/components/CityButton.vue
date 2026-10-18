@@ -80,7 +80,10 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
         <button v-for="city in cities" :key="city.slug" type="button" class="city-item"
                 :class="{ 'is-current': !automatic && city.slug === currentCity }" :data-kbd-item="city.slug" @click="choose(city.slug)">
           <span class="city-item-title">{{ city.name }}</span>
-          <span class="city-item-meta">{{ city.operator }}</span>
+          <span class="city-item-meta">
+            {{ city.operator }}
+            <span class="city-tag" :class="city.realtime ? 'is-live' : 'is-timetable'">{{ t(city.realtime ? 'live' : 'timetable') }}</span>
+          </span>
         </button>
       </div>
     </div>
@@ -229,11 +232,50 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
 }
 
 .city-item-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   font-size: 0.75rem;
   color: #64748b;
 }
 
 .is-dark .city-item-meta {
   color: #94a3b8;
+}
+
+/* Live buses or the printed timetable: the same tags the arrivals wear. */
+.city-tag {
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.city-tag.is-live {
+  color: #059669;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.city-tag.is-timetable {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.is-dark .city-tag.is-live {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.is-dark .city-tag.is-timetable {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.4);
 }
 </style>

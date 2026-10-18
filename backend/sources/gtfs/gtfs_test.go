@@ -125,3 +125,24 @@ func TestRepresentativeDaysStartWhereTheFeedDoes(t *testing.T) {
 		t.Fatalf("days %v", days)
 	}
 }
+
+func TestAnUnnamedRouteIsCalledAfterItsEnds(t *testing.T) {
+	f := testFeed(t)
+	pats, _ := patterns(f.trips(), f.stopTimes())
+	names := map[string]string{"A": "Alpha", "D": "Delta"}
+	if got := routeName(pats, "L1", names); got != "Alpha - Delta" {
+		t.Fatalf("named %q", got)
+	}
+	// One direction only: its first stop and where it is headed.
+	for id, p := range pats {
+		if p.dir == 1 {
+			delete(pats, id)
+		}
+	}
+	if got := routeName(pats, "L1", names); got != "Alpha - Delta" {
+		t.Fatalf("one-way route named %q", got)
+	}
+	if got := routeName(pats, "L9", names); got != "" {
+		t.Fatalf("unknown route named %q", got)
+	}
+}

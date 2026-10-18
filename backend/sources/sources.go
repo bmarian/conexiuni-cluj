@@ -49,6 +49,12 @@ type Realtime interface {
 	Budget() Budget
 }
 
+// Placement is what a realtime feed that names the route and the next stop, but no direction, needs to place a bus:
+// where the stop sits on a direction's pattern, or -1 when that direction does not serve it.
+type Placement interface {
+	StopIndex(routeID, direction, stopID int) int
+}
+
 type Quota struct {
 	Name  string
 	Used  int

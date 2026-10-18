@@ -511,6 +511,12 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 	stops := f.stopTimes()
 	pats, _ := patterns(trips, stops)
 
+	stopsTable := f.files["stops"]
+	stopName := map[string]string{}
+	for _, row := range stopsTable.rows {
+		stopName[stopsTable.get(row, "stop_id")] = stopsTable.get(row, "stop_name")
+	}
+
 	routes := f.files["routes"]
 	routeIDs := map[string]int{}
 	snap := &sources.Snapshot{Offsets: map[string][]float64{}}
@@ -528,13 +534,16 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 		} else {
 			color = models.ResolveRouteDisplayColor(routes.get(row, "route_short_name"))
 		}
+		longName := routes.get(row, "route_long_name")
+		if longName == "" {
+			longName = routeName(pats, external, stopName)
+		}
 		snap.Routes = append(snap.Routes, models.Route{
-			RouteID: id, RouteShortName: routes.get(row, "route_short_name"), RouteLongName: routes.get(row, "route_long_name"),
+			RouteID: id, RouteShortName: routes.get(row, "route_short_name"), RouteLongName: longName,
 			RouteType: models.RouteType(routeType), RouteDesc: routes.get(row, "route_desc"), RouteColor: color,
 		})
 	}
 
-	stopsTable := f.files["stops"]
 	stopIDs := map[string]int{}
 	stopByExternal := map[string]models.Stop{}
 	used := map[string]bool{}
@@ -617,6 +626,27 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 }
 
 // Seconds between consecutive stops, the median over the trips that follow the pattern exactly.
+// A route the feed leaves unnamed is called after its ends, as the operators name theirs: the first stop of each
+// direction, or of the one direction and where it is headed.
+func routeName(pats map[string]*pattern, routeID string, stopName map[string]string) string {
+	var ends, headsigns [2]string
+	for _, p := range pats {
+		if p.routeID != routeID || p.dir < 0 || p.dir > 1 || len(p.stops) == 0 {
+			continue
+		}
+		ends[p.dir], headsigns[p.dir] = stopName[p.stops[0]], p.headsign
+	}
+	switch {
+	case ends[0] != "" && ends[1] != "":
+		return ends[0] + " - " + ends[1]
+	case ends[0] != "" && headsigns[0] != "":
+		return ends[0] + " - " + headsigns[0]
+	case ends[1] != "" && headsigns[1] != "":
+		return ends[1] + " - " + headsigns[1]
+	}
+	return ""
+}
+
 func scheduledOffsets(p *pattern, stops tripStops) []float64 {
 	n := len(p.stops)
 	samples := make([][]float64, n)

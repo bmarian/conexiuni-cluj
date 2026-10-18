@@ -132,7 +132,9 @@ func main() {
 	bySlug := make(map[string]*handlers.City, len(cities))
 	for _, city := range cities {
 		if *refresh {
-			city.Options.Refresh = true
+			if err := city.ForgetFetches(); err != nil {
+				log.Fatalf("%s: %v", city.Slug, err)
+			}
 		}
 		bySlug[city.Slug] = city
 		defer func() {

@@ -106,6 +106,19 @@ const writeAuthFlag = (on: boolean) => {
 const state = ref<'login' | 'loading' | 'ready'>(readAuthFlag() ? 'loading' : 'login')
 const token = ref('')
 const adminCity = ref(currentCity)
+const cityOpen = ref(false)
+const cityName = computed(() => cities.value.find((c) => c.slug === adminCity.value)?.name ?? adminCity.value)
+
+function pickCity(slug: string) {
+  cityOpen.value = false
+  if (slug === adminCity.value) return
+  adminCity.value = slug
+  void load()
+}
+
+function onDocumentPointerDown(e: PointerEvent) {
+  if (!(e.target as HTMLElement).closest('.city-pick')) cityOpen.value = false
+}
 const loginError = ref('')
 const loadError = ref('')
 const data = ref<Overview | null>(null)
@@ -175,12 +188,14 @@ onMounted(() => {
   }, REFRESH_MS)
   clockTimer = setInterval(() => { clock.value = Date.now() }, 1000)
   document.addEventListener('visibilitychange', onVisibility)
+  document.addEventListener('pointerdown', onDocumentPointerDown)
 })
 
 onBeforeUnmount(() => {
   if (refreshTimer) clearInterval(refreshTimer)
   if (clockTimer) clearInterval(clockTimer)
   document.removeEventListener('visibilitychange', onVisibility)
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 
 const num = (n: number) => n.toLocaleString('en-GB')
@@ -366,9 +381,19 @@ const meters = computed(() => {
       <div v-else class="page">
         <header class="top">
           <h1>Admin</h1>
-          <select v-if="cities.length > 1" v-model="adminCity" class="text-button" aria-label="City" @change="load">
-            <option v-for="city in cities" :key="city.slug" :value="city.slug">{{ city.name }}</option>
-          </select>
+          <div v-if="cities.length > 1" class="city-pick">
+            <button type="button" class="text-button city-pick-btn" aria-label="City" :aria-expanded="cityOpen" @click="cityOpen = !cityOpen">
+              {{ cityName }}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                   stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div v-if="cityOpen" class="city-menu" role="dialog" aria-label="City">
+              <button v-for="city in cities" :key="city.slug" type="button" class="city-option"
+                      :class="{ 'is-current': city.slug === adminCity }" @click="pickCity(city.slug)">
+                {{ city.name }}
+              </button>
+            </div>
+          </div>
           <button type="button" class="text-button" :disabled="loading" @click="load">
             {{ loading ? 'Updating…' : updatedAt }}
           </button>
@@ -703,6 +728,58 @@ h1 {
 .text-button:hover:not(:disabled) {
   background: var(--a-hover);
   color: var(--a-text);
+}
+
+.city-pick {
+  position: relative;
+}
+
+.city-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.city-pick-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.city-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 11rem;
+  padding: 0.375rem;
+  border: 1px solid var(--a-rule);
+  border-radius: 0.75rem;
+  background: var(--a-bg);
+  box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.25);
+}
+
+.city-option {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--a-text);
+  cursor: pointer;
+}
+
+.city-option:hover {
+  background: var(--a-hover);
+}
+
+.city-option.is-current {
+  background: var(--a-hair);
 }
 
 .stats {

@@ -7,6 +7,7 @@ import (
 	"conexiuni-cluj/sources/ctpcsv"
 	"conexiuni-cluj/sources/eltrans"
 	"conexiuni-cluj/sources/gtfs"
+	"conexiuni-cluj/sources/gtfsrt"
 	"conexiuni-cluj/sources/tranzy"
 	"fmt"
 	"log"
@@ -90,9 +91,15 @@ func (a tranzyAgency) city(cfg *Config, opts handlers.Options) (*handlers.City, 
 			tranzy.QuotaNames{Vehicles: "vehicle_learning_vehicles", Default: "vehicle_learning_default"}, quotaPersister{store, false})
 		learning = tranzy.New(learningClient)
 	}
-	city := handlers.NewCity(a.slug, a.name, store, static, a.timetables, static, learning, opts)
+	city := handlers.NewCity(a.slug, a.name, store, static, a.timetables, static, learning, learningFor(a.slug, opts))
 	city.Operator = a.operator
 	return city, nil
+}
+
+// VEHICLE_LEARNING_ENABLED_{SLUG} overrides the site-wide switch for one city.
+func learningFor(slug string, opts handlers.Options) handlers.Options {
+	opts.LearningEnabled = getBool("VEHICLE_LEARNING_ENABLED_"+strings.ToUpper(slug), opts.LearningEnabled)
+	return opts
 }
 
 // Every city served, in the order shown to people. A Tranzy city without a key is left out with a note.
@@ -127,7 +134,9 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 	}
 	// Cities whose operator publishes a GTFS zip and nothing live: the zip is the whole network.
 	feeds := []gtfsCity{
-		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs"},
+		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs", ""},
+		// TPBI's regional feed: STB, Metrorex, STV and the Ilfov operators in one zip, buses live on GTFS-realtime.
+		{"bucuresti", "București", "TPBI", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", "https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions"},
 	}
 	for _, g := range feeds {
 		city, err := g.city(cfg, opts)
@@ -144,6 +153,8 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 
 type gtfsCity struct {
 	slug, name, operator, url string
+	// A GTFS-realtime vehiclePositions feed, when the operator publishes one.
+	realtime string
 }
 
 func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {
@@ -152,8 +163,17 @@ func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, erro
 		return nil, err
 	}
 	feed := gtfs.New(g.url, cfg.TimetableRefresh, store)
-	city := handlers.NewCity(g.slug, g.name, store, feed, nil, nil, nil, opts)
+	var rt *gtfsrt.Source
+	var realtime sources.Realtime
+	if g.realtime != "" {
+		rt = gtfsrt.New(g.realtime, store)
+		realtime = rt
+	}
+	city := handlers.NewCity(g.slug, g.name, store, feed, nil, realtime, nil, learningFor(g.slug, opts))
 	city.Operator = g.operator
+	if rt != nil {
+		rt.Placement = city
+	}
 	return city, nil
 }
 

@@ -56,15 +56,16 @@ func (city *City) StartVehicleLearningSampler() {
 	}
 	if !cfg.Enabled {
 		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "disabled by VEHICLE_LEARNING_ENABLED")
-		log.Printf("vehicle learner: disabled")
+		log.Printf("%s: vehicle learner: disabled", city.Slug)
 		return
 	}
 	if cfg.MaxDailyQuota <= 0 {
 		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "max_daily_quota <= 0")
-		log.Printf("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
+		log.Printf("%s: vehicle learner: disabled because max_daily_quota=%d", city.Slug, cfg.MaxDailyQuota)
 		return
 	}
-	log.Printf("vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
+	log.Printf("%s: vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
+		city.Slug,
 		cfg.MaxDailyQuota,
 		cfg.UsesDedicatedTranzyKey,
 	)

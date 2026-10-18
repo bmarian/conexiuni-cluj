@@ -3,6 +3,7 @@ package handlers
 import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/sources"
+	"fmt"
 	"log"
 	"net/url"
 	"sort"
@@ -56,6 +57,22 @@ func NewCity(slug, name string, store *database.Store, static sources.Static, ti
 	city.cityState = newCityState()
 	city.hub = newLiveHub(city)
 	return city
+}
+
+// StopIndex is sources.Placement: where a stop sits on the route's pattern in that direction, -1 when it is not served.
+func (city *City) StopIndex(routeID, direction, stopID int) int {
+	city.liveTrips.RLock()
+	lt := city.liveTrips.byTrip[fmt.Sprintf("%d_%d", routeID, direction)]
+	city.liveTrips.RUnlock()
+	if lt == nil {
+		return -1
+	}
+	for i, stop := range lt.trip.Stops {
+		if stop.ID == stopID {
+			return i
+		}
+	}
+	return -1
 }
 
 func (city *City) log(format string, args ...any) {
@@ -201,6 +218,7 @@ func CitiesHandler(cities []*City) fiber.Handler {
 				out = append(out, info)
 			}
 		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(out)
 	}

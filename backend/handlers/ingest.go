@@ -82,6 +82,12 @@ func (city *City) markFetched(source string, at time.Time) {
 }
 
 // Zero when the source has never been read; past when it is due.
+// ForgetFetches makes every source due at once, whatever the database holds.
+func (city *City) ForgetFetches() error {
+	_, err := city.DB.Exec(`DELETE FROM ingest_state`)
+	return err
+}
+
 func (city *City) dueAt(source string, cadence time.Duration) time.Time {
 	last := city.fetchedAt(source)
 	if last.IsZero() || !city.Options.Refresh {
