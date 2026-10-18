@@ -48,16 +48,14 @@ func (t table) get(row []string, column string) string {
 }
 
 type feed struct {
-	files    map[string]table
-	trips    map[string]tripInfo
-	stops    tripStops
-	patterns map[string]*pattern
-	stopName map[string]string
-	// By date, as calendar_dates writes it.
+	files      map[string]table
+	trips      map[string]tripInfo
+	stops      tripStops
+	patterns   map[string]*pattern
+	stopName   map[string]string
 	exceptions map[string][]exception
-	// Trips on no pattern.
-	dropped int
-	url     string
+	dropped    int
+	url        string
 }
 
 func (f *Feed) fetch() (*feed, error) {
@@ -272,8 +270,7 @@ func dayKind(day time.Time) string {
 	return calendar.Weekday
 }
 
-// For each kind of day, the first date running what most days of that kind run until the feed ends,
-// so a holiday or a one-off change never stands for the whole kind.
+// The first date of each kind running what most days of that kind run, so a one-off day never stands for it.
 func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 	start, end := f.validity()
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -318,7 +315,6 @@ func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 	return out
 }
 
-// The services running on each kind of day's representative date.
 func (f *feed) servicesByKind(now time.Time) map[string]map[string]bool {
 	out := map[string]map[string]bool{}
 	for kind, day := range f.representativeDays(now) {
@@ -327,7 +323,6 @@ func (f *feed) servicesByKind(now time.Time) map[string]map[string]bool {
 	return out
 }
 
-// Minutes of the run's first-stop departure, -1 when missing.
 func startMinutes(run []stopTime) int {
 	if run[0].departure >= 0 {
 		return run[0].departure
@@ -719,8 +714,7 @@ func scheduledOffsets(p *pattern, stops tripStops) []float64 {
 	return out
 }
 
-// Operators schedule longer rides at rush hour, so each hour gets the medians of the runs leaving in it.
-// An hour none leaves takes the nearest one's, earlier first: a bus still out then left earlier.
+// Hours no run leaves in take the nearest hour's, earlier first.
 func (f *feed) hourlyOffsets(p *pattern, services map[string]map[string]bool) map[string][][]float64 {
 	out := map[string][][]float64{}
 	for kind, active := range services {
@@ -758,8 +752,7 @@ func (f *feed) hourlyOffsets(p *pattern, services map[string]map[string]bool) ma
 	return out
 }
 
-// Seconds from the previous stop, from the median time the runs reach each stop after leaving the first:
-// medians per segment would add up to times no run keeps. -1 where no run times a stop.
+// From the median time to reach each stop: per-segment medians add up to times no run keeps.
 func rideMedians(trips []string, n int, stops tripStops) []float64 {
 	samples := make([][]int, n)
 	for _, tripID := range trips {

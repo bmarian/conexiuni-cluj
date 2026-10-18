@@ -161,8 +161,7 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 
 type gtfsCity struct {
 	slug, name, operator, operatorURL, url string
-	// nil means schedule-only.
-	realtime func(sources.IDMap) sources.Realtime
+	realtime                               func(sources.IDMap) sources.Realtime
 }
 
 func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {

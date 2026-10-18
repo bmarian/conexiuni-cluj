@@ -442,7 +442,6 @@ func (city *City) describePlan(resp *planResponse, options []router.Option) erro
 			}
 			for _, id := range leg.Lines {
 				if r, ok := routeByID[id]; ok {
-					// The colour the map and the line page use.
 					color := r.RouteColor
 					if color == "" {
 						color = models.ResolveRouteDisplayColor(r.RouteShortName)

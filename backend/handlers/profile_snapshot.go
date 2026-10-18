@@ -105,7 +105,6 @@ func (city *City) snapshotScheduleDelayRows(routeID, directionID int, dayType st
 	return rows
 }
 
-// Nil when the feed has no times of its own for that kind of day.
 func (city *City) snapshotScheduledOffsets(tripID, scheduleDay string, bucket int) []float64 {
 	city.profileSnapshots.Lock()
 	city.profileSnapshotsFor(ProfileSnapshotPeriod())

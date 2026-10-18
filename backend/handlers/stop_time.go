@@ -95,14 +95,13 @@ func (city *City) applySegmentProfilesToStopTimes(stopTimes []models.StopTime, r
 	return out
 }
 
-// The feed's times for runs leaving in this hour, then learned segments wherever there are any.
 func (city *City) timeTrip(stopTimes []models.StopTime, ordered []int, tripID, profileDay string, bucket int, profiles map[stopPair]segmentProfileEstimate) {
 	applyScheduledOffsets(stopTimes, ordered, city.snapshotScheduledOffsets(tripID, calendar.ScheduleOf(profileDay), bucket))
 	applySegmentProfilesToTrip(stopTimes, ordered, profiles)
 }
 
 func applyScheduledOffsets(stopTimes []models.StopTime, ordered []int, offsets []float64) {
-	// Derived with the stop times, so a different length is a trip that changed since.
+	// A different length is a trip that changed since.
 	if len(offsets) != len(ordered) {
 		return
 	}

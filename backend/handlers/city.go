@@ -112,7 +112,6 @@ func (city *City) RegisterPages(app fiber.Router) {
 	app.Get("/plan", city.PlanOGHandler)
 }
 
-// Pages from before cities were Cluj's, and old links and shares still point at them.
 func RegisterLegacyPages(app fiber.Router, slug string) {
 	for _, path := range []string{"/stop/*", "/route/*", "/plan", "/settings", "/nav"} {
 		app.Get(path, func(c fiber.Ctx) error {
@@ -197,7 +196,6 @@ type cityInfo struct {
 	Credits     []sources.Credit `json:"credits"`
 }
 
-// The city's area: its lines with room around them.
 type Bounds struct {
 	South float64 `json:"south"`
 	West  float64 `json:"west"`

@@ -11,7 +11,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const citiesWithFavorites = () => new Set([...FAVORITE_KEYS, FOLLOWS_KEY].flatMap(citiesSaving))
 
-// An export from before cities, or from the apps, holds only Cluj's.
+// Exports without cities, from the apps or older builds, are Cluj's.
 function exportedCities(data: Record<string, unknown>): Record<string, Record<string, unknown>> {
   if (!isRecord(data.cities)) return {[DEFAULT_CITY]: {favorites: data.favorites, followedLines: data.followedLines}}
   const out: Record<string, Record<string, unknown>> = {}
@@ -80,7 +80,6 @@ export function useSettingsTransfer() {
     }
   }
 
-  // Replaces every city the export speaks for, each in its own city.
   function importFavorites(data: Record<string, unknown>, withFollowed: boolean) {
     const byCity = exportedCities(data)
     const targets = isRecord(data.cities) ? new Set([...Object.keys(byCity), ...citiesWithFavorites()]) : new Set(Object.keys(byCity))
@@ -89,7 +88,7 @@ export function useSettingsTransfer() {
       favs.importAll(isRecord(entry.favorites) ? entry.favorites : {}, city)
       if (!withFollowed || (city in byCity && !Array.isArray(entry.followedLines))) continue
       routeUpdates.importFollowed(entry.followedLines, city)
-      // The city on screen syncs itself when its list changes.
+      // The city on screen syncs itself.
       if (city !== currentCity.value) void usePushStore().sync(city)
     }
   }

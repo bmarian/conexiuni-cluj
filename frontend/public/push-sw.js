@@ -13,7 +13,7 @@ self.addEventListener('push', (event) => {
   }
   if (!message?.title) return
   event.waitUntil((async () => {
-    // The page marks a reminder it cancelled (retractReminder in pushSubscription.ts).
+    // Marked by retractReminder in pushSubscription.ts.
     const cancelled = message.tag && await caches.match(`/cancelled/${message.tag}`, {cacheName: 'cancelled-reminders'})
     if (cancelled && Number(await cancelled.text()) >= Date.now()) return
     await self.registration.showNotification(message.title, {

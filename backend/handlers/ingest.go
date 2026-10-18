@@ -319,7 +319,6 @@ func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 	}
 }
 
-// Replaced whole, like the feed it comes from.
 func (city *City) storeScheduledOffsets(byTrip map[string]map[string][][]float64) error {
 	clear := func(tx *sql.Tx) error {
 		_, err := tx.Exec(`DELETE FROM scheduled_offsets`)
@@ -372,7 +371,7 @@ func (city *City) refreshAvailability() {
 		return s, err
 	}
 	routes, err := queryRows(city.DB, routesSQL, nil, names)
-	// A city with no departure times anywhere: every route with a pattern counts, and every stop on it.
+	// No departure times anywhere: every route with a pattern counts.
 	if err == nil && len(routes) == 0 {
 		stopsSQL = `SELECT DISTINCT stop_id FROM trip_stops`
 		routes, err = queryRows(city.DB, `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`, nil, names)

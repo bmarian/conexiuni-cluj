@@ -25,7 +25,7 @@ func New(url string, ids sources.IDMap) *Source {
 
 func (s *Source) Budget() sources.Budget { return sources.Budget{} }
 
-// Ids are the SMTT GTFS feed's: routeId is its route_id, directionId its direction_id.
+// Ids are the SMTT GTFS feed's.
 type answer struct {
 	Success bool `json:"success"`
 	Data    struct {

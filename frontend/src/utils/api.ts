@@ -18,7 +18,7 @@ export function readCachedList<T>(key: string): T[] {
   }
 }
 
-// Written when the page is idle: a big city's list is long enough to stall a map flight.
+// Idle-time write: a big city's list stalls a map flight.
 export function writeCachedList(key: string, list: unknown[]) {
   const fullKey = cacheKey(key)
   const write = () => {

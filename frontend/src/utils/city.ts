@@ -72,7 +72,6 @@ export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Pro
   return cities.value
 })()
 
-// Pages from before cities; links to them are Cluj's.
 export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav', 'bsod']
 
 function cityFromPath(): string | null {
@@ -85,7 +84,6 @@ function cityFromPath(): string | null {
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))
 
-// Every per-city store and cache reloads when it changes.
 export const currentCity = ref(typeof window === 'undefined' ? DEFAULT_CITY
   : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY))
 
@@ -116,7 +114,6 @@ export function cityBounds(slug = currentCity.value): Bounds | undefined {
   return cities.value.find((city) => city.slug === slug)?.bounds
 }
 
-// Anywhere counts until the server knows the city's area.
 export function inCity(lat: number, lon: number, slug = currentCity.value): boolean {
   const b = cityBounds(slug)
   return !b || (lat >= b.south && lat <= b.north && lon >= b.west && lon <= b.east)
@@ -128,7 +125,6 @@ export const apiPath = (path: string, city = currentCity.value) => `/api/${city}
 
 export const cacheKey = (key: string, city = currentCity.value) => `${city}:${key}`
 
-// Every city whose saved list under key holds something, whichever city is on screen.
 export function citiesSaving(key: string): string[] {
   const out: string[] = []
   try {
@@ -177,7 +173,6 @@ function locate(): Promise<GeolocationPosition | null> {
 export async function resolveCity(): Promise<string> {
   const list = await citiesLoaded
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
-  // Cluj was the only city before, so a newcomer without a location starts there.
   const fallback = [stored(LAST_KEY), DEFAULT_CITY].find((slug) => slug && knownCity(slug)) ?? list[0]?.slug ?? DEFAULT_CITY
   if (list.length < 2 || !await checkLocationGranted()) return fallback
   const position = await locate()
@@ -190,7 +185,6 @@ export async function resolveCity(): Promise<string> {
   return nearest.slug
 }
 
-// The city to show; null goes back to choosing by location.
 export async function chooseCity(slug: string | null): Promise<string> {
   cityChoice.value = slug
   store(CHOICE_KEY, slug)

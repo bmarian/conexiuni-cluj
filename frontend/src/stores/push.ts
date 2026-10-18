@@ -27,7 +27,6 @@ export const usePushStore = defineStore('push', () => {
     localStorage.setItem(ENABLED_KEY, value ? 'true' : 'false')
   }
 
-  // One browser subscription serves every city; each city's server holds only its own lines and reminders.
   const alertCities = () => [...new Set([currentCity.value, ...citiesSaving(FOLLOWS_KEY)])]
 
   async function register(sub: PushSubscription, city: string) {
@@ -38,14 +37,12 @@ export const usePushStore = defineStore('push', () => {
     }, city)
   }
 
-  // A city with nothing to send forgets the subscription.
   async function settleServer(sub: PushSubscription, city: string) {
     const remindersHere = citiesSaving(REMINDERS_KEY).includes(city)
     if (remindersHere || (enabled.value && routeUpdates.followedIn(city).length)) return register(sub, city)
     await apiPost('push/unsubscribe', {endpoint: sub.endpoint}, city)
   }
 
-  // The browser keeps it while any city needs it.
   async function releaseUnused(sub: PushSubscription) {
     if (!citiesSaving(REMINDERS_KEY).length && !(enabled.value && citiesSaving(FOLLOWS_KEY).length)) await sub.unsubscribe()
   }
@@ -96,7 +93,6 @@ export const usePushStore = defineStore('push', () => {
     return (await pushRegistration())?.pushManager.getSubscription() ?? null
   }
 
-  // Off everywhere, not only in the city on screen.
   async function disable() {
     setEnabled(false)
     if (!supported) return
@@ -110,7 +106,6 @@ export const usePushStore = defineStore('push', () => {
     }
   }
 
-  // After a city's reminders went to the server.
   async function settleCity(city: string) {
     if (!supported) return
     try {
@@ -144,7 +139,7 @@ export const usePushStore = defineStore('push', () => {
     }, SYNC_DELAY_MS)
   }
 
-  // A city switch swaps the list without changing what any server should send.
+  // A city switch changes the list, not what to send.
   watch(() => [currentCity.value, [...routeUpdates.followed]] as const, ([city], [previous]) => {
     if (city === previous) scheduleSync(city)
   })

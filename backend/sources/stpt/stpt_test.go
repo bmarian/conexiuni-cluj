@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// Stable ints per kind and external id, allocated as met.
 type ids map[string]int
 
 func (m ids) ExternalID(kind, external string) (int, error) {

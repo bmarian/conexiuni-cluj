@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// The API clients' timeout; a file of any size fails only when it stops arriving for this long.
 const StallTimeout = 30 * time.Second
 
 func Download(url string) ([]byte, error) {

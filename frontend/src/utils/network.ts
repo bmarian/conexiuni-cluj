@@ -184,7 +184,6 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
-// A bundle that arrives after the city changed belongs to the old one.
 function use(bundle: NetworkBundle, city: string) {
   if (city !== currentCity.value || !Array.isArray(bundle?.routes) || !Array.isArray(bundle?.stops)) return
   setScheduleDays(bundle.schedule_days, bundle.day_notes)

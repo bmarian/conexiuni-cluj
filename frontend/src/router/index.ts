@@ -32,7 +32,6 @@ const router = createRouter({
       component: AdminView,
     },
     {
-      // A share sent to the installed app is for the city on screen.
       path: `/:section(${LEGACY_SECTIONS.join('|')})/:rest(.*)*`,
       redirect: (to) => ({
         path: `/${to.params.section === 'plan' && isShare(to.query) ? currentCity.value : DEFAULT_CITY}${to.path}`,

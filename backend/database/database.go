@@ -15,8 +15,7 @@ import (
 type Store struct {
 	DB      *sql.DB
 	Archive *sql.DB
-	// The city, for the log.
-	name string
+	name    string
 
 	lastOptimize time.Time
 

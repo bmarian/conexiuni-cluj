@@ -39,7 +39,6 @@ async function turnOn() {
       settings.showToast(t('pushDeniedToast'), {body: t('pushDeniedToastBody'), icon: 'bell-off'})
       return
     }
-    // The old host only had Cluj.
     await reminders.sync(DEFAULT_CITY)
     // The old host's subscription would keep sending the same reminders.
     if (moved.pushEndpoint) await apiPost('push/unsubscribe', {endpoint: moved.pushEndpoint}, DEFAULT_CITY).catch(() => {})

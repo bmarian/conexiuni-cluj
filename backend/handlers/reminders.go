@@ -254,7 +254,7 @@ func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder, no
 			return err
 		}
 		told, leaveAt := fired[r.ID][0], fired[r.ID][1]
-		// Set after its heads-up was due: that moment has passed, only the time to leave is still ahead.
+		// Set after its heads-up was due: only the leave-now alert is left.
 		if _, known := fired[r.ID]; !known {
 			if step, ok := city.reminderStep(r, now); ok && step.kind == reminderLeaveBy {
 				told, leaveAt = step.slot.UnixMilli(), step.leaveAt.UnixMilli()
@@ -379,14 +379,12 @@ func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
 }
 
 type reminderTell struct {
-	// The timetable time, and the live one when known.
 	slot, bus time.Time
 	kind      reminderKind
 	walk      *int
 	leaveAt   time.Time
 }
 
-// How the bus at slot is told at now; false while it's too early to tell.
 func (city *City) tellFor(r pushReminder, slot, now time.Time) (reminderTell, bool) {
 	tell := reminderTell{slot: slot, bus: slot, kind: reminderGetReady, walk: r.walkNow(now)}
 	if at, ok := city.liveArrivalAt(r.TripID, r.StopID, slot); ok {
@@ -404,7 +402,6 @@ func (city *City) tellFor(r pushReminder, slot, now time.Time) (reminderTell, bo
 	return tell, true
 }
 
-// The reminder's next bus, if it is already to be told.
 func (city *City) reminderStep(r pushReminder, now time.Time) (reminderTell, bool) {
 	slot, ok := city.nextReminderBus(r, now, city.Location)
 	if !ok {

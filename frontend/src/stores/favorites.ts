@@ -66,7 +66,6 @@ function readSaved(key: string): unknown {
   }
 }
 
-// A city's favorites live only in storage until it is opened.
 export function savedFavorites(city: string) {
   return {
     routes: parseFavoriteRoutes(readSaved(routesKey(city))),

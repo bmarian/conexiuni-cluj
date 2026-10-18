@@ -89,7 +89,6 @@ export const useRemindersStore = defineStore('reminders', () => {
     }))
   }
 
-  // Each city's server holds that city's reminders.
   async function sync(city = currentCity.value): Promise<boolean> {
     if (!pushSupported()) return false
     const hadServer = localStorage.getItem(syncedKey(city)) === 'true'
@@ -118,7 +117,6 @@ export const useRemindersStore = defineStore('reminders', () => {
     }
   }
 
-  // Alerts and language are the same in every city.
   async function syncAll() {
     for (const city of new Set([currentCity.value, ...citiesSaving(REMINDERS_KEY)])) await sync(city)
   }

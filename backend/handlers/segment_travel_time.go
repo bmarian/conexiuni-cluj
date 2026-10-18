@@ -500,7 +500,6 @@ func (city *City) tripCumulativeOffsets(tracker *tripSegmentTracker, dayType str
 	})
 }
 
-// The same at the seed pace for a run leaving in that hour, which is all the operator's departures say about the other stops.
 func (city *City) tripSeedOffsets(tracker *tripSegmentTracker, dayType string, bucket int) []float64 {
 	return city.cachedTripOffsets(tracker, tracker.TripID+"|seed|"+dayType+"|"+strconv.Itoa(bucket), func(trip []models.StopTime, ordered []int) {
 		city.timeTrip(trip, ordered, tracker.TripID, dayType, bucket, nil)

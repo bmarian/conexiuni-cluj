@@ -29,10 +29,9 @@ export async function pushSubscription(reg: ServiceWorkerRegistration): Promise<
   return reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: key})
 }
 
-// Read by push-sw.js: an alert already on its way for a cancelled reminder is dropped there.
+// Read by push-sw.js.
 const CANCELLED_CACHE = 'cancelled-reminders'
 
-/** Takes back a cancelled reminder's alerts; [untilMs] is its next bus, after which no push for it can arrive. */
 export async function retractReminder(id: string, untilMs: number) {
   const tag = `reminder-${id}`
   try {

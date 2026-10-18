@@ -78,7 +78,6 @@ const paperActive = computed(() => settingsStore.paperActive && !settingsStore.w
 const router = useRouter()
 const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
-// Built the first time a stop comes into view.
 const stopMarkers = new Map<string, Marker>()
 const shownStops = new Set<string>()
 const currentlyHighlightedStopId = ref<string | null>(null)
@@ -580,7 +579,7 @@ const mapInit = (center: LatLng, zoom: number) => {
   mapValue.on('moveend', () => {
     refreshStops()
     const mapCenter = mapValue.getCenter()
-    // A flight between cities ends or is cut off over another city; that view is not this city's.
+    // A cut-off flight between cities can stop over another city.
     if (!inCity(mapCenter.lat, mapCenter.lng)) return
     const view: SavedMapView = {
       lat: Number(mapCenter.lat.toFixed(6)),
@@ -785,7 +784,6 @@ watch(currentCity, (slug) => {
   const view = openingView(city)
   const flight = ++cityFlight
   m.stop()
-  // The old city's area would hold the camera back.
   flyingBetweenCities = true
   m.setMaxBounds(null)
   m.once('moveend', () => {

@@ -21,7 +21,6 @@ import (
 
 var networkDayTypes = calendar.ScheduleDays
 
-// How far past its outermost line a city's map pans and a location still counts as in the city.
 const cityAreaMarginMeters = 10_000
 
 func (city *City) BuildNetworkBundle() (*models.NetworkBundle, *Bounds, error) {
