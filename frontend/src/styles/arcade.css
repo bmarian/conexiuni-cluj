@@ -221,6 +221,12 @@ html[data-arcade] .city-item.is-current {
   background: #fef9c3 !important;
 }
 
+html[data-arcade] .city-tag.is-timetable {
+  background: #fef9c3 !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
 html[data-arcade] .settings-popover {
   background: #fffbeb !important;
   box-shadow: 0 10px 30px -4px rgba(245, 158, 11, 0.2), 0 1px 6px rgba(0, 0, 0, 0.08) !important;
@@ -454,6 +460,12 @@ html.dark[data-arcade] .city-item-title {
 html.dark[data-arcade] .city-item:hover,
 html.dark[data-arcade] .city-item.is-current {
   background: #2a2006 !important;
+}
+
+html.dark[data-arcade] .city-tag.is-timetable {
+  background: #2a2006 !important;
+  border-color: #78350f !important;
+  color: #d97706 !important;
 }
 
 html.dark[data-arcade] .settings-popover {

@@ -63,7 +63,9 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
       @click="toggle"
     >
       <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">📍</span>
-      <span v-else-if="settings.paperActive" class="pp-slip-label">{{ t('city') }}</span>
+      <template v-else-if="settings.paperActive">
+        <span v-if="!chosen" class="pp-slip-label">{{ t('city') }}</span>
+      </template>
       <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">
@@ -111,6 +113,10 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
   .city-root.landscape-open {
     --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right) + (var(--controls-row-index, 0) * 2.75rem));
   }
+
+  .city-popover {
+    right: min(0px, 100vw - var(--anchor-right) - 0.75rem - env(safe-area-inset-left) - var(--popover-width)) !important;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -148,47 +154,52 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
 
 .city-btn:hover {
   background: #f1f5f9;
+  color: #0f172a;
 }
 
 .is-dark .city-btn {
-  background: #1e293b;
-  color: #e2e8f0;
-  box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  background: #0f172a;
+  color: #f1f5f9;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.24);
 }
 
 .is-dark .city-btn:hover {
-  background: #334155;
+  background: #1e293b;
+  color: #f8fafc;
 }
 
 .city-popover {
+  --popover-width: min(15rem, calc(100vw - 1.5rem));
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  width: 15rem;
-  padding: 0.75rem;
-  border-radius: 1rem;
+  width: var(--popover-width);
+  max-height: calc(100dvh - v-bind(topValue) - 2.75rem - 0.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  padding: 0.875rem;
+  border-radius: 0.875rem;
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 1px 6px rgba(0, 0, 0, 0.08);
 }
 
 .is-dark .city-popover {
   background: #1e293b;
   color: #f1f5f9;
-  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24);
 }
 
 .city-popover-title {
   margin: 0 0 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .is-dark .city-popover-title {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .city-list {

@@ -444,7 +444,8 @@ function toggleSimplified() {
 }
 
 .option-group.wrap {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.75rem), 1fr));
 }
 
 .option-btn {
@@ -585,6 +586,8 @@ function toggleSimplified() {
 }
 
 .region-chevron svg {
+  width: 1rem;
+  height: 1rem;
   transition: transform 150ms ease;
 }
 

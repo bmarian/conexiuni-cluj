@@ -984,6 +984,21 @@ html[data-paper] .news-state-error {
   color: var(--pp-red) !important;
 }
 
+html[data-paper] .city-tag {
+  border-radius: 0 !important;
+  background: transparent !important;
+  border-color: var(--pp-ink) !important;
+  color: var(--pp-ink) !important;
+  font-family: var(--pp-sans) !important;
+  font-stretch: 85%;
+  font-style: normal;
+}
+
+html[data-paper] .city-tag.is-live {
+  border-color: var(--pp-red) !important;
+  color: var(--pp-red) !important;
+}
+
 html[data-paper] .news-change-badge {
   border-radius: 0 !important;
   font-family: var(--pp-display) !important;

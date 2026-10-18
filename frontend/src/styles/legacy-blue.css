@@ -72,6 +72,7 @@ html[data-legacy-blue] .ei-textarea,
 html[data-legacy-blue] .city-btn,
 html[data-legacy-blue] .city-popover,
 html[data-legacy-blue] .city-item,
+html[data-legacy-blue] .city-tag,
 html[data-legacy-blue] .landscape-drawer-toggle,
 html[data-legacy-blue] .offline-pill,
 html[data-legacy-blue] .app-drawer .green-friday-close {
@@ -430,6 +431,10 @@ html[data-legacy-blue] .city-btn:hover {
   color: #ffffff !important;
 }
 
+html[data-legacy-blue] .city-name {
+  font-family: var(--xp-font) !important;
+}
+
 html[data-legacy-blue] .city-popover {
   background: var(--xp-tan) !important;
   border: 1px solid #003c9c !important;
@@ -438,7 +443,7 @@ html[data-legacy-blue] .city-popover {
     3px 3px 10px rgba(0, 0, 0, 0.32) !important;
   color: #000000 !important;
   font-family: var(--xp-font) !important;
-  padding-top: 34px !important;
+  padding-top: 28px !important;
 }
 
 html[data-legacy-blue] .city-popover::before {
@@ -481,6 +486,25 @@ html[data-legacy-blue] .city-item-meta {
 html[data-legacy-blue] .city-item:hover,
 html[data-legacy-blue] .city-item.is-current {
   background: #fffcea !important;
+}
+
+html[data-legacy-blue] .city-tag {
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .city-tag.is-live {
+  background: var(--xp-live) !important;
+  border-color: #2d5f18 !important;
+  color: #ffffff !important;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-legacy-blue] .city-tag.is-timetable {
+  background: var(--xp-btn) !important;
+  border-color: var(--xp-border) !important;
+  color: #000000 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
 }
 
 html[data-legacy-blue] .settings-popover {
@@ -855,6 +879,11 @@ html.dark[data-legacy-blue] .city-item-title {
 html.dark[data-legacy-blue] .city-item:hover,
 html.dark[data-legacy-blue] .city-item.is-current {
   background: #1a2a50 !important;
+}
+
+html.dark[data-legacy-blue] .city-tag.is-timetable {
+  color: var(--xp-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 html.dark[data-legacy-blue] .settings-popover {
