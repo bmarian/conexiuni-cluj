@@ -1,5 +1,4 @@
-// Package eltrans reads Eltrans Botoșani's timetable, a PDF the town hall publishes: headways per time window,
-// one set for Monday to Friday, one for Saturday, one for Sunday.
+// Package eltrans reads the headways in Eltrans Botoșani's timetable PDF.
 package eltrans
 
 import (
@@ -29,14 +28,13 @@ func New(url string, cadence time.Duration) *Source {
 
 func (s *Source) Cadence() time.Duration { return s.cadence }
 
-// A stretch of the day during which a line leaves every HeadwayMin minutes.
 type window struct {
 	line       string
 	day        string
 	startMin   int
 	endMin     int
 	headwayMin int
-	// What follows the headway on the row: the variant of the line that runs then.
+	// The text after the headway, naming the variant that runs.
 	note string
 }
 
@@ -45,7 +43,7 @@ var (
 	windowRow = regexp.MustCompile(`(\d{1,2})[,.](\d{2})\s*[–-]\s*(\d{1,2})[,.](\d{2})\s+[Dd]in\s+(\d+)\s+[iî]n\s+\d+\s+min\w*\s*(.*)$`)
 )
 
-// The day a block of rows belongs to is written once, somewhere in the block.
+// A block names its day once, on any of its rows.
 func dayOf(block []string) string {
 	for _, row := range block {
 		switch text := strings.ToLower(strings.TrimSpace(row)); {
@@ -60,7 +58,7 @@ func dayOf(block []string) string {
 	return ""
 }
 
-// parseWindows reads the "grafic de circulație" rows; blank rows separate the blocks of one kind of day.
+// Blank rows separate the blocks.
 func parseWindows(rows []string) []window {
 	var out []window
 	var block []string
@@ -98,7 +96,7 @@ func parseWindows(rows []string) []window {
 	return out
 }
 
-// Line 102 runs its short variant, Tranzy's "102S", in the windows marked for Util.
+// Windows marked "Util" run line 102's short variant, Tranzy's 102S.
 func routeOf(w window) string {
 	if w.line == "102" && strings.Contains(strings.ToLower(w.note), "util") {
 		return "102S"
@@ -106,7 +104,7 @@ func routeOf(w window) string {
 	return w.line
 }
 
-// Departures every headway from the first window to the last; the last window's end is the last bus.
+// The last window's end is the last bus.
 func departures(windows []window) []string {
 	sort.Slice(windows, func(i, j int) bool { return windows[i].startMin < windows[j].startMin })
 	seen := map[int]bool{}
@@ -149,7 +147,7 @@ func frequency(windows []window) *models.Frequency {
 	return f
 }
 
-// Both directions leave their terminus at the same times: the PDF gives one headway per line.
+// The PDF gives one headway per line, so both directions share it.
 func daySchedule(windows []window) models.DaySchedule {
 	times := departures(windows)
 	entries := make([]models.TimetableEntry, len(times))
@@ -223,7 +221,7 @@ func (s *Source) rows() ([]string, error) {
 	return out, nil
 }
 
-// The glyph runs of a row joined left to right, with a space only across a real gap.
+// Joins a row's glyph runs left to right, with a space only across a real gap.
 func rowText(words []pdf.Text) string {
 	words = append([]pdf.Text(nil), words...)
 	sort.Slice(words, func(a, b int) bool { return words[a].X < words[b].X })

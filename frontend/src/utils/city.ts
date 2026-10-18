@@ -1,6 +1,6 @@
 import {ref} from 'vue'
 
-// The city is fixed for the page's lifetime: every cache below is keyed by it, so switching reloads.
+// Fixed for the page's lifetime: every cache is keyed by it, so switching reloads.
 
 export type City = {
   slug: string
@@ -12,11 +12,10 @@ export type City = {
 }
 
 export const DEFAULT_CITY = 'cluj'
-// The city the person picked, or absent when the nearest one is chosen on each start.
 const CHOICE_KEY = 'settings.city'
 const LAST_KEY = 'settings.cityLast'
 const LIST_KEY = 'cities'
-// Long enough for a cold fix indoors; the last city stands when it runs out.
+// Long enough for a cold fix indoors.
 const LOCATE_TIMEOUT_MS = 8000
 
 function stored(key: string): string | null {
@@ -34,8 +33,7 @@ function store(key: string, value: string | null) {
   } catch { /* noop */ }
 }
 
-// Saves from before there were cities are Cluj's. They are copied under its key once and left where they were,
-// so the site as it was still finds them should it come back.
+// Saves from before cities are Cluj's; copied, not moved, so an older build still reads them.
 const PRE_CITY_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans', 'follows:routes',
   'follows.v1', 'reminders.v1', 'reminders.synced', 'route-changes:seen', 'map.lastView', 'settings.showGreenFriday']
 
@@ -45,8 +43,6 @@ export function adoptPreCitySaves() {
     if (value !== null && stored(`${DEFAULT_CITY}:${key}`) === null) store(`${DEFAULT_CITY}:${key}`, value)
   }
 }
-
-if (typeof window !== 'undefined') adoptPreCitySaves()
 
 function readList(): City[] {
   try {
@@ -95,10 +91,14 @@ export function cityInfo(): City | undefined {
   return cities.value.find((city) => city.slug === currentCity)
 }
 
-// For the page titles: the city and who runs its buses.
 export function cityParams(): {city: string; operator: string} {
   const info = cityInfo()
   return {city: info?.name ?? currentCity, operator: info?.operator ?? ''}
+}
+
+export function cityCenter(): {lat: number; lon: number} {
+  const info = cityInfo()
+  return info ? {lat: info.lat, lon: info.lon} : {lat: 46.7712, lon: 23.6236}
 }
 
 export const cityPath = (path: string) => `/${currentCity}${path.startsWith('/') ? path : '/' + path}`
@@ -115,7 +115,7 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): num
   return 2 * 6371 * Math.asin(Math.sqrt(h))
 }
 
-// Whether the browser already lets this site read the location; nothing here ever asks for it.
+// Read from an existing grant; nothing here asks for it.
 export const locationGranted = ref(false)
 
 async function checkLocationGranted(): Promise<boolean> {
@@ -138,7 +138,6 @@ function locate(): Promise<GeolocationPosition | null> {
   })
 }
 
-// The chosen city, else the nearest to where the phone is, else the last one used.
 export async function resolveCity(): Promise<string> {
   const list = await citiesLoaded
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
@@ -154,7 +153,7 @@ export async function resolveCity(): Promise<string> {
   return nearest.slug
 }
 
-// A full load: every store starts from that city's caches. null means back to choosing by location.
+// null goes back to choosing by location.
 export async function switchCity(slug: string | null) {
   cityChoice.value = slug
   store(CHOICE_KEY, slug)

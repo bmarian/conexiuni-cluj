@@ -39,7 +39,6 @@ const sendPWAInstallEvent = () => {
 };
 
 function start() {
-  // The move from the old host writes the keys as they were.
   adoptPreCitySaves();
   registerSW({
     immediate: true,

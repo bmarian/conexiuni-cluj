@@ -7,13 +7,12 @@ import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
-import {cities, cityPath, currentCity} from '@/utils/city.ts'
+import {cities, currentCity} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
-// The region whose settings are shown; the page's own city to begin with.
 const regionSlug = ref(currentCity)
 const regionOpen = ref(false)
 const regionSettings = computed(() => regionSettingsFor(regionSlug.value))

@@ -48,7 +48,7 @@ func newLiveHub(city *City) *liveHub {
 }
 
 func (h *liveHub) intervalFor(subscribers int) time.Duration {
-	// A schedule-only city has nothing to spend; the table still rolls forward at the viewers' pace.
+	// Nothing to ration without a metered feed.
 	remaining := math.MaxInt32
 	if h.city.Realtime != nil {
 		if budget := h.city.Realtime.Budget(); budget.Limit > 0 {
@@ -80,7 +80,6 @@ type liveWatching struct {
 
 // Watching counts the people on each stop and line among the open streams.
 func (h *liveHub) Watching() liveWatching {
-	city := h.city
 	stops := make(map[int]map[string]struct{})
 	trips := make(map[string]map[string]struct{})
 	people := make(map[string]struct{})
@@ -108,7 +107,7 @@ func (h *liveHub) Watching() liveWatching {
 	}
 	routes := make(map[int]map[string]struct{})
 	for trip, clients := range trips {
-		if routeID, ok := city.routeIDOfTrip(trip); ok {
+		if routeID, ok := h.city.routeIDOfTrip(trip); ok {
 			for client := range clients {
 				addWatcher(routes, routeID, client)
 			}
@@ -255,8 +254,7 @@ func (h *liveHub) poll() (*liveTable, error) {
 }
 
 func (h *liveHub) current() (*liveTable, error) {
-	city := h.city
-	if table := city.currentLiveTable(); table != nil && time.Since(table.AsOf) < 2*time.Minute {
+	if table := h.city.currentLiveTable(); table != nil && time.Since(table.AsOf) < 2*time.Minute {
 		return table, nil
 	}
 	return h.poll()

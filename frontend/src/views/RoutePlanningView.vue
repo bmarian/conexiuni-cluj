@@ -37,8 +37,7 @@ import {reversePlace, searchPlaces, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import {siteUrl} from '@/utils/site.ts'
-import {cityInfo, cityPath} from '@/utils/city.ts'
-import {cityParams} from '@/utils/city.ts'
+import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -82,19 +81,18 @@ useHead(() => {
         {name: 'description', content: t('headPlanDesc', cityParams())},
         {property: 'og:title', content: t('headPlanTitle')},
         {property: 'og:description', content: t('headPlanDesc', cityParams())},
-        {property: 'og:url', content: siteUrl('/plan')},
+        {property: 'og:url', content: siteUrl(cityPath('/plan'))},
         {name: 'twitter:title', content: t('headPlanTitle')},
         {name: 'twitter:description', content: t('headPlanDesc', cityParams())},
       ],
-      link: [{rel: 'canonical', href: siteUrl('/plan')}],
+      link: [{rel: 'canonical', href: siteUrl(cityPath('/plan'))}],
     }
   }
 
   const shortDest = shortPlaceName(destName.value)
   const originName = customOrigin.value?.name ?? ''
-  const params: Record<string, string> = originName
-    ? {origin: shortPlaceName(originName), dest: shortDest}
-    : {dest: shortDest}
+  const params: Record<string, string> = {...cityParams(), dest: shortDest}
+  if (originName) params.origin = shortPlaceName(originName)
   const titleKey = originName ? 'headPlanFromToTitle' : 'headPlanToTitle'
   const descKey = originName ? 'headPlanFromToDesc' : 'headPlanToDesc'
   const title = t(titleKey, params)
@@ -517,7 +515,7 @@ function closeActiveSearch() {
 function dropPinAsDestination() {
   if (!isOnline.value) return
   const label = t('droppedPin')
-  const newQuery = { ...route.query, lat: String(cityInfo()?.lat ?? 46.7712), lon: String(cityInfo()?.lon ?? 23.6236), name: label }
+  const newQuery = { ...route.query, lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: label }
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []

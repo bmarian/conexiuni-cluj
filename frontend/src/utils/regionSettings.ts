@@ -1,10 +1,7 @@
-// Settings that only make sense in some cities. Each is kept per city and read for the city of the page.
-
 export type RegionSettingKey = 'showGreenFriday'
 
 export type RegionSetting = {
   key: RegionSettingKey
-  // Where the setting exists at all.
   cities: string[]
   defaultOn: boolean
   titleKey: string
@@ -12,7 +9,6 @@ export type RegionSetting = {
 }
 
 export const REGION_SETTINGS: RegionSetting[] = [
-  // CTP Cluj runs free on Fridays.
   {key: 'showGreenFriday', cities: ['cluj'], defaultOn: true, titleKey: 'greenFridayTitle', descKey: 'greenFridaySettingDesc'},
 ]
 

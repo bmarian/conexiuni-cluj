@@ -18,7 +18,6 @@ export function dayLabel(day: Date, now: Date, locale: string, t: Translate): st
   return formatChangeDate(day.getTime(), locale, day.getFullYear() !== today.getFullYear())
 }
 
-// Changes on the followed lines, newest first.
 export function buildNewsFeed(changes: RouteChange[], now: Date, locale: string, t: Translate): NewsEntry[] {
   return changes.map((change): NewsEntry => ({
     key: `change-${change.id}`,

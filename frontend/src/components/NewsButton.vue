@@ -40,9 +40,6 @@ const feed = computed(() => buildNewsFeed(routeUpdates.changes, new Date(), loca
   isNew: freshIds.value.has(entry.change.id),
 })))
 
-const feedLoading = computed(() => routeUpdates.loading)
-const feedError = computed(() => routeUpdates.error)
-
 function openChange(change: RouteChange) {
   if (!change.route_id) return
   isOpen.value = false
@@ -124,34 +121,33 @@ const topValue = computed(() => props.topOffset)
 
       <div class="news-scroll">
         <div v-if="feed.length" class="news-list" data-kbd-section="news">
-          <template v-for="entry in feed" :key="entry.key">
-            <button
-              type="button"
-              class="news-item"
-              :class="{ 'is-new': entry.isNew }"
-              :disabled="!entry.change.route_id"
-              :data-kbd-item="entry.key"
-              @click="openChange(entry.change)"
-            >
-              <span class="news-lead">
-                <span class="news-change-badge" :style="{ backgroundColor: entry.change.route_color || '#64748b' }">
-                  {{ entry.change.route_short_name }}
-                </span>
+          <button
+            v-for="entry in feed"
+            :key="entry.key"
+            type="button"
+            class="news-item"
+            :class="{ 'is-new': entry.isNew }"
+            :disabled="!entry.change.route_id"
+            :data-kbd-item="entry.key"
+            @click="openChange(entry.change)"
+          >
+            <span class="news-lead">
+              <span class="news-change-badge" :style="{ backgroundColor: entry.change.route_color || '#64748b' }">
+                {{ entry.change.route_short_name }}
               </span>
-              <span class="news-body">
-                <span class="news-title">
-                  {{ entry.title }}
-                  <span v-if="entry.isNew" class="news-unread"><span class="sr-only">{{ t('newsNew') }}</span></span>
-                </span>
-                <span class="news-meta">{{ entry.meta }}</span>
+            </span>
+            <span class="news-body">
+              <span class="news-title">
+                {{ entry.title }}
+                <span v-if="entry.isNew" class="news-unread"><span class="sr-only">{{ t('newsNew') }}</span></span>
               </span>
-            </button>
-          </template>
+              <span class="news-meta">{{ entry.meta }}</span>
+            </span>
+          </button>
         </div>
-        <div v-else-if="feedLoading" class="news-state">{{ t('newsLoading') }}</div>
-        <div v-else-if="feedError" class="news-state news-state-error">{{ t('newsError') }}</div>
+        <div v-else-if="routeUpdates.loading" class="news-state">{{ t('newsLoading') }}</div>
+        <div v-else-if="routeUpdates.error" class="news-state news-state-error">{{ t('newsError') }}</div>
         <div v-else class="news-state">{{ t('newsEmpty') }}</div>
-
       </div>
     </div>
   </div>
@@ -285,18 +281,6 @@ const topValue = computed(() => props.topOffset)
   min-height: 0;
 }
 
-.news-hint {
-  margin: 0;
-  padding: 0.5rem 0.25rem;
-  font-size: 0.72rem;
-  line-height: 1.4;
-  color: #64748b;
-}
-
-.news-root.is-dark .news-hint {
-  color: #94a3b8;
-}
-
 .news-state {
   font-size: 0.75rem;
   color: #94a3b8;
@@ -387,12 +371,6 @@ const topValue = computed(() => props.topOffset)
   font-weight: 800;
 }
 
-.news-lead-word {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
 .news-body {
   display: flex;
   flex-direction: column;
@@ -439,15 +417,6 @@ const topValue = computed(() => props.topOffset)
 
 .news-root.is-dark .news-meta {
   color: #94a3b8;
-}
-
-.news-external {
-  display: inline-block;
-  width: 0.65rem;
-  height: 0.65rem;
-  margin-left: 0.1rem;
-  vertical-align: baseline;
-  opacity: 0.7;
 }
 
 @keyframes news-blink-ring {

@@ -290,7 +290,7 @@ html[data-paper] .pin-tip-sub {
 
 html[data-paper] .settings-btn,
 html[data-paper] .news-btn,
-html[data-paper] .weather-pill {
+html[data-paper] .city-btn {
   border-radius: 0 !important;
   background: var(--pp-paper) var(--pp-grain) !important;
   color: var(--pp-ink) !important;
@@ -302,11 +302,11 @@ html[data-paper] .weather-pill {
 
 html[data-paper] .settings-btn { transform: rotate(-1.5deg); }
 html[data-paper] .news-btn { transform: rotate(1deg); }
-html[data-paper] .weather-pill { transform: rotate(-0.6deg); }
+html[data-paper] .city-btn { transform: rotate(-0.6deg); }
 
 html[data-paper] .settings-btn:hover,
 html[data-paper] .news-btn:hover,
-html[data-paper] .weather-pill:hover {
+html[data-paper] .city-btn:hover {
   background-color: var(--pp-paper-3) !important;
 }
 
@@ -893,7 +893,7 @@ html[data-paper] .share-btn.is-copied {
 
 html[data-paper] .settings-popover,
 html[data-paper] .news-popover,
-html[data-paper] .weather-popover,
+html[data-paper] .city-popover,
 html[data-paper] .kbd-help {
   border-radius: 0 !important;
   background-color: var(--pp-paper) !important;
@@ -906,7 +906,7 @@ html[data-paper] .kbd-help {
 
 html[data-paper] .settings-popover .section-label,
 html[data-paper] .news-popover-title,
-html[data-paper] .weather-popover-title,
+html[data-paper] .city-popover-title,
 html[data-paper] .kbd-help-group-title,
 html[data-paper] .kbd-help-title {
   font-family: var(--pp-display) !important;
@@ -955,22 +955,26 @@ html[data-paper] .select-chevron {
   color: var(--pp-ink) !important;
 }
 
-html[data-paper] .news-item {
+html[data-paper] .news-item,
+html[data-paper] .city-item {
   border-radius: 0 !important;
   border-bottom: 1px dotted var(--pp-ink) !important;
 }
 
-html[data-paper] .news-item:hover {
+html[data-paper] .news-item:hover,
+html[data-paper] .city-item:hover,
+html[data-paper] .city-item.is-current {
   background: var(--pp-paper-3) !important;
 }
 
-html[data-paper] .news-title {
+html[data-paper] .news-title,
+html[data-paper] .city-item-title {
   color: var(--pp-ink) !important;
   font-family: var(--pp-text) !important;
 }
 
 html[data-paper] .news-meta,
-html[data-paper] .news-hint,
+html[data-paper] .city-item-meta,
 html[data-paper] .news-state {
   color: var(--pp-ink-2) !important;
   font-style: italic;
@@ -994,31 +998,6 @@ html[data-paper] .news-lead {
 html[data-paper] .news-unread {
   border-radius: 0 !important;
   background: var(--pp-red) !important;
-}
-
-html[data-paper] .weather-condition,
-html[data-paper] .weather-popover-temp,
-html[data-paper] .weather-stat-value {
-  color: var(--pp-ink) !important;
-}
-
-html[data-paper] .weather-popover-temp,
-html[data-paper] .weather-stat-value {
-  font-family: var(--pp-display) !important;
-}
-
-html[data-paper] .weather-range,
-html[data-paper] .weather-stat {
-  border-radius: 0 !important;
-  background: transparent !important;
-  border: 1px solid var(--pp-ink) !important;
-  color: var(--pp-ink) !important;
-}
-
-html[data-paper] .weather-stat-label,
-html[data-paper] .weather-sun {
-  color: var(--pp-ink-2) !important;
-  font-style: italic;
 }
 
 html[data-paper] .kbd-help-backdrop {
@@ -2332,18 +2311,10 @@ html[data-paper] .pp-slip-label {
 }
 
 html[data-paper] .settings-btn,
-html[data-paper] .news-btn {
+html[data-paper] .news-btn,
+html[data-paper] .city-btn {
   width: auto !important;
   padding: 0 0.6rem !important;
-}
-
-html[data-paper] .weather-pill .weather-icon {
-  display: none !important;
-}
-
-html[data-paper] .weather-popover-icon {
-  filter: grayscale(1) sepia(0.6) contrast(1.2);
-  mix-blend-mode: var(--pp-blend);
 }
 
 html[data-paper] .setting-row-icon,
@@ -2567,13 +2538,13 @@ html[data-paper] .pp-masthead .pp-line-stamp {
 
 /* landscape lays the map buttons out in a row sized for icons; words need them stacked */
 @media (max-width: 1023px) and (orientation: landscape) {
-  html[data-paper] :is(.settings-root, .news-root, .weather-root) {
+  html[data-paper] :is(.settings-root, .news-root, .city-root) {
     --anchor-right: calc(0.75rem + env(safe-area-inset-right));
     top: calc(0.75rem + env(safe-area-inset-top) + var(--controls-row-index, 0) * 2.625rem) !important;
     right: var(--anchor-right) !important;
   }
 
-  html[data-paper] :is(.settings-root, .news-root, .weather-root).landscape-open {
+  html[data-paper] :is(.settings-root, .news-root, .city-root).landscape-open {
     --anchor-right: calc(var(--landscape-drawer-width) + 0.75rem + env(safe-area-inset-right));
   }
 }

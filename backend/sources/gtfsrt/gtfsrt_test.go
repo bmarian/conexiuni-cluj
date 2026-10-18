@@ -43,7 +43,7 @@ func TestDecodesTheFeed(t *testing.T) {
 		t.Fatalf("header %d, %d positions", feed.timestamp, len(feed.positions))
 	}
 	p := feed.positions[0]
-	if p.tripID != "PV9_PV9_466_3_167233" || p.routeID != "PV9_466" || p.stopID != "PV9_705" || p.vehicleID != "IF23POB" {
+	if p.routeID != "PV9_466" || p.stopID != "PV9_705" || p.vehicleID != "IF23POB" {
 		t.Fatalf("first position %+v", p)
 	}
 	if p.direction != -1 || p.hasSpeed || p.timestamp != 1792330083 || p.stopSequence < 0 {

@@ -27,7 +27,6 @@ type VehicleFilter struct {
 	TripIDs []string
 }
 
-// observeVehicles takes one poll from a realtime source through smoothing, the learners and the live rows.
 func (city *City) observeVehicles(source sources.Realtime) ([]models.Vehicle, error) {
 	vehicles, err := source.Vehicles()
 	if err != nil {

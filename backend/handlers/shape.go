@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// GetShapes returns the points of the given shapes, or of every shape when ids is empty, in sequence order.
+// Every shape when ids is empty.
 func (city *City) GetShapes(ids []string) ([]models.Shape, error) {
 	var conditions []string
 	var args []any

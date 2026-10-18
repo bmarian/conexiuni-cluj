@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// CTP Cluj's per-line CSV timetables, laid over a Snapshot whose trips carry no times.
 type Source struct {
 	client  *Client
 	cadence time.Duration

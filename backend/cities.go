@@ -17,7 +17,6 @@ import (
 	"time"
 )
 
-// quotaPersister keeps Tranzy's daily counts across restarts and notes each call in the stats.
 type quotaPersister struct {
 	store *database.Store
 	stats bool
@@ -60,15 +59,14 @@ func cityOptions(cfg *Config) (handlers.Options, error) {
 		},
 		LearningEnabled:  cfg.VehicleLearningEnabled,
 		LearningMaxQuota: cfg.VehicleLearningMaxQuota,
-		// Development reuses whatever the database holds, so a restart costs no quota.
+		// A restart in development costs no quota.
 		Refresh: cfg.Environment == "production",
 	}, nil
 }
 
-// A Tranzy agency. Its keys are TRANZY_API_KEY_{SLUG} and, for learning samples, TRANZY_API_KEY_{SLUG}_LEARNING.
 type tranzyAgency struct {
 	slug, name, operator, agencyID string
-	// Tranzy carries no departure times; nil leaves the city with live buses and learned departures only.
+	// Tranzy has no departure times; nil leaves only learned ones.
 	timetables sources.Timetables
 }
 
@@ -96,13 +94,11 @@ func (a tranzyAgency) city(cfg *Config, opts handlers.Options) (*handlers.City, 
 	return city, nil
 }
 
-// VEHICLE_LEARNING_ENABLED_{SLUG} overrides the site-wide switch for one city.
 func learningFor(slug string, opts handlers.Options) handlers.Options {
 	opts.LearningEnabled = getBool("VEHICLE_LEARNING_ENABLED_"+strings.ToUpper(slug), opts.LearningEnabled)
 	return opts
 }
 
-// Every city served, in the order shown to people. A Tranzy city without a key is left out with a note.
 func buildCities(cfg *Config) ([]*handlers.City, error) {
 	opts, err := cityOptions(cfg)
 	if err != nil {
@@ -112,10 +108,8 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		return gtfs.New("https://external.gtfs.ro/"+city+"/"+strings.ToUpper(city)+".zip", cfg.TimetableRefresh, nil)
 	}
 	agencies := []tranzyAgency{
-		// CTP's own CSVs are the better timetable for Cluj.
 		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh)},
 		{"iasi", "Iași", "CTP Iași", "1", feed("iasi")},
-		// Eltrans has no feed; the town hall publishes the headways as a PDF.
 		{"botosani", "Botoșani", "Eltrans Botoșani", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh)},
 		{"oradea", "Oradea", "OTL Oradea", "9", feed("oradea")},
 		{"constanta", "Constanța", "CT BUS Constanța", "10", feed("constanta")},
@@ -132,10 +126,8 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		}
 		cities = append(cities, city)
 	}
-	// Cities whose operator publishes a GTFS zip and nothing live: the zip is the whole network.
 	feeds := []gtfsCity{
 		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/trasee/gtfs", ""},
-		// TPBI's regional feed: STB, Metrorex, STV and the Ilfov operators in one zip, buses live on GTFS-realtime.
 		{"bucuresti", "București", "TPBI", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", "https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions"},
 	}
 	for _, g := range feeds {
@@ -153,8 +145,7 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 
 type gtfsCity struct {
 	slug, name, operator, url string
-	// A GTFS-realtime vehiclePositions feed, when the operator publishes one.
-	realtime string
+	realtime                  string
 }
 
 func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {
@@ -177,7 +168,6 @@ func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, erro
 	return city, nil
 }
 
-// The city a maintenance command works on, with its database but no sources.
 func offlineCity(cfg *Config, slug string) (*handlers.City, error) {
 	store, err := openStore(cfg, slug)
 	if err != nil {

@@ -34,8 +34,7 @@ import RoutePong from '@/components/RoutePong.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
-import {cityPath} from '@/utils/city.ts'
-import {cityParams} from '@/utils/city.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 

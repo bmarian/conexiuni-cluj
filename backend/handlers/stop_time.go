@@ -173,7 +173,6 @@ func (city *City) storeStopTimesInDB(stopTimes []models.StopTime) error {
 	return nil
 }
 
-// Deletes stop times of trips that left the snapshot.
 func (city *City) ScrubStopTimes() (int64, error) {
 	res, err := city.DB.Exec(`DELETE FROM stop_times WHERE trip_id NOT IN (SELECT trip_id FROM trips)`)
 	if err != nil {

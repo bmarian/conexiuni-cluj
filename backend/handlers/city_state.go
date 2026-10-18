@@ -49,7 +49,7 @@ type liveTripsState struct {
 	rules  liveRules
 }
 
-type liveStateState struct {
+type liveTableState struct {
 	sync.RWMutex
 	table *liveTable
 }
@@ -87,7 +87,7 @@ type tripSegmentTrackersState struct {
 	byTrip map[string]*tripSegmentTracker
 }
 
-type vehicleSegmentStatesState struct {
+type vehicleSegmentsState struct {
 	sync.Mutex
 	byVehicle map[int]vehicleSegmentState
 }
@@ -117,7 +117,6 @@ type turnaroundCacheState struct {
 	routes map[int]map[string]predictions.Turnaround
 }
 
-// Everything a city learns or caches while it runs.
 type cityState struct {
 	hub                     *liveHub
 	ingest                  ingestState
@@ -133,7 +132,7 @@ type cityState struct {
 	seedFills               seedFillsState
 	feed                    feedState
 	liveTrips               liveTripsState
-	liveState               liveStateState
+	liveState               liveTableState
 	liveRefreshMu           sync.Mutex
 	liveViews               liveViewsState
 	networkCache            networkCacheState
@@ -141,7 +140,7 @@ type cityState struct {
 	planner                 plannerState
 	profileSnapshots        profileSnapshotsState
 	tripSegmentTrackers     tripSegmentTrackersState
-	vehicleSegmentStates    vehicleSegmentStatesState
+	vehicleSegmentStates    vehicleSegmentsState
 	segmentSamplePruneMu    sync.Mutex
 	lastSegmentPrune        time.Time
 	segmentProfilePruneMu   sync.Mutex
@@ -157,27 +156,16 @@ type cityState struct {
 
 func newCityState() cityState {
 	return cityState{
-		accuracy:    accuracyState{pending: make(map[accuracyKey]*pendingArrival)},
-		lastArchive: lastArchiveState{},
+		accuracy: accuracyState{pending: make(map[accuracyKey]*pendingArrival)},
 		dayWindows: dayWindowsState{days: map[string]int{
 			calendar.Weekday:         10,
 			calendar.WeekdayVacation: 5,
 			calendar.Saturday:        2,
 			calendar.Sunday:          2,
 		}},
-		dayWindowCache:       dayWindowCacheState{},
 		seedFills:            seedFillsState{fills: map[string]string{}},
-		feed:                 feedState{},
-		liveTrips:            liveTripsState{},
-		liveState:            liveStateState{},
-		liveViews:            liveViewsState{},
-		planner:              plannerState{},
-		profileSnapshots:     profileSnapshotsState{},
 		tripSegmentTrackers:  tripSegmentTrackersState{byTrip: make(map[string]*tripSegmentTracker)},
-		vehicleSegmentStates: vehicleSegmentStatesState{byVehicle: make(map[int]vehicleSegmentState)},
-		tripScheduleCache:    tripScheduleCacheState{},
+		vehicleSegmentStates: vehicleSegmentsState{byVehicle: make(map[int]vehicleSegmentState)},
 		turnaroundPending:    turnaroundPendingState{byVehicle: make(map[int]pendingTurnaround)},
-		turnaroundWrites:     turnaroundWritesState{},
-		turnaroundCache:      turnaroundCacheState{},
 	}
 }

@@ -11,7 +11,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// One city's data: its network, learning and stats in DB, its history in Archive.
 type Store struct {
 	DB      *sql.DB
 	Archive *sql.DB

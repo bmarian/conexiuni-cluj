@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// A feed with one line: four stops out, three trips the whole way, one short run to the third stop,
-// one run starting at the second stop, one run calling at an extra stop on time, one calling there late; two trips back.
+// One line A-B-C-D: three full trips, a short run, a run from B, an on-time and a late run via X; two trips back.
 func testFeed(t *testing.T) *feed {
 	t.Helper()
 	files := map[string]string{
@@ -98,8 +97,7 @@ func TestSnapshotKeepsTheUsualPatternOnly(t *testing.T) {
 	if tt == nil || tt.InStopName != "Alpha" || tt.OutStopName != "Delta" {
 		t.Fatalf("timetable %+v", tt)
 	}
-	// Three weekday departures: the full runs and the on-time run with the extra stop. The short run, the run from Beta
-	// and the run that is six minutes late past its extra stop are not listed.
+	// The full runs and the on-time run via X; not the short, the from-B or the late one.
 	var in, back []string
 	for _, e := range tt.Weekdays.Entries {
 		if e.DepartureIn != "" {
@@ -127,8 +125,7 @@ func TestRepresentativeDaysStartWhereTheFeedDoes(t *testing.T) {
 }
 
 func TestAnUnnamedRouteIsCalledAfterItsEnds(t *testing.T) {
-	f := testFeed(t)
-	pats, _ := patterns(f.trips(), f.stopTimes())
+	pats := testFeed(t).patterns
 	names := map[string]string{"A": "Alpha", "D": "Delta"}
 	if got := routeName(pats, "L1", names); got != "Alpha - Delta" {
 		t.Fatalf("named %q", got)

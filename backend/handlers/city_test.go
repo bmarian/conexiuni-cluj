@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// A city with an empty database and archive, and no sources.
 func newTestCity(t *testing.T) *City {
 	t.Helper()
 	dir := t.TempDir()
@@ -20,7 +19,6 @@ func newTestCity(t *testing.T) *City {
 	return city
 }
 
-// Runs fn as if the city had no archive, like a store that was opened without one.
 func (city *City) withoutArchive(fn func()) {
 	archive := city.Archive
 	city.Archive = nil

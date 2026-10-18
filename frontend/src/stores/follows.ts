@@ -7,8 +7,7 @@ import {
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
-import {cityPath} from '@/utils/city.ts'
-import {cacheKey} from '@/utils/city.ts'
+import {cacheKey, cityPath} from '@/utils/city.ts'
 
 const STORAGE_KEY = cacheKey('follows.v1')
 

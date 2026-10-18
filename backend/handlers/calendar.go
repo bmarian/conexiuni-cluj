@@ -548,7 +548,7 @@ func (city *City) observedScheduleFits(day time.Time) ([]scheduleFit, int, error
 	}
 	observed := 0
 	for key, minutes := range runs {
-		timetable, err := city.getTimetableFromDB(routeNames[key[0]])
+		timetable, err := city.GetTimetable(routeNames[key[0]])
 		if err != nil || timetable == nil {
 			continue
 		}

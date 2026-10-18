@@ -298,7 +298,7 @@ func (p *Places) place(id int32) Place {
 	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label}
 }
 
-// A chained transformer keeps state, so every call gets its own: cities build their places at the same time.
+// A Chain keeps state, and cities build their places concurrently.
 func folder() transform.Transformer {
 	return transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 }

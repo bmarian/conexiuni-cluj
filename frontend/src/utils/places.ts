@@ -1,4 +1,5 @@
 import {apiPath} from '@/utils/city.ts'
+
 export interface Place {
   id: string
   lat: string

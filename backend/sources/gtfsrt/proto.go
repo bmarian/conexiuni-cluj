@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-// The few fields of a vehiclePositions feed, read straight off the protobuf wire: the schema is small and fixed.
+// Read straight off the protobuf wire: the vehiclePositions schema is small and fixed.
 type field struct {
 	num    int
 	wire   int
@@ -63,15 +63,11 @@ func (f field) float32() float64 {
 }
 
 type position struct {
-	tripID, routeID, stopID, vehicleID, label string
-	// -1 when the feed names none.
-	direction int
-	// -1 when the feed names none.
-	stopSequence int
-	lat, lon     float64
-	speed        float64
-	hasSpeed     bool
-	timestamp    int64
+	routeID, stopID, vehicleID, label string
+	direction, stopSequence           int // -1 when absent
+	lat, lon, speed                   float64
+	hasSpeed                          bool
+	timestamp                         int64
 }
 
 type feedMessage struct {
@@ -133,8 +129,6 @@ func decodePosition(data []byte) (position, error) {
 			}
 			for _, t := range trip {
 				switch t.num {
-				case 1:
-					p.tripID = string(t.bytes)
 				case 5:
 					p.routeID = string(t.bytes)
 				case 6:

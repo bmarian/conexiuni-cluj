@@ -45,7 +45,7 @@ import {
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
-import {cacheKey, cityInfo} from '@/utils/city.ts'
+import {cacheKey, cityCenter} from '@/utils/city.ts'
 
 setWorkerUrl(workerUrl)
 
@@ -106,12 +106,10 @@ let stopRefreshFrame = 0
 let styleReady = false
 
 const DEFAULT_ZOOM = 15
-const defaultCenter = (): LatLng => ({lat: cityInfo()?.lat ?? 46.7712, lng: cityInfo()?.lon ?? 23.6236})
 const STOP_ZOOM_THRESHOLD = 15
 const FIT_MAX_ZOOM = 15
 const MIN_ZOOM = 8
 const MAX_ZOOM = 19
-// Romania, with room past the border: every city served lies inside.
 const ROMANIA_SW: LatLng = {lat: 43.4, lng: 20.0}
 const ROMANIA_NE: LatLng = {lat: 48.5, lng: 30.0}
 const MAP_VIEW_STORAGE_KEY = cacheKey('map.lastView')
@@ -756,7 +754,7 @@ onMounted(() => {
   if (initialView) {
     mapInit(initialView, initialView.zoom)
   } else {
-    mapInit(defaultCenter(), DEFAULT_ZOOM)
+    mapInit({lat: cityCenter().lat, lng: cityCenter().lon}, DEFAULT_ZOOM)
   }
   void stopsInit()
   // The watch mounts the map on demand, after a view has already filled the store.

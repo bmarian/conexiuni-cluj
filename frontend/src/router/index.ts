@@ -16,7 +16,6 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      // Never rendered: it sends people to their city.
       path: '/',
       name: 'landing',
       component: HomeView,
@@ -83,14 +82,13 @@ const router = createRouter({
   ],
 })
 
-// A city the server doesn't serve goes home; the one it does is remembered for next time.
 router.beforeEach(async (to) => {
   const slug = to.params.city
   if (typeof slug !== 'string') return true
   await citiesLoaded
   if (!knownCity(slug)) return `/${currentCity}/`
   if (slug !== currentCity) {
-    // The page is built around one city; a link into another starts over there.
+    // Every cache is keyed by the page's city, so another city needs a full load.
     rememberCity(slug)
     window.location.href = to.fullPath
     return false

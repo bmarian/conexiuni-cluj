@@ -56,16 +56,15 @@ func (city *City) StartVehicleLearningSampler() {
 	}
 	if !cfg.Enabled {
 		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "disabled by VEHICLE_LEARNING_ENABLED")
-		log.Printf("%s: vehicle learner: disabled", city.Slug)
+		city.log("vehicle learner: disabled")
 		return
 	}
 	if cfg.MaxDailyQuota <= 0 {
 		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "max_daily_quota <= 0")
-		log.Printf("%s: vehicle learner: disabled because max_daily_quota=%d", city.Slug, cfg.MaxDailyQuota)
+		city.log("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
 		return
 	}
-	log.Printf("%s: vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
-		city.Slug,
+	city.log("vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
 		cfg.MaxDailyQuota,
 		cfg.UsesDedicatedTranzyKey,
 	)
@@ -304,8 +303,7 @@ func (counter *vehicleLearningDailyCounter) rolloverLocked(now time.Time) {
 }
 
 func (counter *vehicleLearningDailyCounter) persistLocked() {
-	city := counter.city
-	if err := city.SaveTranzyQuota(counter.name, counter.count, counter.resetAt); err != nil {
+	if err := counter.city.SaveTranzyQuota(counter.name, counter.count, counter.resetAt); err != nil {
 		log.Printf("vehicle learner: failed to persist quota %q: %v", counter.name, err)
 	}
 }

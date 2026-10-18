@@ -10,10 +10,9 @@ import (
 	"time"
 )
 
-// Calls one Snapshot costs against the default quota.
+// Requests per Snapshot.
 const snapshotCalls = 5
 
-// One Tranzy agency: five static endpoints make the Snapshot, /vehicles is the realtime.
 type Source struct {
 	client *Client
 }
@@ -93,7 +92,7 @@ func (s *Source) Quotas() []sources.Quota {
 	return out
 }
 
-// PatternID keeps "{route}_{direction}" of a Tranzy trip or shape id.
+// PatternID keeps the "{route}_{direction}" of a Tranzy trip or shape id.
 func PatternID(id string) string {
 	parts := strings.Split(id, "_")
 	if len(parts) >= 2 {

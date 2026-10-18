@@ -35,8 +35,7 @@ import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
 import {siteUrl} from "@/utils/site.ts";
-import {cityPath} from '@/utils/city.ts'
-import {cityParams} from '@/utils/city.ts'
+import {cityParams, cityPath} from "@/utils/city.ts";
 
 const props = defineProps<{ stopId: string }>()
 

@@ -105,6 +105,10 @@ const writeAuthFlag = (on: boolean) => {
 
 const state = ref<'login' | 'loading' | 'ready'>(readAuthFlag() ? 'loading' : 'login')
 const token = ref('')
+const loginError = ref('')
+const loadError = ref('')
+const data = ref<Overview | null>(null)
+const loading = ref(false)
 const adminCity = ref(currentCity)
 const cityOpen = ref(false)
 const cityName = computed(() => cities.value.find((c) => c.slug === adminCity.value)?.name ?? adminCity.value)
@@ -119,10 +123,6 @@ function pickCity(slug: string) {
 function onDocumentPointerDown(e: PointerEvent) {
   if (!(e.target as HTMLElement).closest('.city-pick')) cityOpen.value = false
 }
-const loginError = ref('')
-const loadError = ref('')
-const data = ref<Overview | null>(null)
-const loading = ref(false)
 const clock = ref(Date.now())
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 let clockTimer: ReturnType<typeof setInterval> | null = null
@@ -334,9 +334,7 @@ function quotaShare(used: number, limit: number) {
 const meters = computed(() => {
   const q = data.value?.quota
   if (!q) return []
-  const out = [
-    ...q.quotas.map((quota) => ({label: quota.name, used: quota.used, limit: quota.limit})),
-  ]
+  const out = q.quotas.map(({name, used, limit}) => ({label: name, used, limit}))
   if (q.learning.enabled) {
     out.push({label: q.learning.dedicated ? 'Learner, own key' : 'Learner', used: q.learning.used, limit: q.learning.budget})
   }

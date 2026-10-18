@@ -165,7 +165,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
 
-  // Region settings, per city: a Cluj choice says nothing about Sibiu.
   const regionValues = ref<Record<string, boolean>>({})
   function regionSetting(slug: string, key: RegionSettingKey): boolean {
     const setting = REGION_SETTINGS.find((s) => s.key === key)
@@ -183,8 +182,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(storageKey, val ? 'true' : 'false')
   }
   const showGreenFriday = computed(() => regionSetting(currentCity, 'showGreenFriday'))
-
-
 
   function setAutoCenterOnMe(val: boolean) {
     autoCenterOnMe.value = val

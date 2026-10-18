@@ -77,7 +77,7 @@ func (city *City) recomputeScheduleDelays(loc *time.Location, now time.Time) (in
 	residuals := make(map[scheduleDelayKey]*scheduleResiduals)
 	runID := 0
 	for _, route := range routes {
-		timetable, err := city.getTimetableFromDB(route.RouteShortName)
+		timetable, err := city.GetTimetable(route.RouteShortName)
 		if err != nil || timetable == nil {
 			continue
 		}

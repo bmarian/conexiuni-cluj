@@ -247,7 +247,7 @@ func main() {
 			log.Printf("Server shutdown failed: %v", err)
 		}
 	}()
-	// The cities start once the port is ours: a bind that fails must not leave fetches and learners running.
+	// Only once the port is bound, so a failed bind leaves nothing running.
 	err = app.Listen(listenAddr, fiber.ListenConfig{ListenerAddrFunc: func(addr net.Addr) {
 		log.Printf("Server listening on http://%s", addr)
 		for _, city := range cities {

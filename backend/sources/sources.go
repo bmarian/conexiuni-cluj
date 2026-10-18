@@ -1,5 +1,4 @@
-// Package sources is what a city must feed the app: a static Snapshot in the app's own shape, and optionally
-// its timetables and its vehicles. Every operator gets an adapter here; nothing past this package knows which.
+// Package sources turns each operator's feeds into the app's own shape.
 package sources
 
 import (
@@ -7,31 +6,28 @@ import (
 	"time"
 )
 
-// Snapshot is the whole static network. Trips are patterns, one per route and direction, with id "{route_id}_{0|1}".
+// Trips are patterns, one per route and direction, with id "{route_id}_{0|1}".
 type Snapshot struct {
 	Routes    []models.Route
 	Stops     []models.Stop
 	Trips     []models.Trip
 	Shapes    []models.Shape
 	TripStops []models.TripStop
-	// Seconds from each stop to the next along a pattern, by pattern id, when the feed carries times; the first is 0.
+	// Seconds from the previous stop, by pattern id; only feeds with times fill it.
 	Offsets map[string][]float64
-	// By route short name; a source without departure times leaves it empty.
+	// By route short name.
 	Timetables map[string]*models.Timetable
 }
 
-// IDMap turns a feed's own ids into the ints the app uses, the same way every time.
 type IDMap interface {
 	ExternalID(kind, external string) (int, error)
 }
 
 type Static interface {
 	Snapshot() (*Snapshot, error)
-	// How often a fresh Snapshot is worth asking for.
 	Cadence() time.Duration
 }
 
-// Timetables adds departure times to a Snapshot that has none of its own.
 type Timetables interface {
 	Timetables(snap *Snapshot) (map[string]*models.Timetable, error)
 	Cadence() time.Duration
@@ -44,13 +40,12 @@ type Budget struct {
 }
 
 type Realtime interface {
-	// Vehicles on a pattern, with TripID already a pattern id. Vehicles off any pattern are left out.
+	// TripID is already a pattern id; vehicles off any pattern are left out.
 	Vehicles() ([]models.Vehicle, error)
 	Budget() Budget
 }
 
-// Placement is what a realtime feed that names the route and the next stop, but no direction, needs to place a bus:
-// where the stop sits on a direction's pattern, or -1 when that direction does not serve it.
+// StopIndex is the stop's position on a direction's pattern, -1 when that direction does not serve it.
 type Placement interface {
 	StopIndex(routeID, direction, stopID int) int
 }
@@ -61,7 +56,6 @@ type Quota struct {
 	Limit int
 }
 
-// Metered sources report their daily quotas for the admin page.
 type Metered interface {
 	Quotas() []Quota
 }

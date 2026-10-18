@@ -17,15 +17,13 @@ import (
 const revalidateCacheControl = "no-cache"
 
 type Options struct {
-	VehicleInterval VehicleIntervalConfig
-	LearningEnabled bool
-	// Daily cap on vehicle samples taken for learning while nobody watches.
+	VehicleInterval  VehicleIntervalConfig
+	LearningEnabled  bool
 	LearningMaxQuota int
-	// False keeps whatever the database holds; for development, where every fetch costs quota.
+	// False reuses whatever the database holds.
 	Refresh bool
 }
 
-// City is one tenant: its sources, its database and everything learned from them.
 type City struct {
 	Slug     string
 	Name     string
@@ -37,7 +35,6 @@ type City struct {
 	Timetables sources.Timetables
 	// nil for a schedule-only city.
 	Realtime sources.Realtime
-	// Vehicles for learning while nobody watches; Realtime when nil.
 	Learning sources.Realtime
 	Options  Options
 
@@ -59,7 +56,7 @@ func NewCity(slug, name string, store *database.Store, static sources.Static, ti
 	return city
 }
 
-// StopIndex is sources.Placement: where a stop sits on the route's pattern in that direction, -1 when it is not served.
+// StopIndex implements sources.Placement.
 func (city *City) StopIndex(routeID, direction, stopID int) int {
 	city.liveTrips.RLock()
 	lt := city.liveTrips.byTrip[fmt.Sprintf("%d_%d", routeID, direction)]
@@ -79,7 +76,6 @@ func (city *City) log(format string, args ...any) {
 	log.Printf(city.Slug+": "+format, args...)
 }
 
-// Start runs the ingest and every learner; it returns at once.
 func (city *City) Start() {
 	city.StartCalendar()
 	city.StartVacuumScheduler()
@@ -107,7 +103,6 @@ func (city *City) Register(api fiber.Router) {
 	api.Post("/push/reminders", city.SyncReminders)
 }
 
-// Pages whose HTML carries the route or stop in its meta tags.
 func (city *City) RegisterPages(app fiber.Router) {
 	app.Get("/", city.HomeOGHandler)
 	app.Get("/route/:routeId/:direction", city.RouteOGHandler)
@@ -180,18 +175,15 @@ func (city *City) shapesHandler(c fiber.Ctx) error {
 }
 
 type cityInfo struct {
-	Slug     string `json:"slug"`
-	Name     string `json:"name"`
-	Operator string `json:"operator"`
-	// False for a schedule-only city: no buses on the map, arrivals from the timetable alone.
-	Realtime bool `json:"realtime"`
-	// The middle of the stops, where the map and the weather start.
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
+	Slug     string  `json:"slug"`
+	Name     string  `json:"name"`
+	Operator string  `json:"operator"`
+	Realtime bool    `json:"realtime"`
+	Lat      float64 `json:"lat"`
+	Lon      float64 `json:"lon"`
 }
 
-// The median stop: outlying villages on long lines do not pull it away from the centre.
-// ok is false until the city has stops: a feed that never answered is not offered.
+// The median, so outlying villages on long lines do not pull the centre away.
 func (city *City) info() (cityInfo, bool) {
 	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, Realtime: city.Realtime != nil}
 	stops, err := city.GetStops(StopFilter{})
@@ -209,7 +201,6 @@ func (city *City) info() (cityInfo, bool) {
 	return info, true
 }
 
-// CitiesHandler lists the cities served, in display order.
 func CitiesHandler(cities []*City) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		out := make([]cityInfo, 0, len(cities))

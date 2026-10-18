@@ -6,10 +6,10 @@ import (
 	"strconv"
 )
 
-// Ids made up for feeds whose own are not numbers start here, well above any operator's numbering.
+// Above any operator's own numbering.
 const allocatedIDFloor = 1_000_000
 
-// ExternalID gives a feed's id a stable int: the number itself when it is one, else one allocated once and kept.
+// ExternalID keeps a numeric id as is and allocates a stable one otherwise.
 func (s *Store) ExternalID(kind, external string) (int, error) {
 	var id int
 	err := s.DB.QueryRow(`SELECT id FROM external_ids WHERE kind = ? AND external = ?`, kind, external).Scan(&id)

@@ -17,9 +17,8 @@ type Config struct {
 	LogIPHashSalt    string
 	AdminToken       string
 	Port             string
-	// One SQLite per city: its data in DBDir, its history in ArchiveDir, both as {slug}.db.
-	DBDir      string
-	ArchiveDir string
+	DBDir            string
+	ArchiveDir       string
 
 	TranzyBaseUrl            string
 	TranzyRateLimit          time.Duration

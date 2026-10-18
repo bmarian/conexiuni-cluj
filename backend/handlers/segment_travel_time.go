@@ -484,7 +484,7 @@ func (city *City) tripDepartures(tracker *tripSegmentTracker, dayType string) []
 	if city.DB == nil {
 		return deps
 	}
-	if timetable, err := city.getTimetableFromDB(tracker.RouteShortName); err == nil && timetable != nil {
+	if timetable, err := city.GetTimetable(tracker.RouteShortName); err == nil && timetable != nil {
 		deps = scheduleDepartureMinutes(timetable, dayType, tracker.DirectionID)
 	}
 	city.tripScheduleCache.Lock()

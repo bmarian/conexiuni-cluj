@@ -12,7 +12,6 @@ import (
 
 const sitemapTTL = 1 * time.Hour
 
-// SitemapHandler serves one sitemap over every city, rebuilt hourly.
 func SitemapHandler(cities []*City) fiber.Handler {
 	var mu sync.Mutex
 	var cached []byte
@@ -42,9 +41,8 @@ func SitemapHandler(cities []*City) fiber.Handler {
 }
 
 func (city *City) writeSitemap(sb *strings.Builder) error {
-	base := siteOrigin + "/" + city.Slug
-	writeURL(sb, base+"/", "daily", "1.0")
-	writeURL(sb, base+"/plan", "monthly", "0.5")
+	writeURL(sb, city.canonicalURL("/"), "daily", "1.0")
+	writeURL(sb, city.canonicalURL("/plan"), "monthly", "0.5")
 	if err := city.writeRouteURLs(sb); err != nil {
 		return err
 	}
@@ -73,7 +71,7 @@ func (city *City) writeRouteURLs(sb *strings.Builder) error {
 			continue
 		}
 		writeURL(sb,
-			siteOrigin+"/"+city.Slug+"/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID),
+			city.canonicalURL("/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID)),
 			"weekly", "0.8")
 	}
 	return rows.Err()
@@ -96,7 +94,7 @@ func (city *City) writeStopURLs(sb *strings.Builder) error {
 			continue
 		}
 		writeURL(sb,
-			siteOrigin+"/"+city.Slug+"/stop/"+strconv.Itoa(stopID),
+			city.canonicalURL("/stop/"+strconv.Itoa(stopID)),
 			"weekly", "0.6")
 	}
 	return rows.Err()

@@ -1,5 +1,4 @@
-// Package gtfs reads a static GTFS zip, either as a city's whole network or as the departure times
-// laid over a Snapshot that has none.
+// Package gtfs reads a static GTFS zip, as a whole network or as times for another source's Snapshot.
 package gtfs
 
 import (
@@ -11,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -18,17 +18,16 @@ import (
 	"time"
 )
 
-// Trips at or past this hour belong to the next service day, which lists them itself.
+// Later trips belong to the next service day, which lists them itself.
 const serviceDayEndHour = 28
 
 type Feed struct {
 	url     string
 	cadence time.Duration
-	// Maps the feed's ids to the app's ints; only a Static feed needs one.
-	ids sources.IDMap
+	ids     sources.IDMap
 }
 
-// New reads the zip at url. ids may be nil when the feed only lays times over another source's Snapshot.
+// ids may be nil when the feed only adds times to another source's Snapshot.
 func New(url string, cadence time.Duration, ids sources.IDMap) *Feed {
 	return &Feed{url: url, cadence: cadence, ids: ids}
 }
@@ -49,7 +48,11 @@ func (t table) get(row []string, column string) string {
 }
 
 type feed struct {
-	files map[string]table
+	files    map[string]table
+	trips    map[string]tripInfo
+	stops    tripStops
+	patterns map[string]*pattern
+	stopName map[string]string
 }
 
 func (f *Feed) fetch() (*feed, error) {
@@ -97,6 +100,16 @@ func parse(data []byte) (*feed, error) {
 			return nil, fmt.Errorf("gtfs: no %s.txt", name)
 		}
 	}
+	out.trips, out.stops = out.readTrips(), out.readStopTimes()
+	var dropped int
+	if out.patterns, dropped = patterns(out.trips, out.stops); dropped > 0 {
+		log.Printf("gtfs: %d trips run only part of their line and are not listed", dropped)
+	}
+	stops := out.files["stops"]
+	out.stopName = make(map[string]string, len(stops.rows))
+	for _, row := range stops.rows {
+		out.stopName[stops.get(row, "stop_id")] = stops.get(row, "stop_name")
+	}
 	return out, nil
 }
 
@@ -118,8 +131,6 @@ func readTable(r io.Reader) (table, error) {
 	return table{header: header, rows: rows[1:]}, nil
 }
 
-// ---- what the files say
-
 type tripInfo struct {
 	routeID, service, headsign, shapeID string
 	direction                           int
@@ -134,7 +145,7 @@ type stopTime struct {
 
 type tripStops map[string][]stopTime
 
-func (f *feed) trips() map[string]tripInfo {
+func (f *feed) readTrips() map[string]tripInfo {
 	trips := f.files["trips"]
 	out := make(map[string]tripInfo, len(trips.rows))
 	for _, row := range trips.rows {
@@ -147,8 +158,7 @@ func (f *feed) trips() map[string]tripInfo {
 	return out
 }
 
-// Every trip's stops in sequence order.
-func (f *feed) stopTimes() tripStops {
+func (f *feed) readStopTimes() tripStops {
 	st := f.files["stop_times"]
 	out := tripStops{}
 	for _, row := range st.rows {
@@ -179,7 +189,6 @@ func minutesOrMissing(hhmmss string) int {
 	return h*60 + m
 }
 
-// The services running on a date, from calendar.txt and the exceptions in calendar_dates.txt.
 func (f *feed) servicesOn(day time.Time) map[string]bool {
 	date := day.Format("20060102")
 	weekday := strings.ToLower(day.Weekday().String())
@@ -207,7 +216,6 @@ func (f *feed) servicesOn(day time.Time) map[string]bool {
 	return active
 }
 
-// The dates the feed is valid for, from calendar.txt.
 func (f *feed) validity() (start, end time.Time) {
 	cal := f.files["calendar"]
 	for _, row := range cal.rows {
@@ -226,7 +234,7 @@ func (f *feed) validity() (start, end time.Time) {
 	return start, end
 }
 
-// The first date of each kind of day the feed covers, from today or from the day the feed starts.
+// The first date of each kind of day, from today or from the feed's start.
 func representativeDays(now, start, end time.Time) map[string]time.Time {
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	if start.After(from) {
@@ -252,9 +260,7 @@ func representativeDays(now, start, end time.Time) map[string]time.Time {
 	return out
 }
 
-// ---- timetables
-
-// Timetables lays the feed's departure times over a Snapshot from another source, matched by line number.
+// Matched to the Snapshot's routes by line number.
 func (f *Feed) Timetables(snap *sources.Snapshot) (map[string]*models.Timetable, error) {
 	data, err := f.fetch()
 	if err != nil {
@@ -274,18 +280,6 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 	for _, row := range routes.rows {
 		routeShort[routes.get(row, "route_id")] = routes.get(row, "route_short_name")
 	}
-	stopsTable := f.files["stops"]
-	stopName := map[string]string{}
-	for _, row := range stopsTable.rows {
-		stopName[stopsTable.get(row, "stop_id")] = stopsTable.get(row, "stop_name")
-	}
-	trips := f.trips()
-	stops := f.stopTimes()
-	pats, dropped := patterns(trips, stops)
-	if dropped > 0 {
-		log.Printf("gtfs: %d trips run only part of their line and are not listed", dropped)
-	}
-
 	start, end := f.validity()
 	days := representativeDays(now, start, end)
 	services := map[string]map[string]bool{}
@@ -293,21 +287,21 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 		services[kind] = f.servicesOn(day)
 	}
 
-	// Per line, direction and kind of day: when the trips following the pattern leave its first stop.
+	// First-stop departures per line, direction and kind of day.
 	type key struct {
 		lineDir
 		kind string
 	}
 	departures := map[key]map[int]string{}
 	termini := map[lineDir]string{}
-	for _, p := range pats {
+	for _, p := range f.patterns {
 		k := lineDir{routeShort[p.routeID], p.dir}
 		if k.line == "" {
 			continue
 		}
 		termini[k] = p.stops[0]
 		for _, tripID := range p.trips {
-			st := stops[tripID]
+			st := f.stops[tripID]
 			minutes := st[0].departure
 			if minutes < 0 {
 				minutes = st[0].arrival
@@ -316,7 +310,7 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 				continue
 			}
 			for kind, active := range services {
-				if !active[trips[tripID].service] {
+				if !active[f.trips[tripID].service] {
 					continue
 				}
 				dk := key{k, kind}
@@ -338,8 +332,8 @@ func (f *feed) timetables(snap *sources.Snapshot, now time.Time) map[string]*mod
 		t := &models.Timetable{
 			RouteShortName: short,
 			RouteLongName:  route.RouteLongName,
-			InStopName:     stopName[in],
-			OutStopName:    stopName[back],
+			InStopName:     f.stopName[in],
+			OutStopName:    f.stopName[back],
 		}
 		for kind, schedule := range map[string]*models.DaySchedule{"weekdays": &t.Weekdays, "saturday": &t.Saturday, "sunday": &t.Sunday} {
 			*schedule = daySchedule(sortedTimes(departures[key{lineDir{short, 0}, kind}]), sortedTimes(departures[key{lineDir{short, 1}, kind}]))
@@ -363,7 +357,6 @@ func sortedTimes(byMinute map[int]string) []string {
 	return out
 }
 
-// Two columns of departures, row by row, like the printed timetables the app grew up with.
 func daySchedule(in, out []string) models.DaySchedule {
 	n := max(len(in), len(out))
 	entries := make([]models.TimetableEntry, n)
@@ -378,9 +371,6 @@ func daySchedule(in, out []string) models.DaySchedule {
 	return models.DaySchedule{Entries: entries}
 }
 
-// ---- the whole network
-
-// Snapshot builds the network: one pattern per route and direction, the stop sequence most trips follow.
 func (f *Feed) Snapshot() (*sources.Snapshot, error) {
 	if f.ids == nil {
 		return nil, fmt.Errorf("gtfs: %s has no id map, so it can only lay times over another source", f.url)
@@ -399,16 +389,14 @@ type pattern struct {
 	trips    []string // the trips following it exactly, then those folded in
 	headsign string
 	shapeID  string
-	// Runs that pass every stop of the pattern with extra stops of their own, folded in when their timing agrees.
+	// Runs that only add stops, folded in when their timing agrees.
 	candidates []string
 }
 
-// The app shows whole minutes, so a run whose timing along the pattern stays under one is the same bus to a rider.
+// The app shows whole minutes, so runs less than one apart are the same bus to a rider.
 const foldToleranceSec = 60
 
-// patterns picks, per route and direction, the stop sequence most trips follow. Trips that pass every stop of it,
-// with extra stops of their own, are folded in when they keep the pattern's timing. A short run would show buses
-// at stops it never reaches, so it is left out, like a run on another path; those are counted.
+// The stop sequence most trips follow, per route and direction. Short runs and other paths are left out and counted.
 func patterns(trips map[string]tripInfo, stops tripStops) (map[string]*pattern, int) {
 	type group struct {
 		bySignature map[string][]string
@@ -471,7 +459,7 @@ func patterns(trips map[string]tripInfo, stops tripStops) (map[string]*pattern, 
 	return out, dropped
 }
 
-// How far a run strays, at worst, from the pattern's timing at the pattern's stops.
+// The run's worst timing gap to the pattern, at the pattern's stops.
 func deviationSec(patternStops []string, offsets []float64, run []stopTime) float64 {
 	start := run[0].departure
 	if start < 0 {
@@ -487,15 +475,12 @@ func deviationSec(patternStops []string, offsets []float64, run []stopTime) floa
 		if at < 0 {
 			at = st.departure
 		}
-		if d := float64((at-start)*60) - cum; d > worst || -d > worst {
-			worst = max(d, -d)
-		}
+		worst = max(worst, math.Abs(float64((at-start)*60)-cum))
 		i++
 	}
 	return worst
 }
 
-// passesAll is true when every stop of the pattern comes up, in order, along the run.
 func passesAll(pattern, run []string) bool {
 	i := 0
 	for _, stop := range run {
@@ -507,16 +492,6 @@ func passesAll(pattern, run []string) bool {
 }
 
 func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, error) {
-	trips := f.trips()
-	stops := f.stopTimes()
-	pats, _ := patterns(trips, stops)
-
-	stopsTable := f.files["stops"]
-	stopName := map[string]string{}
-	for _, row := range stopsTable.rows {
-		stopName[stopsTable.get(row, "stop_id")] = stopsTable.get(row, "stop_name")
-	}
-
 	routes := f.files["routes"]
 	routeIDs := map[string]int{}
 	snap := &sources.Snapshot{Offsets: map[string][]float64{}}
@@ -536,7 +511,7 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 		}
 		longName := routes.get(row, "route_long_name")
 		if longName == "" {
-			longName = routeName(pats, external, stopName)
+			longName = routeName(f.patterns, external, f.stopName)
 		}
 		snap.Routes = append(snap.Routes, models.Route{
 			RouteID: id, RouteShortName: routes.get(row, "route_short_name"), RouteLongName: longName,
@@ -547,11 +522,12 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 	stopIDs := map[string]int{}
 	stopByExternal := map[string]models.Stop{}
 	used := map[string]bool{}
-	for _, p := range pats {
+	for _, p := range f.patterns {
 		for _, s := range p.stops {
 			used[s] = true
 		}
 	}
+	stopsTable := f.files["stops"]
 	for _, row := range stopsTable.rows {
 		external := stopsTable.get(row, "stop_id")
 		if !used[external] {
@@ -585,13 +561,13 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 		}
 	}
 
-	keys := make([]string, 0, len(pats))
-	for id := range pats {
+	keys := make([]string, 0, len(f.patterns))
+	for id := range f.patterns {
 		keys = append(keys, id)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		p := pats[key]
+		p := f.patterns[key]
 		routeID, ok := routeIDs[p.routeID]
 		if !ok {
 			continue
@@ -605,7 +581,7 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 		}
 		points := append([]models.Shape(nil), shapePoints[p.shapeID]...)
 		if len(points) < 2 {
-			// No drawn line: straight legs between the stops keep the map and the offsets working.
+			// No shape: straight legs between the stops.
 			points = points[:0]
 			for i, external := range p.stops {
 				s := stopByExternal[external]
@@ -618,16 +594,14 @@ func (f *feed) snapshot(ids sources.IDMap, now time.Time) (*sources.Snapshot, er
 			points[i].ShapePtSequence = i
 			snap.Shapes = append(snap.Shapes, points[i])
 		}
-		snap.Offsets[patternID] = scheduledOffsets(p, stops)
+		snap.Offsets[patternID] = scheduledOffsets(p, f.stops)
 	}
 
 	snap.Timetables = f.timetables(snap, now)
 	return snap, nil
 }
 
-// Seconds between consecutive stops, the median over the trips that follow the pattern exactly.
-// A route the feed leaves unnamed is called after its ends, as the operators name theirs: the first stop of each
-// direction, or of the one direction and where it is headed.
+// An unnamed route is called after its ends, as operators name theirs.
 func routeName(pats map[string]*pattern, routeID string, stopName map[string]string) string {
 	var ends, headsigns [2]string
 	for _, p := range pats {
@@ -647,6 +621,7 @@ func routeName(pats map[string]*pattern, routeID string, stopName map[string]str
 	return ""
 }
 
+// Seconds between consecutive stops, the median over the trips that follow the pattern exactly.
 func scheduledOffsets(p *pattern, stops tripStops) []float64 {
 	n := len(p.stops)
 	samples := make([][]float64, n)

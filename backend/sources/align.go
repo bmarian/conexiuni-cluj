@@ -5,7 +5,6 @@ import (
 	"log"
 )
 
-// FirstStopNames gives the first stop of each direction of a route in the Snapshot, by direction id.
 func FirstStopNames(snap *Snapshot, routeID int) [2]string {
 	var first [2]models.TripStop
 	var found [2]bool
@@ -31,7 +30,7 @@ func FirstStopNames(snap *Snapshot, routeID int) [2]string {
 	return [2]string{names[first[0].StopID], names[first[1].StopID]}
 }
 
-// AlignDirections swaps a timetable's in/out columns when its termini match the Snapshot's directions the other way round.
+// AlignDirections swaps in and out when the termini match the Snapshot's directions the other way round.
 func AlignDirections(t *models.Timetable, first [2]string) {
 	if (t.InStopName == "" && t.OutStopName == "") || first[0] == "" || first[1] == "" {
 		return

@@ -21,7 +21,7 @@ import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
 import {useRouteUpdatesStore} from "@/stores/routeUpdates"
-import {cityParams} from '@/utils/city.ts'
+import {cityParams} from "@/utils/city.ts"
 
 const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
@@ -39,7 +39,6 @@ const {keyboardMode} = useKeyboardNav()
 useKeyboardNavRoot(useRouter())
 const isAdminRoute = computed(() => route.name === 'admin')
 const routeUpdates = useRouteUpdatesStore()
-// The news button appears once a line is followed with its bell.
 const showNews = computed(() => routeUpdates.followed.length > 0 && isOnline.value)
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'

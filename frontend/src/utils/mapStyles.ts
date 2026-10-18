@@ -182,7 +182,6 @@ export function mapStyle(isDark: boolean, theme: MapTheme): StyleSpecification {
   return cache.get(key)!
 }
 
-// Live positions come through tranzy.ai; a schedule-only city credits its operator alone.
 export const mapCreditsHTML = () => '&copy; <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | '
   + (cityInfo()?.realtime ? '&copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, ' : '') + '&copy; ' + escapeHTML(cityParams().operator)
 export const mapCreditsText = () => `© OpenMapTiles © OpenStreetMap | ${cityInfo()?.realtime ? '© tranzy.ai, ' : ''}© ${cityParams().operator}`

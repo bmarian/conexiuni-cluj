@@ -20,7 +20,6 @@ export function describeExport(data: unknown) {
   }
 }
 
-// The same export goes out as text (Export / Import) and through a transfer code.
 function regionsExport() {
   const settings = useSettingsStore()
   const out: Record<string, Record<string, boolean>> = {}
@@ -33,6 +32,7 @@ function regionsExport() {
   return out
 }
 
+// The same export goes out as text (Export / Import) and through a transfer code.
 export function useSettingsTransfer() {
   const {locale} = useI18n()
   const settings = useSettingsStore()
@@ -87,7 +87,7 @@ export function useSettingsTransfer() {
     else settings.deactivatePaper()
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
-    // An export from before there were cities carries Cluj's settings at the top.
+    // Exports from before cities hold Cluj's settings at the top level.
     const regions = isRecord(s.regions) ? s.regions : {[DEFAULT_CITY]: s}
     for (const [slug, values] of Object.entries(regions)) {
       if (!isRecord(values)) continue

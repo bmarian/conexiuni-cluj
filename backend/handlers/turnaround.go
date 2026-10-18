@@ -294,9 +294,9 @@ func (city *City) routeTurnarounds(routeID int, stopTimes []models.StopTime) map
 	in := sortedTrip(rows, rid+INCOMING_SUFFIX)
 	var timetable *models.Timetable
 	if len(out) > 0 {
-		timetable, _ = city.getTimetableFromDB(out[0].RouteShortName)
+		timetable, _ = city.GetTimetable(out[0].RouteShortName)
 	} else if len(in) > 0 {
-		timetable, _ = city.getTimetableFromDB(in[0].RouteShortName)
+		timetable, _ = city.GetTimetable(in[0].RouteShortName)
 	}
 	result := map[string]predictions.Turnaround{}
 	if t := city.turnaroundFor(routeID, 0, in, out, timetable); t.Through {

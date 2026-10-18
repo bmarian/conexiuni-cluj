@@ -143,7 +143,6 @@ func detectLocale(c fiber.Ctx) ogLocale {
 	return l
 }
 
-// The locale's texts with the city's names filled in.
 func (city *City) ogTexts(c fiber.Ctx) ogLocale {
 	l := detectLocale(c)
 	fill := strings.NewReplacer("{city}", city.Name, "{operator}", city.Operator).Replace
@@ -155,7 +154,6 @@ func (city *City) ogTexts(c fiber.Ctx) ogLocale {
 	l.stopDescFmt = fill(l.stopDescFmt)
 	l.stopH1Fmt = fill(l.stopH1Fmt)
 	l.stopBodyFmt = fill(l.stopBodyFmt)
-	l.planTitle = fill(l.planTitle)
 	l.planDesc = fill(l.planDesc)
 	l.planH1 = fill(l.planH1)
 	l.planBody = fill(l.planBody)
@@ -167,9 +165,6 @@ func (city *City) ogTexts(c fiber.Ctx) ogLocale {
 	l.homeDesc = fill(l.homeDesc)
 	l.homeH1 = fill(l.homeH1)
 	l.homeBody = fill(l.homeBody)
-	l.androidTitle = fill(l.androidTitle)
-	l.androidDesc = fill(l.androidDesc)
-	l.androidBody = fill(l.androidBody)
 	return l
 }
 

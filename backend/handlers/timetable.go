@@ -8,10 +8,6 @@ import (
 )
 
 func (city *City) GetTimetable(routeShortName string) (*models.Timetable, error) {
-	return city.getTimetableFromDB(routeShortName)
-}
-
-func (city *City) getTimetableFromDB(routeShortName string) (*models.Timetable, error) {
 	var t models.Timetable
 	var weekdaysJSON, saturdayJSON, sundayJSON string
 

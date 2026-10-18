@@ -65,7 +65,7 @@ type RouteChange struct {
 }
 
 func (city *City) storeTimetableTrackingChanges(t *models.Timetable) error {
-	previous, _ := city.getTimetableFromDB(t.RouteShortName)
+	previous, _ := city.GetTimetable(t.RouteShortName)
 	if err := city.storeTimetableInDB(t); err != nil {
 		return err
 	}

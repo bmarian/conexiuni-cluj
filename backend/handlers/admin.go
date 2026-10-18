@@ -101,7 +101,6 @@ func RequireAdminSession(token string) fiber.Handler {
 	}
 }
 
-// RegisterAdminRoutes serves one admin for every city; ?city= picks one, the first is the default.
 func RegisterAdminRoutes(api fiber.Router, cities []*City, token string, secureCookies bool) {
 	if token == "" || len(cities) == 0 {
 		return

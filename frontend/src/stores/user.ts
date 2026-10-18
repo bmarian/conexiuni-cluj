@@ -6,7 +6,7 @@ import {network} from '@/utils/network.ts'
 
 export const useUserStore = defineStore('user', () => {
   const rawLocation = ref<UserLocation | null>(null)
-  // Where the person is, when that is inside this city: from another city, nothing here is near them.
+  // From another city, nothing here is near the person.
   const userLocation = computed(() => {
     const loc = rawLocation.value
     return loc && network.value?.covers(loc.latitude, loc.longitude) ? loc : null

@@ -26,8 +26,7 @@ import {nextOf} from '@/utils/reminders.ts'
 import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
-import {cityPath} from '@/utils/city.ts'
-import {cityParams} from '@/utils/city.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const router = useRouter()

@@ -94,7 +94,6 @@ func responseStatus(c fiber.Ctx, err error) int {
 }
 
 // Must run before the access logger.
-// StatsMiddleware counts calls and people per city; the city is the first path segment under /api.
 func StatsMiddleware(cities map[string]*City, salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()

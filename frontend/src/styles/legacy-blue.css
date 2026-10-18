@@ -69,10 +69,9 @@ html[data-legacy-blue] .news-change-badge,
 html[data-legacy-blue] .app-drawer .rc-close,
 html[data-legacy-blue] .ei-btn,
 html[data-legacy-blue] .ei-textarea,
-html[data-legacy-blue] .weather-pill,
-html[data-legacy-blue] .weather-popover,
-html[data-legacy-blue] .weather-range,
-html[data-legacy-blue] .weather-stat,
+html[data-legacy-blue] .city-btn,
+html[data-legacy-blue] .city-popover,
+html[data-legacy-blue] .city-item,
 html[data-legacy-blue] .landscape-drawer-toggle,
 html[data-legacy-blue] .offline-pill,
 html[data-legacy-blue] .app-drawer .green-friday-close {
@@ -416,7 +415,7 @@ html[data-legacy-blue] .settings-btn:hover {
   color: #ffffff !important;
 }
 
-html[data-legacy-blue] .weather-pill {
+html[data-legacy-blue] .city-btn {
   background: var(--xp-orb) !important;
   color: #ffffff !important;
   box-shadow:
@@ -426,12 +425,12 @@ html[data-legacy-blue] .weather-pill {
   border: 1px solid #003c9c !important;
 }
 
-html[data-legacy-blue] .weather-pill:hover {
+html[data-legacy-blue] .city-btn:hover {
   background: var(--xp-orb-hover) !important;
   color: #ffffff !important;
 }
 
-html[data-legacy-blue] .weather-popover {
+html[data-legacy-blue] .city-popover {
   background: var(--xp-tan) !important;
   border: 1px solid #003c9c !important;
   box-shadow:
@@ -442,7 +441,7 @@ html[data-legacy-blue] .weather-popover {
   padding-top: 34px !important;
 }
 
-html[data-legacy-blue] .weather-popover::before {
+html[data-legacy-blue] .city-popover::before {
   content: "";
   position: absolute;
   top: 1px;
@@ -462,28 +461,26 @@ html[data-legacy-blue] .weather-popover::before {
   pointer-events: none;
 }
 
-html[data-legacy-blue] .weather-popover-title,
-html[data-legacy-blue] .weather-stat-label,
-html[data-legacy-blue] .weather-sun {
+html[data-legacy-blue] .city-popover-title {
   color: var(--xp-blue) !important;
   font-family: var(--xp-font) !important;
   letter-spacing: 0.04em !important;
   font-weight: 700 !important;
 }
 
-html[data-legacy-blue] .weather-condition,
-html[data-legacy-blue] .weather-popover-temp,
-html[data-legacy-blue] .weather-stat-value {
+html[data-legacy-blue] .city-item-title {
   color: #000000 !important;
   font-family: var(--xp-font) !important;
 }
 
-html[data-legacy-blue] .weather-range,
-html[data-legacy-blue] .weather-stat {
-  background: #ffffff !important;
-  border: 1px solid var(--xp-border) !important;
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.75) !important;
-  color: #000000 !important;
+html[data-legacy-blue] .city-item-meta {
+  color: var(--xp-blue) !important;
+  font-family: var(--xp-font) !important;
+}
+
+html[data-legacy-blue] .city-item:hover,
+html[data-legacy-blue] .city-item.is-current {
+  background: #fffcea !important;
 }
 
 html[data-legacy-blue] .settings-popover {
@@ -811,7 +808,7 @@ html.dark[data-legacy-blue] .settings-btn:hover {
   color: #ffffff !important;
 }
 
-html.dark[data-legacy-blue] .weather-pill {
+html.dark[data-legacy-blue] .city-btn {
   background: var(--xp-orb) !important;
   color: #e0e6f2 !important;
   box-shadow:
@@ -820,12 +817,12 @@ html.dark[data-legacy-blue] .weather-pill {
   border: 1px solid #001e5c !important;
 }
 
-html.dark[data-legacy-blue] .weather-pill:hover {
+html.dark[data-legacy-blue] .city-btn:hover {
   background: var(--xp-orb-hover) !important;
   color: #ffffff !important;
 }
 
-html.dark[data-legacy-blue] .weather-popover {
+html.dark[data-legacy-blue] .city-popover {
   background: var(--xp-tan) !important;
   border: 1px solid #001e5c !important;
   box-shadow:
@@ -834,7 +831,7 @@ html.dark[data-legacy-blue] .weather-popover {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-legacy-blue] .weather-popover::before {
+html.dark[data-legacy-blue] .city-popover::before {
   background: linear-gradient(
     to bottom,
     #003478 0%,
@@ -846,24 +843,18 @@ html.dark[data-legacy-blue] .weather-popover::before {
   );
 }
 
-html.dark[data-legacy-blue] .weather-popover-title,
-html.dark[data-legacy-blue] .weather-stat-label,
-html.dark[data-legacy-blue] .weather-sun {
+html.dark[data-legacy-blue] .city-popover-title,
+html.dark[data-legacy-blue] .city-item-meta {
   color: var(--xp-blue) !important;
 }
 
-html.dark[data-legacy-blue] .weather-condition,
-html.dark[data-legacy-blue] .weather-popover-temp,
-html.dark[data-legacy-blue] .weather-stat-value {
+html.dark[data-legacy-blue] .city-item-title {
   color: var(--xp-text) !important;
 }
 
-html.dark[data-legacy-blue] .weather-range,
-html.dark[data-legacy-blue] .weather-stat {
-  background: #1a2030 !important;
-  border-color: var(--xp-border) !important;
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05) !important;
-  color: var(--xp-text) !important;
+html.dark[data-legacy-blue] .city-item:hover,
+html.dark[data-legacy-blue] .city-item.is-current {
+  background: #1a2a50 !important;
 }
 
 html.dark[data-legacy-blue] .settings-popover {

@@ -41,7 +41,6 @@ func (city *City) IngestStatus() IngestSnapshot {
 	}
 }
 
-// StartIngest fills the database from the sources now, then whenever one is due again.
 func (city *City) StartIngest() {
 	go func() {
 		defer func() {
@@ -51,7 +50,7 @@ func (city *City) StartIngest() {
 		}()
 		for {
 			if err := city.runIngest(time.Now()); err != nil {
-				// A refused key or a dead feed is tried again at the source's own pace, not in a loop.
+				// At the source's own pace, not in a tight loop.
 				wait := city.Static.Cadence()
 				city.log("ingest: %v; next try in %s", err, wait.Round(time.Minute))
 				time.Sleep(wait)
@@ -81,45 +80,37 @@ func (city *City) markFetched(source string, at time.Time) {
 	}
 }
 
-// Zero when the source has never been read; past when it is due.
-// ForgetFetches makes every source due at once, whatever the database holds.
 func (city *City) ForgetFetches() error {
 	_, err := city.DB.Exec(`DELETE FROM ingest_state`)
 	return err
 }
 
-func (city *City) dueAt(source string, cadence time.Duration) time.Time {
+// Zero when the source is never due again.
+func (city *City) dueAt(source string, cadence time.Duration, now time.Time) time.Time {
 	last := city.fetchedAt(source)
-	if last.IsZero() || !city.Options.Refresh {
-		return last
+	switch {
+	case last.IsZero():
+		return now
+	case city.Options.Refresh:
+		return last.Add(cadence)
 	}
-	return last.Add(cadence)
+	return time.Time{}
 }
 
-// The next time a source is due; zero when nothing will ever be.
 func (city *City) nextIngestAt(now time.Time) time.Time {
-	var next time.Time
-	consider := func(source string, cadence time.Duration) {
-		due := city.dueAt(source, cadence)
-		if due.IsZero() {
-			due = now
-		} else if !city.Options.Refresh {
-			return
-		}
-		if next.IsZero() || due.Before(next) {
+	next := city.dueAt(ingestStatic, city.Static.Cadence(), now)
+	if city.Timetables != nil {
+		if due := city.dueAt(ingestTimetables, city.Timetables.Cadence(), now); !due.IsZero() && (next.IsZero() || due.Before(next)) {
 			next = due
 		}
-	}
-	consider(ingestStatic, city.Static.Cadence())
-	if city.Timetables != nil {
-		consider(ingestTimetables, city.Timetables.Cadence())
 	}
 	return next
 }
 
 func (city *City) runIngest(now time.Time) error {
-	staticDue := !city.dueAt(ingestStatic, city.Static.Cadence()).After(now) && (city.Options.Refresh || city.fetchedAt(ingestStatic).IsZero())
-	timetablesDue := city.Timetables != nil && !city.dueAt(ingestTimetables, city.Timetables.Cadence()).After(now) && (city.Options.Refresh || city.fetchedAt(ingestTimetables).IsZero())
+	isDue := func(due time.Time) bool { return !due.IsZero() && !due.After(now) }
+	staticDue := isDue(city.dueAt(ingestStatic, city.Static.Cadence(), now))
+	timetablesDue := city.Timetables != nil && isDue(city.dueAt(ingestTimetables, city.Timetables.Cadence(), now))
 
 	city.ingest.mu.Lock()
 	city.ingest.lastStartedAt = now
@@ -180,7 +171,7 @@ func (city *City) runIngest(now time.Time) error {
 	return nil
 }
 
-// Everything in one transaction, so a reader never sees half a network.
+// One transaction, so a reader never sees half a network.
 func (city *City) storeSnapshot(snap *sources.Snapshot) error {
 	tx, err := city.DB.Begin()
 	if err != nil {
@@ -247,7 +238,6 @@ func insertAll(tx *sql.Tx, query string, n int, row func(i int) []any) error {
 	return nil
 }
 
-// The stored network, for a timetable refresh that needs no new fetch.
 func (city *City) loadSnapshot() (*sources.Snapshot, error) {
 	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
@@ -272,7 +262,7 @@ func (city *City) loadSnapshot() (*sources.Snapshot, error) {
 	return &sources.Snapshot{Routes: routes, Stops: stops, Trips: trips, Shapes: shapes, TripStops: tripStops}, nil
 }
 
-// Offsets between stops come from the feed's own times when it has them, else from the shape at bus pace; learning overwrites them.
+// The feed's own times when it has them, else the shape at bus pace; learning overwrites both.
 func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 	stopsByID := make(map[int]models.Stop, len(snap.Stops))
 	for _, s := range snap.Stops {
@@ -323,7 +313,6 @@ func (city *City) deriveStopTimes(snap *sources.Snapshot) {
 	}
 }
 
-// Routes with departures and the stops those routes call at; the rest stay out of the bundle.
 type availabilityRegistry struct {
 	mu                  sync.RWMutex
 	ready               bool
@@ -332,67 +321,33 @@ type availabilityRegistry struct {
 }
 
 func (city *City) refreshAvailability() {
-	if city.Timetables == nil {
-		city.refreshAvailabilityFromPatterns()
-		return
-	}
-	routes, err := queryRows(city.DB, `
+	routesSQL := `
 		SELECT route_short_name FROM timetable
-		WHERE weekdays LIKE '%departure_in%' OR saturday LIKE '%departure_in%' OR sunday LIKE '%departure_in%'`, nil,
-		func(rows *sql.Rows) (string, error) {
-			var s string
-			err := rows.Scan(&s)
-			return s, err
-		})
-	if err != nil {
-		city.log("availability: routes: %v", err)
-		return
-	}
-	withTimetable := make(map[string]struct{}, len(routes))
-	for _, r := range routes {
-		withTimetable[r] = struct{}{}
-	}
-	stops, err := queryRows(city.DB, `
+		WHERE weekdays LIKE '%departure_in%' OR saturday LIKE '%departure_in%' OR sunday LIKE '%departure_in%'`
+	stopsSQL := `
 		SELECT DISTINCT ts.stop_id FROM trip_stops ts
 		JOIN trips t ON ts.trip_id = t.trip_id
 		JOIN routes r ON t.route_id = r.route_id
-		JOIN timetable tt ON tt.route_short_name = r.route_short_name`, nil,
-		func(rows *sql.Rows) (int, error) {
-			var id int
-			err := rows.Scan(&id)
-			return id, err
-		})
-	if err != nil {
-		city.log("availability: stops: %v", err)
-		return
+		JOIN timetable tt ON tt.route_short_name = r.route_short_name`
+	// Without departure times every route with a pattern counts, and every stop on it.
+	if city.Timetables == nil {
+		routesSQL = `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`
+		stopsSQL = `SELECT DISTINCT stop_id FROM trip_stops`
 	}
-	withBuses := make(map[int]struct{}, len(stops))
-	for _, id := range stops {
-		withBuses[id] = struct{}{}
-	}
-	city.availability.mu.Lock()
-	city.availability.routesWithTimetable, city.availability.stopsWithBuses, city.availability.ready = withTimetable, withBuses, true
-	city.availability.mu.Unlock()
-}
-
-// Without departure times every route with a pattern counts, and every stop on it.
-func (city *City) refreshAvailabilityFromPatterns() {
-	routes, err := queryRows(city.DB, `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`, nil,
-		func(rows *sql.Rows) (string, error) {
-			var s string
-			err := rows.Scan(&s)
-			return s, err
-		})
+	routes, err := queryRows(city.DB, routesSQL, nil, func(rows *sql.Rows) (string, error) {
+		var s string
+		err := rows.Scan(&s)
+		return s, err
+	})
 	if err != nil {
 		city.log("availability: routes: %v", err)
 		return
 	}
-	stops, err := queryRows(city.DB, `SELECT DISTINCT stop_id FROM trip_stops`, nil,
-		func(rows *sql.Rows) (int, error) {
-			var id int
-			err := rows.Scan(&id)
-			return id, err
-		})
+	stops, err := queryRows(city.DB, stopsSQL, nil, func(rows *sql.Rows) (int, error) {
+		var id int
+		err := rows.Scan(&id)
+		return id, err
+	})
 	if err != nil {
 		city.log("availability: stops: %v", err)
 		return

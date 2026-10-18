@@ -1,4 +1,4 @@
-// Package gtfsrt reads a GTFS-realtime vehiclePositions feed: every vehicle the operator shows, with no quota to spend.
+// Package gtfsrt reads a GTFS-realtime vehiclePositions feed.
 package gtfsrt
 
 import (
@@ -16,12 +16,12 @@ import (
 type Source struct {
 	url string
 	ids sources.IDMap
-	// Places a bus by its next stop when the feed names no direction; without it such buses are left out.
+	// Finds the direction when the feed leaves it out.
 	Placement sources.Placement
 	client    *http.Client
 
 	mu sync.Mutex
-	// The previous reading of each vehicle, for the speed a feed may not write.
+	// The previous fixes, for feeds without speed.
 	last map[int]fix
 }
 
@@ -97,7 +97,7 @@ func (s *Source) vehicles(feed feedMessage, now int64) ([]models.Vehicle, error)
 			ID: id, Label: label, Latitude: p.lat, Longitude: p.lon,
 			Timestamp: time.Unix(at, 0).UTC().Format(time.RFC3339),
 			Speed:     speed, RawSpeed: speed,
-			RouteID:   routeID, TripID: fmt.Sprintf("%d_%d", routeID, direction),
+			RouteID: routeID, TripID: fmt.Sprintf("%d_%d", routeID, direction),
 		})
 		seen[id] = reading
 	}
@@ -105,8 +105,7 @@ func (s *Source) vehicles(feed feedMessage, now int64) ([]models.Vehicle, error)
 	return out, nil
 }
 
-// The feed's own direction when it writes one. Else the one direction whose pattern serves the next stop; when both
-// do (a shared terminus), the one where that stop sits at the sequence number the bus reports.
+// Without the feed's own, the one direction serving the next stop, or at a shared terminus the one matching its sequence.
 func (s *Source) direction(routeID int, p position) (int, bool) {
 	if p.direction >= 0 {
 		return p.direction, true
@@ -138,7 +137,6 @@ func (s *Source) direction(routeID int, p position) (int, bool) {
 	return 0, false
 }
 
-// Between two readings of the same vehicle.
 func speedKmh(prev, cur fix) float64 {
 	if prev.at == 0 || cur.at <= prev.at {
 		return 0
