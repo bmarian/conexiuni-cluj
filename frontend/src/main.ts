@@ -24,12 +24,13 @@ import "@fontsource/libre-caslon-text/400-italic.css";
 import "@fontsource/libre-caslon-text/700.css";
 import "./styles/paper.css";
 import { i18n } from "./i18n";
+import { apiPath, citiesLoaded } from "./utils/city";
 
 const sendPWAInstallEvent = () => {
   const body = JSON.stringify({ metric: "pwa_install", key: "appinstalled" });
   const blob = new Blob([body], { type: "application/json" });
-  if (navigator.sendBeacon?.("/api/stats/event", blob)) return;
-  void fetch("/api/stats/event", {
+  if (navigator.sendBeacon?.(apiPath("stats/event"), blob)) return;
+  void fetch(apiPath("stats/event"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
@@ -52,7 +53,7 @@ function start() {
 
   window.addEventListener("appinstalled", sendPWAInstallEvent);
 
-  const isAdminPath = window.location.pathname.startsWith("/admin");
+  const isAdminPath = window.location.pathname === "/admin";
 
   if (!isAdminPath) {
     void useRoutesApi().fetchRoutes();
@@ -90,7 +91,7 @@ function start() {
     if (typeof url === "string" && url.startsWith("/")) void router.push(url);
   });
 
-  void router.isReady().then(() => app.mount("#app"));
+  void citiesLoaded.then(() => router.isReady()).then(() => app.mount("#app"));
 }
 
 // The stores read what the move writes, so they start after it.

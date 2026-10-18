@@ -45,6 +45,7 @@ import {
 } from '@/utils/mapMarkers.ts'
 import {MAP_CREDITS_HTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
+import {cityInfo} from '@/utils/city.ts'
 
 setWorkerUrl(workerUrl)
 
@@ -105,7 +106,7 @@ let stopRefreshFrame = 0
 let styleReady = false
 
 const DEFAULT_ZOOM = 15
-const DEFAULT_CENTER: LatLng = {lat: 46.7712, lng: 23.6236}
+const DEFAULT_CENTER: LatLng = {lat: cityInfo()?.lat ?? 46.7712, lng: cityInfo()?.lon ?? 23.6236}
 const STOP_ZOOM_THRESHOLD = 15
 const FIT_MAX_ZOOM = 15
 const MIN_ZOOM = 8

@@ -3,7 +3,7 @@ package handlers
 import (
 	"cmp"
 	"conexiuni-cluj/database"
-	"conexiuni-cluj/services/tranzy"
+	"conexiuni-cluj/sources"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -128,13 +128,13 @@ type hostMoves struct {
 }
 
 type quotaUse struct {
-	Used  int `json:"used"`
-	Limit int `json:"limit"`
+	Name  string `json:"name"`
+	Used  int    `json:"used"`
+	Limit int    `json:"limit"`
 }
 
 type adminQuota struct {
-	Vehicles quotaUse `json:"vehicles"`
-	Default  quotaUse `json:"default"`
+	Quotas   []quotaUse `json:"quotas"`
 	Learning struct {
 		Enabled   bool `json:"enabled"`
 		Dedicated bool `json:"dedicated"`
@@ -197,36 +197,36 @@ type adminServer struct {
 	Problems  []problemEntry  `json:"problems"`
 }
 
-func buildAdminOverview(tranzyClient *tranzy.Client, now time.Time) (*adminOverview, error) {
+func (city *City) buildAdminOverview(now time.Time) (*adminOverview, error) {
 	o := &adminOverview{GeneratedAt: now}
 	var err error
-	if o.Now, err = adminNowSection(); err != nil {
+	if o.Now, err = city.adminNowSection(); err != nil {
 		return nil, fmt.Errorf("now: %w", err)
 	}
-	if o.Accuracy, err = adminAccuracySection(now); err != nil {
+	if o.Accuracy, err = city.adminAccuracySection(now); err != nil {
 		return nil, fmt.Errorf("accuracy: %w", err)
 	}
-	if o.People, err = adminPeopleSection(now); err != nil {
+	if o.People, err = city.adminPeopleSection(now); err != nil {
 		return nil, fmt.Errorf("people: %w", err)
 	}
-	if o.Quota, err = adminQuotaSection(tranzyClient); err != nil {
+	if o.Quota, err = city.adminQuotaSection(); err != nil {
 		return nil, fmt.Errorf("quota: %w", err)
 	}
-	if o.Data, err = adminDataSection(now); err != nil {
+	if o.Data, err = city.adminDataSection(now); err != nil {
 		return nil, fmt.Errorf("data: %w", err)
 	}
-	if o.Server, err = adminServerSection(now); err != nil {
+	if o.Server, err = city.adminServerSection(now); err != nil {
 		return nil, fmt.Errorf("server: %w", err)
 	}
-	o.Problems = adminProblems(o, now)
+	o.Problems = city.adminProblems(o, now)
 	return o, nil
 }
 
-func adminNowSection() (adminNow, error) {
+func (city *City) adminNowSection() (adminNow, error) {
 	n := adminNow{}
-	w := VehicleHub.Watching()
+	w := city.hub.Watching()
 	n.Streams, n.People = w.Streams, w.People
-	if table := currentLiveTable(); table != nil {
+	if table := city.currentLiveTable(); table != nil {
 		lines := make(map[int]struct{})
 		for _, vehicles := range table.vehiclesByTrip {
 			for _, v := range vehicles {
@@ -236,7 +236,7 @@ func adminNowSection() (adminNow, error) {
 		}
 		n.LinesLive = len(lines)
 	}
-	f := currentFeedStatus()
+	f := city.currentFeedStatus()
 	n.BusesInService = f.Valid
 	n.FixAgeSec = int(f.FixAge.Seconds())
 	if !f.FetchedAt.IsZero() {
@@ -245,16 +245,16 @@ func adminNowSection() (adminNow, error) {
 	if f.ErrAt.After(f.FetchedAt) {
 		n.FeedError, n.FeedErrorAt = f.Err, &f.ErrAt
 	}
-	if learning := currentVehicleLearningStatus(); w.Streams > 0 {
-		n.PollSec, n.PolledBy = VehicleHub.CurrentInterval().Seconds(), "viewers"
+	if learning := city.currentVehicleLearningStatus(); w.Streams > 0 {
+		n.PollSec, n.PolledBy = city.hub.CurrentInterval().Seconds(), "viewers"
 	} else if learning.Enabled {
 		n.PollSec, n.PolledBy = learning.Interval.Seconds(), "learner"
 	}
 	var err error
-	if n.Stops, err = topNamed(w.Stops, stopNames); err != nil {
+	if n.Stops, err = topNamed(w.Stops, city.stopNames); err != nil {
 		return n, err
 	}
-	n.Lines, err = topNamed(w.Routes, routeNames)
+	n.Lines, err = topNamed(w.Routes, city.routeNames)
 	return n, err
 }
 
@@ -299,9 +299,9 @@ func (h errorHistogram) summarize(label string) accuracyStats {
 	return s
 }
 
-func adminAccuracySection(now time.Time) (adminAccuracy, error) {
+func (city *City) adminAccuracySection(now time.Time) (adminAccuracy, error) {
 	a := adminAccuracy{}
-	rows, err := database.MetricRows("eta_error", database.StatsDaysAgo(adminTrendDays-1))
+	rows, err := city.MetricRows("eta_error", database.StatsDaysAgo(adminTrendDays-1))
 	if err != nil {
 		return a, err
 	}
@@ -345,7 +345,7 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 		a.Daily = append(a.Daily, accuracyDay{Date: date, accuracyStats: get(daily, date).summarize(date)})
 	}
 
-	rows, err = database.MetricRows("timetable_error", weekStart)
+	rows, err = city.MetricRows("timetable_error", weekStart)
 	if err != nil {
 		return a, err
 	}
@@ -369,7 +369,7 @@ func clientPlatform(client string) (platform, version string) {
 	return platform, version
 }
 
-func adminPeopleSection(now time.Time) (adminPeople, error) {
+func (city *City) adminPeopleSection(now time.Time) (adminPeople, error) {
 	p := adminPeople{Versions: []versionCount{}}
 	today, lastWeek, since := database.StatsDate(now), database.StatsDaysAgo(7), database.StatsDaysAgo(adminPeopleDays-1)
 
@@ -382,7 +382,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		days[p.Daily[i].Date] = &p.Daily[i]
 	}
 
-	visitors, err := database.MetricRows("visitors", since)
+	visitors, err := city.MetricRows("visitors", since)
 	if err != nil {
 		return p, err
 	}
@@ -391,7 +391,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 			d.Total += r.Count
 		}
 	}
-	newVisitors, err := database.MetricRows("new_visitors", today)
+	newVisitors, err := city.MetricRows("new_visitors", today)
 	if err != nil {
 		return p, err
 	}
@@ -399,7 +399,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		p.New += r.Count
 	}
 
-	clients, err := database.MetricRows("client_visitors", since)
+	clients, err := city.MetricRows("client_visitors", since)
 	if err != nil {
 		return p, err
 	}
@@ -462,14 +462,14 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		return compareVersions(b.Version, a.Version)
 	})
 
-	if p.Stops, err = topMetricToday("stop_view", today, stopNames); err != nil {
+	if p.Stops, err = city.topMetricToday("stop_view", today, city.stopNames); err != nil {
 		return p, err
 	}
-	if p.Lines, err = topMetricToday("route_view", today, routeNames); err != nil {
+	if p.Lines, err = city.topMetricToday("route_view", today, city.routeNames); err != nil {
 		return p, err
 	}
 
-	calls, err := database.MetricRows("person_call", today)
+	calls, err := city.MetricRows("person_call", today)
 	if err != nil {
 		return p, err
 	}
@@ -481,23 +481,23 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 			p.Places += r.Count
 		}
 	}
-	if p.Installs, err = database.MetricTotal("pwa_install", "appinstalled"); err != nil {
+	if p.Installs, err = city.MetricTotal("pwa_install", "appinstalled"); err != nil {
 		return p, err
 	}
-	err = database.DB.QueryRow(`
+	err = city.DB.QueryRow(`
 		SELECT (SELECT COUNT(DISTINCT endpoint) FROM push_subscription_routes),
 		       (SELECT COUNT(*) FROM push_reminders),
 		       (SELECT COUNT(DISTINCT endpoint) FROM push_reminders)`).Scan(&p.PushFollowers, &p.Reminders, &p.ReminderUsers)
 	if err != nil {
 		return p, err
 	}
-	p.Moves, err = hostMovesToday(today)
+	p.Moves, err = city.hostMovesToday(today)
 	return p, err
 }
 
-func hostMovesToday(today string) (hostMoves, error) {
+func (city *City) hostMovesToday(today string) (hostMoves, error) {
 	var m hostMoves
-	rows, err := database.MetricRows("host_move", today)
+	rows, err := city.MetricRows("host_move", today)
 	if err != nil {
 		return m, err
 	}
@@ -512,7 +512,7 @@ func hostMovesToday(today string) (hostMoves, error) {
 		}
 	}
 	host := strings.TrimPrefix(siteOrigin, "https://")
-	err = database.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE host <> ?`, host).Scan(&m.OldPush)
+	err = city.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE host <> ?`, host).Scan(&m.OldPush)
 	return m, err
 }
 
@@ -533,8 +533,8 @@ func compareVersions(a, b string) int {
 	return 0
 }
 
-func topMetricToday(metric, today string, names func([]int) (map[int]namedCount, error)) ([]namedCount, error) {
-	rows, err := database.MetricRows(metric, today)
+func (city *City) topMetricToday(metric, today string, names func([]int) (map[int]namedCount, error)) ([]namedCount, error) {
+	rows, err := city.MetricRows(metric, today)
 	if err != nil {
 		return nil, err
 	}
@@ -583,13 +583,13 @@ func idPlaceholders(ids []int) (string, []any) {
 	return strings.TrimSuffix(strings.Repeat("?,", len(ids)), ","), args
 }
 
-func stopNames(ids []int) (map[int]namedCount, error) {
+func (city *City) stopNames(ids []int) (map[int]namedCount, error) {
 	out := make(map[int]namedCount, len(ids))
 	if len(ids) == 0 {
 		return out, nil
 	}
 	in, args := idPlaceholders(ids)
-	rows, err := queryRows(`SELECT stop_id, stop_name FROM stops WHERE stop_id IN (`+in+`)`, args,
+	rows, err := queryRows(city.DB, `SELECT stop_id, stop_name FROM stops WHERE stop_id IN (`+in+`)`, args,
 		func(rows *sql.Rows) (namedCount, error) {
 			var n namedCount
 			err := rows.Scan(&n.ID, &n.Name)
@@ -601,13 +601,13 @@ func stopNames(ids []int) (map[int]namedCount, error) {
 	return out, err
 }
 
-func routeNames(ids []int) (map[int]namedCount, error) {
+func (city *City) routeNames(ids []int) (map[int]namedCount, error) {
 	out := make(map[int]namedCount, len(ids))
 	if len(ids) == 0 {
 		return out, nil
 	}
 	in, args := idPlaceholders(ids)
-	rows, err := queryRows(`SELECT route_id, route_short_name, COALESCE(route_color, '') FROM routes WHERE route_id IN (`+in+`)`, args,
+	rows, err := queryRows(city.DB, `SELECT route_id, route_short_name, COALESCE(route_color, '') FROM routes WHERE route_id IN (`+in+`)`, args,
 		func(rows *sql.Rows) (namedCount, error) {
 			var n namedCount
 			err := rows.Scan(&n.ID, &n.Name, &n.Color)
@@ -619,28 +619,34 @@ func routeNames(ids []int) (map[int]namedCount, error) {
 	return out, err
 }
 
-func adminQuotaSection(tranzyClient *tranzy.Client) (adminQuota, error) {
-	q := adminQuota{
-		Vehicles: quotaUse{Used: tranzyClient.VehiclesQuotaLimit() - tranzyClient.VehiclesQuotaRemaining(), Limit: tranzyClient.VehiclesQuotaLimit()},
-		Default:  quotaUse{Used: tranzyClient.DefaultQuotaLimit() - tranzyClient.DefaultQuotaRemaining(), Limit: tranzyClient.DefaultQuotaLimit()},
+func (city *City) adminQuotaSection() (adminQuota, error) {
+	q := adminQuota{Quotas: []quotaUse{}}
+	seen := map[sources.Metered]bool{}
+	for _, source := range []any{city.Static, city.Timetables, city.Realtime, city.Learning} {
+		if metered, ok := source.(sources.Metered); ok && !seen[metered] {
+			seen[metered] = true
+			for _, quota := range metered.Quotas() {
+				q.Quotas = append(q.Quotas, quotaUse{Name: quota.Name, Used: quota.Used, Limit: quota.Limit})
+			}
+		}
 	}
-	learning := currentVehicleLearningStatus()
+	learning := city.currentVehicleLearningStatus()
 	q.Learning.Enabled, q.Learning.Dedicated = learning.Enabled, learning.Dedicated
 	q.Learning.Used, q.Learning.Budget = learning.Used, learning.Budget
 
 	return q, nil
 }
 
-func adminDataSection(now time.Time) (adminData, error) {
+func (city *City) adminDataSection(now time.Time) (adminData, error) {
 	d := adminData{}
-	w := WarmupState.Snapshot()
+	w := city.IngestStatus()
 	if !w.LastCompletedAt.IsZero() {
 		d.WarmupAt = &w.LastCompletedAt
 	}
 	d.WarmupNext = w.NextScheduledAt
 	d.WarmupRunning = w.LastStartedAt.After(w.LastCompletedAt)
 
-	changes, err := queryRows(`
+	changes, err := queryRows(city.DB, `
 		SELECT c.route_short_name, COALESCE(r.route_color, ''), c.detected_at, c.changes
 		FROM route_changes c
 		LEFT JOIN (SELECT route_short_name, MAX(route_color) AS route_color FROM routes GROUP BY route_short_name) r
@@ -671,11 +677,11 @@ func adminDataSection(now time.Time) (adminData, error) {
 	}
 	d.RouteChanges = changes
 
-	loc := database.StatsLocation()
+	loc := city.Location
 	local := now.In(loc)
 	midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc).Unix()
 	var delaysAt int64
-	err = database.DB.QueryRow(`
+	err = city.DB.QueryRow(`
 		SELECT (SELECT COUNT(*) FROM segment_travel_time_samples WHERE observed_at >= ?),
 		       (SELECT COUNT(*) FROM segment_travel_time_samples WHERE observed_at >= ?),
 		       (SELECT COALESCE(MAX(updated_at), 0) FROM schedule_delay_profiles)`,
@@ -684,12 +690,12 @@ func adminDataSection(now time.Time) (adminData, error) {
 		t := time.Unix(delaysAt, 0)
 		d.DelaysAt = &t
 	}
-	d.Archive = adminArchiveSection(lastArchiveRun())
+	d.Archive = city.adminArchiveSection(city.lastArchiveRun())
 	return d, err
 }
 
-func adminArchiveSection(run *archiveRun) adminArchive {
-	a := adminArchive{Enabled: database.Archive != nil}
+func (city *City) adminArchiveSection(run *archiveRun) adminArchive {
+	a := adminArchive{Enabled: city.Archive != nil}
 	if run == nil {
 		return a
 	}
@@ -700,7 +706,7 @@ func adminArchiveSection(run *archiveRun) adminArchive {
 	return a
 }
 
-func adminServerSection(now time.Time) (adminServer, error) {
+func (city *City) adminServerSection(now time.Time) (adminServer, error) {
 	s := adminServer{StartedAt: serverStartedAt, Endpoints: []endpointToday{}, Problems: []problemEntry{}}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, kv := range info.Settings {
@@ -716,10 +722,10 @@ func adminServerSection(now time.Time) (adminServer, error) {
 	runtime.ReadMemStats(&mem)
 	s.HeapBytes = mem.HeapAlloc
 	var pages, pageSize int64
-	if err := database.DB.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
+	if err := city.DB.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
 		return s, err
 	}
-	if err := database.DB.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+	if err := city.DB.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
 		return s, err
 	}
 	s.DBBytes = pages * pageSize
@@ -735,7 +741,7 @@ func adminServerSection(now time.Time) (adminServer, error) {
 	}
 	totalMs := map[string]int{}
 	for _, metric := range []string{"endpoint_call", "endpoint_ms", "endpoint_error"} {
-		rows, err := database.MetricRows(metric, today)
+		rows, err := city.MetricRows(metric, today)
 		if err != nil {
 			return s, err
 		}
@@ -770,7 +776,7 @@ func adminServerSection(now time.Time) (adminServer, error) {
 	return s, nil
 }
 
-func adminProblems(o *adminOverview, now time.Time) []string {
+func (city *City) adminProblems(o *adminOverview, now time.Time) []string {
 	out := []string{}
 	n := o.Now
 	if n.FeedError != "" {
@@ -791,13 +797,15 @@ func adminProblems(o *adminOverview, now time.Time) []string {
 	if n.BusesInService > 0 && n.BusesTracked == 0 {
 		out = append(out, fmt.Sprintf("%d buses reported, none matched to a trip", n.BusesInService))
 	}
-	if q := o.Quota.Vehicles; q.Limit > 0 && q.Used >= q.Limit {
-		out = append(out, "Tranzy vehicle quota used up")
+	for _, q := range o.Quota.Quotas {
+		if q.Limit > 0 && q.Used >= q.Limit {
+			out = append(out, "The "+q.Name+" quota is used up")
+		}
 	}
 	if o.Server.Errors > 0 {
 		out = append(out, fmt.Sprintf("%d server errors today", o.Server.Errors))
 	}
-	if p := calendarProblem(now); p != "" {
+	if p := city.calendarProblem(now); p != "" {
 		out = append(out, p)
 	}
 	if a := o.Data.Archive; !a.Enabled {

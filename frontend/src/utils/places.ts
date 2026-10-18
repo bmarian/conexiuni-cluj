@@ -1,3 +1,4 @@
+import {apiPath} from '@/utils/city.ts'
 export interface Place {
   id: string
   lat: string
@@ -54,7 +55,7 @@ async function request(url: string, signal?: AbortSignal): Promise<Place[]> {
 export async function searchPlaces(query: string, limit: number, signal?: AbortSignal): Promise<Place[]> {
   const params = new URLSearchParams({q: query, limit: String(limit)})
   try {
-    return await request(`/api/places?${params}`, signal)
+    return await request(`${apiPath('places')}?${params}`, signal)
   } catch {
     return []
   }
@@ -63,7 +64,7 @@ export async function searchPlaces(query: string, limit: number, signal?: AbortS
 export async function reversePlace(lat: number, lon: number): Promise<Place | null> {
   const params = new URLSearchParams({lat: String(lat), lon: String(lon)})
   try {
-    return (await request(`/api/places?${params}`))[0] ?? null
+    return (await request(`${apiPath('places')}?${params}`))[0] ?? null
   } catch {
     return null
   }

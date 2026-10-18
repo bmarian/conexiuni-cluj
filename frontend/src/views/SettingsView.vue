@@ -7,6 +7,7 @@ import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -88,48 +89,6 @@ function toggleSimplified() {
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('display') }}</h2>
       <div class="setting-rows" data-kbd-section="display">
-        <button type="button" class="option-btn setting-row"
-                :class="{ active: settings.showWeather }" :aria-pressed="settings.showWeather"
-                data-kbd-item="show-weather" @click="settings.setShowWeather(!settings.showWeather)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">☁️</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">{{ t('weather') }}</span>
-            <span class="setting-desc">{{ t('weatherDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showWeather" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
-        <button type="button" class="option-btn setting-row" :class="{ active: settings.showNews }"
-                :aria-pressed="settings.showNews" data-kbd-item="show-news"
-                @click="settings.setShowNews(!settings.showNews)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📰</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path
-              d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-            <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">{{ t('news') }}</span>
-            <span class="setting-desc">{{ t('newsDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showNews" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
         <button type="button" class="option-btn setting-row"
                 :class="{ active: settings.showVehicleExtras }"
                 :aria-pressed="settings.showVehicleExtras" data-kbd-item="vehicle-extras"

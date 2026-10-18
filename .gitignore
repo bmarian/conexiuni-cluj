@@ -5,8 +5,8 @@ CLAUDE.md
 .vscode
 logs
 keys.env
-conexiuni-cluj.db*
-conexiuni-cluj-archive.db*
+*.db
+*.db-*
 api-tests/tranzy-api-docs.json
 .output.txt
 backend/.gocache
@@ -15,3 +15,4 @@ backend/services/mobroute/
 backend/services/osm/
 docs/server-security.md
 docs/rebrand-plan.md
+docs/multi-city-plan.md

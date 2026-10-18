@@ -1,12 +1,7 @@
 package main
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/handlers"
-	"conexiuni-cluj/models"
-	ctpcj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/tranzy"
-	"database/sql"
 	"flag"
 	"log"
 	"os"
@@ -36,56 +31,44 @@ func clientIDForLog(c fiber.Ctx, salt string) string {
 	return hash
 }
 
-func runCacheBust(dbPath string) {
-	if err := database.Connect(dbPath); err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer func() { _ = database.DB.Close() }()
-	if err := database.InitSchemas(); err != nil {
-		log.Fatalf("Failed to initialize database schemas: %v", err)
-	}
-	if err := database.InvalidateAllCaches(); err != nil {
-		log.Fatalf("Failed to bust cache: %v", err)
-	}
-	log.Println("All cache entries invalidated")
-}
-
-func runReplay(archivePath, span string) {
+func runReplay(cfg *Config, slug, span string) {
 	fromText, toText, ok := strings.Cut(span, ":")
 	if !ok {
 		log.Fatalf("replay: want FROM:TO, like 2026-09-01:2026-10-15")
 	}
-	from, errFrom := time.ParseInLocation("2006-01-02", fromText, database.StatsLocation())
-	to, errTo := time.ParseInLocation("2006-01-02", toText, database.StatsLocation())
+	city, err := offlineCity(cfg, slug)
+	if err != nil {
+		log.Fatalf("Failed to open %s: %v", slug, err)
+	}
+	defer city.Close()
+	from, errFrom := time.ParseInLocation("2006-01-02", fromText, city.Location)
+	to, errTo := time.ParseInLocation("2006-01-02", toText, city.Location)
 	if errFrom != nil || errTo != nil || to.Before(from) {
 		log.Fatalf("replay: %q is not a FROM:TO date range", span)
 	}
-	if err := database.ConnectArchive(archivePath); err != nil {
-		log.Fatalf("Failed to open the archive: %v", err)
-	}
-	defer func() { _ = database.Archive.Close() }()
-	if err := handlers.LoadCalendar(); err != nil {
+	if err := city.LoadCalendar(); err != nil {
 		log.Fatalf("Failed to load the calendar: %v", err)
 	}
-	handlers.LoadWindowTuning()
-	if err := handlers.RunReplay(from, to, os.Stdout); err != nil {
+	city.LoadWindowTuning()
+	if err := city.RunReplay(from, to, os.Stdout); err != nil {
 		log.Fatalf("replay: %v", err)
 	}
 }
 
-func runShift(archivePath, date string) {
-	day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
+func runShift(cfg *Config, slug, date string) {
+	city, err := offlineCity(cfg, slug)
+	if err != nil {
+		log.Fatalf("Failed to open %s: %v", slug, err)
+	}
+	defer city.Close()
+	day, err := time.ParseInLocation("2006-01-02", date, city.Location)
 	if err != nil {
 		log.Fatalf("shift: want a date like 2026-09-28, got %q", date)
 	}
-	if err := database.ConnectArchive(archivePath); err != nil {
-		log.Fatalf("Failed to open the archive: %v", err)
-	}
-	defer func() { _ = database.Archive.Close() }()
-	if err := handlers.LoadCalendar(); err != nil {
+	if err := city.LoadCalendar(); err != nil {
 		log.Fatalf("Failed to load the calendar: %v", err)
 	}
-	if err := handlers.RunShift(day, os.Stdout); err != nil {
+	if err := city.RunShift(day, os.Stdout); err != nil {
 		log.Fatalf("shift: %v", err)
 	}
 }
@@ -93,23 +76,20 @@ func runShift(archivePath, date string) {
 func main() {
 	_ = os.Setenv("TZ", "Europe/Bucharest")
 
-	bustCache := flag.Bool("bust-cache", false, "invalidate all cached entries, then exit without starting the server")
 	replay := flag.String("replay", "", "compare the calendar learning windows with the old 14-day window on archived days FROM:TO (YYYY-MM-DD:YYYY-MM-DD), print the results and exit")
 	shift := flag.String("shift", "", "print whether archived travel times stepped up on YYYY-MM-DD against the 10 days of its kind before it, then exit")
+	citySlug := flag.String("city", "cluj", "the city a maintenance command works on")
+	refresh := flag.Bool("refresh", false, "fetch every source again at start, whatever the database holds")
 	flag.Parse()
 
 	config := Load()
 
-	if *bustCache {
-		runCacheBust(config.DatabasePath)
-		return
-	}
 	if *replay != "" {
-		runReplay(config.ArchiveDatabasePath, *replay)
+		runReplay(config, *citySlug, *replay)
 		return
 	}
 	if *shift != "" {
-		runShift(config.ArchiveDatabasePath, *shift)
+		runShift(config, *citySlug, *shift)
 		return
 	}
 
@@ -134,86 +114,41 @@ func main() {
 
 	log.Printf("Starting Ce autobuz iau? server in %s mode on port %s", config.Environment, config.Port)
 
-	if err := database.Connect(config.DatabasePath); err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer func(DB *sql.DB) {
-		_ = DB.Close()
-	}(database.DB)
-
-	if err := database.InitSchemas(); err != nil {
-		log.Fatalf("Failed to initialize database schemas: %v", err)
-	}
-	if err := database.ConnectArchive(config.ArchiveDatabasePath); err != nil {
-		log.Printf("Warning: archive database unavailable, no history is kept: %v", err)
-	} else {
-		defer func() { _ = database.Archive.Close() }()
-	}
-	handlers.StartCalendar()
-	database.StartVacuumScheduler()
-	database.StartDSTCacheInvalidationScheduler()
-	database.StartStatsFlusher(config.LogRetentionDays)
-	defer func() {
-		if err := database.FlushStats(); err != nil {
-			log.Printf("Final stats flush failed: %v", err)
-		}
-	}()
-
 	if config.AdminToken == "" {
 		if config.Environment == "production" {
 			log.Fatal("ADMIN_TOKEN must be set in production")
 		}
-		log.Printf("Warning: ADMIN_TOKEN not set; /api/admin routes are disabled")
+		log.Printf("Warning: ADMIN_TOKEN not set; admin routes are disabled")
 	}
-
-	tranzyAPIKey := config.TranzyApiKey
-	if tranzyAPIKey == "" {
+	if config.TranzyApiKey == "" {
 		log.Fatal("TRANZY_API_KEY not set in environment")
 	}
-
-	tranzyClient := tranzy.NewClient(config.TranzyBaseUrl, tranzyAPIKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, dbQuotaPersister{})
-	learningTranzyClient := tranzyClient
-	usesDedicatedLearningKey := config.TranzyLearningApiKey != "" && config.TranzyLearningApiKey != tranzyAPIKey
-	if usesDedicatedLearningKey {
-		learningTranzyClient = tranzy.NewClientWithQuotaNames(config.TranzyBaseUrl, config.TranzyLearningApiKey, config.ClujAgencyId, config.TranzyRateLimit, config.TranzyVehiclesDailyQuota, config.TranzyDefaultDailyQuota, tranzy.QuotaNames{
-			Vehicles: "vehicle_learning_vehicles",
-			Default:  "vehicle_learning_default",
-		}, dbQuotaOnlyPersister{})
-		log.Printf("vehicle learner: using TRANZY_API_KEY_LEARNING")
-	} else if config.TranzyLearningApiKey != "" {
-		log.Printf("vehicle learner: TRANZY_API_KEY_LEARNING matches TRANZY_API_KEY; using shared Tranzy client")
-	}
-	ctpCjClient := ctpcj.NewClient(config.CtpCsvBaseUrl, config.CtpCjRateLimit)
-
-	weekdaySlots, err := handlers.ParseSchedule(config.VehicleSchedule)
-	if err != nil {
-		log.Fatalf("VEHICLE_SCHEDULE: %v", err)
-	}
-	weekendSlots, err := handlers.ParseSchedule(config.VehicleScheduleWeekend)
-	if err != nil {
-		log.Fatalf("VEHICLE_SCHEDULE_WEEKEND: %v", err)
-	}
-	handlers.InitVehicleHub(tranzyClient, handlers.VehicleIntervalConfig{
-		Weekday:     weekdaySlots,
-		Weekend:     weekendSlots,
-		MinInterval: config.VehicleMinInterval,
-		MaxInterval: config.VehicleMaxInterval,
-	})
-	handlers.StartVehicleLearningSampler(learningTranzyClient, handlers.VehicleLearningSamplerConfig{
-		Enabled:                config.VehicleLearningEnabled,
-		MaxDailyQuota:          config.VehicleLearningMaxQuota,
-		UsesDedicatedTranzyKey: usesDedicatedLearningKey,
-	})
-	handlers.StartScheduleDelayLearner(tranzyClient.Location())
-	handlers.StartArchiver(tranzyClient.Location())
 	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
 		log.Printf("Warning: push notifications disabled: %v", err)
+	}
+
+	cities, err := buildCities(config)
+	if err != nil {
+		log.Fatalf("Failed to set up the cities: %v", err)
+	}
+	bySlug := make(map[string]*handlers.City, len(cities))
+	for _, city := range cities {
+		if *refresh {
+			city.Options.Refresh = true
+		}
+		bySlug[city.Slug] = city
+		defer func() {
+			if err := city.FlushStats(); err != nil {
+				log.Printf("%s: final stats flush failed: %v", city.Slug, err)
+			}
+			city.Close()
+		}()
 	}
 
 	app := fiber.New(fiber.Config{
 		AppName: "Ce autobuz iau?",
 	})
-	app.Use(handlers.StatsMiddleware(logHashSalt))
+	app.Use(handlers.StatsMiddleware(bySlug, logHashSalt))
 	app.Use(logger.New(logger.Config{
 		Stream: logs.accessOut,
 		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
@@ -233,12 +168,6 @@ func main() {
 		},
 	}))
 
-	cacheTimes := models.CacheTimes{
-		TranzyCacheShelfLife:    config.TranzyCacheShelfLife,
-		TimetableCacheShelfLife: config.TimetableCacheShelfLife,
-		NewsCacheShelfLife:      config.NewsCacheShelfLife,
-	}
-
 	app.Get("/.well-known/assetlinks.json", handlers.AssetLinksHandler(config.AndroidPackage, config.AndroidCertSHA256))
 
 	api := app.Group("/api")
@@ -248,9 +177,15 @@ func main() {
 			return handlers.EncodesItself(c.Path())
 		},
 	}))
-	handlers.StartLive(tranzyClient, ctpCjClient, cacheTimes)
-	handlers.RegisterAPIRoutes(api, tranzyClient, ctpCjClient, cacheTimes)
-	handlers.RegisterAdminRoutes(api, config.AdminToken, tranzyClient, config.Environment == "production")
+	api.Get("/cities", handlers.CitiesHandler(cities))
+	api.Post("/transfer", handlers.CreateTransferLink)
+	api.Put("/transfer/:code", handlers.SendToTransferLink)
+	api.Get("/transfer/:code", handlers.ReadTransferLink)
+	api.Delete("/transfer/:code", handlers.DeleteTransferLink)
+	handlers.RegisterAdminRoutes(api, cities, config.AdminToken, config.Environment == "production")
+	for _, city := range cities {
+		city.Register(api.Group("/" + city.Slug))
+	}
 
 	if _, err := os.Stat("./dist"); err == nil {
 		handlers.LoadIndexHTML()
@@ -259,37 +194,24 @@ func main() {
 			c.Set("Cache-Control", "public, max-age=86400")
 			return c.SendFile("./dist/robots.txt")
 		})
-		app.Get("/sitemap.xml", handlers.SitemapHandler)
-		app.Get("/sw.js", func(c fiber.Ctx) error {
-			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			c.Set("Service-Worker-Allowed", "/")
-			return c.SendFile("./dist/sw.js")
-		})
-		app.Get("/push-sw.js", func(c fiber.Ctx) error {
-			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			return c.SendFile("./dist/push-sw.js")
-		})
-		app.Get("/registerSW.js", func(c fiber.Ctx) error {
-			c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			return c.SendFile("./dist/registerSW.js")
-		})
+		app.Get("/sitemap.xml", handlers.SitemapHandler(cities))
+		for _, name := range []string{"sw.js", "push-sw.js", "registerSW.js"} {
+			app.Get("/"+name, func(c fiber.Ctx) error {
+				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				c.Set("Service-Worker-Allowed", "/")
+				return c.SendFile("./dist/" + name)
+			})
+		}
 		app.Get("/manifest.webmanifest", func(c fiber.Ctx) error {
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Content-Type", "application/manifest+json")
 			return c.SendFile("./dist/manifest.webmanifest")
 		})
 
-		app.Get("/", handlers.HomeOGHandler)
-		app.Get("/route/:routeId/:direction", handlers.RouteOGHandler)
-		app.Get("/stop/:stopId", handlers.StopOGHandler)
-		app.Get("/plan", handlers.PlanOGHandler)
 		app.Get("/android", handlers.AndroidOGHandler)
-		app.Get("/settings", func(c fiber.Ctx) error {
-			return c.SendFile("./dist/index.html")
-		})
-		app.Get("/admin", func(c fiber.Ctx) error {
-			return c.SendFile("./dist/index.html")
-		})
+		for _, city := range cities {
+			city.RegisterPages(app.Group("/" + city.Slug))
+		}
 
 		app.Use("/", static.New("./dist", static.Config{
 			Browse:   false,
@@ -304,7 +226,6 @@ func main() {
 			if ext := filepath.Ext(path); ext != "" && ext != ".html" {
 				return c.SendStatus(fiber.StatusNotFound)
 			}
-			c.Status(fiber.StatusNotFound)
 			return c.SendFile("./dist/index.html")
 		})
 
@@ -313,7 +234,9 @@ func main() {
 		log.Println("Frontend dist folder not found. Run 'npm run build' in frontend directory.")
 	}
 
-	handlers.StartWarmup(tranzyClient, ctpCjClient, cacheTimes)
+	for _, city := range cities {
+		city.Start()
+	}
 
 	listenAddr := ":" + config.Port
 	if config.Environment == "development" && runtime.GOOS == "windows" {

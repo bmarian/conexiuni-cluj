@@ -37,6 +37,7 @@ import {reversePlace, searchPlaces, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import {siteUrl} from '@/utils/site.ts'
+import {cityInfo, cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -140,7 +141,7 @@ function startJourney() {
   if (!journey) return
   const location = userLocation.value
   void journeyStore.start(journey, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
-  void router.push('/nav')
+  void router.push(cityPath('/nav'))
 }
 
 function toggleFavorite() {
@@ -515,7 +516,7 @@ function closeActiveSearch() {
 function dropPinAsDestination() {
   if (!isOnline.value) return
   const label = t('droppedPin')
-  const newQuery = { ...route.query, lat: '46.7712', lon: '23.6236', name: label }
+  const newQuery = { ...route.query, lat: String(cityInfo()?.lat ?? 46.7712), lon: String(cityInfo()?.lon ?? 23.6236), name: label }
   activeSearchField.value = null
   searchQuery.value = ''
   searchResults.value = []

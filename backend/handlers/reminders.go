@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -168,7 +167,7 @@ func validReminder(r pushReminder) bool {
 	return true
 }
 
-func SyncReminders(c fiber.Ctx) error {
+func (city *City) SyncReminders(c fiber.Ctx) error {
 	if pushCfg == nil {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "push notifications are not configured"})
 	}
@@ -195,7 +194,7 @@ func SyncReminders(c fiber.Ctx) error {
 		}
 		ids[r.ID] = true
 	}
-	if ok, err := admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
+	if ok, err := city.admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
 		log.Printf("push: could not look up subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
 	} else if !ok {
@@ -206,7 +205,7 @@ func SyncReminders(c fiber.Ctx) error {
 		locale = "en"
 	}
 	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
-	if err := saveReminders(sub, req.Reminders); err != nil {
+	if err := city.saveReminders(sub, req.Reminders); err != nil {
 		log.Printf("push: could not save reminders: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
 	}
@@ -214,8 +213,8 @@ func SyncReminders(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func saveReminders(sub pushSubscriber, reminders []pushReminder) error {
-	tx, err := database.DB.Begin()
+func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder) error {
+	tx, err := city.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -266,17 +265,17 @@ func saveReminders(sub pushSubscriber, reminders []pushReminder) error {
 	return tx.Commit()
 }
 
-func runReminderSender(loc *time.Location) {
+func (city *City) runReminderSender(loc *time.Location) {
 	ticker := time.NewTicker(reminderCheckEvery)
 	defer ticker.Stop()
 	for {
-		fireDueReminders(time.Now(), loc)
+		city.fireDueReminders(time.Now(), loc)
 		<-ticker.C
 	}
 }
 
 // Starts a day back: late buses run past midnight.
-func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.Time, bool) {
+func (city *City) nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.Time, bool) {
 	local := after.In(loc)
 	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
 	isoDays := map[int]bool{}
@@ -295,7 +294,7 @@ func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.
 		if r.Date == "" && !isoDays[iso] {
 			continue
 		}
-		minute, ok := r.Slots[scheduleDay(day)]
+		minute, ok := r.Slots[city.scheduleDay(day)]
 		if !ok {
 			continue
 		}
@@ -307,8 +306,8 @@ func nextReminderBus(r pushReminder, after time.Time, loc *time.Location) (time.
 	return time.Time{}, false
 }
 
-func loadReminders() ([]storedReminder, error) {
-	return queryRows(`
+func (city *City) loadReminders() ([]storedReminder, error) {
+	return queryRows(city.DB, `
 		SELECT r.endpoint, r.id, r.stop_id, r.stop_name, r.route_id, r.trip_id, r.line, r.destination, r.days, r.date, r.slots,
 		       r.walk, r.walk_at, r.last_fired_at, r.leave_at, s.p256dh, s.auth, s.locale
 		FROM push_reminders r
@@ -335,8 +334,8 @@ func loadReminders() ([]storedReminder, error) {
 		})
 }
 
-func fireDueReminders(now time.Time, loc *time.Location) {
-	reminders, err := loadReminders()
+func (city *City) fireDueReminders(now time.Time, loc *time.Location) {
+	reminders, err := city.loadReminders()
 	if err != nil {
 		log.Printf("push: could not load reminders: %v", err)
 		return
@@ -344,19 +343,19 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 	sort.Slice(reminders, func(i, j int) bool { return reminders[i].ID < reminders[j].ID })
 	for _, r := range reminders {
 		if r.leaveAt > 0 && !now.Before(time.UnixMilli(r.leaveAt)) {
-			sendLeaveNow(r, now, loc)
+			city.sendLeaveNow(r, now, loc)
 		}
-		bus, ok := nextReminderBus(r.pushReminder, now, loc)
+		bus, ok := city.nextReminderBus(r.pushReminder, now, loc)
 		if !ok {
 			if r.Date != "" {
-				if _, err := database.DB.Exec(`DELETE FROM push_reminders WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
+				if _, err := city.DB.Exec(`DELETE FROM push_reminders WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
 					log.Printf("push: could not drop a past reminder: %v", err)
 				}
 			}
 			continue
 		}
 		slot := bus
-		if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
+		if at, ok := city.liveArrivalAt(r.TripID, r.StopID, slot); ok {
 			bus = at
 		}
 		walk := r.walkNow(now)
@@ -375,33 +374,33 @@ func fireDueReminders(now time.Time, loc *time.Location) {
 			pending = leaveAt.UnixMilli()
 		}
 		// Marked before sending, so a failed send can't repeat.
-		if _, err := database.DB.Exec(`UPDATE push_reminders SET last_fired_at = ?, leave_at = ? WHERE endpoint = ? AND id = ?`,
+		if _, err := city.DB.Exec(`UPDATE push_reminders SET last_fired_at = ?, leave_at = ? WHERE endpoint = ? AND id = ?`,
 			slot.UnixMilli(), pending, r.sub.endpoint, r.ID); err != nil {
 			log.Printf("push: could not mark a reminder as sent: %v", err)
 			continue
 		}
-		sendReminder(r, reminderPushMessage(r.pushReminder, r.sub.locale, kind, walk, slot, bus, now, loc), bus, now)
+		city.sendReminder(r, reminderPushMessage(city.Slug, r.pushReminder, r.sub.locale, kind, walk, slot, bus, now, loc), bus, now)
 	}
 }
 
 // The told bus's time to leave, with the walk it was timed from.
-func sendLeaveNow(r storedReminder, now time.Time, loc *time.Location) {
-	if _, err := database.DB.Exec(`UPDATE push_reminders SET leave_at = 0 WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
+func (city *City) sendLeaveNow(r storedReminder, now time.Time, loc *time.Location) {
+	if _, err := city.DB.Exec(`UPDATE push_reminders SET leave_at = 0 WHERE endpoint = ? AND id = ?`, r.sub.endpoint, r.ID); err != nil {
 		log.Printf("push: could not mark a reminder's time to leave as sent: %v", err)
 		return
 	}
 	slot := time.UnixMilli(r.lastFiredAt)
 	bus := slot
-	if at, ok := liveArrivalAt(r.TripID, r.StopID, slot); ok {
+	if at, ok := city.liveArrivalAt(r.TripID, r.StopID, slot); ok {
 		bus = at
 	}
 	if !now.Before(bus) || r.Walk == nil {
 		return
 	}
-	sendReminder(r, reminderPushMessage(r.pushReminder, r.sub.locale, reminderLeaveNow, r.Walk, slot, bus, now, loc), bus, now)
+	city.sendReminder(r, reminderPushMessage(city.Slug, r.pushReminder, r.sub.locale, reminderLeaveNow, r.Walk, slot, bus, now, loc), bus, now)
 }
 
-func sendReminder(r storedReminder, message pushMessage, bus, now time.Time) {
+func (city *City) sendReminder(r storedReminder, message pushMessage, bus, now time.Time) {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return
@@ -410,11 +409,11 @@ func sendReminder(r storedReminder, message pushMessage, bus, now time.Time) {
 	if ttl < 60 {
 		ttl = 60
 	}
-	sendPushWith(r.sub, payload, ttl, webpush.UrgencyHigh)
+	city.sendPushWith(r.sub, payload, ttl, webpush.UrgencyHigh)
 }
 
 // [slot] is the bus's timetable time, which a tap follows; [bus] its live time when known.
-func reminderPushMessage(r pushReminder, locale string, kind reminderKind, walk *int, slot, bus, now time.Time, loc *time.Location) pushMessage {
+func reminderPushMessage(slug string, r pushReminder, locale string, kind reminderKind, walk *int, slot, bus, now time.Time, loc *time.Location) pushMessage {
 	text, ok := reminderTexts[locale]
 	if !ok {
 		text = reminderTexts["ro"]
@@ -438,7 +437,7 @@ func reminderPushMessage(r pushReminder, locale string, kind reminderKind, walk 
 	return pushMessage{
 		Title:     title,
 		Body:      body,
-		URL:       fmt.Sprintf("/stop/%d?follow=%s&at=%d", r.StopID, r.TripID, slot.UnixMilli()),
+		URL:       fmt.Sprintf("/%s/stop/%d?follow=%s&at=%d", slug, r.StopID, r.TripID, slot.UnixMilli()),
 		Tag:       "reminder-" + r.ID,
 		Timestamp: now.UnixMilli(),
 		Alert:     kind != reminderLeaveBy,

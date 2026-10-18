@@ -13,35 +13,23 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-var dayWindows = struct {
-	sync.RWMutex
-	days map[string]int
-}{days: map[string]int{
-	calendar.Weekday:         10,
-	calendar.WeekdayVacation: 5,
-	calendar.Saturday:        2,
-	calendar.Sunday:          2,
-}}
-
-func dayWindowSize(dayType string) (int, bool) {
-	dayWindows.RLock()
-	defer dayWindows.RUnlock()
-	n, ok := dayWindows.days[dayType]
+func (city *City) dayWindowSize(dayType string) (int, bool) {
+	city.dayWindows.RLock()
+	defer city.dayWindows.RUnlock()
+	n, ok := city.dayWindows.days[dayType]
 	return n, ok
 }
 
-func setDayWindowSize(dayType string, n int) {
-	dayWindows.Lock()
-	dayWindows.days[dayType] = n
-	dayWindows.Unlock()
-	calendarGeneration.Add(1)
+func (city *City) setDayWindowSize(dayType string, n int) {
+	city.dayWindows.Lock()
+	city.dayWindows.days[dayType] = n
+	city.dayWindows.Unlock()
+	city.calendarGeneration.Add(1)
 }
 
 const (
@@ -63,22 +51,7 @@ const (
 )
 
 var (
-	activeCalendar     atomic.Pointer[calendar.Calendar]
-	calendarGeneration atomic.Int64
-	applyCalendarMu    sync.Mutex
-
-	relearnAfterCalendarChange = func(now time.Time) { go applyCalendar(now) }
-
-	dayWindowCache = struct {
-		sync.Mutex
-		key     string
-		windows map[string]dayWindow
-	}{}
-
-	seedFills = struct {
-		sync.RWMutex
-		fills map[string]string
-	}{fills: map[string]string{}}
+	relearnAfterCalendarChange = func(city *City, now time.Time) { go city.applyCalendar(now) }
 )
 
 const (
@@ -88,59 +61,59 @@ const (
 	seedLastYear      = "last_year"
 )
 
-func seedFill(dayType string) string {
-	seedFills.RLock()
-	defer seedFills.RUnlock()
-	return cmp.Or(seedFills.fills[dayType], seedPrevious)
+func (city *City) seedFill(dayType string) string {
+	city.seedFills.RLock()
+	defer city.seedFills.RUnlock()
+	return cmp.Or(city.seedFills.fills[dayType], seedPrevious)
 }
 
-func setSeedFill(dayType, fill string) {
-	seedFills.Lock()
-	seedFills.fills[dayType] = fill
-	seedFills.Unlock()
-	calendarGeneration.Add(1)
+func (city *City) setSeedFill(dayType, fill string) {
+	city.seedFills.Lock()
+	city.seedFills.fills[dayType] = fill
+	city.seedFills.Unlock()
+	city.calendarGeneration.Add(1)
 }
 
-func currentCalendar() *calendar.Calendar {
-	if c := activeCalendar.Load(); c != nil {
+func (city *City) currentCalendar() *calendar.Calendar {
+	if c := city.activeCalendar.Load(); c != nil {
 		return c
 	}
-	activeCalendar.CompareAndSwap(nil, calendar.New(calendar.Seed(), nil))
-	return activeCalendar.Load()
+	city.activeCalendar.CompareAndSwap(nil, calendar.New(calendar.Seed(), nil))
+	return city.activeCalendar.Load()
 }
 
-func setCalendar(c *calendar.Calendar) {
-	activeCalendar.Store(c)
-	calendarGeneration.Add(1)
+func (city *City) setCalendar(c *calendar.Calendar) {
+	city.activeCalendar.Store(c)
+	city.calendarGeneration.Add(1)
 }
 
-func profileDay(t time.Time) string  { return currentCalendar().ProfileDay(t) }
-func scheduleDay(t time.Time) string { return currentCalendar().ScheduleDay(t) }
+func (city *City) profileDay(t time.Time) string  { return city.currentCalendar().ProfileDay(t) }
+func (city *City) scheduleDay(t time.Time) string { return city.currentCalendar().ScheduleDay(t) }
 
-func StartCalendar() {
-	if err := LoadCalendar(); err != nil {
+func (city *City) StartCalendar() {
+	if err := city.LoadCalendar(); err != nil {
 		log.Printf("calendar: load failed, using the built-in school year: %v", err)
 	}
-	LoadWindowTuning()
+	city.LoadWindowTuning()
 	go func() {
 		time.Sleep(calendarApplyDelay)
-		applyCalendar(time.Now())
+		city.applyCalendar(time.Now())
 	}()
 }
 
-func LoadCalendar() error {
+func (city *City) LoadCalendar() error {
 	years := map[int]calendar.SchoolYear{}
 	for _, y := range calendar.Seed() {
 		years[y.Year] = y
 	}
-	saved, err := savedSchoolYears()
+	saved, err := city.savedSchoolYears()
 	if err != nil {
 		return err
 	}
 	for year, y := range saved {
 		years[year] = y
 	}
-	overrides, err := database.ScheduleOverrides()
+	overrides, err := city.ScheduleOverrides()
 	if err != nil {
 		return err
 	}
@@ -152,12 +125,12 @@ func LoadCalendar() error {
 	for _, y := range years {
 		list = append(list, y)
 	}
-	setCalendar(calendar.New(list, byDate))
+	city.setCalendar(calendar.New(list, byDate))
 	return nil
 }
 
-func savedSchoolYears() (map[int]calendar.SchoolYear, error) {
-	raw, err := database.SchoolYears()
+func (city *City) savedSchoolYears() (map[int]calendar.SchoolYear, error) {
+	raw, err := city.SchoolYears()
 	if err != nil {
 		return nil, err
 	}
@@ -172,8 +145,8 @@ func savedSchoolYears() (map[int]calendar.SchoolYear, error) {
 	return out, nil
 }
 
-func localMidnight(t time.Time) time.Time {
-	local := t.In(database.StatsLocation())
+func (city *City) localMidnight(t time.Time) time.Time {
+	local := t.In(city.Location)
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
 }
 
@@ -255,7 +228,7 @@ func lastYearDays(cal *calendar.Calendar, dayType string, from time.Time, missin
 	return out
 }
 
-func planDayWindow(cal *calendar.Calendar, dayType string, today time.Time, n int, fill string, covered func([]time.Time) bool) dayWindow {
+func (city *City) planDayWindow(cal *calendar.Calendar, dayType string, today time.Time, n int, fill string, covered func([]time.Time) bool) dayWindow {
 	run := dayRun(cal, dayType, today, n)
 	w := dayWindow{fill: seedPrevious, runDays: len(run)}
 	if missing := n - len(run); missing > 0 && fill == seedLastYear {
@@ -273,17 +246,17 @@ func planDayWindow(cal *calendar.Calendar, dayType string, today time.Time, n in
 		}
 	}
 	start := today.AddDate(0, 0, -dayWindowMaxReach).Unix()
-	if days := daysOfType(cal, today.AddDate(0, 0, 1), dayType, n); len(days) == n {
+	if days := city.daysOfType(cal, today.AddDate(0, 0, 1), dayType, n); len(days) == n {
 		start = days[n-1].Unix()
 	}
 	w.ranges = []windowRange{{start, math.MaxInt64}}
 	return w
 }
 
-func archiveCovers(days []time.Time) bool {
+func (city *City) archiveCovers(days []time.Time) bool {
 	covered := 0
 	for _, d := range days {
-		ok, err := database.ArchiveHasSegmentSamples(d.Unix(), d.AddDate(0, 0, 1).Unix())
+		ok, err := city.ArchiveHasSegmentSamples(d.Unix(), d.AddDate(0, 0, 1).Unix())
 		if err != nil {
 			log.Printf("calendar: archive check for %s failed: %v", d.Format("2006-01-02"), err)
 			return false
@@ -295,42 +268,42 @@ func archiveCovers(days []time.Time) bool {
 	return 2*covered >= len(days)
 }
 
-func currentDayWindow(dayType string, now time.Time) dayWindow {
-	n, ok := dayWindowSize(dayType)
+func (city *City) currentDayWindow(dayType string, now time.Time) dayWindow {
+	n, ok := city.dayWindowSize(dayType)
 	if !ok {
 		return dayWindow{fill: seedPrevious, ranges: []windowRange{{now.Add(-legacyDayWindow).Unix(), math.MaxInt64}}}
 	}
-	today := localMidnight(now)
-	key := today.Format("2006-01-02") + "|" + strconv.FormatInt(calendarGeneration.Load(), 10)
-	dayWindowCache.Lock()
-	defer dayWindowCache.Unlock()
-	if dayWindowCache.key != key {
-		dayWindowCache.key, dayWindowCache.windows = key, make(map[string]dayWindow)
+	today := city.localMidnight(now)
+	key := today.Format("2006-01-02") + "|" + strconv.FormatInt(city.calendarGeneration.Load(), 10)
+	city.dayWindowCache.Lock()
+	defer city.dayWindowCache.Unlock()
+	if city.dayWindowCache.key != key {
+		city.dayWindowCache.key, city.dayWindowCache.windows = key, make(map[string]dayWindow)
 	}
-	if w, ok := dayWindowCache.windows[dayType]; ok {
+	if w, ok := city.dayWindowCache.windows[dayType]; ok {
 		return w
 	}
-	w := planDayWindow(currentCalendar(), dayType, today, n, seedFill(dayType), archiveCovers)
-	dayWindowCache.windows[dayType] = w
+	w := city.planDayWindow(city.currentCalendar(), dayType, today, n, city.seedFill(dayType), city.archiveCovers)
+	city.dayWindowCache.windows[dayType] = w
 	return w
 }
 
-func earliestWindowStart(now time.Time) int64 {
+func (city *City) earliestWindowStart(now time.Time) int64 {
 	earliest := now.Add(-legacyDayWindow).Unix()
 	for _, day := range calendar.ProfileDays {
-		earliest = min(earliest, currentDayWindow(day, now).earliest())
+		earliest = min(earliest, city.currentDayWindow(day, now).earliest())
 	}
 	return earliest
 }
 
-func pruneByDayWindow(table, timeCol string, retention time.Duration, now time.Time) (int64, error) {
+func (city *City) pruneByDayWindow(table, timeCol string, retention time.Duration, now time.Time) (int64, error) {
 	floor := now.Add(-retention).Unix()
 	var pruned int64
 	known := make([]any, 0, len(calendar.ProfileDays))
 	for _, day := range calendar.ProfileDays {
 		known = append(known, day)
-		inWindow, args := currentDayWindow(day, now).sql(timeCol)
-		res, err := database.DB.Exec(`DELETE FROM `+table+` WHERE day_type = ? AND `+timeCol+` < ? AND NOT `+inWindow,
+		inWindow, args := city.currentDayWindow(day, now).sql(timeCol)
+		res, err := city.DB.Exec(`DELETE FROM `+table+` WHERE day_type = ? AND `+timeCol+` < ? AND NOT `+inWindow,
 			append([]any{day, floor}, args...)...)
 		if err != nil {
 			return pruned, err
@@ -338,7 +311,7 @@ func pruneByDayWindow(table, timeCol string, retention time.Duration, now time.T
 		n, _ := res.RowsAffected()
 		pruned += n
 	}
-	res, err := database.DB.Exec(`DELETE FROM `+table+` WHERE day_type NOT IN (`+strings.TrimSuffix(strings.Repeat("?,", len(known)), ",")+`) AND `+timeCol+` < ?`,
+	res, err := city.DB.Exec(`DELETE FROM `+table+` WHERE day_type NOT IN (`+strings.TrimSuffix(strings.Repeat("?,", len(known)), ",")+`) AND `+timeCol+` < ?`,
 		append(known, floor)...)
 	if err != nil {
 		return pruned, err
@@ -352,19 +325,19 @@ var labelledTables = []struct{ table, timeCol string }{
 	{"turnaround_samples", "departed_at"},
 }
 
-func relabelSamples(now time.Time) (int64, error) {
+func (city *City) relabelSamples(now time.Time) (int64, error) {
 	var total int64
 	for _, t := range labelledTables {
 		var oldest sql.NullInt64
-		if err := database.DB.QueryRow(`SELECT MIN(` + t.timeCol + `) FROM ` + t.table).Scan(&oldest); err != nil {
+		if err := city.DB.QueryRow(`SELECT MIN(` + t.timeCol + `) FROM ` + t.table).Scan(&oldest); err != nil {
 			return total, err
 		}
 		if !oldest.Valid {
 			continue
 		}
-		for day := localMidnight(time.Unix(oldest.Int64, 0)); !day.After(now); day = day.AddDate(0, 0, 1) {
-			label := profileDay(day)
-			res, err := database.DB.Exec(`UPDATE `+t.table+` SET day_type = ? WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ? AND day_type != ?`,
+		for day := city.localMidnight(time.Unix(oldest.Int64, 0)); !day.After(now); day = day.AddDate(0, 0, 1) {
+			label := city.profileDay(day)
+			res, err := city.DB.Exec(`UPDATE `+t.table+` SET day_type = ? WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ? AND day_type != ?`,
 				label, day.Unix(), day.AddDate(0, 0, 1).Unix(), label)
 			if err != nil {
 				return total, err
@@ -376,17 +349,17 @@ func relabelSamples(now time.Time) (int64, error) {
 	return total, nil
 }
 
-func restoreWindowsFromArchive(now time.Time) (int, error) {
-	if database.Archive == nil {
+func (city *City) restoreWindowsFromArchive(now time.Time) (int, error) {
+	if city.Archive == nil {
 		return 0, nil
 	}
-	loc := database.StatsLocation()
+	loc := city.Location
 	total := 0
 	for _, t := range labelledTables {
 		for _, day := range calendar.ProfileDays {
-			for _, r := range restoreRanges(currentDayWindow(day, now), now) {
+			for _, r := range restoreRanges(city.currentDayWindow(day, now), now) {
 				var oldest sql.NullInt64
-				if err := database.DB.QueryRow(`SELECT MIN(`+t.timeCol+`) FROM `+t.table+` WHERE day_type = ? AND `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`,
+				if err := city.DB.QueryRow(`SELECT MIN(`+t.timeCol+`) FROM `+t.table+` WHERE day_type = ? AND `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`,
 					day, r.from, r.to).Scan(&oldest); err != nil {
 					return total, err
 				}
@@ -394,8 +367,8 @@ func restoreWindowsFromArchive(now time.Time) (int, error) {
 				if oldest.Valid {
 					until = oldest.Int64
 				}
-				n, err := database.RestoreFromArchive(t.table, r.from, until, func(at int64) (string, bool) {
-					return day, profileDay(time.Unix(at, 0).In(loc)) == day
+				n, err := city.RestoreFromArchive(t.table, r.from, until, func(at int64) (string, bool) {
+					return day, city.profileDay(time.Unix(at, 0).In(loc)) == day
 				})
 				total += n
 				if err != nil {
@@ -418,70 +391,70 @@ func restoreRanges(w dayWindow, now time.Time) []windowRange {
 	return out
 }
 
-func restoreSeededWindows(now time.Time) {
+func (city *City) restoreSeededWindows(now time.Time) {
 	seeded := false
 	for _, day := range calendar.ProfileDays {
-		seeded = seeded || len(currentDayWindow(day, now).lastYear) > 0
+		seeded = seeded || len(city.currentDayWindow(day, now).lastYear) > 0
 	}
-	if !seeded || database.DB == nil {
+	if !seeded || city.DB == nil {
 		return
 	}
-	applyCalendarMu.Lock()
-	restored, err := restoreWindowsFromArchive(now)
-	applyCalendarMu.Unlock()
+	city.applyCalendarMu.Lock()
+	restored, err := city.restoreWindowsFromArchive(now)
+	city.applyCalendarMu.Unlock()
 	if err != nil {
 		log.Printf("calendar: restoring last year's days failed: %v", err)
 	}
 	if restored > 0 {
 		log.Printf("calendar: restored %d samples of last year's days; relearning", restored)
-		applyCalendar(now)
+		city.applyCalendar(now)
 	}
 }
 
-func applyCalendar(now time.Time) {
-	applyCalendarMu.Lock()
-	defer applyCalendarMu.Unlock()
-	if database.DB == nil {
+func (city *City) applyCalendar(now time.Time) {
+	city.applyCalendarMu.Lock()
+	defer city.applyCalendarMu.Unlock()
+	if city.DB == nil {
 		return
 	}
 	started := time.Now()
-	relabelled, err := relabelSamples(now)
+	relabelled, err := city.relabelSamples(now)
 	if err != nil {
 		log.Printf("calendar: relabel failed: %v", err)
 	}
-	restored, err := restoreWindowsFromArchive(now)
+	restored, err := city.restoreWindowsFromArchive(now)
 	if err != nil {
 		log.Printf("calendar: restore from the archive failed: %v", err)
 	}
-	rebuilt, err := rebuildSegmentProfiles(now)
+	rebuilt, err := city.rebuildSegmentProfiles(now)
 	if err != nil {
 		log.Printf("calendar: profile rebuild failed: %v", err)
 	}
-	resetProfileSnapshots()
-	resetTripScheduleCache()
-	delays, err := recomputeScheduleDelays(database.StatsLocation(), now)
+	city.resetProfileSnapshots()
+	city.resetTripScheduleCache()
+	delays, err := city.recomputeScheduleDelays(city.Location, now)
 	if err != nil {
 		log.Printf("calendar: schedule delay failed: %v", err)
 	}
-	invalidateScheduleCaches()
+	city.invalidateScheduleCaches()
 	log.Printf("calendar: relabelled %d samples, restored %d from the archive, rebuilt %d profiles and %d delays in %s",
 		relabelled, restored, rebuilt, delays, time.Since(started).Round(time.Millisecond))
 }
 
-func invalidateScheduleCaches() {
-	resetProfileSnapshots()
-	resetTripScheduleCache()
-	networkCache.Lock()
-	if networkCache.current != nil {
-		stale := *networkCache.current
+func (city *City) invalidateScheduleCaches() {
+	city.resetProfileSnapshots()
+	city.resetTripScheduleCache()
+	city.networkCache.Lock()
+	if city.networkCache.current != nil {
+		stale := *city.networkCache.current
 		stale.period = -1
-		networkCache.current = &stale
+		city.networkCache.current = &stale
 	}
-	networkCache.Unlock()
-	planner.Lock()
-	planner.networks = nil
-	planner.Unlock()
-	go refreshLiveTrips(true)
+	city.networkCache.Unlock()
+	city.planner.Lock()
+	city.planner.networks = nil
+	city.planner.Unlock()
+	go city.refreshLiveTrips(true)
 }
 
 type scheduleFit struct {
@@ -491,15 +464,15 @@ type scheduleFit struct {
 	Expected int
 }
 
-func observedScheduleFits(day time.Time) ([]scheduleFit, int, error) {
-	start := localMidnight(day)
+func (city *City) observedScheduleFits(day time.Time) ([]scheduleFit, int, error) {
+	start := city.localMidnight(day)
 	end := start.AddDate(0, 0, 1)
 
 	type tripStop struct {
 		trip string
 		stop int
 	}
-	stops, err := queryRows(`SELECT trip_id, stop_id FROM stop_times ORDER BY trip_id, stop_sequence`, nil,
+	stops, err := queryRows(city.DB, `SELECT trip_id, stop_id FROM stop_times ORDER BY trip_id, stop_sequence`, nil,
 		func(rows *sql.Rows) (tripStop, error) {
 			var s tripStop
 			err := rows.Scan(&s.trip, &s.stop)
@@ -522,7 +495,7 @@ func observedScheduleFits(day time.Time) ([]scheduleFit, int, error) {
 		id   int
 		name string
 	}
-	routes, err := queryRows(`SELECT route_id, route_short_name FROM routes`, nil, func(rows *sql.Rows) (namedRoute, error) {
+	routes, err := queryRows(city.DB, `SELECT route_id, route_short_name FROM routes`, nil, func(rows *sql.Rows) (namedRoute, error) {
 		var r namedRoute
 		err := rows.Scan(&r.id, &r.name)
 		return r, err
@@ -539,7 +512,7 @@ func observedScheduleFits(day time.Time) ([]scheduleFit, int, error) {
 		route, direction, from, to int
 		departed                   float64
 	}
-	samples, err := queryRows(`
+	samples, err := queryRows(city.DB, `
 		SELECT route_id, direction_id, from_stop_id, to_stop_id, observed_at - duration_sec
 		FROM segment_travel_time_samples
 		WHERE observed_at >= ? AND observed_at < ?`,
@@ -575,7 +548,7 @@ func observedScheduleFits(day time.Time) ([]scheduleFit, int, error) {
 	}
 	observed := 0
 	for key, minutes := range runs {
-		timetable, err := getTimetableFromDB(routeNames[key[0]])
+		timetable, err := city.getTimetableFromDB(routeNames[key[0]])
 		if err != nil || timetable == nil {
 			continue
 		}
@@ -640,18 +613,18 @@ func describeFits(fits []scheduleFit, observed int) string {
 	return fmt.Sprintf("%s over %d runs", strings.Join(parts, ", "), observed)
 }
 
-func checkObservedSchedule(now time.Time) {
-	if database.Archive == nil {
+func (city *City) checkObservedSchedule(now time.Time) {
+	if city.Archive == nil {
 		return
 	}
-	day := localMidnight(now).AddDate(0, 0, -1)
+	day := city.localMidnight(now).AddDate(0, 0, -1)
 	date := day.Format("2006-01-02")
-	fits, observed, err := observedScheduleFits(day)
+	fits, observed, err := city.observedScheduleFits(day)
 	if err != nil {
 		log.Printf("calendar: timetable check for %s failed: %v", date, err)
 		return
 	}
-	expected := scheduleDay(day)
+	expected := city.scheduleDay(day)
 	if observed < observedMinRuns {
 		log.Printf("calendar: %s had %d runs, too few to tell which timetable ran", date, observed)
 		return
@@ -666,11 +639,11 @@ func checkObservedSchedule(now time.Time) {
 	if best.Day == expected || best.Fit < observedMinFit || best.Fit-current.Fit < observedMinLead {
 		return
 	}
-	if existing, ok, err := database.ScheduleOverrideOn(date); err == nil && ok && existing.Source == overrideByAdmin {
+	if existing, ok, err := city.ScheduleOverrideOn(date); err == nil && ok && existing.Source == overrideByAdmin {
 		log.Printf("calendar: %s looked like the %s timetable, but it was set to %s on the admin page; keeping that", date, best.Day, existing.Schedule)
 		return
 	}
-	err = database.SaveScheduleOverride(database.ScheduleOverride{
+	err = city.SaveScheduleOverride(database.ScheduleOverride{
 		Date: date, Schedule: best.Day, Source: overrideObserved,
 		Detail:    fmt.Sprintf("expected %s; %s", expected, describeFits(fits, observed)),
 		CreatedAt: now.Unix(),
@@ -680,23 +653,23 @@ func checkObservedSchedule(now time.Time) {
 		return
 	}
 	log.Printf("calendar: %s ran the %s timetable, not %s; relearning", date, best.Day, expected)
-	if err := LoadCalendar(); err != nil {
+	if err := city.LoadCalendar(); err != nil {
 		log.Printf("calendar: reload failed: %v", err)
 		return
 	}
-	applyCalendar(now)
+	city.applyCalendar(now)
 }
 
-func neededSchoolYear(now time.Time) int {
-	local := now.In(database.StatsLocation())
+func (city *City) neededSchoolYear(now time.Time) int {
+	local := now.In(city.Location)
 	if local.Month() >= time.August {
 		return local.Year()
 	}
 	return local.Year() - 1
 }
 
-func calendarProblem(now time.Time) string {
-	if y := neededSchoolYear(now); !currentCalendar().HasYear(y) {
+func (city *City) calendarProblem(now time.Time) string {
+	if y := city.neededSchoolYear(now); !city.currentCalendar().HasYear(y) {
 		return fmt.Sprintf("Enter the %d–%d school year in the calendar", y, y+1)
 	}
 	return ""
@@ -748,14 +721,14 @@ type adminLearning struct {
 	MinDays    int           `json:"min_days"`
 }
 
-func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
-	cal := currentCalendar()
-	today := localMidnight(now)
+func (city *City) buildAdminCalendar(now time.Time) (adminCalendarView, error) {
+	cal := city.currentCalendar()
+	today := city.localMidnight(now)
 	v := adminCalendarView{
 		Today: adminCalendarToday{
 			Date: today.Format("2006-01-02"), ProfileDay: cal.ProfileDay(today), ScheduleDay: cal.ScheduleDay(today),
 		},
-		Editable:  database.Archive != nil,
+		Editable:  city.Archive != nil,
 		Years:     []adminCalendarYear{},
 		Holidays:  []adminHoliday{},
 		Overrides: []database.ScheduleOverride{},
@@ -763,12 +736,12 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 	if h, ok := cal.Holiday(today); ok {
 		v.Today.Holiday = h.Name
 	}
-	needed := neededSchoolYear(now)
+	needed := city.neededSchoolYear(now)
 	if !cal.HasYear(needed) {
 		v.Needed = needed
 	}
 
-	saved, err := savedSchoolYears()
+	saved, err := city.savedSchoolYears()
 	if err != nil {
 		return v, err
 	}
@@ -801,12 +774,12 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 			if h.Date < v.Today.Date || h.Date > last.Format("2006-01-02") {
 				continue
 			}
-			at, _ := time.ParseInLocation("2006-01-02", h.Date, database.StatsLocation())
+			at, _ := time.ParseInLocation("2006-01-02", h.Date, city.Location)
 			v.Holidays = append(v.Holidays, adminHoliday{Date: h.Date, Name: h.Name, Schedule: cal.ScheduleDay(at)})
 		}
 	}
 
-	overrides, err := database.ScheduleOverrides()
+	overrides, err := city.ScheduleOverrides()
 	if err != nil {
 		return v, err
 	}
@@ -818,11 +791,11 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 	}
 
 	v.Learning = adminLearning{Windows: []adminWindow{}, Candidates: vacationWindowCandidates, MinDays: tuningMinDays}
-	dateOf := func(at int64) string { return time.Unix(at, 0).In(database.StatsLocation()).Format("2006-01-02") }
+	dateOf := func(at int64) string { return time.Unix(at, 0).In(city.Location).Format("2006-01-02") }
 	for _, day := range calendar.ProfileDays {
-		n, _ := dayWindowSize(day)
-		w := currentDayWindow(day, now)
-		a := adminWindow{DayType: day, Days: n, Seed: seedFill(day), LastYearDays: len(w.lastYear)}
+		n, _ := city.dayWindowSize(day)
+		w := city.currentDayWindow(day, now)
+		a := adminWindow{DayType: day, Days: n, Seed: city.seedFill(day), LastYearDays: len(w.lastYear)}
 		if since, ok := w.since(); ok {
 			a.From = dateOf(since)
 		}
@@ -830,14 +803,14 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 			a.LastYearFrom = w.lastYear[0].Format("2006-01-02")
 			a.LastYearTo = w.lastYear[len(w.lastYear)-1].Format("2006-01-02")
 		}
-		if t, ok, err := savedSeedTuning(day); err != nil {
+		if t, ok, err := city.savedSeedTuning(day); err != nil {
 			return v, err
 		} else if ok {
 			a.Evaluation = &t
 		}
 		v.Learning.Windows = append(v.Learning.Windows, a)
 	}
-	if t, ok, err := savedWindowTuning(); err != nil {
+	if t, ok, err := city.savedWindowTuning(); err != nil {
 		return v, err
 	} else if ok {
 		v.Learning.Tuning = &t
@@ -845,9 +818,10 @@ func buildAdminCalendar(now time.Time) (adminCalendarView, error) {
 	return v, nil
 }
 
-func registerAdminCalendarRoutes(admin fiber.Router, token string) {
+func registerAdminCalendarRoutes(admin fiber.Router, cityOf func(fiber.Ctx) *City, token string) {
 	admin.Get("/calendar", RequireAdminSession(token), func(c fiber.Ctx) error {
-		view, err := buildAdminCalendar(time.Now())
+		city := cityOf(c)
+		view, err := city.buildAdminCalendar(time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -856,6 +830,7 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 	})
 
 	admin.Put("/calendar", RequireAdminSession(token), func(c fiber.Ctx) error {
+		city := cityOf(c)
 		if !sameOriginRequest(c) {
 			return c.SendStatus(fiber.StatusForbidden)
 		}
@@ -871,16 +846,16 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		if err := database.SaveSchoolYear(year.Year, string(data), time.Now()); err != nil {
+		if err := city.SaveSchoolYear(year.Year, string(data), time.Now()); err != nil {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": err.Error()})
 		}
-		if err := LoadCalendar(); err != nil {
+		if err := city.LoadCalendar(); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		invalidateScheduleCaches()
+		city.invalidateScheduleCaches()
 		log.Printf("calendar: school year %d–%d saved from the admin page", year.Year, year.Year+1)
-		relearnAfterCalendarChange(time.Now())
-		view, err := buildAdminCalendar(time.Now())
+		relearnAfterCalendarChange(city, time.Now())
+		view, err := city.buildAdminCalendar(time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -889,11 +864,12 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 	})
 
 	admin.Get("/calendar/day", RequireAdminSession(token), func(c fiber.Ctx) error {
-		day, err := parseAdminDay(c.Query("date"), time.Now())
+		city := cityOf(c)
+		day, err := city.parseAdminDay(c.Query("date"), time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
-		d, err := buildAdminCalendarDay(day)
+		d, err := city.buildAdminCalendarDay(day)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -902,6 +878,7 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 	})
 
 	admin.Put("/calendar/day", RequireAdminSession(token), func(c fiber.Ctx) error {
+		city := cityOf(c)
 		if !sameOriginRequest(c) {
 			return c.SendStatus(fiber.StatusForbidden)
 		}
@@ -910,16 +887,16 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
 		}
 		now := time.Now()
-		day, err := parseAdminDay(req.Date, now)
+		day, err := city.parseAdminDay(req.Date, now)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
 		date := day.Format("2006-01-02")
 		switch req.Schedule {
 		case "":
-			err = database.DeleteScheduleOverride(date)
+			err = city.DeleteScheduleOverride(date)
 		case calendar.Weekday, calendar.Saturday, calendar.Sunday:
-			err = database.SaveScheduleOverride(database.ScheduleOverride{
+			err = city.SaveScheduleOverride(database.ScheduleOverride{
 				Date: date, Schedule: req.Schedule, Source: overrideByAdmin, Detail: "set on the admin page", CreatedAt: now.Unix(),
 			})
 		default:
@@ -928,19 +905,19 @@ func registerAdminCalendarRoutes(admin fiber.Router, token string) {
 		if err != nil {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": err.Error()})
 		}
-		if err := LoadCalendar(); err != nil {
+		if err := city.LoadCalendar(); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		invalidateScheduleCaches()
+		city.invalidateScheduleCaches()
 		log.Printf("calendar: %s set to %s on the admin page", date, cmp.Or(req.Schedule, "automatic"))
-		if !day.After(localMidnight(now)) {
-			relearnAfterCalendarChange(now)
+		if !day.After(city.localMidnight(now)) {
+			relearnAfterCalendarChange(city, now)
 		}
-		view, err := buildAdminCalendar(now)
+		view, err := city.buildAdminCalendar(now)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		d, err := buildAdminCalendarDay(day)
+		d, err := city.buildAdminCalendarDay(day)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -968,20 +945,20 @@ type adminDayResponse struct {
 	Day      adminCalendarDay  `json:"day"`
 }
 
-func parseAdminDay(date string, now time.Time) (time.Time, error) {
-	day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
+func (city *City) parseAdminDay(date string, now time.Time) (time.Time, error) {
+	day, err := time.ParseInLocation("2006-01-02", date, city.Location)
 	if err != nil {
 		return day, fmt.Errorf("%q is not a date", date)
 	}
-	today := localMidnight(now)
+	today := city.localMidnight(now)
 	if day.Before(today.AddDate(0, 0, -adminDayReach)) || day.After(today.AddDate(0, 0, adminDayReach)) {
 		return day, fmt.Errorf("pick a date within %d days of today", adminDayReach)
 	}
 	return day, nil
 }
 
-func buildAdminCalendarDay(day time.Time) (adminCalendarDay, error) {
-	cal := currentCalendar()
+func (city *City) buildAdminCalendarDay(day time.Time) (adminCalendarDay, error) {
+	cal := city.currentCalendar()
 	d := adminCalendarDay{
 		Date:        day.Format("2006-01-02"),
 		ScheduleDay: cal.ScheduleDay(day),
@@ -991,7 +968,7 @@ func buildAdminCalendarDay(day time.Time) (adminCalendarDay, error) {
 	if h, ok := cal.Holiday(day); ok {
 		d.Holiday = h.Name
 	}
-	o, ok, err := database.ScheduleOverrideOn(d.Date)
+	o, ok, err := city.ScheduleOverrideOn(d.Date)
 	if err != nil {
 		return d, err
 	}
@@ -1001,15 +978,15 @@ func buildAdminCalendarDay(day time.Time) (adminCalendarDay, error) {
 	return d, nil
 }
 
-func networkScheduleDays(now time.Time) (map[string]string, map[string]models.DayNote) {
-	cal := currentCalendar()
+func (city *City) networkScheduleDays(now time.Time) (map[string]string, map[string]models.DayNote) {
+	cal := city.currentCalendar()
 	sources := map[string]string{}
-	if overrides, err := database.ScheduleOverrides(); err == nil {
+	if overrides, err := city.ScheduleOverrides(); err == nil {
 		for _, o := range overrides {
 			sources[o.Date] = o.Source
 		}
 	}
-	local := now.In(database.StatsLocation())
+	local := now.In(city.Location)
 	days, notes := map[string]string{}, map[string]models.DayNote{}
 	end := time.Date(local.Year()+2, time.January, 1, 12, 0, 0, 0, local.Location())
 	for d := time.Date(local.Year(), time.January, 1, 12, 0, 0, 0, local.Location()); d.Before(end); d = d.AddDate(0, 0, 1) {

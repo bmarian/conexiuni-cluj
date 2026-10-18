@@ -1,6 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
+import {citiesLoaded, currentCity, knownCity, rememberCity, resolveCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
@@ -15,37 +16,11 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      // Never rendered: it sends people to their city.
       path: '/',
-      name: 'home',
+      name: 'landing',
       component: HomeView,
-    },
-    {
-      path: '/stop/:stopId',
-      name: 'stop',
-      component: StopView,
-      props: true,
-    },
-    {
-      path: '/route/:routeId/:direction',
-      name: 'route',
-      component: RouteView,
-      props: true,
-    },
-    {
-      path: '/plan',
-      name: 'plan',
-      component: RoutePlanningView,
-      beforeEnter: (to) => (isShare(to.query) ? sharedDestination(to.query) : true),
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: SettingsView,
-    },
-    {
-      path: '/nav',
-      name: 'nav',
-      component: NavigationView,
+      beforeEnter: async () => `/${await resolveCity()}/`,
     },
     {
       path: '/android',
@@ -58,16 +33,70 @@ const router = createRouter({
       component: AdminView,
     },
     {
-      path: '/bsod',
-      name: 'bsod',
-      component: NotFoundView,
+      path: '/:city',
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: HomeView,
+        },
+        {
+          path: 'stop/:stopId',
+          name: 'stop',
+          component: StopView,
+          props: true,
+        },
+        {
+          path: 'route/:routeId/:direction',
+          name: 'route',
+          component: RouteView,
+          props: true,
+        },
+        {
+          path: 'plan',
+          name: 'plan',
+          component: RoutePlanningView,
+          beforeEnter: (to) => (isShare(to.query) ? sharedDestination(to.query) : true),
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: SettingsView,
+        },
+        {
+          path: 'nav',
+          name: 'nav',
+          component: NavigationView,
+        },
+        {
+          path: 'bsod',
+          name: 'bsod',
+          component: NotFoundView,
+        },
+      ],
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      redirect: {name: 'home'},
+      redirect: {name: 'home', params: {city: currentCity}},
     },
   ],
+})
+
+// A city the server doesn't serve goes home; the one it does is remembered for next time.
+router.beforeEach(async (to) => {
+  const slug = to.params.city
+  if (typeof slug !== 'string') return true
+  await citiesLoaded
+  if (!knownCity(slug)) return `/${currentCity}/`
+  if (slug !== currentCity) {
+    // The page is built around one city; a link into another starts over there.
+    rememberCity(slug)
+    window.location.href = to.fullPath
+    return false
+  }
+  rememberCity(slug)
+  return true
 })
 
 export default router

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"conexiuni-cluj/database"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -95,6 +94,7 @@ func TestValidReminder(t *testing.T) {
 }
 
 func TestNextReminderBus(t *testing.T) {
+	city := newTestCity(t)
 	every := []int{1, 2, 3, 4, 5, 6, 7}
 	slots := map[string]int{"weekday": 23*60 + 42, "saturday": 23 * 60}
 	cases := []struct {
@@ -115,15 +115,15 @@ func TestNextReminderBus(t *testing.T) {
 		{"across DST", reminder("x", []int{6}, "", map[string]int{"saturday": 24*60 + 30}), "2026-10-24 20:00", "2026-10-25 00:30"},
 	}
 	for _, c := range cases {
-		got, ok := nextReminderBus(c.r, clujTime(t, c.after), cluj)
+		got, ok := city.nextReminderBus(c.r, clujTime(t, c.after), cluj)
 		if !ok || !got.Equal(clujTime(t, c.want)) {
 			t.Errorf("%s: got %v (%v), want %s", c.name, got.In(cluj), ok, c.want)
 		}
 	}
-	if _, ok := nextReminderBus(reminder("x", nil, "2026-10-09", map[string]int{"weekday": 24*60 + 5}), clujTime(t, "2026-10-10 00:06"), cluj); ok {
+	if _, ok := city.nextReminderBus(reminder("x", nil, "2026-10-09", map[string]int{"weekday": 24*60 + 5}), clujTime(t, "2026-10-10 00:06"), cluj); ok {
 		t.Error("a one-off came back after its bus")
 	}
-	if _, ok := nextReminderBus(reminder("x", every, "", map[string]int{"sunday": 600}), clujTime(t, "2026-10-12 08:00"), cluj); !ok {
+	if _, ok := city.nextReminderBus(reminder("x", every, "", map[string]int{"sunday": 600}), clujTime(t, "2026-10-12 08:00"), cluj); !ok {
 		t.Error("a Sunday-only bus wasn't found within the week")
 	}
 }
@@ -141,9 +141,9 @@ func syncRequest(t *testing.T, endpoint string, reminders []pushReminder) *http.
 	return req
 }
 
-func storedReminders(t *testing.T, endpoint string) map[string]int64 {
+func (city *City) storedReminders(t *testing.T, endpoint string) map[string]int64 {
 	t.Helper()
-	rows, err := database.DB.Query(`SELECT id, last_fired_at FROM push_reminders WHERE endpoint = ?`, endpoint)
+	rows, err := city.DB.Query(`SELECT id, last_fired_at FROM push_reminders WHERE endpoint = ?`, endpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,10 +159,10 @@ func storedReminders(t *testing.T, endpoint string) map[string]int64 {
 }
 
 func TestSyncRemindersReplacesAndKeepsWhenEachFired(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	app := fiber.New()
-	app.Post("/api/push/reminders", SyncReminders)
+	app.Post("/api/push/reminders", city.SyncReminders)
 	endpoint := "https://fcm.googleapis.com/fcm/send/test"
 	weekday := reminder("a", []int{1, 2, 3, 4, 5}, "", map[string]int{"weekday": 1385})
 
@@ -170,43 +170,43 @@ func TestSyncRemindersReplacesAndKeepsWhenEachFired(t *testing.T) {
 	if err != nil || resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("sync: %v %v", err, resp.StatusCode)
 	}
-	if got := storedReminders(t, endpoint); len(got) != 2 {
+	if got := city.storedReminders(t, endpoint); len(got) != 2 {
 		t.Fatalf("stored %v", got)
 	}
-	if _, err := database.DB.Exec(`UPDATE push_reminders SET last_fired_at = 42 WHERE id = 'a'`); err != nil {
+	if _, err := city.DB.Exec(`UPDATE push_reminders SET last_fired_at = 42 WHERE id = 'a'`); err != nil {
 		t.Fatal(err)
 	}
 	resp, _ = app.Test(syncRequest(t, endpoint, []pushReminder{weekday}))
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("re-sync: %v", resp.StatusCode)
 	}
-	if got := storedReminders(t, endpoint); len(got) != 1 || got["a"] != 42 {
+	if got := city.storedReminders(t, endpoint); len(got) != 1 || got["a"] != 42 {
 		t.Fatalf("after re-sync: %v", got)
 	}
-	followLines(t, pushSubscriber{endpoint: endpoint, p256dh: "x", auth: "y", locale: "en"}, "25")
+	city.followLines(t, pushSubscriber{endpoint: endpoint, p256dh: "x", auth: "y", locale: "en"}, "25")
 	resp, _ = app.Test(syncRequest(t, endpoint, nil))
-	if resp.StatusCode != fiber.StatusNoContent || len(storedReminders(t, endpoint)) != 0 {
-		t.Fatalf("clear: %v %v", resp.StatusCode, storedReminders(t, endpoint))
+	if resp.StatusCode != fiber.StatusNoContent || len(city.storedReminders(t, endpoint)) != 0 {
+		t.Fatalf("clear: %v %v", resp.StatusCode, city.storedReminders(t, endpoint))
 	}
 	var routes int
-	_ = database.DB.QueryRow(`SELECT COUNT(*) FROM push_subscription_routes WHERE endpoint = ?`, endpoint).Scan(&routes)
+	_ = city.DB.QueryRow(`SELECT COUNT(*) FROM push_subscription_routes WHERE endpoint = ?`, endpoint).Scan(&routes)
 	if routes != 1 {
 		t.Fatalf("line alerts went with the reminders: %d", routes)
 	}
 	_, _ = app.Test(syncRequest(t, endpoint, []pushReminder{weekday}))
-	if err := deletePushSubscription(endpoint); err != nil {
+	if err := city.deletePushSubscription(endpoint); err != nil {
 		t.Fatal(err)
 	}
-	if got := storedReminders(t, endpoint); len(got) != 0 {
+	if got := city.storedReminders(t, endpoint); len(got) != 0 {
 		t.Fatalf("reminders outlived their subscription: %v", got)
 	}
 }
 
 func TestSyncRemindersRefusesBadRequests(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	app := fiber.New()
-	app.Post("/api/push/reminders", SyncReminders)
+	app.Post("/api/push/reminders", city.SyncReminders)
 	ok := reminder("a", []int{1}, "", map[string]int{"weekday": 600})
 	many := make([]pushReminder, maxRemindersPerSub+1)
 	for i := range many {
@@ -238,23 +238,23 @@ func TestSyncRemindersRefusesBadRequests(t *testing.T) {
 }
 
 func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	client := newTestPushClient(t, "en", http.StatusCreated)
 	every := []int{1, 2, 3, 4, 5, 6, 7}
-	if err := saveReminders(client.sub, []pushReminder{
+	if err := city.saveReminders(client.sub, []pushReminder{
 		reminder("night", every, "", map[string]int{"weekday": 22*60 + 50, "saturday": 22*60 + 30}),
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	fireDueReminders(clujTime(t, "2026-10-09 22:15"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-09 22:29"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 22:15"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 22:29"), cluj)
 	if got := client.received(); len(got) != 0 {
 		t.Fatalf("sent over 20 min early without a walk: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 22:31"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-09 22:40"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 22:31"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 22:40"), cluj)
 	got := client.received()
 	if len(got) != 1 {
 		t.Fatalf("want one push for the 22:50 bus, got %v", got)
@@ -262,39 +262,39 @@ func TestFireDueRemindersSendsOncePerBus(t *testing.T) {
 	bus := clujTime(t, "2026-10-09 22:50").UnixMilli()
 	want := pushMessage{
 		Title: "Your bus leaves at 22:50, get ready", Body: "57 in 19 min",
-		URL: "/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:31").UnixMilli(),
+		URL: "/test/stop/120?follow=57_0&at=" + strconv.FormatInt(bus, 10), Tag: "reminder-night", Timestamp: clujTime(t, "2026-10-09 22:31").UnixMilli(),
 		Alert: true,
 	}
 	if got[0] != want {
 		t.Fatalf("push:\n got %+v\nwant %+v", got[0], want)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 22:55"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-10 22:12"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 22:55"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-10 22:12"), cluj)
 	if got := client.received(); len(got) != 2 || got[1].Body != "57 in 18 min" {
 		t.Fatalf("Saturday: %v", got)
 	}
 }
 
 func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	client := newTestPushClient(t, "ro", http.StatusCreated)
-	if err := saveReminders(client.sub, []pushReminder{
+	if err := city.saveReminders(client.sub, []pushReminder{
 		reminder("once", nil, "2026-10-09", map[string]int{"weekday": 24*60 + 5}),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 23:50"), cluj)
 	got := client.received()
 	if len(got) != 1 || got[0].Title != "Autobuzul tău pleacă la 00:05, pregătește-te" || got[0].Body != "57 peste 15 min" {
 		t.Fatalf("push: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-10 00:03"), cluj)
-	if len(storedReminders(t, client.sub.endpoint)) != 1 {
+	city.fireDueReminders(clujTime(t, "2026-10-10 00:03"), cluj)
+	if len(city.storedReminders(t, client.sub.endpoint)) != 1 {
 		t.Fatal("a one-off went before its bus")
 	}
-	fireDueReminders(clujTime(t, "2026-10-10 00:10"), cluj)
-	if got := storedReminders(t, client.sub.endpoint); len(got) != 0 {
+	city.fireDueReminders(clujTime(t, "2026-10-10 00:10"), cluj)
+	if got := city.storedReminders(t, client.sub.endpoint); len(got) != 0 {
 		t.Fatalf("a past one-off stayed: %v", got)
 	}
 	if len(client.received()) != 1 {
@@ -303,52 +303,52 @@ func TestFireDueRemindersInRomanianAndForgetsPastOneOffs(t *testing.T) {
 }
 
 func TestFireDueRemindersSkipsMissedBusesAndDropsDeadSubscriptions(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	gone := newTestPushClient(t, "en", http.StatusGone)
-	if err := saveReminders(gone.sub, []pushReminder{reminder("a", []int{5}, "", map[string]int{"weekday": 600})}); err != nil {
+	if err := city.saveReminders(gone.sub, []pushReminder{reminder("a", []int{5}, "", map[string]int{"weekday": 600})}); err != nil {
 		t.Fatal(err)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 10:05"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 10:05"), cluj)
 	if len(gone.received()) != 0 {
 		t.Fatal("sent for a bus that had already gone")
 	}
-	fireDueReminders(clujTime(t, "2026-10-16 09:45"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-16 09:45"), cluj)
 	if len(gone.received()) != 1 {
 		t.Fatal("next week's bus wasn't sent")
 	}
-	if got := storedReminders(t, gone.sub.endpoint); len(got) != 0 {
+	if got := city.storedReminders(t, gone.sub.endpoint); len(got) != 0 {
 		t.Fatalf("reminders kept for a dead subscription: %v", got)
 	}
 }
 
 func TestFireDueRemindersTimesTheWalk(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 	client := newTestPushClient(t, "en", http.StatusCreated)
 	walked := clujTime(t, "2026-10-09 07:00")
 	every := map[string]int{"weekday": 8 * 60}
-	if err := saveReminders(client.sub, []pushReminder{
+	if err := city.saveReminders(client.sub, []pushReminder{
 		walkedAt(withWalk(reminder("walk", []int{5}, "", every), 12), walked),
 		walkedAt(withWalk(reminder("stale", []int{5}, "", every), 12), walked.Add(-2*time.Hour)),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 07:32"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 07:32"), cluj)
 	if got := client.received(); len(got) != 0 {
 		t.Fatalf("sent before the heads-up: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 07:33"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 07:33"), cluj)
 	got := client.received()
 	if len(got) != 1 || got[0].Title != "Leave by 07:43 to catch your bus" || got[0].Body != "57 in 27 min · 12 min walk" || got[0].Alert {
 		t.Fatalf("heads-up: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 07:40"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 07:40"), cluj)
 	if got := client.received(); len(got) != 2 || got[1].Tag != "reminder-stale" || got[1].Title != "Your bus leaves at 08:00, get ready" {
 		t.Fatalf("a walk measured hours ago still timed the bus: %v", got)
 	}
-	fireDueReminders(clujTime(t, "2026-10-09 07:43"), cluj)
-	fireDueReminders(clujTime(t, "2026-10-09 07:45"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 07:43"), cluj)
+	city.fireDueReminders(clujTime(t, "2026-10-09 07:45"), cluj)
 	got = client.received()
 	if len(got) != 3 || got[2].Title != "Leave now" || got[2].Body != "57 in 17 min · 12 min walk" || !got[2].Alert {
 		t.Fatalf("time to leave: %v", got)
@@ -368,7 +368,7 @@ func TestReminderPushMessage(t *testing.T) {
 		{"a long walk", "06:55", "Leave by 07:05 to catch your bus", "57 at 08:00 · 50 min walk", reminderLeaveBy, ptr(50)},
 	}
 	for _, c := range cases {
-		got := reminderPushMessage(reminder("x", nil, "", nil), "en", c.kind, c.walk, bus, bus, clujTime(t, "2026-10-09 "+c.now), cluj)
+		got := reminderPushMessage("cluj", reminder("x", nil, "", nil), "en", c.kind, c.walk, bus, bus, clujTime(t, "2026-10-09 "+c.now), cluj)
 		if got.Title != c.title || got.Body != c.body || got.Alert != (c.kind != reminderLeaveBy) {
 			t.Errorf("%s: got %q / %q alert %v", c.name, got.Title, got.Body, got.Alert)
 		}

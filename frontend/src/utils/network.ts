@@ -3,6 +3,7 @@ import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {type DayNote, hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
+import {apiPath, cacheKey} from '@/utils/city.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -154,8 +155,8 @@ export function buildHourlyOffsets(index: NetworkIndex, route: NetworkRoute, day
 export const network = shallowRef<NetworkIndex | null>(null)
 
 const CACHE_NAME = 'network-bundle'
-const BUNDLE_URL = '/api/network'
-const META_KEY = 'network:meta'
+const BUNDLE_URL = apiPath('network')
+const META_KEY = cacheKey('network:meta')
 const MAX_AGE_MS = 12 * 60 * 60_000
 const CHECK_EVERY_MS = 15 * 60_000
 

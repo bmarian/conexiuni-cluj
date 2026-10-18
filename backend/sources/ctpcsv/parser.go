@@ -1,4 +1,4 @@
-package ctp_cj
+package ctpcsv
 
 import (
 	"bufio"

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"encoding/xml"
 	"strconv"
 	"strings"
@@ -13,66 +12,47 @@ import (
 
 const sitemapTTL = 1 * time.Hour
 
-var (
-	sitemapMu       sync.RWMutex
-	sitemapCache    []byte
-	sitemapCachedAt time.Time
-)
-
-func SitemapHandler(c fiber.Ctx) error {
-	sitemapMu.RLock()
-	cached, cachedAt := sitemapCache, sitemapCachedAt
-	sitemapMu.RUnlock()
-
-	if cached != nil && time.Since(cachedAt) < sitemapTTL {
+// SitemapHandler serves one sitemap over every city, rebuilt hourly.
+func SitemapHandler(cities []*City) fiber.Handler {
+	var mu sync.Mutex
+	var cached []byte
+	var cachedAt time.Time
+	return func(c fiber.Ctx) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if cached == nil || time.Since(cachedAt) >= sitemapTTL {
+			var sb strings.Builder
+			sb.Grow(64 * 1024)
+			sb.WriteString(xml.Header)
+			sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+			writeURL(&sb, siteOrigin+"/", "daily", "1.0")
+			writeURL(&sb, siteOrigin+"/android", "monthly", "0.5")
+			for _, city := range cities {
+				if err := city.writeSitemap(&sb); err != nil {
+					return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+				}
+			}
+			sb.WriteString("</urlset>\n")
+			cached, cachedAt = []byte(sb.String()), time.Now()
+		}
 		c.Set("Content-Type", "application/xml; charset=utf-8")
 		c.Set("Cache-Control", "public, max-age=3600")
 		return c.Send(cached)
 	}
-
-	data, err := buildSitemap()
-	if err != nil {
-		if cached != nil {
-			c.Set("Content-Type", "application/xml; charset=utf-8")
-			c.Set("Cache-Control", "public, max-age=300")
-			return c.Send(cached)
-		}
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-	}
-
-	sitemapMu.Lock()
-	sitemapCache = data
-	sitemapCachedAt = time.Now()
-	sitemapMu.Unlock()
-
-	c.Set("Content-Type", "application/xml; charset=utf-8")
-	c.Set("Cache-Control", "public, max-age=3600")
-	return c.Send(data)
 }
 
-func buildSitemap() ([]byte, error) {
-	var sb strings.Builder
-	sb.Grow(64 * 1024)
-	sb.WriteString(xml.Header)
-	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
-
-	writeURL(&sb, siteOrigin+"/", "daily", "1.0")
-	writeURL(&sb, siteOrigin+"/plan", "monthly", "0.5")
-	writeURL(&sb, siteOrigin+"/android", "monthly", "0.5")
-
-	if err := writeRouteURLs(&sb); err != nil {
-		return nil, err
+func (city *City) writeSitemap(sb *strings.Builder) error {
+	base := siteOrigin + "/" + city.Slug
+	writeURL(sb, base+"/", "daily", "1.0")
+	writeURL(sb, base+"/plan", "monthly", "0.5")
+	if err := city.writeRouteURLs(sb); err != nil {
+		return err
 	}
-	if err := writeStopURLs(&sb); err != nil {
-		return nil, err
-	}
-
-	sb.WriteString("</urlset>\n")
-	return []byte(sb.String()), nil
+	return city.writeStopURLs(sb)
 }
 
-func writeRouteURLs(sb *strings.Builder) error {
-	rows, err := database.DB.Query(`
+func (city *City) writeRouteURLs(sb *strings.Builder) error {
+	rows, err := city.DB.Query(`
 		SELECT DISTINCT r.route_id, t.direction_id, r.route_short_name
 		FROM routes r
 		INNER JOIN trips t ON t.route_id = r.route_id
@@ -82,41 +62,41 @@ func writeRouteURLs(sb *strings.Builder) error {
 	}
 	defer rows.Close()
 
-	availabilityReady := Availability.IsReady()
+	availabilityReady := city.availability.IsReady()
 	for rows.Next() {
 		var routeID, dirID int
 		var shortName string
 		if err := rows.Scan(&routeID, &dirID, &shortName); err != nil {
 			return err
 		}
-		if availabilityReady && !Availability.RouteHasTimetable(shortName) {
+		if availabilityReady && !city.availability.RouteHasTimetable(shortName) {
 			continue
 		}
 		writeURL(sb,
-			siteOrigin+"/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID),
+			siteOrigin+"/"+city.Slug+"/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(dirID),
 			"weekly", "0.8")
 	}
 	return rows.Err()
 }
 
-func writeStopURLs(sb *strings.Builder) error {
-	rows, err := database.DB.Query(`SELECT stop_id FROM stops ORDER BY stop_id`)
+func (city *City) writeStopURLs(sb *strings.Builder) error {
+	rows, err := city.DB.Query(`SELECT stop_id FROM stops ORDER BY stop_id`)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	availabilityReady := Availability.IsReady()
+	availabilityReady := city.availability.IsReady()
 	for rows.Next() {
 		var stopID int
 		if err := rows.Scan(&stopID); err != nil {
 			return err
 		}
-		if availabilityReady && !Availability.StopHasBuses(stopID) {
+		if availabilityReady && !city.availability.StopHasBuses(stopID) {
 			continue
 		}
 		writeURL(sb,
-			siteOrigin+"/stop/"+strconv.Itoa(stopID),
+			siteOrigin+"/"+city.Slug+"/stop/"+strconv.Itoa(stopID),
 			"weekly", "0.6")
 	}
 	return rows.Err()
@@ -137,10 +117,4 @@ func writeURL(sb *strings.Builder, loc, changeFreq, priority string) {
 		sb.WriteString("</priority>")
 	}
 	sb.WriteString("</url>\n")
-}
-
-func InvalidateSitemap() {
-	sitemapMu.Lock()
-	sitemapCache = nil
-	sitemapMu.Unlock()
 }

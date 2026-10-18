@@ -5,13 +5,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 )
-
-var Archive *sql.DB
 
 var archiveWrites sync.Mutex
 
@@ -131,7 +128,7 @@ const archiveSchema = `
 	);
 `
 
-func ConnectArchive(path string) error {
+func (s *Store) openArchive(path string) error {
 	db, err := sql.Open("sqlite3", path+"?mode=rwc&_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_txlock=immediate")
 	if err != nil {
 		return err
@@ -145,24 +142,23 @@ func ConnectArchive(path string) error {
 		_ = db.Close()
 		return fmt.Errorf("archive schema: %w", err)
 	}
-	Archive = db
-	log.Println("Archive database connected")
+	s.Archive = db
 	return nil
 }
 
-func CopyToArchive(until time.Time) (map[string]int, error) {
+func (s *Store) CopyToArchive(until time.Time) (map[string]int, error) {
 	copied := map[string]int{}
-	if Archive == nil {
+	if s.Archive == nil {
 		return copied, nil
 	}
 	for _, t := range archivedTables {
-		n, err := copyTableToArchive(t, until.Unix())
+		n, err := s.copyTableToArchive(t, until.Unix())
 		copied[t.name] = n
 		if err != nil {
 			return copied, fmt.Errorf("%s: %w", t.name, err)
 		}
 	}
-	n, err := copyStatsToArchive(until)
+	n, err := s.copyStatsToArchive(until)
 	copied["stats_daily"] = n
 	if err != nil {
 		return copied, fmt.Errorf("stats_daily: %w", err)
@@ -170,14 +166,14 @@ func CopyToArchive(until time.Time) (map[string]int, error) {
 	return copied, nil
 }
 
-func copyTableToArchive(t archivedTable, until int64) (int, error) {
-	from, err := archiveWatermark(t.name)
+func (s *Store) copyTableToArchive(t archivedTable, until int64) (int, error) {
+	from, err := s.archiveWatermark(t.name)
 	if err != nil {
 		return 0, err
 	}
 	if from == 0 {
 		var oldest sql.NullInt64
-		if err := DB.QueryRow(`SELECT MIN(` + t.timeCol + `) FROM ` + t.name).Scan(&oldest); err != nil {
+		if err := s.DB.QueryRow(`SELECT MIN(` + t.timeCol + `) FROM ` + t.name).Scan(&oldest); err != nil {
 			return 0, err
 		}
 		if !oldest.Valid {
@@ -188,7 +184,7 @@ func copyTableToArchive(t archivedTable, until int64) (int, error) {
 	total := 0
 	for from < until {
 		to := min(from+archiveCopyChunkSec, until)
-		n, err := copyArchiveRange(t, from, to)
+		n, err := s.copyArchiveRange(t, from, to)
 		if err != nil {
 			return total, err
 		}
@@ -198,17 +194,17 @@ func copyTableToArchive(t archivedTable, until int64) (int, error) {
 	return total, nil
 }
 
-func copyArchiveRange(t archivedTable, from, to int64) (int, error) {
+func (s *Store) copyArchiveRange(t archivedTable, from, to int64) (int, error) {
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
 	cols := strings.Join(t.columns, ", ")
-	rows, err := DB.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
+	rows, err := s.DB.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = rows.Close() }()
 
-	tx, err := Archive.Begin()
+	tx, err := s.Archive.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -247,10 +243,10 @@ func copyArchiveRange(t archivedTable, from, to int64) (int, error) {
 	return n, tx.Commit()
 }
 
-func copyStatsToArchive(until time.Time) (int, error) {
+func (s *Store) copyStatsToArchive(until time.Time) (int, error) {
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	from, err := archiveWatermark("stats_daily")
+	from, err := s.archiveWatermark("stats_daily")
 	if err != nil {
 		return 0, err
 	}
@@ -269,7 +265,7 @@ func copyStatsToArchive(until time.Time) (int, error) {
 	for _, m := range archivedStatsMetrics {
 		args = append(args, m)
 	}
-	rows, err := DB.Query(`
+	rows, err := s.DB.Query(`
 		SELECT date, metric, key, count FROM stats_daily
 		WHERE date >= ? AND date < ? AND metric IN (`+strings.TrimSuffix(strings.Repeat("?,", len(archivedStatsMetrics)), ",")+`)`,
 		args...)
@@ -278,7 +274,7 @@ func copyStatsToArchive(until time.Time) (int, error) {
 	}
 	defer func() { _ = rows.Close() }()
 
-	tx, err := Archive.Begin()
+	tx, err := s.Archive.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -311,9 +307,9 @@ func copyStatsToArchive(until time.Time) (int, error) {
 	return n, tx.Commit()
 }
 
-func archiveWatermark(name string) (int64, error) {
+func (s *Store) archiveWatermark(name string) (int64, error) {
 	var until int64
-	err := Archive.QueryRow(`SELECT copied_until FROM archive_state WHERE name = ?`, name).Scan(&until)
+	err := s.Archive.QueryRow(`SELECT copied_until FROM archive_state WHERE name = ?`, name).Scan(&until)
 	if err == sql.ErrNoRows {
 		return 0, nil
 	}
@@ -327,8 +323,8 @@ func setArchiveWatermark(tx *sql.Tx, name string, until int64) error {
 	return err
 }
 
-func PruneArchive(before time.Time) (int, error) {
-	if Archive == nil {
+func (s *Store) PruneArchive(before time.Time) (int, error) {
+	if s.Archive == nil {
 		return 0, nil
 	}
 	archiveWrites.Lock()
@@ -336,7 +332,7 @@ func PruneArchive(before time.Time) (int, error) {
 	cutoff := before.Unix()
 	pruned := 0
 	for _, t := range archivedTables {
-		res, err := Archive.Exec(`DELETE FROM `+t.name+` WHERE `+t.timeCol+` < ?`, cutoff)
+		res, err := s.Archive.Exec(`DELETE FROM `+t.name+` WHERE `+t.timeCol+` < ?`, cutoff)
 		if err != nil {
 			return pruned, fmt.Errorf("%s: %w", t.name, err)
 		}
@@ -347,7 +343,7 @@ func PruneArchive(before time.Time) (int, error) {
 		{"timetable_versions", "route_short_name"},
 		{"stop_times_versions", "trip_id"},
 	} {
-		res, err := Archive.Exec(`
+		res, err := s.Archive.Exec(`
 			DELETE FROM `+v.table+`
 			WHERE first_seen_at < ?1
 			  AND EXISTS (SELECT 1 FROM `+v.table+` n
@@ -377,13 +373,13 @@ func (v TimetableVersion) hash() string {
 	return versionHash(v.RouteLongName, v.InStopName, v.OutStopName, v.Weekdays, v.Saturday, v.Sunday)
 }
 
-func ArchiveTimetables(versions []TimetableVersion, at time.Time) (int, error) {
-	if Archive == nil || len(versions) == 0 {
+func (s *Store) ArchiveTimetables(versions []TimetableVersion, at time.Time) (int, error) {
+	if s.Archive == nil || len(versions) == 0 {
 		return 0, nil
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	tx, err := Archive.Begin()
+	tx, err := s.Archive.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -410,13 +406,13 @@ func ArchiveTimetables(versions []TimetableVersion, at time.Time) (int, error) {
 	return stored, tx.Commit()
 }
 
-func ArchiveTripStops(stopsByTrip map[string]string, at time.Time) (int, error) {
-	if Archive == nil || len(stopsByTrip) == 0 {
+func (s *Store) ArchiveTripStops(stopsByTrip map[string]string, at time.Time) (int, error) {
+	if s.Archive == nil || len(stopsByTrip) == 0 {
 		return 0, nil
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	tx, err := Archive.Begin()
+	tx, err := s.Archive.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -464,31 +460,31 @@ type ArchiveSummary struct {
 	OldestAt int64
 }
 
-func SummarizeArchive() (ArchiveSummary, error) {
-	var s ArchiveSummary
-	if Archive == nil {
-		return s, nil
-	}
-	var pages, pageSize int64
-	if err := Archive.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
-		return s, err
-	}
-	if err := Archive.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
-		return s, err
-	}
-	s.Bytes = pages * pageSize
-	var oldest sql.NullInt64
-	err := Archive.QueryRow(`SELECT COUNT(*), MIN(observed_at) FROM segment_travel_time_samples`).Scan(&s.Samples, &oldest)
-	s.OldestAt = oldest.Int64
-	return s, err
-}
-
-func SchoolYears() (map[int]string, error) {
-	out := map[int]string{}
-	if Archive == nil {
+func (s *Store) SummarizeArchive() (ArchiveSummary, error) {
+	var out ArchiveSummary
+	if s.Archive == nil {
 		return out, nil
 	}
-	rows, err := Archive.Query(`SELECT year, data FROM school_years`)
+	var pages, pageSize int64
+	if err := s.Archive.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
+		return out, err
+	}
+	if err := s.Archive.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+		return out, err
+	}
+	out.Bytes = pages * pageSize
+	var oldest sql.NullInt64
+	err := s.Archive.QueryRow(`SELECT COUNT(*), MIN(observed_at) FROM segment_travel_time_samples`).Scan(&out.Samples, &oldest)
+	out.OldestAt = oldest.Int64
+	return out, err
+}
+
+func (s *Store) SchoolYears() (map[int]string, error) {
+	out := map[int]string{}
+	if s.Archive == nil {
+		return out, nil
+	}
+	rows, err := s.Archive.Query(`SELECT year, data FROM school_years`)
 	if err != nil {
 		return nil, err
 	}
@@ -504,13 +500,13 @@ func SchoolYears() (map[int]string, error) {
 	return out, rows.Err()
 }
 
-func SaveSchoolYear(year int, data string, at time.Time) error {
-	if Archive == nil {
+func (s *Store) SaveSchoolYear(year int, data string, at time.Time) error {
+	if s.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	_, err := Archive.Exec(`
+	_, err := s.Archive.Exec(`
 		INSERT INTO school_years (year, data, updated_at) VALUES (?, ?, ?)
 		ON CONFLICT(year) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, year, data, at.Unix())
 	return err
@@ -524,11 +520,11 @@ type ScheduleOverride struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
-func ScheduleOverrides() ([]ScheduleOverride, error) {
-	if Archive == nil {
+func (s *Store) ScheduleOverrides() ([]ScheduleOverride, error) {
+	if s.Archive == nil {
 		return nil, nil
 	}
-	rows, err := Archive.Query(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides ORDER BY date`)
+	rows, err := s.Archive.Query(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides ORDER BY date`)
 	if err != nil {
 		return nil, err
 	}
@@ -544,13 +540,13 @@ func ScheduleOverrides() ([]ScheduleOverride, error) {
 	return out, rows.Err()
 }
 
-func SaveScheduleOverride(o ScheduleOverride) error {
-	if Archive == nil {
+func (s *Store) SaveScheduleOverride(o ScheduleOverride) error {
+	if s.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	_, err := Archive.Exec(`
+	_, err := s.Archive.Exec(`
 		INSERT INTO schedule_overrides (date, schedule, source, detail, created_at) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(date) DO UPDATE SET schedule = excluded.schedule, source = excluded.source,
 			detail = excluded.detail, created_at = excluded.created_at`,
@@ -565,11 +561,11 @@ type TimetableAt struct {
 	Sunday      string
 }
 
-func TimetableHistory(routeShortName string) ([]TimetableAt, error) {
-	if Archive == nil {
+func (s *Store) TimetableHistory(routeShortName string) ([]TimetableAt, error) {
+	if s.Archive == nil {
 		return nil, nil
 	}
-	rows, err := Archive.Query(`
+	rows, err := s.Archive.Query(`
 		SELECT first_seen_at, weekdays, saturday, sunday FROM timetable_versions
 		WHERE route_short_name = ? ORDER BY first_seen_at, id`, routeShortName)
 	if err != nil {
@@ -587,8 +583,8 @@ func TimetableHistory(routeShortName string) ([]TimetableAt, error) {
 	return out, rows.Err()
 }
 
-func RestoreFromArchive(table string, from, to int64, label func(at int64) (string, bool)) (int, error) {
-	if Archive == nil || from >= to {
+func (s *Store) RestoreFromArchive(table string, from, to int64, label func(at int64) (string, bool)) (int, error) {
+	if s.Archive == nil || from >= to {
 		return 0, nil
 	}
 	var t archivedTable
@@ -611,12 +607,12 @@ func RestoreFromArchive(table string, from, to int64, label func(at int64) (stri
 	}
 
 	cols := strings.Join(t.columns, ", ")
-	rows, err := Archive.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
+	rows, err := s.Archive.Query(`SELECT `+cols+` FROM `+t.name+` WHERE `+t.timeCol+` >= ? AND `+t.timeCol+` < ?`, from, to)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = rows.Close() }()
-	tx, err := DB.Begin()
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -657,12 +653,12 @@ func RestoreFromArchive(table string, from, to int64, label func(at int64) (stri
 	return n, tx.Commit()
 }
 
-func ScheduleOverrideOn(date string) (ScheduleOverride, bool, error) {
+func (s *Store) ScheduleOverrideOn(date string) (ScheduleOverride, bool, error) {
 	var o ScheduleOverride
-	if Archive == nil {
+	if s.Archive == nil {
 		return o, false, nil
 	}
-	err := Archive.QueryRow(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides WHERE date = ?`, date).
+	err := s.Archive.QueryRow(`SELECT date, schedule, source, detail, created_at FROM schedule_overrides WHERE date = ?`, date).
 		Scan(&o.Date, &o.Schedule, &o.Source, &o.Detail, &o.CreatedAt)
 	if err == sql.ErrNoRows {
 		return o, false, nil
@@ -670,21 +666,21 @@ func ScheduleOverrideOn(date string) (ScheduleOverride, bool, error) {
 	return o, err == nil, err
 }
 
-func DeleteScheduleOverride(date string) error {
-	if Archive == nil {
+func (s *Store) DeleteScheduleOverride(date string) error {
+	if s.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	_, err := Archive.Exec(`DELETE FROM schedule_overrides WHERE date = ?`, date)
+	_, err := s.Archive.Exec(`DELETE FROM schedule_overrides WHERE date = ?`, date)
 	return err
 }
 
-func ArchivedSegmentSamples(from, to int64, fn func(route, direction, fromStop, toStop, bucket int, duration float64)) error {
-	if Archive == nil {
+func (s *Store) ArchivedSegmentSamples(from, to int64, fn func(route, direction, fromStop, toStop, bucket int, duration float64)) error {
+	if s.Archive == nil {
 		return nil
 	}
-	rows, err := Archive.Query(`
+	rows, err := s.Archive.Query(`
 		SELECT route_id, direction_id, from_stop_id, to_stop_id, bucket_start_min, duration_sec
 		FROM segment_travel_time_samples
 		WHERE observed_at >= ? AND observed_at < ?`, from, to)
@@ -703,34 +699,34 @@ func ArchivedSegmentSamples(from, to int64, fn func(route, direction, fromStop, 
 	return rows.Err()
 }
 
-func ArchiveHasSegmentSamples(from, to int64) (bool, error) {
-	if Archive == nil {
+func (s *Store) ArchiveHasSegmentSamples(from, to int64) (bool, error) {
+	if s.Archive == nil {
 		return false, nil
 	}
 	var found bool
-	err := Archive.QueryRow(`SELECT EXISTS (SELECT 1 FROM segment_travel_time_samples WHERE observed_at >= ? AND observed_at < ?)`, from, to).Scan(&found)
+	err := s.Archive.QueryRow(`SELECT EXISTS (SELECT 1 FROM segment_travel_time_samples WHERE observed_at >= ? AND observed_at < ?)`, from, to).Scan(&found)
 	return found, err
 }
 
-func Tuning(name string) (string, bool, error) {
-	if Archive == nil {
+func (s *Store) Tuning(name string) (string, bool, error) {
+	if s.Archive == nil {
 		return "", false, nil
 	}
 	var data string
-	err := Archive.QueryRow(`SELECT data FROM tuning WHERE name = ?`, name).Scan(&data)
+	err := s.Archive.QueryRow(`SELECT data FROM tuning WHERE name = ?`, name).Scan(&data)
 	if err == sql.ErrNoRows {
 		return "", false, nil
 	}
 	return data, err == nil, err
 }
 
-func SaveTuning(name, data string, at time.Time) error {
-	if Archive == nil {
+func (s *Store) SaveTuning(name, data string, at time.Time) error {
+	if s.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
 	archiveWrites.Lock()
 	defer archiveWrites.Unlock()
-	_, err := Archive.Exec(`
+	_, err := s.Archive.Exec(`
 		INSERT INTO tuning (name, data, updated_at) VALUES (?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, name, data, at.Unix())
 	return err

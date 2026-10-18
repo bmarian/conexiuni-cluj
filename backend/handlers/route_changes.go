@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"crypto/sha1"
 	"database/sql"
@@ -65,29 +64,27 @@ type RouteChange struct {
 	Changes        []RouteChangeItem `json:"changes"`
 }
 
-func storeTimetableTrackingChanges(t *models.Timetable) error {
-	previous, _ := getTimetableFromDB(t.RouteShortName)
-	if err := storeTimetableInDB(t); err != nil {
+func (city *City) storeTimetableTrackingChanges(t *models.Timetable) error {
+	previous, _ := city.getTimetableFromDB(t.RouteShortName)
+	if err := city.storeTimetableInDB(t); err != nil {
 		return err
 	}
 	if previous != nil {
-		recordRouteChanges(t.RouteShortName, routeChangeSourceTimetable, diffTimetables(previous, t))
+		city.recordRouteChanges(t.RouteShortName, routeChangeSourceTimetable, diffTimetables(previous, t))
 	}
 	return nil
 }
 
-func storeStopTimesTrackingChanges(routeShortName string) func([]models.StopTime) error {
-	return func(stopTimes []models.StopTime) error {
-		previous, err := getStopTimesForTrips(tripIDsOf(stopTimes))
-		if err != nil {
-			log.Printf("route changes: could not read previous stops for line %s: %v", routeShortName, err)
-		}
-		if err := storeStopTimesInDB(stopTimes); err != nil {
-			return err
-		}
-		recordRouteChanges(routeShortName, routeChangeSourceStops, diffRouteStops(previous, stopTimes))
-		return nil
+func (city *City) storeStopTimesTrackingChanges(routeShortName string, stopTimes []models.StopTime) error {
+	previous, err := city.getStopTimesForTrips(tripIDsOf(stopTimes))
+	if err != nil {
+		log.Printf("route changes: could not read previous stops for line %s: %v", routeShortName, err)
 	}
+	if err := city.storeStopTimesInDB(stopTimes); err != nil {
+		return err
+	}
+	city.recordRouteChanges(routeShortName, routeChangeSourceStops, diffRouteStops(previous, stopTimes))
+	return nil
 }
 
 func diffTimetables(previous, current *models.Timetable) []RouteChangeItem {
@@ -444,7 +441,7 @@ func tripIDsOf(stopTimes []models.StopTime) []string {
 	return ids
 }
 
-func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) {
+func (city *City) recordRouteChanges(routeShortName, source string, items []RouteChangeItem) {
 	if len(items) == 0 {
 		return
 	}
@@ -458,7 +455,7 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 	now := time.Now()
 	cutoff := now.Add(-routeChangeRetention).UnixMilli()
 
-	tx, err := database.DB.Begin()
+	tx, err := city.DB.Begin()
 	if err != nil {
 		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
 		return
@@ -491,7 +488,7 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
-	wakePushSender()
+	city.wakePushSender()
 
 	kinds := make([]string, len(items))
 	for i, item := range items {
@@ -500,7 +497,7 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 	log.Printf("route changes: line %s %s changed (%s)", routeShortName, source, strings.Join(kinds, ", "))
 }
 
-func GetRouteChanges(c fiber.Ctx) error {
+func (city *City) GetRouteChanges(c fiber.Ctx) error {
 	conditions := []string{"c.detected_at >= ?"}
 	args := []any{time.Now().Add(-routeChangeRetention).UnixMilli()}
 
@@ -527,7 +524,7 @@ func GetRouteChanges(c fiber.Ctx) error {
 	}
 	args = append(args, maxRouteChangesPerRequest)
 
-	changes, err := queryRows(`
+	changes, err := queryRows(city.DB, `
 		SELECT c.id, c.route_short_name, COALESCE(r.route_id, 0), COALESCE(r.route_color, ''),
 		       c.source, c.detected_at, c.changes
 		FROM route_changes c

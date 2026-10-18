@@ -5,64 +5,73 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var DB *sql.DB
+// One city's data: its network, learning and stats in DB, its history in Archive.
+type Store struct {
+	DB      *sql.DB
+	Archive *sql.DB
 
-var lastOptimize time.Time
+	lastOptimize time.Time
 
-func Connect(dbPath string) error {
-	var err error
-	connString := dbPath + "?cache=shared&mode=rwc&_journal_mode=WAL&_busy_timeout=5000"
+	visitorRetentionDays int
+	statsMu              sync.Mutex
+	statsBuf             *statsBuffer
+}
 
-	DB, err = sql.Open("sqlite3", connString)
+func Open(dbPath, archivePath string, visitorRetentionDays int) (*Store, error) {
+	db, err := sql.Open("sqlite3", dbPath+"?cache=shared&mode=rwc&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	errPing := DB.Ping()
-	if errPing != nil {
-		return errPing
+	if err := db.Ping(); err != nil {
+		return nil, err
 	}
-
-	if err = DB.Ping(); err != nil {
-		return err
-	}
-
-	DB.SetMaxOpenConns(25)
-	DB.SetMaxIdleConns(10)
-	DB.SetConnMaxLifetime(0)
-	DB.SetConnMaxIdleTime(5 * time.Minute)
-
-	pragmas := []string{
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(0)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	for _, pragma := range []string{
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA cache_size = -64000",
 		"PRAGMA temp_store = MEMORY",
 		"PRAGMA mmap_size = 268435456",
 		"PRAGMA page_size = 4096",
 		"PRAGMA optimize",
-	}
-
-	for _, pragma := range pragmas {
-		if _, err := DB.Exec(pragma); err != nil {
+	} {
+		if _, err := db.Exec(pragma); err != nil {
 			log.Printf("Warning: Failed to set pragma '%s': %v", pragma, err)
 		}
 	}
-
-	if err := checkIntegrity(); err != nil {
-		// Not fatal: most caches recover by re-fetching.
-		log.Printf("CRITICAL: database integrity check failed: %v -- the server will run but writes to corrupt tables will fail silently; consider running `sqlite3 %s '.recover' | sqlite3 recovered.db` and swapping the file", err, dbPath)
+	if err := checkIntegrity(db); err != nil {
+		// Not fatal: the network is fetched again on the next ingest.
+		log.Printf("CRITICAL: %s integrity check failed: %v -- writes to corrupt tables will fail silently; consider `sqlite3 %s '.recover' | sqlite3 recovered.db`", dbPath, err, dbPath)
 	}
-
-	log.Println("Database connected")
-	return nil
+	s := &Store{DB: db, statsBuf: newStatsBuffer(), visitorRetentionDays: visitorRetentionDays}
+	if err := s.initSchemas(); err != nil {
+		return nil, err
+	}
+	if archivePath != "" {
+		if err := s.openArchive(archivePath); err != nil {
+			log.Printf("Warning: archive %s unavailable, no history is kept: %v", archivePath, err)
+		}
+	}
+	return s, nil
 }
 
-func checkIntegrity() error {
-	rows, err := DB.Query(`PRAGMA integrity_check(5)`)
+func (s *Store) Close() {
+	if s.Archive != nil {
+		_ = s.Archive.Close()
+	}
+	_ = s.DB.Close()
+}
+
+func checkIntegrity(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA integrity_check(5)`)
 	if err != nil {
 		return err
 	}
@@ -87,7 +96,7 @@ func checkIntegrity() error {
 	return nil
 }
 
-func InitSchemas() error {
+func (s *Store) initSchemas() error {
 
 	schema := `
 		CREATE TABLE IF NOT EXISTS vehicles
@@ -155,7 +164,7 @@ func InitSchemas() error {
             stop_code     TEXT    NOT NULL
         );
 
-		CREATE TABLE IF NOT EXISTS api_stop_times
+		CREATE TABLE IF NOT EXISTS trip_stops
         (
             trip_id             TEXT    NOT NULL,
             stop_id             INTEGER NOT NULL,
@@ -187,19 +196,15 @@ func InitSchemas() error {
             sunday           TEXT NOT NULL
         );
 
-		CREATE TABLE IF NOT EXISTS cache_times
+		CREATE TABLE IF NOT EXISTS ingest_state
         (
-            id        TEXT PRIMARY KEY,
-            timestamp INTEGER NOT NULL,
-            lifespan  INTEGER NOT NULL
+            source    TEXT PRIMARY KEY,
+            fetched_at INTEGER NOT NULL
         );
-		
-		CREATE TABLE IF NOT EXISTS stop_info
-        (
-            stop_id           TEXT PRIMARY KEY,
-            trip_ids          TEXT NOT NULL,
-            shapes_short_name TEXT NOT NULL
-        );
+
+		DROP TABLE IF EXISTS cache_times;
+		DROP TABLE IF EXISTS stop_info;
+		DROP TABLE IF EXISTS api_stop_times;
 
 		CREATE TABLE IF NOT EXISTS quotas
         (
@@ -208,12 +213,7 @@ func InitSchemas() error {
             reset_at  INTEGER NOT NULL
         );
 
-		CREATE TABLE IF NOT EXISTS news_cache
-        (
-            url   TEXT PRIMARY KEY,
-            date  TEXT NOT NULL,
-            title TEXT NOT NULL
-        );
+		DROP TABLE IF EXISTS news_cache;
 
 		CREATE TABLE IF NOT EXISTS route_changes
         (
@@ -349,16 +349,16 @@ func InitSchemas() error {
             PRIMARY KEY (route_id, direction_id, arrived_at)
         )
     `
-	_, err := DB.Exec(schema)
+	_, err := s.DB.Exec(schema)
 	if err != nil {
 		return err
 	}
 
 	// Before the indexes: an older database is missing columns some of them cover.
-	if err := addMissingColumns(); err != nil {
+	if err := s.addMissingColumns(); err != nil {
 		return err
 	}
-	if err := retireLifetimeVisitors(); err != nil {
+	if err := s.retireLifetimeVisitors(); err != nil {
 		return err
 	}
 
@@ -409,7 +409,7 @@ func InitSchemas() error {
 		CREATE INDEX IF NOT EXISTS idx_segment_profiles_route_time ON segment_travel_time_profiles(route_id, direction_id, day_type, bucket_start_min);
 	`
 
-	_, err = DB.Exec(indexes)
+	_, err = s.DB.Exec(indexes)
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func InitSchemas() error {
 }
 
 // SQLite has no ADD COLUMN IF NOT EXISTS.
-func addMissingColumns() error {
+func (s *Store) addMissingColumns() error {
 	additions := map[string][]string{
 		"vehicles": {
 			"raw_speed REAL NOT NULL DEFAULT 0",
@@ -446,7 +446,7 @@ func addMissingColumns() error {
 		},
 	}
 	for table, columns := range additions {
-		existing, err := tableColumns(table)
+		existing, err := s.tableColumns(table)
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func addMissingColumns() error {
 			if _, ok := existing[name]; ok {
 				continue
 			}
-			if _, err := DB.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, def)); err != nil {
+			if _, err := s.DB.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, def)); err != nil {
 				return fmt.Errorf("add %s.%s: %w", table, name, err)
 			}
 			log.Printf("schema: added column %s.%s", table, name)
@@ -465,12 +465,12 @@ func addMissingColumns() error {
 }
 
 // Moves stats_visitors into stats_daily and drops it.
-func retireLifetimeVisitors() error {
-	cols, err := tableColumns("stats_visitors")
+func (s *Store) retireLifetimeVisitors() error {
+	cols, err := s.tableColumns("stats_visitors")
 	if err != nil || len(cols) == 0 {
 		return err
 	}
-	tx, err := DB.Begin()
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -495,8 +495,8 @@ func retireLifetimeVisitors() error {
 	return nil
 }
 
-func tableColumns(table string) (map[string]struct{}, error) {
-	rows, err := DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+func (s *Store) tableColumns(table string) (map[string]struct{}, error) {
+	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
 	if err != nil {
 		return nil, err
 	}
@@ -517,30 +517,30 @@ func tableColumns(table string) (map[string]struct{}, error) {
 }
 
 // Rate-limit ANALYZE/optimize calls under concurrent cache writes.
-func Optimize() error {
-	if time.Since(lastOptimize) < 10*time.Minute {
+func (s *Store) Optimize() error {
+	if time.Since(s.lastOptimize) < 10*time.Minute {
 		return nil
 	}
-	lastOptimize = time.Now()
-	if _, err := DB.Exec("PRAGMA optimize"); err != nil {
+	s.lastOptimize = time.Now()
+	if _, err := s.DB.Exec("PRAGMA optimize"); err != nil {
 		return err
 	}
-	if _, err := DB.Exec("ANALYZE"); err != nil {
+	if _, err := s.DB.Exec("ANALYZE"); err != nil {
 		return err
 	}
 	log.Println("Database optimized")
 	return nil
 }
 
-func Vacuum() error {
-	if _, err := DB.Exec("VACUUM"); err != nil {
+func (s *Store) Vacuum() error {
+	if _, err := s.DB.Exec("VACUUM"); err != nil {
 		return err
 	}
 	log.Println("Database vacuumed")
 	return nil
 }
 
-func StartVacuumScheduler() {
+func (s *Store) StartVacuumScheduler() {
 	loc, err := time.LoadLocation("Europe/Bucharest")
 	if err != nil {
 		log.Printf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
@@ -555,48 +555,8 @@ func StartVacuumScheduler() {
 			}
 			log.Printf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
 			time.Sleep(time.Until(next))
-			if err := Vacuum(); err != nil {
+			if err := s.Vacuum(); err != nil {
 				log.Printf("Scheduled vacuum failed: %v", err)
-			}
-		}
-	}()
-}
-
-func StartDSTCacheInvalidationScheduler() {
-	loc, err := time.LoadLocation("Europe/Bucharest")
-	if err != nil {
-		log.Printf("Warning: could not load Europe/Bucharest timezone; DST cache invalidation scheduler disabled: %v", err)
-		return
-	}
-
-	go func() {
-		for {
-			now := time.Now().In(loc)
-			nextCheck := time.Date(now.Year(), now.Month(), now.Day(), 4, 0, 0, 0, loc)
-			if !nextCheck.After(now) {
-				nextCheck = nextCheck.Add(24 * time.Hour)
-			}
-
-			log.Printf("Next DST offset check at %s", nextCheck.Format("2006-01-02 15:04:05 MST"))
-
-			if wait := time.Until(nextCheck); wait > 0 {
-				time.Sleep(wait)
-			}
-
-			checkTime := time.Now().In(loc)
-			yesterday := checkTime.AddDate(0, 0, -1)
-
-			_, currentOffset := checkTime.Zone()
-			_, previousOffset := yesterday.Zone()
-
-			if currentOffset != previousOffset {
-				if err := InvalidateAllCaches(); err != nil {
-					log.Printf("DST offset change detected but cache invalidation failed: %v", err)
-				} else {
-					log.Printf("DST offset change detected (%d -> %d); all cache entries invalidated", previousOffset, currentOffset)
-				}
-			} else {
-				log.Printf("No DST offset change detected at daily check")
 			}
 		}
 	}()

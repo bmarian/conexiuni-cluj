@@ -7,6 +7,7 @@ import {useFollowsStore} from '@/stores/follows.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
 import type {Followed} from '@/utils/follow.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const props = defineProps<{ followed: Followed }>()
 
@@ -22,7 +23,7 @@ const minutes = computed(() => (live.value ? formatMinutesFromNow(live.value.min
 
 <template>
   <div class="follow-card" role="button" tabindex="0" :data-kbd-item="`follow-${followed.id}`"
-       @click="router.push(`/stop/${followed.stopId}`)" @keydown.enter.prevent="router.push(`/stop/${followed.stopId}`)">
+       @click="router.push(cityPath(`/stop/${followed.stopId}`))" @keydown.enter.prevent="router.push(cityPath(`/stop/${followed.stopId}`))">
     <div class="min-w-0 flex-1 flex flex-col gap-1">
       <p class="follow-kicker">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

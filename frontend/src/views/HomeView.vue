@@ -26,6 +26,7 @@ import {nextOf} from '@/utils/reminders.ts'
 import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -53,11 +54,11 @@ useHead(() => ({
     {name: 'description', content: t('headHomeDesc')},
     {property: 'og:title', content: t('headHomeTitle')},
     {property: 'og:description', content: t('headHomeDesc')},
-    {property: 'og:url', content: siteUrl('/')},
+    {property: 'og:url', content: siteUrl(cityPath('/'))},
     {name: 'twitter:title', content: t('headHomeTitle')},
     {name: 'twitter:description', content: t('headHomeDesc')},
   ],
-  link: [{rel: 'canonical', href: siteUrl('/')}],
+  link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()

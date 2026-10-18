@@ -1,152 +1,21 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
-	ctp_cj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/tranzy"
+	"conexiuni-cluj/sources/ctpcsv"
 	"encoding/json"
 	"fmt"
-	"log"
-	"strings"
 )
 
-func GetTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, routeShortName string) (*models.Timetable, error) {
-	cacheID := "TIMETABLE_" + routeShortName
-	return HandleCached(cacheID, cacheTimes.TimetableCacheShelfLife,
-		func() (*models.Timetable, error) { return getTimetableFromDB(routeShortName) },
-		func() (*models.Timetable, error) {
-			return fetchTimetable(ctpCjClient, tranzyClient, cacheTimes, routeShortName)
-		},
-		storeTimetableTrackingChanges,
-		CacheOpts[*models.Timetable]{Optimize: true},
-	)
+func (city *City) GetTimetable(routeShortName string) (*models.Timetable, error) {
+	return city.getTimetableFromDB(routeShortName)
 }
 
-func fetchTimetable(ctpCjClient *ctp_cj.Client, tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, routeShortName string) (*models.Timetable, error) {
-	weekdays, saturday, sunday, err := ctpCjClient.FetchTimetable(routeShortName)
-	if err != nil {
-		return nil, err
-	}
-
-	t := &models.Timetable{
-		RouteShortName: routeShortName,
-		Weekdays:       models.DaySchedule{Entries: []models.TimetableEntry{}},
-		Saturday:       models.DaySchedule{Entries: []models.TimetableEntry{}},
-		Sunday:         models.DaySchedule{Entries: []models.TimetableEntry{}},
-	}
-
-	for _, parsed := range []*ctp_cj.ParsedTimetable{weekdays, saturday, sunday} {
-		if parsed != nil {
-			t.RouteLongName = parsed.RouteLongName
-			t.InStopName = parsed.InStopName
-			t.OutStopName = parsed.OutStopName
-			break
-		}
-	}
-
-	if weekdays != nil {
-		t.Weekdays = toDaySchedule(weekdays)
-	}
-	if saturday != nil {
-		t.Saturday = toDaySchedule(saturday)
-	}
-	if sunday != nil {
-		t.Sunday = toDaySchedule(sunday)
-	}
-
-	alignTimetableToDirectionIDs(tranzyClient, cacheTimes, t)
-
-	return t, nil
-}
-
-// CTP's in/out columns don't follow Tranzy's direction ids, so swap them when the stop names match the other way.
-func alignTimetableToDirectionIDs(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, t *models.Timetable) {
-	if t == nil || (t.InStopName == "" && t.OutStopName == "") {
-		return
-	}
-	stopTimes, err := GetStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &t.RouteShortName})
-	if err != nil {
-		log.Printf("timetable %s: skip direction alignment (stop_times error: %v)", t.RouteShortName, err)
-		return
-	}
-	firstStop0 := firstStopOfDirection(stopTimes, "_0")
-	firstStop1 := firstStopOfDirection(stopTimes, "_1")
-	if firstStop0 == "" || firstStop1 == "" {
-		return
-	}
-
-	keep := stopMatchScore(t.InStopName, firstStop0) + stopMatchScore(t.OutStopName, firstStop1)
-	swap := stopMatchScore(t.InStopName, firstStop1) + stopMatchScore(t.OutStopName, firstStop0)
-
-	if swap > keep {
-		log.Printf("timetable %s: swapping directions (CTP in=%q out=%q ↔ Tranzy dir0=%q dir1=%q)",
-			t.RouteShortName, t.InStopName, t.OutStopName, firstStop0, firstStop1)
-		t.InStopName, t.OutStopName = t.OutStopName, t.InStopName
-		swapDayScheduleColumns(&t.Weekdays)
-		swapDayScheduleColumns(&t.Saturday)
-		swapDayScheduleColumns(&t.Sunday)
-	}
-}
-
-func firstStopOfDirection(stopTimes []models.StopTime, tripSuffix string) string {
-	var best *models.StopTime
-	for i := range stopTimes {
-		st := &stopTimes[i]
-		if !strings.HasSuffix(st.TripID, tripSuffix) {
-			continue
-		}
-		if best == nil || st.StopSequence < best.StopSequence {
-			best = st
-		}
-	}
-	if best == nil {
-		return ""
-	}
-	return best.StopHeadsign
-}
-
-func swapDayScheduleColumns(d *models.DaySchedule) {
-	for i := range d.Entries {
-		d.Entries[i].DepartureIn, d.Entries[i].DepartureOut = d.Entries[i].DepartureOut, d.Entries[i].DepartureIn
-	}
-	d.InFrequency, d.OutFrequency = d.OutFrequency, d.InFrequency
-}
-
-func toDaySchedule(p *ctp_cj.ParsedTimetable) models.DaySchedule {
-	entries := make([]models.TimetableEntry, len(p.Entries))
-	for i, e := range p.Entries {
-		entries[i] = models.TimetableEntry{
-			DepartureIn:  e.DepartureIn,
-			DepartureOut: e.DepartureOut,
-		}
-	}
-	return models.DaySchedule{
-		ServiceName:  p.ServiceName,
-		ServiceStart: p.ServiceStart,
-		Entries:      entries,
-		InFrequency:  toFrequency(p.InFrequency),
-		OutFrequency: toFrequency(p.OutFrequency),
-	}
-}
-
-func toFrequency(f *ctp_cj.Frequency) *models.Frequency {
-	if f == nil {
-		return nil
-	}
-	return &models.Frequency{
-		Start:      f.Start,
-		End:        f.End,
-		MinMinutes: f.MinMinutes,
-		MaxMinutes: f.MaxMinutes,
-	}
-}
-
-func getTimetableFromDB(routeShortName string) (*models.Timetable, error) {
+func (city *City) getTimetableFromDB(routeShortName string) (*models.Timetable, error) {
 	var t models.Timetable
 	var weekdaysJSON, saturdayJSON, sundayJSON string
 
-	err := database.DB.QueryRow(
+	err := city.DB.QueryRow(
 		`SELECT route_short_name, route_long_name, in_stop_name, out_stop_name, weekdays, saturday, sunday
 		 FROM timetable WHERE route_short_name = ?`,
 		routeShortName,
@@ -185,12 +54,12 @@ func normalizeDaySchedule(d *models.DaySchedule) {
 	prevIn, prevOut := -1, -1
 	offIn, offOut := 0, 0
 	for i := range d.Entries {
-		d.Entries[i].DepartureIn = ctp_cj.NormalizeTime(d.Entries[i].DepartureIn, &prevIn, &offIn)
-		d.Entries[i].DepartureOut = ctp_cj.NormalizeTime(d.Entries[i].DepartureOut, &prevOut, &offOut)
+		d.Entries[i].DepartureIn = ctpcsv.NormalizeTime(d.Entries[i].DepartureIn, &prevIn, &offIn)
+		d.Entries[i].DepartureOut = ctpcsv.NormalizeTime(d.Entries[i].DepartureOut, &prevOut, &offOut)
 	}
 }
 
-func storeTimetableInDB(t *models.Timetable) error {
+func (city *City) storeTimetableInDB(t *models.Timetable) error {
 	weekdaysJSON, err := json.Marshal(t.Weekdays)
 	if err != nil {
 		return fmt.Errorf("error marshalling weekdays: %w", err)
@@ -204,7 +73,7 @@ func storeTimetableInDB(t *models.Timetable) error {
 		return fmt.Errorf("error marshalling sunday: %w", err)
 	}
 
-	_, err = database.DB.Exec(`
+	_, err = city.DB.Exec(`
 		INSERT OR REPLACE INTO timetable
 		(route_short_name, route_long_name, in_stop_name, out_stop_name, weekdays, saturday, sunday)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -220,6 +89,6 @@ func storeTimetableInDB(t *models.Timetable) error {
 		return fmt.Errorf("error storing timetable: %w", err)
 	}
 
-	archiveTimetable(t, string(weekdaysJSON), string(saturdayJSON), string(sundayJSON))
+	city.archiveTimetable(t, string(weekdaysJSON), string(saturdayJSON), string(sundayJSON))
 	return nil
 }

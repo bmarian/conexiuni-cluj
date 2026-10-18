@@ -38,6 +38,7 @@ type CalendarView = {
   learning: {windows: LearningWindow[]}
 }
 
+const props = defineProps<{city: string}>()
 const emit = defineEmits<{saved: []}>()
 
 const view = ref<CalendarView | null>(null)
@@ -96,7 +97,7 @@ function pick(year: number) {
 
 async function load() {
   try {
-    const res = await fetch('/api/admin/calendar', {credentials: 'same-origin'})
+    const res = await fetch(`/api/admin/calendar?city=${props.city}`, {credentials: 'same-origin'})
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     show(await res.json() as CalendarView)
     loadError.value = ''
@@ -123,7 +124,7 @@ async function save() {
   saving.value = true
   saveMessage.value = ''
   try {
-    const res = await fetch('/api/admin/calendar', {
+    const res = await fetch(`/api/admin/calendar?city=${props.city}`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       credentials: 'same-origin',
@@ -147,7 +148,7 @@ async function loadDay() {
   if (!dayDate.value) return
   dayError.value = ''
   try {
-    const res = await fetch(`/api/admin/calendar/day?date=${encodeURIComponent(dayDate.value)}`, {credentials: 'same-origin'})
+    const res = await fetch(`/api/admin/calendar/day?city=${props.city}&date=${encodeURIComponent(dayDate.value)}`, {credentials: 'same-origin'})
     const body = await res.json().catch(() => null)
     if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
     day.value = body as CalendarDay
@@ -162,7 +163,7 @@ async function setDay(schedule: string, date = dayDate.value) {
   dayBusy.value = true
   dayError.value = ''
   try {
-    const res = await fetch('/api/admin/calendar/day', {
+    const res = await fetch(`/api/admin/calendar/day?city=${props.city}`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       credentials: 'same-origin',

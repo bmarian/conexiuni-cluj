@@ -5,18 +5,11 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/predictions"
-	ctpcj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"os"
 	"testing"
 	"time"
 )
-
-type replayNoPersist struct{}
-
-func (replayNoPersist) Save(string, int, time.Time) error   { return nil }
-func (replayNoPersist) Load(string) (int, time.Time, error) { return 0, time.Time{}, nil }
 
 // Feeds the scoring harness. REPLAY_FILE=... REPLAY_DB=... REPLAY_OUT=... go test -run TestReplayLiveRows ./handlers/
 func TestReplayLiveRows(t *testing.T) {
@@ -24,26 +17,22 @@ func TestReplayLiveRows(t *testing.T) {
 	if file == "" || dbPath == "" || outPath == "" {
 		t.Skip("REPLAY_FILE, REPLAY_DB and REPLAY_OUT not set")
 	}
-	if err := database.Connect(dbPath); err != nil {
+	store, err := database.Open(dbPath, "", 5)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.InitSchemas(); err != nil {
-		t.Fatal(err)
-	}
-	defer database.DB.Close()
-	loc, _ := time.LoadLocation("Europe/Bucharest")
+	city := NewCity("replay", "Replay", store, nil, nil, nil, nil, Options{})
+	defer city.Close()
+	loc := city.Location
 	// What the learners would have derived from the snapshot's samples by now.
-	if n, err := recomputeScheduleDelays(loc, time.Now()); err != nil {
+	if n, err := city.recomputeScheduleDelays(loc, time.Now()); err != nil {
 		t.Logf("schedule delays: %v", err)
 	} else {
 		t.Logf("schedule delays: %d profiles", n)
 	}
-	resetProfileSnapshots()
-	resetTurnaroundCache()
-	liveDeps.tranzy = tranzy.NewClient("http://127.0.0.1:1", "none", "2", time.Second, 1, 1, replayNoPersist{})
-	liveDeps.ctp = ctpcj.NewClient("http://127.0.0.1:1", time.Second)
-	liveDeps.cacheTimes = models.CacheTimes{TranzyCacheShelfLife: 365 * 24 * time.Hour, TimetableCacheShelfLife: 365 * 24 * time.Hour}
-	livePollInterval = func() time.Duration { return 15 * time.Second }
+	city.resetProfileSnapshots()
+	city.resetTurnaroundCache()
+	livePollInterval = func(*City) time.Duration { return 15 * time.Second }
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -72,18 +61,17 @@ func TestReplayLiveRows(t *testing.T) {
 		}
 		at := time.Unix(int64(frame.T), 0).In(loc)
 		liveClock = func() time.Time { return at }
-		refreshLiveTrips(false)
+		city.refreshLiveTrips(false)
 		for i := range frame.Vehicles {
 			v := &frame.Vehicles[i]
-			v.TripID = NormalizeTripID(v.TripID)
 			prev, had := previous[v.ID]
 			carryTripChange(v, prev, had)
 			previous[v.ID] = *v
 		}
-		table := RecomputeLive(frame.Vehicles, at)
-		liveTrips.RLock()
-		trips := liveTrips.byTrip
-		liveTrips.RUnlock()
+		table := city.RecomputeLive(frame.Vehicles, at)
+		city.liveTrips.RLock()
+		trips := city.liveTrips.byTrip
+		city.liveTrips.RUnlock()
 		type entry struct {
 			At        int64  `json:"at"`
 			Live      bool   `json:"live"`

@@ -35,6 +35,7 @@ import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
 import {siteUrl} from "@/utils/site.ts";
+import {cityPath} from '@/utils/city.ts'
 
 const props = defineProps<{ stopId: string }>()
 
@@ -154,7 +155,7 @@ useHead(() => {
   if (!stopName.value) return {}
   const title = t('headStopTitle', {stopName: stopName.value})
   const description = t('headStopDesc', {stopName: stopName.value})
-  const url = siteUrl(`/stop/${props.stopId}`)
+  const url = siteUrl(cityPath(`/stop/${props.stopId}`))
   return {
     title,
     meta: [

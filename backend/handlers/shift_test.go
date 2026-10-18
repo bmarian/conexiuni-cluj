@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
-	"conexiuni-cluj/database"
 	"strings"
 	"testing"
 	"time"
 )
 
-func archiveBucketSample(t *testing.T, at time.Time, bucket int, duration float64) {
+func (city *City) archiveBucketSample(t *testing.T, at time.Time, bucket int, duration float64) {
 	t.Helper()
-	if _, err := database.Archive.Exec(`INSERT INTO segment_travel_time_samples
+	if _, err := city.Archive.Exec(`INSERT INTO segment_travel_time_samples
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 		VALUES (7, 0, 1, 2, 'weekday', ?, ?, ?)`, bucket, duration, at.Unix()); err != nil {
 		t.Fatalf("archive sample: %v", err)
@@ -18,11 +17,11 @@ func archiveBucketSample(t *testing.T, at time.Time, bucket int, duration float6
 }
 
 func TestShiftShowsAStepOnTheDate(t *testing.T) {
-	withTestArchive(t)
-	withSeedCalendar(t)
-	cal := currentCalendar()
-	date := clujAt("2026-09-28", 0)
-	for d := clujAt("2026-09-07", 0); d.Before(clujAt("2026-10-17", 0)); d = d.AddDate(0, 0, 1) {
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	cal := city.currentCalendar()
+	date := city.clujAt("2026-09-28", 0)
+	for d := city.clujAt("2026-09-07", 0); d.Before(city.clujAt("2026-10-17", 0)); d = d.AddDate(0, 0, 1) {
 		if cal.ProfileDay(d) != calendar.Weekday {
 			continue
 		}
@@ -31,15 +30,15 @@ func TestShiftShowsAStepOnTheDate(t *testing.T) {
 			morning = 90
 		}
 		for m := range 6 {
-			archiveBucketSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), 480, morning)
+			city.archiveBucketSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), 480, morning)
 		}
 		for m := range 8 {
-			archiveBucketSample(t, d.Add(18*time.Hour+time.Duration(m)*time.Minute), 1080, 100)
+			city.archiveBucketSample(t, d.Add(18*time.Hour+time.Duration(m)*time.Minute), 1080, 100)
 		}
 	}
 
 	var out strings.Builder
-	if err := RunShift(date, &out); err != nil {
+	if err := city.RunShift(date, &out); err != nil {
 		t.Fatalf("shift: %v", err)
 	}
 	lines := map[string]string{}

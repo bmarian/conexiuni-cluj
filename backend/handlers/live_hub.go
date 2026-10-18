@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"compress/gzip"
 	"conexiuni-cluj/database"
-	"conexiuni-cluj/services/tranzy"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,18 +40,22 @@ type liveHub struct {
 	perClient   map[string]int
 	nextID      int64
 	running     bool
-	tranzy      *tranzy.Client
-	intervalCfg VehicleIntervalConfig
+	city        *City
 }
 
-var VehicleHub *liveHub
-
-func InitVehicleHub(tranzyClient *tranzy.Client, intervalCfg VehicleIntervalConfig) {
-	VehicleHub = &liveHub{subscribers: make(map[int64]*liveSubscriber), perClient: make(map[string]int), tranzy: tranzyClient, intervalCfg: intervalCfg}
+func newLiveHub(city *City) *liveHub {
+	return &liveHub{subscribers: make(map[int64]*liveSubscriber), perClient: make(map[string]int), city: city}
 }
 
 func (h *liveHub) intervalFor(subscribers int) time.Duration {
-	return ComputeVehicleInterval(h.intervalCfg, subscribers, h.tranzy.VehiclesQuotaRemaining(), time.Now(), h.tranzy.Location())
+	// A schedule-only city has nothing to spend; the table still rolls forward at the viewers' pace.
+	remaining := math.MaxInt32
+	if h.city.Realtime != nil {
+		if budget := h.city.Realtime.Budget(); budget.Limit > 0 {
+			remaining = budget.Remaining
+		}
+	}
+	return ComputeVehicleInterval(h.city.Options.VehicleInterval, subscribers, remaining, time.Now(), h.city.Location)
 }
 
 func (h *liveHub) CurrentInterval() time.Duration {
@@ -76,6 +80,7 @@ type liveWatching struct {
 
 // Watching counts the people on each stop and line among the open streams.
 func (h *liveHub) Watching() liveWatching {
+	city := h.city
 	stops := make(map[int]map[string]struct{})
 	trips := make(map[string]map[string]struct{})
 	people := make(map[string]struct{})
@@ -103,7 +108,7 @@ func (h *liveHub) Watching() liveWatching {
 	}
 	routes := make(map[int]map[string]struct{})
 	for trip, clients := range trips {
-		if routeID, ok := routeIDOfTrip(trip); ok {
+		if routeID, ok := city.routeIDOfTrip(trip); ok {
 			for client := range clients {
 				addWatcher(routes, routeID, client)
 			}
@@ -123,10 +128,10 @@ func addWatcher[K comparable](m map[K]map[string]struct{}, id K, client string) 
 	m[id][client] = struct{}{}
 }
 
-func routeIDOfTrip(tripID string) (int, bool) {
-	liveTrips.RLock()
-	lt, ok := liveTrips.byTrip[NormalizeTripID(tripID)]
-	liveTrips.RUnlock()
+func (city *City) routeIDOfTrip(tripID string) (int, bool) {
+	city.liveTrips.RLock()
+	lt, ok := city.liveTrips.byTrip[tripID]
+	city.liveTrips.RUnlock()
 	if !ok {
 		return 0, false
 	}
@@ -134,37 +139,32 @@ func routeIDOfTrip(tripID string) (int, bool) {
 }
 
 // Each person counts once per stop and line a day, however often their screens reconnect.
-var liveViews = struct {
-	sync.Mutex
-	day  string
-	seen map[string]struct{}
-}{}
 
-func recordLiveViews(client string, stopIDs []int, tripIDs []string) {
+func (city *City) recordLiveViews(client string, stopIDs []int, tripIDs []string) {
 	if client == "" {
 		return
 	}
 	day := database.StatsDate(time.Now())
-	liveViews.Lock()
-	defer liveViews.Unlock()
-	if liveViews.day != day {
-		liveViews.day, liveViews.seen = day, make(map[string]struct{})
+	city.liveViews.Lock()
+	defer city.liveViews.Unlock()
+	if city.liveViews.day != day {
+		city.liveViews.day, city.liveViews.seen = day, make(map[string]struct{})
 	}
 	note := func(metric string, id int) {
 		key := strconv.Itoa(id)
-		if _, ok := liveViews.seen[client+metric+key]; ok {
+		if _, ok := city.liveViews.seen[client+metric+key]; ok {
 			return
 		}
-		liveViews.seen[client+metric+key] = struct{}{}
-		database.RecordEvent(metric, key)
+		city.liveViews.seen[client+metric+key] = struct{}{}
+		city.RecordEvent(metric, key)
 	}
 	for _, id := range stopIDs {
-		if !Availability.IsReady() || Availability.StopHasBuses(id) {
+		if !city.availability.IsReady() || city.availability.StopHasBuses(id) {
 			note("stop_view", id)
 		}
 	}
 	for _, trip := range tripIDs {
-		if routeID, ok := routeIDOfTrip(trip); ok {
+		if routeID, ok := city.routeIDOfTrip(trip); ok {
 			note("route_view", routeID)
 		}
 	}
@@ -176,7 +176,7 @@ func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs [
 		sub.stops[id] = struct{}{}
 	}
 	for _, id := range tripIDs {
-		sub.trips[NormalizeTripID(id)] = struct{}{}
+		sub.trips[id] = struct{}{}
 	}
 	h.mu.Lock()
 	if h.perClient[client] >= maxLiveStreamsPerClient {
@@ -232,7 +232,7 @@ func (h *liveHub) run() {
 		h.mu.Unlock()
 
 		interval := h.intervalFor(n)
-		if table, err := h.poll(interval); err != nil {
+		if table, err := h.poll(); err != nil {
 			log.Printf("live hub: poll failed interval=%s subs=%d err=%v", interval, n, err)
 		} else {
 			for _, sub := range subs {
@@ -243,23 +243,23 @@ func (h *liveHub) run() {
 	}
 }
 
-func (h *liveHub) poll(shelfLife time.Duration) (*liveTable, error) {
-	vehicles, err := GetVehicles(h.tranzy, shelfLife, VehicleFilter{})
-	if err != nil {
+func (h *liveHub) poll() (*liveTable, error) {
+	city := h.city
+	if city.Realtime == nil {
+		return city.RecomputeLive(nil, time.Now()), nil
+	}
+	if _, err := city.observeVehicles(city.Realtime); err != nil {
 		return nil, err
 	}
-	if table := currentLiveTable(); table != nil {
-		return table, nil
-	}
-	// Right after a start the vehicles come from the database while the fetch runs in the background.
-	return RecomputeLive(vehicles, time.Now()), nil
+	return city.currentLiveTable(), nil
 }
 
 func (h *liveHub) current() (*liveTable, error) {
-	if table := currentLiveTable(); table != nil && time.Since(table.AsOf) < 2*time.Minute {
+	city := h.city
+	if table := city.currentLiveTable(); table != nil && time.Since(table.AsOf) < 2*time.Minute {
 		return table, nil
 	}
-	return h.poll(h.CurrentInterval())
+	return h.poll()
 }
 
 func (h *liveHub) sendTo(sub *liveSubscriber) {
@@ -378,14 +378,14 @@ func liveIDs(c fiber.Ctx) ([]int, []string) {
 }
 
 // SSE stream of a snapshot then deltas, or one JSON answer.
-func ServeLive(c fiber.Ctx) error {
+func (city *City) ServeLive(c fiber.Ctx) error {
 	stopIDs, tripIDs := liveIDs(c)
 	if len(stopIDs) == 0 && len(tripIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "stop_ids, trip_ids or route_ids required"})
 	}
 	client, person := ClientHashFromLocals(c), IsPerson(c)
 	if person {
-		recordLiveViews(client, stopIDs, tripIDs)
+		city.recordLiveViews(client, stopIDs, tripIDs)
 	}
 	if c.Query("once") != "" {
 		sub := &liveSubscriber{stops: map[int]struct{}{}, trips: map[string]struct{}{}}
@@ -393,9 +393,9 @@ func ServeLive(c fiber.Ctx) error {
 			sub.stops[id] = struct{}{}
 		}
 		for _, id := range tripIDs {
-			sub.trips[NormalizeTripID(id)] = struct{}{}
+			sub.trips[id] = struct{}{}
 		}
-		table, err := VehicleHub.current()
+		table, err := city.hub.current()
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -403,7 +403,7 @@ func ServeLive(c fiber.Ctx) error {
 		return c.JSON(sub.view(table))
 	}
 
-	sub, id, ok := VehicleHub.Subscribe(client, person, stopIDs, tripIDs)
+	sub, id, ok := city.hub.Subscribe(client, person, stopIDs, tripIDs)
 	if !ok {
 		// A 200 that ends at once makes a browser reconnect after `retry`; a 429 would stop it for good.
 		log.Printf("live hub: refused a stream for client %s, over %d", client, maxLiveStreamsPerClient)
@@ -421,7 +421,7 @@ func ServeLive(c fiber.Ctx) error {
 		c.Set("Content-Encoding", "gzip")
 	}
 	return c.SendStreamWriter(func(w *bufio.Writer) {
-		defer VehicleHub.Unsubscribe(id)
+		defer city.hub.Unsubscribe(id)
 		out := &eventWriter{w: w}
 		if gzipped {
 			out.gz, _ = gzip.NewWriterLevel(w, gzip.BestSpeed)

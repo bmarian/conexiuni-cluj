@@ -11,6 +11,7 @@ import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
 import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import {getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const FROM_STOP_ZOOM = 14
 
@@ -54,7 +55,7 @@ watch(() => props.direction, (direction) => {
 function toggleTimetable() {
   if (!timetableOpen.value) {
     void router.push({query: {timetable: '1'}})
-  } else if (typeof window.history.state?.back === 'string' && window.history.state.back.startsWith(`/route/${props.routeId}/`)) {
+  } else if (typeof window.history.state?.back === 'string' && window.history.state.back.startsWith(cityPath(`/route/${props.routeId}/`))) {
     router.back()
   } else {
     void router.replace({query: {}})

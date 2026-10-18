@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"conexiuni-cluj/services/tranzy"
-
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -64,12 +62,12 @@ func validAdminSession(token, value string, now time.Time) bool {
 		subtle.ConstantTimeCompare(got, expected) == 1
 }
 
-func setAdminSessionCookie(c fiber.Ctx, token string, secure bool) {
+func setAdminSessionCookie(c fiber.Ctx, path, token string, secure bool) {
 	now := time.Now()
 	c.Cookie(&fiber.Cookie{
 		Name:     adminSessionCookie,
 		Value:    newAdminSession(token, now),
-		Path:     "/api/admin",
+		Path:     path,
 		Expires:  now.Add(adminSessionMaxAge),
 		MaxAge:   int(adminSessionMaxAge.Seconds()),
 		Secure:   secure,
@@ -78,11 +76,11 @@ func setAdminSessionCookie(c fiber.Ctx, token string, secure bool) {
 	})
 }
 
-func clearAdminSessionCookie(c fiber.Ctx, secure bool) {
+func clearAdminSessionCookie(c fiber.Ctx, path string, secure bool) {
 	c.Cookie(&fiber.Cookie{
 		Name:     adminSessionCookie,
 		Value:    "",
-		Path:     "/api/admin",
+		Path:     path,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		Secure:   secure,
@@ -103,11 +101,22 @@ func RequireAdminSession(token string) fiber.Handler {
 	}
 }
 
-func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Client, secureCookies bool) {
-	if token == "" {
+// RegisterAdminRoutes serves one admin for every city; ?city= picks one, the first is the default.
+func RegisterAdminRoutes(api fiber.Router, cities []*City, token string, secureCookies bool) {
+	if token == "" || len(cities) == 0 {
 		return
 	}
 	admin := api.Group("/admin")
+	cookiePath := "/api/admin"
+	cityOf := func(c fiber.Ctx) *City {
+		slug := c.Query("city")
+		for _, city := range cities {
+			if city.Slug == slug {
+				return city
+			}
+		}
+		return cities[0]
+	}
 
 	admin.Post("/login", func(c fiber.Ctx) error {
 		var req adminLoginRequest
@@ -117,19 +126,19 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 		if !adminTokenMatches(token, req.Token) {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
-		setAdminSessionCookie(c, token, secureCookies)
+		setAdminSessionCookie(c, cookiePath, token, secureCookies)
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(fiber.Map{"ok": true})
 	})
 
 	admin.Post("/logout", func(c fiber.Ctx) error {
-		clearAdminSessionCookie(c, secureCookies)
+		clearAdminSessionCookie(c, cookiePath, secureCookies)
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(fiber.Map{"ok": true})
 	})
 
 	admin.Get("/overview", RequireAdminSession(token), func(c fiber.Ctx) error {
-		overview, err := buildAdminOverview(tranzyClient, time.Now())
+		overview, err := cityOf(c).buildAdminOverview(time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -137,5 +146,5 @@ func RegisterAdminRoutes(api fiber.Router, token string, tranzyClient *tranzy.Cl
 		return c.JSON(overview)
 	})
 
-	registerAdminCalendarRoutes(admin, token)
+	registerAdminCalendarRoutes(admin, cityOf, token)
 }

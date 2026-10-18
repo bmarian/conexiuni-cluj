@@ -3,7 +3,6 @@ package handlers
 import (
 	"conexiuni-cluj/models"
 	"slices"
-	"sync"
 	"time"
 )
 
@@ -17,12 +16,7 @@ type feedStatus struct {
 	ErrAt  time.Time
 }
 
-var feed = struct {
-	sync.Mutex
-	status feedStatus
-}{}
-
-func noteFeed(reported int, vehicles []models.Vehicle) {
+func (city *City) noteFeed(reported int, vehicles []models.Vehicle) {
 	now := time.Now()
 	ages := make([]time.Duration, 0, len(vehicles))
 	for _, v := range vehicles {
@@ -31,23 +25,23 @@ func noteFeed(reported int, vehicles []models.Vehicle) {
 		}
 	}
 	slices.Sort(ages)
-	feed.Lock()
-	feed.status.FetchedAt, feed.status.Reported, feed.status.Valid = now, reported, len(vehicles)
-	feed.status.FixAge = 0
+	city.feed.Lock()
+	city.feed.status.FetchedAt, city.feed.status.Reported, city.feed.status.Valid = now, reported, len(vehicles)
+	city.feed.status.FixAge = 0
 	if len(ages) > 0 {
-		feed.status.FixAge = ages[len(ages)/2]
+		city.feed.status.FixAge = ages[len(ages)/2]
 	}
-	feed.Unlock()
+	city.feed.Unlock()
 }
 
-func noteFeedError(err error) {
-	feed.Lock()
-	feed.status.Err, feed.status.ErrAt = err.Error(), time.Now()
-	feed.Unlock()
+func (city *City) noteFeedError(err error) {
+	city.feed.Lock()
+	city.feed.status.Err, city.feed.status.ErrAt = err.Error(), time.Now()
+	city.feed.Unlock()
 }
 
-func currentFeedStatus() feedStatus {
-	feed.Lock()
-	defer feed.Unlock()
-	return feed.status
+func (city *City) currentFeedStatus() feedStatus {
+	city.feed.Lock()
+	defer city.feed.Unlock()
+	return city.feed.status
 }

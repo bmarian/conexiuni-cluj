@@ -20,8 +20,9 @@ import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
+import {useRouteUpdatesStore} from "@/stores/routeUpdates"
 
-const WeatherButton = defineAsyncComponent(() => import("@/components/WeatherButton.vue"))
+const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
 const WatchShell = defineAsyncComponent(() => import("@/components/watch/WatchShell.vue"))
 const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/SimplifiedLayoutPrompt.vue"))
@@ -36,6 +37,9 @@ const route = useRoute()
 const {keyboardMode} = useKeyboardNav()
 useKeyboardNavRoot(useRouter())
 const isAdminRoute = computed(() => route.name === 'admin')
+const routeUpdates = useRouteUpdatesStore()
+// The news button appears once a line is followed with its bell.
+const showNews = computed(() => routeUpdates.followed.length > 0 && isOnline.value)
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -360,15 +364,14 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       :style="{ '--controls-row-index': 0 }"
     />
     <NewsButton
-      v-if="appSettings.showNews && isOnline"
+      v-if="showNews"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
       :style="{ '--controls-row-index': 1 }"
     />
-    <WeatherButton
-      v-if="appSettings.showWeather && isOnline"
-      :top-offset="appSettings.showNews && isOnline ? '6.25rem' : '3.5rem'"
+    <CityButton
+      :top-offset="showNews ? '6.25rem' : '3.5rem'"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
-      :style="{ '--controls-row-index': appSettings.showNews && isOnline ? 2 : 1 }"
+      :style="{ '--controls-row-index': showNews ? 2 : 1 }"
     />
     <AppToast :landscape-open="isLandscapeDrawerOpen"/>
     <button

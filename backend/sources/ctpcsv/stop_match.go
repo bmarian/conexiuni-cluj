@@ -1,4 +1,4 @@
-package handlers
+package ctpcsv
 
 import (
 	"strings"

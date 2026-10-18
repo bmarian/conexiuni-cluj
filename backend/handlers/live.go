@@ -3,14 +3,11 @@ package handlers
 import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/predictions"
-	ctpcj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"log"
 	"math"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -69,29 +66,13 @@ type liveTrip struct {
 }
 
 var (
-	liveDeps struct {
-		tranzy     *tranzy.Client
-		ctp        *ctpcj.Client
-		cacheTimes models.CacheTimes
-	}
-	liveTrips = struct {
-		sync.RWMutex
-		period int64
-		day    string
-		byTrip map[string]*liveTrip
-		rules  liveRules
-	}{}
-	liveState = struct {
-		sync.RWMutex
-		table *liveTable
-	}{}
 	liveClock = time.Now
 	// How often the vehicles are polled; the replay harness overrides it.
-	livePollInterval = func() time.Duration {
-		if VehicleHub == nil {
+	livePollInterval = func(city *City) time.Duration {
+		if city.hub == nil {
 			return 0
 		}
-		return VehicleHub.CurrentInterval()
+		return city.hub.CurrentInterval()
 	}
 )
 
@@ -101,8 +82,8 @@ type liveRules struct {
 	slotWindow time.Duration
 }
 
-func learnLiveRules() liveRules {
-	lateness, err := queryRows(`SELECT spread_sec FROM schedule_delay_profiles WHERE spread_sec > 0 ORDER BY 1`, nil,
+func (city *City) learnLiveRules() liveRules {
+	lateness, err := queryRows(city.DB, `SELECT spread_sec FROM schedule_delay_profiles WHERE spread_sec > 0 ORDER BY 1`, nil,
 		func(rows *sql.Rows) (float64, error) {
 			var d float64
 			err := rows.Scan(&d)
@@ -120,42 +101,29 @@ func learnLiveRules() liveRules {
 	return rules
 }
 
-func StartLive(tranzyClient *tranzy.Client, ctpClient *ctpcj.Client, cacheTimes models.CacheTimes) {
-	liveDeps.tranzy, liveDeps.ctp, liveDeps.cacheTimes = tranzyClient, ctpClient, cacheTimes
+func (city *City) StartLive() {
 	go func() {
 		for {
-			refreshLiveTrips(false)
+			city.refreshLiveTrips(false)
 			time.Sleep(liveTripsRefresh)
 		}
 	}()
 }
 
-func liveLocation() *time.Location {
-	if liveDeps.tranzy != nil {
-		return liveDeps.tranzy.Location()
-	}
-	return time.Local
-}
-
-var liveRefreshMu sync.Mutex
-
 // Callers wait for a rebuild in progress, so the first table never sees empty trips.
-func refreshLiveTrips(force bool) {
-	if liveDeps.tranzy == nil {
-		return
-	}
-	liveRefreshMu.Lock()
-	defer liveRefreshMu.Unlock()
-	now := liveClock().In(liveLocation())
+func (city *City) refreshLiveTrips(force bool) {
+	city.liveRefreshMu.Lock()
+	defer city.liveRefreshMu.Unlock()
+	now := liveClock().In(city.Location)
 	period := profilePeriod(now)
 	day := now.Format("2006-01-02")
-	liveTrips.RLock()
-	fresh := liveTrips.byTrip != nil && liveTrips.period == period && liveTrips.day == day
-	liveTrips.RUnlock()
+	city.liveTrips.RLock()
+	fresh := city.liveTrips.byTrip != nil && city.liveTrips.period == period && city.liveTrips.day == day
+	city.liveTrips.RUnlock()
 	if fresh && !force {
 		return
 	}
-	routes, err := GetRoutes(liveDeps.tranzy, liveDeps.cacheTimes.TranzyCacheShelfLife, RouteFilter{})
+	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
 		log.Printf("live: routes: %v", err)
 		return
@@ -163,30 +131,30 @@ func refreshLiveTrips(force bool) {
 	started := time.Now()
 	byTrip := make(map[string]*liveTrip)
 	for _, route := range routes {
-		for _, lt := range buildLiveTrips(route, now) {
+		for _, lt := range city.buildLiveTrips(route, now) {
 			byTrip[lt.trip.ID] = lt
 		}
 	}
-	rules := learnLiveRules()
-	liveTrips.Lock()
-	liveTrips.byTrip, liveTrips.period, liveTrips.day, liveTrips.rules = byTrip, period, day, rules
-	liveTrips.Unlock()
+	rules := city.learnLiveRules()
+	city.liveTrips.Lock()
+	city.liveTrips.byTrip, city.liveTrips.period, city.liveTrips.day, city.liveTrips.rules = byTrip, period, day, rules
+	city.liveTrips.Unlock()
 	log.Printf("live: %d trips prepared in %s, grace %.0fs, reminder window %s", len(byTrip), time.Since(started).Round(time.Millisecond), rules.graceSec, rules.slotWindow)
 }
 
-func buildLiveTrips(route models.Route, now time.Time) []*liveTrip {
+func (city *City) buildLiveTrips(route models.Route, now time.Time) []*liveTrip {
 	rsn := route.RouteShortName
-	stopTimes, err := GetStopTimesAt(liveDeps.tranzy, liveDeps.cacheTimes, StopTimeFilter{RouteShortName: &rsn}, now)
+	stopTimes, err := city.GetStopTimesAt(StopTimeFilter{RouteShortName: &rsn}, now)
 	if err != nil || len(stopTimes) == 0 {
 		return nil
 	}
-	timetable, _ := GetTimetable(liveDeps.ctp, liveDeps.tranzy, liveDeps.cacheTimes, rsn)
-	turnarounds := routeTurnarounds(route.RouteID, stopTimes)
+	timetable, _ := city.GetTimetable(rsn)
+	turnarounds := city.routeTurnarounds(route.RouteID, stopTimes)
 	var out []*liveTrip
 	for dir, suffix := range []string{OUTGOING_SUFFIX, INCOMING_SUFFIX} {
 		tripID := strconv.Itoa(route.RouteID) + suffix
 		rows := sortedTrip(stopTimes, tripID)
-		tracker, ok := getTripSegmentTracker(tripID)
+		tracker, ok := city.getTripSegmentTracker(tripID)
 		if len(rows) < 2 || !ok || len(tracker.Shape) < 2 {
 			continue
 		}
@@ -248,17 +216,17 @@ func rawLiveVehicle(v models.Vehicle, pollInterval time.Duration) predictions.Ra
 	return raw
 }
 
-func RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
-	refreshLiveTrips(false)
-	liveTrips.RLock()
-	trips, rules := liveTrips.byTrip, liveTrips.rules
-	liveTrips.RUnlock()
-	pollInterval := livePollInterval()
-	now = now.In(liveLocation())
+func (city *City) RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
+	city.refreshLiveTrips(false)
+	city.liveTrips.RLock()
+	trips, rules := city.liveTrips.byTrip, city.liveTrips.rules
+	city.liveTrips.RUnlock()
+	pollInterval := livePollInterval(city)
+	now = now.In(city.Location)
 	nowMs := now.UnixMilli()
 	nowMinutes := float64(now.Hour()*60+now.Minute()) + float64(now.Second())/60
 	nowSec := nowMinutes * 60
-	dayType := scheduleDay(now)
+	dayType := city.scheduleDay(now)
 
 	raw := make(map[string][]predictions.RawVehicle)
 	byID := make(map[int]models.Vehicle, len(vehicles))
@@ -335,17 +303,17 @@ func RecomputeLive(vehicles []models.Vehicle, now time.Time) *liveTable {
 		rows := table.rowsByStop[stopID]
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].TripID < rows[j].TripID })
 	}
-	liveState.Lock()
-	liveState.table = table
-	liveState.Unlock()
-	noteShownTimes(table)
+	city.liveState.Lock()
+	city.liveState.table = table
+	city.liveState.Unlock()
+	city.noteShownTimes(table)
 	return table
 }
 
-func currentLiveTable() *liveTable {
-	liveState.RLock()
-	defer liveState.RUnlock()
-	return liveState.table
+func (city *City) currentLiveTable() *liveTable {
+	city.liveState.RLock()
+	defer city.liveState.RUnlock()
+	return city.liveState.table
 }
 
 func otherDirectionTripID(tripID string) string {
@@ -359,14 +327,14 @@ func otherDirectionTripID(tripID string) string {
 }
 
 // The entry closest to slot, live or not, when one is near enough.
-func liveArrivalAt(tripID string, stopID int, slot time.Time) (time.Time, bool) {
-	table := currentLiveTable()
+func (city *City) liveArrivalAt(tripID string, stopID int, slot time.Time) (time.Time, bool) {
+	table := city.currentLiveTable()
 	if table == nil {
 		return time.Time{}, false
 	}
-	liveTrips.RLock()
-	bestDiff := liveTrips.rules.slotWindow
-	liveTrips.RUnlock()
+	city.liveTrips.RLock()
+	bestDiff := city.liveTrips.rules.slotWindow
+	city.liveTrips.RUnlock()
 	var best time.Time
 	found := false
 	for _, row := range table.rowsByTrip[tripID] {

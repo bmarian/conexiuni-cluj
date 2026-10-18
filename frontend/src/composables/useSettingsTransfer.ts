@@ -36,8 +36,6 @@ export function useSettingsTransfer() {
         legacyBlueUnlocked: settings.legacyBlueUnlocked,
         legacyBlueActive: settings.legacyBlueActive,
         paperActive: settings.paperActive,
-        showWeather: settings.showWeather,
-        showNews: settings.showNews,
         autoCenterOnMe: settings.autoCenterOnMe,
         autoFitMap: settings.autoFitMap,
         showGreenFriday: settings.showGreenFriday,
@@ -73,8 +71,6 @@ export function useSettingsTransfer() {
     else settings.deactivateLegacyBlue()
     if (s.paperActive) settings.activatePaper()
     else settings.deactivatePaper()
-    if (typeof s.showWeather === 'boolean') settings.setShowWeather(s.showWeather)
-    if (typeof s.showNews === 'boolean') settings.setShowNews(s.showNews)
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     if (typeof s.showGreenFriday === 'boolean') settings.setShowGreenFriday(s.showGreenFriday)

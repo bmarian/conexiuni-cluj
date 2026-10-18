@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
-	"conexiuni-cluj/database"
 	"fmt"
 	"io"
 	"math"
@@ -30,21 +29,23 @@ type replayRoute struct {
 }
 
 type replayDays struct {
+	city   *City
 	loaded map[string][]replaySample
 }
 
-func newReplayDays() *replayDays {
-	return &replayDays{loaded: map[string][]replaySample{}}
+func newReplayDays(city *City) *replayDays {
+	return &replayDays{city: city, loaded: map[string][]replaySample{}}
 }
 
 func (r *replayDays) day(d time.Time) ([]replaySample, error) {
-	start := localMidnight(d)
+	city := r.city
+	start := city.localMidnight(d)
 	key := start.Format("2006-01-02")
 	if samples, ok := r.loaded[key]; ok {
 		return samples, nil
 	}
 	var samples []replaySample
-	err := database.ArchivedSegmentSamples(start.Unix(), start.AddDate(0, 0, 1).Unix(), func(route, direction, from, to, bucket int, duration float64) {
+	err := city.ArchivedSegmentSamples(start.Unix(), start.AddDate(0, 0, 1).Unix(), func(route, direction, from, to, bucket int, duration float64) {
 		samples = append(samples, replaySample{
 			route: replayRoute{int32(route), int32(direction)}, pair: stopPair{FromStopID: from, ToStopID: to},
 			bucket: int16(bucket), durationS: float32(duration),
@@ -69,9 +70,9 @@ func (r *replayDays) days(dates []time.Time) ([][]replaySample, error) {
 	return out, nil
 }
 
-func daysOfType(cal *calendar.Calendar, before time.Time, dayType string, n int) []time.Time {
+func (city *City) daysOfType(cal *calendar.Calendar, before time.Time, dayType string, n int) []time.Time {
 	var out []time.Time
-	day := localMidnight(before)
+	day := city.localMidnight(before)
 	for i := 1; i <= replaySearchDays && len(out) < n; i++ {
 		d := day.AddDate(0, 0, -i)
 		if cal.ProfileDay(d) == dayType {
@@ -152,12 +153,12 @@ func replayError(s replaySample, predicted float64) float64 {
 	return math.Min(math.Abs(float64(s.durationS)-predicted), replayErrorCapSec)
 }
 
-func RunReplay(from, to time.Time, w io.Writer) error {
-	if database.Archive == nil {
+func (city *City) RunReplay(from, to time.Time, w io.Writer) error {
+	if city.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
-	cal := currentCalendar()
-	days := newReplayDays()
+	cal := city.currentCalendar()
+	days := newReplayDays(city)
 	type total struct {
 		days, compared int
 		ours, legacy   float64
@@ -166,7 +167,7 @@ func RunReplay(from, to time.Time, w io.Writer) error {
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
 	_, _ = fmt.Fprintln(tw, "Day\tKind of day\tTimes compared\tCalendar windows\tLast 14 days\tDifference\t")
-	for d := localMidnight(from); !d.After(localMidnight(to)); d = d.AddDate(0, 0, 1) {
+	for d := city.localMidnight(from); !d.After(city.localMidnight(to)); d = d.AddDate(0, 0, 1) {
 		samples, err := days.day(d)
 		if err != nil {
 			return err
@@ -175,8 +176,8 @@ func RunReplay(from, to time.Time, w io.Writer) error {
 			continue
 		}
 		dayType := cal.ProfileDay(d)
-		size, _ := dayWindowSize(dayType)
-		ownDays, err := days.days(daysOfType(cal, d, dayType, size))
+		size, _ := city.dayWindowSize(dayType)
+		ownDays, err := days.days(city.daysOfType(cal, d, dayType, size))
 		if err != nil {
 			return err
 		}

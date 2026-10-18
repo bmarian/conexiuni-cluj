@@ -34,6 +34,7 @@ import RoutePong from '@/components/RoutePong.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -120,10 +121,10 @@ function wakeMeAt(idx: number) {
     }],
     walkEndMinutes: 0,
     walks: [],
-    planPath: `/route/${props.routeId}/${currentDirection.value}`,
+    planPath: cityPath(`/route/${props.routeId}/${currentDirection.value}`),
     startedAt: Date.now(),
   }, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
-  void router.push('/nav')
+  void router.push(cityPath('/nav'))
 }
 
 const stopMenu = ref<{ x: number, y: number, items: BusMenuItem[] } | null>(null)
@@ -183,7 +184,7 @@ useHead(() => {
   const longName = timetable.value?.route_long_name ?? ''
   const title = t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
   const description = t('headRouteDesc', {shortName})
-  const url = siteUrl(`/route/${props.routeId}/${props.direction}`)
+  const url = siteUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
   return {
     title,
     meta: [
@@ -779,7 +780,7 @@ onUnmounted(() => {
               idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
               idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
               'font-medium text-slate-500 dark:text-slate-400'
-            ]" :to="`/stop/${stop.stop_id}`" data-kbd-click>{{ getStopLabel(idx, stop) }}
+            ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}
             </router-link>
             <template v-if="!settings.legacyBlueActive">
               <svg v-if="String(stop.stop_id) === fromStopId"
@@ -1031,7 +1032,7 @@ onUnmounted(() => {
                   idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
-                ]" :to="`/stop/${stop.stop_id}`" data-kbd-click>{{ getStopLabel(idx, stop) }}</router-link>
+                ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}</router-link>
                 <template v-if="!settings.legacyBlueActive">
                   <svg v-if="String(stop.stop_id) === fromStopId"
                        class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"

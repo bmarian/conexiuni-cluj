@@ -3,6 +3,7 @@ import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminCalendar from '@/components/admin/AdminCalendar.vue'
+import {cities, currentCity} from '@/utils/city.ts'
 
 useHead(() => ({
   title: 'Admin',
@@ -61,8 +62,7 @@ type Overview = {
     moves: {sent: number; empty: number; received: number; old_push: number}
   }
   quota: {
-    vehicles: {used: number; limit: number}
-    default: {used: number; limit: number}
+    quotas: {name: string; used: number; limit: number}[]
     learning: {enabled: boolean; dedicated: boolean; used: number; budget: number}
   }
   data: {
@@ -105,6 +105,7 @@ const writeAuthFlag = (on: boolean) => {
 
 const state = ref<'login' | 'loading' | 'ready'>(readAuthFlag() ? 'loading' : 'login')
 const token = ref('')
+const adminCity = ref(currentCity)
 const loginError = ref('')
 const loadError = ref('')
 const data = ref<Overview | null>(null)
@@ -117,7 +118,7 @@ async function load() {
   if (loading.value) return
   loading.value = true
   try {
-    const res = await fetch('/api/admin/overview', {credentials: 'same-origin'})
+    const res = await fetch(`/api/admin/overview?city=${adminCity.value}`, {credentials: 'same-origin'})
     if (res.status === 401) {
       writeAuthFlag(false)
       data.value = null
@@ -319,8 +320,7 @@ const meters = computed(() => {
   const q = data.value?.quota
   if (!q) return []
   const out = [
-    {label: 'Vehicles', used: q.vehicles.used, limit: q.vehicles.limit},
-    {label: 'Other', used: q.default.used, limit: q.default.limit},
+    ...q.quotas.map((quota) => ({label: quota.name, used: quota.used, limit: quota.limit})),
   ]
   if (q.learning.enabled) {
     out.push({label: q.learning.dedicated ? 'Learner, own key' : 'Learner', used: q.learning.used, limit: q.learning.budget})
@@ -366,6 +366,9 @@ const meters = computed(() => {
       <div v-else class="page">
         <header class="top">
           <h1>Admin</h1>
+          <select v-if="cities.length > 1" v-model="adminCity" class="text-button" aria-label="City" @change="load">
+            <option v-for="city in cities" :key="city.slug" :value="city.slug">{{ city.name }}</option>
+          </select>
           <button type="button" class="text-button" :disabled="loading" @click="load">
             {{ loading ? 'Updating…' : updatedAt }}
           </button>
@@ -521,7 +524,7 @@ const meters = computed(() => {
 
           <section>
             <div class="label"><span>Calendar</span><i></i></div>
-            <AdminCalendar @saved="load"/>
+            <AdminCalendar :city="adminCity" @saved="load"/>
           </section>
 
           <section>

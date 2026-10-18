@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -178,7 +178,7 @@ func TestDiffTimetablesMergesIdenticalWeekendChanges(t *testing.T) {
 func stopsFor(tripID string, stops ...int) []models.StopTime {
 	out := make([]models.StopTime, len(stops))
 	for i, id := range stops {
-		out[i] = models.StopTime{TripID: tripID, StopID: id, StopSequence: i, StopHeadsign: "S" + itoa(int32(id))}
+		out[i] = models.StopTime{TripID: tripID, StopID: id, StopSequence: i, StopHeadsign: "S" + strconv.Itoa(id)}
 	}
 	return out
 }
@@ -207,16 +207,16 @@ func TestDiffRouteStopsSkipsRewrittenRoutes(t *testing.T) {
 }
 
 func TestStoreStopTimesDropsStaleTail(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 
-	if err := storeStopTimesTrackingChanges("25")(stopsFor("25_0", 1, 2, 3, 4)); err != nil {
+	if err := city.storeStopTimesTrackingChanges("25", stopsFor("25_0", 1, 2, 3, 4)); err != nil {
 		t.Fatal(err)
 	}
-	if err := storeStopTimesTrackingChanges("25")(stopsFor("25_0", 1, 2, 4)); err != nil {
+	if err := city.storeStopTimesTrackingChanges("25", stopsFor("25_0", 1, 2, 4)); err != nil {
 		t.Fatal(err)
 	}
 
-	stored, err := getStopTimesForTrips([]string{"25_0"})
+	stored, err := city.getStopTimesForTrips([]string{"25_0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,20 +226,20 @@ func TestStoreStopTimesDropsStaleTail(t *testing.T) {
 
 	var count int
 	var changes string
-	if err := database.DB.QueryRow(`SELECT COUNT(*), MAX(changes) FROM route_changes WHERE route_short_name = '25'`).Scan(&count, &changes); err != nil {
+	if err := city.DB.QueryRow(`SELECT COUNT(*), MAX(changes) FROM route_changes WHERE route_short_name = '25'`).Scan(&count, &changes); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 || changes != `[{"kind":"stops_removed","direction":"0","toward":"S4","stops":["S3"]}]` {
 		t.Fatalf("got %d rows: %s", count, changes)
 	}
 
-	if err := storeStopTimesTrackingChanges("25")(stopsFor("25_0", 1, 2, 3, 4)); err != nil {
+	if err := city.storeStopTimesTrackingChanges("25", stopsFor("25_0", 1, 2, 3, 4)); err != nil {
 		t.Fatal(err)
 	}
-	if err := storeStopTimesTrackingChanges("25")(stopsFor("25_0", 1, 2, 4)); err != nil {
+	if err := city.storeStopTimesTrackingChanges("25", stopsFor("25_0", 1, 2, 4)); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.DB.QueryRow(`SELECT COUNT(*) FROM route_changes WHERE route_short_name = '25'`).Scan(&count); err != nil {
+	if err := city.DB.QueryRow(`SELECT COUNT(*) FROM route_changes WHERE route_short_name = '25'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {

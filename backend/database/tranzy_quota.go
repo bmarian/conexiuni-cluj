@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-func LoadTranzyQuota(name string) (int, time.Time, error) {
+func (s *Store) LoadTranzyQuota(name string) (int, time.Time, error) {
 	var count int
 	var resetUnix int64
-	err := DB.QueryRow(
+	err := s.DB.QueryRow(
 		`SELECT count, reset_at FROM quotas WHERE name = ?`, name,
 	).Scan(&count, &resetUnix)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -21,8 +21,8 @@ func LoadTranzyQuota(name string) (int, time.Time, error) {
 	return count, time.Unix(resetUnix, 0), nil
 }
 
-func SaveTranzyQuota(name string, count int, resetAt time.Time) error {
-	_, err := DB.Exec(
+func (s *Store) SaveTranzyQuota(name string, count int, resetAt time.Time) error {
+	_, err := s.DB.Exec(
 		`INSERT OR REPLACE INTO quotas (name, count, reset_at) VALUES (?, ?, ?)`,
 		name, count, resetAt.Unix(),
 	)

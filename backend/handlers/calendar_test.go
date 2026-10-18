@@ -16,36 +16,36 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func withSeedCalendar(t *testing.T) {
+func (city *City) withSeedCalendar(t *testing.T) {
 	t.Helper()
-	prev := activeCalendar.Load()
-	setCalendar(calendar.New(calendar.Seed(), nil))
+	prev := city.activeCalendar.Load()
+	city.setCalendar(calendar.New(calendar.Seed(), nil))
 	t.Cleanup(func() {
-		activeCalendar.Store(prev)
-		calendarGeneration.Add(1)
+		city.activeCalendar.Store(prev)
+		city.calendarGeneration.Add(1)
 	})
 }
 
-func clujAt(date string, hour int) time.Time {
-	day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
+func (city *City) clujAt(date string, hour int) time.Time {
+	day, err := time.ParseInLocation("2006-01-02", date, city.Location)
 	if err != nil {
 		panic(err)
 	}
 	return day.Add(time.Duration(hour) * time.Hour)
 }
 
-func insertSample(t *testing.T, observedAt time.Time, dayType string) {
+func (city *City) insertSample(t *testing.T, observedAt time.Time, dayType string) {
 	t.Helper()
-	if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_samples
+	if _, err := city.DB.Exec(`INSERT INTO segment_travel_time_samples
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 		VALUES (7, 0, 1, 2, ?, 480, 60, ?)`, dayType, observedAt.Unix()); err != nil {
 		t.Fatalf("insert sample: %v", err)
 	}
 }
 
-func sampleDays(t *testing.T) map[string]string {
+func (city *City) sampleDays(t *testing.T) map[string]string {
 	t.Helper()
-	rows, err := database.DB.Query(`SELECT observed_at, day_type FROM segment_travel_time_samples`)
+	rows, err := city.DB.Query(`SELECT observed_at, day_type FROM segment_travel_time_samples`)
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
@@ -57,14 +57,15 @@ func sampleDays(t *testing.T) map[string]string {
 		if err := rows.Scan(&at, &day); err != nil {
 			t.Fatalf("scan: %v", err)
 		}
-		out[time.Unix(at, 0).In(database.StatsLocation()).Format("2006-01-02")] = day
+		out[time.Unix(at, 0).In(city.Location).Format("2006-01-02")] = day
 	}
 	return out
 }
 
 func TestDayWindowsCountDaysOfTheirOwnType(t *testing.T) {
-	withSeedCalendar(t)
-	now := clujAt("2026-10-27", 12)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	now := city.clujAt("2026-10-27", 12)
 	cases := map[string]string{
 		calendar.Weekday:         "2026-10-12",
 		calendar.WeekdayVacation: "2026-09-02",
@@ -72,32 +73,32 @@ func TestDayWindowsCountDaysOfTheirOwnType(t *testing.T) {
 		calendar.Sunday:          "2026-10-18",
 	}
 	for day, want := range cases {
-		since, _ := currentDayWindow(day, now).since()
-		got := time.Unix(since, 0).In(database.StatsLocation()).Format("2006-01-02")
+		since, _ := city.currentDayWindow(day, now).since()
+		got := time.Unix(since, 0).In(city.Location).Format("2006-01-02")
 		if got != want {
 			t.Errorf("%s window starts %s, want %s", day, got, want)
 		}
 	}
-	if got, want := currentDayWindow("bogus", now).earliest(), now.Add(-legacyDayWindow).Unix(); got != want {
+	if got, want := city.currentDayWindow("bogus", now).earliest(), now.Add(-legacyDayWindow).Unix(); got != want {
 		t.Errorf("unknown day type window %d, want 14 days back %d", got, want)
 	}
 }
 
 func TestPruneKeepsTheLastDaysOfEachType(t *testing.T) {
-	withTestDB(t)
-	withSeedCalendar(t)
-	now := clujAt("2026-10-27", 12)
-	insertSample(t, clujAt("2026-08-28", 8), calendar.WeekdayVacation)
-	insertSample(t, clujAt("2026-09-02", 8), calendar.WeekdayVacation)
-	insertSample(t, clujAt("2026-09-08", 8), calendar.Weekday)
-	insertSample(t, clujAt("2026-10-13", 8), calendar.Weekday)
-	insertSample(t, clujAt("2026-09-01", 8), "bogus")
-	insertSample(t, clujAt("2026-10-01", 8), "bogus")
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	now := city.clujAt("2026-10-27", 12)
+	city.insertSample(t, city.clujAt("2026-08-28", 8), calendar.WeekdayVacation)
+	city.insertSample(t, city.clujAt("2026-09-02", 8), calendar.WeekdayVacation)
+	city.insertSample(t, city.clujAt("2026-09-08", 8), calendar.Weekday)
+	city.insertSample(t, city.clujAt("2026-10-13", 8), calendar.Weekday)
+	city.insertSample(t, city.clujAt("2026-09-01", 8), "bogus")
+	city.insertSample(t, city.clujAt("2026-10-01", 8), "bogus")
 
-	if _, err := pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, now); err != nil {
+	if _, err := city.pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, now); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
-	got := sampleDays(t)
+	got := city.sampleDays(t)
 	for _, kept := range []string{"2026-09-02", "2026-10-13", "2026-10-01"} {
 		if _, ok := got[kept]; !ok {
 			t.Errorf("%s was pruned", kept)
@@ -111,50 +112,49 @@ func TestPruneKeepsTheLastDaysOfEachType(t *testing.T) {
 }
 
 func TestRelabelFollowsTheCalendar(t *testing.T) {
-	withTestDB(t)
-	withSeedCalendar(t)
-	insertSample(t, clujAt("2026-09-03", 8), calendar.Weekday)
-	insertSample(t, clujAt("2026-09-08", 8), calendar.Weekday)
-	insertSample(t, clujAt("2026-12-01", 8), calendar.Weekday)
-	if _, err := database.DB.Exec(`INSERT INTO turnaround_samples (route_id, direction_id, day_type, duration_sec, arrived_at, departed_at)
-		VALUES (7, 0, 'weekday', 60, ?, ?)`, clujAt("2026-09-03", 8).Unix(), clujAt("2026-09-03", 8).Unix()+60); err != nil {
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	city.insertSample(t, city.clujAt("2026-09-03", 8), calendar.Weekday)
+	city.insertSample(t, city.clujAt("2026-09-08", 8), calendar.Weekday)
+	city.insertSample(t, city.clujAt("2026-12-01", 8), calendar.Weekday)
+	if _, err := city.DB.Exec(`INSERT INTO turnaround_samples (route_id, direction_id, day_type, duration_sec, arrived_at, departed_at)
+		VALUES (7, 0, 'weekday', 60, ?, ?)`, city.clujAt("2026-09-03", 8).Unix(), city.clujAt("2026-09-03", 8).Unix()+60); err != nil {
 		t.Fatalf("insert stand: %v", err)
 	}
 
-	if _, err := relabelSamples(clujAt("2026-12-02", 12)); err != nil {
+	if _, err := city.relabelSamples(city.clujAt("2026-12-02", 12)); err != nil {
 		t.Fatalf("relabel: %v", err)
 	}
 	want := map[string]string{"2026-09-03": calendar.WeekdayVacation, "2026-09-08": calendar.Weekday, "2026-12-01": calendar.Sunday}
-	got := sampleDays(t)
+	got := city.sampleDays(t)
 	for date, day := range want {
 		if got[date] != day {
 			t.Errorf("%s labelled %q, want %q", date, got[date], day)
 		}
 	}
 	var stand string
-	if err := database.DB.QueryRow(`SELECT day_type FROM turnaround_samples`).Scan(&stand); err != nil || stand != calendar.WeekdayVacation {
+	if err := city.DB.QueryRow(`SELECT day_type FROM turnaround_samples`).Scan(&stand); err != nil || stand != calendar.WeekdayVacation {
 		t.Errorf("stand labelled %q (%v), want weekday_vacation", stand, err)
 	}
 }
 
 func TestRestoreBringsBackDaysTheMainDatabaseLost(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
-	insertSample(t, clujAt("2026-10-26", 8), calendar.WeekdayVacation)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	city.insertSample(t, city.clujAt("2026-10-26", 8), calendar.WeekdayVacation)
 	for _, date := range []string{"2026-08-20", "2026-09-03", "2026-09-08"} {
-		if _, err := database.Archive.Exec(`INSERT INTO segment_travel_time_samples
+		if _, err := city.Archive.Exec(`INSERT INTO segment_travel_time_samples
 			(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
-			VALUES (7, 0, 1, 2, 'weekday', 480, 60, ?)`, clujAt(date, 8).Unix()); err != nil {
+			VALUES (7, 0, 1, 2, 'weekday', 480, 60, ?)`, city.clujAt(date, 8).Unix()); err != nil {
 			t.Fatalf("archive sample: %v", err)
 		}
 	}
 
-	restored, err := restoreWindowsFromArchive(clujAt("2026-10-27", 12))
+	restored, err := city.restoreWindowsFromArchive(city.clujAt("2026-10-27", 12))
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	got := sampleDays(t)
+	got := city.sampleDays(t)
 	if restored != 1 || got["2026-09-03"] != calendar.WeekdayVacation {
 		t.Fatalf("restored %d, days %v; want only 3 Sep back, as a school-holiday weekday", restored, got)
 	}
@@ -180,16 +180,17 @@ func TestSiblingProfilesBeatOtherDayTypes(t *testing.T) {
 }
 
 func TestScheduleDelayFallsBackToTheSiblingDay(t *testing.T) {
-	installDelayRoute(t)
-	withSeedCalendar(t)
+	city := newTestCity(t)
+	city.installDelayRoute(t)
+	city.withSeedCalendar(t)
 	for _, day := range []int{10, 11, 14, 15, 16, 17, 18, 21} {
-		recordRun(t, weekdayAt(day, 8, 3))
+		city.recordRun(t, weekdayAt(day, 8, 3))
 	}
-	if _, err := recomputeScheduleDelays(delayZone, weekdayAt(23, 12, 0)); err != nil {
+	if _, err := city.recomputeScheduleDelays(delayZone, weekdayAt(23, 12, 0)); err != nil {
 		t.Fatalf("recompute: %v", err)
 	}
-	resetProfileSnapshots()
-	if delay, ok := snapshotScheduleDelay(delayRouteID, 0, calendar.WeekdayVacation, 8*60); !ok || delay != 180 {
+	city.resetProfileSnapshots()
+	if delay, ok := city.snapshotScheduleDelay(delayRouteID, 0, calendar.WeekdayVacation, 8*60); !ok || delay != 180 {
 		t.Fatalf("school-holiday delay = %v (%t), want the term's 180", delay, ok)
 	}
 }
@@ -203,25 +204,25 @@ func TestScheduleDelayForgetsRunsBeforeATimetableChange(t *testing.T) {
 		"only saturday changed":    {func(v *database.TimetableVersion) { v.Saturday = "moved" }, true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			installDelayRoute(t)
-			withTestArchive(t)
-			withSeedCalendar(t)
+			city := newTestCity(t)
+			city.withoutArchive(func() { city.installDelayRoute(t) })
+			city.withSeedCalendar(t)
 			before := database.TimetableVersion{RouteShortName: "T1", Weekdays: "w", Saturday: "s", Sunday: "u"}
 			after := before
 			tc.changed(&after)
-			if _, err := database.ArchiveTimetables([]database.TimetableVersion{before}, weekdayAt(1, 0, 0)); err != nil {
+			if _, err := city.ArchiveTimetables([]database.TimetableVersion{before}, weekdayAt(1, 0, 0)); err != nil {
 				t.Fatalf("archive: %v", err)
 			}
-			if _, err := database.ArchiveTimetables([]database.TimetableVersion{after}, weekdayAt(17, 23, 0)); err != nil {
+			if _, err := city.ArchiveTimetables([]database.TimetableVersion{after}, weekdayAt(17, 23, 0)); err != nil {
 				t.Fatalf("archive: %v", err)
 			}
 			for _, day := range []int{10, 11, 14, 15, 16, 17, 18, 21} {
-				recordRun(t, weekdayAt(day, 8, 3))
+				city.recordRun(t, weekdayAt(day, 8, 3))
 			}
-			if _, err := recomputeScheduleDelays(delayZone, weekdayAt(23, 12, 0)); err != nil {
+			if _, err := city.recomputeScheduleDelays(delayZone, weekdayAt(23, 12, 0)); err != nil {
 				t.Fatalf("recompute: %v", err)
 			}
-			if _, ok := loadScheduleDelay(delayRouteID, 0, calendar.Weekday, 8*60); ok != tc.wantDelay {
+			if _, ok := city.loadScheduleDelay(delayRouteID, 0, calendar.Weekday, 8*60); ok != tc.wantDelay {
 				t.Fatalf("learned a delay: %t, want %t", ok, tc.wantDelay)
 			}
 		})
@@ -229,8 +230,9 @@ func TestScheduleDelayForgetsRunsBeforeATimetableChange(t *testing.T) {
 }
 
 func TestObservedRunsTellWhichTimetableRan(t *testing.T) {
-	installDelayRoute(t)
-	withSeedCalendar(t)
+	city := newTestCity(t)
+	city.installDelayRoute(t)
+	city.withSeedCalendar(t)
 	var weekdays, saturday []models.TimetableEntry
 	for m := 6 * 60; m <= 20*60; m += 20 {
 		weekdays = append(weekdays, models.TimetableEntry{DepartureIn: fmt.Sprintf("%02d:%02d", m/60, m%60)})
@@ -238,21 +240,21 @@ func TestObservedRunsTellWhichTimetableRan(t *testing.T) {
 	for m := 6*60 + 10; m <= 20*60; m += 40 {
 		saturday = append(saturday, models.TimetableEntry{DepartureIn: fmt.Sprintf("%02d:%02d", m/60, m%60)})
 	}
-	if err := storeTimetableInDB(&models.Timetable{RouteShortName: "T1", InStopName: "A", OutStopName: "B",
+	if err := city.storeTimetableInDB(&models.Timetable{RouteShortName: "T1", InStopName: "A", OutStopName: "B",
 		Weekdays: models.DaySchedule{Entries: weekdays}, Saturday: models.DaySchedule{Entries: saturday}}); err != nil {
 		t.Fatalf("timetable: %v", err)
 	}
-	day := clujAt("2026-09-23", 0)
+	day := city.clujAt("2026-09-23", 0)
 	for _, e := range saturday {
 		departed := day.Add(time.Duration(minutesOf(t, e.DepartureIn)[0]+1) * time.Minute)
-		if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_samples
+		if _, err := city.DB.Exec(`INSERT INTO segment_travel_time_samples
 			(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 			VALUES (?, 0, 100, 101, 'weekday', 480, 120, ?)`, delayRouteID, departed.Unix()+120); err != nil {
 			t.Fatalf("run: %v", err)
 		}
 	}
 
-	fits, observed, err := observedScheduleFits(day)
+	fits, observed, err := city.observedScheduleFits(day)
 	if err != nil {
 		t.Fatalf("fits: %v", err)
 	}
@@ -267,16 +269,15 @@ func TestObservedRunsTellWhichTimetableRan(t *testing.T) {
 }
 
 func TestAdminSavesASchoolYear(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
 	relearned := 0
 	prevRelearn := relearnAfterCalendarChange
-	relearnAfterCalendarChange = func(time.Time) { relearned++ }
+	relearnAfterCalendarChange = func(*City, time.Time) { relearned++ }
 	t.Cleanup(func() { relearnAfterCalendarChange = prevRelearn })
 
 	app := fiber.New()
-	RegisterAdminRoutes(app.Group("/api"), "secret", nil, false)
+	RegisterAdminRoutes(app.Group("/api"), []*City{city}, "secret", false)
 	put := func(y calendar.SchoolYear) *http.Response {
 		body, _ := json.Marshal(y)
 		req := httptest.NewRequest("PUT", "/api/admin/calendar", bytes.NewReader(body))
@@ -303,8 +304,8 @@ func TestAdminSavesASchoolYear(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&view); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if !currentCalendar().HasYear(2027) || relearned != 1 {
-		t.Fatalf("2027 known: %t, relearned %d times", currentCalendar().HasYear(2027), relearned)
+	if !city.currentCalendar().HasYear(2027) || relearned != 1 {
+		t.Fatalf("2027 known: %t, relearned %d times", city.currentCalendar().HasYear(2027), relearned)
 	}
 	statuses := map[int]string{}
 	for _, y := range view.Years {
@@ -314,24 +315,26 @@ func TestAdminSavesASchoolYear(t *testing.T) {
 		t.Fatalf("years %v, want 2027 saved and a 2028 estimate", statuses)
 	}
 
-	if err := LoadCalendar(); err != nil || !currentCalendar().HasYear(2027) {
+	if err := city.LoadCalendar(); err != nil || !city.currentCalendar().HasYear(2027) {
 		t.Fatalf("the saved year did not survive a reload: %v", err)
 	}
 }
 
 func TestCalendarProblemAsksForTheNextYearFromAugust(t *testing.T) {
-	withSeedCalendar(t)
-	if p := calendarProblem(clujAt("2027-07-31", 12)); p != "" {
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	if p := city.calendarProblem(city.clujAt("2027-07-31", 12)); p != "" {
 		t.Errorf("July 2027 asked: %q", p)
 	}
-	if p := calendarProblem(clujAt("2027-08-01", 12)); p != "Enter the 2027–2028 school year in the calendar" {
+	if p := city.calendarProblem(city.clujAt("2027-08-01", 12)); p != "Enter the 2027–2028 school year in the calendar" {
 		t.Errorf("August 2027: %q", p)
 	}
 }
 
 func TestNetworkScheduleDaysListHolidaysOnly(t *testing.T) {
-	withSeedCalendar(t)
-	days, notes := networkScheduleDays(clujAt("2026-10-15", 12))
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	days, notes := city.networkScheduleDays(city.clujAt("2026-10-15", 12))
 	if n := notes["2026-12-01"]; n.Reason != dayNoteHoliday || n.Holiday != "national_day" {
 		t.Fatalf("1 Dec note %+v", n)
 	}
@@ -347,21 +350,21 @@ func TestNetworkScheduleDaysListHolidaysOnly(t *testing.T) {
 }
 
 func TestRebuildLearnsEachDayTypeFromItsOwnWindow(t *testing.T) {
-	withTestDB(t)
-	withSeedCalendar(t)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
 	for _, date := range []string{"2026-09-02", "2026-09-03", "2026-09-04", "2026-10-26", "2026-10-27"} {
-		insertSample(t, clujAt(date, 8), calendar.WeekdayVacation)
+		city.insertSample(t, city.clujAt(date, 8), calendar.WeekdayVacation)
 	}
-	insertSample(t, clujAt("2026-09-08", 8), calendar.Weekday)
+	city.insertSample(t, city.clujAt("2026-09-08", 8), calendar.Weekday)
 	for _, date := range []string{"2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"} {
-		insertSample(t, clujAt(date, 8), calendar.Weekday)
+		city.insertSample(t, city.clujAt(date, 8), calendar.Weekday)
 	}
 
-	if _, err := rebuildSegmentProfiles(clujAt("2026-10-27", 12)); err != nil {
+	if _, err := city.rebuildSegmentProfiles(city.clujAt("2026-10-27", 12)); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	counts := map[string]int{}
-	rows, err := database.DB.Query(`SELECT day_type, sample_count FROM segment_travel_time_profiles WHERE bucket_start_min = 480`)
+	rows, err := city.DB.Query(`SELECT day_type, sample_count FROM segment_travel_time_profiles WHERE bucket_start_min = 480`)
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
@@ -379,9 +382,9 @@ func TestRebuildLearnsEachDayTypeFromItsOwnWindow(t *testing.T) {
 	}
 }
 
-func installSaturdayRuns(t *testing.T, date string) {
+func (city *City) installSaturdayRuns(t *testing.T, date string) {
 	t.Helper()
-	installDelayRoute(t)
+	city.installDelayRoute(t)
 	var weekdays, saturday []models.TimetableEntry
 	for m := 6 * 60; m <= 20*60; m += 20 {
 		weekdays = append(weekdays, models.TimetableEntry{DepartureIn: fmt.Sprintf("%02d:%02d", m/60, m%60)})
@@ -389,14 +392,14 @@ func installSaturdayRuns(t *testing.T, date string) {
 	for m := 6*60 + 2; m <= 20*60; m += 5 {
 		saturday = append(saturday, models.TimetableEntry{DepartureIn: fmt.Sprintf("%02d:%02d", m/60, m%60)})
 	}
-	if err := storeTimetableInDB(&models.Timetable{RouteShortName: "T1", InStopName: "A", OutStopName: "B",
+	if err := city.storeTimetableInDB(&models.Timetable{RouteShortName: "T1", InStopName: "A", OutStopName: "B",
 		Weekdays: models.DaySchedule{Entries: weekdays}, Saturday: models.DaySchedule{Entries: saturday}}); err != nil {
 		t.Fatalf("timetable: %v", err)
 	}
-	day := clujAt(date, 0)
+	day := city.clujAt(date, 0)
 	for _, e := range saturday {
 		departed := day.Add(time.Duration(minutesOf(t, e.DepartureIn)[0]) * time.Minute)
-		if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_samples
+		if _, err := city.DB.Exec(`INSERT INTO segment_travel_time_samples
 			(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 			VALUES (?, 0, 100, 101, 'weekday', 480, 120, ?)`, delayRouteID, departed.Unix()+120); err != nil {
 			t.Fatalf("run: %v", err)
@@ -405,42 +408,41 @@ func installSaturdayRuns(t *testing.T, date string) {
 }
 
 func TestNightlyCheckRecordsTheTimetableThatRan(t *testing.T) {
-	installSaturdayRuns(t, "2026-09-23")
-	withTestArchive(t)
-	withSeedCalendar(t)
-	checkObservedSchedule(clujAt("2026-09-24", 4))
-	o, ok, err := database.ScheduleOverrideOn("2026-09-23")
+	city := newTestCity(t)
+	city.installSaturdayRuns(t, "2026-09-23")
+	city.withSeedCalendar(t)
+	city.checkObservedSchedule(city.clujAt("2026-09-24", 4))
+	o, ok, err := city.ScheduleOverrideOn("2026-09-23")
 	if err != nil || !ok || o.Schedule != calendar.Saturday || o.Source != overrideObserved {
 		t.Fatalf("override %+v (%t, %v), want saturday seen running", o, ok, err)
 	}
-	if got := scheduleDay(clujAt("2026-09-23", 8)); got != calendar.Saturday {
+	if got := city.scheduleDay(city.clujAt("2026-09-23", 8)); got != calendar.Saturday {
 		t.Fatalf("23 Sep now runs %s", got)
 	}
 }
 
 func TestNightlyCheckLeavesTheAdminsChoiceAlone(t *testing.T) {
-	installSaturdayRuns(t, "2026-09-23")
-	withTestArchive(t)
-	withSeedCalendar(t)
-	if err := database.SaveScheduleOverride(database.ScheduleOverride{Date: "2026-09-23", Schedule: calendar.Weekday, Source: overrideByAdmin}); err != nil {
+	city := newTestCity(t)
+	city.installSaturdayRuns(t, "2026-09-23")
+	city.withSeedCalendar(t)
+	if err := city.SaveScheduleOverride(database.ScheduleOverride{Date: "2026-09-23", Schedule: calendar.Weekday, Source: overrideByAdmin}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	checkObservedSchedule(clujAt("2026-09-24", 4))
-	if o, _, _ := database.ScheduleOverrideOn("2026-09-23"); o.Source != overrideByAdmin || o.Schedule != calendar.Weekday {
+	city.checkObservedSchedule(city.clujAt("2026-09-24", 4))
+	if o, _, _ := city.ScheduleOverrideOn("2026-09-23"); o.Source != overrideByAdmin || o.Schedule != calendar.Weekday {
 		t.Fatalf("override became %+v", o)
 	}
 }
 
 func TestAdminSetsTheTimetableForADay(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
 	prevRelearn := relearnAfterCalendarChange
-	relearnAfterCalendarChange = func(time.Time) {}
+	relearnAfterCalendarChange = func(*City, time.Time) {}
 	t.Cleanup(func() { relearnAfterCalendarChange = prevRelearn })
 
 	app := fiber.New()
-	RegisterAdminRoutes(app.Group("/api"), "secret", nil, false)
+	RegisterAdminRoutes(app.Group("/api"), []*City{city}, "secret", false)
 	cookie := &http.Cookie{Name: adminSessionCookie, Value: newAdminSession("secret", time.Now())}
 	set := func(date, schedule string) (int, adminDayResponse) {
 		body, _ := json.Marshal(adminDayRequest{Date: date, Schedule: schedule})
@@ -456,7 +458,7 @@ func TestAdminSetsTheTimetableForADay(t *testing.T) {
 		return resp.StatusCode, out
 	}
 
-	date := time.Now().In(database.StatsLocation()).AddDate(0, 0, 3).Format("2006-01-02")
+	date := time.Now().In(city.Location).AddDate(0, 0, 3).Format("2006-01-02")
 	if code, _ := set(date, "holiday"); code != http.StatusBadRequest {
 		t.Fatalf("unknown timetable answered %d", code)
 	}
@@ -467,11 +469,11 @@ func TestAdminSetsTheTimetableForADay(t *testing.T) {
 	if code != http.StatusOK || out.Day.ScheduleDay != calendar.Saturday || out.Day.Override == nil || out.Day.Override.Source != overrideByAdmin {
 		t.Fatalf("set saturday: %d %+v", code, out.Day)
 	}
-	day, _ := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
-	if scheduleDay(day) != calendar.Saturday {
+	day, _ := time.ParseInLocation("2006-01-02", date, city.Location)
+	if city.scheduleDay(day) != calendar.Saturday {
 		t.Fatalf("%s does not run the Saturday timetable", date)
 	}
-	if days, notes := networkScheduleDays(time.Now()); day.Weekday() != time.Saturday && (days[date] != calendar.Saturday || notes[date].Reason != dayNoteSet) {
+	if days, notes := city.networkScheduleDays(time.Now()); day.Weekday() != time.Saturday && (days[date] != calendar.Saturday || notes[date].Reason != dayNoteSet) {
 		t.Fatalf("the network bundle says %q (%+v) for %s", days[date], notes[date], date)
 	}
 
