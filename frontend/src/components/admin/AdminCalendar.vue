@@ -11,63 +11,31 @@ type SchoolYear = {
   status: 'saved' | 'built_in' | 'estimate'
 }
 
-type DayOverride = {date: string; schedule: string; source: string; detail: string}
+type DayOverride = {date: string; schedule: string; source: string}
 
 type CalendarDay = {
   date: string
   schedule_day: string
   automatic: string
-  profile_day: string
   holiday?: string
   override?: DayOverride
-}
-
-type WindowTuning = {
-  window: number
-  scores: Record<string, number>
-  baseline: number
-  days: number
-  samples: number
-  changed: boolean
-  at: number
-}
-
-type SeedTuning = {
-  fill: string
-  previous: number
-  last_year: number
-  days: number
-  samples: number
-  changed: boolean
-  at: number
 }
 
 type LearningWindow = {
   day_type: string
   days: number
   from?: string
-  seed: string
   last_year_days: number
-  last_year_from?: string
-  last_year_to?: string
-  evaluation?: SeedTuning
-}
-
-type Learning = {
-  windows: LearningWindow[]
-  tuning?: WindowTuning
-  candidates: number[]
-  min_days: number
 }
 
 type CalendarView = {
-  today: {date: string; profile_day: string; schedule_day: string; holiday?: string}
+  today: {date: string; schedule_day: string; holiday?: string}
   editable: boolean
   needed?: number
   years: SchoolYear[]
   holidays: {date: string; name: string; schedule: string}[]
   overrides: DayOverride[]
-  learning: Learning
+  learning: {windows: LearningWindow[]}
 }
 
 const emit = defineEmits<{saved: []}>()
@@ -84,32 +52,26 @@ const dayDate = ref('')
 const day = ref<CalendarDay | null>(null)
 const dayBusy = ref(false)
 const dayError = ref('')
+const dayPicker = ref<HTMLInputElement | null>(null)
 
 const dayChoices = [
-  {value: '', label: 'Automatic'},
+  {value: '', label: 'Auto'},
   {value: 'weekday', label: 'Weekday'},
   {value: 'saturday', label: 'Saturday'},
   {value: 'sunday', label: 'Sunday'},
 ]
 
-const dayLabels: Record<string, string> = {
-  weekday: 'a school-term weekday',
-  weekday_vacation: 'a school-holiday weekday',
-  saturday: 'a Saturday',
-  sunday: 'a Sunday',
-}
-
 const timetableLabels: Record<string, string> = {
-  weekday: 'weekday timetable',
-  saturday: 'Saturday timetable',
-  sunday: 'Sunday timetable',
+  weekday: 'Weekday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
 }
 
 const windowLabels: Record<string, string> = {
-  weekday: 'School-term weekdays',
-  weekday_vacation: 'School-holiday weekdays',
+  weekday: 'School days',
+  weekday_vacation: 'School holidays',
   saturday: 'Saturdays',
-  sunday: 'Sundays and holidays',
+  sunday: 'Sundays',
 }
 
 const statusLabels: Record<SchoolYear['status'], string> = {
@@ -119,12 +81,7 @@ const statusLabels: Record<SchoolYear['status'], string> = {
 }
 
 function dayName(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'})
-}
-
-const dateOf = (unix: number) => {
-  const d = new Date(unix * 1000)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})
 }
 
 const yearLabel = (year: number) => `${year}–${String(year + 1).slice(2)}`
@@ -176,7 +133,7 @@ async function save() {
     if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
     show(body as CalendarView)
     saveFailed.value = false
-    saveMessage.value = 'Saved. Learning switches over within a minute.'
+    saveMessage.value = 'Saved'
     emit('saved')
   } catch (err) {
     saveFailed.value = true
@@ -225,6 +182,7 @@ async function setDay(schedule: string, date = dayDate.value) {
 
 function changeDay(date: string) {
   dayDate.value = date
+  dayPicker.value?.scrollIntoView({block: 'center', behavior: 'smooth'})
   void loadDay()
 }
 
@@ -236,54 +194,24 @@ function removeBreak(i: number) {
   draft.value?.breaks.splice(i, 1)
 }
 
-const todayLine = computed(() => {
+const todayText = computed(() => {
   const t = view.value?.today
   if (!t) return ''
-  const what = t.holiday ? `a public holiday (${t.holiday})` : dayLabels[t.profile_day] ?? t.profile_day
-  return `Today is ${what}, so buses run the ${timetableLabels[t.schedule_day] ?? t.schedule_day}.`
+  const runs = timetableLabels[t.schedule_day] ?? t.schedule_day
+  return t.holiday ? `${runs}, ${t.holiday}` : runs
 })
 
 const dayChoice = computed(() => day.value?.override?.source === 'admin' ? day.value.override.schedule : '')
 
-const dayLine = computed(() => {
+const dayText = computed(() => {
   const d = day.value
   if (!d) return ''
-  const name = d.holiday ? `${dayName(d.date)}, ${d.holiday},` : dayName(d.date)
   const runs = timetableLabels[d.schedule_day] ?? d.schedule_day
-  if (d.override?.source === 'admin') {
-    return `${name} runs the ${runs}, set by you. Automatic would be the ${timetableLabels[d.automatic] ?? d.automatic}.`
-  }
-  if (d.override) return `${name} runs the ${runs}, as seen running that day.`
-  return `${name} runs the ${runs}, chosen automatically.`
+  const name = d.holiday ? `${d.holiday}: ${runs}` : runs
+  if (d.override?.source === 'admin') return `${name}, set by you (auto ${timetableLabels[d.automatic] ?? d.automatic})`
+  if (d.override) return `${name}, seen running`
+  return `${name}, automatic`
 })
-
-const tuningLine = computed(() => {
-  const l = view.value?.learning
-  if (!l) return ''
-  const t = l.tuning
-  if (!t) {
-    return `The school-holiday window is checked after each school-holiday weekday, once the archive holds ${l.min_days} of them. It tries ${l.candidates.join(', ')} days.`
-  }
-  const scores = l.candidates
-    .filter((n) => t.scores[String(n)] != null)
-    .map((n) => `${n} days missed by ${Math.round(t.scores[String(n)]!)} s`)
-    .join(', ')
-  const head = `Checked ${dayName(dateOf(t.at))} over ${t.days} school-holiday ${t.days === 1 ? 'day' : 'days'}`
-  if (!t.samples) return `${head}: nothing to compare yet.`
-  const verdict = t.days < l.min_days ? 'Too few days to decide yet.' : t.changed ? `Switched to ${t.window} days.` : `Kept ${t.window} days.`
-  return `${head}: ${scores}; the school-term profile alone missed by ${Math.round(t.baseline)} s. ${verdict}`
-})
-
-function seedLine(w: LearningWindow) {
-  const fill = w.seed === 'last_year' ? 'A new period starts from the same days last year' : 'A new period starts from the days before the break'
-  const e = w.evaluation
-  const minDays = view.value?.learning.min_days ?? 0
-  if (!e) return `${fill}.`
-  const head = `checked ${dayName(dateOf(e.at))} over ${e.days} ${e.days === 1 ? 'day' : 'days'}`
-  if (!e.samples) return `${fill}; ${head}, nothing to compare yet.`
-  const verdict = e.days < minDays ? 'Too few days to decide yet.' : e.changed ? 'Switched.' : 'Kept.'
-  return `${fill}; ${head}: the days before the break missed by ${Math.round(e.previous)} s, last year by ${Math.round(e.last_year)} s. ${verdict}`
-}
 
 const holidays = computed(() => {
   const all = view.value?.holidays ?? []
@@ -295,238 +223,172 @@ onMounted(load)
 
 <template>
   <div class="calendar">
-    <p v-if="loadError" class="text bad">Could not load the calendar ({{ loadError }}).</p>
+    <p v-if="loadError" class="bad">Could not load ({{ loadError }})</p>
     <template v-else-if="view">
-      <p class="text">{{ todayLine }}</p>
-      <p v-if="!view.editable" class="text bad">No archive database, so the calendar can't be saved.</p>
+      <dl class="kv">
+        <div><dt>Today</dt><dd>{{ todayText }}</dd></div>
+        <div v-if="!view.editable"><dt>Saving</dt><dd class="bad">off, no archive</dd></div>
+      </dl>
 
       <h3>Timetable for a day</h3>
-      <div class="row">
-        <input v-model="dayDate" type="date" aria-label="Day" @change="loadDay">
-        <div class="choices" role="radiogroup" aria-label="Timetable to run">
-          <button
-            v-for="c in dayChoices"
-            :key="c.value"
-            type="button"
-            role="radio"
-            class="choice"
-            :class="{ 'is-selected': !!day && dayChoice === c.value }"
-            :aria-checked="!!day && dayChoice === c.value"
-            :disabled="dayBusy || !view.editable || !day"
-            @click="setDay(c.value)"
-          >
-            {{ c.label }}
-          </button>
-        </div>
-      </div>
-      <p v-if="dayError" class="text bad">{{ dayError }}</p>
-      <p v-else-if="day" class="text note">{{ dayLine }}</p>
-
-      <h3>School years</h3>
-      <div class="years" role="tablist">
+      <input ref="dayPicker" v-model="dayDate" class="date" type="date" aria-label="Day" @change="loadDay">
+      <div class="segmented" role="radiogroup" aria-label="Timetable to run">
         <button
-          v-for="y in view.years"
-          :key="y.year"
+          v-for="c in dayChoices"
+          :key="c.value"
           type="button"
-          role="tab"
-          class="year"
-          :class="{ 'is-selected': y.year === selectedYear, 'is-estimate': y.status === 'estimate' }"
-          :aria-selected="y.year === selectedYear"
-          @click="pick(y.year)"
+          role="radio"
+          :class="{ 'is-selected': !!day && dayChoice === c.value }"
+          :aria-checked="!!day && dayChoice === c.value"
+          :disabled="dayBusy || !view.editable || !day"
+          @click="setDay(c.value)"
         >
-          {{ yearLabel(y.year) }} <span>{{ statusLabels[y.status] }}</span>
+          {{ c.label }}
         </button>
       </div>
+      <p v-if="dayError" class="hint bad">{{ dayError }}</p>
+      <p v-else-if="day" class="hint">{{ dayText }}</p>
 
-      <form v-if="draft" class="year-form" @submit.prevent="save">
-        <p v-if="draft.status === 'estimate'" class="text note">
-          Estimated from the year before. Check it against the ministry's school year and the Cluj ski week, then save.
-        </p>
-        <div class="row">
-          <span class="row-name">Term</span>
-          <input v-model="draft.start" type="date" aria-label="First day of classes" required>
-          <span class="to">to</span>
-          <input v-model="draft.end" type="date" aria-label="Last day of classes" required>
-        </div>
-        <div v-for="(b, i) in draft.breaks" :key="i" class="row">
-          <input v-model="b.name" class="row-name" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required>
-          <input v-model="b.start" type="date" :aria-label="`${b.name || 'Break'} starts`" required>
-          <span class="to">to</span>
-          <input v-model="b.end" type="date" :aria-label="`${b.name || 'Break'} ends`" required>
-          <button type="button" class="link" :aria-label="`Remove ${b.name || 'break'}`" @click="removeBreak(i)">Remove</button>
-        </div>
-        <div class="actions">
-          <button type="button" class="link" @click="addBreak">Add a break</button>
-          <button type="submit" class="save" :disabled="saving || !view.editable">
-            {{ saving ? 'Saving…' : `Save ${yearLabel(draft.year)}` }}
+      <details class="school" :open="!!view.needed">
+        <summary>School years</summary>
+        <div class="segmented years" role="tablist">
+          <button
+            v-for="y in view.years"
+            :key="y.year"
+            type="button"
+            role="tab"
+            :class="{ 'is-selected': y.year === selectedYear }"
+            :aria-selected="y.year === selectedYear"
+            @click="pick(y.year)"
+          >
+            {{ yearLabel(y.year) }}<small>{{ statusLabels[y.status] }}</small>
           </button>
         </div>
-        <p v-if="saveMessage" class="text" :class="{bad: saveFailed}">{{ saveMessage }}</p>
-      </form>
 
-      <h3>What each kind of day learns from</h3>
-      <ul class="list">
-        <li v-for="w in view.learning.windows" :key="w.day_type">
-          <span class="name">{{ windowLabels[w.day_type] ?? w.day_type }}</span>
-          <span>last {{ w.days }} {{ w.days === 1 ? 'day' : 'days' }}</span>
-          <span v-if="w.from" class="muted">since {{ dayName(w.from) }}</span>
-          <span v-if="w.last_year_days && w.last_year_from && w.last_year_to" class="muted">
-            {{ w.last_year_days }} from last year, {{ dayName(w.last_year_from) }} to {{ dayName(w.last_year_to) }}
-          </span>
-          <span class="muted detail">{{ seedLine(w) }}</span>
-        </li>
-      </ul>
-      <p class="text note">{{ tuningLine }}</p>
+        <form v-if="draft" class="year-form" @submit.prevent="save">
+          <div class="range">
+            <span class="range-name">Term</span>
+            <input v-model="draft.start" type="date" aria-label="First day of classes" required>
+            <input v-model="draft.end" type="date" aria-label="Last day of classes" required>
+          </div>
+          <div v-for="(b, i) in draft.breaks" :key="i" class="range">
+            <span class="range-name">
+              <input v-model="b.name" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required>
+              <button type="button" class="link" :aria-label="`Remove ${b.name || 'break'}`" @click="removeBreak(i)">Remove</button>
+            </span>
+            <input v-model="b.start" type="date" :aria-label="`${b.name || 'Break'} starts`" required>
+            <input v-model="b.end" type="date" :aria-label="`${b.name || 'Break'} ends`" required>
+          </div>
+          <div class="actions">
+            <button type="button" class="link" @click="addBreak">Add break</button>
+            <span v-if="saveMessage" :class="{bad: saveFailed}">{{ saveMessage }}</span>
+            <button type="submit" class="save" :disabled="saving || !view.editable">
+              {{ saving ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </details>
+
+      <h3>Learns from</h3>
+      <dl class="kv">
+        <div v-for="w in view.learning.windows" :key="w.day_type">
+          <dt>{{ windowLabels[w.day_type] ?? w.day_type }}</dt>
+          <dd>
+            {{ w.days }} days<template v-if="w.from"> since {{ dayName(w.from) }}</template><template v-if="w.last_year_days"> + {{ w.last_year_days }} last year</template>
+          </dd>
+        </div>
+      </dl>
 
       <h3>Public holidays</h3>
-      <ul class="list">
-        <li v-for="h in holidays" :key="h.date">
-          <span>{{ dayName(h.date) }}</span>
-          <span class="name">{{ h.name }}</span>
-          <span class="muted">{{ timetableLabels[h.schedule] ?? h.schedule }}</span>
-          <button type="button" class="link" @click="changeDay(h.date)">Change</button>
-        </li>
-      </ul>
+      <dl class="kv">
+        <div v-for="h in holidays" :key="h.date">
+          <dt class="name">{{ dayName(h.date) }} · {{ h.name }}</dt>
+          <dd><button type="button" class="link" @click="changeDay(h.date)">{{ timetableLabels[h.schedule] ?? h.schedule }}</button></dd>
+        </div>
+      </dl>
       <button v-if="view.holidays.length > 5" type="button" class="link" @click="showAllHolidays = !showAllHolidays">
-        {{ showAllHolidays ? 'Show fewer' : `Show all ${view.holidays.length}` }}
+        {{ showAllHolidays ? 'Fewer' : `All ${view.holidays.length}` }}
       </button>
 
-      <h3>Days with their own timetable</h3>
-      <ul v-if="view.overrides.length" class="list">
-        <li v-for="o in view.overrides" :key="o.date">
-          <span>{{ dayName(o.date) }}</span>
-          <span class="name">{{ timetableLabels[o.schedule] ?? o.schedule }}</span>
-          <span class="muted">{{ o.source === 'admin' ? 'set by you' : 'seen running' }}</span>
-          <button type="button" class="link" :disabled="dayBusy || !view.editable" @click="setDay('', o.date)">Undo</button>
-          <span v-if="o.source !== 'admin'" class="muted detail">{{ o.detail }}</span>
-        </li>
-      </ul>
-      <p v-else class="text">No day has its own timetable, set by you or seen running.</p>
+      <template v-if="view.overrides.length">
+        <h3>Changed days</h3>
+        <dl class="kv">
+          <div v-for="o in view.overrides" :key="o.date">
+            <dt class="name">{{ dayName(o.date) }} · {{ timetableLabels[o.schedule] ?? o.schedule }}, {{ o.source === 'admin' ? 'by you' : 'seen' }}</dt>
+            <dd><button type="button" class="link" :disabled="dayBusy || !view.editable" @click="setDay('', o.date)">Undo</button></dd>
+          </div>
+        </dl>
+      </template>
     </template>
   </div>
 </template>
 
 <style scoped>
-.text {
-  margin: 0 0 0.5rem;
-  color: var(--a-muted);
-}
-
-.note {
-  font-size: 0.8125rem;
-}
-
 .bad {
   color: var(--a-bad);
 }
 
 h3 {
-  margin: 1rem 0 0.5rem;
-  font-size: 0.8125rem;
+  margin: 1rem 0 0.375rem;
+  font-size: 0.75rem;
   font-weight: 600;
-}
-
-.years {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  margin-bottom: 0.75rem;
-}
-
-.year {
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  padding: 0.25rem 0.625rem;
-  border: 1px solid var(--a-rule);
-  border-radius: 999px;
-  background: none;
-  color: var(--a-text);
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-}
-
-.year span {
-  font-weight: 400;
   color: var(--a-muted);
 }
 
-.year.is-estimate {
-  border-style: dashed;
+.kv {
+  margin: 0;
 }
 
-.year.is-selected {
-  background: var(--a-text);
-  border-color: var(--a-text);
-  color: var(--a-bg);
-}
-
-.year.is-selected span {
-  color: inherit;
-  opacity: 0.75;
-}
-
-.choices {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.choice {
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  padding: 0.25rem 0.625rem;
-  border: 1px solid var(--a-rule);
-  border-radius: 999px;
-  background: none;
-  color: var(--a-text);
-  cursor: pointer;
-}
-
-.choice.is-selected {
-  background: var(--a-text);
-  border-color: var(--a-text);
-  color: var(--a-bg);
-}
-
-.choice:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.choice.is-selected:disabled {
-  opacity: 1;
-}
-
-.year-form {
+.kv > div {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--a-hair);
 }
 
-.row-name {
-  width: 7rem;
-  font-weight: 600;
+.kv > div:last-child {
+  border-bottom: 0;
+}
+
+.kv dt {
+  flex-shrink: 0;
+  color: var(--a-muted);
+}
+
+.kv dt.name {
+  flex-shrink: 1;
+  min-width: 0;
+  color: var(--a-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kv dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  margin: 0.375rem 0 0;
   font-size: 0.8125rem;
+  color: var(--a-muted);
 }
 
 input {
   font: inherit;
-  font-size: 0.8125rem;
-  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.625rem;
   border: 1px solid var(--a-rule);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   background: transparent;
   color: inherit;
-  min-width: 0;
 }
 
 input:focus {
@@ -534,24 +396,117 @@ input:focus {
   outline-offset: 1px;
 }
 
-.to {
+.date {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 0.75rem;
+  background: var(--a-hair);
+}
+
+.segmented button {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.375rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: none;
   color: var(--a-muted);
+  font: inherit;
   font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.segmented button.is-selected {
+  background: var(--a-bg);
+  color: var(--a-text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.segmented button:disabled {
+  cursor: default;
+}
+
+.segmented button:disabled:not(.is-selected) {
+  opacity: 0.6;
+}
+
+.years button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.years small {
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.school {
+  margin-top: 0.75rem;
+}
+
+.school summary {
+  padding: 0.4375rem 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--a-muted);
+  cursor: pointer;
+}
+
+.school[open] summary {
+  margin-bottom: 0.375rem;
+}
+
+.year-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.375rem;
+}
+
+.range-name {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.range-name input {
+  flex: 1;
 }
 
 .actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .link {
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  padding: 0.25rem 0.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
   border: 0;
   border-radius: 0.75rem;
   background: none;
@@ -559,16 +514,26 @@ input:focus {
   cursor: pointer;
 }
 
-.link:hover {
+.link:hover:not(:disabled) {
   background: var(--a-hover);
   color: var(--a-text);
 }
 
+.link:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.kv .link {
+  margin-right: -0.5rem;
+}
+
 .save {
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  padding: 0.375rem 0.875rem;
+  min-height: 2.5rem;
+  padding: 0 1.25rem;
   border: 0;
   border-radius: 0.75rem;
   background: var(--a-text);
@@ -579,39 +544,5 @@ input:focus {
 .save:disabled {
   opacity: 0.5;
   cursor: default;
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-  padding: 0.3125rem 0;
-  border-bottom: 1px solid var(--a-hair);
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.list li:last-child {
-  border-bottom: 0;
-}
-
-.list .name {
-  flex: 1;
-  min-width: 8rem;
-}
-
-.muted {
-  color: var(--a-muted);
-}
-
-.detail {
-  flex-basis: 100%;
-  font-size: 0.75rem;
 }
 </style>

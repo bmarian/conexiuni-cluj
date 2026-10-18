@@ -40,27 +40,20 @@ type Overview = {
   accuracy: {
     today: Accuracy[]
     week: Accuracy[]
-    kinds: Accuracy[]
     daily: (Accuracy & {date: string})[]
-    timetable?: {
-      today: Accuracy[]
-      week: Accuracy[]
-      daily?: {date: string; kind: string; ours: Accuracy; ctp: Accuracy}[]
-      kinds?: {kind: string; days: number; ours: Accuracy; ctp: Accuracy}[]
-    }
+    timetable: Accuracy[]
   }
   people: {
     today: number
     new: number
     last_week: number
     platforms: {platform: string; today: number; last_week: number}[]
-    daily: {date: string; total: number; web: number; android: number; wear: number; other: number}[]
+    daily: {date: string; total: number; web: number; android: number; wear: number}[]
     versions: {platform: string; version: string; today: number; last_seen: string}[]
     stops: Named[]
     lines: Named[]
     plans: number
     places: number
-    streams: number
     installs: number
     push_followers: number
     reminders: number
@@ -71,41 +64,22 @@ type Overview = {
     vehicles: {used: number; limit: number}
     default: {used: number; limit: number}
     learning: {enabled: boolean; dedicated: boolean; used: number; budget: number}
-    daily: {date: string; vehicles: number; default: number}[]
   }
   data: {
     warmup_at: string | null
-    warmup_sec: number
     warmup_next: string
     warmup_running: boolean
-    network_built_at?: string
     route_changes: {line: string; color: string; detected_at: number; kinds: string[]}[]
     samples_today: number
     samples_hour: number
-    profiles: number
-    stands_today: number
     delays_at: string | null
-    archive: {
-      enabled: boolean
-      ran_at: string | null
-      took_sec: number
-      copied: number
-      versions: number
-      error?: string
-      bytes: number
-      samples: number
-      oldest_date?: string
-    }
+    archive: {enabled: boolean; ran_at: string | null; error?: string; bytes: number; oldest_date?: string}
   }
   server: {
     started_at: string
     revision: string
-    built_at: string
     modified: boolean
-    go_version: string
     heap_bytes: number
-    sys_bytes: number
-    goroutines: number
     db_bytes: number
     disk_free: number
     disk_total: number
@@ -215,7 +189,7 @@ function dur(sec: number) {
   sec = Math.round(Math.abs(sec))
   if (sec < 60) return `${sec} s`
   const min = Math.floor(sec / 60)
-  if (min < 60) return sec % 60 && min < 10 ? `${min} min ${sec % 60} s` : `${min} min`
+  if (min < 60) return `${min} min`
   const h = Math.floor(min / 60)
   if (h < 48) return min % 60 ? `${h} h ${min % 60} min` : `${h} h`
   return `${Math.floor(h / 24)} days`
@@ -247,12 +221,18 @@ function dayName(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})
 }
 
+function minSec(sec: number) {
+  sec = Math.round(Math.abs(sec))
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+}
+
 function came(sec: number) {
   if (Math.abs(sec) < 15) return 'on time'
-  return sec > 0 ? `${dur(sec)} late` : `${dur(sec)} early`
+  return `${minSec(sec)} ${sec > 0 ? 'late' : 'early'}`
 }
 
 const horizonLabels: Record<string, string> = {
+  'all': 'All',
   '1-2': '1–2 min',
   '3-5': '3–5 min',
   '6-10': '6–10 min',
@@ -260,10 +240,9 @@ const horizonLabels: Record<string, string> = {
   '21-30': '21–30 min',
 }
 
-const kindLabels: Record<string, string> = {
-  on_trip: 'Bus on its trip',
-  standing: 'Bus waiting at the terminus',
-  feeder: 'Bus still on its way back',
+const timetableLabels: Record<string, string> = {
+  ours: 'Ours',
+  ctp: 'CTP',
 }
 
 const changeLabels: Record<string, string> = {
@@ -279,103 +258,49 @@ const platformLabels: Record<string, string> = {
   web: 'Web',
   android: 'Android',
   wear: 'Watch',
-  other: 'Other',
 }
 
-const updatedAt = computed(() => data.value
-  ? new Date(data.value.generated_at).toLocaleTimeString('en-GB')
-  : '')
+const updatedAt = computed(() => data.value ? clockTime(data.value.generated_at) : '')
 
-const accuracyAll = computed(() => data.value?.accuracy.today.find(a => a.label === 'all'))
-const accuracyWeekAll = computed(() => data.value?.accuracy.week.find(a => a.label === 'all'))
+const liveToday = computed(() => data.value?.accuracy.today.find(a => a.label === 'all'))
 
-const liveRows = computed(() => (data.value?.accuracy.week ?? []).filter(a => a.label !== 'all'))
-
-const timetableLabels: Record<string, string> = {
-  ours: 'Ours',
-  ctp: 'CTP alone',
-}
-
-const timetableRows = computed(() => data.value?.accuracy.timetable?.week ?? [])
-const timetableToday = (label: string) => data.value?.accuracy.timetable?.today.find(a => a.label === label)
-const timetableWeekN = computed(() => timetableRows.value.find(a => a.label === 'ours')?.n ?? 0)
-
-const summary = computed(() => {
-  const d = data.value
-  if (!d) return ''
-  const parts = [
-    `${num(d.now.people)} ${d.now.people === 1 ? 'person' : 'people'} watching`,
-    `${num(d.now.buses_tracked)} buses tracked`,
-  ]
-  if (accuracyAll.value?.n) parts.push(`${pct(accuracyAll.value.within_1)} of live times within a minute`)
-  return parts.join(' · ')
+// "All" first, then by how far ahead the time was.
+const liveRows = computed(() => {
+  const week = data.value?.accuracy.week ?? []
+  return [...week.filter(a => a.label === 'all'), ...week.filter(a => a.label !== 'all')]
 })
 
 const pollText = computed(() => {
   const n = data.value?.now
-  if (!n || !n.poll_sec) return 'not polling, nobody is watching'
-  return n.polled_by === 'viewers'
-    ? `polled every ${dur(n.poll_sec)} for the people watching`
-    : `polled every ${dur(n.poll_sec)} by the learner`
+  if (!n || !n.poll_sec) return 'off'
+  return n.polled_by === 'viewers' ? `every ${dur(n.poll_sec)}` : `every ${dur(n.poll_sec)}, learner`
 })
 
 const peopleBars = computed<DayBar[]>(() => (data.value?.people.daily ?? []).map(d => {
-  const split = (['web', 'android', 'wear', 'other'] as const)
+  const split = (['web', 'android', 'wear'] as const)
     .filter(p => d[p] > 0)
     .map(p => `${platformLabels[p]} ${num(d[p])}`)
   return {
     date: d.date,
     value: d.total,
-    caption: `${dayName(d.date)} · ${num(d.total)} ${d.total === 1 ? 'person' : 'people'}${split.length ? ` (${split.join(', ')})` : ''}`,
+    caption: `${dayName(d.date)} · ${num(d.total)}${split.length ? ` (${split.join(', ')})` : ''}`,
   }
 }))
 
 const accuracyBars = computed<DayBar[]>(() => (data.value?.accuracy.daily ?? []).map(d => ({
   date: d.date,
   value: d.n ? d.within_1 : 0,
-  caption: d.n
-    ? `${dayName(d.date)} · ${pct(d.within_1)} within a minute, typical miss ${dur(d.median_abs_sec)} (${num(d.n)} arrivals)`
-    : `${dayName(d.date)} · no arrivals scored`,
+  caption: d.n ? `${dayName(d.date)} · ${pct(d.within_1)} of ${num(d.n)}` : `${dayName(d.date)} · none`,
 })))
 
-const dayKindLabels: Record<string, string> = {
-  weekday: 'School-term weekdays',
-  weekday_vacation: 'School-holiday weekdays',
-  saturday: 'Saturdays',
-  sunday: 'Sundays and holidays',
-}
+const versionsToday = computed(() => (data.value?.people.versions ?? []).filter(v => v.today > 0))
 
-const dayKindShort: Record<string, string> = {
-  weekday: 'school day',
-  weekday_vacation: 'school holiday',
-  saturday: 'Saturday',
-  sunday: 'Sunday or holiday',
-}
-
-const timetableKinds = computed(() => data.value?.accuracy.timetable?.kinds ?? [])
-
-const timetableBars = computed<DayBar[]>(() => (data.value?.accuracy.timetable?.daily ?? []).map(d => ({
-  date: d.date,
-  value: d.ours.n ? d.ours.within_1 : 0,
-  caption: d.ours.n
-    ? `${dayName(d.date)}, ${dayKindShort[d.kind] ?? d.kind} · ours ${pct(d.ours.within_1)} within a minute, CTP alone ${pct(d.ctp.within_1)} (${num(d.ours.n)} stops)`
-    : `${dayName(d.date)}, ${dayKindShort[d.kind] ?? d.kind} · timetable not scored`,
-})))
-
-const quotaBars = computed<DayBar[]>(() => (data.value?.quota.daily ?? []).map(d => ({
-  date: d.date,
-  value: d.vehicles + d.default,
-  caption: `${dayName(d.date)} · ${num(d.vehicles)} vehicle calls, ${num(d.default)} other`,
-})))
-
-const versionsByPlatform = computed(() => {
-  const out: {platform: string; versions: Overview['people']['versions']}[] = []
-  for (const v of data.value?.people.versions ?? []) {
-    let group = out.find(g => g.platform === v.platform)
-    if (!group) out.push(group = {platform: v.platform, versions: []})
-    group.versions.push(v)
-  }
-  return out
+const moves = computed(() => {
+  const m = data.value?.people.moves
+  if (!m) return ''
+  const visits = m.sent + m.empty
+  if (!visits && !m.old_push) return ''
+  return `${num(visits)} today, ${num(m.old_push)} push left`
 })
 
 const uptime = computed(() => data.value ? dur((clock.value - new Date(data.value.server.started_at).getTime()) / 1000) : '')
@@ -389,6 +314,19 @@ const diskUsed = computed(() => {
 function quotaShare(used: number, limit: number) {
   return limit > 0 ? Math.min(1, used / limit) : 0
 }
+
+const meters = computed(() => {
+  const q = data.value?.quota
+  if (!q) return []
+  const out = [
+    {label: 'Vehicles', used: q.vehicles.used, limit: q.vehicles.limit},
+    {label: 'Other', used: q.default.used, limit: q.default.limit},
+  ]
+  if (q.learning.enabled) {
+    out.push({label: q.learning.dedicated ? 'Learner, own key' : 'Learner', used: q.learning.used, limit: q.learning.budget})
+  }
+  return out
+})
 </script>
 
 <template>
@@ -427,173 +365,57 @@ function quotaShare(used: number, limit: number) {
 
       <div v-else class="page">
         <header class="top">
-          <span class="title">Ce autobuz iau?</span>
-          <span class="top-actions">
-            <button type="button" class="text-button" :disabled="loading" @click="load">
-              {{ loading ? 'Updating…' : `Updated ${updatedAt}` }}
-            </button>
-            <button type="button" class="text-button" @click="logout">Log out</button>
-          </span>
+          <h1>Admin</h1>
+          <button type="button" class="text-button" :disabled="loading" @click="load">
+            {{ loading ? 'Updating…' : updatedAt }}
+          </button>
+          <button type="button" class="text-button" @click="logout">Log out</button>
         </header>
-        <p v-if="loadError" class="bad small">Could not refresh ({{ loadError }}), showing {{ updatedAt }}.</p>
+        <p v-if="loadError" class="bad small">Refresh failed ({{ loadError }})</p>
 
-        <section class="status">
-          <template v-if="data.problems.length">
-            <p v-for="p in data.problems" :key="p" class="problem">{{ p }}</p>
-          </template>
-          <p v-else class="ok">Everything is running.</p>
-          <p class="muted">{{ summary }}</p>
-        </section>
+        <div class="stats">
+          <div><b>{{ num(data.now.people) }}</b><span>watching</span></div>
+          <div><b>{{ num(data.people.today) }}</b><span>people today</span></div>
+          <div><b>{{ liveToday?.n ? pct(liveToday.within_1) : '–' }}</b><span>within 1 min</span></div>
+        </div>
+
+        <ul v-if="data.problems.length" class="problems">
+          <li v-for="p in data.problems" :key="p">{{ p }}</li>
+        </ul>
 
         <div class="columns">
           <section>
-            <div class="label"><span>Right now</span><i></i></div>
-            <div class="figures">
-              <div>
-                <b>{{ num(data.now.people) }}</b>
-                <span>{{ data.now.people === 1 ? 'person' : 'people' }} watching on {{ num(data.now.streams) }} {{ data.now.streams === 1 ? 'screen' : 'screens' }}</span>
-              </div>
-              <div>
-                <b>{{ num(data.now.buses_tracked) }}</b>
-                <span>buses tracked of {{ num(data.now.buses_in_service) }} in service, on {{ num(data.now.lines_live) }} lines</span>
-              </div>
-            </div>
-            <p class="line-text">
-              <template v-if="data.now.feed_at">Positions fetched {{ ago(data.now.feed_at) }}, the fixes were {{ dur(data.now.fix_age_sec) }} old;</template>
-              <template v-else>No positions fetched yet;</template>
-              {{ pollText }}.
-            </p>
-            <p v-if="data.now.feed_error" class="bad small">Last error: {{ data.now.feed_error }}</p>
-
-            <div v-if="data.now.lines.length || data.now.stops.length" class="pair">
-              <div v-if="data.now.lines.length">
-                <h3>Lines on screens</h3>
-                <ul class="rows">
-                  <li v-for="l in data.now.lines" :key="l.id">
-                    <span class="badge" :style="{backgroundColor: l.color || '#64748b'}">{{ l.name }}</span>
-                    <span class="count">{{ num(l.count) }}</span>
-                  </li>
-                </ul>
-              </div>
-              <div v-if="data.now.stops.length">
-                <h3>Stops on screens</h3>
-                <ul class="rows">
-                  <li v-for="s in data.now.stops" :key="s.id">
-                    <span class="name">{{ s.name }}</span>
-                    <span class="count">{{ num(s.count) }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <div class="label"><span>Accuracy</span><i></i></div>
-            <div class="figures">
-              <div>
-                <b>{{ accuracyAll?.n ? pct(accuracyAll.within_1) : '–' }}</b>
-                <span>{{ accuracyAll?.n ? 'of live times right within a minute today' : 'no live times scored yet today' }}</span>
-              </div>
-              <div>
-                <b>{{ timetableToday('ours')?.n ? pct(timetableToday('ours')!.within_1) : '–' }}</b>
-                <span v-if="timetableToday('ours')?.n">
-                  of our timetable right within a minute today; CTP alone {{ pct(timetableToday('ctp')?.within_1 ?? 0) }}
+            <div class="label"><span>Now</span><i></i></div>
+            <dl class="kv">
+              <div><dt>Buses</dt><dd>{{ num(data.now.buses_tracked) }} of {{ num(data.now.buses_in_service) }} · {{ num(data.now.lines_live) }} lines</dd></div>
+              <div><dt>Positions</dt><dd>{{ data.now.feed_at ? ago(data.now.feed_at) : 'none yet' }}</dd></div>
+              <div><dt>Polling</dt><dd>{{ pollText }}</dd></div>
+              <div v-if="data.now.feed_error"><dt>Error</dt><dd class="bad">{{ data.now.feed_error }}</dd></div>
+            </dl>
+            <template v-if="data.now.lines.length">
+              <h3>Lines on screens</h3>
+              <p class="badges">
+                <span v-for="l in data.now.lines" :key="l.id">
+                  <span class="badge" :style="{backgroundColor: l.color || '#64748b'}">{{ l.name }}</span>{{ num(l.count) }}
                 </span>
-                <span v-else>timetable not scored yet today</span>
-              </div>
-            </div>
-
-            <p class="line-text">How close each time was to the bus reaching the stop, last 7 days.</p>
-            <table class="table accuracy">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>Right within a minute</th>
-                  <th>1 in 10 off by</th>
-                  <th>Buses came</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="group"><th colspan="4">Live time, when it said</th></tr>
-                <tr v-for="r in liveRows" :key="r.label">
-                  <td>{{ horizonLabels[r.label] ?? r.label }}</td>
-                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
-                  <td>{{ r.n ? dur(r.p90_abs_sec) : '–' }}</td>
-                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
-                </tr>
-              </tbody>
-              <tbody>
-                <tr class="group"><th colspan="4">Timetable</th></tr>
-                <tr v-for="r in timetableRows" :key="r.label">
-                  <td>{{ timetableLabels[r.label] ?? r.label }}</td>
-                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
-                  <td>{{ r.n ? dur(r.p90_abs_sec) : '–' }}</td>
-                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="note">
-              A live time counts once for every minute a screen showed it<template v-if="accuracyWeekAll?.n"> ({{ num(accuracyWeekAll.n) }})</template>;
-              the timetable at every stop a bus reached after it was matched to its departure<template v-if="timetableWeekN"> ({{ num(timetableWeekN) }})</template>.
-              CTP only prints when buses leave each end, so between stops its time is that departure plus the distance at a flat bus pace,
-              where the app starts before it learns anything.
-            </p>
-
-            <AdminDayBars :days="accuracyBars" :max="1"/>
-
-            <h3>Our timetable by kind of day, 60 days</h3>
-            <table v-if="timetableKinds.length" class="table accuracy">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>Days</th>
-                  <th>Ours within a minute</th>
-                  <th>CTP alone</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="k in timetableKinds" :key="k.kind">
-                  <td>{{ dayKindLabels[k.kind] ?? k.kind }}</td>
-                  <td>{{ num(k.days) }}</td>
-                  <td>{{ k.ours.n ? pct(k.ours.within_1) : '–' }}</td>
-                  <td>{{ k.ctp.n ? pct(k.ctp.within_1) : '–' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="line-text">Not scored yet.</p>
-            <AdminDayBars :days="timetableBars" :max="1"/>
-
-            <h3>Live times by where the bus was, 7 days</h3>
-            <ul class="rows">
-              <li v-for="k in data.accuracy.kinds" :key="k.label">
-                <span class="name">{{ kindLabels[k.label] ?? k.label }}</span>
-                <span class="count">{{ k.n ? `${pct(k.within_1)} of ${num(k.n)}` : '–' }}</span>
-              </li>
-            </ul>
+              </p>
+            </template>
+            <template v-if="data.now.stops.length">
+              <h3>Stops on screens</h3>
+              <dl class="kv">
+                <div v-for="s in data.now.stops" :key="s.id"><dt class="name">{{ s.name }}</dt><dd>{{ num(s.count) }}</dd></div>
+              </dl>
+            </template>
           </section>
 
           <section>
             <div class="label"><span>People</span><i></i></div>
-            <div class="figures">
-              <div>
-                <b>{{ num(data.people.today) }}</b>
-                <span>today, {{ num(data.people.new) }} new; {{ num(data.people.last_week) }} a week ago</span>
-              </div>
-              <div>
-                <b>{{ num(data.people.plans) }}</b>
-                <span>trips planned, {{ num(data.people.places) }} place searches today</span>
-              </div>
-            </div>
-
             <table class="table">
               <thead>
-                <tr>
-                  <th></th>
-                  <th>Today</th>
-                  <th>Week ago</th>
-                </tr>
+                <tr><th></th><th>Today</th><th>Week ago</th></tr>
               </thead>
               <tbody>
+                <tr class="total"><td>All</td><td>{{ num(data.people.today) }}</td><td>{{ num(data.people.last_week) }}</td></tr>
                 <tr v-for="p in data.people.platforms" :key="p.platform">
                   <td>{{ platformLabels[p.platform] ?? p.platform }}</td>
                   <td>{{ num(p.today) }}</td>
@@ -601,108 +423,100 @@ function quotaShare(used: number, limit: number) {
                 </tr>
               </tbody>
             </table>
-
             <AdminDayBars :days="peopleBars"/>
-
-            <div v-if="data.people.lines.length || data.people.stops.length" class="pair">
-              <div v-if="data.people.lines.length">
-                <h3>Lines opened today</h3>
-                <ul class="rows">
-                  <li v-for="l in data.people.lines" :key="l.id">
-                    <span class="badge" :style="{backgroundColor: l.color || '#64748b'}">{{ l.name }}</span>
-                    <span class="count">{{ num(l.count) }}</span>
-                  </li>
-                </ul>
+            <dl class="kv">
+              <div><dt>New today</dt><dd>{{ num(data.people.new) }}</dd></div>
+              <div><dt>Trips planned</dt><dd>{{ num(data.people.plans) }}</dd></div>
+              <div><dt>Place searches</dt><dd>{{ num(data.people.places) }}</dd></div>
+              <div><dt>Follow line changes</dt><dd>{{ num(data.people.push_followers) }}</dd></div>
+              <div><dt>Reminders</dt><dd>{{ num(data.people.reminders) }} from {{ num(data.people.reminder_users) }}</dd></div>
+              <div><dt>Web installs</dt><dd>{{ num(data.people.installs) }}</dd></div>
+              <div v-if="moves"><dt>Old address</dt><dd>{{ moves }}</dd></div>
+              <div v-for="v in versionsToday" :key="v.platform + v.version">
+                <dt>{{ platformLabels[v.platform] ?? v.platform }} {{ v.version }}</dt><dd>{{ num(v.today) }}</dd>
               </div>
-              <div v-if="data.people.stops.length">
-                <h3>Stops opened today</h3>
-                <ul class="rows">
-                  <li v-for="s in data.people.stops" :key="s.id">
-                    <span class="name">{{ s.name }}</span>
-                    <span class="count">{{ num(s.count) }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div v-for="g in versionsByPlatform" :key="g.platform">
-              <h3>{{ platformLabels[g.platform] ?? g.platform }} versions</h3>
-              <ul class="rows">
-                <li v-for="v in g.versions" :key="v.version">
-                  <span class="name">{{ v.version }}</span>
-                  <span class="count">{{ v.today ? `${num(v.today)} today` : `last seen ${dayName(v.last_seen)}` }}</span>
-                </li>
-              </ul>
-            </div>
-
-            <p class="line-text">
-              {{ num(data.people.streams) }} live {{ data.people.streams === 1 ? 'screen' : 'screens' }} opened today.
-              {{ num(data.people.push_followers) }} follow line changes,
-              {{ num(data.people.reminder_users) }} have {{ num(data.people.reminders) }} reminders.
-              The web app was installed {{ num(data.people.installs) }} times.
-            </p>
-            <p class="line-text">
-              bus.bmarian.online sent {{ num(data.people.moves.sent + data.people.moves.empty) }} visits on today,
-              {{ num(data.people.moves.sent) }} with saved data, of which {{ num(data.people.moves.received) }} arrived.
-              {{ num(data.people.moves.old_push) }} push {{ data.people.moves.old_push === 1 ? 'subscription is' : 'subscriptions are' }} still there.
-            </p>
-          </section>
-
-          <section>
-            <div class="label"><span>Tranzy</span><i></i></div>
-            <div class="meter">
-              <p><span>Vehicle calls</span><span>{{ num(data.quota.vehicles.used) }} of {{ num(data.quota.vehicles.limit) }}</span></p>
-              <div class="track"><span :style="{width: pct(quotaShare(data.quota.vehicles.used, data.quota.vehicles.limit))}"></span></div>
-            </div>
-            <div class="meter">
-              <p><span>Other calls</span><span>{{ num(data.quota.default.used) }} of {{ num(data.quota.default.limit) }}</span></p>
-              <div class="track"><span :style="{width: pct(quotaShare(data.quota.default.used, data.quota.default.limit))}"></span></div>
-            </div>
-            <div v-if="data.quota.learning.enabled" class="meter">
-              <p>
-                <span>Learner{{ data.quota.learning.dedicated ? ', own key' : '' }}</span>
-                <span>{{ num(data.quota.learning.used) }} of {{ num(data.quota.learning.budget) }}</span>
+            </dl>
+            <template v-if="data.people.lines.length">
+              <h3>Lines today</h3>
+              <p class="badges">
+                <span v-for="l in data.people.lines" :key="l.id">
+                  <span class="badge" :style="{backgroundColor: l.color || '#64748b'}">{{ l.name }}</span>{{ num(l.count) }}
+                </span>
               </p>
-              <div class="track"><span :style="{width: pct(quotaShare(data.quota.learning.used, data.quota.learning.budget))}"></span></div>
-            </div>
-            <p v-else class="line-text">The learner is off.</p>
-            <AdminDayBars :days="quotaBars"/>
+            </template>
+            <template v-if="data.people.stops.length">
+              <h3>Stops today</h3>
+              <dl class="kv">
+                <div v-for="s in data.people.stops" :key="s.id"><dt class="name">{{ s.name }}</dt><dd>{{ num(s.count) }}</dd></div>
+              </dl>
+            </template>
           </section>
 
           <section>
-            <div class="label"><span>Timetables and learning</span><i></i></div>
-            <p class="line-text">
-              <template v-if="data.data.warmup_running">Timetables are being refreshed now.</template>
-              <template v-else-if="data.data.warmup_at">
-                Timetables refreshed {{ ago(data.data.warmup_at) }} in {{ dur(data.data.warmup_sec) }}.
-              </template>
-              <template v-else>Timetables not refreshed since the start.</template>
-              Next at {{ clockTime(data.data.warmup_next) }}.
-              <template v-if="data.data.network_built_at">Network bundle built {{ ago(data.data.network_built_at) }}.</template>
-            </p>
-            <p class="line-text">
-              {{ num(data.data.samples_today) }} stop-to-stop times learned today, {{ num(data.data.samples_hour) }} in the last hour;
-              {{ num(data.data.profiles) }} profiles. {{ num(data.data.stands_today) }} terminus stands today.
-              Delays relearned {{ ago(data.data.delays_at) }}.
-            </p>
-            <p class="line-text">
-              <template v-if="!data.data.archive.enabled">No archive database, so no history is kept.</template>
-              <template v-else-if="data.data.archive.ran_at">
-                Archive holds {{ num(data.data.archive.samples) }} stop-to-stop times<template v-if="data.data.archive.oldest_date"> since {{ dayName(data.data.archive.oldest_date) }}</template>, {{ bytes(data.data.archive.bytes) }}.
-                Last copied {{ ago(data.data.archive.ran_at) }}: {{ num(data.data.archive.copied) }} rows, {{ num(data.data.archive.versions) }} new timetable or stop versions, in {{ dur(data.data.archive.took_sec) }}.
-              </template>
-              <template v-else>The archive makes its first copy a few minutes after the start.</template>
-            </p>
+            <div class="label"><span>Accuracy, 7 days</span><i></i></div>
+            <table class="table">
+              <thead>
+                <tr><th></th><th>Within 1 min</th><th>1 in 10 off by</th><th>Buses came</th></tr>
+              </thead>
+              <tbody>
+                <tr class="group"><th colspan="4">Live, when it said</th></tr>
+                <tr v-for="r in liveRows" :key="r.label" :class="{total: r.label === 'all'}">
+                  <td>{{ horizonLabels[r.label] ?? r.label }}</td>
+                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
+                  <td>{{ r.n ? minSec(r.p90_abs_sec) : '–' }}</td>
+                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
+                </tr>
+                <tr class="group"><th colspan="4">Timetable</th></tr>
+                <tr v-for="r in data.accuracy.timetable" :key="r.label">
+                  <td>{{ timetableLabels[r.label] ?? r.label }}</td>
+                  <td>{{ r.n ? pct(r.within_1) : '–' }}</td>
+                  <td>{{ r.n ? minSec(r.p90_abs_sec) : '–' }}</td>
+                  <td>{{ r.n ? came(r.bias_sec) : '–' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <AdminDayBars :days="accuracyBars" :max="1"/>
+          </section>
 
-            <h3>Timetable changes, 7 days</h3>
-            <ul v-if="data.data.route_changes.length" class="rows">
-              <li v-for="c in data.data.route_changes" :key="`${c.line}-${c.detected_at}`">
-                <span class="badge" :style="{backgroundColor: c.color || '#64748b'}">{{ c.line }}</span>
-                <span class="name">{{ c.kinds.map(k => changeLabels[k] ?? k).join(', ') }}</span>
-                <span class="count">{{ ago(c.detected_at) }}</span>
-              </li>
-            </ul>
-            <p v-else class="line-text">None.</p>
+          <section>
+            <div class="label"><span>Tranzy today</span><i></i></div>
+            <div v-for="m in meters" :key="m.label" class="meter">
+              <p><span>{{ m.label }}</span><span>{{ num(m.used) }} / {{ num(m.limit) }}</span></p>
+              <div class="track"><span :style="{width: pct(quotaShare(m.used, m.limit))}"></span></div>
+            </div>
+          </section>
+
+          <section>
+            <div class="label"><span>Learning</span><i></i></div>
+            <dl class="kv">
+              <div>
+                <dt>Timetables</dt>
+                <dd>{{ data.data.warmup_running ? 'refreshing' : ago(data.data.warmup_at) }} · next {{ clockTime(data.data.warmup_next) }}</dd>
+              </div>
+              <div><dt>Learned today</dt><dd>{{ num(data.data.samples_today) }} · {{ num(data.data.samples_hour) }} last hour</dd></div>
+              <div><dt>Delays</dt><dd>{{ ago(data.data.delays_at) }}</dd></div>
+              <div>
+                <dt>Archive</dt>
+                <dd v-if="!data.data.archive.enabled" class="bad">off</dd>
+                <dd v-else-if="data.data.archive.ran_at">
+                  {{ bytes(data.data.archive.bytes) }}<template v-if="data.data.archive.oldest_date"> since {{ dayName(data.data.archive.oldest_date) }}</template> · {{ ago(data.data.archive.ran_at) }}
+                </dd>
+                <dd v-else>not run yet</dd>
+              </div>
+              <div v-if="!data.data.route_changes.length"><dt>Timetable changes</dt><dd>none this week</dd></div>
+            </dl>
+            <template v-if="data.data.route_changes.length">
+              <h3>Timetable changes</h3>
+              <dl class="kv">
+                <div v-for="c in data.data.route_changes" :key="`${c.line}-${c.detected_at}`">
+                  <dt class="name">
+                    <span class="badge" :style="{backgroundColor: c.color || '#64748b'}">{{ c.line }}</span>
+                    {{ c.kinds.map(k => changeLabels[k] ?? k).join(', ') }}
+                  </dt>
+                  <dd>{{ ago(c.detected_at) }}</dd>
+                </div>
+              </dl>
+            </template>
           </section>
 
           <section>
@@ -712,43 +526,42 @@ function quotaShare(used: number, limit: number) {
 
           <section>
             <div class="label"><span>Server</span><i></i></div>
-            <p class="line-text">
-              Up {{ uptime }}<template v-if="data.server.revision">, build {{ data.server.revision }}{{ data.server.modified ? ' with local changes' : '' }}</template><template v-if="data.server.built_at"> from {{ dayName(data.server.built_at.slice(0, 10)) }}</template>, {{ data.server.go_version }}.
-              {{ bytes(data.server.heap_bytes) }} in use, {{ bytes(data.server.sys_bytes) }} from the system, {{ num(data.server.goroutines) }} goroutines.
-              Database {{ bytes(data.server.db_bytes) }}<template v-if="diskUsed != null">, disk {{ pct(diskUsed) }} full ({{ bytes(data.server.disk_free) }} free)</template>.
-            </p>
-            <p class="line-text">
-              {{ num(data.server.requests) }} requests today,
-              <span :class="{bad: data.server.errors > 0}">{{ num(data.server.errors) }} server errors</span>.
-            </p>
+            <dl class="kv">
+              <div><dt>Up</dt><dd>{{ uptime }}<template v-if="data.server.revision"> · {{ data.server.revision }}{{ data.server.modified ? '+' : '' }}</template></dd></div>
+              <div>
+                <dt>Requests today</dt>
+                <dd>{{ num(data.server.requests) }} · <span :class="{bad: data.server.errors > 0}">{{ num(data.server.errors) }} errors</span></dd>
+              </div>
+              <div><dt>Memory</dt><dd>{{ bytes(data.server.heap_bytes) }}</dd></div>
+              <div><dt>Database</dt><dd>{{ bytes(data.server.db_bytes) }}</dd></div>
+              <div v-if="diskUsed != null"><dt>Disk</dt><dd>{{ pct(diskUsed) }} used · {{ bytes(data.server.disk_free) }} free</dd></div>
+            </dl>
 
-            <table class="table endpoints">
-              <thead>
-                <tr>
-                  <th>Today</th>
-                  <th>Calls</th>
-                  <th>Avg</th>
-                  <th>Errors</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="e in data.server.endpoints" :key="e.key">
-                  <td>{{ e.key }}</td>
-                  <td>{{ num(e.calls) }}</td>
-                  <td>{{ e.key.endsWith(' stream') ? '–' : `${num(e.avg_ms)} ms` }}</td>
-                  <td :class="{bad: e.errors > 0}">{{ e.errors ? num(e.errors) : '–' }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <details class="more">
+              <summary>Endpoints today</summary>
+              <table class="table endpoints">
+                <thead>
+                  <tr><th></th><th>Calls</th><th>Avg</th><th>Errors</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="e in data.server.endpoints" :key="e.key">
+                    <td>{{ e.key }}</td>
+                    <td>{{ num(e.calls) }}</td>
+                    <td>{{ e.key.endsWith(' stream') ? '–' : `${num(e.avg_ms)} ms` }}</td>
+                    <td :class="{bad: e.errors > 0}">{{ e.errors ? num(e.errors) : '–' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </details>
 
-            <h3>Logged failures, 24 hours</h3>
+            <h3>Failures, 24 h</h3>
             <ul v-if="data.server.problems.length" class="log">
               <li v-for="p in data.server.problems" :key="p.text">
-                <span class="when">{{ ago(p.last) }}<template v-if="p.count > 1">, {{ num(p.count) }} times since {{ clockTime(p.first) }}</template></span>
+                <span class="when">{{ ago(p.last) }}<template v-if="p.count > 1"> · {{ num(p.count) }}×</template></span>
                 <code>{{ p.text }}</code>
               </li>
             </ul>
-            <p v-else class="line-text">None.</p>
+            <p v-else class="muted small">None</p>
           </section>
         </div>
       </div>
@@ -773,12 +586,13 @@ function quotaShare(used: number, limit: number) {
   inset: 0;
   z-index: 50;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--a-bg);
   color: var(--a-text);
   color-scheme: light;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 0.9375rem;
-  line-height: 1.45;
+  line-height: 1.4;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -813,14 +627,15 @@ function quotaShare(used: number, limit: number) {
   gap: 0.75rem;
 }
 
-.login h1 {
-  margin: 0 0 0.25rem;
+h1 {
+  margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
 }
 
 .login input {
   font: inherit;
+  font-size: 1rem;
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--a-rule);
   border-radius: 0.75rem;
@@ -853,33 +668,27 @@ function quotaShare(used: number, limit: number) {
 }
 
 .page {
-  max-width: 72rem;
+  max-width: 64rem;
   margin: 0 auto;
-  padding: max(1rem, env(safe-area-inset-top)) 1rem max(2.5rem, env(safe-area-inset-bottom));
+  padding: max(0.75rem, env(safe-area-inset-top)) 1rem max(2.5rem, env(safe-area-inset-bottom));
 }
 
 .top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.title {
-  font-weight: 700;
-}
-
-.top-actions {
-  display: flex;
   gap: 0.25rem;
+}
+
+.top h1 {
+  flex: 1;
 }
 
 .text-button {
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  margin: 0 -0.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.625rem;
   border: 0;
   border-radius: 0.75rem;
   background: none;
@@ -893,24 +702,42 @@ function quotaShare(used: number, limit: number) {
   color: var(--a-text);
 }
 
-.status {
-  margin: 1.25rem 0 0;
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 30rem;
+  margin: 0.75rem 0 0;
 }
 
-.ok,
-.problem {
-  margin: 0 0 0.25rem;
-  font-size: 1.375rem;
+.stats b {
+  display: block;
+  font-size: 1.75rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
-.problem {
+.stats span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--a-muted);
+}
+
+.problems {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
   color: var(--a-bad);
+  font-weight: 600;
+}
+
+.problems li + li {
+  margin-top: 0.25rem;
 }
 
 .muted {
-  margin: 0.25rem 0 0;
+  margin: 0;
   color: var(--a-muted);
 }
 
@@ -935,7 +762,7 @@ function quotaShare(used: number, limit: number) {
 
 section {
   min-width: 0;
-  padding-top: 1.5rem;
+  padding-top: 1.75rem;
   break-inside: avoid;
 }
 
@@ -943,7 +770,7 @@ section {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.5rem;
 }
 
 .label span {
@@ -956,91 +783,68 @@ section {
 .label i {
   flex: 1;
   height: 1px;
-  background: var(--a-hair);
-}
-
-.figures {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.figures b {
-  display: block;
-  font-size: 1.875rem;
-  font-weight: 700;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.figures span {
-  display: block;
-  margin-top: 0.125rem;
-  font-size: 0.8125rem;
-  color: var(--a-muted);
-}
-
-.line-text {
-  margin: 0 0 0.75rem;
-  font-size: 0.875rem;
-  color: var(--a-muted);
-}
-
-.note {
-  margin: 0.375rem 0 1rem;
-  font-size: 0.75rem;
-  color: var(--a-faint);
+  background: var(--a-rule);
 }
 
 h3 {
-  margin: 1rem 0 0.375rem;
+  margin: 1rem 0 0.25rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--a-muted);
 }
 
-.pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  column-gap: 1.5rem;
-}
-
-.rows {
-  list-style: none;
+.kv {
   margin: 0;
-  padding: 0;
 }
 
-.rows li {
+.kv > div {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 1.875rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4375rem 0;
   border-bottom: 1px solid var(--a-hair);
-  font-size: 0.875rem;
 }
 
-.rows li:last-child {
+.kv > div:last-child {
   border-bottom: 0;
 }
 
-.rows .name {
-  flex: 1;
+.kv dt {
+  flex-shrink: 0;
+  color: var(--a-muted);
+}
+
+.kv dt.name {
+  flex-shrink: 1;
   min-width: 0;
+  color: var(--a-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rows .badge + .count {
-  margin-left: auto;
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
-.count {
-  color: var(--a-muted);
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.875rem;
+  margin: 0.25rem 0 0;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  color: var(--a-muted);
+}
+
+.badges > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
 }
 
 .badge {
@@ -1055,12 +859,12 @@ h3 {
   color: #ffffff;
   font-size: 0.75rem;
   font-weight: 800;
+  vertical-align: middle;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1068,12 +872,14 @@ h3 {
   padding: 0 0 0.25rem;
   font-size: 0.6875rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--a-faint);
   text-align: right;
+  vertical-align: bottom;
 }
 
 .table td {
-  padding: 0.3125rem 0;
+  padding: 0.4375rem 0;
   border-top: 1px solid var(--a-hair);
   text-align: right;
   white-space: nowrap;
@@ -1089,49 +895,45 @@ h3 {
   padding-left: 0.75rem;
 }
 
-.accuracy thead th {
-  vertical-align: bottom;
+.table td:first-child {
+  color: var(--a-muted);
+}
+
+.table .total td {
+  font-weight: 700;
+  color: var(--a-text);
 }
 
 .table .group th {
-  padding-top: 0.75rem;
+  padding-top: 0.875rem;
   text-align: left;
 }
 
-.table tbody:first-of-type .group th {
+.table tbody > .group:first-child th {
   padding-top: 0.25rem;
 }
 
 .table + :deep(.day-bars),
-.note + :deep(.day-bars) {
+.kv + :deep(.day-bars) {
   margin-top: 1rem;
 }
 
-.endpoints {
-  margin-bottom: 0.25rem;
+:deep(.day-bars) + .kv {
+  margin-top: 0.75rem;
 }
 
-.endpoints td:first-child {
-  max-width: 0;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.8125rem;
-}
-
-.meter {
-  margin-bottom: 0.75rem;
+.meter + .meter {
+  margin-top: 0.75rem;
 }
 
 .meter p {
   display: flex;
   justify-content: space-between;
   margin: 0 0 0.25rem;
-  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
-.meter p span:last-child {
+.meter p span:first-child {
   color: var(--a-muted);
 }
 
@@ -1148,9 +950,25 @@ h3 {
   background: var(--a-bar-strong);
 }
 
-.meter + :deep(.day-bars),
-.line-text + :deep(.day-bars) {
-  margin-top: 1rem;
+.more {
+  margin-top: 0.5rem;
+}
+
+.more summary {
+  padding: 0.4375rem 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--a-muted);
+  cursor: pointer;
+}
+
+.endpoints {
+  font-size: 0.8125rem;
+}
+
+.endpoints td:first-child {
+  white-space: normal;
+  word-break: break-all;
 }
 
 .log {
@@ -1160,7 +978,7 @@ h3 {
 }
 
 .log li {
-  padding: 0.375rem 0;
+  padding: 0.4375rem 0;
   border-bottom: 1px solid var(--a-hair);
 }
 

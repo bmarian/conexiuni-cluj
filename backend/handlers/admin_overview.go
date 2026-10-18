@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"cmp"
-	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/services/tranzy"
 	"database/sql"
@@ -21,10 +20,9 @@ var serverStartedAt = time.Now()
 
 const (
 	diskFullWarning = 0.9
-	adminTopLimit   = 10
+	adminTopLimit   = 5
 	adminPeopleDays = 30
 	adminTrendDays  = 14
-	adminKindDays   = 60
 )
 
 type namedCount struct {
@@ -70,20 +68,6 @@ type accuracyStats struct {
 	Bias      int     `json:"bias_sec"`
 }
 
-type timetableDay struct {
-	Date string        `json:"date"`
-	Kind string        `json:"kind"`
-	Ours accuracyStats `json:"ours"`
-	CTP  accuracyStats `json:"ctp"`
-}
-
-type timetableByKind struct {
-	Kind string        `json:"kind"`
-	Days int           `json:"days"`
-	Ours accuracyStats `json:"ours"`
-	CTP  accuracyStats `json:"ctp"`
-}
-
 type accuracyDay struct {
 	Date string `json:"date"`
 	accuracyStats
@@ -92,14 +76,8 @@ type accuracyDay struct {
 type adminAccuracy struct {
 	Today     []accuracyStats `json:"today"`
 	Week      []accuracyStats `json:"week"`
-	Kinds     []accuracyStats `json:"kinds"`
 	Daily     []accuracyDay   `json:"daily"`
-	Timetable struct {
-		Today []accuracyStats   `json:"today"`
-		Week  []accuracyStats   `json:"week"`
-		Daily []timetableDay    `json:"daily"`
-		Kinds []timetableByKind `json:"kinds"`
-	} `json:"timetable"`
+	Timetable []accuracyStats `json:"timetable"`
 }
 
 type peopleDay struct {
@@ -108,7 +86,6 @@ type peopleDay struct {
 	Web     int    `json:"web"`
 	Android int    `json:"android"`
 	Wear    int    `json:"wear"`
-	Other   int    `json:"other"`
 }
 
 type platformCount struct {
@@ -135,7 +112,6 @@ type adminPeople struct {
 	Lines         []namedCount    `json:"lines"`
 	Plans         int             `json:"plans"`
 	Places        int             `json:"places"`
-	Streams       int             `json:"streams"`
 	Installs      int             `json:"installs"`
 	PushFollowers int             `json:"push_followers"`
 	Reminders     int             `json:"reminders"`
@@ -156,12 +132,6 @@ type quotaUse struct {
 	Limit int `json:"limit"`
 }
 
-type quotaDay struct {
-	Date     string `json:"date"`
-	Vehicles int    `json:"vehicles"`
-	Default  int    `json:"default"`
-}
-
 type adminQuota struct {
 	Vehicles quotaUse `json:"vehicles"`
 	Default  quotaUse `json:"default"`
@@ -171,7 +141,6 @@ type adminQuota struct {
 		Used      int  `json:"used"`
 		Budget    int  `json:"budget"`
 	} `json:"learning"`
-	Daily []quotaDay `json:"daily"`
 }
 
 type routeChangeBrief struct {
@@ -182,29 +151,21 @@ type routeChangeBrief struct {
 }
 
 type adminData struct {
-	WarmupAt       *time.Time         `json:"warmup_at"`
-	WarmupSec      float64            `json:"warmup_sec"`
-	WarmupNext     time.Time          `json:"warmup_next"`
-	WarmupRunning  bool               `json:"warmup_running"`
-	NetworkBuiltAt string             `json:"network_built_at,omitempty"`
-	RouteChanges   []routeChangeBrief `json:"route_changes"`
-	SamplesToday   int                `json:"samples_today"`
-	SamplesHour    int                `json:"samples_hour"`
-	Profiles       int                `json:"profiles"`
-	StandsToday    int                `json:"stands_today"`
-	DelaysAt       *time.Time         `json:"delays_at"`
-	Archive        adminArchive       `json:"archive"`
+	WarmupAt      *time.Time         `json:"warmup_at"`
+	WarmupNext    time.Time          `json:"warmup_next"`
+	WarmupRunning bool               `json:"warmup_running"`
+	RouteChanges  []routeChangeBrief `json:"route_changes"`
+	SamplesToday  int                `json:"samples_today"`
+	SamplesHour   int                `json:"samples_hour"`
+	DelaysAt      *time.Time         `json:"delays_at"`
+	Archive       adminArchive       `json:"archive"`
 }
 
 type adminArchive struct {
 	Enabled    bool       `json:"enabled"`
 	RanAt      *time.Time `json:"ran_at"`
-	TookSec    float64    `json:"took_sec"`
-	Copied     int        `json:"copied"`
-	Versions   int        `json:"versions"`
 	Error      string     `json:"error,omitempty"`
 	Bytes      int64      `json:"bytes"`
-	Samples    int        `json:"samples"`
 	OldestDate string     `json:"oldest_date,omitempty"`
 }
 
@@ -223,21 +184,17 @@ type problemEntry struct {
 }
 
 type adminServer struct {
-	StartedAt  time.Time       `json:"started_at"`
-	Revision   string          `json:"revision"`
-	BuiltAt    string          `json:"built_at"`
-	Modified   bool            `json:"modified"`
-	GoVersion  string          `json:"go_version"`
-	HeapBytes  uint64          `json:"heap_bytes"`
-	SysBytes   uint64          `json:"sys_bytes"`
-	Goroutines int             `json:"goroutines"`
-	DBBytes    int64           `json:"db_bytes"`
-	DiskFree   uint64          `json:"disk_free"`
-	DiskTotal  uint64          `json:"disk_total"`
-	Requests   int             `json:"requests"`
-	Errors     int             `json:"errors"`
-	Endpoints  []endpointToday `json:"endpoints"`
-	Problems   []problemEntry  `json:"problems"`
+	StartedAt time.Time       `json:"started_at"`
+	Revision  string          `json:"revision"`
+	Modified  bool            `json:"modified"`
+	HeapBytes uint64          `json:"heap_bytes"`
+	DBBytes   int64           `json:"db_bytes"`
+	DiskFree  uint64          `json:"disk_free"`
+	DiskTotal uint64          `json:"disk_total"`
+	Requests  int             `json:"requests"`
+	Errors    int             `json:"errors"`
+	Endpoints []endpointToday `json:"endpoints"`
+	Problems  []problemEntry  `json:"problems"`
 }
 
 func buildAdminOverview(tranzyClient *tranzy.Client, now time.Time) (*adminOverview, error) {
@@ -252,7 +209,7 @@ func buildAdminOverview(tranzyClient *tranzy.Client, now time.Time) (*adminOverv
 	if o.People, err = adminPeopleSection(now); err != nil {
 		return nil, fmt.Errorf("people: %w", err)
 	}
-	if o.Quota, err = adminQuotaSection(tranzyClient, now); err != nil {
+	if o.Quota, err = adminQuotaSection(tranzyClient); err != nil {
 		return nil, fmt.Errorf("quota: %w", err)
 	}
 	if o.Data, err = adminDataSection(now); err != nil {
@@ -350,7 +307,7 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 	}
 	today, weekStart := database.StatsDate(now), database.StatsDaysAgo(6)
 	horizonsToday, horizonsWeek := map[string]errorHistogram{}, map[string]errorHistogram{}
-	kindsWeek, daily := map[string]errorHistogram{}, map[string]errorHistogram{}
+	daily := map[string]errorHistogram{}
 	allToday, allWeek := errorHistogram{}, errorHistogram{}
 	get := func(m map[string]errorHistogram, k string) errorHistogram {
 		if m[k] == nil {
@@ -370,7 +327,6 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 		get(daily, r.Date).add(bin, r.Count)
 		if r.Date >= weekStart {
 			get(horizonsWeek, parts[1]).add(bin, r.Count)
-			get(kindsWeek, parts[0]).add(bin, r.Count)
 			allWeek.add(bin, r.Count)
 		}
 		if r.Date == today {
@@ -384,81 +340,26 @@ func adminAccuracySection(now time.Time) (adminAccuracy, error) {
 	}
 	a.Today = append(a.Today, allToday.summarize("all"))
 	a.Week = append(a.Week, allWeek.summarize("all"))
-	for _, kind := range []string{"on_trip", "standing", "feeder"} {
-		a.Kinds = append(a.Kinds, get(kindsWeek, kind).summarize(kind))
-	}
 	for i := adminTrendDays - 1; i >= 0; i-- {
 		date := database.StatsDaysAgo(i)
 		a.Daily = append(a.Daily, accuracyDay{Date: date, accuracyStats: get(daily, date).summarize(date)})
 	}
 
-	rows, err = database.MetricRows("timetable_error", database.StatsDaysAgo(adminKindDays-1))
+	rows, err = database.MetricRows("timetable_error", weekStart)
 	if err != nil {
 		return a, err
 	}
-	timetableToday, timetableWeek := map[string]errorHistogram{}, map[string]errorHistogram{}
-	timetableByDate := map[string]map[string]errorHistogram{}
+	timetable := map[string]errorHistogram{}
 	for _, r := range rows {
 		source, rawBin, ok := strings.Cut(r.Key, "|")
 		bin, err := strconv.Atoi(rawBin)
 		if !ok || err != nil {
 			continue
 		}
-		if timetableByDate[r.Date] == nil {
-			timetableByDate[r.Date] = map[string]errorHistogram{}
-		}
-		get(timetableByDate[r.Date], source).add(bin, r.Count)
-		if r.Date >= weekStart {
-			get(timetableWeek, source).add(bin, r.Count)
-		}
-		if r.Date == today {
-			get(timetableToday, source).add(bin, r.Count)
-		}
+		get(timetable, source).add(bin, r.Count)
 	}
 	for _, source := range []string{"ours", "ctp"} {
-		a.Timetable.Today = append(a.Timetable.Today, get(timetableToday, source).summarize(source))
-		a.Timetable.Week = append(a.Timetable.Week, get(timetableWeek, source).summarize(source))
-	}
-
-	kindOf := func(date string) string {
-		day, err := time.ParseInLocation("2006-01-02", date, database.StatsLocation())
-		if err != nil {
-			return ""
-		}
-		return profileDay(day)
-	}
-	byKind, kindDays := map[string]map[string]errorHistogram{}, map[string]int{}
-	for date, sources := range timetableByDate {
-		kind := kindOf(date)
-		if byKind[kind] == nil {
-			byKind[kind] = map[string]errorHistogram{}
-		}
-		for source, h := range sources {
-			for bin, count := range h {
-				get(byKind[kind], source).add(bin, count)
-			}
-		}
-		kindDays[kind]++
-	}
-	for _, kind := range calendar.ProfileDays {
-		if kindDays[kind] == 0 {
-			continue
-		}
-		a.Timetable.Kinds = append(a.Timetable.Kinds, timetableByKind{
-			Kind: kind, Days: kindDays[kind],
-			Ours: get(byKind[kind], "ours").summarize("ours"), CTP: get(byKind[kind], "ctp").summarize("ctp"),
-		})
-	}
-	for i := adminTrendDays - 1; i >= 0; i-- {
-		date := database.StatsDaysAgo(i)
-		sources := timetableByDate[date]
-		if sources == nil {
-			sources = map[string]errorHistogram{}
-		}
-		a.Timetable.Daily = append(a.Timetable.Daily, timetableDay{
-			Date: date, Kind: kindOf(date),
-			Ours: get(sources, "ours").summarize("ours"), CTP: get(sources, "ctp").summarize("ctp"),
-		})
+		a.Timetable = append(a.Timetable, get(timetable, source).summarize(source))
 	}
 	return a, nil
 }
@@ -490,12 +391,6 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 			d.Total += r.Count
 		}
 	}
-	if d := days[today]; d != nil {
-		p.Today = d.Total
-	}
-	if d := days[lastWeek]; d != nil {
-		p.LastWeek = d.Total
-	}
 	newVisitors, err := database.MetricRows("new_visitors", today)
 	if err != nil {
 		return p, err
@@ -509,7 +404,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		return p, err
 	}
 	platforms := map[string]*platformCount{}
-	for _, name := range []string{"web", "android", "wear", "other"} {
+	for _, name := range []string{"web", "android", "wear"} {
 		platforms[name] = &platformCount{Platform: name}
 	}
 	versions := map[string]*versionCount{}
@@ -524,7 +419,8 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 			case "wear":
 				d.Wear += r.Count
 			default:
-				d.Other += r.Count
+				// Scripts counted before robots were left out.
+				d.Total = max(0, d.Total-r.Count)
 			}
 		}
 		if pc := platforms[platform]; pc != nil {
@@ -534,7 +430,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 				pc.LastWeek += r.Count
 			}
 		}
-		if version == "" {
+		if version == "" || platforms[platform] == nil {
 			continue
 		}
 		v := versions[r.Key]
@@ -547,8 +443,14 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		}
 		v.LastSeen = max(v.LastSeen, r.Date)
 	}
-	for _, name := range []string{"web", "android", "wear", "other"} {
+	for _, name := range []string{"web", "android", "wear"} {
 		p.Platforms = append(p.Platforms, *platforms[name])
+	}
+	if d := days[today]; d != nil {
+		p.Today = d.Total
+	}
+	if d := days[lastWeek]; d != nil {
+		p.LastWeek = d.Total
 	}
 	for _, v := range versions {
 		p.Versions = append(p.Versions, *v)
@@ -567,7 +469,7 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 		return p, err
 	}
 
-	calls, err := database.MetricRows("endpoint_call", today)
+	calls, err := database.MetricRows("person_call", today)
 	if err != nil {
 		return p, err
 	}
@@ -577,8 +479,6 @@ func adminPeopleSection(now time.Time) (adminPeople, error) {
 			p.Plans += r.Count
 		case "GET /api/places":
 			p.Places += r.Count
-		case "GET /api/live stream":
-			p.Streams += r.Count
 		}
 	}
 	if p.Installs, err = database.MetricTotal("pwa_install", "appinstalled"); err != nil {
@@ -719,7 +619,7 @@ func routeNames(ids []int) (map[int]namedCount, error) {
 	return out, err
 }
 
-func adminQuotaSection(tranzyClient *tranzy.Client, now time.Time) (adminQuota, error) {
+func adminQuotaSection(tranzyClient *tranzy.Client) (adminQuota, error) {
 	q := adminQuota{
 		Vehicles: quotaUse{Used: tranzyClient.VehiclesQuotaLimit() - tranzyClient.VehiclesQuotaRemaining(), Limit: tranzyClient.VehiclesQuotaLimit()},
 		Default:  quotaUse{Used: tranzyClient.DefaultQuotaLimit() - tranzyClient.DefaultQuotaRemaining(), Limit: tranzyClient.DefaultQuotaLimit()},
@@ -728,34 +628,6 @@ func adminQuotaSection(tranzyClient *tranzy.Client, now time.Time) (adminQuota, 
 	q.Learning.Enabled, q.Learning.Dedicated = learning.Enabled, learning.Dedicated
 	q.Learning.Used, q.Learning.Budget = learning.Used, learning.Budget
 
-	rows, err := database.MetricRows("tranzy_quota", database.StatsDaysAgo(adminTrendDays-1))
-	if err != nil {
-		return q, err
-	}
-	days := make(map[string]*quotaDay, adminTrendDays)
-	for i := adminTrendDays - 1; i >= 0; i-- {
-		q.Daily = append(q.Daily, quotaDay{Date: database.StatsDaysAgo(i)})
-	}
-	for i := range q.Daily {
-		days[q.Daily[i].Date] = &q.Daily[i]
-	}
-	for _, r := range rows {
-		d := days[r.Date]
-		if d == nil {
-			continue
-		}
-		switch r.Key {
-		case "vehicles":
-			d.Vehicles += r.Count
-		case "default":
-			d.Default += r.Count
-		}
-	}
-	// The persisted counter also knows the calls made before a restart.
-	if d := days[database.StatsDate(now)]; d != nil {
-		d.Vehicles = max(d.Vehicles, q.Vehicles.Used)
-		d.Default = max(d.Default, q.Default.Used)
-	}
 	return q, nil
 }
 
@@ -763,15 +635,10 @@ func adminDataSection(now time.Time) (adminData, error) {
 	d := adminData{}
 	w := WarmupState.Snapshot()
 	if !w.LastCompletedAt.IsZero() {
-		d.WarmupAt, d.WarmupSec = &w.LastCompletedAt, w.LastDuration.Seconds()
+		d.WarmupAt = &w.LastCompletedAt
 	}
 	d.WarmupNext = w.NextScheduledAt
 	d.WarmupRunning = w.LastStartedAt.After(w.LastCompletedAt)
-	networkCache.Lock()
-	if networkCache.current != nil {
-		d.NetworkBuiltAt = networkCache.current.version.GeneratedAt
-	}
-	networkCache.Unlock()
 
 	changes, err := queryRows(`
 		SELECT c.route_short_name, COALESCE(r.route_color, ''), c.detected_at, c.changes
@@ -811,10 +678,8 @@ func adminDataSection(now time.Time) (adminData, error) {
 	err = database.DB.QueryRow(`
 		SELECT (SELECT COUNT(*) FROM segment_travel_time_samples WHERE observed_at >= ?),
 		       (SELECT COUNT(*) FROM segment_travel_time_samples WHERE observed_at >= ?),
-		       (SELECT COUNT(*) FROM segment_travel_time_profiles),
-		       (SELECT COUNT(*) FROM turnaround_samples WHERE departed_at >= ?),
 		       (SELECT COALESCE(MAX(updated_at), 0) FROM schedule_delay_profiles)`,
-		midnight, now.Add(-time.Hour).Unix(), midnight).Scan(&d.SamplesToday, &d.SamplesHour, &d.Profiles, &d.StandsToday, &delaysAt)
+		midnight, now.Add(-time.Hour).Unix()).Scan(&d.SamplesToday, &d.SamplesHour, &delaysAt)
 	if delaysAt > 0 {
 		t := time.Unix(delaysAt, 0)
 		d.DelaysAt = &t
@@ -828,9 +693,7 @@ func adminArchiveSection(run *archiveRun) adminArchive {
 	if run == nil {
 		return a
 	}
-	a.RanAt, a.TookSec = &run.At, run.Took.Seconds()
-	a.Copied, a.Versions, a.Error = run.Copied, run.Versions, run.Err
-	a.Bytes, a.Samples = run.Summary.Bytes, run.Summary.Samples
+	a.RanAt, a.Error, a.Bytes = &run.At, run.Err, run.Summary.Bytes
 	if run.Summary.OldestAt > 0 {
 		a.OldestDate = database.StatsDate(time.Unix(run.Summary.OldestAt, 0))
 	}
@@ -838,15 +701,12 @@ func adminArchiveSection(run *archiveRun) adminArchive {
 }
 
 func adminServerSection(now time.Time) (adminServer, error) {
-	s := adminServer{StartedAt: serverStartedAt, GoVersion: runtime.Version(), Goroutines: runtime.NumGoroutine(),
-		Endpoints: []endpointToday{}, Problems: []problemEntry{}}
+	s := adminServer{StartedAt: serverStartedAt, Endpoints: []endpointToday{}, Problems: []problemEntry{}}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, kv := range info.Settings {
 			switch kv.Key {
 			case "vcs.revision":
 				s.Revision = kv.Value[:min(len(kv.Value), 8)]
-			case "vcs.time":
-				s.BuiltAt = kv.Value
 			case "vcs.modified":
 				s.Modified = kv.Value == "true"
 			}
@@ -854,7 +714,7 @@ func adminServerSection(now time.Time) (adminServer, error) {
 	}
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	s.HeapBytes, s.SysBytes = mem.HeapAlloc, mem.Sys
+	s.HeapBytes = mem.HeapAlloc
 	var pages, pageSize int64
 	if err := database.DB.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
 		return s, err
@@ -914,24 +774,25 @@ func adminProblems(o *adminOverview, now time.Time) []string {
 	out := []string{}
 	n := o.Now
 	if n.FeedError != "" {
-		out = append(out, "Tranzy fails: "+truncateText(n.FeedError, 160))
+		out = append(out, "Tranzy failing: "+truncateText(n.FeedError, 160))
 	}
 	if n.PollSec > 0 {
-		expected := time.Duration(2 * n.PollSec * float64(time.Second))
-		if n.FeedAt == nil && now.Sub(serverStartedAt) > expected {
-			out = append(out, "No bus positions since the server started "+humanDuration(now.Sub(serverStartedAt))+" ago")
-		} else if n.FeedAt != nil && now.Sub(*n.FeedAt) > expected {
-			out = append(out, "No new bus positions for "+humanDuration(now.Sub(*n.FeedAt)))
+		last := serverStartedAt
+		if n.FeedAt != nil {
+			last = *n.FeedAt
+		}
+		if gap := now.Sub(last); gap > time.Duration(2*n.PollSec*float64(time.Second)) {
+			out = append(out, "No bus positions for "+humanDuration(gap))
 		}
 	}
 	if age := time.Duration(n.FixAgeSec) * time.Second; age > maxObservedVehicleAge {
-		out = append(out, "Tranzy's bus positions are "+humanDuration(age)+" old")
+		out = append(out, "Bus positions are "+humanDuration(age)+" old")
 	}
 	if n.BusesInService > 0 && n.BusesTracked == 0 {
-		out = append(out, fmt.Sprintf("Tranzy reports %d buses but none is placed on its trip", n.BusesInService))
+		out = append(out, fmt.Sprintf("%d buses reported, none matched to a trip", n.BusesInService))
 	}
 	if q := o.Quota.Vehicles; q.Limit > 0 && q.Used >= q.Limit {
-		out = append(out, "The Tranzy vehicle calls are used up until midnight")
+		out = append(out, "Tranzy vehicle quota used up")
 	}
 	if o.Server.Errors > 0 {
 		out = append(out, fmt.Sprintf("%d server errors today", o.Server.Errors))
@@ -940,29 +801,24 @@ func adminProblems(o *adminOverview, now time.Time) []string {
 		out = append(out, p)
 	}
 	if a := o.Data.Archive; !a.Enabled {
-		out = append(out, "The archive database is not open, so no history is kept")
+		out = append(out, "Archive off, no history kept")
 	} else if a.Error != "" {
-		out = append(out, "The nightly archive failed: "+truncateText(a.Error, 160))
+		out = append(out, "Archive failed: "+truncateText(a.Error, 160))
 	} else if a.RanAt == nil && now.Sub(serverStartedAt) > archiveStartDelay+time.Hour {
-		out = append(out, "The archive has not run since the server started "+humanDuration(now.Sub(serverStartedAt))+" ago")
+		out = append(out, "Archive not run for "+humanDuration(now.Sub(serverStartedAt)))
 	} else if a.RanAt != nil && now.Sub(*a.RanAt) > archiveOverdue {
-		out = append(out, "The archive last ran "+humanDuration(now.Sub(*a.RanAt))+" ago")
+		out = append(out, "Archive not run for "+humanDuration(now.Sub(*a.RanAt)))
 	}
 	if s := o.Server; s.DiskTotal > 0 {
 		if used := 1 - float64(s.DiskFree)/float64(s.DiskTotal); used >= diskFullWarning {
-			out = append(out, fmt.Sprintf("The disk is %.0f%% full", used*100))
+			out = append(out, fmt.Sprintf("Disk %.0f%% full", used*100))
 		}
 	}
-	recent := 0
 	for _, p := range o.Server.Problems {
 		if now.Sub(p.Last) < time.Hour {
-			recent++
+			out = append(out, "Failures logged in the last hour")
+			break
 		}
-	}
-	if recent == 1 {
-		out = append(out, "1 kind of failure logged in the last hour")
-	} else if recent > 1 {
-		out = append(out, fmt.Sprintf("%d kinds of failure logged in the last hour", recent))
 	}
 	return out
 }

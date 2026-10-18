@@ -28,7 +28,7 @@ func TestLiveStreamsAreCappedPerClient(t *testing.T) {
 	withFreshLiveTable(t)
 	hub := &liveHub{subscribers: map[int64]*liveSubscriber{}, perClient: map[string]int{}, running: true}
 	subscribe := func(client string) (int64, bool) {
-		sub, id, ok := hub.Subscribe(client, []int{1}, nil)
+		sub, id, ok := hub.Subscribe(client, true, []int{1}, nil)
 		if ok {
 			<-sub.ch
 		}

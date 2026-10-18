@@ -13,7 +13,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-const clientHashLocalKey = "client_hash"
+const (
+	clientHashLocalKey = "client_hash"
+	clientKindLocalKey = "client_kind"
+)
 
 // Same scheme as the access log id; IPv6 clients by /64.
 func ComputeClientHash(c fiber.Ctx, salt string) string {
@@ -40,8 +43,8 @@ var appUserAgents = map[string]string{
 
 var botUserAgentWords = []string{"bot", "crawl", "spider", "slurp", "preview", "lighthouse", "headless"}
 
-// clientKind is "web", "android/1.4.0", "wear/1.0.2" or "other"; empty for crawlers.
-func clientKind(ua string) string {
+// clientKind is "web", "android/1.4.0" or "wear/1.0.2"; empty for robots and scripts.
+func clientKind(ua, fetchSite string) string {
 	for prefix, platform := range appUserAgents {
 		if version, ok := strings.CutPrefix(ua, prefix); ok {
 			if validAppVersion(version) {
@@ -56,10 +59,17 @@ func clientKind(ua string) string {
 			return ""
 		}
 	}
-	if strings.HasPrefix(ua, "Mozilla/") {
+	// Browsers mark the site's own fetches; scripts that borrow a browser user agent don't.
+	if strings.HasPrefix(ua, "Mozilla/") && fetchSite == "same-origin" {
 		return "web"
 	}
-	return "other"
+	return ""
+}
+
+// IsPerson tells the website and the apps apart from robots and scripts.
+func IsPerson(c fiber.Ctx) bool {
+	kind, _ := c.Locals(clientKindLocalKey).(string)
+	return kind != ""
 }
 
 func validAppVersion(v string) bool {
@@ -90,7 +100,9 @@ func StatsMiddleware(salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()
 		hash := ComputeClientHash(c, salt)
+		kind := clientKind(c.Get(fiber.HeaderUserAgent), c.Get("Sec-Fetch-Site"))
 		c.Locals(clientHashLocalKey, hash)
+		c.Locals(clientKindLocalKey, kind)
 
 		err := c.Next()
 		route := c.Route().Path
@@ -105,11 +117,15 @@ func StatsMiddleware(salt string) fiber.Handler {
 		if status >= fiber.StatusBadRequest {
 			return err
 		}
-		database.RecordVisit(hash, clientKind(c.Get(fiber.HeaderUserAgent)))
 		if route == "/api/live" && c.Query("once") == "" {
-			database.RecordEvent("endpoint_call", key+" stream")
+			key += " stream"
+			database.RecordEvent("endpoint_call", key)
 		} else {
 			database.RecordEndpointTiming(key, time.Since(start))
+		}
+		if kind != "" {
+			database.RecordVisit(hash, kind)
+			database.RecordEvent("person_call", key)
 		}
 		return err
 	}
