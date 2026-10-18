@@ -43,9 +43,9 @@ import {
   onMarkerClick,
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
-import {MAP_CREDITS_HTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
+import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
-import {cityInfo} from '@/utils/city.ts'
+import {cacheKey, cityInfo} from '@/utils/city.ts'
 
 setWorkerUrl(workerUrl)
 
@@ -106,14 +106,15 @@ let stopRefreshFrame = 0
 let styleReady = false
 
 const DEFAULT_ZOOM = 15
-const DEFAULT_CENTER: LatLng = {lat: cityInfo()?.lat ?? 46.7712, lng: cityInfo()?.lon ?? 23.6236}
+const defaultCenter = (): LatLng => ({lat: cityInfo()?.lat ?? 46.7712, lng: cityInfo()?.lon ?? 23.6236})
 const STOP_ZOOM_THRESHOLD = 15
 const FIT_MAX_ZOOM = 15
 const MIN_ZOOM = 8
 const MAX_ZOOM = 19
-const CLUJ_COUNTY_SW: LatLng = {lat: 46.38, lng: 22.75}
-const CLUJ_COUNTY_NE: LatLng = {lat: 47.50, lng: 24.27}
-const MAP_VIEW_STORAGE_KEY = 'map.lastView'
+// Romania, with room past the border: every city served lies inside.
+const ROMANIA_SW: LatLng = {lat: 43.4, lng: 20.0}
+const ROMANIA_NE: LatLng = {lat: 48.5, lng: 30.0}
+const MAP_VIEW_STORAGE_KEY = cacheKey('map.lastView')
 const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
@@ -542,7 +543,7 @@ const createCenterControl = () => barControl('', (bar) => {
 const createCreditsControl = (): IControl => {
   const credits = document.createElement('div')
   credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
-  credits.innerHTML = MAP_CREDITS_HTML
+  credits.innerHTML = mapCreditsHTML()
   return {onAdd: () => credits, onRemove: () => credits.remove()}
 }
 
@@ -554,7 +555,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     zoom,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
-    maxBounds: [[CLUJ_COUNTY_SW.lng, CLUJ_COUNTY_SW.lat], [CLUJ_COUNTY_NE.lng, CLUJ_COUNTY_NE.lat]],
+    maxBounds: [[ROMANIA_SW.lng, ROMANIA_SW.lat], [ROMANIA_NE.lng, ROMANIA_NE.lat]],
     attributionControl: false,
     clickTolerance: CLICK_TOLERANCE_PX,
     dragRotate: false,
@@ -671,9 +672,9 @@ const moveUserDot = (to: LatLng, ms: number) => {
   glideFrame = requestAnimationFrame(step)
 }
 
-const isInClujCounty = ({lat, lng}: LatLng) => {
-  return lat >= CLUJ_COUNTY_SW.lat && lat <= CLUJ_COUNTY_NE.lat
-    && lng >= CLUJ_COUNTY_SW.lng && lng <= CLUJ_COUNTY_NE.lng
+const isInRomania = ({lat, lng}: LatLng) => {
+  return lat >= ROMANIA_SW.lat && lat <= ROMANIA_NE.lat
+    && lng >= ROMANIA_SW.lng && lng <= ROMANIA_NE.lng
 }
 
 const updateLiveLocation = (fix: Fix) => {
@@ -681,7 +682,7 @@ const updateLiveLocation = (fix: Fix) => {
   if (!m) return
 
   userStore.setIsLocating(false)
-  if (!isInClujCounty(fix)) {
+  if (!isInRomania(fix)) {
     pendingCenterOnUser = false
     userStore.setHasLocationPermission(false)
     userStore.clearUserLocation()
@@ -739,7 +740,7 @@ onMounted(() => {
         Number.isFinite(parsed.lat)
         && Number.isFinite(parsed.lng)
         && Number.isFinite(zoom)
-        && isInClujCounty({lat: parsed.lat as number, lng: parsed.lng as number})
+        && isInRomania({lat: parsed.lat as number, lng: parsed.lng as number})
       ) {
         initialView = {
           lat: parsed.lat as number,
@@ -755,7 +756,7 @@ onMounted(() => {
   if (initialView) {
     mapInit(initialView, initialView.zoom)
   } else {
-    mapInit(DEFAULT_CENTER, DEFAULT_ZOOM)
+    mapInit(defaultCenter(), DEFAULT_ZOOM)
   }
   void stopsInit()
   // The watch mounts the map on demand, after a view has already filled the store.

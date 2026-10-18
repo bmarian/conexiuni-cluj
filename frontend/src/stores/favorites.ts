@@ -4,11 +4,12 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import type {RouteDirection} from '@/types/tranzy.ts'
+import {cacheKey} from '@/utils/city.ts'
 
-const ROUTES_KEY = 'favorites:routes'
-const STOPS_KEY = 'favorites:stops'
-const PLANS_KEY = 'favorites:plans'
-const RECENT_PLANS_KEY = 'recents:plans'
+const ROUTES_KEY = cacheKey('favorites:routes')
+const STOPS_KEY = cacheKey('favorites:stops')
+const PLANS_KEY = cacheKey('favorites:plans')
+const RECENT_PLANS_KEY = cacheKey('recents:plans')
 
 const MAX_RECENT_PLANS = 10
 

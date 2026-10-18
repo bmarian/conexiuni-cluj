@@ -38,6 +38,7 @@ import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import {siteUrl} from '@/utils/site.ts'
 import {cityInfo, cityPath} from '@/utils/city.ts'
+import {cityParams} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -78,12 +79,12 @@ useHead(() => {
     return {
       title: t('headPlanTitle'),
       meta: [
-        {name: 'description', content: t('headPlanDesc')},
+        {name: 'description', content: t('headPlanDesc', cityParams())},
         {property: 'og:title', content: t('headPlanTitle')},
-        {property: 'og:description', content: t('headPlanDesc')},
+        {property: 'og:description', content: t('headPlanDesc', cityParams())},
         {property: 'og:url', content: siteUrl('/plan')},
         {name: 'twitter:title', content: t('headPlanTitle')},
-        {name: 'twitter:description', content: t('headPlanDesc')},
+        {name: 'twitter:description', content: t('headPlanDesc', cityParams())},
       ],
       link: [{rel: 'canonical', href: siteUrl('/plan')}],
     }

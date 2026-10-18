@@ -9,9 +9,10 @@ import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSub
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {usePushStore} from '@/stores/push.ts'
+import {cacheKey} from '@/utils/city.ts'
 
-const STORAGE_KEY = 'reminders.v1'
-const SYNCED_KEY = 'reminders.synced'
+const STORAGE_KEY = cacheKey('reminders.v1')
+const SYNCED_KEY = cacheKey('reminders.synced')
 
 function load(): Reminder[] {
   try {

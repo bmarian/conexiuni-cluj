@@ -35,6 +35,7 @@ import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
 import {cityPath} from '@/utils/city.ts'
+import {cityParams} from '@/utils/city.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -182,8 +183,8 @@ useHead(() => {
   // Keep the server-injected meta for crawlers until the route loads.
   if (!shortName) return {}
   const longName = timetable.value?.route_long_name ?? ''
-  const title = t('headRouteTitle', {shortName, longName: longName ? ` — ${longName}` : ''})
-  const description = t('headRouteDesc', {shortName})
+  const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${longName}` : ''})
+  const description = t('headRouteDesc', {...cityParams(), shortName})
   const url = siteUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
   return {
     title,

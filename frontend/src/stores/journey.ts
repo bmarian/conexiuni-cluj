@@ -7,8 +7,9 @@ import {
 import {stepDetail, stepTitle} from '@/utils/journeyText.ts'
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
 import {translate as t} from '@/i18n.ts'
+import {cacheKey} from '@/utils/city.ts'
 
-const STORAGE_KEY = 'journey.v1'
+const STORAGE_KEY = cacheKey('journey.v1')
 const NOTICE_TAG = 'journey'
 
 interface Saved {

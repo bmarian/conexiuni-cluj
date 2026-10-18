@@ -1,6 +1,7 @@
 import type {StyleSpecification} from 'maplibre-gl'
 import dark from '@/assets/map-styles/dark.json'
 import light from '@/assets/map-styles/light.json'
+import {cityParams} from '@/utils/city.ts'
 
 const DARK = dark as unknown as StyleSpecification
 const LIGHT = light as unknown as StyleSpecification
@@ -181,5 +182,7 @@ export function mapStyle(isDark: boolean, theme: MapTheme): StyleSpecification {
   return cache.get(key)!
 }
 
-export const MAP_CREDITS_HTML = '&copy; <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; <a href="https://ctpcj.ro" target="_blank" rel="noopener">CTP</a>'
-export const MAP_CREDITS_TEXT = '© OpenMapTiles © OpenStreetMap | © tranzy.ai, © CTP'
+export const mapCreditsHTML = () => '&copy; <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | &copy; <a href="https://tranzy.ai/" target="_blank" rel="noopener">tranzy.ai</a>, &copy; ' + escapeHTML(cityParams().operator)
+export const mapCreditsText = () => `© OpenMapTiles © OpenStreetMap | © tranzy.ai, © ${cityParams().operator}`
+
+const escapeHTML = (text: string) => text.replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c] ?? c))

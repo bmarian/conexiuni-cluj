@@ -49,7 +49,13 @@ func (city *City) StartIngest() {
 			}
 		}()
 		for {
-			city.runIngest(time.Now())
+			if err := city.runIngest(time.Now()); err != nil {
+				// A refused key or a dead feed is tried again at the source's own pace, not in a loop.
+				wait := city.Static.Cadence()
+				city.log("ingest: %v; next try in %s", err, wait.Round(time.Minute))
+				time.Sleep(wait)
+				continue
+			}
 			next := city.nextIngestAt(time.Now())
 			if next.IsZero() {
 				return
@@ -104,7 +110,7 @@ func (city *City) nextIngestAt(now time.Time) time.Time {
 	return next
 }
 
-func (city *City) runIngest(now time.Time) {
+func (city *City) runIngest(now time.Time) error {
 	staticDue := !city.dueAt(ingestStatic, city.Static.Cadence()).After(now) && (city.Options.Refresh || city.fetchedAt(ingestStatic).IsZero())
 	timetablesDue := city.Timetables != nil && !city.dueAt(ingestTimetables, city.Timetables.Cadence()).After(now) && (city.Options.Refresh || city.fetchedAt(ingestTimetables).IsZero())
 
@@ -123,18 +129,15 @@ func (city *City) runIngest(now time.Time) {
 	if staticDue {
 		started := time.Now()
 		if snap, err = city.Static.Snapshot(); err != nil {
-			city.log("ingest: snapshot: %v", err)
-			return
+			return fmt.Errorf("snapshot: %w", err)
 		}
 		if err := city.storeSnapshot(snap); err != nil {
-			city.log("ingest: store snapshot: %v", err)
-			return
+			return fmt.Errorf("store snapshot: %w", err)
 		}
 		city.markFetched(ingestStatic, time.Now())
 		city.log("ingest: snapshot stored in %s (%d routes, %d stops, %d trips, %d shape points)", time.Since(started).Round(time.Millisecond), len(snap.Routes), len(snap.Stops), len(snap.Trips), len(snap.Shapes))
 	} else if snap, err = city.loadSnapshot(); err != nil {
-		city.log("ingest: load snapshot: %v", err)
-		return
+		return fmt.Errorf("load snapshot: %w", err)
 	}
 
 	if timetablesDue {
@@ -167,6 +170,7 @@ func (city *City) runIngest(now time.Time) {
 	city.refreshLiveTrips(true)
 	city.WarmNetwork()
 	city.WarmPlanner()
+	return nil
 }
 
 // Everything in one transaction, so a reader never sees half a network.
@@ -318,6 +322,10 @@ type availabilityRegistry struct {
 }
 
 func (city *City) refreshAvailability() {
+	if city.Timetables == nil {
+		city.refreshAvailabilityFromPatterns()
+		return
+	}
 	routes, err := queryRows(city.DB, `
 		SELECT route_short_name FROM timetable
 		WHERE weekdays LIKE '%departure_in%' OR saturday LIKE '%departure_in%' OR sunday LIKE '%departure_in%'`, nil,
@@ -347,6 +355,41 @@ func (city *City) refreshAvailability() {
 	if err != nil {
 		city.log("availability: stops: %v", err)
 		return
+	}
+	withBuses := make(map[int]struct{}, len(stops))
+	for _, id := range stops {
+		withBuses[id] = struct{}{}
+	}
+	city.availability.mu.Lock()
+	city.availability.routesWithTimetable, city.availability.stopsWithBuses, city.availability.ready = withTimetable, withBuses, true
+	city.availability.mu.Unlock()
+}
+
+// Without departure times every route with a pattern counts, and every stop on it.
+func (city *City) refreshAvailabilityFromPatterns() {
+	routes, err := queryRows(city.DB, `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`, nil,
+		func(rows *sql.Rows) (string, error) {
+			var s string
+			err := rows.Scan(&s)
+			return s, err
+		})
+	if err != nil {
+		city.log("availability: routes: %v", err)
+		return
+	}
+	stops, err := queryRows(city.DB, `SELECT DISTINCT stop_id FROM trip_stops`, nil,
+		func(rows *sql.Rows) (int, error) {
+			var id int
+			err := rows.Scan(&id)
+			return id, err
+		})
+	if err != nil {
+		city.log("availability: stops: %v", err)
+		return
+	}
+	withTimetable := make(map[string]struct{}, len(routes))
+	for _, r := range routes {
+		withTimetable[r] = struct{}{}
 	}
 	withBuses := make(map[int]struct{}, len(stops))
 	for _, id := range stops {

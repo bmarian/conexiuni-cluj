@@ -1,9 +1,10 @@
 import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
+import {cacheKey} from '@/utils/city.ts'
 
-const FOLLOWED_KEY = 'follows:routes'
-const SEEN_KEY = 'route-changes:seen'
+const FOLLOWED_KEY = cacheKey('follows:routes')
+const SEEN_KEY = cacheKey('route-changes:seen')
 const MAX_SEEN_IDS = 500
 const REFRESH_AFTER_MS = 30 * 60_000
 

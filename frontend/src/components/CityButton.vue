@@ -2,7 +2,7 @@
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
-import {cities, cityChoice, cityInfo, switchCity} from '@/utils/city.ts'
+import {cities, cityChoice, cityInfo, currentCity, locationGranted, switchCity} from '@/utils/city.ts'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
@@ -16,8 +16,9 @@ const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
 
-// Only a chosen city is named on the button; the nearest one shows the pin alone.
-const chosen = computed(() => (cityChoice.value ? cityInfo()?.name ?? null : null))
+// The pin alone means the nearest city is chosen for you; that needs location access, so without it the city is named.
+const automatic = computed(() => locationGranted.value && !cityChoice.value)
+const chosen = computed(() => (automatic.value ? null : cityInfo()?.name ?? null))
 const label = computed(() => chosen.value ? `${t('city')}: ${chosen.value}` : t('cityAuto'))
 
 const {closeLayers} = useKeyboardNav()
@@ -73,12 +74,11 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
     <div v-if="isOpen" ref="popoverRef" class="city-popover" role="dialog" :aria-label="t('city')">
       <p class="city-popover-title">{{ t('city') }}</p>
       <div class="city-list" data-kbd-section="city">
-        <button type="button" class="city-item" :class="{ 'is-current': !cityChoice }" data-kbd-item="auto" @click="choose(null)">
+        <button v-if="locationGranted" type="button" class="city-item" :class="{ 'is-current': automatic }" data-kbd-item="auto" @click="choose(null)">
           <span class="city-item-title">{{ t('cityAuto') }}</span>
-          <span class="city-item-meta">{{ t('cityAutoDesc') }}</span>
         </button>
         <button v-for="city in cities" :key="city.slug" type="button" class="city-item"
-                :class="{ 'is-current': cityChoice === city.slug }" :data-kbd-item="city.slug" @click="choose(city.slug)">
+                :class="{ 'is-current': !automatic && city.slug === currentCity }" :data-kbd-item="city.slug" @click="choose(city.slug)">
           <span class="city-item-title">{{ city.name }}</span>
           <span class="city-item-meta">{{ city.operator }}</span>
         </button>

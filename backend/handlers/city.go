@@ -174,11 +174,12 @@ type cityInfo struct {
 }
 
 // The median stop: outlying villages on long lines do not pull it away from the centre.
-func (city *City) info() cityInfo {
+// ok is false until the city has stops: a feed that never answered is not offered.
+func (city *City) info() (cityInfo, bool) {
 	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, Realtime: city.Realtime != nil}
 	stops, err := city.GetStops(StopFilter{})
 	if err != nil || len(stops) == 0 {
-		return info
+		return info, false
 	}
 	lats := make([]float64, len(stops))
 	lons := make([]float64, len(stops))
@@ -188,7 +189,7 @@ func (city *City) info() cityInfo {
 	sort.Float64s(lats)
 	sort.Float64s(lons)
 	info.Lat, info.Lon = lats[len(lats)/2], lons[len(lons)/2]
-	return info
+	return info, true
 }
 
 // CitiesHandler lists the cities served, in display order.
@@ -196,7 +197,9 @@ func CitiesHandler(cities []*City) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		out := make([]cityInfo, 0, len(cities))
 		for _, city := range cities {
-			out = append(out, city.info())
+			if info, ok := city.info(); ok {
+				out = append(out, info)
+			}
 		}
 		c.Set("Cache-Control", revalidateCacheControl)
 		return c.JSON(out)

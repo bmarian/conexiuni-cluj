@@ -17,12 +17,11 @@ type Config struct {
 	LogIPHashSalt    string
 	AdminToken       string
 	Port             string
-	// One SQLite per city lives here, as {slug}.db and {slug}-archive.db.
-	DataDir string
+	// One SQLite per city: its data in DBDir, its history in ArchiveDir, both as {slug}.db.
+	DBDir      string
+	ArchiveDir string
 
 	TranzyBaseUrl            string
-	TranzyApiKey             string
-	TranzyLearningApiKey     string
 	TranzyRateLimit          time.Duration
 	TranzyVehiclesDailyQuota int
 	TranzyDefaultDailyQuota  int
@@ -121,18 +120,17 @@ func Load() *Config {
 		LogIPHashSalt:    getEnv("LOG_IP_HASH_SALT", ""),
 		AdminToken:       getEnv("ADMIN_TOKEN", ""),
 		Port:             getEnv("PORT", "6698"),
-		DataDir:          getEnv("DATA_DIR", ".."),
+		DBDir:            getEnv("DB_DIR", "../db"),
+		ArchiveDir:       getEnv("ARCHIVE_DIR", "../archive"),
 
 		TranzyBaseUrl:            getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
-		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
-		TranzyLearningApiKey:     getEnv("TRANZY_API_KEY_LEARNING", ""),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
 		TranzyVehiclesDailyQuota: getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),
 		TranzyDefaultDailyQuota:  getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144),
 
 		CtpCsvBaseUrl:    getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
 		CtpCjRateLimit:   getDuration("CTP_CJ_RATE_LIMIT", time.Second),
-		TimetableRefresh: getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
+		TimetableRefresh: getDuration("TIMETABLE_REFRESH", 24*time.Hour),
 
 		VehicleSchedule:         getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleScheduleWeekend:  getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),

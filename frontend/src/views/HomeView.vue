@@ -27,6 +27,7 @@ import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
 import {cityPath} from '@/utils/city.ts'
+import {cityParams} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -49,14 +50,14 @@ const reminderRows = computed(() => {
 })
 
 useHead(() => ({
-  title: t('headHomeTitle'),
+  title: t('headHomeTitle', cityParams()),
   meta: [
-    {name: 'description', content: t('headHomeDesc')},
-    {property: 'og:title', content: t('headHomeTitle')},
-    {property: 'og:description', content: t('headHomeDesc')},
+    {name: 'description', content: t('headHomeDesc', cityParams())},
+    {property: 'og:title', content: t('headHomeTitle', cityParams())},
+    {property: 'og:description', content: t('headHomeDesc', cityParams())},
     {property: 'og:url', content: siteUrl(cityPath('/'))},
-    {name: 'twitter:title', content: t('headHomeTitle')},
-    {name: 'twitter:description', content: t('headHomeDesc')},
+    {name: 'twitter:title', content: t('headHomeTitle', cityParams())},
+    {name: 'twitter:description', content: t('headHomeDesc', cityParams())},
   ],
   link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))

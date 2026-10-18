@@ -120,9 +120,6 @@ func main() {
 		}
 		log.Printf("Warning: ADMIN_TOKEN not set; admin routes are disabled")
 	}
-	if config.TranzyApiKey == "" {
-		log.Fatal("TRANZY_API_KEY not set in environment")
-	}
 	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
 		log.Printf("Warning: push notifications disabled: %v", err)
 	}

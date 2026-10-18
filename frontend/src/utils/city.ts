@@ -81,6 +81,12 @@ export function cityInfo(): City | undefined {
   return cities.value.find((city) => city.slug === currentCity)
 }
 
+// For the page titles: the city and who runs its buses.
+export function cityParams(): {city: string; operator: string} {
+  const info = cityInfo()
+  return {city: info?.name ?? currentCity, operator: info?.operator ?? ''}
+}
+
 export const cityPath = (path: string) => `/${currentCity}${path.startsWith('/') ? path : '/' + path}`
 
 export const apiPath = (path: string) => `/api/${currentCity}/${path.replace(/^\//, '')}`
@@ -95,6 +101,22 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): num
   return 2 * 6371 * Math.asin(Math.sqrt(h))
 }
 
+// Whether the browser already lets this site read the location; nothing here ever asks for it.
+export const locationGranted = ref(false)
+
+async function checkLocationGranted(): Promise<boolean> {
+  try {
+    const status = await navigator.permissions.query({name: 'geolocation'})
+    locationGranted.value = status.state === 'granted'
+    status.onchange = () => { locationGranted.value = status.state === 'granted' }
+  } catch {
+    locationGranted.value = false
+  }
+  return locationGranted.value
+}
+
+if (typeof window !== 'undefined') void checkLocationGranted()
+
 function locate(): Promise<GeolocationPosition | null> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) return resolve(null)
@@ -107,7 +129,7 @@ export async function resolveCity(): Promise<string> {
   const list = await citiesLoaded
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
   const fallback = stored(LAST_KEY) ?? list[0]?.slug ?? DEFAULT_CITY
-  if (list.length < 2) return fallback
+  if (list.length < 2 || !await checkLocationGranted()) return fallback
   const position = await locate()
   if (!position) return fallback
   const {latitude, longitude} = position.coords

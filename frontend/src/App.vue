@@ -4,7 +4,7 @@ import {useI18n} from "vue-i18n"
 import {useRoute, useRouter} from "vue-router"
 import {useHead} from "@unhead/vue"
 import MapComponent from "@/components/MapComponent.vue"
-import {MAP_CREDITS_HTML} from "@/utils/mapStyles.ts"
+import {mapCreditsHTML} from "@/utils/mapStyles.ts"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
@@ -21,6 +21,7 @@ import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
 import {useRouteUpdatesStore} from "@/stores/routeUpdates"
+import {cityParams} from '@/utils/city.ts'
 
 const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
@@ -28,7 +29,7 @@ const WatchShell = defineAsyncComponent(() => import("@/components/watch/WatchSh
 const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/SimplifiedLayoutPrompt.vue"))
 
 const {t} = useI18n()
-useHead(() => ({title: t('headHomeTitle')}))
+useHead(() => ({title: t('headHomeTitle', cityParams())}))
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const reminders = useRemindersStore()
@@ -398,7 +399,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       data-kbd-root
       @focusin="onDrawerFocusIn"
     >
-      <div v-if="isPortraitMobile" class="drawer-credits" v-html="MAP_CREDITS_HTML"></div>
+      <div v-if="isPortraitMobile" class="drawer-credits" v-html="mapCreditsHTML()"></div>
       <div
         class="drawer-handle lg:hidden"
         role="button"

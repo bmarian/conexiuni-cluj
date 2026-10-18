@@ -1,4 +1,4 @@
-package ctpcsv
+package sources
 
 import (
 	"strings"
