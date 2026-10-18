@@ -176,12 +176,12 @@ func (city *City) shapesHandler(c fiber.Ctx) error {
 }
 
 type cityInfo struct {
-	Slug     string  `json:"slug"`
-	Name     string  `json:"name"`
-	Operator string  `json:"operator"`
-	Realtime bool    `json:"realtime"`
-	Lat      float64 `json:"lat"`
-	Lon      float64 `json:"lon"`
+	Slug     string           `json:"slug"`
+	Name     string           `json:"name"`
+	Operator string           `json:"operator"`
+	Realtime bool             `json:"realtime"`
+	Lat      float64          `json:"lat"`
+	Lon      float64          `json:"lon"`
 	Credits  []sources.Credit `json:"credits"`
 }
 
