@@ -9,18 +9,26 @@ import (
 )
 
 func TestClientKind(t *testing.T) {
-	cases := map[string]string{
-		"ConexiuniClujMobile/1.4.0":  "android/1.4.0",
-		"ConexiuniClujWear/1.0.2":    "wear/1.0.2",
-		"ConexiuniClujMobile/<junk>": "android",
-		"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/129 Mobile Safari/537.36": "web",
-		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)":           "",
-		"ESP32HTTPClient": "other",
-		"":                "other",
+	const chrome = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/129 Mobile Safari/537.36"
+	cases := []struct {
+		ua, fetchSite, want string
+	}{
+		{"ConexiuniClujMobile/1.4.0", "", "android/1.4.0"},
+		{"ConexiuniClujWear/1.0.2", "", "wear/1.0.2"},
+		{"ConexiuniClujMobile/<junk>", "", "android"},
+		{chrome, "same-origin", "web"},
+		{chrome, "", ""},
+		{chrome, "cross-site", ""},
+		{chrome, "none", ""},
+		{"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", "same-origin", ""},
+		{"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/129 Safari/537.36", "same-origin", ""},
+		{"python-requests/2.32", "", ""},
+		{"ESP32HTTPClient", "", ""},
+		{"", "", ""},
 	}
-	for ua, want := range cases {
-		if got := clientKind(ua); got != want {
-			t.Errorf("clientKind(%q) = %q, want %q", ua, got, want)
+	for _, c := range cases {
+		if got := clientKind(c.ua, c.fetchSite); got != c.want {
+			t.Errorf("clientKind(%q, %q) = %q, want %q", c.ua, c.fetchSite, got, c.want)
 		}
 	}
 }

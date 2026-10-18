@@ -28,6 +28,7 @@ const (
 
 type liveSubscriber struct {
 	client string
+	person bool
 	stops  map[int]struct{}
 	trips  map[string]struct{}
 	ch     chan *liveTable
@@ -77,9 +78,15 @@ type liveWatching struct {
 func (h *liveHub) Watching() liveWatching {
 	stops := make(map[int]map[string]struct{})
 	trips := make(map[string]map[string]struct{})
+	people := make(map[string]struct{})
+	w := liveWatching{}
 	h.mu.Lock()
-	w := liveWatching{Streams: len(h.subscribers), People: len(h.perClient)}
 	for _, sub := range h.subscribers {
+		if !sub.person {
+			continue
+		}
+		w.Streams++
+		people[sub.client] = struct{}{}
 		for id := range sub.stops {
 			addWatcher(stops, id, sub.client)
 		}
@@ -88,6 +95,7 @@ func (h *liveHub) Watching() liveWatching {
 		}
 	}
 	h.mu.Unlock()
+	w.People = len(people)
 
 	w.Stops = make(map[int]int, len(stops))
 	for id, clients := range stops {
@@ -162,8 +170,8 @@ func recordLiveViews(client string, stopIDs []int, tripIDs []string) {
 	}
 }
 
-func (h *liveHub) Subscribe(client string, stopIDs []int, tripIDs []string) (*liveSubscriber, int64, bool) {
-	sub := &liveSubscriber{client: client, stops: make(map[int]struct{}, len(stopIDs)), trips: make(map[string]struct{}, len(tripIDs)), ch: make(chan *liveTable, 2)}
+func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs []string) (*liveSubscriber, int64, bool) {
+	sub := &liveSubscriber{client: client, person: person, stops: make(map[int]struct{}, len(stopIDs)), trips: make(map[string]struct{}, len(tripIDs)), ch: make(chan *liveTable, 2)}
 	for _, id := range stopIDs {
 		sub.stops[id] = struct{}{}
 	}
@@ -375,7 +383,10 @@ func ServeLive(c fiber.Ctx) error {
 	if len(stopIDs) == 0 && len(tripIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "stop_ids, trip_ids or route_ids required"})
 	}
-	recordLiveViews(ClientHashFromLocals(c), stopIDs, tripIDs)
+	client, person := ClientHashFromLocals(c), IsPerson(c)
+	if person {
+		recordLiveViews(client, stopIDs, tripIDs)
+	}
 	if c.Query("once") != "" {
 		sub := &liveSubscriber{stops: map[int]struct{}{}, trips: map[string]struct{}{}}
 		for _, id := range stopIDs {
@@ -392,8 +403,7 @@ func ServeLive(c fiber.Ctx) error {
 		return c.JSON(sub.view(table))
 	}
 
-	client := ClientHashFromLocals(c)
-	sub, id, ok := VehicleHub.Subscribe(client, stopIDs, tripIDs)
+	sub, id, ok := VehicleHub.Subscribe(client, person, stopIDs, tripIDs)
 	if !ok {
 		// A 200 that ends at once makes a browser reconnect after `retry`; a 429 would stop it for good.
 		log.Printf("live hub: refused a stream for client %s, over %d", client, maxLiveStreamsPerClient)

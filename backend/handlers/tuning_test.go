@@ -132,10 +132,14 @@ func TestReplayComparesWithTheOldWindow(t *testing.T) {
 	}
 }
 
-func TestTimetableAccuracyByKindOfDay(t *testing.T) {
+func TestTimetableAccuracyOverAWeek(t *testing.T) {
 	withTestDB(t)
-	withSeedCalendar(t)
-	for _, ago := range []int{1, 2} {
+	// Other tests may leave today's unflushed counts behind.
+	before, err := adminAccuracySection(time.Now())
+	if err != nil {
+		t.Fatalf("accuracy: %v", err)
+	}
+	for _, ago := range []int{1, 2, 8} {
 		date := database.StatsDaysAgo(ago)
 		for _, key := range []string{"ours|0", "ctp|2"} {
 			if _, err := database.DB.Exec(`INSERT INTO stats_daily (date, metric, key, count) VALUES (?, 'timetable_error', ?, 4)`, date, key); err != nil {
@@ -147,23 +151,11 @@ func TestTimetableAccuracyByKindOfDay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("accuracy: %v", err)
 	}
-	if len(a.Timetable.Daily) != adminTrendDays {
-		t.Fatalf("%d daily rows", len(a.Timetable.Daily))
+	if len(a.Timetable) != 2 {
+		t.Fatalf("%d timetable rows", len(a.Timetable))
 	}
-	want := 2
-	if today := a.Timetable.Daily[adminTrendDays-1]; today.Ours.N+today.CTP.N > 0 {
-		want++
-	}
-	days := 0
-	for _, k := range a.Timetable.Kinds {
-		days += k.Days
-	}
-	if days != want {
-		t.Fatalf("%d days across kinds, want %d", days, want)
-	}
-	yesterday := a.Timetable.Daily[adminTrendDays-2]
-	at, _ := time.ParseInLocation("2006-01-02", yesterday.Date, database.StatsLocation())
-	if yesterday.Kind != profileDay(at) || yesterday.Ours.N != 4 || yesterday.Ours.Within1 != 1 || yesterday.CTP.Within1 != 0 {
-		t.Fatalf("yesterday %+v", yesterday)
+	ours, ctp := a.Timetable[0], a.Timetable[1]
+	if ours.N-before.Timetable[0].N != 8 || ctp.N-before.Timetable[1].N != 8 || ctp.MedianAbs != 75 {
+		t.Fatalf("ours %+v, ctp %+v", ours, ctp)
 	}
 }
