@@ -39,8 +39,22 @@ export class NetworkIndex {
   readonly routeByShortName = new Map<string, NetworkRoute>()
   readonly routes: Route[]
 
+  covers(lat: number, lon: number): boolean {
+    const e = this.extent
+    return !!e && lat >= e.south && lat <= e.north && lon >= e.west && lon <= e.east
+  }
+
+  // The city's extent: where its stops are. A location outside it is not near any of them.
+  private readonly extent: {south: number; north: number; west: number; east: number} | null
+
   constructor(readonly bundle: NetworkBundle) {
     for (const s of bundle.stops) this.stopById.set(s.stop_id, s)
+    this.extent = bundle.stops.length ? {
+      south: Math.min(...bundle.stops.map((s) => s.stop_lat)),
+      north: Math.max(...bundle.stops.map((s) => s.stop_lat)),
+      west: Math.min(...bundle.stops.map((s) => s.stop_lon)),
+      east: Math.max(...bundle.stops.map((s) => s.stop_lon)),
+    } : null
     for (const r of bundle.routes) {
       this.routeById.set(r.route_id, r)
       this.routeByShortName.set(r.route_short_name, r)

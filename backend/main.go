@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/handlers"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -231,10 +232,6 @@ func main() {
 		log.Println("Frontend dist folder not found. Run 'npm run build' in frontend directory.")
 	}
 
-	for _, city := range cities {
-		city.Start()
-	}
-
 	listenAddr := ":" + config.Port
 	if config.Environment == "development" && runtime.GOOS == "windows" {
 		listenAddr = "0.0.0.0:" + config.Port
@@ -248,8 +245,14 @@ func main() {
 			log.Printf("Server shutdown failed: %v", err)
 		}
 	}()
-	log.Printf("Server listening on http://%s", listenAddr)
-	if err := app.Listen(listenAddr); err != nil {
-		log.Printf("Server stopped: %v", err)
+	// The cities start once the port is ours: a bind that fails must not leave fetches and learners running.
+	err = app.Listen(listenAddr, fiber.ListenConfig{ListenerAddrFunc: func(addr net.Addr) {
+		log.Printf("Server listening on http://%s", addr)
+		for _, city := range cities {
+			city.Start()
+		}
+	}})
+	if err != nil {
+		log.Fatalf("Server stopped: %v", err)
 	}
 }

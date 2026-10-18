@@ -2,6 +2,8 @@ import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import {parseFavoriteRoutes, parsePlans, parseStopIds, useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {REGION_SETTINGS, regionSettingsFor} from '@/utils/regionSettings.ts'
+import {cities} from '@/utils/city.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -19,6 +21,18 @@ export function describeExport(data: unknown) {
 }
 
 // The same export goes out as text (Export / Import) and through a transfer code.
+function regionsExport() {
+  const settings = useSettingsStore()
+  const out: Record<string, Record<string, boolean>> = {}
+  const slugs = new Set([...cities.value.map((c) => c.slug), ...REGION_SETTINGS.flatMap((s) => s.cities)])
+  for (const slug of slugs) {
+    for (const setting of regionSettingsFor(slug)) {
+      ;(out[slug] ??= {})[setting.key] = settings.regionSetting(slug, setting.key)
+    }
+  }
+  return out
+}
+
 export function useSettingsTransfer() {
   const {locale} = useI18n()
   const settings = useSettingsStore()
@@ -38,7 +52,7 @@ export function useSettingsTransfer() {
         paperActive: settings.paperActive,
         autoCenterOnMe: settings.autoCenterOnMe,
         autoFitMap: settings.autoFitMap,
-        showGreenFriday: settings.showGreenFriday,
+        regions: regionsExport(),
         busAlerts: settings.busAlerts,
       },
       favorites: {
@@ -73,7 +87,13 @@ export function useSettingsTransfer() {
     else settings.deactivatePaper()
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
-    if (typeof s.showGreenFriday === 'boolean') settings.setShowGreenFriday(s.showGreenFriday)
+    if (s.regions && typeof s.regions === 'object') {
+      for (const [slug, values] of Object.entries(s.regions as Record<string, Record<string, unknown>>)) {
+        for (const setting of regionSettingsFor(slug)) {
+          if (typeof values?.[setting.key] === 'boolean') settings.setRegionSetting(slug, setting.key, values[setting.key] as boolean)
+        }
+      }
+    }
     if (typeof s.busAlerts === 'boolean') settings.setBusAlerts(s.busAlerts)
     favs.importAll(isRecord(data.favorites) ? data.favorites : {})
     if (Array.isArray(data.followedLines)) routeUpdates.importFollowed(data.followedLines)
