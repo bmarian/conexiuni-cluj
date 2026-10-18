@@ -586,8 +586,6 @@ function toggleSimplified() {
 }
 
 .region-chevron svg {
-  width: 1rem;
-  height: 1rem;
   transition: transform 150ms ease;
 }
 
