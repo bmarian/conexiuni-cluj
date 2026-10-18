@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, shallowRef, watch} from 'vue'
+import {computed, onMounted, onUnmounted, ref, shallowRef, watch, watchEffect} from 'vue'
 import {
   type GeoJSONSource,
   type IControl,
@@ -543,10 +543,9 @@ const createCenterControl = () => barControl('', (bar) => {
 const credits = document.createElement('div')
 credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
 
-const createCreditsControl = (): IControl => {
-  credits.innerHTML = mapCreditsHTML()
-  return {onAdd: () => credits, onRemove: () => credits.remove()}
-}
+watchEffect(() => { credits.innerHTML = mapCreditsHTML() })
+
+const createCreditsControl = (): IControl => ({onAdd: () => credits, onRemove: () => credits.remove()})
 
 const mapInit = (center: LatLng, zoom: number) => {
   const mapValue = new MapLibreMap({
@@ -775,7 +774,6 @@ const clearStops = () => {
 watch(currentCity, (slug) => {
   const m = map.value
   const city = cities.value.find((c) => c.slug === slug)
-  credits.innerHTML = mapCreditsHTML()
   if (!m || !city) return
   clearStops()
   const view = openingView(city)

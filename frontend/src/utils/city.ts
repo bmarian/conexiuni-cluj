@@ -7,6 +7,7 @@ export type City = {
   realtime: boolean
   lat: number
   lon: number
+  credits?: {name: string; url: string}[]
 }
 
 export const DEFAULT_CITY = 'cluj'

@@ -50,6 +50,15 @@ type Placement interface {
 	StopIndex(routeID, direction, stopID int) int
 }
 
+type Credit struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+type Credited interface {
+	Credit() Credit
+}
+
 type Quota struct {
 	Name  string
 	Used  int

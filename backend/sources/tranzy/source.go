@@ -19,6 +19,10 @@ type Source struct {
 
 func New(client *Client) *Source { return &Source{client: client} }
 
+func (s *Source) Credit() sources.Credit {
+	return sources.Credit{Name: "tranzy.ai", URL: "https://tranzy.ai/"}
+}
+
 func (s *Source) Snapshot() (*sources.Snapshot, error) {
 	routes, err := fetch[[]models.Route](s.client, "/routes")
 	if err != nil {

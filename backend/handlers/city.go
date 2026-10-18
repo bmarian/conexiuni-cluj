@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -181,11 +182,22 @@ type cityInfo struct {
 	Realtime bool    `json:"realtime"`
 	Lat      float64 `json:"lat"`
 	Lon      float64 `json:"lon"`
+	Credits  []sources.Credit `json:"credits"`
+}
+
+func (city *City) credits() []sources.Credit {
+	out := []sources.Credit{}
+	for _, source := range []any{city.Static, city.Timetables, city.Realtime, city.Learning} {
+		if credited, ok := source.(sources.Credited); ok && !slices.Contains(out, credited.Credit()) {
+			out = append(out, credited.Credit())
+		}
+	}
+	return out
 }
 
 // The median, so outlying villages on long lines do not pull the centre away.
 func (city *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, Realtime: city.Realtime != nil}
+	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, Realtime: city.Realtime != nil, Credits: city.credits()}
 	stops, err := city.GetStops(StopFilter{})
 	if err != nil || len(stops) == 0 {
 		return info, false
