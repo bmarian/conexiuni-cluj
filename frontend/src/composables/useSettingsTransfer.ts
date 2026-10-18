@@ -3,7 +3,7 @@ import {useSettingsStore} from '@/stores/settings'
 import {parseFavoriteRoutes, parsePlans, parseStopIds, useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {REGION_SETTINGS, regionSettingsFor} from '@/utils/regionSettings.ts'
-import {cities} from '@/utils/city.ts'
+import {cities, DEFAULT_CITY} from '@/utils/city.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -87,11 +87,12 @@ export function useSettingsTransfer() {
     else settings.deactivatePaper()
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
-    if (s.regions && typeof s.regions === 'object') {
-      for (const [slug, values] of Object.entries(s.regions as Record<string, Record<string, unknown>>)) {
-        for (const setting of regionSettingsFor(slug)) {
-          if (typeof values?.[setting.key] === 'boolean') settings.setRegionSetting(slug, setting.key, values[setting.key] as boolean)
-        }
+    // An export from before there were cities carries Cluj's settings at the top.
+    const regions = isRecord(s.regions) ? s.regions : {[DEFAULT_CITY]: s}
+    for (const [slug, values] of Object.entries(regions)) {
+      if (!isRecord(values)) continue
+      for (const setting of regionSettingsFor(slug)) {
+        if (typeof values[setting.key] === 'boolean') settings.setRegionSetting(slug, setting.key, values[setting.key] as boolean)
       }
     }
     if (typeof s.busAlerts === 'boolean') settings.setBusAlerts(s.busAlerts)

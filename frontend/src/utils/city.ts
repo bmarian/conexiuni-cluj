@@ -11,7 +11,7 @@ export type City = {
   lon: number
 }
 
-const DEFAULT_CITY = 'cluj'
+export const DEFAULT_CITY = 'cluj'
 // The city the person picked, or absent when the nearest one is chosen on each start.
 const CHOICE_KEY = 'settings.city'
 const LAST_KEY = 'settings.cityLast'
@@ -33,6 +33,20 @@ function store(key: string, value: string | null) {
     else localStorage.setItem(key, value)
   } catch { /* noop */ }
 }
+
+// Saves from before there were cities are Cluj's. They are copied under its key once and left where they were,
+// so the site as it was still finds them should it come back.
+const PRE_CITY_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans', 'follows:routes',
+  'follows.v1', 'reminders.v1', 'reminders.synced', 'route-changes:seen', 'map.lastView', 'settings.showGreenFriday']
+
+export function adoptPreCitySaves() {
+  for (const key of PRE_CITY_KEYS) {
+    const value = stored(key)
+    if (value !== null && stored(`${DEFAULT_CITY}:${key}`) === null) store(`${DEFAULT_CITY}:${key}`, value)
+  }
+}
+
+if (typeof window !== 'undefined') adoptPreCitySaves()
 
 function readList(): City[] {
   try {

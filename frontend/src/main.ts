@@ -24,7 +24,7 @@ import "@fontsource/libre-caslon-text/400-italic.css";
 import "@fontsource/libre-caslon-text/700.css";
 import "./styles/paper.css";
 import { i18n } from "./i18n";
-import { apiPath, citiesLoaded } from "./utils/city";
+import { adoptPreCitySaves, apiPath, citiesLoaded } from "./utils/city";
 
 const sendPWAInstallEvent = () => {
   const body = JSON.stringify({ metric: "pwa_install", key: "appinstalled" });
@@ -39,6 +39,8 @@ const sendPWAInstallEvent = () => {
 };
 
 function start() {
+  // The move from the old host writes the keys as they were.
+  adoptPreCitySaves();
   registerSW({
     immediate: true,
     onRegisteredSW(_url, registration) {
