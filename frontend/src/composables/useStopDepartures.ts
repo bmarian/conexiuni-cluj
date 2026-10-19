@@ -80,7 +80,6 @@ export function useStopDepartures(stopId: Ref<string>) {
     return stopInfos.value.find((info) => info.shapes_info.some((s: ShapeInfo) => s.route_id === routeId))
   }
 
-  // Trips at the station whose route has a timetable, in the order the stops list them.
   const tripsHere = computed<string[]>(() => {
     const routeIds = new Set(busesWithAvailableTimetables.value.map((s: ShapeInfo) => s.route_id))
     return [...new Set(stopInfos.value.flatMap((info) => [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]))]

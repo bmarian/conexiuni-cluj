@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-// sctpiasi.ro posts job ads as plain news, with no marker of their own, so only the title tells them apart.
+// sctpiasi.ro marks job ads only in the title.
 var sctpJobAd = regexp.MustCompile(`(?i)\bpost\w*\s+(vacant|liber)|\bangajare\b|ocup[aă]rii\s+post`)
 
 func SCTP(page []byte, base *url.URL, loc *time.Location) ([]sources.NewsItem, error) {

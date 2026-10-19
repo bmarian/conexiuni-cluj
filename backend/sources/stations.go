@@ -248,7 +248,6 @@ func oppositeSides(a, b map[int][2]bool) bool {
 	return shared
 }
 
-// One station when nearer than either's spacing, or than both together on opposite sides of a line.
 func placesOf(snap *Snapshot, group []int, spacing []float64, calls []map[int][2]bool) [][]int {
 	parent := make([]int, len(group))
 	for i := range parent {
