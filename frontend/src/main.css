@@ -5,6 +5,11 @@
 
 :root {
   color-scheme: light dark;
+  /* iOS ignores it on body. */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {

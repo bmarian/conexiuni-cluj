@@ -22,6 +22,10 @@ import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
 import {useRouteUpdatesStore} from "@/stores/routeUpdates"
 import {cityParams} from "@/utils/city.ts"
+import {isTypingTarget} from "@/utils/keyboardFocus.ts"
+import {useSheetMetrics} from "@/composables/useSheetMetrics.ts"
+import {useIOSKeyboard} from "@/composables/useIOSKeyboard.ts"
+import {useStandaloneRootBackground} from "@/composables/useStandaloneRootBackground.ts"
 
 const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
@@ -57,7 +61,7 @@ const isLandscapeDrawerOpen = ref(false)
 const isDragging = ref(false)
 let mapInsetRaf = 0
 let mapInsetTimer: ReturnType<typeof setTimeout> | null = null
-
+const {height: sheetH, safeTop, safeBottom} = useSheetMetrics(drawerEl)
 
 // Landscape and desktop let CSS handle the transform, so drawerStyle must not set one there.
 const isPortraitMobile = ref(false)
@@ -77,6 +81,15 @@ const keyboardPx = ref(0)
 const onKeyboardGeometryChange = () => {
   keyboardPx.value = virtualKeyboard?.overlaysContent ? virtualKeyboard.boundingRect.height : 0
 }
+
+const iosKeyboard = useIOSKeyboard(drawerEl, {enabled: isPortraitMobile, sheetHeight: sheetH, liftTo: safeTop, keyboardPx})
+
+useStandaloneRootBackground(
+  () => isPortraitMobile.value && drawerState.value === 'minimized'
+    ? drawerEl.value
+    : drawerEl.value?.querySelector('.drawer-view > *'),
+  [() => route.fullPath, drawerState, isPortraitMobile],
+)
 
 const addMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
   mql.addEventListener('change', listener)
@@ -154,16 +167,10 @@ watch([isPortraitMobile, isAdminRoute], ([portrait, admin]) => {
 
 const drawerStyle = computed(() => {
   if (!isPortraitMobile.value) return {}
-  const state = drawerState.value
-  const kb = keyboardPx.value
-  if (state === 'minimized') return {
-    transform: `translateY(calc(100dvh - ${MINIMIZED_PX + kb}px))`,
-    '--drawer-visible-h': `${MINIMIZED_PX}px`,
-  }
-  const hiddenFrac = 1 - SNAP_FRAC[state]
+  const top = iosKeyboard.fieldFocused.value ? safeTop.value : snapTopPx(drawerState.value)
   return {
-    transform: `translateY(max(0px, ${hiddenFrac * 100}dvh - ${kb}px))`,
-    '--drawer-visible-h': `min(${SNAP_FRAC[state] * 100}dvh, 100dvh - ${kb}px)`,
+    transform: `translateY(${top}px)`,
+    '--drawer-visible-h': `${sheetH.value - keyboardPx.value - top}px`,
   }
 })
 
@@ -173,7 +180,7 @@ watch([drawerState, isDragging], async ([, dragging]) => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
 })
 
-watch([drawerState, isPortraitMobile], scheduleMapInsetSync, {immediate: true})
+watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
 
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()
@@ -183,25 +190,22 @@ watch(isLandscapeDrawerOpen, () => {
 
 let pointerId = -1
 let startY = 0
-let startHeight = 0 // visible height at drag start
+let startTop = 0
 let moved = false
 let lastY = 0
 let lastT = 0
 let velocityY = 0 // px/ms, positive = downward
-let currentDragHeightPx = 0
+let currentDragTopPx = 0
 
-function viewportPx() {
-  return window.visualViewport?.height ?? window.innerHeight
-}
-
-function snapHeightPx(state: DrawerState, kb = keyboardPx.value): number {
-  if (state === 'minimized') return MINIMIZED_PX
-  const vh = viewportPx()
-  return Math.min(SNAP_FRAC[state] * vh, vh - kb)
+function snapTopPx(state: DrawerState, kb = keyboardPx.value): number {
+  const h = sheetH.value
+  const minimizedTop = h - MINIMIZED_PX - Math.max(kb, safeBottom.value)
+  if (state === 'minimized') return minimizedTop
+  return Math.min(minimizedTop, Math.max(safeTop.value, h * (1 - SNAP_FRAC[state]) - kb))
 }
 
 function updateMapInsets() {
-  mapStore.setDrawerBottomPx(isPortraitMobile.value ? snapHeightPx(drawerState.value, 0) : 0)
+  mapStore.setDrawerBottomPx(isPortraitMobile.value ? sheetH.value - snapTopPx(drawerState.value, 0) : 0)
 
   if (isPortraitMobile.value) {
     mapStore.setDrawerRightPx(0)
@@ -237,10 +241,12 @@ function onPointerDown(e: PointerEvent) {
   if (e.button !== 0 && e.pointerType === 'mouse') return
   const el = drawerEl.value
   if (!el) return
+  const active = document.activeElement
+  if (isTypingTarget(active) && el.contains(active)) (active as HTMLElement).blur()
   pointerId = e.pointerId
   startY = e.clientY
-  startHeight = snapHeightPx(drawerState.value)
-  currentDragHeightPx = startHeight
+  startTop = snapTopPx(drawerState.value)
+  currentDragTopPx = startTop
   moved = false
   velocityY = 0
   lastY = e.clientY
@@ -248,8 +254,7 @@ function onPointerDown(e: PointerEvent) {
   isDragging.value = true
   el.style.transition = 'none'
   // Pin the drawer where it is so the drag doesn't jump.
-  const bottom = viewportPx() - keyboardPx.value
-  el.style.transform = `translateY(${bottom - startHeight}px)`
+  el.style.transform = `translateY(${startTop}px)`
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
@@ -263,19 +268,20 @@ function onPointerMove(e: PointerEvent) {
   if (dt > 0) velocityY = (e.clientY - lastY) / dt
   lastY = e.clientY
   lastT = e.timeStamp
-  const bottom = viewportPx() - keyboardPx.value
-  currentDragHeightPx = Math.max(MINIMIZED_PX, Math.min(bottom, startHeight - dy))
-  el.style.transform = `translateY(${bottom - currentDragHeightPx}px)`
+  currentDragTopPx = Math.min(snapTopPx('minimized'), Math.max(safeTop.value, startTop + dy))
+  el.style.transform = `translateY(${currentDragTopPx}px)`
 }
 
 function endDrag() {
   if (!isDragging.value) return
   const el = drawerEl.value
-  const height = currentDragHeightPx || snapHeightPx(drawerState.value)
+  const top = currentDragTopPx
 
   const snapStates: DrawerState[] = ['minimized', 'half', 'fullscreen']
 
   let best: DrawerState = 'half'
+
+  if (performance.now() - lastT > 100) velocityY = 0
 
   const FLICK_THRESHOLD = 0.4 // px/ms
   if (!moved) {
@@ -290,7 +296,7 @@ function endDrag() {
   } else {
     let bestDist = Infinity
     for (const s of snapStates) {
-      const d = Math.abs(snapHeightPx(s) - height)
+      const d = Math.abs(snapTopPx(s) - top)
       if (d < bestDist) {
         bestDist = d
         best = s
@@ -391,6 +397,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       @focusin="onDrawerFocusIn"
     >
       <div v-if="isPortraitMobile" class="drawer-credits" v-html="mapCreditsHTML()"></div>
+      <!-- touchend.prevent: iOS fires the tap's click late, on whatever the moving drawer slid under the finger. -->
       <div
         class="drawer-handle lg:hidden"
         role="button"
@@ -400,6 +407,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
+        @touchend.prevent
         @keydown.enter.space.prevent="cycleDrawerSize"
       >
         <span class="drawer-grip"></span>
@@ -487,7 +495,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   display: flex;
   flex-direction: column;
   transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
-  padding-bottom: env(safe-area-inset-bottom);
+  will-change: transform;
 }
 
 .app-drawer.is-dragging {
@@ -576,6 +584,12 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   contain: layout paint;
 }
 
+.drawer-view::after {
+  content: "";
+  display: block;
+  height: env(safe-area-inset-bottom);
+}
+
 @media (max-width: 1023px) and (orientation: landscape) {
   .app-shell {
     position: relative;
@@ -598,7 +612,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
     width: var(--landscape-drawer-width);
     height: 100dvh !important;
     border-radius: 1.25rem 0 0 1.25rem;
-    padding-bottom: 0;
+    padding-right: env(safe-area-inset-right);
     transform: translateX(calc(100% + env(safe-area-inset-right)));
     opacity: 0;
     pointer-events: none;
@@ -645,7 +659,6 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
     width: 30vw;
     height: 100dvh !important;
     border-radius: 0;
-    padding-bottom: 0;
     transition: none;
   }
 

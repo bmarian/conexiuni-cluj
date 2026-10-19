@@ -25,6 +25,9 @@ import "@fontsource/libre-caslon-text/700.css";
 import "./styles/paper.css";
 import { i18n } from "./i18n";
 import { adoptPreCitySaves, apiPath, citiesReady } from "./utils/city";
+import { lockIOSPageZoom } from "./utils/ios";
+
+lockIOSPageZoom();
 
 const sendPWAInstallEvent = () => {
   const body = JSON.stringify({ metric: "pwa_install", key: "appinstalled" });
