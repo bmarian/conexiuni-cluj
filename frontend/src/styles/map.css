@@ -319,6 +319,16 @@
   }
 }
 
+.maplibregl-ctrl-top-left {
+  top: env(safe-area-inset-top);
+  left: env(safe-area-inset-left);
+}
+
+.maplibregl-ctrl-bottom-right {
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+}
+
 
 :root.dark .map-container {
   background-color: #090909;

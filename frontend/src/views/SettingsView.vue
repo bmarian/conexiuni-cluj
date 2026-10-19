@@ -9,6 +9,7 @@ import {useSettingsStore} from '@/stores/settings'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
 import {cities, currentCity} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
+import {isIOS} from '@/utils/ios.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -288,7 +289,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       </div>
     </section>
 
-    <section class="flex flex-col gap-2">
+    <section v-if="!isIOS" class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('androidApp') }}</h2>
       <div class="setting-rows" data-kbd-section="android-app">
         <RouterLink :to="{name: 'android'}" class="option-btn setting-row" data-kbd-item="android-app">
