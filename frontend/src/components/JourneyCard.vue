@@ -7,6 +7,7 @@ import {useJourneyStore} from '@/stores/journey.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {stepDetail, stepTitle} from '@/utils/journeyText.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
+import {cityPath} from '@/utils/city.ts'
 
 const {t} = useI18n()
 const router = useRouter()
@@ -37,7 +38,7 @@ const bus = computed(() => (step.value?.busMinutes != null ? formatMinutesFromNo
     <div class="flex flex-wrap justify-end items-center gap-1">
       <button type="button" class="journey-text-btn" @click="store.stop()">{{ t('journeyEnd') }}</button>
       <button type="button" class="journey-text-btn" @click="store.next()">{{ t('journeyNext') }}</button>
-      <button type="button" class="journey-go" @click="router.push('/nav')">
+      <button type="button" class="journey-go" @click="router.push(cityPath('/nav'))">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
         {{ t('navResume') }}
       </button>

@@ -12,8 +12,8 @@ import (
 const placesLimit = 10
 
 // q searches; lat and lon name the place at a position.
-func handlePlaces(c fiber.Ctx) error {
-	places := plannerPlaces()
+func (city *City) handlePlaces(c fiber.Ctx) error {
+	places := city.plannerPlaces()
 	if places == nil {
 		c.Set("Retry-After", "10")
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "places still loading", "retry_after_seconds": 10})

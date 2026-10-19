@@ -11,22 +11,32 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func withFreshLiveTable(t *testing.T) {
+func (city *City) withFreshLiveTable(t *testing.T) {
 	t.Helper()
-	liveState.Lock()
-	prev := liveState.table
-	liveState.table = &liveTable{AsOf: time.Now()}
-	liveState.Unlock()
+	city.liveState.Lock()
+	prev := city.liveState.table
+	city.liveState.table = &liveTable{AsOf: time.Now()}
+	city.liveState.Unlock()
 	t.Cleanup(func() {
-		liveState.Lock()
-		liveState.table = prev
-		liveState.Unlock()
+		city.liveState.Lock()
+		city.liveState.table = prev
+		city.liveState.Unlock()
+	})
+}
+
+func resetLiveClients(t *testing.T) {
+	t.Cleanup(func() {
+		liveClients.Lock()
+		liveClients.streams = map[string]int{}
+		liveClients.Unlock()
 	})
 }
 
 func TestLiveStreamsAreCappedPerClient(t *testing.T) {
-	withFreshLiveTable(t)
-	hub := &liveHub{subscribers: map[int64]*liveSubscriber{}, perClient: map[string]int{}, running: true}
+	city := newTestCity(t)
+	city.withFreshLiveTable(t)
+	resetLiveClients(t)
+	hub := &liveHub{subscribers: map[int64]*liveSubscriber{}, running: true, city: city}
 	subscribe := func(client string) (int64, bool) {
 		sub, id, ok := hub.Subscribe(client, true, []int{1}, nil)
 		if ok {
@@ -55,32 +65,89 @@ func TestLiveStreamsAreCappedPerClient(t *testing.T) {
 	}
 }
 
+func TestLiveStreamCapCountsEveryCity(t *testing.T) {
+	city := newTestCity(t)
+	city.withFreshLiveTable(t)
+	resetLiveClients(t)
+	hubs := []*liveHub{
+		{subscribers: map[int64]*liveSubscriber{}, running: true, city: city},
+		{subscribers: map[int64]*liveSubscriber{}, running: true, city: city},
+	}
+	for i := range maxLiveStreamsPerClient {
+		sub, _, ok := hubs[i%2].Subscribe("a", true, []int{1}, nil)
+		if !ok {
+			t.Fatalf("stream %d refused below the cap", i+1)
+		}
+		<-sub.ch
+	}
+	if _, _, ok := hubs[1].Subscribe("a", true, []int{1}, nil); ok {
+		t.Fatal("another city's hub let the client past the cap")
+	}
+}
+
+func TestPlansRunOneAtATimePerClient(t *testing.T) {
+	release, ok := acquirePlanSlot("a")
+	if !ok {
+		t.Fatal("first plan refused")
+	}
+	second := make(chan func())
+	go func() {
+		r, _ := acquirePlanSlot("a")
+		second <- r
+	}()
+	if cap(planSlots) > 1 {
+		r, ok := acquirePlanSlot("b")
+		if !ok {
+			t.Fatal("another client was held up")
+		}
+		r()
+	}
+	select {
+	case <-second:
+		t.Fatal("a second plan of the same client ran alongside the first")
+	case <-time.After(100 * time.Millisecond):
+	}
+	release()
+	select {
+	case r := <-second:
+		r()
+	case <-time.After(time.Second):
+		t.Fatal("the client's next plan never started")
+	}
+	planTurns.Lock()
+	left := len(planTurns.byClient)
+	planTurns.Unlock()
+	if left != 0 {
+		t.Fatalf("%d clients still listed after their plans ended", left)
+	}
+}
+
 func TestPushSignupsAreBudgetedPerClient(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 	pushSignupsMu.Lock()
 	pushSignups = map[string]*clientCounter{}
 	pushSignupsMu.Unlock()
 	now := time.Now()
 
 	known := pushSubscriber{endpoint: "https://fcm.googleapis.com/fcm/send/known", p256dh: "k", auth: "a", locale: "ro"}
-	if err := savePushSubscription(known, nil); err != nil {
+	if err := city.savePushSubscription(known, nil); err != nil {
 		t.Fatal(err)
 	}
 	for i := range maxPushSignupsPerClient {
-		if ok, err := admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now); err != nil || !ok {
+		if ok, err := city.admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now); err != nil || !ok {
 			t.Fatalf("sign-up %d refused below the budget: %v", i+1, err)
 		}
 	}
-	if ok, _ := admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now); ok {
+	if ok, _ := city.admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now); ok {
 		t.Fatal("sign-up over the budget accepted")
 	}
-	if ok, _ := admitPushEndpoint("a", known.endpoint, now); !ok {
+	if ok, _ := city.admitPushEndpoint("a", known.endpoint, now); !ok {
 		t.Fatal("re-saving a known endpoint was refused")
 	}
-	if ok, _ := admitPushEndpoint("b", "https://fcm.googleapis.com/fcm/send/new", now); !ok {
+	if ok, _ := city.admitPushEndpoint("b", "https://fcm.googleapis.com/fcm/send/new", now); !ok {
 		t.Fatal("another client refused")
 	}
-	if ok, _ := admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now.Add(pushSignupWindow+time.Second)); !ok {
+	if ok, _ := city.admitPushEndpoint("a", "https://fcm.googleapis.com/fcm/send/new", now.Add(pushSignupWindow+time.Second)); !ok {
 		t.Fatal("budget did not renew after the window")
 	}
 }
@@ -123,15 +190,24 @@ func TestSecurityHeaders(t *testing.T) {
 }
 
 func TestRefusedLiveStreamTellsBrowsersWhenToRetry(t *testing.T) {
-	prev := VehicleHub
-	VehicleHub = &liveHub{subscribers: map[int64]*liveSubscriber{}, perClient: map[string]int{"a": maxLiveStreamsPerClient}, running: true}
-	t.Cleanup(func() { VehicleHub = prev })
+	city := newTestCity(t)
+	prev := city.hub
+	city.hub = &liveHub{subscribers: map[int64]*liveSubscriber{}, running: true, city: city}
+	liveClients.Lock()
+	liveClients.streams["a"] = maxLiveStreamsPerClient
+	liveClients.Unlock()
+	t.Cleanup(func() {
+		city.hub = prev
+		liveClients.Lock()
+		delete(liveClients.streams, "a")
+		liveClients.Unlock()
+	})
 	app := fiber.New()
 	app.Use(func(c fiber.Ctx) error {
 		c.Locals(clientHashLocalKey, "a")
 		return c.Next()
 	})
-	app.Get("/live", ServeLive)
+	app.Get("/live", city.ServeLive)
 
 	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/live?stop_ids=1", nil))
 	if err != nil {

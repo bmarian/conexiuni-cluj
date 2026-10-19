@@ -1,7 +1,7 @@
 package database
 
 import (
-	"log"
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -27,11 +27,8 @@ func newStatsBuffer() *statsBuffer {
 }
 
 var (
-	visitorRetentionDays int
-	statsMu              sync.Mutex
-	statsBuf             = newStatsBuffer()
-	statsTZ              *time.Location
-	statsTZOnce          sync.Once
+	statsTZ     *time.Location
+	statsTZOnce sync.Once
 )
 
 func StatsLocation() *time.Location {
@@ -54,45 +51,45 @@ func StatsDaysAgo(days int) string {
 }
 
 // RecordVisit notes one client of a kind (web, android/1.4, ...) for today's counts.
-func RecordVisit(clientHash, client string) {
+func (s *Store) RecordVisit(clientHash, client string) {
 	if clientHash == "" || client == "" {
 		return
 	}
-	statsMu.Lock()
-	statsBuf.visits[statsVisit{hash: clientHash, client: client}] = struct{}{}
-	statsMu.Unlock()
+	s.statsMu.Lock()
+	s.statsBuf.visits[statsVisit{hash: clientHash, client: client}] = struct{}{}
+	s.statsMu.Unlock()
 }
 
-func RecordEvent(metric, key string) {
-	RecordCount(metric, key, 1)
+func (s *Store) RecordEvent(metric, key string) {
+	s.RecordCount(metric, key, 1)
 }
 
-func RecordCount(metric, key string, count int) {
+func (s *Store) RecordCount(metric, key string, count int) {
 	if metric == "" || count <= 0 {
 		return
 	}
-	statsMu.Lock()
-	incrementCounterLocked(metric, strings.Clone(key), count)
-	statsMu.Unlock()
+	s.statsMu.Lock()
+	s.incrementCounterLocked(metric, strings.Clone(key), count)
+	s.statsMu.Unlock()
 }
 
-func RecordEndpointTiming(key string, duration time.Duration) {
+func (s *Store) RecordEndpointTiming(key string, duration time.Duration) {
 	ms := int(duration / time.Millisecond)
 	if duration > 0 && ms == 0 {
 		ms = 1
 	}
-	statsMu.Lock()
-	incrementCounterLocked("endpoint_call", key, 1)
-	incrementCounterLocked("endpoint_ms", key, ms)
-	statsMu.Unlock()
+	s.statsMu.Lock()
+	s.incrementCounterLocked("endpoint_call", key, 1)
+	s.incrementCounterLocked("endpoint_ms", key, ms)
+	s.statsMu.Unlock()
 }
 
-func RecordTranzyQuotaUsage(name string) {
-	RecordEvent("tranzy_quota", name)
+func (s *Store) RecordTranzyQuotaUsage(name string) {
+	s.RecordEvent("tranzy_quota", name)
 }
 
-func incrementCounterLocked(metric, key string, count int) {
-	bumpCounter(statsBuf, metric, key, count)
+func (s *Store) incrementCounterLocked(metric, key string, count int) {
+	bumpCounter(s.statsBuf, metric, key, count)
 }
 
 func bumpCounter(buf *statsBuffer, metric, key string, count int) {
@@ -104,32 +101,32 @@ func bumpCounter(buf *statsBuffer, metric, key string, count int) {
 	bucket[key] += count
 }
 
-func swapBuffer() *statsBuffer {
-	statsMu.Lock()
-	prev := statsBuf
-	statsBuf = newStatsBuffer()
-	statsMu.Unlock()
+func (s *Store) swapBuffer() *statsBuffer {
+	s.statsMu.Lock()
+	prev := s.statsBuf
+	s.statsBuf = newStatsBuffer()
+	s.statsMu.Unlock()
 	return prev
 }
 
-func mergeBuffer(buf *statsBuffer) {
-	statsMu.Lock()
+func (s *Store) mergeBuffer(buf *statsBuffer) {
+	s.statsMu.Lock()
 	for v := range buf.visits {
-		statsBuf.visits[v] = struct{}{}
+		s.statsBuf.visits[v] = struct{}{}
 	}
 	for metric, bucket := range buf.counters {
 		for key, count := range bucket {
-			incrementCounterLocked(metric, key, count)
+			s.incrementCounterLocked(metric, key, count)
 		}
 	}
-	statsMu.Unlock()
+	s.statsMu.Unlock()
 }
 
-func writeStatsBuffer(buf *statsBuffer) error {
+func (s *Store) writeStatsBuffer(buf *statsBuffer) error {
 	today := StatsDate(time.Now())
-	cutoff := StatsDaysAgo(visitorRetentionDays - 1)
+	cutoff := StatsDaysAgo(s.visitorRetentionDays - 1)
 
-	tx, err := DB.Begin()
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -208,29 +205,32 @@ func writeStatsBuffer(buf *statsBuffer) error {
 	return tx.Commit()
 }
 
-func FlushStats() error {
-	buf := swapBuffer()
+func (s *Store) FlushStats() error {
+	buf := s.swapBuffer()
 	if len(buf.visits) == 0 && len(buf.counters) == 0 {
 		return nil
 	}
-	if err := writeStatsBuffer(buf); err != nil {
-		mergeBuffer(buf)
+	if err := s.writeStatsBuffer(buf); err != nil {
+		s.mergeBuffer(buf)
 		return err
 	}
 	return nil
 }
 
-func StartStatsFlusher(retentionDays int) {
-	visitorRetentionDays = retentionDays
-	go func() {
-		ticker := time.NewTicker(statsFlushInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := FlushStats(); err != nil {
-				log.Printf("stats flush failed: %v", err)
-			}
+// Returns once ctx is done.
+func (s *Store) RunStatsFlusher(ctx context.Context) {
+	ticker := time.NewTicker(statsFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return
 		}
-	}()
+		if err := s.FlushStats(); err != nil {
+			s.logf("stats flush failed: %v", err)
+		}
+	}
 }
 
 type MetricRow struct {
@@ -240,8 +240,8 @@ type MetricRow struct {
 }
 
 // MetricRows returns a metric's daily counts from `since` (inclusive), unflushed counts included.
-func MetricRows(metric, since string) ([]MetricRow, error) {
-	rows, err := DB.Query(`SELECT date, key, count FROM stats_daily WHERE metric = ? AND date >= ?`, metric, since)
+func (s *Store) MetricRows(metric, since string) ([]MetricRow, error) {
+	rows, err := s.DB.Query(`SELECT date, key, count FROM stats_daily WHERE metric = ? AND date >= ?`, metric, since)
 	if err != nil {
 		return nil, err
 	}
@@ -260,16 +260,16 @@ func MetricRows(metric, since string) ([]MetricRow, error) {
 	}
 
 	today := StatsDate(time.Now())
-	statsMu.Lock()
-	for key, count := range statsBuf.counters[metric] {
+	s.statsMu.Lock()
+	for key, count := range s.statsBuf.counters[metric] {
 		out = append(out, MetricRow{Date: today, Key: key, Count: count})
 	}
-	statsMu.Unlock()
+	s.statsMu.Unlock()
 	return out, nil
 }
 
-func MetricTotal(metric, key string) (int, error) {
+func (s *Store) MetricTotal(metric, key string) (int, error) {
 	var total int
-	err := DB.QueryRow(`SELECT COALESCE(SUM(count), 0) FROM stats_daily WHERE metric = ? AND key = ?`, metric, key).Scan(&total)
+	err := s.DB.QueryRow(`SELECT COALESCE(SUM(count), 0) FROM stats_daily WHERE metric = ? AND key = ?`, metric, key).Scan(&total)
 	return total, err
 }

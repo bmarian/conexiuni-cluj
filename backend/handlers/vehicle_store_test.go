@@ -1,24 +1,10 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
-	"path/filepath"
 	"testing"
 	"time"
 )
-
-func withTestDB(t *testing.T) {
-	t.Helper()
-	if err := database.Connect(filepath.Join(t.TempDir(), "test.db")); err != nil {
-		t.Fatalf("connect: %v", err)
-	}
-	if err := database.InitSchemas(); err != nil {
-		t.Fatalf("init schemas: %v", err)
-	}
-	resetProfileSnapshots()
-	t.Cleanup(func() { _ = database.DB.Close() })
-}
 
 func storedVehicle(id int, observedAt time.Time) models.Vehicle {
 	v := models.Vehicle{
@@ -32,15 +18,15 @@ func storedVehicle(id int, observedAt time.Time) models.Vehicle {
 }
 
 func TestStoreVehiclesRoundTripsMovementState(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 
 	now := time.Now()
 	v := storedVehicle(1, now)
-	if err := storeVehiclesInDB([]models.Vehicle{v}); err != nil {
+	if err := city.storeVehiclesInDB([]models.Vehicle{v}); err != nil {
 		t.Fatalf("store: %v", err)
 	}
 
-	got, err := getVehiclesFromDB(VehicleFilter{})
+	got, err := city.getVehiclesFromDB(VehicleFilter{})
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -60,15 +46,15 @@ func TestStoreVehiclesRoundTripsMovementState(t *testing.T) {
 }
 
 func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 
 	fresh := storedVehicle(1, time.Now())
 	stale := storedVehicle(2, time.Now().Add(-vehicleRetention-time.Minute))
-	if err := storeVehiclesInDB([]models.Vehicle{fresh, stale}); err != nil {
+	if err := city.storeVehiclesInDB([]models.Vehicle{fresh, stale}); err != nil {
 		t.Fatalf("store: %v", err)
 	}
 
-	got, err := getVehiclesFromDB(VehicleFilter{})
+	got, err := city.getVehiclesFromDB(VehicleFilter{})
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -77,7 +63,7 @@ func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
 	}
 
 	var remaining int
-	if err := database.DB.QueryRow("SELECT COUNT(*) FROM vehicles").Scan(&remaining); err != nil {
+	if err := city.DB.QueryRow("SELECT COUNT(*) FROM vehicles").Scan(&remaining); err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if remaining != 1 {
@@ -87,27 +73,27 @@ func TestGetVehiclesDropsRowsPastRetention(t *testing.T) {
 
 // Re-served with its original time, so it still ages out.
 func TestGraceReservedVehicleKeepsAgeing(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 
-	livePollInterval = func() time.Duration { return 45 * time.Second }
-	t.Cleanup(func() { livePollInterval = func() time.Duration { return 0 } })
+	livePollInterval = func(*City) time.Duration { return 45 * time.Second }
+	t.Cleanup(func() { livePollInterval = func(*City) time.Duration { return 0 } })
 	observedAt := time.Now().Add(-2*45*time.Second + 30*time.Second)
-	if err := storeVehiclesInDB([]models.Vehicle{storedVehicle(1, observedAt)}); err != nil {
+	if err := city.storeVehiclesInDB([]models.Vehicle{storedVehicle(1, observedAt)}); err != nil {
 		t.Fatalf("store: %v", err)
 	}
 
-	got, err := getVehiclesFromDB(VehicleFilter{})
+	got, err := city.getVehiclesFromDB(VehicleFilter{})
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("read %d vehicles, want 1", len(got))
 	}
-	if err := storeVehiclesInDB(got); err != nil {
+	if err := city.storeVehiclesInDB(got); err != nil {
 		t.Fatalf("re-store: %v", err)
 	}
 
-	after, err := getVehiclesFromDB(VehicleFilter{})
+	after, err := city.getVehiclesFromDB(VehicleFilter{})
 	if err != nil {
 		t.Fatalf("re-read: %v", err)
 	}

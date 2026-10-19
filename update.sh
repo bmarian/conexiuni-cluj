@@ -73,8 +73,8 @@ fi
 
 if [ "$DELETE_DB" = true ]; then
   echo ""
-  echo "🗑️ Deleting database..."
-  rm -f conexiuni-cluj.db
+  echo "🗑️ Deleting databases..."
+  rm -f db/*.db db/*.db-wal db/*.db-shm
 fi
 
 if [ "$DELETE_LOGS" = true ]; then
@@ -86,9 +86,10 @@ fi
 if [ "$BUST_CACHE" = true ]; then
   echo ""
   echo "🧹 Busting cache..."
-  cd backend
-  ./conexiuni-cluj --bust-cache
-  cd ..
+  # The restart below then fetches every source again.
+  for db in db/*.db; do
+    sqlite3 "$db" "DELETE FROM ingest_state"
+  done
 fi
 
 echo ""

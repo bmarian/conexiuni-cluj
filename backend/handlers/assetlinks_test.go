@@ -40,3 +40,28 @@ func TestAssetLinksIsEmptyWithoutACertificate(t *testing.T) {
 		t.Fatalf("body = %s", body)
 	}
 }
+
+func TestEncodesItselfMatchesCityPaths(t *testing.T) {
+	cases := map[string]bool{
+		"/api/cluj/network":                true,
+		"/api/bucuresti/live?stop_ids=1":   true,
+		"/api/cluj/live?stop_ids=1&once=1": false,
+		"/api/cluj/network/version":        false,
+		"/api/cities":                      false,
+		"/cluj/live":                       false,
+	}
+	for url, want := range cases {
+		var got bool
+		app := fiber.New()
+		app.Use(func(c fiber.Ctx) error {
+			got = EncodesItself(c)
+			return nil
+		})
+		if _, err := app.Test(httptest.NewRequest("GET", url, nil)); err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("EncodesItself(%s) = %v, want %v", url, got, want)
+		}
+	}
+}

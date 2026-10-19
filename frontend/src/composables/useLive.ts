@@ -1,5 +1,6 @@
 import {onUnmounted, ref, type Ref, watch} from 'vue'
 import type {LiveEntry, LiveRow, LiveVehicle} from '@/types/tranzy.ts'
+import {apiPath} from '@/utils/city.ts'
 
 export const liveRowKey = (tripId: string, stopId: number) => `${tripId}@${stopId}`
 
@@ -49,7 +50,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
     const params = new URLSearchParams()
     if (stops.length) params.set('stop_ids', [...new Set(stops)].join(','))
     if (trips.length) params.set('trip_ids', [...new Set(trips)].join(','))
-    es = new EventSource(`/api/live?${params}`)
+    es = new EventSource(`${apiPath('live')}?${params}`)
     const byId = new Map<number, LiveVehicle>()
     const publishVehicles = () => {
       const grouped = new Map<string, LiveVehicle[]>()

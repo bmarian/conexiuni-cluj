@@ -40,7 +40,7 @@ describe('place requests', () => {
   it('asks the backend for as many places as wanted', async () => {
     await searchPlaces('iulius', 3)
     const url = new URL(fetchMock.mock.calls[0]![0] as string, 'http://app')
-    expect(url.pathname).toBe('/api/places')
+    expect(url.pathname).toBe('/api/cluj/places')
     expect(url.searchParams.get('q')).toBe('iulius')
     expect(url.searchParams.get('limit')).toBe('3')
   })
@@ -64,7 +64,7 @@ describe('place requests', () => {
     fetchMock.mockResolvedValueOnce(respond([apiPlace('Strada Horea, 3, Centru')]))
     const place = await reversePlace(46.77, 23.59)
     const url = new URL(fetchMock.mock.calls[0]![0] as string, 'http://app')
-    expect(url.pathname).toBe('/api/places')
+    expect(url.pathname).toBe('/api/cluj/places')
     expect(url.searchParams.get('lat')).toBe('46.77')
     expect(url.searchParams.get('lon')).toBe('23.59')
     expect(place!.label).toBe('Strada Horea, 3, Centru')

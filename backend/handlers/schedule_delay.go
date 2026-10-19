@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"slices"
 	"sort"
@@ -50,23 +48,27 @@ type runDeparture struct {
 	PairedMin  float64
 }
 
-func StartScheduleDelayLearner(loc *time.Location) {
-	go func() {
-		time.Sleep(2 * time.Minute)
+func (city *City) StartScheduleDelayLearner(r *runner, loc *time.Location) {
+	r.Go(func() {
+		if !r.Sleep(2 * time.Minute) {
+			return
+		}
 		for {
 			started := time.Now()
-			if n, err := recomputeScheduleDelays(loc, started); err != nil {
-				log.Printf("schedule delay failed: %v", err)
+			if n, err := city.recomputeScheduleDelays(loc, started); err != nil {
+				city.log("schedule delay failed: %v", err)
 			} else {
-				log.Printf("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
+				city.log("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
 			}
-			time.Sleep(scheduleDelayRefresh)
+			if !r.Sleep(scheduleDelayRefresh) {
+				return
+			}
 		}
-	}()
+	})
 }
 
-func recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
-	routes, err := queryRows(`SELECT route_id, route_short_name FROM routes`, nil, func(rows *sql.Rows) (models.Route, error) {
+func (city *City) recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
+	routes, err := queryRows(city.DB, `SELECT route_id, route_short_name FROM routes`, nil, func(rows *sql.Rows) (models.Route, error) {
 		var r models.Route
 		err := rows.Scan(&r.RouteID, &r.RouteShortName)
 		return r, err
@@ -78,13 +80,13 @@ func recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
 	residuals := make(map[scheduleDelayKey]*scheduleResiduals)
 	runID := 0
 	for _, route := range routes {
-		timetable, err := getTimetableFromDB(route.RouteShortName)
+		timetable, err := city.GetTimetable(route.RouteShortName)
 		if err != nil || timetable == nil {
 			continue
 		}
-		changed := timetableChangedAt(route.RouteShortName)
+		changed := city.timetableChangedAt(route.RouteShortName)
 		rid := strconv.Itoa(route.RouteID)
-		stopTimes, err := getStopTimesForTrips([]string{rid + OUTGOING_SUFFIX, rid + INCOMING_SUFFIX})
+		stopTimes, err := city.getStopTimesForTrips([]string{rid + OUTGOING_SUFFIX, rid + INCOMING_SUFFIX})
 		if err != nil {
 			return 0, err
 		}
@@ -93,15 +95,15 @@ func recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {
 			if len(stops) < 2 {
 				continue
 			}
-			if err := collectScheduleResiduals(route.RouteID, directionID, stops, timetable, changed, loc, now, residuals, &runID); err != nil {
+			if err := city.collectScheduleResiduals(route.RouteID, directionID, stops, timetable, changed, loc, now, residuals, &runID); err != nil {
 				return 0, fmt.Errorf("route %s direction %d: %w", route.RouteShortName, directionID, err)
 			}
 		}
 	}
-	return storeScheduleDelays(residuals, now)
+	return city.storeScheduleDelays(residuals, now)
 }
 
-func collectScheduleResiduals(
+func (city *City) collectScheduleResiduals(
 	routeID, directionID int,
 	stops []models.StopTime,
 	timetable *models.Timetable,
@@ -111,13 +113,13 @@ func collectScheduleResiduals(
 	into map[scheduleDelayKey]*scheduleResiduals,
 	runID *int,
 ) error {
-	segments, err := queryRows(`
+	segments, err := queryRows(city.DB, `
 		SELECT from_stop_id, to_stop_id, day_type, observed_at - duration_sec, observed_at
 		FROM segment_travel_time_samples
 		WHERE route_id = ?
 		  AND direction_id = ?
 		  AND observed_at >= ?`,
-		[]any{routeID, directionID, earliestWindowStart(now)},
+		[]any{routeID, directionID, city.earliestWindowStart(now)},
 		func(rows *sql.Rows) (runSegment, error) {
 			var s runSegment
 			err := rows.Scan(&s.FromStopID, &s.ToStopID, &s.DayType, &s.StartedAt, &s.EndedAt)
@@ -127,7 +129,7 @@ func collectScheduleResiduals(
 	outside := func(dayType string, at int64) bool {
 		w, ok := windows[dayType]
 		if !ok {
-			w = currentDayWindow(dayType, now)
+			w = city.currentDayWindow(dayType, now)
 			windows[dayType] = w
 		}
 		return !w.contains(at) || at < changed[calendar.ScheduleOf(dayType)]
@@ -168,7 +170,7 @@ func collectScheduleResiduals(
 		}
 		if !haveProfiles {
 			var err error
-			if profileRows, err = loadSegmentProfileRows(routeID, directionID); err != nil {
+			if profileRows, err = city.loadSegmentProfileRows(routeID, directionID); err != nil {
 				return nil, err
 			}
 			haveProfiles = true
@@ -179,7 +181,7 @@ func collectScheduleResiduals(
 		for i := range ordered {
 			ordered[i] = i
 		}
-		applySegmentProfilesToTrip(trip, ordered, selectSegmentProfiles(profileRows, dayType, bucket))
+		city.timeTrip(trip, ordered, trip[0].TripID, dayType, bucket, selectSegmentProfiles(profileRows, dayType, bucket))
 		c := make([]float64, len(trip))
 		total := 0.0
 		for i, st := range trip {
@@ -200,11 +202,11 @@ func collectScheduleResiduals(
 	}
 
 	// Departures seen at the first stop by the turnaround learner, keyed by the second.
-	turnarounds, err := queryRows(`
+	turnarounds, err := queryRows(city.DB, `
 		SELECT day_type, departed_at, paired_departure_min
 		FROM turnaround_samples
 		WHERE route_id = ? AND direction_id = ? AND departed_at >= ?`,
-		[]any{routeID, directionID, earliestWindowStart(now)},
+		[]any{routeID, directionID, city.earliestWindowStart(now)},
 		func(rows *sql.Rows) (runDeparture, error) {
 			var d runDeparture
 			err := rows.Scan(&d.DayType, &d.DepartedAt, &d.PairedMin)
@@ -388,8 +390,8 @@ func wrapDayMinutes(m float64) float64 {
 	return m
 }
 
-func storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleResiduals, now time.Time) (int, error) {
-	tx, err := database.DB.Begin()
+func (city *City) storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleResiduals, now time.Time) (int, error) {
+	tx, err := city.DB.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -453,17 +455,17 @@ func median(values []float64) float64 {
 }
 
 // Same bucket preference as segment profiles: this hour, the nearest one, then all day.
-func loadScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {
-	rows, err := loadScheduleDelayRows(routeID, directionID, dayType)
+func (city *City) loadScheduleDelay(routeID, directionID int, dayType string, bucket int) (float64, bool) {
+	rows, err := city.loadScheduleDelayRows(routeID, directionID, dayType)
 	if err != nil {
-		log.Printf("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
+		city.log("schedule delay: route=%d direction=%d: %v", routeID, directionID, err)
 		return 0, false
 	}
 	return selectScheduleDelay(rows, bucket)
 }
 
-func loadScheduleDelayRows(routeID, directionID int, dayType string) ([]scheduleDelayRow, error) {
-	return queryRows(`
+func (city *City) loadScheduleDelayRows(routeID, directionID int, dayType string) ([]scheduleDelayRow, error) {
+	return queryRows(city.DB, `
 		SELECT bucket_start_min, delay_sec
 		FROM schedule_delay_profiles
 		WHERE route_id = ? AND direction_id = ? AND day_type = ?`,
@@ -486,10 +488,10 @@ func selectScheduleDelay(rows []scheduleDelayRow, bucket int) (float64, bool) {
 	return delay, found
 }
 
-func timetableChangedAt(routeShortName string) map[string]int64 {
-	history, err := database.TimetableHistory(routeShortName)
+func (city *City) timetableChangedAt(routeShortName string) map[string]int64 {
+	history, err := city.TimetableHistory(routeShortName)
 	if err != nil {
-		log.Printf("schedule delay: timetable history for %s failed: %v", routeShortName, err)
+		city.log("schedule delay: timetable history for %s failed: %v", routeShortName, err)
 		return nil
 	}
 	changed := map[string]int64{}

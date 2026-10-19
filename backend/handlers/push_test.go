@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"conexiuni-cluj/database"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -103,20 +102,20 @@ func decryptTestPush(t *testing.T, body []byte, key *ecdh.PrivateKey, auth []byt
 	return plain[:len(plain)-1]
 }
 
-func withTestPush(t *testing.T) {
+func (city *City) withTestPush(t *testing.T) {
 	t.Helper()
 	private, public, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		t.Fatal(err)
 	}
 	pushCfg = &pushConfig{publicKey: public, privateKey: private, subject: siteOrigin}
-	pushWake = make(chan struct{}, 1)
-	t.Cleanup(func() { pushCfg, pushWake = nil, nil })
+	city.pushWake = make(chan struct{}, 1)
+	t.Cleanup(func() { pushCfg, city.pushWake = nil, nil })
 }
 
-func followLines(t *testing.T, sub pushSubscriber, routes ...string) {
+func (city *City) followLines(t *testing.T, sub pushSubscriber, routes ...string) {
 	t.Helper()
-	if err := savePushSubscription(sub, routes); err != nil {
+	if err := city.savePushSubscription(sub, routes); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -156,20 +155,20 @@ func TestValidPushEndpoint(t *testing.T) {
 }
 
 func TestSendRouteChangePushReachesOnlyFollowers(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
-	if _, err := database.DB.Exec(`INSERT INTO routes VALUES (12, 2, '25', 'A - B', 3, '', 'ff0000')`); err != nil {
+	city := newTestCity(t)
+	city.withTestPush(t)
+	if _, err := city.DB.Exec(`INSERT INTO routes VALUES (12, 2, '25', 'A - B', 3, '', 'ff0000')`); err != nil {
 		t.Fatal(err)
 	}
 
 	english := newTestPushClient(t, "en", http.StatusCreated)
 	romanian := newTestPushClient(t, "ro", http.StatusCreated)
 	other := newTestPushClient(t, "ro", http.StatusCreated)
-	followLines(t, english.sub, "25", "35")
-	followLines(t, romanian.sub, "25")
-	followLines(t, other.sub, "35")
+	city.followLines(t, english.sub, "25", "35")
+	city.followLines(t, romanian.sub, "25")
+	city.followLines(t, other.sub, "35")
 
-	sendRouteChangePush(RouteChange{
+	city.sendRouteChangePush(RouteChange{
 		ID: 7, RouteShortName: "25", Source: routeChangeSourceTimetable, DetectedAt: 1700000000000,
 		Changes: []RouteChangeItem{
 			{Kind: changeLater, Direction: "1", Days: []string{"weekdays", "sunday"}},
@@ -181,7 +180,7 @@ func TestSendRouteChangePushReachesOnlyFollowers(t *testing.T) {
 	want := pushMessage{
 		Title:     "Line 25 · Timetable changed",
 		Body:      "The weekday, Saturday and Sunday timetables changed.",
-		URL:       "/route/12/1?change=7",
+		URL:       "/test/route/12/1?change=7",
 		Tag:       "route-change-25",
 		Timestamp: 1700000000000,
 	}
@@ -201,28 +200,28 @@ func TestSendRouteChangePushReachesOnlyFollowers(t *testing.T) {
 }
 
 func TestSendRouteChangePushDropsExpiredSubscriptions(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 
 	gone := newTestPushClient(t, "en", http.StatusGone)
-	followLines(t, gone.sub, "25")
+	city.followLines(t, gone.sub, "25")
 
-	sendRouteChangePush(RouteChange{
+	city.sendRouteChangePush(RouteChange{
 		ID: 1, RouteShortName: "25", Source: routeChangeSourceStops,
 		Changes: []RouteChangeItem{{Kind: changeStopsRemoved, Direction: "0", Stops: []string{"S3"}}},
 	})
 
 	var subs, routes int
-	_ = database.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions`).Scan(&subs)
-	_ = database.DB.QueryRow(`SELECT COUNT(*) FROM push_subscription_routes`).Scan(&routes)
+	_ = city.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions`).Scan(&subs)
+	_ = city.DB.QueryRow(`SELECT COUNT(*) FROM push_subscription_routes`).Scan(&routes)
 	if len(gone.received()) != 1 || subs != 0 || routes != 0 {
 		t.Fatalf("want one attempt then cleanup, got %d attempts, %d subscriptions, %d routes", len(gone.received()), subs, routes)
 	}
 }
 
-func pendingPushes(t *testing.T) []int64 {
+func (city *City) pendingPushes(t *testing.T) []int64 {
 	t.Helper()
-	ids, err := queryRows(`SELECT id FROM route_changes WHERE push_pending = 1 ORDER BY id`, nil,
+	ids, err := queryRows(city.DB, `SELECT id FROM route_changes WHERE push_pending = 1 ORDER BY id`, nil,
 		func(rows *sql.Rows) (int64, error) {
 			var id int64
 			return id, rows.Scan(&id)
@@ -238,51 +237,51 @@ func stopsAdded(stop string) []RouteChangeItem {
 }
 
 func TestRecordRouteChangesLeavesPushPending(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 
-	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
-	if got := pendingPushes(t); len(got) != 1 {
+	city.recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := city.pendingPushes(t); len(got) != 1 {
 		t.Fatalf("want the new change pending, got %v", got)
 	}
 	select {
-	case <-pushWake:
+	case <-city.pushWake:
 	default:
 		t.Fatal("recording a change should wake the sender")
 	}
 
-	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
-	if got := pendingPushes(t); len(got) != 1 || len(pushWake) != 0 {
+	city.recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := city.pendingPushes(t); len(got) != 1 || len(city.pushWake) != 0 {
 		t.Fatalf("a repeated change must not notify again, pending=%v", got)
 	}
 }
 
 func TestRecordRouteChangesWithoutPushLeavesNothingPending(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 
-	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
-	if got := pendingPushes(t); len(got) != 0 {
+	city.recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S9"))
+	if got := city.pendingPushes(t); len(got) != 0 {
 		t.Fatalf("enabling push later must not replay old changes, pending=%v", got)
 	}
 }
 
 func TestFlushPendingPushesSendsNewestChangePerLine(t *testing.T) {
-	withTestDB(t)
-	withTestPush(t)
+	city := newTestCity(t)
+	city.withTestPush(t)
 
 	client := newTestPushClient(t, "en", http.StatusCreated)
-	followLines(t, client.sub, "25", "35")
+	city.followLines(t, client.sub, "25", "35")
 
-	recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S1"))
-	recordRouteChanges("35", routeChangeSourceStops, stopsAdded("S2"))
-	recordRouteChanges("25", routeChangeSourceStops, []RouteChangeItem{
+	city.recordRouteChanges("25", routeChangeSourceStops, stopsAdded("S1"))
+	city.recordRouteChanges("35", routeChangeSourceStops, stopsAdded("S2"))
+	city.recordRouteChanges("25", routeChangeSourceStops, []RouteChangeItem{
 		{Kind: changeStopsRemoved, Direction: "1", Stops: []string{"S3", "S4"}},
 	})
 	if len(client.received()) != 0 {
 		t.Fatal("recording must not send by itself")
 	}
 
-	flushPendingPushes()
+	city.flushPendingPushes()
 	got := client.received()
 	bodies := map[string]string{}
 	for _, msg := range got {
@@ -292,11 +291,11 @@ func TestFlushPendingPushesSendsNewestChangePerLine(t *testing.T) {
 		bodies["route-change-35"] != "A stop was added." {
 		t.Fatalf("want the newest change for each line, got %+v", got)
 	}
-	if pending := pendingPushes(t); len(pending) != 0 {
+	if pending := city.pendingPushes(t); len(pending) != 0 {
 		t.Fatalf("flushed changes still pending: %v", pending)
 	}
 
-	flushPendingPushes()
+	city.flushPendingPushes()
 	if len(client.received()) != 2 {
 		t.Fatal("a second flush must not resend")
 	}

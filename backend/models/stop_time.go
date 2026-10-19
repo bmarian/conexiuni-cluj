@@ -1,6 +1,6 @@
 package models
 
-type RequestStopTime struct {
+type TripStop struct {
 	TripID       string `json:"trip_id"`
 	StopID       int    `json:"stop_id"`
 	StopSequence int    `json:"stop_sequence"`

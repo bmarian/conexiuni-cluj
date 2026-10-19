@@ -7,10 +7,16 @@ import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import SettingsExportImport from '@/components/SettingsExportImport.vue'
 import {useSettingsStore} from '@/stores/settings'
 import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
+import {cities, currentCity} from '@/utils/city.ts'
+import {regionSettingsFor} from '@/utils/regionSettings.ts'
 
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
+const regionSlug = ref(currentCity.value)
+const regionOpen = ref(false)
+const regionSettings = computed(() => regionSettingsFor(regionSlug.value))
+const regionName = computed(() => cities.value.find((c) => c.slug === regionSlug.value)?.name ?? regionSlug.value)
 const settings = useSettingsStore()
 
 useHead(() => ({
@@ -89,48 +95,6 @@ function toggleSimplified() {
       <h2 class="section-label">{{ t('display') }}</h2>
       <div class="setting-rows" data-kbd-section="display">
         <button type="button" class="option-btn setting-row"
-                :class="{ active: settings.showWeather }" :aria-pressed="settings.showWeather"
-                data-kbd-item="show-weather" @click="settings.setShowWeather(!settings.showWeather)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">☁️</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">{{ t('weather') }}</span>
-            <span class="setting-desc">{{ t('weatherDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showWeather" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
-        <button type="button" class="option-btn setting-row" :class="{ active: settings.showNews }"
-                :aria-pressed="settings.showNews" data-kbd-item="show-news"
-                @click="settings.setShowNews(!settings.showNews)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📰</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path
-              d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-            <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">{{ t('news') }}</span>
-            <span class="setting-desc">{{ t('newsDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showNews" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
-        <button type="button" class="option-btn setting-row"
                 :class="{ active: settings.showVehicleExtras }"
                 :aria-pressed="settings.showVehicleExtras" data-kbd-item="vehicle-extras"
                 @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
@@ -147,30 +111,6 @@ function toggleSimplified() {
           </span>
           <span class="setting-check" aria-hidden="true">
             <svg v-if="settings.showVehicleExtras" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
-                 stroke-linejoin="round">
-              <path d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </span>
-        </button>
-
-        <button type="button" class="option-btn setting-row"
-                :class="{ active: settings.showGreenFriday }"
-                :aria-pressed="settings.showGreenFriday" data-kbd-item="green-friday"
-                @click="settings.setShowGreenFriday(!settings.showGreenFriday)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🌿</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path
-              d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-          <span class="setting-text">
-            <span class="setting-title">{{ t('greenFridayTitle') }}</span>
-            <span class="setting-desc">{{ t('greenFridaySettingDesc') }}</span>
-          </span>
-          <span class="setting-check" aria-hidden="true">
-            <svg v-if="settings.showGreenFriday" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
                  stroke-linejoin="round">
               <path d="M4.5 12.75l6 6 9-13.5"/>
@@ -290,6 +230,65 @@ function toggleSimplified() {
           {{ t('busAlertsNote') }}
         </p>
       </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="section-label">{{ t('region') }}</h2>
+      <div class="setting-rows" data-kbd-section="region">
+        <button type="button" class="option-btn setting-row" :aria-expanded="regionOpen" data-kbd-item="region"
+                @click="regionOpen = !regionOpen">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
+          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span class="setting-text">
+            <span class="setting-title">{{ regionName }}</span>
+            <span class="setting-desc">{{ t('regionDesc') }}</span>
+          </span>
+          <span class="region-chevron" :class="{ 'is-open': regionOpen }" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div v-if="regionOpen" class="option-group wrap" role="group" :aria-label="t('region')"
+           data-kbd-section="region-choice" data-kbd-axis="x">
+        <button v-for="city in cities" :key="city.slug" type="button" class="option-btn"
+                :class="{ active: city.slug === regionSlug }" :data-kbd-item="'region-' + city.slug"
+                @click="regionSlug = city.slug; regionOpen = false">
+          {{ city.name }}
+        </button>
+      </div>
+      <div v-if="regionSettings.length" class="setting-rows" data-kbd-section="region-settings">
+        <button v-for="setting in regionSettings" :key="setting.key" type="button" class="option-btn setting-row"
+                :class="{ active: settings.regionSetting(regionSlug, setting.key) }"
+                :aria-pressed="settings.regionSetting(regionSlug, setting.key)" :data-kbd-item="setting.key"
+                @click="settings.setRegionSetting(regionSlug, setting.key, !settings.regionSetting(regionSlug, setting.key))">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🌿</span>
+          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path
+              d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+          <span class="setting-text">
+            <span class="setting-title">{{ t(setting.titleKey) }}</span>
+            <span class="setting-desc">{{ t(setting.descKey) }}</span>
+          </span>
+          <span class="setting-check" aria-hidden="true">
+            <svg v-if="settings.regionSetting(regionSlug, setting.key)" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3.5" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <path d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </span>
+        </button>
+      </div>
+      <p v-else class="setting-desc">{{ t('regionNone', {city: regionName}) }}</p>
     </section>
 
     <section class="flex flex-col gap-2">
@@ -444,6 +443,11 @@ function toggleSimplified() {
   gap: 0.25rem;
 }
 
+.option-group.wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.75rem), 1fr));
+}
+
 .option-btn {
   flex: 1;
   display: flex;
@@ -568,5 +572,24 @@ function toggleSimplified() {
 
 .setting-row.active .setting-check {
   opacity: 1;
+}
+
+.region-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  align-self: center;
+  opacity: 0.6;
+}
+
+.region-chevron svg {
+  transition: transform 150ms ease;
+}
+
+.region-chevron.is-open svg {
+  transform: rotate(180deg);
 }
 </style>

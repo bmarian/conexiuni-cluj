@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -12,37 +11,36 @@ import (
 )
 
 type Config struct {
-	Environment              string
-	LogDir                   string
-	LogRetentionDays         int
-	LogIPHashSalt            string
-	AdminToken               string
+	Environment      string
+	LogDir           string
+	LogRetentionDays int
+	LogIPHashSalt    string
+	AdminToken       string
+	Port             string
+	DBDir            string
+	ArchiveDir       string
+
 	TranzyBaseUrl            string
-	ClujAgencyId             string
-	CtpCsvBaseUrl            string
-	Port                     string
-	DatabasePath             string
-	ArchiveDatabasePath      string
-	TranzyApiKey             string
-	TranzyLearningApiKey     string
-	TranzyCacheShelfLife     time.Duration
-	TimetableCacheShelfLife  time.Duration
-	NewsCacheShelfLife       time.Duration
-	CtpCjRateLimit           time.Duration
 	TranzyRateLimit          time.Duration
 	TranzyVehiclesDailyQuota int
 	TranzyDefaultDailyQuota  int
-	VehicleSchedule          string
-	VehicleScheduleWeekend   string
-	VehicleMinInterval       time.Duration
-	VehicleMaxInterval       time.Duration
-	VehicleLearningEnabled   bool
-	VehicleLearningMaxQuota  int
-	VapidPublicKey           string
-	VapidPrivateKey          string
-	VapidSubject             string
-	AndroidPackage           string
-	AndroidCertSHA256        []string
+
+	CtpCsvBaseUrl    string
+	CtpCjRateLimit   time.Duration
+	TimetableRefresh time.Duration
+
+	VehicleSchedule         string
+	VehicleScheduleWeekend  string
+	VehicleMinInterval      time.Duration
+	VehicleMaxInterval      time.Duration
+	VehicleLearningEnabled  bool
+	VehicleLearningMaxQuota int
+
+	VapidPublicKey    string
+	VapidPrivateKey   string
+	VapidSubject      string
+	AndroidPackage    string
+	AndroidCertSHA256 []string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -114,50 +112,36 @@ func Load() *Config {
 		log.Fatal("No .env files found")
 	}
 
-	tranzyDefaultDailyQuota := getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144)
-	tranzyVehiclesDailyQuota := getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500)
-	// 6 distinct Tranzy endpoint caches share the quota equally
-	tranzyCacheShelfLife := 24 * time.Hour * 6 / time.Duration(tranzyDefaultDailyQuota)
+	return &Config{
+		Environment:      getEnv("ENV", "development"),
+		LogDir:           getEnv("LOG_DIR", "../logs"),
+		LogRetentionDays: getInt("LOG_RETENTION_DAYS", 5),
+		LogIPHashSalt:    getEnv("LOG_IP_HASH_SALT", ""),
+		AdminToken:       getEnv("ADMIN_TOKEN", ""),
+		Port:             getEnv("PORT", "6698"),
+		DBDir:            getEnv("DB_DIR", "../db"),
+		ArchiveDir:       getEnv("ARCHIVE_DIR", "../archive"),
 
-	cfg := &Config{
-		Environment:              getEnv("ENV", "development"),
-		LogDir:                   getEnv("LOG_DIR", "../logs"),
-		LogRetentionDays:         getInt("LOG_RETENTION_DAYS", 5),
-		LogIPHashSalt:            getEnv("LOG_IP_HASH_SALT", ""),
-		AdminToken:               getEnv("ADMIN_TOKEN", ""),
 		TranzyBaseUrl:            getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
-		ClujAgencyId:             getEnv("CLUJ_AGENCY_ID", "2"),
-		CtpCsvBaseUrl:            getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
-		Port:                     getEnv("PORT", "6698"),
-		DatabasePath:             getEnv("DATABASE_PATH", "../conexiuni-cluj.db"),
-		ArchiveDatabasePath:      getEnv("ARCHIVE_DATABASE_PATH", "../conexiuni-cluj-archive.db"),
-		TranzyApiKey:             getEnv("TRANZY_API_KEY", ""),
-		TranzyLearningApiKey:     getEnv("TRANZY_API_KEY_LEARNING", ""),
-		TranzyCacheShelfLife:     tranzyCacheShelfLife,
-		TimetableCacheShelfLife:  getDuration("TIMETABLE_CACHE_SHELF_LIFE", 24*time.Hour),
-		NewsCacheShelfLife:       getDuration("NEWS_CACHE_SHELF_LIFE", 4*time.Hour),
-		CtpCjRateLimit:           getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),
-		TranzyVehiclesDailyQuota: tranzyVehiclesDailyQuota,
-		TranzyDefaultDailyQuota:  tranzyDefaultDailyQuota,
-		VehicleSchedule:          getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
-		VehicleScheduleWeekend:   getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
-		VehicleMinInterval:       getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
-		VehicleMaxInterval:       getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
-		VehicleLearningEnabled:   getBool("VEHICLE_LEARNING_ENABLED", true),
-		VehicleLearningMaxQuota:  getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
-		VapidPublicKey:           getEnv("VAPID_PUBLIC_KEY", ""),
-		VapidPrivateKey:          getEnv("VAPID_PRIVATE_KEY", ""),
-		VapidSubject:             getEnv("VAPID_SUBJECT", ""),
-		AndroidPackage:           getEnv("ANDROID_PACKAGE", "online.bmarian.bus"),
-		AndroidCertSHA256:        getList("ANDROID_CERT_SHA256"),
-	}
+		TranzyVehiclesDailyQuota: getInt("TRANZY_VEHICLES_DAILY_QUOTA", 4500),
+		TranzyDefaultDailyQuota:  getInt("TRANZY_DEFAULT_DAILY_QUOTA", 144),
 
-	if cfg.Environment == "development" {
-		neverExpire := time.Duration(math.MaxInt64)
-		cfg.TranzyCacheShelfLife = neverExpire
-		cfg.TimetableCacheShelfLife = neverExpire
-	}
+		CtpCsvBaseUrl:    getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
+		CtpCjRateLimit:   getDuration("CTP_CJ_RATE_LIMIT", time.Second),
+		TimetableRefresh: getDuration("TIMETABLE_REFRESH", 24*time.Hour),
 
-	return cfg
+		VehicleSchedule:         getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
+		VehicleScheduleWeekend:  getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),
+		VehicleMinInterval:      getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
+		VehicleMaxInterval:      getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
+		VehicleLearningEnabled:  getBool("VEHICLE_LEARNING_ENABLED", true),
+		VehicleLearningMaxQuota: getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
+
+		VapidPublicKey:    getEnv("VAPID_PUBLIC_KEY", ""),
+		VapidPrivateKey:   getEnv("VAPID_PRIVATE_KEY", ""),
+		VapidSubject:      getEnv("VAPID_SUBJECT", ""),
+		AndroidPackage:    getEnv("ANDROID_PACKAGE", "online.bmarian.bus"),
+		AndroidCertSHA256: getList("ANDROID_CERT_SHA256"),
+	}
 }

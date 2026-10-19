@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -21,16 +20,16 @@ type shiftKey struct {
 	bucket int16
 }
 
-func RunShift(date time.Time, w io.Writer) error {
-	if database.Archive == nil {
+func (city *City) RunShift(date time.Time, w io.Writer) error {
+	if city.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
-	cal := currentCalendar()
-	day := localMidnight(date)
+	cal := city.currentCalendar()
+	day := city.localMidnight(date)
 	dayType := cal.ProfileDay(day)
-	days := newReplayDays()
+	days := newReplayDays(city)
 
-	before := daysOfType(cal, day, dayType, shiftSpanDays)
+	before := city.daysOfType(cal, day, dayType, shiftSpanDays)
 	baselineDays, err := days.days(before[:min(shiftBaselineDays, len(before))])
 	if err != nil {
 		return err

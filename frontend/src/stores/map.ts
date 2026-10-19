@@ -1,11 +1,13 @@
 import type {Shape, Vehicle} from "@/types/tranzy";
 import type {RouteType} from "@/types/tranzy";
 import {defineStore} from 'pinia'
-import {ref} from "vue";
+import {ref, watch} from "vue";
 import {apiRequest} from "@/utils/api.ts";
 import {decodePolyline, network} from "@/utils/network.ts";
+import {currentCity} from "@/utils/city.ts";
 
 const shapeCache = new Map<string, Promise<Shape[]>>()
+watch(currentCity, () => shapeCache.clear(), {flush: 'sync'})
 const shapeKey = (tripId: string) => `${tripId}@${network.value?.shapeHash(tripId) ?? ''}`
 
 async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[]>> {

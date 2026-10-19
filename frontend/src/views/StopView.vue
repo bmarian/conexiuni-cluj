@@ -35,6 +35,7 @@ import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
 import {siteUrl} from "@/utils/site.ts";
+import {cityParams, cityPath} from "@/utils/city.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -152,9 +153,9 @@ watch([stopInfo, () => route.query.follow], ([info, tripId]) => {
 useHead(() => {
   // Keep the server-injected meta for crawlers until the stop loads.
   if (!stopName.value) return {}
-  const title = t('headStopTitle', {stopName: stopName.value})
-  const description = t('headStopDesc', {stopName: stopName.value})
-  const url = siteUrl(`/stop/${props.stopId}`)
+  const title = t('headStopTitle', {...cityParams(), stopName: stopName.value})
+  const description = t('headStopDesc', {...cityParams(), stopName: stopName.value})
+  const url = siteUrl(cityPath(`/stop/${props.stopId}`))
   return {
     title,
     meta: [

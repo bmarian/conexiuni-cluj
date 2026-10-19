@@ -3,12 +3,9 @@ package handlers
 import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/router"
-	ctpcj "conexiuni-cluj/services/ctp-cj"
-	"conexiuni-cluj/services/tranzy"
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,7 +13,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -32,66 +28,81 @@ const (
 
 func plannerOSMPath() string { return filepath.Join("services", "osm", "romania-latest.osm.pbf") }
 
-var planner = struct {
-	sync.Mutex
-	stopsKey uint64
-	streets  *router.Streets
-	places   *router.Places
-	period   int64
-	networks map[string]*router.Network
-}{}
-
 // nil until the walk graph is read.
-func plannerPlaces() *router.Places {
-	planner.Lock()
-	defer planner.Unlock()
-	return planner.places
+func (city *City) plannerPlaces() *router.Places {
+	city.planner.Lock()
+	defer city.planner.Unlock()
+	return city.planner.places
 }
 
 // plannerNetwork is the timetable around at's service day, rebuilt when the learned offsets roll over.
-func plannerNetwork(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, at time.Time) (*router.Network, error) {
-	planner.Lock()
-	defer planner.Unlock()
+func (city *City) plannerNetwork(at time.Time) (*router.Network, error) {
+	city.planner.Lock()
+	if city.planner.streets == nil {
+		if err := city.readPlannerStreets(); err != nil {
+			city.planner.Unlock()
+			return nil, err
+		}
+	}
 
-	stops, err := servedStops(tranzyClient, cacheTimes)
+	day := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
+	key := day.Format("2006-01-02")
+	if period := ProfileSnapshotPeriod(); period != city.planner.period || city.planner.networks == nil {
+		city.planner.period, city.planner.networks = period, make(map[string]*router.Network)
+	}
+	if n, ok := city.planner.networks[key]; ok {
+		city.planner.Unlock()
+		return n, nil
+	}
+	streets := city.planner.streets
+	if !livePlanDay(key, time.Now().In(at.Location())) {
+		// Built outside the lock: one far-off date must not hold up everyone's plans.
+		city.planner.Unlock()
+		return city.buildPlannerNetwork(streets, day)
+	}
+	defer city.planner.Unlock()
+	n, err := city.buildPlannerNetwork(streets, day)
 	if err != nil {
 		return nil, err
+	}
+	city.planner.networks[key] = n
+	return n, nil
+}
+
+// readPlannerStreets reads the walk graph again when the served stops changed. The caller holds the lock.
+func (city *City) readPlannerStreets() error {
+	stops, err := city.servedStops()
+	if err != nil {
+		return err
 	}
 	h := fnv.New64a()
 	for _, s := range stops {
 		fmt.Fprint(h, s.StopID, s.StopLat, s.StopLon)
 	}
 	stopsKey := h.Sum64()
-	if planner.streets == nil || planner.stopsKey != stopsKey {
-		streets, places, err := buildPlannerStreets(stops)
-		if err != nil {
-			return nil, err
-		}
-		planner.streets, planner.places, planner.stopsKey, planner.networks = streets, places, stopsKey, nil
+	if city.planner.streets != nil && city.planner.stopsKey == stopsKey {
+		return nil
 	}
+	streets, places, err := city.buildPlannerStreets(stops)
+	if err != nil {
+		return err
+	}
+	city.planner.streets, city.planner.places, city.planner.stopsKey, city.planner.networks = streets, places, stopsKey, nil
+	return nil
+}
 
-	day := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
-	key := day.Format("2006-01-02")
-	if period := ProfileSnapshotPeriod(); period != planner.period || planner.networks == nil {
-		planner.period, planner.networks = period, make(map[string]*router.Network)
-	}
-	if n, ok := planner.networks[key]; ok {
-		return n, nil
-	}
+func (city *City) buildPlannerNetwork(streets *router.Streets, day time.Time) (*router.Network, error) {
 	started := time.Now()
-	patterns, err := plannerPatterns(tranzyClient, ctpCjClient, cacheTimes, day)
+	patterns, err := city.plannerPatterns(day)
 	if err != nil {
 		return nil, err
 	}
-	n := planner.streets.Network(patterns)
+	n := streets.Network(patterns)
 	runs := 0
 	for _, p := range patterns {
 		runs += len(p.Trips)
 	}
-	log.Printf("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
-	if livePlanDay(key, time.Now().In(at.Location())) {
-		planner.networks[key] = n
-	}
+	city.log("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
 	return n, nil
 }
 
@@ -101,12 +112,12 @@ func livePlanDay(key string, now time.Time) bool {
 }
 
 // servedStops are the stops some trip calls at; Tranzy also lists stops of other cities.
-func servedStops(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes) ([]models.Stop, error) {
-	stops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
+func (city *City) servedStops() ([]models.Stop, error) {
+	stops, err := city.GetStops(StopFilter{})
 	if err != nil {
 		return nil, err
 	}
-	calls, err := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
+	calls, err := city.getTripStops()
 	if err != nil {
 		return nil, err
 	}
@@ -127,17 +138,17 @@ func servedStops(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes) ([]m
 	return out, nil
 }
 
-func buildPlannerStreets(stops []models.Stop) (*router.Streets, *router.Places, error) {
-	return buildStreets(stops, router.Options{
+func (city *City) buildPlannerStreets(stops []models.Stop) (*router.Streets, *router.Places, error) {
+	return city.buildStreets(stops, router.Options{
 		WalkSpeed:     plannerWalkSpeed,
 		MaxWalk:       plannerMaxWalk,
 		MaxTransfer:   plannerMaxTransfer,
-		TransferSlack: time.Duration(learnLiveRules().graceSec * float64(time.Second)),
+		TransferSlack: time.Duration(city.learnLiveRules().graceSec * float64(time.Second)),
 		TicketCost:    plannerTicketCost,
 	})
 }
 
-func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, *router.Places, error) {
+func (city *City) buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, *router.Places, error) {
 	started := time.Now()
 	box := router.BBox{MinLat: math.Inf(1), MinLon: math.Inf(1), MaxLat: math.Inf(-1), MaxLon: math.Inf(-1)}
 	routerStops := make([]router.Stop, len(stops))
@@ -158,33 +169,33 @@ func buildStreets(stops []models.Stop, opt router.Options) (*router.Streets, *ro
 	streets := router.NewStreets(walk, routerStops, opt)
 	// Reading the country extract peaks far above what the graph keeps.
 	debug.FreeOSMemory()
-	log.Printf("planner: walk graph of %d nodes for %d stops, %d places, in %s, transfer slack %s", walk.Nodes(), len(stops), places.Count(), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
+	city.log("planner: walk graph of %d nodes for %d stops, %d places, in %s, transfer slack %s", walk.Nodes(), len(stops), places.Count(), time.Since(started).Round(time.Millisecond), opt.TransferSlack)
 	return streets, places, nil
 }
 
 // Runs of the day before, the day and the day after, timed like the stop pages.
-func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes, day time.Time) ([]router.PatternInput, error) {
-	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
+func (city *City) plannerPatterns(day time.Time) ([]router.PatternInput, error) {
+	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
 		return nil, err
 	}
 	var out []router.PatternInput
 	for _, route := range routes {
 		rsn := route.RouteShortName
-		base, routeID, err := getBaseStopTimes(tranzyClient, cacheTimes, StopTimeFilter{RouteShortName: &rsn})
+		base, routeID, err := city.getBaseStopTimes(StopTimeFilter{RouteShortName: &rsn})
 		if err != nil || routeID == 0 {
 			continue
 		}
-		timetable, _ := GetTimetable(ctpCjClient, tranzyClient, cacheTimes, rsn)
+		timetable, _ := city.GetTimetable(rsn)
 		if timetable == nil {
 			continue
 		}
 		cumulative := make(map[string]map[string][]float64)
 		offsetsAt := func(departure time.Time, tripID string) []float64 {
-			key := profileDay(departure) + "|" + strconv.Itoa(segmentBucketStartMin(departure))
+			key := city.profileDay(departure) + "|" + strconv.Itoa(segmentBucketStartMin(departure))
 			byTrip, ok := cumulative[key]
 			if !ok {
-				timed := applySegmentProfilesToStopTimes(base, routeID, departure)
+				timed := city.applySegmentProfilesToStopTimes(base, routeID, departure)
 				byTrip = make(map[string][]float64, 2)
 				for _, suffix := range []string{OUTGOING_SUFFIX, INCOMING_SUFFIX} {
 					id := strconv.Itoa(routeID) + suffix
@@ -211,7 +222,7 @@ func plannerPatterns(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cac
 			}
 			for shift := -1; shift <= 1; shift++ {
 				date := day.AddDate(0, 0, shift)
-				for _, m := range scheduleDepartureMinutes(timetable, scheduleDay(date), dir) {
+				for _, m := range scheduleDepartureMinutes(timetable, city.scheduleDay(date), dir) {
 					departure := time.Date(date.Year(), date.Month(), date.Day(), 0, int(m), 0, 0, date.Location())
 					offsets := offsetsAt(departure, tripID)
 					if len(offsets) != len(rows) {
@@ -289,33 +300,45 @@ type planResponse struct {
 	RefreshIn int64               `json:"refresh_in"`
 }
 
-func WarmPlanner(tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) {
-	if _, err := plannerNetwork(tranzyClient, ctpCjClient, cacheTimes, time.Now().In(tranzyClient.Location())); err != nil {
-		log.Printf("planner: %v", err)
+// Runs after every ingest, the only writer of stops, so plans never re-read them.
+func (city *City) WarmPlanner() {
+	city.planner.Lock()
+	err := city.readPlannerStreets()
+	city.planner.Unlock()
+	if err == nil {
+		_, err = city.plannerNetwork(time.Now().In(city.Location))
+	}
+	if err != nil {
+		city.log("planner: %v", err)
 	}
 }
 
-func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Client, cacheTimes models.CacheTimes) error {
+func (city *City) handlePlan(c fiber.Ctx) error {
 	fromLat, fromLng, toLat, toLng, err := parsePlanCoords(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
-	when, arriveBy, err := parsePlanTime(c, tranzyClient.Location())
+	when, arriveBy, err := parsePlanTime(c, city.Location)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if when.IsZero() {
-		when = time.Now().In(tranzyClient.Location())
+		when = time.Now().In(city.Location)
 	}
+	release, ok := acquirePlanSlot(ClientHashFromLocals(c))
+	if !ok {
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+	defer release()
 	asked := when
 	last := c.Query("last") == "true"
-	n, err := plannerNetwork(tranzyClient, ctpCjClient, cacheTimes, when)
+	n, err := city.plannerNetwork(when)
 	if err == nil && last {
-		when, arriveBy = time.Unix(n.QuietEnd(when.Unix()), 0).In(tranzyClient.Location()), true
-		n, err = plannerNetwork(tranzyClient, ctpCjClient, cacheTimes, when)
+		when, arriveBy = time.Unix(n.QuietEnd(when.Unix()), 0).In(city.Location), true
+		n, err = city.plannerNetwork(when)
 	}
 	if err != nil {
-		log.Printf("plan: %v", err)
+		city.log("plan: %v", err)
 		var starting plannerUnavailableError
 		if errors.As(err, &starting) {
 			c.Set("Retry-After", "10")
@@ -333,7 +356,7 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: liveEntriesPerRow, Last: last}
 	var table *liveTable
 	if !arriveBy {
-		table, q.Live = plannerLiveAt(when)
+		table, q.Live = city.plannerLiveAt(when)
 	}
 	options := n.Plan(q)
 	if last && len(options) == 1 && options[0].Rides == 0 {
@@ -341,8 +364,8 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 		options[0].Runs[0] = router.Run{Depart: asked.Unix(), Arrive: asked.Unix() + options[0].Legs[0].Secs}
 	}
 
-	if err := describePlan(&resp, options, tranzyClient, cacheTimes); err != nil {
-		log.Printf("plan: %v", err)
+	if err := city.describePlan(&resp, options); err != nil {
+		city.log("plan: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "routing failed"})
 	}
 
@@ -353,32 +376,32 @@ func handlePlan(c fiber.Ctx, tranzyClient *tranzy.Client, ctpCjClient *ctpcj.Cli
 				firsts = append(firsts, o.Runs[0].Rides[0].Depart)
 			}
 		}
-		resp.RefreshIn = refreshIn(table, firsts)
+		resp.RefreshIn = city.refreshIn(table, firsts)
 	}
 	c.Set("Cache-Control", revalidateCacheControl)
 	return c.JSON(resp)
 }
 
 // plannerLiveAt is the live table when a plan from `when` can use it: fresh, and within its horizon.
-func plannerLiveAt(when time.Time) (*liveTable, router.LiveSource) {
-	if VehicleHub == nil || !when.Before(time.Now().Add(liveScheduleHorizon)) {
+func (city *City) plannerLiveAt(when time.Time) (*liveTable, router.LiveSource) {
+	if city.hub == nil || !when.Before(time.Now().Add(liveScheduleHorizon)) {
 		return nil, nil
 	}
-	table, err := VehicleHub.current()
+	table, err := city.hub.current()
 	if err != nil {
-		log.Printf("plan: live: %v", err)
+		city.log("plan: live: %v", err)
 		return nil, nil
 	}
 	return table, plannerLive(table)
 }
 
 // Never sooner than the next vehicle poll.
-func refreshIn(table *liveTable, firsts []int64) int64 {
+func (city *City) refreshIn(table *liveTable, firsts []int64) int64 {
 	if table == nil || len(firsts) == 0 {
 		return 0
 	}
 	wait := slices.Min(firsts) - time.Now().Unix()
-	if interval := livePollInterval(); interval > 0 {
+	if interval := livePollInterval(city); interval > 0 {
 		wait = max(wait, int64(interval.Seconds()))
 	}
 	return max(1, wait)
@@ -401,12 +424,12 @@ func plannerLive(table *liveTable) router.LiveSource {
 	}
 }
 
-func describePlan(resp *planResponse, options []router.Option, tranzyClient *tranzy.Client, cacheTimes models.CacheTimes) error {
-	stops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
+func (city *City) describePlan(resp *planResponse, options []router.Option) error {
+	stops, err := city.GetStops(StopFilter{})
 	if err != nil {
 		return err
 	}
-	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{})
+	routes, err := city.GetRoutes(RouteFilter{})
 	if err != nil {
 		return err
 	}
@@ -455,12 +478,16 @@ func describePlan(resp *planResponse, options []router.Option, tranzyClient *tra
 			}
 			for _, id := range leg.Lines {
 				if r, ok := routeByID[id]; ok {
-					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: models.ResolveRouteDisplayColor(r.RouteShortName), Type: r.RouteType}
+					color := r.RouteColor
+					if color == "" {
+						color = models.ResolveRouteDisplayColor(r.RouteShortName)
+					}
+					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Type: r.RouteType}
 				}
 			}
 			first := po.Runs[0].Rides[ride]
 			leg.Seconds = first.Arrive - first.Depart
-			leg.Path = ridePolyline(first.TripID, l, stopByID)
+			leg.Path = city.ridePolyline(first.TripID, l, stopByID)
 			key = append(key, fmt.Sprintf("%d>%d", l.FromStop, l.ToStop))
 			po.Legs = append(po.Legs, leg)
 			ride++
@@ -475,8 +502,8 @@ func describePlan(resp *planResponse, options []router.Option, tranzyClient *tra
 }
 
 // ridePolyline is the line's shape between the two stops, or straight through its stops without one.
-func ridePolyline(tripID string, l router.Leg, stopByID map[int]models.Stop) string {
-	if tracker, ok := getTripSegmentTracker(tripID); ok {
+func (city *City) ridePolyline(tripID string, l router.Leg, stopByID map[int]models.Stop) string {
+	if tracker, ok := city.getTripSegmentTracker(tripID); ok {
 		for i, s := range tracker.Stops {
 			if s.StopID != l.FromStop {
 				continue

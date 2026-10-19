@@ -29,6 +29,24 @@ export async function pushSubscription(reg: ServiceWorkerRegistration): Promise<
   return reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: key})
 }
 
+// Read by push-sw.js.
+const CANCELLED_CACHE = 'cancelled-reminders'
+
+export async function retractReminder(id: string, untilMs: number) {
+  const tag = `reminder-${id}`
+  try {
+    const cache = await caches.open(CANCELLED_CACHE)
+    for (const request of await cache.keys()) {
+      if (Number(await (await cache.match(request))?.text()) < Date.now()) await cache.delete(request)
+    }
+    await cache.put(`/cancelled/${tag}`, new Response(String(untilMs)))
+  } catch { /* noop */ }
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration()
+    for (const shown of (await reg?.getNotifications({tag})) ?? []) shown.close()
+  } catch { /* noop */ }
+}
+
 export async function currentSubscription(): Promise<PushSubscription | null> {
   if (!pushSupported()) return null
   try {

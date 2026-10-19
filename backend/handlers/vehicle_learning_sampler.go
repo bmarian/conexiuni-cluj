@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
-	"conexiuni-cluj/services/tranzy"
-	"log"
+	"conexiuni-cluj/sources"
 	"math"
 	"sync"
 	"time"
@@ -32,6 +30,7 @@ type vehicleLearningPlan struct {
 }
 
 type vehicleLearningDailyCounter struct {
+	city    *City
 	mu      sync.Mutex
 	name    string
 	loc     *time.Location
@@ -39,53 +38,60 @@ type vehicleLearningDailyCounter struct {
 	resetAt time.Time
 }
 
-var vehicleLearningSamplerRuntime = struct {
+type learnerState struct {
 	sync.RWMutex
-	client         *tranzy.Client
+	source         sources.Realtime
 	cfg            VehicleLearningSamplerConfig
 	counter        *vehicleLearningDailyCounter
 	initialized    bool
 	disabledReason string
-}{}
+}
 
-func StartVehicleLearningSampler(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig) {
+func (city *City) StartVehicleLearningSampler(r *runner) {
+	cfg := VehicleLearningSamplerConfig{
+		Enabled:                city.Options.LearningEnabled && city.Learning != nil,
+		MaxDailyQuota:          city.Options.LearningMaxQuota,
+		UsesDedicatedTranzyKey: city.Learning != nil && city.Learning != city.Realtime,
+	}
 	if !cfg.Enabled {
-		rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, nil, "disabled by VEHICLE_LEARNING_ENABLED")
-		log.Printf("vehicle learner: disabled")
+		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "disabled by VEHICLE_LEARNING_ENABLED")
+		city.log("vehicle learner: disabled")
 		return
 	}
 	if cfg.MaxDailyQuota <= 0 {
-		rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, nil, "max_daily_quota <= 0")
-		log.Printf("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
+		city.rememberVehicleLearningSamplerRuntime(cfg, nil, "max_daily_quota <= 0")
+		city.log("vehicle learner: disabled because max_daily_quota=%d", cfg.MaxDailyQuota)
 		return
 	}
-	log.Printf("vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
+	city.log("vehicle learner: enabled max_daily_quota=%d dedicated_tranzy_key=%t",
 		cfg.MaxDailyQuota,
 		cfg.UsesDedicatedTranzyKey,
 	)
-	counter := newVehicleLearningDailyCounter(vehicleLearningQuotaName, tranzyClient.Location())
-	rememberVehicleLearningSamplerRuntime(tranzyClient, cfg, counter, "")
-	go func() {
+	counter := city.newVehicleLearningDailyCounter(vehicleLearningQuotaName, city.Location)
+	city.rememberVehicleLearningSamplerRuntime(cfg, counter, "")
+	r.Go(func() {
 		for {
-			plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
+			plan := city.currentVehicleLearningPlan(cfg, counter)
 			delay := plan.Interval
 			if delay <= 0 {
 				delay = vehicleLearningNoBudgetCheckInterval
 			}
-			time.Sleep(delay)
-			runVehicleLearningSample(tranzyClient, cfg, counter)
+			if !r.Sleep(delay) {
+				return
+			}
+			city.runVehicleLearningSample(cfg, counter)
 		}
-	}()
+	})
 }
 
-func rememberVehicleLearningSamplerRuntime(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter, disabledReason string) {
-	vehicleLearningSamplerRuntime.Lock()
-	vehicleLearningSamplerRuntime.client = tranzyClient
-	vehicleLearningSamplerRuntime.cfg = cfg
-	vehicleLearningSamplerRuntime.counter = counter
-	vehicleLearningSamplerRuntime.initialized = true
-	vehicleLearningSamplerRuntime.disabledReason = disabledReason
-	vehicleLearningSamplerRuntime.Unlock()
+func (city *City) rememberVehicleLearningSamplerRuntime(cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter, disabledReason string) {
+	city.learner.Lock()
+	city.learner.source = city.Learning
+	city.learner.cfg = cfg
+	city.learner.counter = counter
+	city.learner.initialized = true
+	city.learner.disabledReason = disabledReason
+	city.learner.Unlock()
 }
 
 type vehicleLearningStatus struct {
@@ -96,38 +102,38 @@ type vehicleLearningStatus struct {
 	Interval  time.Duration
 }
 
-func currentVehicleLearningStatus() vehicleLearningStatus {
-	vehicleLearningSamplerRuntime.RLock()
-	initialized := vehicleLearningSamplerRuntime.initialized
-	tranzyClient := vehicleLearningSamplerRuntime.client
-	cfg := vehicleLearningSamplerRuntime.cfg
-	counter := vehicleLearningSamplerRuntime.counter
-	vehicleLearningSamplerRuntime.RUnlock()
+func (city *City) currentVehicleLearningStatus() vehicleLearningStatus {
+	city.learner.RLock()
+	initialized := city.learner.initialized
+	source := city.learner.source
+	cfg := city.learner.cfg
+	counter := city.learner.counter
+	city.learner.RUnlock()
 
 	status := vehicleLearningStatus{
 		Enabled:   initialized && cfg.Enabled && cfg.MaxDailyQuota > 0,
 		Dedicated: cfg.UsesDedicatedTranzyKey,
 	}
-	if tranzyClient == nil || !status.Enabled {
+	if source == nil || !status.Enabled {
 		return status
 	}
-	plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
+	plan := city.currentVehicleLearningPlan(cfg, counter)
 	status.Used, status.Budget, status.Interval = plan.LearnerUsed, plan.DailyBudget, plan.Interval
 	return status
 }
 
-func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) {
+func (city *City) runVehicleLearningSample(cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) {
 	subscribers := 0
-	if VehicleHub != nil {
-		subscribers = VehicleHub.SubscriberCount()
+	if city.hub != nil {
+		subscribers = city.hub.SubscriberCount()
 	}
 	if subscribers > 0 {
 		return
 	}
 
-	plan := currentVehicleLearningPlan(tranzyClient, cfg, counter)
+	plan := city.currentVehicleLearningPlan(cfg, counter)
 	if plan.CallsRemaining <= 0 || !plan.Ready {
-		log.Printf("vehicle learner: skip, ready=%t interval=%s learner_used=%d vehicles_used=%d calls_remaining=%d daily_budget=%d quota_remaining=%d",
+		city.log("vehicle learner: skip, ready=%t interval=%s learner_used=%d vehicles_used=%d calls_remaining=%d daily_budget=%d quota_remaining=%d",
 			plan.Ready,
 			plan.Interval,
 			plan.LearnerUsed,
@@ -140,9 +146,9 @@ func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSa
 	}
 
 	counter.Record(time.Now())
-	_, err := GetVehicles(tranzyClient, plan.ShelfLife, VehicleFilter{})
+	_, err := city.observeVehicles(city.learner.source)
 	if err != nil {
-		log.Printf("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
+		city.log("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
 			plan.Interval,
 			plan.LearnerUsed+1,
 			plan.VehiclesUsed,
@@ -155,19 +161,20 @@ func runVehicleLearningSample(tranzyClient *tranzy.Client, cfg VehicleLearningSa
 	}
 }
 
-func currentVehicleLearningPlan(tranzyClient *tranzy.Client, cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) vehicleLearningPlan {
+func (city *City) currentVehicleLearningPlan(cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) vehicleLearningPlan {
 	now := time.Now()
 	learnerUsed := 0
 	if counter != nil {
 		learnerUsed = counter.Count(now)
 	}
+	budget := city.learner.source.Budget()
 	return computeVehicleLearningPlan(
-		tranzyClient.VehiclesQuotaRemaining(),
-		tranzyClient.VehiclesQuotaLimit(),
+		budget.Remaining,
+		budget.Limit,
 		learnerUsed,
 		cfg.MaxDailyQuota,
 		now,
-		tranzyClient.Location(),
+		city.Location,
 	)
 }
 
@@ -243,14 +250,14 @@ func computeVehicleLearningPlan(
 	}
 }
 
-func newVehicleLearningDailyCounter(name string, loc *time.Location) *vehicleLearningDailyCounter {
+func (city *City) newVehicleLearningDailyCounter(name string, loc *time.Location) *vehicleLearningDailyCounter {
 	if loc == nil {
 		loc = time.Local
 	}
-	counter := &vehicleLearningDailyCounter{name: name, loc: loc}
-	count, resetAt, err := database.LoadTranzyQuota(name)
+	counter := &vehicleLearningDailyCounter{city: city, name: name, loc: loc}
+	count, resetAt, err := city.LoadTranzyQuota(name)
 	if err != nil {
-		log.Printf("vehicle learner: failed to load persisted quota %q: %v", name, err)
+		city.log("vehicle learner: failed to load persisted quota %q: %v", name, err)
 	} else {
 		counter.count = count
 		counter.resetAt = resetAt
@@ -297,8 +304,8 @@ func (counter *vehicleLearningDailyCounter) rolloverLocked(now time.Time) {
 }
 
 func (counter *vehicleLearningDailyCounter) persistLocked() {
-	if err := database.SaveTranzyQuota(counter.name, counter.count, counter.resetAt); err != nil {
-		log.Printf("vehicle learner: failed to persist quota %q: %v", counter.name, err)
+	if err := counter.city.SaveTranzyQuota(counter.name, counter.count, counter.resetAt); err != nil {
+		counter.city.log("vehicle learner: failed to persist quota %q: %v", counter.name, err)
 	}
 }
 

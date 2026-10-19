@@ -13,6 +13,7 @@ import {findClosestShapeIdx} from '@/utils/geo.ts'
 import {endsAtStop, lineLabel, type Journey, type JourneyStep, type StepKind} from '@/utils/journey.ts'
 import {arriveText, stepDetail, stepTitle, thenText} from '@/utils/journeyText.ts'
 import type {Shape} from '@/types/tranzy.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
 
 const {t} = useI18n()
 const router = useRouter()
@@ -26,7 +27,7 @@ const FOLLOW_EVERY_MS = 8_000
 const journey = computed(() => store.journey)
 
 useHead(() => ({
-  title: journey.value ? t('headPlanToTitle', {dest: journey.value.destination.name}) : t('headPlanTitle'),
+  title: journey.value ? t('headPlanToTitle', {...cityParams(), dest: journey.value.destination.name}) : t('headPlanTitle'),
   meta: [{name: 'robots', content: 'noindex'}],
 }))
 const step = computed(() => store.step)
@@ -139,7 +140,7 @@ watch(journey, (j, before) => {
     return
   }
   if (before) settings.showToast(t('journeyArrived'), {body: before.destination.name, icon: 'bell'})
-  void router.replace('/')
+  void router.replace(cityPath('/'))
 }, {immediate: true})
 watch(userLocation, () => followMe())
 // On board, the traveller is the bus.

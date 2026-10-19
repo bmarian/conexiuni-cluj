@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"conexiuni-cluj/calendar"
-	"conexiuni-cluj/database"
 	"encoding/json"
 	"fmt"
-	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,28 +29,28 @@ type windowTuning struct {
 	At       int64              `json:"at"`
 }
 
-func LoadWindowTuning() {
-	t, ok, err := savedWindowTuning()
+func (city *City) LoadWindowTuning() {
+	t, ok, err := city.savedWindowTuning()
 	if err != nil {
-		log.Printf("tuning: load failed: %v", err)
+		city.log("tuning: load failed: %v", err)
 	} else if ok && slices.Contains(vacationWindowCandidates, t.Window) {
-		setDayWindowSize(calendar.WeekdayVacation, t.Window)
+		city.setDayWindowSize(calendar.WeekdayVacation, t.Window)
 	}
 	for _, day := range calendar.ProfileDays {
-		s, ok, err := savedSeedTuning(day)
+		s, ok, err := city.savedSeedTuning(day)
 		if err != nil {
-			log.Printf("tuning: loading the %s fill failed: %v", day, err)
+			city.log("tuning: loading the %s fill failed: %v", day, err)
 			continue
 		}
 		if ok && (s.Fill == seedPrevious || s.Fill == seedLastYear) {
-			setSeedFill(day, s.Fill)
+			city.setSeedFill(day, s.Fill)
 		}
 	}
 }
 
-func savedWindowTuning() (windowTuning, bool, error) {
+func (city *City) savedWindowTuning() (windowTuning, bool, error) {
 	var t windowTuning
-	data, ok, err := database.Tuning(vacationWindowTuning)
+	data, ok, err := city.Tuning(vacationWindowTuning)
 	if err != nil || !ok {
 		return t, false, err
 	}
@@ -62,18 +60,18 @@ func savedWindowTuning() (windowTuning, bool, error) {
 	return t, true, nil
 }
 
-func evaluateVacationWindows(cal *calendar.Calendar, today time.Time) (windowTuning, error) {
+func (city *City) evaluateVacationWindows(cal *calendar.Calendar, today time.Time) (windowTuning, error) {
 	result := windowTuning{Scores: map[string]float64{}}
 	longest := slices.Max(vacationWindowCandidates)
-	dates := daysOfType(cal, today, calendar.WeekdayVacation, tuningEvalDays+longest)
-	days := newReplayDays()
+	dates := city.daysOfType(cal, today, calendar.WeekdayVacation, tuningEvalDays+longest)
+	days := newReplayDays(city)
 
 	fallback := map[replayRoute][]segmentProfileRow{}
 	fallbackFor := func(route replayRoute) ([]segmentProfileRow, error) {
 		if rows, ok := fallback[route]; ok {
 			return rows, nil
 		}
-		all, err := loadSegmentProfileRows(int(route.route), int(route.direction))
+		all, err := city.loadSegmentProfileRows(int(route.route), int(route.direction))
 		if err != nil {
 			return nil, err
 		}
@@ -172,36 +170,36 @@ func describeTuning(t windowTuning) string {
 	return fmt.Sprintf("%s, term profile alone %.0f s, over %d days and %d stop-to-stop times", strings.Join(parts, ", "), t.Baseline, t.Days, t.Samples)
 }
 
-func tuneVacationWindow(now time.Time) {
-	if database.Archive == nil {
+func (city *City) tuneVacationWindow(now time.Time) {
+	if city.Archive == nil {
 		return
 	}
-	cal := currentCalendar()
-	today := localMidnight(now)
+	cal := city.currentCalendar()
+	today := city.localMidnight(now)
 	if cal.ProfileDay(today.AddDate(0, 0, -1)) != calendar.WeekdayVacation {
 		return
 	}
 	started := time.Now()
-	result, err := evaluateVacationWindows(cal, today)
+	result, err := city.evaluateVacationWindows(cal, today)
 	if err != nil {
-		log.Printf("tuning: school-holiday window check failed: %v", err)
+		city.log("tuning: school-holiday window check failed: %v", err)
 		return
 	}
-	current, _ := dayWindowSize(calendar.WeekdayVacation)
+	current, _ := city.dayWindowSize(calendar.WeekdayVacation)
 	result.Window, result.Changed = pickVacationWindow(result, current)
 	result.At = now.Unix()
 	data, err := json.Marshal(result)
 	if err == nil {
-		err = database.SaveTuning(vacationWindowTuning, string(data), now)
+		err = city.SaveTuning(vacationWindowTuning, string(data), now)
 	}
 	if err != nil {
-		log.Printf("tuning: saving the school-holiday window failed: %v", err)
+		city.log("tuning: saving the school-holiday window failed: %v", err)
 		return
 	}
-	log.Printf("tuning: school-holiday window %d (was %d): %s, in %s", result.Window, current, describeTuning(result), time.Since(started).Round(time.Millisecond))
+	city.log("tuning: school-holiday window %d (was %d): %s, in %s", result.Window, current, describeTuning(result), time.Since(started).Round(time.Millisecond))
 	if result.Changed {
-		setDayWindowSize(calendar.WeekdayVacation, result.Window)
-		applyCalendar(now)
+		city.setDayWindowSize(calendar.WeekdayVacation, result.Window)
+		city.applyCalendar(now)
 	}
 }
 
@@ -217,9 +215,9 @@ type seedTuning struct {
 	At       int64   `json:"at"`
 }
 
-func savedSeedTuning(dayType string) (seedTuning, bool, error) {
+func (city *City) savedSeedTuning(dayType string) (seedTuning, bool, error) {
 	var t seedTuning
-	data, ok, err := database.Tuning(seedTuningPrefix + dayType)
+	data, ok, err := city.Tuning(seedTuningPrefix + dayType)
 	if err != nil || !ok {
 		return t, false, err
 	}
@@ -229,11 +227,11 @@ func savedSeedTuning(dayType string) (seedTuning, bool, error) {
 	return t, true, nil
 }
 
-func evaluateSeedFill(cal *calendar.Calendar, dayType string, n int, today time.Time) (seedTuning, error) {
+func (city *City) evaluateSeedFill(cal *calendar.Calendar, dayType string, n int, today time.Time) (seedTuning, error) {
 	result := seedTuning{}
-	days := newReplayDays()
+	days := newReplayDays(city)
 	var sumPrevious, sumLastYear float64
-	for _, d := range daysOfType(cal, today, dayType, replaySearchDays) {
+	for _, d := range city.daysOfType(cal, today, dayType, replaySearchDays) {
 		if result.Days >= tuningEvalDays {
 			break
 		}
@@ -241,7 +239,7 @@ func evaluateSeedFill(cal *calendar.Calendar, dayType string, n int, today time.
 		if len(run) >= n {
 			continue
 		}
-		seeded := planDayWindow(cal, dayType, d, n, seedLastYear, archiveCovers)
+		seeded := city.planDayWindow(cal, dayType, d, n, seedLastYear, city.archiveCovers)
 		if seeded.fill != seedLastYear {
 			continue
 		}
@@ -252,7 +250,7 @@ func evaluateSeedFill(cal *calendar.Calendar, dayType string, n int, today time.
 		if len(samples) == 0 {
 			continue
 		}
-		previousDays, err := days.days(daysOfType(cal, d, dayType, n-1))
+		previousDays, err := days.days(city.daysOfType(cal, d, dayType, n-1))
 		if err != nil {
 			return result, err
 		}
@@ -300,39 +298,39 @@ func pickSeedFill(result seedTuning, current string) (string, bool) {
 	return current, false
 }
 
-func tuneSeedFill(now time.Time) {
-	if database.Archive == nil {
+func (city *City) tuneSeedFill(now time.Time) {
+	if city.Archive == nil {
 		return
 	}
-	cal := currentCalendar()
-	today := localMidnight(now)
+	cal := city.currentCalendar()
+	today := city.localMidnight(now)
 	yesterday := today.AddDate(0, 0, -1)
 	dayType := cal.ProfileDay(yesterday)
-	n, ok := dayWindowSize(dayType)
+	n, ok := city.dayWindowSize(dayType)
 	if !ok || len(dayRun(cal, dayType, yesterday, n)) >= n {
 		return
 	}
 	started := time.Now()
-	result, err := evaluateSeedFill(cal, dayType, n, today)
+	result, err := city.evaluateSeedFill(cal, dayType, n, today)
 	if err != nil {
-		log.Printf("tuning: %s fill check failed: %v", dayType, err)
+		city.log("tuning: %s fill check failed: %v", dayType, err)
 		return
 	}
-	current := seedFill(dayType)
+	current := city.seedFill(dayType)
 	result.Fill, result.Changed = pickSeedFill(result, current)
 	result.At = now.Unix()
 	data, err := json.Marshal(result)
 	if err == nil {
-		err = database.SaveTuning(seedTuningPrefix+dayType, string(data), now)
+		err = city.SaveTuning(seedTuningPrefix+dayType, string(data), now)
 	}
 	if err != nil {
-		log.Printf("tuning: saving the %s fill failed: %v", dayType, err)
+		city.log("tuning: saving the %s fill failed: %v", dayType, err)
 		return
 	}
-	log.Printf("tuning: %s fill %s (was %s): previous period %.0f s, last year %.0f s, over %d days and %d stop-to-stop times, in %s",
+	city.log("tuning: %s fill %s (was %s): previous period %.0f s, last year %.0f s, over %d days and %d stop-to-stop times, in %s",
 		dayType, result.Fill, current, result.Previous, result.LastYear, result.Days, result.Samples, time.Since(started).Round(time.Millisecond))
 	if result.Changed {
-		setSeedFill(dayType, result.Fill)
-		applyCalendar(now)
+		city.setSeedFill(dayType, result.Fill)
+		city.applyCalendar(now)
 	}
 }

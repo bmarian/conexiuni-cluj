@@ -3,6 +3,8 @@ import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminCalendar from '@/components/admin/AdminCalendar.vue'
+import AdminCities from '@/components/admin/AdminCities.vue'
+import {cities, currentCity, reloadCities} from '@/utils/city.ts'
 
 useHead(() => ({
   title: 'Admin',
@@ -61,8 +63,7 @@ type Overview = {
     moves: {sent: number; empty: number; received: number; old_push: number}
   }
   quota: {
-    vehicles: {used: number; limit: number}
-    default: {used: number; limit: number}
+    quotas: {name: string; used: number; limit: number}[]
     learning: {enabled: boolean; dedicated: boolean; used: number; budget: number}
   }
   data: {
@@ -109,6 +110,26 @@ const loginError = ref('')
 const loadError = ref('')
 const data = ref<Overview | null>(null)
 const loading = ref(false)
+const adminCity = ref(currentCity.value)
+const cityOpen = ref(false)
+const cityName = computed(() => cities.value.find((c) => c.slug === adminCity.value)?.name ?? adminCity.value)
+
+function pickCity(slug: string) {
+  cityOpen.value = false
+  if (slug === adminCity.value) return
+  adminCity.value = slug
+  void load()
+}
+
+async function onCitiesChanged() {
+  await reloadCities()
+  if (!cities.value.some((c) => c.slug === adminCity.value)) adminCity.value = cities.value[0]?.slug ?? adminCity.value
+  void load()
+}
+
+function onDocumentPointerDown(e: PointerEvent) {
+  if (!(e.target as HTMLElement).closest('.city-pick')) cityOpen.value = false
+}
 const clock = ref(Date.now())
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 let clockTimer: ReturnType<typeof setInterval> | null = null
@@ -117,7 +138,7 @@ async function load() {
   if (loading.value) return
   loading.value = true
   try {
-    const res = await fetch('/api/admin/overview', {credentials: 'same-origin'})
+    const res = await fetch(`/api/admin/overview?city=${adminCity.value}`, {credentials: 'same-origin'})
     if (res.status === 401) {
       writeAuthFlag(false)
       data.value = null
@@ -174,12 +195,14 @@ onMounted(() => {
   }, REFRESH_MS)
   clockTimer = setInterval(() => { clock.value = Date.now() }, 1000)
   document.addEventListener('visibilitychange', onVisibility)
+  document.addEventListener('pointerdown', onDocumentPointerDown)
 })
 
 onBeforeUnmount(() => {
   if (refreshTimer) clearInterval(refreshTimer)
   if (clockTimer) clearInterval(clockTimer)
   document.removeEventListener('visibilitychange', onVisibility)
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 
 const num = (n: number) => n.toLocaleString('en-GB')
@@ -318,10 +341,7 @@ function quotaShare(used: number, limit: number) {
 const meters = computed(() => {
   const q = data.value?.quota
   if (!q) return []
-  const out = [
-    {label: 'Vehicles', used: q.vehicles.used, limit: q.vehicles.limit},
-    {label: 'Other', used: q.default.used, limit: q.default.limit},
-  ]
+  const out = q.quotas.map(({name, used, limit}) => ({label: name, used, limit}))
   if (q.learning.enabled) {
     out.push({label: q.learning.dedicated ? 'Learner, own key' : 'Learner', used: q.learning.used, limit: q.learning.budget})
   }
@@ -366,6 +386,19 @@ const meters = computed(() => {
       <div v-else class="page">
         <header class="top">
           <h1>Admin</h1>
+          <div v-if="cities.length > 1" class="city-pick">
+            <button type="button" class="text-button city-pick-btn" aria-label="City" :aria-expanded="cityOpen" @click="cityOpen = !cityOpen">
+              {{ cityName }}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                   stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div v-if="cityOpen" class="city-menu" role="dialog" aria-label="City">
+              <button v-for="city in cities" :key="city.slug" type="button" class="city-option"
+                      :class="{ 'is-current': city.slug === adminCity }" @click="pickCity(city.slug)">
+                {{ city.name }}
+              </button>
+            </div>
+          </div>
           <button type="button" class="text-button" :disabled="loading" @click="load">
             {{ loading ? 'Updating…' : updatedAt }}
           </button>
@@ -521,7 +554,12 @@ const meters = computed(() => {
 
           <section>
             <div class="label"><span>Calendar</span><i></i></div>
-            <AdminCalendar @saved="load"/>
+            <AdminCalendar :city="adminCity" @saved="load"/>
+          </section>
+
+          <section>
+            <div class="label"><span>Cities</span><i></i></div>
+            <AdminCities @changed="onCitiesChanged"/>
           </section>
 
           <section>
@@ -700,6 +738,58 @@ h1 {
 .text-button:hover:not(:disabled) {
   background: var(--a-hover);
   color: var(--a-text);
+}
+
+.city-pick {
+  position: relative;
+}
+
+.city-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.city-pick-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.city-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 11rem;
+  padding: 0.375rem;
+  border: 1px solid var(--a-rule);
+  border-radius: 0.75rem;
+  background: var(--a-bg);
+  box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.25);
+}
+
+.city-option {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--a-text);
+  cursor: pointer;
+}
+
+.city-option:hover {
+  background: var(--a-hover);
+}
+
+.city-option.is-current {
+  background: var(--a-hair);
 }
 
 .stats {

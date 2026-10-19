@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"conexiuni-cluj/database"
 	"crypto/ecdh"
 	"database/sql"
 	"encoding/base64"
@@ -51,7 +50,6 @@ type pushConfig struct {
 
 var (
 	pushCfg    *pushConfig
-	pushWake   chan struct{}
 	pushClient = &http.Client{Timeout: 15 * time.Second}
 
 	pushSignupsMu sync.Mutex
@@ -149,30 +147,38 @@ func InitPush(publicKey, privateKey, subject string) error {
 		subject = siteOrigin
 	}
 
-	loc, err := time.LoadLocation("Europe/Bucharest")
-	if err != nil {
-		log.Printf("push: could not load Europe/Bucharest, using local time: %v", err)
-		loc = time.Local
-	}
-
 	pushCfg = &pushConfig{publicKey: publicKey, privateKey: privateKey, subject: subject}
-	pushWake = make(chan struct{}, 1)
-	go runPushSender(loc)
-	go runReminderSender(loc)
 	log.Printf("push: notifications enabled, sent between %02d:00 and %02d:00", pushWindowStartHour, pushWindowEndHour)
 	return nil
 }
 
+func (city *City) startPushSenders(r *runner) {
+	if pushCfg == nil {
+		return
+	}
+	if city.pushWake == nil {
+		city.pushWake = make(chan struct{}, 1)
+	}
+	r.Go(func() { city.runPushSender(r, city.Location) })
+	r.Go(func() { city.runReminderSender(r, city.Location) })
+}
+
 // Changes found overnight (the 04:00 warmup, a deploy) wait for the morning instead of waking people up.
-func runPushSender(loc *time.Location) {
+func (city *City) runPushSender(r *runner, loc *time.Location) {
 	for {
 		now := time.Now().In(loc)
 		if !inPushWindow(now) {
-			time.Sleep(time.Until(nextPushWindow(now)))
+			if !r.Sleep(time.Until(nextPushWindow(now))) {
+				return
+			}
 			continue
 		}
-		flushPendingPushes()
-		<-pushWake
+		city.flushPendingPushes()
+		select {
+		case <-city.pushWake:
+		case <-r.ctx.Done():
+			return
+		}
 	}
 }
 
@@ -215,7 +221,7 @@ func GetPushKey(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"public_key": pushCfg.publicKey})
 }
 
-func SubscribePush(c fiber.Ctx) error {
+func (city *City) SubscribePush(c fiber.Ctx) error {
 	if pushCfg == nil {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "push notifications are not configured"})
 	}
@@ -232,8 +238,8 @@ func SubscribePush(c fiber.Ctx) error {
 	if !validPushKey(req.Keys.P256dh, 65) || !validPushKey(req.Keys.Auth, 16) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid subscription keys"})
 	}
-	if ok, err := admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
-		log.Printf("push: could not look up subscription: %v", err)
+	if ok, err := city.admitPushEndpoint(ClientHashFromLocals(c), req.Endpoint, time.Now()); err != nil {
+		city.log("push: could not look up subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
 	} else if !ok {
 		return c.SendStatus(fiber.StatusTooManyRequests)
@@ -243,23 +249,23 @@ func SubscribePush(c fiber.Ctx) error {
 		locale = "en"
 	}
 	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
-	if err := savePushSubscription(sub, cleanPushRouteNames(req.Routes)); err != nil {
-		log.Printf("push: could not save subscription: %v", err)
+	if err := city.savePushSubscription(sub, cleanPushRouteNames(req.Routes)); err != nil {
+		city.log("push: could not save subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
 	}
 	c.Set("Cache-Control", "no-store")
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func UnsubscribePush(c fiber.Ctx) error {
+func (city *City) UnsubscribePush(c fiber.Ctx) error {
 	var req struct {
 		Endpoint string `json:"endpoint"`
 	}
 	if err := c.Bind().Body(&req); err != nil || req.Endpoint == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
-	if err := deletePushSubscription(req.Endpoint); err != nil {
-		log.Printf("push: could not delete subscription: %v", err)
+	if err := city.deletePushSubscription(req.Endpoint); err != nil {
+		city.log("push: could not delete subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not delete subscription"})
 	}
 	c.Set("Cache-Control", "no-store")
@@ -284,9 +290,9 @@ func validPushEndpoint(endpoint string) bool {
 }
 
 // Re-saving a known endpoint is free; every new one spends the address's sign-ups.
-func admitPushEndpoint(client, endpoint string, now time.Time) (bool, error) {
+func (city *City) admitPushEndpoint(client, endpoint string, now time.Time) (bool, error) {
 	var known int
-	err := database.DB.QueryRow(`SELECT 1 FROM push_subscriptions WHERE endpoint = ?`, endpoint).Scan(&known)
+	err := city.DB.QueryRow(`SELECT 1 FROM push_subscriptions WHERE endpoint = ?`, endpoint).Scan(&known)
 	if err == nil {
 		return true, nil
 	}
@@ -337,8 +343,8 @@ func cleanPushRouteNames(names []string) []string {
 	return out
 }
 
-func savePushSubscription(sub pushSubscriber, routes []string) error {
-	tx, err := database.DB.Begin()
+func (city *City) savePushSubscription(sub pushSubscriber, routes []string) error {
+	tx, err := city.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -362,8 +368,8 @@ func savePushSubscription(sub pushSubscriber, routes []string) error {
 	return tx.Commit()
 }
 
-func deletePushSubscription(endpoint string) error {
-	tx, err := database.DB.Begin()
+func (city *City) deletePushSubscription(endpoint string) error {
+	tx, err := city.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -381,18 +387,18 @@ func deletePushSubscription(endpoint string) error {
 	return tx.Commit()
 }
 
-func wakePushSender() {
-	if pushWake == nil {
+func (city *City) wakePushSender() {
+	if city.pushWake == nil {
 		return
 	}
 	select {
-	case pushWake <- struct{}{}:
+	case city.pushWake <- struct{}{}:
 	default:
 	}
 }
 
-func flushPendingPushes() {
-	changes, err := queryRows(`
+func (city *City) flushPendingPushes() {
+	changes, err := queryRows(city.DB, `
 		SELECT id, route_short_name, source, detected_at, changes
 		FROM route_changes
 		WHERE push_pending = 1
@@ -407,7 +413,7 @@ func flushPendingPushes() {
 			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
 		})
 	if err != nil {
-		log.Printf("push: could not load pending changes: %v", err)
+		city.log("push: could not load pending changes: %v", err)
 		return
 	}
 	if len(changes) == 0 {
@@ -419,17 +425,17 @@ func flushPendingPushes() {
 	for _, change := range changes {
 		if !notified[change.RouteShortName] {
 			notified[change.RouteShortName] = true
-			sendRouteChangePush(change)
+			city.sendRouteChangePush(change)
 		}
 	}
-	if _, err := database.DB.Exec(`UPDATE route_changes SET push_pending = 0 WHERE push_pending = 1 AND id <= ?`,
+	if _, err := city.DB.Exec(`UPDATE route_changes SET push_pending = 0 WHERE push_pending = 1 AND id <= ?`,
 		changes[0].ID); err != nil {
-		log.Printf("push: could not mark changes as sent: %v", err)
+		city.log("push: could not mark changes as sent: %v", err)
 	}
 }
 
-func sendRouteChangePush(change RouteChange) {
-	subscribers, err := queryRows(`
+func (city *City) sendRouteChangePush(change RouteChange) {
+	subscribers, err := queryRows(city.DB, `
 		SELECT s.endpoint, s.p256dh, s.auth, s.locale
 		FROM push_subscriptions s
 		JOIN push_subscription_routes r ON r.endpoint = s.endpoint
@@ -440,36 +446,36 @@ func sendRouteChangePush(change RouteChange) {
 			return s, rows.Scan(&s.endpoint, &s.p256dh, &s.auth, &s.locale)
 		})
 	if err != nil {
-		log.Printf("push: could not load followers of line %s: %v", change.RouteShortName, err)
+		city.log("push: could not load followers of line %s: %v", change.RouteShortName, err)
 		return
 	}
 	if len(subscribers) == 0 {
 		return
 	}
 	if change.RouteID == 0 {
-		_ = database.DB.QueryRow(`SELECT COALESCE(MAX(route_id), 0) FROM routes WHERE route_short_name = ?`,
+		_ = city.DB.QueryRow(`SELECT COALESCE(MAX(route_id), 0) FROM routes WHERE route_short_name = ?`,
 			change.RouteShortName).Scan(&change.RouteID)
 	}
 
 	delivered := 0
 	for _, sub := range subscribers {
-		payload, err := json.Marshal(routeChangePushMessage(change, sub.locale))
+		payload, err := json.Marshal(routeChangePushMessage(city.Slug, change, sub.locale))
 		if err != nil {
-			log.Printf("push: could not encode line %s change: %v", change.RouteShortName, err)
+			city.log("push: could not encode line %s change: %v", change.RouteShortName, err)
 			return
 		}
-		if sendPush(sub, payload) {
+		if city.sendPush(sub, payload) {
 			delivered++
 		}
 	}
-	log.Printf("push: line %s change %d sent to %d/%d followers", change.RouteShortName, change.ID, delivered, len(subscribers))
+	city.log("push: line %s change %d sent to %d/%d followers", change.RouteShortName, change.ID, delivered, len(subscribers))
 }
 
-func sendPush(sub pushSubscriber, payload []byte) bool {
-	return sendPushWith(sub, payload, pushTTLSeconds, webpush.UrgencyNormal)
+func (city *City) sendPush(sub pushSubscriber, payload []byte) bool {
+	return city.sendPushWith(sub, payload, pushTTLSeconds, webpush.UrgencyNormal)
 }
 
-func sendPushWith(sub pushSubscriber, payload []byte, ttl int, urgency webpush.Urgency) bool {
+func (city *City) sendPushWith(sub pushSubscriber, payload []byte, ttl int, urgency webpush.Urgency) bool {
 	resp, err := webpush.SendNotification(payload, &webpush.Subscription{
 		Endpoint: sub.endpoint,
 		Keys:     webpush.Keys{P256dh: sub.p256dh, Auth: sub.auth},
@@ -484,7 +490,7 @@ func sendPushWith(sub pushSubscriber, payload []byte, ttl int, urgency webpush.U
 	})
 	host := pushEndpointHost(sub.endpoint)
 	if err != nil {
-		log.Printf("push: sending to %s failed: %v", host, err)
+		city.log("push: sending to %s failed: %v", host, err)
 		return false
 	}
 	defer resp.Body.Close()
@@ -494,11 +500,11 @@ func sendPushWith(sub pushSubscriber, payload []byte, ttl int, urgency webpush.U
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		return true
 	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone:
-		if err := deletePushSubscription(sub.endpoint); err != nil {
-			log.Printf("push: could not drop expired subscription on %s: %v", host, err)
+		if err := city.deletePushSubscription(sub.endpoint); err != nil {
+			city.log("push: could not drop expired subscription on %s: %v", host, err)
 		}
 	default:
-		log.Printf("push: %s rejected a notification with status %d: %s", host, resp.StatusCode, strings.TrimSpace(string(body)))
+		city.log("push: %s rejected a notification with status %d: %s", host, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return false
 }
@@ -511,7 +517,7 @@ func pushEndpointHost(endpoint string) string {
 	return "?"
 }
 
-func routeChangePushMessage(change RouteChange, locale string) pushMessage {
+func routeChangePushMessage(slug string, change RouteChange, locale string) pushMessage {
 	text, ok := pushTexts[locale]
 	if !ok {
 		text = pushTexts["ro"]
@@ -520,13 +526,13 @@ func routeChangePushMessage(change RouteChange, locale string) pushMessage {
 	if change.Source == routeChangeSourceStops {
 		what = text.stops
 	}
-	target := "/"
+	target := "/" + slug + "/"
 	if change.RouteID != 0 {
 		direction := "0"
 		if len(change.Changes) > 0 && change.Changes[0].Direction != "" {
 			direction = change.Changes[0].Direction
 		}
-		target = fmt.Sprintf("/route/%d/%s?change=%d", change.RouteID, direction, change.ID)
+		target = fmt.Sprintf("/%s/route/%d/%s?change=%d", slug, change.RouteID, direction, change.ID)
 	}
 	return pushMessage{
 		Title:     fmt.Sprintf(text.line, change.RouteShortName, what),

@@ -74,40 +74,42 @@ func TestErrorHistogramSummarize(t *testing.T) {
 }
 
 func TestShownTimesScoredOnArrival(t *testing.T) {
-	accuracy.pending = make(map[accuracyKey]*pendingArrival)
+	city := newTestCity(t)
+	city.accuracy.pending = make(map[accuracyKey]*pendingArrival)
 	asOf := time.Unix(1_000_000, 0)
 	table := func(at time.Time, eta int64) *liveTable {
 		return &liveTable{AsOf: at, rowsByTrip: map[string][]liveRow{
 			"5_0": {{TripID: "5_0", StopID: 10, Entries: []liveEntry{{At: at.Unix() + eta, Live: true, VehicleID: 7}}}},
 		}}
 	}
-	noteShownTimes(table(asOf, 300))
-	noteShownTimes(table(asOf.Add(20*time.Second), 290))
-	noteShownTimes(table(asOf.Add(60*time.Second), 240))
-	p := accuracy.pending[accuracyKey{vehicle: 7, trip: "5_0", stop: 10}]
+	city.noteShownTimes(table(asOf, 300))
+	city.noteShownTimes(table(asOf.Add(20*time.Second), 290))
+	city.noteShownTimes(table(asOf.Add(60*time.Second), 240))
+	p := city.accuracy.pending[accuracyKey{vehicle: 7, trip: "5_0", stop: 10}]
 	if p == nil || len(p.shown) != 2 {
 		t.Fatalf("want 2 shown minutes (5, 4), got %+v", p)
 	}
-	noteArrival(7, "5_0", 10, asOf.Add(330*time.Second))
-	if len(accuracy.pending) != 0 {
-		t.Fatalf("arrival left %d pending", len(accuracy.pending))
+	city.noteArrival(7, "5_0", 10, asOf.Add(330*time.Second))
+	if len(city.accuracy.pending) != 0 {
+		t.Fatalf("arrival left %d pending", len(city.accuracy.pending))
 	}
 
-	noteShownTimes(table(asOf, 300))
-	noteShownTimes(&liveTable{AsOf: asOf.Add(20 * time.Second)})
-	noteShownTimes(&liveTable{AsOf: asOf.Add(40 * time.Second)})
-	if len(accuracy.pending) != 0 {
+	city.noteShownTimes(table(asOf, 300))
+	city.noteShownTimes(&liveTable{AsOf: asOf.Add(20 * time.Second)})
+	city.noteShownTimes(&liveTable{AsOf: asOf.Add(40 * time.Second)})
+	if len(city.accuracy.pending) != 0 {
 		t.Fatalf("a bus gone from the table for two polls is still pending")
 	}
 }
 
 func TestTimetableArrivalScoredAgainstOursAndCTP(t *testing.T) {
-	installDelayRoute(t)
-	tripScheduleCache.Lock()
-	tripScheduleCache.departures = nil
-	tripScheduleCache.Unlock()
+	city := newTestCity(t)
+	city.installDelayRoute(t)
+	city.tripScheduleCache.Lock()
+	city.tripScheduleCache.departures = nil
+	city.tripScheduleCache.Unlock()
 	at := weekdayAt(23, 8, 7)
-	if _, err := database.DB.Exec(`INSERT INTO schedule_delay_profiles
+	if _, err := city.DB.Exec(`INSERT INTO schedule_delay_profiles
 		(route_id, direction_id, day_type, bucket_start_min, run_count, delay_sec, spread_sec, updated_at)
 		VALUES (?, 0, 'weekday', ?, 20, 180, 30, 0)`, delayRouteID, segmentBucketStartMin(at)); err != nil {
 		t.Fatalf("delay: %v", err)
@@ -115,7 +117,7 @@ func TestTimetableArrivalScoredAgainstOursAndCTP(t *testing.T) {
 	tracker := &tripSegmentTracker{TripID: fmt.Sprintf("%d_0", delayRouteID), RouteID: delayRouteID}
 
 	counts := func() map[string]int {
-		rows, err := database.MetricRows("timetable_error", database.StatsDaysAgo(0))
+		rows, err := city.MetricRows("timetable_error", database.StatsDaysAgo(0))
 		if err != nil {
 			t.Fatalf("rows: %v", err)
 		}
@@ -127,7 +129,7 @@ func TestTimetableArrivalScoredAgainstOursAndCTP(t *testing.T) {
 	}
 	before := counts()
 	// 08:00 run at the third stop at 08:07: 3 min late by CTP, on time by our learned delay.
-	noteTimetableArrival(tracker, 2, 8*60, at, delayZone)
+	city.noteTimetableArrival(tracker, 2, 8*60, at, delayZone)
 	got := map[string]int{}
 	for k, n := range counts() {
 		if d := n - before[k]; d != 0 {

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -70,52 +69,52 @@ type ogLocale struct {
 var ogLocales = map[string]ogLocale{
 	"ro": {
 		lang:               "ro",
-		routeTitleFmt:      "Orar Linia %s Cluj-Napoca — %s | Ce autobuz iau?",
-		routeDescFmt:       "Orar, traseu, opriri și plecări live pentru linia %s (%s) din Cluj-Napoca.",
-		routeH1Fmt:         "Orar Linia %s Cluj-Napoca",
-		routeBodyFmt:       "Linia %s (%s) face parte din transportul public din Cluj-Napoca, operat de CTP Cluj-Napoca. Aici găsești orarul public și pozițiile live ale vehiculelor.",
-		stopTitleFmt:       "Stația %s, Cluj-Napoca — Plecări live | Ce autobuz iau?",
-		stopDescFmt:        "Plecări în timp real de la stația %s din Cluj-Napoca. Liniile care opresc aici și orarele actuale.",
-		stopH1Fmt:          "Stația %s, Cluj-Napoca",
-		stopBodyFmt:        "Plecări în timp real de la stația %s din Cluj-Napoca. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.",
+		routeTitleFmt:      "Orar Linia %s {city} — %s | Ce autobuz iau?",
+		routeDescFmt:       "Orar, traseu, opriri și plecări live pentru linia %s (%s) din {city}.",
+		routeH1Fmt:         "Orar Linia %s {city}",
+		routeBodyFmt:       "Linia %s (%s) face parte din transportul public din {city}, operat de {operator}. Aici găsești orarul public și pozițiile live ale vehiculelor.",
+		stopTitleFmt:       "Stația %s, {city} — Plecări live | Ce autobuz iau?",
+		stopDescFmt:        "Plecări în timp real de la stația %s din {city}. Liniile care opresc aici și orarele actuale.",
+		stopH1Fmt:          "Stația %s, {city}",
+		stopBodyFmt:        "Plecări în timp real de la stația %s din {city}. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.",
 		planTitle:          "Planificator rute — Ce autobuz iau?",
-		planDesc:           "Planifică-ți călătoria cu transportul în comun din Cluj-Napoca. Găsește rute, orare și conexiuni între stații.",
-		planH1:             "Planifică-ți călătoria în Cluj-Napoca",
-		planBody:           "Planifică-ți ruta cu transportul în comun din Cluj-Napoca. Compară opțiuni, vezi conexiunile între linii și orele estimate de sosire.",
-		planToTitleFmt:     "Rută la %s — Cluj-Napoca | Ce autobuz iau?",
-		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din Cluj-Napoca.",
-		planFromToTitleFmt: "Rută de la %s la %s — Cluj-Napoca | Ce autobuz iau?",
-		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din Cluj-Napoca.",
-		homeTitle:          "Ce autobuz iau? — Transport public Cluj-Napoca în timp real",
-		homeDesc:           "Aplicație pentru transportul public din Cluj-Napoca. Orarele CTP Cluj-Napoca în timp real, plecările de la stații, traseele și planificator de rute.",
-		homeH1:             "Transport public Cluj-Napoca în timp real",
-		homeBody:           "Autobuzele, troleibuzele și tramvaiele CTP Cluj-Napoca în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
+		planDesc:           "Planifică-ți călătoria cu transportul în comun din {city}. Găsește rute, orare și conexiuni între stații.",
+		planH1:             "Planifică-ți călătoria în {city}",
+		planBody:           "Planifică-ți ruta cu transportul în comun din {city}. Compară opțiuni, vezi conexiunile între linii și orele estimate de sosire.",
+		planToTitleFmt:     "Rută la %s — {city} | Ce autobuz iau?",
+		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din {city}.",
+		planFromToTitleFmt: "Rută de la %s la %s — {city} | Ce autobuz iau?",
+		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din {city}.",
+		homeTitle:          "Ce autobuz iau? — Transport public {city} în timp real",
+		homeDesc:           "Aplicație pentru transportul public din {city}. Orarele {operator} în timp real, plecările de la stații, traseele și planificator de rute.",
+		homeH1:             "Transport public {city} în timp real",
+		homeBody:           "Autobuzele, troleibuzele și tramvaiele {operator} în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
 		androidTitle:       "Aplicația Android — Ce autobuz iau?",
 		androidDesc:        "Intră în beta și testează aplicația pentru telefon și ceas Wear OS.",
 		androidBody:        "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.",
 	},
 	"en": {
 		lang:               "en",
-		routeTitleFmt:      "Line %s Timetable Cluj-Napoca — %s | Ce autobuz iau?",
-		routeDescFmt:       "Timetable, route, stops and live departures for line %s (%s) in Cluj-Napoca.",
-		routeH1Fmt:         "Line %s Timetable — Cluj-Napoca",
-		routeBodyFmt:       "Line %s (%s) is part of Cluj-Napoca public transport, operated by CTP Cluj-Napoca. Here you'll find its public timetable and live vehicle positions.",
-		stopTitleFmt:       "%s stop, Cluj-Napoca — Live departures | Ce autobuz iau?",
-		stopDescFmt:        "Live departures from %s stop in Cluj-Napoca. Lines stopping here and current schedules.",
-		stopH1Fmt:          "%s stop, Cluj-Napoca",
-		stopBodyFmt:        "Live departures from %s in Cluj-Napoca. See bus, trolleybus and tram lines stopping here, estimated times and vehicle positions on the map.",
+		routeTitleFmt:      "Line %s Timetable {city} — %s | Ce autobuz iau?",
+		routeDescFmt:       "Timetable, route, stops and live departures for line %s (%s) in {city}.",
+		routeH1Fmt:         "Line %s Timetable — {city}",
+		routeBodyFmt:       "Line %s (%s) is part of {city} public transport, operated by {operator}. Here you'll find its public timetable and live vehicle positions.",
+		stopTitleFmt:       "%s stop, {city} — Live departures | Ce autobuz iau?",
+		stopDescFmt:        "Live departures from %s stop in {city}. Lines stopping here and current schedules.",
+		stopH1Fmt:          "%s stop, {city}",
+		stopBodyFmt:        "Live departures from %s in {city}. See bus, trolleybus and tram lines stopping here, estimated times and vehicle positions on the map.",
 		planTitle:          "Route planner — Ce autobuz iau?",
-		planDesc:           "Plan your journey with public transport in Cluj-Napoca. Find routes, timetables and connections.",
-		planH1:             "Plan your journey in Cluj-Napoca",
-		planBody:           "Plan your route with public transport in Cluj-Napoca. Compare options, see line connections and estimated arrival times.",
-		planToTitleFmt:     "Trip to %s — Cluj-Napoca | Ce autobuz iau?",
-		planToDescFmt:      "Plan your trip to %s with public transport in Cluj-Napoca.",
-		planFromToTitleFmt: "Trip from %s to %s — Cluj-Napoca | Ce autobuz iau?",
-		planFromToDescFmt:  "Plan your trip from %s to %s with public transport in Cluj-Napoca.",
-		homeTitle:          "Ce autobuz iau? — Cluj-Napoca public transport in real time",
-		homeDesc:           "App for Cluj-Napoca public transport. Real-time CTP Cluj-Napoca timetables, live departures, line routes and route planner.",
-		homeH1:             "Cluj-Napoca public transport in real time",
-		homeBody:           "CTP Cluj-Napoca buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
+		planDesc:           "Plan your journey with public transport in {city}. Find routes, timetables and connections.",
+		planH1:             "Plan your journey in {city}",
+		planBody:           "Plan your route with public transport in {city}. Compare options, see line connections and estimated arrival times.",
+		planToTitleFmt:     "Trip to %s — {city} | Ce autobuz iau?",
+		planToDescFmt:      "Plan your trip to %s with public transport in {city}.",
+		planFromToTitleFmt: "Trip from %s to %s — {city} | Ce autobuz iau?",
+		planFromToDescFmt:  "Plan your trip from %s to %s with public transport in {city}.",
+		homeTitle:          "Ce autobuz iau? — {city} public transport in real time",
+		homeDesc:           "App for {city} public transport. Real-time {operator} timetables, live departures, line routes and route planner.",
+		homeH1:             "{city} public transport in real time",
+		homeBody:           "{operator} buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
 		androidTitle:       "Android app — Ce autobuz iau?",
 		androidDesc:        "Join the beta to test the app for your phone and Wear OS watch.",
 		androidBody:        "Join the testers group with your Google account, then get the app from Google Play. Needs Android 8 or newer.",
@@ -137,10 +136,36 @@ func detectLocale(c fiber.Ctx) ogLocale {
 			}
 		}
 	}
-	if l, ok := ogLocales[lang]; ok {
-		return l
+	l, ok := ogLocales[lang]
+	if !ok {
+		l = ogLocales["ro"]
 	}
-	return ogLocales["ro"]
+	return l
+}
+
+func (city *City) ogTexts(c fiber.Ctx) ogLocale {
+	l := detectLocale(c)
+	fill := strings.NewReplacer("{city}", city.Name, "{operator}", city.Operator).Replace
+	l.routeTitleFmt = fill(l.routeTitleFmt)
+	l.routeDescFmt = fill(l.routeDescFmt)
+	l.routeH1Fmt = fill(l.routeH1Fmt)
+	l.routeBodyFmt = fill(l.routeBodyFmt)
+	l.stopTitleFmt = fill(l.stopTitleFmt)
+	l.stopDescFmt = fill(l.stopDescFmt)
+	l.stopH1Fmt = fill(l.stopH1Fmt)
+	l.stopBodyFmt = fill(l.stopBodyFmt)
+	l.planDesc = fill(l.planDesc)
+	l.planH1 = fill(l.planH1)
+	l.planBody = fill(l.planBody)
+	l.planToTitleFmt = fill(l.planToTitleFmt)
+	l.planToDescFmt = fill(l.planToDescFmt)
+	l.planFromToTitleFmt = fill(l.planFromToTitleFmt)
+	l.planFromToDescFmt = fill(l.planFromToDescFmt)
+	l.homeTitle = fill(l.homeTitle)
+	l.homeDesc = fill(l.homeDesc)
+	l.homeH1 = fill(l.homeH1)
+	l.homeBody = fill(l.homeBody)
+	return l
 }
 
 type metaInjection struct {
@@ -206,11 +231,11 @@ func buildHeadExtras(canonical, jsonLD string) string {
 	return sb.String()
 }
 
-func canonicalURL(path string) string {
+func (city *City) canonicalURL(path string) string {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	return siteOrigin + path
+	return siteOrigin + "/" + city.Slug + path
 }
 
 func marshalJSONLD(data map[string]any) string {
@@ -222,7 +247,7 @@ func marshalJSONLD(data map[string]any) string {
 	return strings.ReplaceAll(string(b), "</", `<\/`)
 }
 
-func RouteOGHandler(c fiber.Ctx) error {
+func (city *City) RouteOGHandler(c fiber.Ctx) error {
 	routeID, err := strconv.Atoi(c.Params("routeId"))
 	if err != nil {
 		return c.Next()
@@ -233,7 +258,7 @@ func RouteOGHandler(c fiber.Ctx) error {
 	}
 
 	var shortName, longName string
-	row := database.DB.QueryRow(
+	row := city.DB.QueryRow(
 		`SELECT route_short_name, route_long_name FROM routes WHERE route_id = ?`,
 		routeID,
 	)
@@ -241,8 +266,8 @@ func RouteOGHandler(c fiber.Ctx) error {
 		return c.Next()
 	}
 
-	l := detectLocale(c)
-	routeURL := canonicalURL("/route/" + strconv.Itoa(routeID) + "/" + strconv.Itoa(direction))
+	l := city.ogTexts(c)
+	routeURL := city.canonicalURL("/route/" + strconv.Itoa(routeID) + "/" + strconv.Itoa(direction))
 	title := fmt.Sprintf(l.routeTitleFmt, shortName, longName)
 	desc := fmt.Sprintf(l.routeDescFmt, shortName, longName)
 	jsonLD := marshalJSONLD(map[string]any{
@@ -260,11 +285,12 @@ func RouteOGHandler(c fiber.Ctx) error {
 			"serviceType": "Public transport route",
 			"areaServed": map[string]any{
 				"@type": "City",
-				"name":  "Cluj-Napoca",
+				"name":  city.Name,
 			},
 			"provider": map[string]any{
 				"@type": "Organization",
-				"name":  "Compania de Transport Public Cluj-Napoca",
+				"name":  city.Operator,
+				"url":   city.OperatorURL,
 			},
 		},
 	})
@@ -288,7 +314,7 @@ func publisherOrg() map[string]any {
 	}
 }
 
-func StopOGHandler(c fiber.Ctx) error {
+func (city *City) StopOGHandler(c fiber.Ctx) error {
 	stopID, err := strconv.Atoi(c.Params("stopId"))
 	if err != nil {
 		return c.Next()
@@ -296,7 +322,7 @@ func StopOGHandler(c fiber.Ctx) error {
 
 	var stopName string
 	var stopLat, stopLon float64
-	row := database.DB.QueryRow(
+	row := city.DB.QueryRow(
 		`SELECT stop_name, stop_lat, stop_lon FROM stops WHERE stop_id = ?`,
 		stopID,
 	)
@@ -304,8 +330,8 @@ func StopOGHandler(c fiber.Ctx) error {
 		return c.Next()
 	}
 
-	l := detectLocale(c)
-	stopURL := canonicalURL("/stop/" + strconv.Itoa(stopID))
+	l := city.ogTexts(c)
+	stopURL := city.canonicalURL("/stop/" + strconv.Itoa(stopID))
 	title := fmt.Sprintf(l.stopTitleFmt, stopName)
 	desc := fmt.Sprintf(l.stopDescFmt, stopName)
 	jsonLD := marshalJSONLD(map[string]any{
@@ -321,7 +347,7 @@ func StopOGHandler(c fiber.Ctx) error {
 			"name":  stopName,
 			"address": map[string]any{
 				"@type":           "PostalAddress",
-				"addressLocality": "Cluj-Napoca",
+				"addressLocality": city.Name,
 				"addressCountry":  "RO",
 			},
 			"geo": map[string]any{
@@ -350,15 +376,15 @@ func shortPlaceName(name string) string {
 	return name
 }
 
-func PlanOGHandler(c fiber.Ctx) error {
-	l := detectLocale(c)
+func (city *City) PlanOGHandler(c fiber.Ctx) error {
+	l := city.ogTexts(c)
 
 	dest := c.Query("name")
 	if dest == "" {
 		return injectMeta(c, l, metaInjection{
 			title:       l.planTitle,
 			description: l.planDesc,
-			canonical:   canonicalURL("/plan"),
+			canonical:   city.canonicalURL("/plan"),
 			bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 				html.EscapeString(l.planH1),
 				html.EscapeString(l.planBody)),
@@ -367,7 +393,7 @@ func PlanOGHandler(c fiber.Ctx) error {
 				"@type":       "WebPage",
 				"name":        l.planTitle,
 				"description": l.planDesc,
-				"url":         canonicalURL("/plan"),
+				"url":         city.canonicalURL("/plan"),
 				"inLanguage":  l.lang,
 				"publisher":   publisherOrg(),
 			}),
@@ -390,31 +416,30 @@ func PlanOGHandler(c fiber.Ctx) error {
 	return injectMeta(c, l, metaInjection{
 		title:       title,
 		description: desc,
-		canonical:   canonicalURL("/plan"),
+		canonical:   city.canonicalURL("/plan"),
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(title),
 			html.EscapeString(desc)),
 	})
 }
 
-func HomeOGHandler(c fiber.Ctx) error {
-	l := detectLocale(c)
+func (city *City) HomeOGHandler(c fiber.Ctx) error {
+	l := city.ogTexts(c)
 	return injectMeta(c, l, metaInjection{
 		title:       l.homeTitle,
 		description: l.homeDesc,
-		canonical:   canonicalURL("/"),
+		canonical:   city.canonicalURL("/"),
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(l.homeH1),
 			html.EscapeString(l.homeBody)),
 		jsonLD: marshalJSONLD(map[string]any{
-			"@context":      "https://schema.org",
-			"@type":         "WebSite",
-			"name":          "Ce autobuz iau?",
-			"alternateName": "Conexiuni Cluj",
-			"url":           canonicalURL("/"),
+			"@context": "https://schema.org",
+			"@type":    "WebSite",
+			"name":     "Ce autobuz iau?",
+			"url":      city.canonicalURL("/"),
 			"potentialAction": map[string]any{
 				"@type":       "SearchAction",
-				"target":      canonicalURL("/?q={search_term_string}"),
+				"target":      city.canonicalURL("/?q={search_term_string}"),
 				"query-input": "required name=search_term_string",
 			},
 		}),
@@ -426,7 +451,7 @@ func AndroidOGHandler(c fiber.Ctx) error {
 	return injectMeta(c, l, metaInjection{
 		title:       l.androidTitle,
 		description: l.androidDesc,
-		canonical:   canonicalURL("/android"),
+		canonical:   siteOrigin + "/android",
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(l.androidTitle),
 			html.EscapeString(l.androidBody)),
@@ -435,7 +460,7 @@ func AndroidOGHandler(c fiber.Ctx) error {
 			"@type":       "WebPage",
 			"name":        l.androidTitle,
 			"description": l.androidDesc,
-			"url":         canonicalURL("/android"),
+			"url":         siteOrigin + "/android",
 			"inLanguage":  l.lang,
 			"publisher":   publisherOrg(),
 		}),

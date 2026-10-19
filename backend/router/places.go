@@ -298,11 +298,14 @@ func (p *Places) place(id int32) Place {
 	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label}
 }
 
-var folder = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+// A Chain keeps state, and cities build their places concurrently.
+func folder() transform.Transformer {
+	return transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+}
 
 // fold lowers text and drops its accents, so "Brâncuși" is found as "brancusi".
 func fold(s string) string {
-	out, _, err := transform.String(folder, s)
+	out, _, err := transform.String(folder(), s)
 	if err != nil {
 		out = s
 	}

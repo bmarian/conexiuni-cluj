@@ -1,57 +1,44 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
-func withTestArchive(t *testing.T) {
-	t.Helper()
-	if err := database.ConnectArchive(filepath.Join(t.TempDir(), "archive.db")); err != nil {
-		t.Fatalf("connect archive: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = database.Archive.Close()
-		database.Archive = nil
-	})
-}
-
-func archivedVersions(t *testing.T, table string) int {
+func (city *City) archivedVersions(t *testing.T, table string) int {
 	t.Helper()
 	var n int
-	if err := database.Archive.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+	if err := city.Archive.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
 		t.Fatalf("count %s: %v", table, err)
 	}
 	return n
 }
 
 func TestStoredTimetablesAndStopsReachTheArchiveOnce(t *testing.T) {
-	stops := installDelayRoute(t)
-	withTestArchive(t)
-	if _, err := snapshotArchiveVersions(time.Now()); err != nil {
+	city := newTestCity(t)
+	stops := city.installDelayRoute(t)
+	if _, err := city.snapshotArchiveVersions(time.Now()); err != nil {
 		t.Fatalf("first snapshot: %v", err)
 	}
-	if archivedVersions(t, "timetable_versions") != 1 || archivedVersions(t, "stop_times_versions") != 1 {
-		t.Fatalf("timetables %d, trips %d; want 1 each", archivedVersions(t, "timetable_versions"), archivedVersions(t, "stop_times_versions"))
+	if city.archivedVersions(t, "timetable_versions") != 1 || city.archivedVersions(t, "stop_times_versions") != 1 {
+		t.Fatalf("timetables %d, trips %d; want 1 each", city.archivedVersions(t, "timetable_versions"), city.archivedVersions(t, "stop_times_versions"))
 	}
 
-	if err := storeStopTimesInDB(stops); err != nil {
+	if err := city.storeStopTimesInDB(stops); err != nil {
 		t.Fatalf("store again: %v", err)
 	}
-	if n, err := snapshotArchiveVersions(time.Now()); err != nil || n != 0 {
+	if n, err := city.snapshotArchiveVersions(time.Now()); err != nil || n != 0 {
 		t.Fatalf("snapshot after an unchanged store added %d versions (%v)", n, err)
 	}
 
 	stops[2].OffsetArrivalTime = 180
-	if err := storeStopTimesInDB(stops); err != nil {
+	if err := city.storeStopTimesInDB(stops); err != nil {
 		t.Fatalf("store changed: %v", err)
 	}
-	if n := archivedVersions(t, "stop_times_versions"); n != 2 {
+	if n := city.archivedVersions(t, "stop_times_versions"); n != 2 {
 		t.Fatalf("%d trip versions after a stop moved, want 2", n)
 	}
-	if n, err := snapshotArchiveVersions(time.Now()); err != nil || n != 0 {
+	if n, err := city.snapshotArchiveVersions(time.Now()); err != nil || n != 0 {
 		t.Fatalf("snapshot repeated the hooked version: %d (%v)", n, err)
 	}
 }

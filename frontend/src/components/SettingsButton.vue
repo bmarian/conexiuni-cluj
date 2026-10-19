@@ -4,6 +4,7 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {cityPath} from '@/utils/city.ts'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -48,7 +49,7 @@ function toggle() {
 
 function goToSettings() {
   isOpen.value = false
-  void router.push('/settings')
+  void router.push(cityPath('/settings'))
 }
 
 function onDocumentPointerDown(e: PointerEvent) {

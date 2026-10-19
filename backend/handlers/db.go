@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"database/sql"
 	"fmt"
 	"strings"
 )
 
-func queryRows[T any](query string, args []any, scan func(*sql.Rows) (T, error)) ([]T, error) {
-	rows, err := database.DB.Query(query, args...)
+func queryRows[T any](db *sql.DB, query string, args []any, scan func(*sql.Rows) (T, error)) ([]T, error) {
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -25,12 +24,12 @@ func queryRows[T any](query string, args []any, scan func(*sql.Rows) (T, error))
 	return result, rows.Err()
 }
 
-func batchExec(insertSQL string, exec func(*sql.Stmt) error) error {
-	return batchReplace(nil, insertSQL, exec)
+func batchExec(db *sql.DB, insertSQL string, exec func(*sql.Stmt) error) error {
+	return batchReplace(db, nil, insertSQL, exec)
 }
 
-func batchReplace(clear func(*sql.Tx) error, insertSQL string, exec func(*sql.Stmt) error) error {
-	tx, err := database.DB.Begin()
+func batchReplace(db *sql.DB, clear func(*sql.Tx) error, insertSQL string, exec func(*sql.Stmt) error) error {
+	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
