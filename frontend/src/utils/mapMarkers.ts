@@ -83,7 +83,6 @@ export function createTooltip(map: MapLibreMap) {
     marker.setOffset([0, -lift]).setLngLat(target.getLngLat()).addTo(map)
   }
 
-  // A function builds the html only when it shows.
   const bind = (target: Marker, html: string | (() => string), className: string, lift: number) => {
     const targetEl = target.getElement()
     targetEl.addEventListener('mouseenter', () => show(target, html, className, lift))

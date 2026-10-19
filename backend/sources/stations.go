@@ -9,13 +9,8 @@ import (
 
 type Point struct{ Lat, Lon float64 }
 
-// Locate names the town and the street at each point, "" where it does not know.
 type Locate func(points []Point) (towns, streets []string, err error)
 
-// Stations groups each name's stops into stations, the platforms of one stop, and names apart stations sharing a name and a mode:
-// the town where their towns differ, the street where one town has two. A different mode already tells them apart.
-// Namesakes nearer than the next stop down their routes are one station, and so are a line's two directions when their next stops overlap.
-// Returns how many stops it renamed.
 func Stations(snap *Snapshot, locate Locate) (int, error) {
 	key := make([]string, len(snap.Stops))
 	at := make(map[int]int, len(snap.Stops))
@@ -127,7 +122,7 @@ func Stations(snap *Snapshot, locate Locate) (int, error) {
 	return renamed, nil
 }
 
-// Biggest first, as the apps draw a station: metro, train, tram, trolleybus, bus.
+// Same order as utils/modes.ts.
 func modeRank(t models.RouteType) int {
 	switch t {
 	case models.Subway, 12:
@@ -142,7 +137,6 @@ func modeRank(t models.RouteType) int {
 	return 4
 }
 
-// The biggest mode calling at each stop, by stop index; stops no route calls at are buses.
 func stationModes(snap *Snapshot, runs map[string][]int) []int {
 	typeOf := make(map[int]models.RouteType, len(snap.Routes))
 	for _, r := range snap.Routes {
@@ -172,7 +166,6 @@ func placeMode(place []int, modes []int) int {
 	return best
 }
 
-// Timetable ends and route names made of stop names take their stops' new names.
 func followRenames(snap *Snapshot, runs map[string][]int, original []string) {
 	ends := map[int][]int{}
 	for _, t := range snap.Trips {
@@ -201,7 +194,6 @@ func followRenames(snap *Snapshot, runs map[string][]int, original []string) {
 	}
 }
 
-// patternStops are the stops of each pattern in order, as indexes into snap.Stops.
 func patternStops(snap *Snapshot, at map[int]int) map[string][]int {
 	type call struct{ stop, seq int }
 	calls := map[string][]call{}
@@ -222,7 +214,6 @@ func patternStops(snap *Snapshot, at map[int]int) map[string][]int {
 	return out
 }
 
-// The directions of each route calling at each stop, by stop index.
 func directionsAt(snap *Snapshot, runs map[string][]int) []map[int][2]bool {
 	out := make([]map[int][2]bool, len(snap.Stops))
 	for _, t := range snap.Trips {
@@ -242,7 +233,6 @@ func directionsAt(snap *Snapshot, runs map[string][]int) []map[int][2]bool {
 	return out
 }
 
-// Each side of a street served by a line one way: they share a line, never one of its directions.
 func oppositeSides(a, b map[int][2]bool) bool {
 	shared := false
 	for route, da := range a {
@@ -258,7 +248,7 @@ func oppositeSides(a, b map[int][2]bool) bool {
 	return shared
 }
 
-// Stops in one group linked, transitively, when nearer than either's spacing, or than both together on opposite sides of a line.
+// One station when nearer than either's spacing, or than both together on opposite sides of a line.
 func placesOf(snap *Snapshot, group []int, spacing []float64, calls []map[int][2]bool) [][]int {
 	parent := make([]int, len(group))
 	for i := range parent {
@@ -297,7 +287,7 @@ func placesOf(snap *Snapshot, group []int, spacing []float64, calls []map[int][2
 	return out
 }
 
-// Where the bus stops: the nearest point of the stop's route shapes, so both platforms meet the same road.
+// Snapped to the route, so both platforms meet the same road.
 func onRoutePoints(snap *Snapshot, runs map[string][]int, at map[int]int) []Point {
 	shapeOf := map[string]string{}
 	for _, t := range snap.Trips {
@@ -348,7 +338,6 @@ func nearestOnSegment(p, a, b Point) (Point, float64) {
 	return q, meters(p, q)
 }
 
-// The value most of the stops have; a tie goes to the first stop's.
 func mostCommon(stops []int, value map[int]string) string {
 	count := map[string]int{}
 	best := value[stops[0]]

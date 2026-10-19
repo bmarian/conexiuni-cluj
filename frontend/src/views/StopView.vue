@@ -72,7 +72,6 @@ useKbdShortcuts({f: toggleFavorite})
 
 const pointerHint = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 
-// The platform the bus calls at.
 const platformAt = (shape: VehiclesInStop) => shape.stop_id ?? stopIdNum.value
 
 function busAt(shape: VehiclesInStop): ReminderTarget & {stopLat: number, stopLon: number} {
@@ -183,7 +182,6 @@ function formatMinutes(minutes: number): string {
   return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
-// By mode, each with its favourites first.
 const lineGroups = computed(() => groupByMode(busesWithAvailableTimetables.value || []).map((group) => ({
   ...group,
   lines: [...group.lines].sort((a: ShapeInfo, b: ShapeInfo) =>

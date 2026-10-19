@@ -49,7 +49,6 @@ export function useStopDepartures(stopId: Ref<string>) {
     mapStore.setLoadedShapes(entries)
   }
 
-  // The stop and the other platforms of its station.
   const stopInfos = computed<StopInfo[]>(() => {
     const info: StopInfo | undefined = stopInfo.value
     const index = network.value
@@ -69,7 +68,6 @@ export function useStopDepartures(stopId: Ref<string>) {
     return byRoute
   })
 
-  // A station is a favourite when any of its platforms is.
   const favoritePlatform = computed(() =>
     (stopInfos.value.length ? stopInfos.value.map((info) => info.stop_id) : [stopIdNum.value]).find((id) => favoritesStore.isStopFavorite(id)))
   const isFavorite = computed(() => favoritePlatform.value !== undefined)
@@ -78,7 +76,6 @@ export function useStopDepartures(stopId: Ref<string>) {
   const busesWithAvailableTimetables = computed(() =>
     [...shapeInfoByRouteId.value.values()].filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable)))
 
-  // The platform where a line calls, the stop itself first.
   function platformOf(routeId: number): StopInfo | undefined {
     return stopInfos.value.find((info) => info.shapes_info.some((s: ShapeInfo) => s.route_id === routeId))
   }

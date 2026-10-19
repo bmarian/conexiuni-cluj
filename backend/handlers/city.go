@@ -39,7 +39,6 @@ type City struct {
 	Realtime sources.Realtime
 	Learning sources.Realtime
 	News     sources.News
-	// Names the town and street of stops that share a name.
 	Locate  sources.Locate
 	Options Options
 

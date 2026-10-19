@@ -30,7 +30,6 @@ const (
 	gridCellDeg = 0.002
 )
 
-// segments are straight pieces between nodes, found by the grid cells they cross.
 type segments struct {
 	lat, lon []float64
 	segU     []int32
