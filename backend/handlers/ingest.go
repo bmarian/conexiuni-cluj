@@ -49,16 +49,19 @@ func (city *City) StartIngest(r *runner) {
 				city.log("ingest: recovered from panic: %v\n%s", p, debug.Stack())
 			}
 		}()
+		retry := sources.StallTimeout
 		for {
 			if err := city.runIngest(time.Now()); err != nil {
-				// At the source's own pace, not in a tight loop.
-				wait := city.Static.Cadence()
-				city.log("ingest: %v; next try in %s", err, wait.Round(time.Minute))
+				// Backs off up to the source's own pace.
+				wait := min(retry, city.Static.Cadence())
+				retry = min(retry*2, city.Static.Cadence())
+				city.log("ingest: %v; next try in %s", err, wait.Round(time.Second))
 				if !r.Sleep(wait) {
 					return
 				}
 				continue
 			}
+			retry = sources.StallTimeout
 			next := city.nextIngestAt(time.Now())
 			if next.IsZero() {
 				return
@@ -143,11 +146,13 @@ func (city *City) runIngest(now time.Time) error {
 		return fmt.Errorf("load snapshot: %w", err)
 	}
 
+	// Returned at the end, so a fresh network is still laid out.
+	var timetablesErr error
 	if timetablesDue {
 		started := time.Now()
 		timetables, err := city.Timetables.Timetables(snap)
 		if err != nil {
-			city.log("ingest: timetables: %v", err)
+			timetablesErr = fmt.Errorf("timetables: %w", err)
 		} else {
 			snap.Timetables = timetables
 			city.markFetched(ingestTimetables, time.Now())
@@ -170,10 +175,11 @@ func (city *City) runIngest(now time.Time) error {
 	}
 
 	city.refreshAvailability()
+	city.refreshCentre()
 	city.refreshLiveTrips(true)
 	city.WarmNetwork()
 	city.WarmPlanner()
-	return nil
+	return timetablesErr
 }
 
 // One transaction, so a reader never sees half a network.
@@ -188,14 +194,14 @@ func (city *City) storeSnapshot(snap *sources.Snapshot) error {
 			return err
 		}
 	}
-	if err := insertAll(tx, `INSERT INTO routes (route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	if err := insertAll(tx, `INSERT OR REPLACE INTO routes (route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		len(snap.Routes), func(i int) []any {
 			r := snap.Routes[i]
 			return []any{r.RouteID, r.AgencyID, r.RouteShortName, r.RouteLongName, r.RouteType, r.RouteDesc, r.RouteColor}
 		}); err != nil {
 		return fmt.Errorf("routes: %w", err)
 	}
-	if err := insertAll(tx, `INSERT INTO stops (stop_id, stop_name, stop_desc, stop_lat, stop_lon, location_type, stop_code) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	if err := insertAll(tx, `INSERT OR REPLACE INTO stops (stop_id, stop_name, stop_desc, stop_lat, stop_lon, location_type, stop_code) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		len(snap.Stops), func(i int) []any {
 			s := snap.Stops[i]
 			return []any{s.StopID, s.StopName, s.StopDesc, s.StopLat, s.StopLon, s.LocationType, s.StopCode}

@@ -41,6 +41,12 @@ type feedState struct {
 	status feedStatus
 }
 
+type centreState struct {
+	sync.Mutex
+	lat, lon float64
+	ok       bool
+}
+
 type liveTripsState struct {
 	sync.RWMutex
 	period int64
@@ -132,6 +138,7 @@ type cityState struct {
 	dayWindowCache          dayWindowCacheState
 	seedFills               seedFillsState
 	feed                    feedState
+	centre                  centreState
 	liveTrips               liveTripsState
 	liveState               liveTableState
 	liveRefreshMu           sync.Mutex

@@ -1,7 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
-import {citiesLoaded, currentCity, DEFAULT_CITY, knownCity, LEGACY_SECTIONS, resolveCity, setCity} from '@/utils/city.ts'
+import {citiesReady, currentCity, DEFAULT_CITY, knownCity, LEGACY_SECTIONS, resolveCity, setCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
@@ -93,7 +93,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const slug = to.params.city
   if (typeof slug !== 'string') return true
-  await citiesLoaded
+  await citiesReady
   if (!knownCity(slug)) return `/${await resolveCity()}/`
   setCity(slug)
   return true

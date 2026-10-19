@@ -82,6 +82,7 @@ func (city *City) log(format string, args ...any) {
 }
 
 func (city *City) start(r *runner) {
+	city.refreshCentre()
 	city.StartCalendar(r)
 	r.Go(func() { city.RunVacuumScheduler(r.ctx) })
 	r.Go(func() { city.RunStatsFlusher(r.ctx) })
@@ -220,11 +221,10 @@ func (city *City) credits() []sources.Credit {
 }
 
 // The median, so outlying villages on long lines do not pull the centre away.
-func (city *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, OperatorURL: city.OperatorURL, Realtime: city.Realtime != nil, News: city.News != nil, Credits: city.credits()}
+func (city *City) refreshCentre() {
 	stops, err := city.GetStops(StopFilter{})
 	if err != nil || len(stops) == 0 {
-		return info, false
+		return
 	}
 	lats := make([]float64, len(stops))
 	lons := make([]float64, len(stops))
@@ -233,7 +233,20 @@ func (city *City) info() (cityInfo, bool) {
 	}
 	sort.Float64s(lats)
 	sort.Float64s(lons)
-	info.Lat, info.Lon = lats[len(lats)/2], lons[len(lons)/2]
+	city.centre.Lock()
+	city.centre.lat, city.centre.lon, city.centre.ok = lats[len(lats)/2], lons[len(lons)/2], true
+	city.centre.Unlock()
+}
+
+func (city *City) info() (cityInfo, bool) {
+	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, OperatorURL: city.OperatorURL, Realtime: city.Realtime != nil, News: city.News != nil, Credits: city.credits()}
+	city.centre.Lock()
+	ok := city.centre.ok
+	info.Lat, info.Lon = city.centre.lat, city.centre.lon
+	city.centre.Unlock()
+	if !ok {
+		return info, false
+	}
 	city.networkCache.Lock()
 	if built := city.networkCache.current; built != nil {
 		info.Bounds = built.bounds

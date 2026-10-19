@@ -42,7 +42,7 @@ type NewsItem struct {
 }
 
 type News interface {
-	News() ([]NewsItem, error)
+	News(loc *time.Location) ([]NewsItem, error)
 	Cadence() time.Duration
 }
 

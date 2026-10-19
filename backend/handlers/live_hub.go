@@ -198,8 +198,11 @@ func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs [
 	h.mu.Unlock()
 	h.city.log("live hub: +subscriber %d (total=%d, stops=%d, trips=%d)", id, total, len(stopIDs), len(tripIDs))
 	go h.sendTo(sub)
-	if start {
-		go h.run(h.city.running())
+	r := h.city.running()
+	if start && !r.Go(func() { h.run(r) }) {
+		h.mu.Lock()
+		h.running = false
+		h.mu.Unlock()
 	}
 	return sub, id, true
 }

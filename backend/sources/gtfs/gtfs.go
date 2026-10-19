@@ -21,6 +21,9 @@ import (
 // Later trips belong to the next service day, which lists them itself.
 const serviceDayEndHour = 28
 
+// Weeks sampled ahead: enough to outvote a holiday.
+const representativeWeeks = 4
+
 type Feed struct {
 	url     string
 	cadence time.Duration
@@ -279,6 +282,9 @@ func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 	}
 	if end.Before(from) {
 		end = from.AddDate(0, 0, 6)
+	}
+	if horizon := from.AddDate(0, 0, representativeWeeks*7-1); end.After(horizon) {
+		end = horizon
 	}
 	type tally struct {
 		first time.Time

@@ -24,7 +24,7 @@ import "@fontsource/libre-caslon-text/400-italic.css";
 import "@fontsource/libre-caslon-text/700.css";
 import "./styles/paper.css";
 import { i18n } from "./i18n";
-import { adoptPreCitySaves, apiPath, citiesLoaded } from "./utils/city";
+import { adoptPreCitySaves, apiPath, citiesReady } from "./utils/city";
 
 const sendPWAInstallEvent = () => {
   const body = JSON.stringify({ metric: "pwa_install", key: "appinstalled" });
@@ -92,7 +92,7 @@ function start() {
     if (typeof url === "string" && url.startsWith("/")) void router.push(url);
   });
 
-  void citiesLoaded.then(() => router.isReady()).then(() => app.mount("#app"));
+  void citiesReady.then(() => router.isReady()).then(() => app.mount("#app"));
 }
 
 // The stores read what the move writes, so they start after it.

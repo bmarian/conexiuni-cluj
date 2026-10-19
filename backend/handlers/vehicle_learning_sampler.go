@@ -210,7 +210,8 @@ func computeVehicleLearningPlan(
 		learnerRemaining = 0
 	}
 	callsRemaining := learnerRemaining
-	if callsRemaining > quotaRemaining {
+	// A zero limit is unmetered.
+	if quotaLimit > 0 && callsRemaining > quotaRemaining {
 		callsRemaining = quotaRemaining
 	}
 

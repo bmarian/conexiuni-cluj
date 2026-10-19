@@ -75,6 +75,8 @@ export async function reloadCities(): Promise<City[]> {
 
 export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Promise.resolve([]) : reloadCities()
 
+export const citiesReady: Promise<City[]> = cities.value.length ? Promise.resolve(cities.value) : citiesLoaded
+
 export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav', 'bsod']
 
 function cityFromPath(): string | null {
@@ -174,7 +176,7 @@ function locate(): Promise<GeolocationPosition | null> {
 }
 
 export async function resolveCity(): Promise<string> {
-  const list = await citiesLoaded
+  const list = await citiesReady
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
   const fallback = [stored(LAST_KEY), DEFAULT_CITY].find((slug) => slug && knownCity(slug)) ?? list[0]?.slug ?? DEFAULT_CITY
   if (list.length < 2 || !await checkLocationGranted()) return fallback

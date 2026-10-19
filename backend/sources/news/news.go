@@ -5,7 +5,6 @@ import (
 	"conexiuni-cluj/sources"
 	"fmt"
 	"html"
-	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -18,21 +17,15 @@ type Source struct {
 	url     string
 	parse   Parser
 	cadence time.Duration
-	loc     *time.Location
 }
 
 func New(pageURL string, parse Parser, cadence time.Duration) *Source {
-	loc, err := time.LoadLocation("Europe/Bucharest")
-	if err != nil {
-		log.Printf("news: could not load Europe/Bucharest, using UTC: %v", err)
-		loc = time.UTC
-	}
-	return &Source{url: pageURL, parse: parse, cadence: cadence, loc: loc}
+	return &Source{url: pageURL, parse: parse, cadence: cadence}
 }
 
 func (s *Source) Cadence() time.Duration { return s.cadence }
 
-func (s *Source) News() ([]sources.NewsItem, error) {
+func (s *Source) News(loc *time.Location) ([]sources.NewsItem, error) {
 	page, err := sources.Download(s.url)
 	if err != nil {
 		return nil, err
@@ -41,7 +34,7 @@ func (s *Source) News() ([]sources.NewsItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.parse(page, base, s.loc)
+	items, err := s.parse(page, base, loc)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", s.url, err)
 	}
