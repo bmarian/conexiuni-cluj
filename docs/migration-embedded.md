@@ -1,7 +1,7 @@
 ## 1. Ask the server for the arrival times
 
 ```
-GET /api/live?stop_ids=391&once=1
+GET /api/cluj/live?stop_ids=391&once=1
 ```
 
 ```json
@@ -38,7 +38,7 @@ GET /api/live?stop_ids=391&once=1
 
 ## 2. Stay offline with the bundle
 
-If the device must work from an hourly fetch, `GET /api/network` (a few MB, gzip-compressed) once a day replaces `/api/stop_info`; `GET /api/network/version` says when it changed.
+If the device must work from an hourly fetch, `GET /api/cluj/network` (about 180 KB gzipped) once a day replaces `/api/stop_info`; `GET /api/cluj/network/version` says when it changed.
 
 For the stop:
 

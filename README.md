@@ -1,32 +1,35 @@
 # Ce autobuz iau?
 
-A live bus and tram tracker for Cluj-Napoca. I ride CTP every day and got tired of the official site, so I built the one I actually wanted to use.
+A live bus and tram tracker for Cluj-Napoca, București, Iași, Oradea and Constanța. I ride CTP every day and got tired of the official site, so I built the one I actually wanted to use.
 
 **[ceautobuziau.ro](https://ceautobuziau.ro)** (formerly Conexiuni Cluj)
 
-![A stop with live departures, and the favorite lines moving on the map](readme/desktop-stop.png)
+![Universitate in București: metro and bus departures from every platform together, and the stations around it on the map](readme/desktop-stop.png)
 
 ## What it does
 
-- Every CTP bus and tram on the map, live
+- Live buses, trams and trolleybuses on the map
 - Departures for any stop. Tracked buses get a live countdown, the rest show approximate times
+- Platforms with the same name are one station, with all their departures in one list
+- Every station shows what stops there: a metro, tram, trolleybus or bus icon in the colour of its lines. Two stations of the same kind with the same name get their town or street added
 - The times get better on their own: the server watches the buses and learns how long each stretch really takes, hour by hour
-- Full timetables for every line, straight from CTP
+- Full timetables for every line, from the operator
 - A route planner: leave now, leave at, arrive by, or the last one today
 - Step-by-step guidance for a planned trip
 - Follow a bus and get told when it comes, and reminders for the buses you take often (experimental)
-- Favorite stops, and favorite lines per direction
-- Follow a line and get a notification when CTP changes its timetable or route
-- Installable as an app. After the first visit every stop, line and timetable opens without the server: the whole network comes down once (about 180 KB) and only the buses stay live
-- Move your favorites and settings to another phone or your watch by scanning a code
+- Favorite stops, places and lines per direction, for each city
+- The operator's news, and a notification when a line you follow changes its timetable or route
+- Installable as an app. After the first visit every stop, line and timetable opens without the server: the city's whole network comes down once (about 180 KB for Cluj) and only the buses stay live
+- Move your favorites and settings to another phone, the Android app or your watch by scanning a code
 - Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
 There are a few hidden things scattered around for the curious. 🐣
 
 <p align="center">
-  <img src="readme/phone-route.png" width="250" alt="A line's stops with live arrival times">
-  <img src="readme/phone-planner.png" width="250" alt="A planned trip from the train station to Iulius Mall, ready to start">
-  <img src="readme/phone-timetable.png" width="250" alt="A line's timetable, with the times already gone faded out">
+  <img src="readme/phone-home.png" width="200" alt="Favorite lines and stations in București, the metro stations marked with an M">
+  <img src="readme/phone-route.png" width="200" alt="Line 25's stops with live arrival times, a favorite stop marked with a heart">
+  <img src="readme/phone-planner.png" width="200" alt="A planned trip from the dorm to the university, ready to start">
+  <img src="readme/phone-timetable.png" width="200" alt="A line's timetable, with the times already gone faded out">
 </p>
 
 ### Themes
@@ -42,20 +45,13 @@ There are a few hidden things scattered around for the curious. 🐣
   </tr>
 </table>
 
-### On a watch
+### Apps
 
-It runs in a smartwatch browser too, with a simplified layout: favorites, departures, a line's stops and the live map. Scan the code from Settings to bring your favorites over.
-
-<p align="center">
-  <img src="readme/watch-menu.png" width="180" alt="Simplified layout menu with favorites">
-  <img src="readme/watch-stop.png" width="180" alt="Departures from a stop">
-  <img src="readme/watch-route.png" width="180" alt="A line's timetable for today">
-  <img src="readme/watch-map.png" width="180" alt="Live buses on the map">
-</p>
+There's an [Android app](https://github.com/bmarian/conexiuni-cluj-mobile) and a [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos), with the same buses, stations and timetables.
 
 ### On a Playdate
 
-There's a [Playdate companion](https://github.com/bmarian/conexiuni-cluj-playdate) too. It syncs once over Wi-Fi, then stops, routes and timetables work offline.
+There's a [Playdate companion](https://github.com/bmarian/conexiuni-cluj-playdate) for Cluj too. It syncs once over Wi-Fi, then stops, lines and timetables work offline.
 
 <p align="center">
   <img src="readme/playdate-station.png" width="260" alt="A stop on the Playdate with the next arrivals">
@@ -67,12 +63,15 @@ There's a [Playdate companion](https://github.com/bmarian/conexiuni-cluj-playdat
 
 ## Running it yourself
 
-You'll need Node 22.12+, Go 1.26+, and a [Tranzy](https://tranzy.ai/) API key.
+You'll need Node 22.12+ and Go 1.26+. București runs on TPBI's open feeds; the other cities need a [Tranzy](https://tranzy.ai/) API key each.
 
-Put your keys in a `keys.env` next to this README.
+Put your keys in a `keys.env` next to this README. A city without its key is left out.
 
 ```bash
-TRANZY_API_KEY=your_tranzy_key
+TRANZY_API_KEY_CLUJ=your_tranzy_key
+TRANZY_API_KEY_IASI=your_tranzy_key
+TRANZY_API_KEY_ORADEA=your_tranzy_key
+TRANZY_API_KEY_CONSTANTA=your_tranzy_key
 ```
 
 Then the backend and the frontend, each in its own terminal:
@@ -88,23 +87,28 @@ npm install
 npm run dev
 ```
 
-The backend listens on `:6698` and the dev server proxies `/api` to it. Everything else has a default in [`.env`](.env).
+The backend listens on `:6698` and the dev server proxies `/api` to it. Everything else has a default in [`.env`](.env). Each city has its own SQLite file in `db/`, and the cities listed in `db/disabled-cities.json` are switched off.
 
-**The network bundle** (`/api/network`) is every line with its timetable, stop sequence and learned travel times for each hour of each kind of day, plus every stop. Every client builds stop pages, line pages and timetables from it; there are no per-stop or per-line endpoints. `/api/network/version` tells it when the lines changed. The learned travel times are read once per quarter hour, so those answers hold still between refreshes. **Arrivals** come from `/api/live`: the server snaps every bus once per poll, predicts its arrival at each downstream stop, follows it onto its next trip at a through-running terminus and merges the result with the timetable into final rows per trip and stop. Subscribe by `stop_ids` and `trip_ids` for an SSE stream (a snapshot, then only the rows and buses that changed, gzipped), or add `once=1` for a single JSON answer. Shapes come as encoded polylines with `/api/shapes?format=polyline`. Older consumers: [docs/migration-playdate.md](docs/migration-playdate.md) and [docs/migration-embedded.md](docs/migration-embedded.md).
+**The API** is per city, under `/api/{city}/`. `/api/cities` lists them.
+
+**The network bundle** (`/api/{city}/network`) is every line with its timetable, stop sequence and learned travel times for each hour of each kind of day, plus every stop and the station it belongs to. Every client builds stop pages, line pages and timetables from it; there are no per-stop or per-line endpoints. `/api/{city}/network/version` tells it when the lines changed. The learned travel times are read once per quarter hour, so those answers hold still between refreshes. **Arrivals** come from `/api/{city}/live`: the server snaps every bus once per poll, predicts its arrival at each downstream stop, follows it onto its next trip at a through-running terminus and merges the result with the timetable into final rows per trip and stop. Subscribe by `stop_ids` and `trip_ids` for an SSE stream (a snapshot, then only the rows and buses that changed, gzipped), or add `once=1` for a single JSON answer. Shapes come as encoded polylines with `/api/{city}/shapes?format=polyline`. Older devices: [docs/migration-embedded.md](docs/migration-embedded.md).
 
 **Push notifications** need a VAPID key pair in `keys.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` as a contact email or URL). Without it the server runs with push turned off.
 
-**The route planner** runs inside the Go server. It reads the walkable streets around the stops from `backend/services/osm/romania-latest.osm.pbf`, which [`update.sh`](update.sh) downloads from Geofabrik (`--update-pbf` refreshes it).
+**OpenStreetMap** data comes from `backend/services/osm/romania-latest.osm.pbf`, which [`update.sh`](update.sh) downloads from Geofabrik (`--update-pbf` refreshes it). The route planner walks its streets, place search looks through its addresses and places, and the town and street names that tell stations apart come from it too.
 
-**Production** is `npm run build` in `frontend/`, which writes to `backend/dist/`, and the Go server serves it directly. `update.sh` is what I deploy with.
+**Production** is `npm run build` in `frontend/`, which writes to `backend/dist/`, and the Go server serves it directly. `update.sh` is what I deploy with; `--bust-cache` makes every city fetch its lines, stops and timetables again.
 
 ## Credits
 
-| Source                                                       | Used for                                                                                   |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [Tranzy.ai](https://tranzy.ai/)                              | Live GPS positions and GTFS data for CTP Cluj-Napoca                                       |
-| [CTP Cluj-Napoca](https://www.ctpcj.ro/)                     | Official timetables                                                                        |
-| [Open-Meteo](https://open-meteo.com/)                        | Weather data                                                                               |
-| [OpenStreetMap](https://www.openstreetmap.org/) contributors | Map data, © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
-| [OpenFreeMap](https://openfreemap.org/), [OpenMapTiles](https://openmaptiles.org/) | Map tiles                                                         |
-| [Nominatim](https://nominatim.org/)                          | Address search                                                                             |
+| Source                                                                             | Used for                                                                                     |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [Tranzy.ai](https://tranzy.ai/)                                                    | Live positions, lines and stops for Cluj-Napoca, Iași, Oradea and Constanța                 |
+| [CTP Cluj-Napoca](https://ctpcj.ro/)                                               | Cluj-Napoca's timetables and news                                                            |
+| [gtfs.ro](https://gtfs.ro/)                                                        | Timetables for Iași, Oradea and Constanța                                                    |
+| [TPBI](https://tpbi.ro/)                                                           | Lines, timetables, live positions and news for București                                     |
+| [CTP Iași](https://www.sctpiasi.ro/), [OTL](https://www.otl.ro/), [CT BUS](https://www.ctbus.ro/) | News for Iași, Oradea and Constanța                                           |
+| [OpenStreetMap](https://www.openstreetmap.org/) contributors                       | Map data, walking routes, place search, town and street names. © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
+| [Geofabrik](https://www.geofabrik.de/)                                             | The Romania extract of OpenStreetMap                                                         |
+| [OpenFreeMap](https://openfreemap.org/), [OpenMapTiles](https://openmaptiles.org/) | Map tiles                                                                                    |
+| [MapLibre](https://maplibre.org/)                                                  | The map                                                                                      |
