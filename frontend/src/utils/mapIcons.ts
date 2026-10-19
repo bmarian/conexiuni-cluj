@@ -1,5 +1,5 @@
 import type {Vehicle} from '@/types/tranzy.ts'
-import type {Mode} from '@/utils/modes.ts'
+import {type Mode, MODE_EMOJI} from '@/utils/modes.ts'
 import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
 
 export type DisplayVehicle = Vehicle & {
@@ -26,13 +26,13 @@ export interface IconThemeOptions {
 // What a station's marker shows: its biggest mode in that mode's colour.
 export type StationMark = {mode: Mode, color: string}
 
-function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = '', mode: Mode = 'bus'): string {
+function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = '', glyph: string = MODE_ICON.bus): string {
   return `<div style="width:${size}px;height:${size}px;background:${fill};color:${ink};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;${extra}">
-    <svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}">${MODE_ICON[mode]}</svg>
+    <svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}">${glyph}</svg>
   </div>`
 }
 
-function clippySvg(wire: string, wireDark: string, w: number, h: number): string {
+function clippySvg(wire: string, wireDark: string, w: number, h: number, extra: string = ''): string {
   return `<svg viewBox="0 0 26 32" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="13" cy="30.5" rx="6.5" ry="0.9" fill="rgba(0,0,0,0.22)"/>
     <rect x="3" y="5" width="20" height="25" rx="4.5" ry="4.5" fill="none" stroke="${wireDark}" stroke-width="3.2" stroke-opacity="0.55"/>
@@ -49,6 +49,7 @@ function clippySvg(wire: string, wireDark: string, w: number, h: number): string
     <circle cx="17" cy="12.7" r="0.55" fill="white"/>
     <path d="M 5.5 8 Q 10 6 13 7.5" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
     <path d="M 14 7.5 Q 17 6 21.5 8" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    ${extra}
   </svg>`
 }
 
@@ -85,19 +86,31 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]!)
 
+// The station as the theme draws it on the map, for its hover card.
+function stationCardIcon(mark: StationMark, opts: IconThemeOptions): string {
+  if (opts.legacyBlueActive) return `<span class="station-card-emoji">${MODE_EMOJI[mark.mode]}</span>`
+  if (opts.arcadeActive) {
+    return `<svg viewBox="0 0 12 16" width="18" height="24"><path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${mark.color}"/>
+      <circle cx="3.8" cy="8" r="1.3" fill="white"/><circle cx="7.8" cy="8" r="1.3" fill="white"/>
+      <circle cx="4.2" cy="8.4" r="0.7" fill="#334155"/><circle cx="8.2" cy="8.4" r="0.7" fill="#334155"/></svg>`
+  }
+  return `<span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>`
+}
+
 // The same as a station's row in the stop lists: its icon, name and every line.
-export function stationCardHtml(name: string, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
+export function stationCardHtml(name: string, opts: IconThemeOptions, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
   if (!mark) return escapeHtml(name)
   const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${r.route_color}">${escapeHtml(r.route_short_name)}</span>`).join('')
   return `<div class="station-card">
-    <span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>
+    ${opts.paperActive ? '' : stationCardIcon(mark, opts)}
     <span class="station-card-body"><span class="station-card-name">${escapeHtml(name)}</span><span class="station-card-lines">${lines}</span></span>
   </div>`
 }
 
 export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
   if (opts.arcadeActive) {
-    const body = isFav ? '#f43f5e' : '#94a3b8'
+    // Each ghost wears its station's colour.
+    const body = isFav ? '#f43f5e' : mark?.color ?? '#94a3b8'
     const pupil = isFav ? '#881337' : '#334155'
     return {
       html: `<div style="width:20px;height:26px;display:flex;align-items:flex-end;justify-content:center;">
@@ -115,7 +128,8 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
   }
 
   if (opts.legacyBlueActive) {
-    const wire = isFav ? '#E89C2A' : '#9CA3AF'
+    // Each clip bent from its station's colour.
+    const wire = isFav ? '#E89C2A' : mark?.color ?? '#9CA3AF'
     const wireDark = isFav ? '#A06010' : '#5C6470'
     return {
       html: `<div style="width:26px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.35));">
@@ -129,8 +143,8 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
   if (opts.paperActive) {
     return {
       html: isFav
-        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13, '', mark?.mode)
-        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', mark?.mode),
+        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13, '', MODE_ICON[mark?.mode ?? 'bus'])
+        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', MODE_ICON[mark?.mode ?? 'bus']),
       size: [20, 20],
       anchor: [10, 10],
     }
@@ -139,16 +153,16 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
   return mark ? stationIcon(mark) : defaultStopIcon
 }
 
-export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
+export function makeSelectedStopIcon(opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
   if (opts.arcadeActive) {
     return {
       html: `<div class="animate-bounce" style="width:28px;height:36px;display:flex;align-items:flex-end;justify-content:center;">
         <svg viewBox="0 0 12 16" width="26" height="34" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="#22c55e"/>
+          <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${mark?.color ?? '#22c55e'}"/>
           <circle cx="3.8" cy="8" r="1.3" fill="white"/>
           <circle cx="7.8" cy="8" r="1.3" fill="white"/>
-          <circle cx="4.4" cy="8.5" r="0.6" fill="#15803d"/>
-          <circle cx="8.4" cy="8.5" r="0.6" fill="#15803d"/>
+          <circle cx="4.4" cy="8.5" r="0.6" fill="${mark ? 'rgba(0,0,0,0.65)' : '#15803d'}"/>
+          <circle cx="8.4" cy="8.5" r="0.6" fill="${mark ? 'rgba(0,0,0,0.65)' : '#15803d'}"/>
         </svg>
       </div>`,
       size: [28, 36], anchor: [14, 34],
@@ -158,7 +172,7 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
   if (opts.legacyBlueActive) {
     return {
       html: `<div class="animate-bounce" style="width:34px;height:42px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.45));">
-        ${clippySvg('#FFD64A', '#B07A10', 32, 40)}
+        ${clippySvg(mark?.color ?? '#FFD64A', '#B07A10', 32, 40)}
       </div>`,
       size: [34, 42], anchor: [17, 40],
     }
@@ -166,17 +180,17 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
 
   if (opts.paperActive) {
     return {
-      html: paperPlate(30, 'var(--pp-ink)', 'var(--pp-paper)', 18, 'outline:2px solid var(--pp-red);outline-offset:2px;'),
+      html: paperPlate(30, 'var(--pp-ink)', 'var(--pp-paper)', 18, 'outline:2px solid var(--pp-red);outline-offset:2px;', MODE_ICON[mark?.mode ?? 'bus']),
       size: [30, 30], anchor: [15, 15],
     }
   }
 
+  // The station's own icon and colour, larger and lifted.
   return {
     html: `
-      <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 bg-emerald-500 text-white animate-bounce">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-          <path d="${BUS_STOP_PATH}"/>
-        </svg>
+      <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 text-white animate-bounce ${mark ? '' : 'bg-emerald-500'}"
+           style="${mark ? `background:${mark.color};` : ''}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">${MODE_ICON[mark?.mode ?? 'bus']}</svg>
       </div>
     `,
     size: [32, 32], anchor: [16, 16],
@@ -205,6 +219,7 @@ export function makeHighlightIcon(
           <circle cx="7.8" cy="8" r="1.3" fill="white"/>
           <circle cx="4.2" cy="8.4" r="0.7" fill="rgba(0,0,0,0.65)"/>
           <circle cx="8.2" cy="8.4" r="0.7" fill="rgba(0,0,0,0.65)"/>
+          ${color === 'favorite' ? `<path d="${HEART_PATH}" fill="white" transform="translate(4.1 9.6) scale(0.16)"/>` : ''}
         </svg>
       </div>`,
       size: [24, 30],
@@ -215,7 +230,7 @@ export function makeHighlightIcon(
   if (opts.legacyBlueActive) {
     return {
       html: `<div style="width:28px;height:34px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.4));">
-        ${clippySvg(bg, bg, 26, 32)}
+        ${clippySvg(bg, bg, 26, 32, color === 'favorite' ? `<path d="${HEART_PATH}" fill="${bg}" stroke="white" stroke-width="2.5" transform="translate(9 20.5) scale(0.33)"/>` : '')}
       </div>`,
       size: [28, 34],
       anchor: [14, 32],
@@ -230,17 +245,17 @@ export function makeHighlightIcon(
             : color === 'amber' ? 'var(--pp-ochre)'
               : 'var(--pp-ink-2)'
     return {
-      html: paperPlate(22, ink, 'var(--pp-paper)', 14),
+      html: paperPlate(22, ink, 'var(--pp-paper)', 14, '', color === 'favorite' ? `<path d="${HEART_PATH}"/>` : MODE_ICON.bus),
       size: [22, 22],
       anchor: [11, 11],
     }
   }
 
-  // A plain stop's marker with a heart in place of the bus.
+  // Shaped like every station marker, with a heart for the mode.
   if (color === 'favorite') {
     return {
-      html: `<div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-sm bg-slate-500 dark:bg-slate-600">
-        <svg viewBox="0 0 24 24" fill="${bg}" width="14" height="14"><path d="${HEART_PATH}"/></svg>
+      html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="${HEART_PATH}"/></svg>
       </div>`,
       size: [24, 24],
       anchor: [12, 12],

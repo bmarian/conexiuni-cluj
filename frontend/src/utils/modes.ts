@@ -5,6 +5,9 @@ export type Mode = 'metro' | 'rail' | 'tram' | 'trolleybus' | 'bus'
 // Biggest first: a station is named after the biggest thing that stops there, and lists group in this order.
 export const MODES: Mode[] = ['metro', 'rail', 'tram', 'trolleybus', 'bus']
 
+// The legacy blue theme draws in emoji.
+export const MODE_EMOJI: Record<Mode, string> = {metro: '🚇', rail: '🚆', tram: '🚋', trolleybus: '🚎', bus: '🚌'}
+
 export function modeOf(routeType: RouteType | number | undefined): Mode {
   switch (routeType) {
     case 1:

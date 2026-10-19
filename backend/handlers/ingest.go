@@ -138,7 +138,7 @@ func (city *City) runIngest(now time.Time) error {
 			return fmt.Errorf("snapshot: %w", err)
 		}
 		named := time.Now()
-		if renamed, err := sources.Stations(snap, city.Locate, city.Name); err != nil {
+		if renamed, err := sources.Stations(snap, city.Locate); err != nil {
 			city.log("ingest: stops sharing a name keep it: %v", err)
 		} else if renamed > 0 {
 			city.log("ingest: %d stops sharing a name told apart in %s", renamed, time.Since(named).Round(time.Millisecond))

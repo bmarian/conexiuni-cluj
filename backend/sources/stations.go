@@ -2,7 +2,6 @@ package sources
 
 import (
 	"conexiuni-cluj/models"
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -13,11 +12,11 @@ type Point struct{ Lat, Lon float64 }
 // Locate names the town and the street at each point, "" where it does not know.
 type Locate func(points []Point) (towns, streets []string, err error)
 
-// Stations groups each name's stops into stations, the platforms of one stop, and names apart stations sharing a name:
-// the town where towns differ, unless it is the city's own; the street where one town has two served by the same lines.
+// Stations groups each name's stops into stations, the platforms of one stop, and names apart stations sharing a name and a mode:
+// the town where their towns differ, the street where one town has two. A different mode already tells them apart.
 // Namesakes nearer than the next stop down their routes are one station, and so are a line's two directions when their next stops overlap.
 // Returns how many stops it renamed.
-func Stations(snap *Snapshot, locate Locate, home string) (int, error) {
+func Stations(snap *Snapshot, locate Locate) (int, error) {
 	key := make([]string, len(snap.Stops))
 	at := make(map[int]int, len(snap.Stops))
 	for i, s := range snap.Stops {
@@ -81,32 +80,36 @@ func Stations(snap *Snapshot, locate Locate, home string) (int, error) {
 	for i, s := range points {
 		town[s], street[s] = towns[i], streets[i]
 	}
-	lines := linesAt(snap, runs)
+	modes := stationModes(snap, runs)
 
 	original := make([]string, len(snap.Stops))
 	for i, s := range snap.Stops {
 		original[i] = s.StopName
 	}
 	renamed := 0
-	ownTown := normalizeStopLabelForMatch(home)
 	for _, places := range shared {
-		type label struct{ town, street, lines string }
+		type label struct {
+			town, street string
+			mode         int
+		}
 		labels := make([]label, len(places))
-		townsSeen := map[string]bool{}
 		for i, place := range places {
-			labels[i] = label{mostCommon(place, town), mostCommon(place, street), placeLines(place, lines)}
-			townsSeen[labels[i].town] = true
+			labels[i] = label{mostCommon(place, town), mostCommon(place, street), placeMode(place, modes)}
 		}
 		for i, place := range places {
 			l := labels[i]
-			var parts []string
+			sameTown, towns := false, map[string]bool{l.town: true}
 			for j, other := range labels {
-				if j != i && other.town == l.town && other.lines == l.lines && l.street != "" {
-					parts = append(parts, l.street)
-					break
+				if j != i && other.mode == l.mode {
+					sameTown = sameTown || other.town == l.town
+					towns[other.town] = true
 				}
 			}
-			if len(townsSeen) > 1 && l.town != "" && normalizeStopLabelForMatch(l.town) != ownTown {
+			var parts []string
+			if sameTown && l.street != "" {
+				parts = append(parts, l.street)
+			}
+			if len(towns) > 1 && l.town != "" {
 				parts = append(parts, l.town)
 			}
 			if len(parts) == 0 {
@@ -124,37 +127,49 @@ func Stations(snap *Snapshot, locate Locate, home string) (int, error) {
 	return renamed, nil
 }
 
-// The routes calling at each stop, by stop index.
-func linesAt(snap *Snapshot, runs map[string][]int) map[int]map[int]bool {
-	routeOf := make(map[string]int, len(snap.Trips))
-	for _, t := range snap.Trips {
-		routeOf[t.TripID] = t.RouteID
+// Biggest first, as the apps draw a station: metro, train, tram, trolleybus, bus.
+func modeRank(t models.RouteType) int {
+	switch t {
+	case models.Subway, 12:
+		return 0
+	case models.Rail:
+		return 1
+	case models.Tram, models.CableTram:
+		return 2
+	case models.Trolleybus:
+		return 3
 	}
-	out := map[int]map[int]bool{}
-	for trip, run := range runs {
-		for _, s := range run {
-			if out[s] == nil {
-				out[s] = map[int]bool{}
-			}
-			out[s][routeOf[trip]] = true
+	return 4
+}
+
+// The biggest mode calling at each stop, by stop index; stops no route calls at are buses.
+func stationModes(snap *Snapshot, runs map[string][]int) []int {
+	typeOf := make(map[int]models.RouteType, len(snap.Routes))
+	for _, r := range snap.Routes {
+		typeOf[r.RouteID] = r.RouteType
+	}
+	out := make([]int, len(snap.Stops))
+	for i := range out {
+		out[i] = modeRank(models.Bus)
+	}
+	for _, t := range snap.Trips {
+		rank := modeRank(models.Bus)
+		if rt, ok := typeOf[t.RouteID]; ok {
+			rank = modeRank(rt)
+		}
+		for _, s := range runs[t.TripID] {
+			out[s] = min(out[s], rank)
 		}
 	}
 	return out
 }
 
-func placeLines(place []int, lines map[int]map[int]bool) string {
-	var ids []int
-	seen := map[int]bool{}
+func placeMode(place []int, modes []int) int {
+	best := modes[place[0]]
 	for _, s := range place {
-		for id := range lines[s] {
-			if !seen[id] {
-				seen[id] = true
-				ids = append(ids, id)
-			}
-		}
+		best = min(best, modes[s])
 	}
-	sort.Ints(ids)
-	return fmt.Sprint(ids)
+	return best
 }
 
 // Timetable ends and route names made of stop names take their stops' new names.

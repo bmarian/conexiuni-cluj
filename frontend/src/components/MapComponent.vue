@@ -315,7 +315,7 @@ const attachPlannerDragLift = (marker: Marker) => {
 const stopIconForId = (stopId: string) =>
   makeStopIcon(favoritesStore.isStopFavorite(parseInt(stopId)), themeOpts(), network.value?.look(Number(stopId)))
 
-const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, network.value?.look(Number(stopId)))
+const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, themeOpts(), network.value?.look(Number(stopId)))
 
 // Only the stops around the view are on the map, so panning moves a few dozen markers, not all of them.
 const refreshStops = () => {
@@ -367,7 +367,7 @@ const highlightSelectedStop = (stopId?: string) => {
   currentlyHighlightedStopId.value = null
   const newMarker = stopId ? stopMarker(stopId) : null
   if (stopId && newMarker) {
-    setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts()))
+    setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts(), network.value?.look(Number(stopId))))
     newMarker.getElement().style.zIndex = '1000'
     currentlyHighlightedStopId.value = stopId
   }
@@ -832,7 +832,7 @@ const refreshStopIcons = () => {
   })
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
     const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    setMarkerIcon(marker, makeSelectedStopIcon(themeOpts()))
+    setMarkerIcon(marker, makeSelectedStopIcon(themeOpts(), network.value?.look(Number(currentlyHighlightedStopId.value))))
   }
 }
 

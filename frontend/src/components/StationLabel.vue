@@ -4,6 +4,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import type {Stop} from '@/types/tranzy.ts'
 import {network} from '@/utils/network.ts'
 import StationIcon from '@/components/StationIcon.vue'
+import {MODE_EMOJI} from '@/utils/modes.ts'
 
 const props = defineProps<{ stop: Stop }>()
 
@@ -14,7 +15,7 @@ const look = computed(() => network.value?.look(props.stop.stop_id))
 <template>
   <span v-if="settings.legacyBlueActive"
         class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-    <span class="emoji-icon-md" aria-hidden="true">🚏</span>
+    <span class="emoji-icon-md" aria-hidden="true">{{ look ? MODE_EMOJI[look.mode] : '🚏' }}</span>
   </span>
   <StationIcon v-else :look="look" class="w-8 h-8 rounded-full"/>
   <div class="flex-1 min-w-0 flex flex-col gap-1">
