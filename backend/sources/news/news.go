@@ -1,0 +1,80 @@
+// Package news reads operators' news pages.
+package news
+
+import (
+	"conexiuni-cluj/sources"
+	"fmt"
+	"html"
+	"log"
+	"net/url"
+	"strings"
+	"time"
+	"unicode"
+)
+
+type Parser func(page []byte, base *url.URL, loc *time.Location) ([]sources.NewsItem, error)
+
+type Source struct {
+	url     string
+	parse   Parser
+	cadence time.Duration
+	loc     *time.Location
+}
+
+func New(pageURL string, parse Parser, cadence time.Duration) *Source {
+	loc, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		log.Printf("news: could not load Europe/Bucharest, using UTC: %v", err)
+		loc = time.UTC
+	}
+	return &Source{url: pageURL, parse: parse, cadence: cadence, loc: loc}
+}
+
+func (s *Source) Cadence() time.Duration { return s.cadence }
+
+func (s *Source) News() ([]sources.NewsItem, error) {
+	page, err := sources.Download(s.url)
+	if err != nil {
+		return nil, err
+	}
+	base, err := url.Parse(s.url)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.parse(page, base, s.loc)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", s.url, err)
+	}
+	// A page that changed its layout reads as empty; keep the last news instead.
+	if len(items) == 0 {
+		return nil, fmt.Errorf("%s: no news found", s.url)
+	}
+	return items, nil
+}
+
+func resolve(base *url.URL, href string) string {
+	ref, err := url.Parse(strings.TrimSpace(href))
+	if err != nil || href == "" {
+		return ""
+	}
+	u := base.ResolveReference(ref)
+	if query := u.Query(); len(query) > 0 {
+		for key := range query {
+			if strings.HasPrefix(key, "utm_") {
+				query.Del(key)
+			}
+		}
+		u.RawQuery = query.Encode()
+	}
+	return u.String()
+}
+
+func cleanTitle(s string) string {
+	s = strings.Join(strings.Fields(html.UnescapeString(s)), " ")
+	return strings.TrimLeftFunc(s, unicode.IsMark)
+}
+
+func item(title, href string, at time.Time, base *url.URL) (sources.NewsItem, bool) {
+	it := sources.NewsItem{Title: cleanTitle(title), URL: resolve(base, href), At: at}
+	return it, it.Title != "" && it.URL != "" && !at.IsZero()
+}

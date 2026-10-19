@@ -39,7 +39,7 @@ const {keyboardMode} = useKeyboardNav()
 useKeyboardNavRoot(useRouter())
 const isAdminRoute = computed(() => route.name === 'admin')
 const routeUpdates = useRouteUpdatesStore()
-const showNews = computed(() => routeUpdates.followed.length > 0 && isOnline.value)
+const showNews = computed(() => routeUpdates.hasFeed && isOnline.value)
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 

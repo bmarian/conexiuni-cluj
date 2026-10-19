@@ -28,6 +28,7 @@ type Config struct {
 	CtpCsvBaseUrl    string
 	CtpCjRateLimit   time.Duration
 	TimetableRefresh time.Duration
+	NewsRefresh      time.Duration
 
 	VehicleSchedule         string
 	VehicleScheduleWeekend  string
@@ -130,6 +131,7 @@ func Load() *Config {
 		CtpCsvBaseUrl:    getEnv("CTP_CSV_BASE_URL", "https://ctpcj.ro/orare/csv"),
 		CtpCjRateLimit:   getDuration("CTP_CJ_RATE_LIMIT", time.Second),
 		TimetableRefresh: getDuration("TIMETABLE_REFRESH", 24*time.Hour),
+		NewsRefresh:      getDuration("NEWS_REFRESH", time.Hour),
 
 		VehicleSchedule:         getEnv("VEHICLE_SCHEDULE", "00:00-06:00;30s;60s@20, 06:00-07:00;20s, 07:00-09:00;10s, 09:00-16:00;20s, 16:00-18:30;10s, 18:30-22:00;20s, 22:00-24:00;30s;60s@20"),
 		VehicleScheduleWeekend:  getEnv("VEHICLE_SCHEDULE_WEEKEND", "00:00-06:00;30s;60s@20, 06:00-22:00;20s, 22:00-24:00;30s;60s@20"),

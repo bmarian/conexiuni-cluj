@@ -1,9 +1,9 @@
-import type {RouteChange} from '@/stores/routeUpdates'
+import type {Update} from '@/stores/routeUpdates'
 import {formatChangeDate} from '@/utils/routeChanges'
 
 type Translate = (key: string) => string
 
-export type NewsEntry = { key: string; at: number; date: string; change: RouteChange }
+export type NewsEntry = Update & { key: string; date: string }
 
 function startOfDay(ms: number): Date {
   const d = new Date(ms)
@@ -18,11 +18,18 @@ export function dayLabel(day: Date, now: Date, locale: string, t: Translate): st
   return formatChangeDate(day.getTime(), locale, day.getFullYear() !== today.getFullYear())
 }
 
-export function buildNewsFeed(changes: RouteChange[], now: Date, locale: string, t: Translate): NewsEntry[] {
-  return changes.map((change): NewsEntry => ({
-    key: `change-${change.id}`,
-    at: change.detected_at,
-    date: dayLabel(startOfDay(change.detected_at), now, locale, t),
-    change,
-  })).sort((a, b) => b.at - a.at)
+export function newsSource(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+export function buildNewsFeed(updates: Update[], now: Date, locale: string, t: Translate): NewsEntry[] {
+  return updates.map((update): NewsEntry => ({
+    ...update,
+    key: update.kind === 'change' ? `change-${update.change.id}` : `news-${update.news.url}`,
+    date: dayLabel(startOfDay(update.at), now, locale, t),
+  }))
 }

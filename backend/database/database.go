@@ -239,6 +239,13 @@ func (s *Store) initSchemas() error {
 
 		DROP TABLE IF EXISTS news_cache;
 
+		CREATE TABLE IF NOT EXISTS news
+        (
+            url          TEXT PRIMARY KEY,
+            title        TEXT    NOT NULL,
+            published_at INTEGER NOT NULL
+        );
+
 		CREATE TABLE IF NOT EXISTS route_changes
         (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,

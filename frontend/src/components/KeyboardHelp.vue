@@ -41,7 +41,7 @@ const groups = computed(() => [
       {keys: ['g'], label: t('home')},
       {keys: ['s', '/'], label: t('kbdSearch')},
       {keys: ['o'], label: t('settings')},
-      ...(routeUpdates.followed.length && isOnline.value ? [{keys: ['n'], label: t('news')}] : []),
+      ...(routeUpdates.hasFeed && isOnline.value ? [{keys: ['n'], label: t('news')}] : []),
       {keys: ['c'], label: t('city')},
       {keys: ['m'], label: t('kbdDrawer')},
       {keys: ['?'], label: t('kbdHelp')},
