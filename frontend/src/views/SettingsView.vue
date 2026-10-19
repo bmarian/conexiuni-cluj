@@ -25,6 +25,7 @@ useHead(() => ({
 }))
 
 const isAdminAuthed = ref(false)
+const CONTACT_EMAIL = 'ceautobuziau@gmail.com'
 const sendCode = computed(() => {
   const code = route.query[TRANSFER_QUERY]
   return typeof code === 'string' ? code : undefined
@@ -303,6 +304,24 @@ function setLocale(newLocale: 'ro' | 'en') {
             <span class="setting-desc">{{ t('androidAppDesc') }}</span>
           </span>
         </RouterLink>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="section-label">{{ t('contact') }}</h2>
+      <div class="setting-rows" data-kbd-section="contact">
+        <a :href="`mailto:${CONTACT_EMAIL}`" class="option-btn setting-row" data-kbd-item="contact">
+          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">✉️</span>
+          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <path d="m3 7 9 6 9-6"/>
+          </svg>
+          <span class="setting-text">
+            <span class="setting-title">{{ CONTACT_EMAIL }}</span>
+            <span class="setting-desc">{{ t('contactDesc') }}</span>
+          </span>
+        </a>
       </div>
     </section>
   </div>
