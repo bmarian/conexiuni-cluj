@@ -14,7 +14,7 @@ import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
 import { searchPlaces, type Place } from '@/utils/places.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {cityCenter} from '@/utils/city.ts'
+import {cityCenter, currentCity} from '@/utils/city.ts'
 
 interface EnrichedGeoResult extends Place {
   parsedLat: number
@@ -79,7 +79,7 @@ const searchRouteResults = computed<Route[]>(() => {
 
 const metroLegacyVisible = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (q.length < 2) return false
+  if (currentCity.value !== 'cluj' || q.length < 2) return false
   return 'metrou'.startsWith(q) || q === 'm1'
 })
 
@@ -358,7 +358,7 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <MetroLegacyBlue :search="search" />
+      <MetroLegacyBlue v-if="metroLegacyVisible" />
 
       <template v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length">
         <div v-if="isOnline" class="result-group">
