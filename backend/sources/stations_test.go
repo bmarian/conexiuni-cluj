@@ -29,7 +29,12 @@ func placesSnapshot(places []testPlace) (*Snapshot, Locate) {
 			snap.TripStops = append(snap.TripStops, models.TripStop{TripID: trip, StopID: s, StopSequence: i})
 		}
 	}
+	routes := map[int]bool{}
 	for k, p := range places {
+		if !routes[p.route] {
+			routes[p.route] = true
+			snap.Routes = append(snap.Routes, models.Route{RouteID: p.route, RouteType: models.Bus})
+		}
 		lon := 24 + float64(k)*0.1
 		west, east := add("West "+strconv.Itoa(k), 45, lon-0.005), add("East "+strconv.Itoa(k), 45, lon+0.005)
 		for side, street := range p.streets {
@@ -53,6 +58,14 @@ func placesSnapshot(places []testPlace) (*Snapshot, Locate) {
 	return snap, locate
 }
 
+func setMode(snap *Snapshot, route int, mode models.RouteType) {
+	for i := range snap.Routes {
+		if snap.Routes[i].RouteID == route {
+			snap.Routes[i].RouteType = mode
+		}
+	}
+}
+
 func namesOf(snap *Snapshot) map[string]int {
 	out := map[string]int{}
 	for _, s := range snap.Stops {
@@ -73,7 +86,7 @@ func expectNames(t *testing.T, snap *Snapshot, want map[string]int) {
 
 func TestAStationsPlatformsShareItsLowestStopID(t *testing.T) {
 	snap, locate := placesSnapshot([]testPlace{{"Piata Romana", "București", 1, []string{"Bulevardul Magheru", "Strada Mendeleev"}}})
-	if _, err := Stations(snap, locate, "București"); err != nil {
+	if _, err := Stations(snap, locate); err != nil {
 		t.Fatal(err)
 	}
 	stations := map[string][]int{}
@@ -88,43 +101,52 @@ func TestAStationsPlatformsShareItsLowestStopID(t *testing.T) {
 	}
 }
 
-func TestOtherTownsAreNamedTheCitysOwnIsNot(t *testing.T) {
+func TestTheSameNameAndModeInOtherTownsGetTheirTown(t *testing.T) {
 	snap, locate := placesSnapshot([]testPlace{
 		{"1 Decembrie 1918", "București", 1, []string{"Bulevardul Theodor Pallady", "Bulevardul Theodor Pallady"}},
 		// Two platforms naming different streets are still one place, told apart by its town.
 		{"1 Decembrie 1918", "Dărăști-Ilfov", 2, []string{"Strada 1 Decembrie 1918", "Strada Argeș"}},
 		{"1 Decembrie 1918", "Tânganu", 3, []string{"Strada Gării"}},
+		{"Gara", "București", 4, []string{"Calea Griviței"}},
+		{"Gara", "Buftea", 5, []string{"Strada Gării"}},
 	})
-	n, err := Stations(snap, locate, "Bucuresti")
+	// The metro is the only metro of its name; the buses share theirs.
+	setMode(snap, 1, models.Subway)
+	n, err := Stations(snap, locate)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectNames(t, snap, map[string]int{"1 Decembrie 1918": 2, "1 Decembrie 1918 (Dărăști-Ilfov)": 2, "1 Decembrie 1918 (Tânganu)": 1})
-	if n != 3 {
-		t.Errorf("renamed %d, want 3", n)
+	expectNames(t, snap, map[string]int{
+		"1 Decembrie 1918": 2, "1 Decembrie 1918 (Dărăști-Ilfov)": 2, "1 Decembrie 1918 (Tânganu)": 1,
+		"Gara (București)": 1, "Gara (Buftea)": 1,
+	})
+	if n != 5 {
+		t.Errorf("renamed %d, want 5", n)
 	}
 }
 
-func TestTheirLinesTellApartStationsOfOneTown(t *testing.T) {
+func TestADifferentModeTellsApartStationsOfOneTown(t *testing.T) {
 	snap, locate := placesSnapshot([]testPlace{
 		{"1 Mai", "București", 1, []string{"Calea Griviței", "Calea Griviței"}},
 		{"1 Mai", "București", 2, []string{"Bulevardul 1 Mai", "Bulevardul 1 Mai"}},
 	})
-	if n, err := Stations(snap, locate, "București"); err != nil || n != 0 {
+	setMode(snap, 1, models.Subway)
+	setMode(snap, 2, models.Trolleybus)
+	if n, err := Stations(snap, locate); err != nil || n != 0 {
 		t.Fatalf("renamed %d, %v", n, err)
 	}
 	expectNames(t, snap, map[string]int{"1 Mai": 4})
 }
 
-func TestTheSameLinesInOneTownGetTheStreet(t *testing.T) {
+func TestTheSameModeInOneTownGetsTheStreet(t *testing.T) {
 	snap, locate := placesSnapshot([]testPlace{
 		{"Gara", "București", 1, []string{"Calea Griviței"}},
-		{"Gara", "București", 1, []string{"Bulevardul Dinicu Golescu"}},
-		{"Posta", "Buftea", 2, []string{"Strada Mihai Eminescu"}},
-		{"Posta", "Buftea", 2, []string{"Strada Gării"}},
-		{"Posta", "Otopeni", 3, []string{"Calea Bucureștilor"}},
+		{"Gara", "București", 2, []string{"Bulevardul Dinicu Golescu"}},
+		{"Posta", "Buftea", 3, []string{"Strada Mihai Eminescu"}},
+		{"Posta", "Buftea", 3, []string{"Strada Gării"}},
+		{"Posta", "Otopeni", 4, []string{"Calea Bucureștilor"}},
 	})
-	if _, err := Stations(snap, locate, "București"); err != nil {
+	if _, err := Stations(snap, locate); err != nil {
 		t.Fatal(err)
 	}
 	expectNames(t, snap, map[string]int{
@@ -152,7 +174,7 @@ func TestATerminusTwinIsTheSameStation(t *testing.T) {
 		}
 		return towns, streets, err
 	}
-	if _, err := Stations(snap, locate, "București"); err != nil {
+	if _, err := Stations(snap, locate); err != nil {
 		t.Fatal(err)
 	}
 	expectNames(t, snap, map[string]int{"Pasarela (Popești-Leordeni)": 2, "Pasarela (Voluntari)": 1})
@@ -169,9 +191,9 @@ func TestTimetableEndsAndRouteNamesFollow(t *testing.T) {
 	// Route 7 starts at its Alpha.
 	snap.Trips = append(snap.Trips, models.Trip{TripID: "7_1", RouteID: 7, DirectionID: 1})
 	snap.TripStops = append(snap.TripStops, models.TripStop{TripID: "7_1", StopID: 3, StopSequence: 0}, models.TripStop{TripID: "7_1", StopID: 1, StopSequence: 1})
-	snap.Routes = []models.Route{{RouteID: 7, RouteShortName: "7", RouteLongName: "West 0 - Alpha"}}
+	snap.Routes = []models.Route{{RouteID: 7, RouteShortName: "7", RouteLongName: "West 0 - Alpha", RouteType: models.Bus}, {RouteID: 8, RouteType: models.Bus}}
 	snap.Timetables = map[string]*models.Timetable{"7": {RouteShortName: "7", InStopName: "West 0", OutStopName: "Alpha"}}
-	if _, err := Stations(snap, locate, "București"); err != nil {
+	if _, err := Stations(snap, locate); err != nil {
 		t.Fatal(err)
 	}
 	if got := snap.Routes[0].RouteLongName; got != "West 0 - Alpha (Tunari)" {
@@ -208,7 +230,7 @@ func TestALinesTwoDirectionsAreOneStationWhereTheirStopsOverlap(t *testing.T) {
 	trip("1_1", 1, 1, 5, 4, 3)
 	trip("2_0", 2, 0, 6, 8, 9)
 	trip("2_1", 2, 1, 9, 7, 8)
-	if _, err := Stations(snap, func(p []Point) ([]string, []string, error) { return make([]string, len(p)), make([]string, len(p)), nil }, ""); err != nil {
+	if _, err := Stations(snap, func(p []Point) ([]string, []string, error) { return make([]string, len(p)), make([]string, len(p)), nil }); err != nil {
 		t.Fatal(err)
 	}
 	station := map[int]int{}

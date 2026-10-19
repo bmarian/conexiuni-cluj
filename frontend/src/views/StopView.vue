@@ -37,7 +37,7 @@ import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
 import {siteUrl} from "@/utils/site.ts";
 import {cityParams, cityPath} from "@/utils/city.ts";
-import {groupByMode, mainMode} from "@/utils/modes.ts";
+import {groupByMode, mainMode, MODE_EMOJI} from "@/utils/modes.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -382,7 +382,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     <header class="flex items-start gap-4" data-kbd-section="actions" data-kbd-axis="x">
       <div v-if="settings.legacyBlueActive"
         class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
-        <span class="emoji-icon-xl" aria-hidden="true">🚏</span>
+        <span class="emoji-icon-xl" aria-hidden="true">{{ MODE_EMOJI[stationMode] }}</span>
       </div>
       <StationIcon v-else :look="look" class="w-14 h-14 rounded-2xl shadow-lg mt-0.5"/>
       <div class="flex-1 min-w-0">

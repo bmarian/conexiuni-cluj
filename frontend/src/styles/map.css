@@ -97,8 +97,10 @@
   color: white;
 }
 
-html[data-paper] .station-card-icon {
-  display: none;
+.station-card-emoji {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .arcade-theme .stop-name-tooltip {

@@ -546,20 +546,7 @@ useKbdShortcuts({
                   <circle cx="9" cy="19" r="1.5"/>
                   <circle cx="15" cy="19" r="1.5"/>
                 </svg>
-                <div
-                  class="w-7 h-7 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-                  <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                        aria-hidden="true">📍</span>
-                  <svg v-else class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"
-                       viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  </svg>
-                </div>
-                <span
-                  class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
-                  {{ stopsById.get(stopId)?.stop_name }}
-                </span>
+                <StationLabel :stop="stopsById.get(stopId)!"/>
                 <button
                   type="button"
                   class="fav-stop-remove"
