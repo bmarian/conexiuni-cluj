@@ -5,6 +5,7 @@ import IconBack from '@/components/icons/IconBack.vue'
 import IconHome from '@/components/icons/IconHome.vue'
 import {computed} from "vue";
 import {useSettingsStore} from '@/stores/settings'
+import {cityPath} from '@/utils/city.ts'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -17,7 +18,7 @@ const goBack = () => {
 }
 
 const goHome = () => {
-  router.push('/')
+  router.push(cityPath('/'))
 }
 </script>
 

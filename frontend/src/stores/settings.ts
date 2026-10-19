@@ -1,5 +1,7 @@
 import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
+import {currentCity} from '@/utils/city.ts'
+import {REGION_SETTINGS, regionSettingStorageKey, type RegionSettingKey} from '@/utils/regionSettings.ts'
 
 type Theme = 'light' | 'dark' | 'system'
 type AppLocale = 'ro' | 'en'
@@ -159,22 +161,27 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.paperActive', 'false')
   }
 
-  const showWeather = ref(localStorage.getItem('settings.showWeather') !== 'false')
-  const showNews = ref(localStorage.getItem('settings.showNews') !== 'false')
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
-  const showGreenFriday = ref(localStorage.getItem('settings.showGreenFriday') !== 'false')
 
-  function setShowWeather(val: boolean) {
-    showWeather.value = val
-    localStorage.setItem('settings.showWeather', val ? 'true' : 'false')
+  const regionValues = ref<Record<string, boolean>>({})
+  function regionSetting(slug: string, key: RegionSettingKey): boolean {
+    const setting = REGION_SETTINGS.find((s) => s.key === key)
+    if (!setting || !setting.cities.includes(slug)) return false
+    const storageKey = regionSettingStorageKey(slug, key)
+    if (!(storageKey in regionValues.value)) {
+      const saved = localStorage.getItem(storageKey)
+      regionValues.value[storageKey] = saved === null ? setting.defaultOn : saved === 'true'
+    }
+    return regionValues.value[storageKey]!
   }
-
-  function setShowNews(val: boolean) {
-    showNews.value = val
-    localStorage.setItem('settings.showNews', val ? 'true' : 'false')
+  function setRegionSetting(slug: string, key: RegionSettingKey, val: boolean) {
+    const storageKey = regionSettingStorageKey(slug, key)
+    regionValues.value[storageKey] = val
+    localStorage.setItem(storageKey, val ? 'true' : 'false')
   }
+  const showGreenFriday = computed(() => regionSetting(currentCity.value, 'showGreenFriday'))
 
   function setAutoCenterOnMe(val: boolean) {
     autoCenterOnMe.value = val
@@ -189,11 +196,6 @@ export const useSettingsStore = defineStore('settings', () => {
   function setShowVehicleExtras(val: boolean) {
     showVehicleExtras.value = val
     localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
-  }
-
-  function setShowGreenFriday(val: boolean) {
-    showGreenFriday.value = val
-    localStorage.setItem('settings.showGreenFriday', val ? 'true' : 'false')
   }
 
   const busAlerts = ref(persistedBool('settings.busAlerts'))
@@ -228,10 +230,9 @@ export const useSettingsStore = defineStore('settings', () => {
     legacyBlueUnlocked, legacyBlueActive,
     unlockLegacyBlue, activateLegacyBlue, deactivateLegacyBlue,
     paperActive, activatePaper, deactivatePaper,
-    showWeather, showNews, setShowWeather, setShowNews,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
-    showGreenFriday, setShowGreenFriday,
+    showGreenFriday, regionSetting, setRegionSetting,
     busAlerts, setBusAlerts,
     toast, showToast, dismissToast,
   }

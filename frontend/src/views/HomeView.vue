@@ -26,6 +26,7 @@ import {nextOf} from '@/utils/reminders.ts'
 import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -48,16 +49,16 @@ const reminderRows = computed(() => {
 })
 
 useHead(() => ({
-  title: t('headHomeTitle'),
+  title: t('headHomeTitle', cityParams()),
   meta: [
-    {name: 'description', content: t('headHomeDesc')},
-    {property: 'og:title', content: t('headHomeTitle')},
-    {property: 'og:description', content: t('headHomeDesc')},
-    {property: 'og:url', content: siteUrl('/')},
-    {name: 'twitter:title', content: t('headHomeTitle')},
-    {name: 'twitter:description', content: t('headHomeDesc')},
+    {name: 'description', content: t('headHomeDesc', cityParams())},
+    {property: 'og:title', content: t('headHomeTitle', cityParams())},
+    {property: 'og:description', content: t('headHomeDesc', cityParams())},
+    {property: 'og:url', content: siteUrl(cityPath('/'))},
+    {name: 'twitter:title', content: t('headHomeTitle', cityParams())},
+    {name: 'twitter:description', content: t('headHomeDesc', cityParams())},
   ],
-  link: [{rel: 'canonical', href: siteUrl('/')}],
+  link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
@@ -194,16 +195,15 @@ const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
     .slice(0, 5)
 })
 
+// One collator: localeCompare with options builds a new one per comparison.
+const byName = new Intl.Collator(undefined, {numeric: true})
+
 const sortedRoutes = computed<Route[]>(() => {
-  return [...routes.value].sort((a, b) =>
-    a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true}),
-  )
+  return [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name))
 })
 
 const sortedStops = computed<Stop[]>(() => {
-  return [...stops.value].sort((a, b) =>
-    a.stop_name.localeCompare(b.stop_name, undefined, {numeric: true}),
-  )
+  return [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
 })
 
 const FIRST_CHUNK = 30

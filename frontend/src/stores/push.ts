@@ -1,9 +1,10 @@
 import {ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiPost} from '@/utils/api'
-import {useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {FOLLOWS_KEY, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
-import {useRemindersStore} from '@/stores/reminders'
+import {REMINDERS_KEY} from '@/stores/reminders'
+import {citiesSaving, currentCity, knownCity} from '@/utils/city.ts'
 import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription'
 import {translate as t} from '@/i18n.ts'
 
@@ -26,12 +27,29 @@ export const usePushStore = defineStore('push', () => {
     localStorage.setItem(ENABLED_KEY, value ? 'true' : 'false')
   }
 
-  async function register(sub: PushSubscription) {
+  const alertCities = () => [...new Set([currentCity.value, ...citiesSaving(FOLLOWS_KEY).filter(knownCity)])]
+
+  async function register(sub: PushSubscription, city: string) {
     await apiPost('push/subscribe', {
       ...sub.toJSON(),
-      routes: enabled.value ? routeUpdates.followed : [],
+      routes: enabled.value ? routeUpdates.followedIn(city) : [],
       locale: settings.locale,
-    })
+    }, city)
+  }
+
+  async function settleServer(sub: PushSubscription, city: string) {
+    const remindersHere = citiesSaving(REMINDERS_KEY).includes(city)
+    if (remindersHere || (enabled.value && routeUpdates.followedIn(city).length)) return register(sub, city)
+    await apiPost('push/unsubscribe', {endpoint: sub.endpoint}, city)
+  }
+
+  async function releaseUnused(sub: PushSubscription) {
+    if (!citiesSaving(REMINDERS_KEY).length && !(enabled.value && citiesSaving(FOLLOWS_KEY).length)) await sub.unsubscribe()
+  }
+
+  async function settle(sub: PushSubscription, city: string) {
+    await settleServer(sub, city)
+    await releaseUnused(sub)
   }
 
   async function enable(): Promise<PushResult> {
@@ -42,7 +60,8 @@ export const usePushStore = defineStore('push', () => {
       const reg = await pushRegistration()
       if (!reg) return 'failed'
       setEnabled(true)
-      await register(await pushSubscription(reg))
+      const sub = await pushSubscription(reg)
+      for (const city of alertCities()) await register(sub, city)
       return 'enabled'
     } catch (err) {
       setEnabled(false)
@@ -70,43 +89,61 @@ export const usePushStore = defineStore('push', () => {
     settings.showToast(t(key), {body, icon: 'bell-off'})
   }
 
+  async function currentSub() {
+    return (await pushRegistration())?.pushManager.getSubscription() ?? null
+  }
+
   async function disable() {
     setEnabled(false)
     if (!supported) return
     try {
-      const sub = await (await pushRegistration())?.pushManager.getSubscription()
+      const sub = await currentSub()
       if (!sub) return
-      if (useRemindersStore().reminders.length) {
-        await register(sub)
-        return
-      }
-      const {endpoint} = sub
-      await sub.unsubscribe()
-      await apiPost('push/unsubscribe', {endpoint})
+      for (const city of alertCities()) await settleServer(sub, city)
+      await releaseUnused(sub)
     } catch (err) {
       console.warn('Push unsubscribe failed:', err)
     }
   }
 
-  async function sync() {
+  async function settleCity(city: string) {
+    if (!supported) return
+    try {
+      const sub = await currentSub()
+      if (sub) await settle(sub, city)
+    } catch (err) {
+      console.warn('Push settle failed:', err)
+    }
+  }
+
+  async function sync(city = currentCity.value) {
     if (!enabled.value) return
-    if (!routeUpdates.followed.length || Notification.permission !== 'granted') return disable()
+    if (!citiesSaving(FOLLOWS_KEY).length || Notification.permission !== 'granted') return disable()
     try {
       const reg = await pushRegistration()
-      if (reg) await register(await pushSubscription(reg))
+      if (reg) await settle(await pushSubscription(reg), city)
     } catch (err) {
       console.warn('Push sync failed:', err)
     }
   }
 
-  function scheduleSync() {
+  const pending = new Set<string>()
+  function scheduleSync(city = currentCity.value) {
     if (!enabled.value) return
+    pending.add(city)
     if (syncTimer) clearTimeout(syncTimer)
-    syncTimer = setTimeout(() => void sync(), SYNC_DELAY_MS)
+    syncTimer = setTimeout(async () => {
+      const cities = [...pending]
+      pending.clear()
+      for (const c of cities) await sync(c)
+    }, SYNC_DELAY_MS)
   }
 
-  watch(() => [...routeUpdates.followed], scheduleSync)
-  watch(() => settings.locale, scheduleSync)
+  // A city switch changes the list, not what to send.
+  watch(() => [currentCity.value, [...routeUpdates.followed]] as const, ([city], [previous]) => {
+    if (city === previous) scheduleSync(city)
+  })
+  watch(() => settings.locale, () => citiesSaving(FOLLOWS_KEY).filter(knownCity).forEach((city) => scheduleSync(city)))
 
-  return {supported, enabled, busy, ask, disable, sync}
+  return {supported, enabled, busy, ask, disable, sync, settleCity}
 })

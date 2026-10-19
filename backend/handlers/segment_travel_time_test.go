@@ -8,7 +8,7 @@ import (
 
 const layoverTripID = "9990_0"
 
-func installStraightTracker(t *testing.T) *tripSegmentTracker {
+func (city *City) installStraightTracker(t *testing.T) *tripSegmentTracker {
 	t.Helper()
 	shape := make([]models.Shape, 100)
 	for i := range shape {
@@ -22,13 +22,13 @@ func installStraightTracker(t *testing.T) *tripSegmentTracker {
 		Shape: shape, Cumulative: buildCumulativeShapeDistance(shape),
 		Stops: []trackedSegmentStop{stopAt(1, 0), stopAt(2, 40), stopAt(3, 90)},
 	}
-	tripSegmentTrackers.Lock()
-	tripSegmentTrackers.byTrip[layoverTripID] = tracker
-	tripSegmentTrackers.Unlock()
+	city.tripSegmentTrackers.Lock()
+	city.tripSegmentTrackers.byTrip[layoverTripID] = tracker
+	city.tripSegmentTrackers.Unlock()
 	t.Cleanup(func() {
-		tripSegmentTrackers.Lock()
-		delete(tripSegmentTrackers.byTrip, layoverTripID)
-		tripSegmentTrackers.Unlock()
+		city.tripSegmentTrackers.Lock()
+		delete(city.tripSegmentTrackers.byTrip, layoverTripID)
+		city.tripSegmentTrackers.Unlock()
 	})
 	return tracker
 }
@@ -41,7 +41,8 @@ func vehicleOnShape(id int, tracker *tripSegmentTracker, idx int, at time.Time) 
 }
 
 func TestFirstSegmentIsTimedFromLeavingTheTerminus(t *testing.T) {
-	tracker := installStraightTracker(t)
+	city := newTestCity(t)
+	tracker := city.installStraightTracker(t)
 	start := time.Now().Add(-9 * time.Minute).Truncate(time.Second)
 
 	var sample pendingSegmentSample
@@ -49,11 +50,11 @@ func TestFirstSegmentIsTimedFromLeavingTheTerminus(t *testing.T) {
 	at := start
 	// Eight minutes of layover at the departure terminus, then a 60 s run to the next stop.
 	for ; at.Before(start.Add(8 * time.Minute)); at = at.Add(30 * time.Second) {
-		_, status = observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 0, at))
+		_, status = city.observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 0, at))
 	}
 	left := at.Add(-30 * time.Second)
-	_, _ = observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 20, left.Add(30*time.Second)))
-	sample, status = observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 40, left.Add(60*time.Second)))
+	_, _ = city.observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 20, left.Add(30*time.Second)))
+	sample, status = city.observeVehicleSegment(time.Local, vehicleOnShape(990001, tracker, 40, left.Add(60*time.Second)))
 
 	if status != segmentObservedAccepted {
 		t.Fatalf("status = %s, want accepted", status)
@@ -64,14 +65,15 @@ func TestFirstSegmentIsTimedFromLeavingTheTerminus(t *testing.T) {
 }
 
 func TestIntermediateStopKeepsItsDwell(t *testing.T) {
-	tracker := installStraightTracker(t)
+	city := newTestCity(t)
+	tracker := city.installStraightTracker(t)
 	start := time.Now().Add(-9 * time.Minute).Truncate(time.Second)
 
-	_, _ = observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 30, start))
-	_, _ = observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 40, start.Add(30*time.Second)))
-	_, _ = observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 40, start.Add(90*time.Second)))
-	_, _ = observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 65, start.Add(150*time.Second)))
-	sample, status := observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 90, start.Add(210*time.Second)))
+	_, _ = city.observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 30, start))
+	_, _ = city.observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 40, start.Add(30*time.Second)))
+	_, _ = city.observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 40, start.Add(90*time.Second)))
+	_, _ = city.observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 65, start.Add(150*time.Second)))
+	sample, status := city.observeVehicleSegment(time.Local, vehicleOnShape(990002, tracker, 90, start.Add(210*time.Second)))
 
 	if status != segmentObservedAccepted {
 		t.Fatalf("status = %s, want accepted", status)
@@ -80,4 +82,3 @@ func TestIntermediateStopKeepsItsDwell(t *testing.T) {
 		t.Fatalf("segment took %s, want 3m0s including the minute stood at the stop", got)
 	}
 }
-

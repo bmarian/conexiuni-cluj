@@ -14,6 +14,7 @@ import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
 import { searchPlaces, type Place } from '@/utils/places.ts'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {cityCenter} from '@/utils/city.ts'
 
 interface EnrichedGeoResult extends Place {
   parsedLat: number
@@ -123,7 +124,7 @@ function dropPin() {
   search.value = ''
   void router.push({
     name: 'plan',
-    query: { lat: '46.7712', lon: '23.6236', name: t('droppedPin') },
+    query: { lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: t('droppedPin') },
   })
 }
 

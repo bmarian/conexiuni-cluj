@@ -1,4 +1,4 @@
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {
   MAX_FOLLOWS, clockAt, followId, freshProgress, isClockTime, stepFollow,
@@ -7,8 +7,9 @@ import {
 import {askNotifications, clearNotice, notify} from '@/utils/notify.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {cacheKey, cityPath, currentCity} from '@/utils/city.ts'
 
-const STORAGE_KEY = 'follows.v1'
+const storageKey = () => cacheKey('follows.v1')
 
 export interface FollowLive {
   minutes: number
@@ -18,7 +19,7 @@ export interface FollowLive {
 
 function load(): Followed[] {
   try {
-    const list = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const list = JSON.parse(localStorage.getItem(storageKey()) ?? '[]')
     return Array.isArray(list) ? list.filter((f) => f && typeof f.id === 'string' && typeof f.tripId === 'string') : []
   } catch {
     return []
@@ -35,11 +36,17 @@ export const useFollowsStore = defineStore('follows', () => {
   const settings = useSettingsStore()
   const follows = ref<Followed[]>(load())
   const live = ref<Record<string, FollowLive>>({})
-  const progress: Record<string, FollowProgress> = {}
+  let progress: Record<string, FollowProgress> = {}
+
+  watch(currentCity, () => {
+    follows.value = load()
+    live.value = {}
+    progress = {}
+  }, {flush: 'sync'})
 
   function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(follows.value))
+      localStorage.setItem(storageKey(), JSON.stringify(follows.value))
     } catch {}
   }
 
@@ -73,9 +80,9 @@ export const useFollowsStore = defineStore('follows', () => {
     remove(followed.id)
     const line = `${followed.line} → ${followed.destination}`
     if (reason === 'left') {
-      void notify({title: t('followDone', {stop: followed.stopName}), body: line, tag: `follow-${followed.id}`, url: `/stop/${followed.stopId}`})
+      void notify({title: t('followDone', {stop: followed.stopName}), body: line, tag: `follow-${followed.id}`, url: cityPath(`/stop/${followed.stopId}`)})
     } else if (reason === 'none') {
-      void notify({title: t('followNoBus'), body: line, tag: `follow-${followed.id}`, url: `/stop/${followed.stopId}`})
+      void notify({title: t('followNoBus'), body: line, tag: `follow-${followed.id}`, url: cityPath(`/stop/${followed.stopId}`)})
       settings.showToast(t('followNoBus'), {body: line, icon: 'bell-off'})
     }
   }
@@ -91,7 +98,7 @@ export const useFollowsStore = defineStore('follows', () => {
     if (!reading) return
     live.value = {...live.value, [id]: {minutes: reading.minutes, live: reading.live, later: reading.later}}
     const title = `${followed.line} → ${followed.destination}`
-    const url = `/stop/${followed.stopId}`
+    const url = cityPath(`/stop/${followed.stopId}`)
     for (const alert of step.alerts) {
       if (alert === 'soon') {
         void notify({title, body: `${t('followArrivingStop', {stop: followed.stopName})} ${busWhen(reading.minutes, nowMs)}`, tag: `follow-${id}`, url, buzz: true})

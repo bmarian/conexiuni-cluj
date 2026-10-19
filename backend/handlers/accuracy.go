@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/predictions"
 	"math"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -52,19 +50,13 @@ type pendingArrival struct {
 	gen   int
 }
 
-var accuracy = struct {
-	sync.Mutex
-	gen     int
-	pending map[accuracyKey]*pendingArrival
-}{pending: make(map[accuracyKey]*pendingArrival)}
-
 // noteShownTimes keeps the first prediction behind each whole minute a screen could show.
-func noteShownTimes(table *liveTable) {
+func (city *City) noteShownTimes(table *liveTable) {
 	now := table.AsOf.Unix()
-	accuracy.Lock()
-	defer accuracy.Unlock()
-	accuracy.gen++
-	gen := accuracy.gen
+	city.accuracy.Lock()
+	defer city.accuracy.Unlock()
+	city.accuracy.gen++
+	gen := city.accuracy.gen
 	for _, rows := range table.rowsByTrip {
 		for _, row := range rows {
 			for _, e := range row.Entries {
@@ -73,13 +65,13 @@ func noteShownTimes(table *liveTable) {
 				}
 				key := accuracyKey{vehicle: e.VehicleID, trip: row.TripID, stop: row.StopID}
 				minutes := int(math.Round(float64(e.At-now) / 60))
-				p := accuracy.pending[key]
+				p := city.accuracy.pending[key]
 				if p == nil {
 					if minutes < 1 || minutes > accuracyMaxShownMin {
 						continue
 					}
 					p = &pendingArrival{}
-					accuracy.pending[key] = p
+					city.accuracy.pending[key] = p
 				}
 				p.gen = gen
 				if minutes >= 1 && minutes <= accuracyMaxShownMin && !p.has(minutes) {
@@ -89,9 +81,9 @@ func noteShownTimes(table *liveTable) {
 		}
 	}
 	// Two polls without the bus at that stop: it went past unseen, or the trip ended.
-	for key, p := range accuracy.pending {
+	for key, p := range city.accuracy.pending {
 		if gen-p.gen >= 2 {
-			delete(accuracy.pending, key)
+			delete(city.accuracy.pending, key)
 		}
 	}
 }
@@ -105,17 +97,17 @@ func (p *pendingArrival) has(minutes int) bool {
 	return false
 }
 
-func noteArrival(vehicleID int, tripID string, stopID int, at time.Time) {
+func (city *City) noteArrival(vehicleID int, tripID string, stopID int, at time.Time) {
 	key := accuracyKey{vehicle: vehicleID, trip: tripID, stop: stopID}
-	accuracy.Lock()
-	p := accuracy.pending[key]
-	delete(accuracy.pending, key)
-	accuracy.Unlock()
+	city.accuracy.Lock()
+	p := city.accuracy.pending[key]
+	delete(city.accuracy.pending, key)
+	city.accuracy.Unlock()
 	if p == nil {
 		return
 	}
 	for _, s := range p.shown {
-		database.RecordEvent("eta_error", accuracyStatsKey(s, at.Unix()-s.at))
+		city.RecordEvent("eta_error", accuracyStatsKey(s, at.Unix()-s.at))
 	}
 }
 
@@ -136,17 +128,18 @@ func errorBin(errSec int64) int {
 }
 
 // Scored twice: against our timetable and against CTP's departure alone.
-func noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
+func (city *City) noteTimetableArrival(tracker *tripSegmentTracker, pos int, departureMin float64, at time.Time, loc *time.Location) {
 	arrivedMin, bucket := localMinutes(float64(at.Unix()), loc)
-	dayType := profileDay(at)
-	learned, seed := tripCumulativeOffsets(tracker, dayType, bucket), tripSeedOffsets(tracker)
+	dayType := city.profileDay(at)
+	departureBucket := int(departureMin) % 1440 / segmentBucketMinutes * segmentBucketMinutes
+	learned, seed := city.tripCumulativeOffsets(tracker, dayType, bucket), city.tripSeedOffsets(tracker, dayType, departureBucket)
 	if pos >= len(learned) || pos >= len(seed) {
 		return
 	}
-	delay, _ := snapshotScheduleDelay(tracker.RouteID, tracker.DirectionID, dayType, bucket)
+	delay, _ := city.snapshotScheduleDelay(tracker.RouteID, tracker.DirectionID, dayType, bucket)
 	miss := func(offsetSec float64) string {
 		return strconv.Itoa(errorBin(int64(math.Round(wrapDayMinutes(arrivedMin-departureMin-offsetSec/60) * 60))))
 	}
-	database.RecordEvent("timetable_error", "ours|"+miss(delay+learned[pos]))
-	database.RecordEvent("timetable_error", "ctp|"+miss(seed[pos]))
+	city.RecordEvent("timetable_error", "ours|"+miss(delay+learned[pos]))
+	city.RecordEvent("timetable_error", "ctp|"+miss(seed[pos]))
 }

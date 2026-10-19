@@ -8,6 +8,7 @@ import {
   sendToTransferLink,
 } from '@/utils/transferLink.ts'
 import {LEGACY_HOST, SITE_ORIGIN} from '@/utils/site.ts'
+import {apiPath} from '@/utils/city.ts'
 
 const HASH_PARAM = 'moved'
 const IMPORTED_KEY = 'moved.at'
@@ -69,7 +70,7 @@ async function pushEndpoint(): Promise<string | null> {
 
 function sendMoveEvent(key: 'sent' | 'empty' | 'received') {
   const body = JSON.stringify({metric: 'host_move', key})
-  navigator.sendBeacon?.('/api/stats/event', new Blob([body], {type: 'application/json'}))
+  navigator.sendBeacon?.(apiPath('stats/event'), new Blob([body], {type: 'application/json'}))
 }
 
 // True when the page is on its way to the new host. Anything that fails keeps the app here.

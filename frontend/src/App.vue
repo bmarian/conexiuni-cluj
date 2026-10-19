@@ -4,7 +4,7 @@ import {useI18n} from "vue-i18n"
 import {useRoute, useRouter} from "vue-router"
 import {useHead} from "@unhead/vue"
 import MapComponent from "@/components/MapComponent.vue"
-import {MAP_CREDITS_HTML} from "@/utils/mapStyles.ts"
+import {mapCreditsHTML} from "@/utils/mapStyles.ts"
 import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
@@ -20,14 +20,16 @@ import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
+import {useRouteUpdatesStore} from "@/stores/routeUpdates"
+import {cityParams} from "@/utils/city.ts"
 
-const WeatherButton = defineAsyncComponent(() => import("@/components/WeatherButton.vue"))
+const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
 const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
 const WatchShell = defineAsyncComponent(() => import("@/components/watch/WatchShell.vue"))
 const SimplifiedLayoutPrompt = defineAsyncComponent(() => import("@/components/SimplifiedLayoutPrompt.vue"))
 
 const {t} = useI18n()
-useHead(() => ({title: t('headHomeTitle')}))
+useHead(() => ({title: t('headHomeTitle', cityParams())}))
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const reminders = useRemindersStore()
@@ -36,6 +38,8 @@ const route = useRoute()
 const {keyboardMode} = useKeyboardNav()
 useKeyboardNavRoot(useRouter())
 const isAdminRoute = computed(() => route.name === 'admin')
+const routeUpdates = useRouteUpdatesStore()
+const showNews = computed(() => routeUpdates.followed.length > 0 && isOnline.value)
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
@@ -360,15 +364,14 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       :style="{ '--controls-row-index': 0 }"
     />
     <NewsButton
-      v-if="appSettings.showNews && isOnline"
+      v-if="showNews"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
       :style="{ '--controls-row-index': 1 }"
     />
-    <WeatherButton
-      v-if="appSettings.showWeather && isOnline"
-      :top-offset="appSettings.showNews && isOnline ? '6.25rem' : '3.5rem'"
+    <CityButton
+      :top-offset="showNews ? '6.25rem' : '3.5rem'"
       :class="{ 'landscape-open': isLandscapeDrawerOpen }"
-      :style="{ '--controls-row-index': appSettings.showNews && isOnline ? 2 : 1 }"
+      :style="{ '--controls-row-index': showNews ? 2 : 1 }"
     />
     <AppToast :landscape-open="isLandscapeDrawerOpen"/>
     <button
@@ -395,7 +398,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       data-kbd-root
       @focusin="onDrawerFocusIn"
     >
-      <div v-if="isPortraitMobile" class="drawer-credits" v-html="MAP_CREDITS_HTML"></div>
+      <div v-if="isPortraitMobile" class="drawer-credits" v-html="mapCreditsHTML()"></div>
       <div
         class="drawer-handle lg:hidden"
         role="button"
@@ -418,7 +421,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
           <RouterView v-slot="{ Component, route: viewRoute }">
             <KeepAlive include="RoutePlanningView">
               <component :is="Component"
-                         :key="viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)"/>
+                         :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
             </KeepAlive>
           </RouterView>
         </div>

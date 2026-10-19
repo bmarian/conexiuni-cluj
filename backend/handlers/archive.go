@@ -5,10 +5,8 @@ import (
 	"conexiuni-cluj/models"
 	"database/sql"
 	"encoding/json"
-	"log"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -31,26 +29,25 @@ type archiveRun struct {
 	Summary  database.ArchiveSummary
 }
 
-var lastArchive = struct {
-	sync.Mutex
-	run *archiveRun
-}{}
-
-func StartArchiver(loc *time.Location) {
-	if database.Archive == nil {
+func (city *City) StartArchiver(r *runner, loc *time.Location) {
+	if city.Archive == nil {
 		return
 	}
-	go func() {
-		time.Sleep(archiveStartDelay)
-		for {
-			checkObservedSchedule(time.Now())
-			runArchive(time.Now())
-			tuneVacationWindow(time.Now())
-			tuneSeedFill(time.Now())
-			restoreSeededWindows(time.Now())
-			time.Sleep(time.Until(nextArchiveRun(time.Now(), loc)))
+	r.Go(func() {
+		if !r.Sleep(archiveStartDelay) {
+			return
 		}
-	}()
+		for {
+			city.checkObservedSchedule(time.Now())
+			city.runArchive(time.Now())
+			city.tuneVacationWindow(time.Now())
+			city.tuneSeedFill(time.Now())
+			city.restoreSeededWindows(time.Now())
+			if !r.Sleep(time.Until(nextArchiveRun(time.Now(), loc))) {
+				return
+			}
+		}
+	})
 }
 
 func nextArchiveRun(now time.Time, loc *time.Location) time.Time {
@@ -62,46 +59,46 @@ func nextArchiveRun(now time.Time, loc *time.Location) time.Time {
 	return next
 }
 
-func runArchive(now time.Time) {
+func (city *City) runArchive(now time.Time) {
 	started := time.Now()
 	run := archiveRun{At: now}
 	var errs []string
-	copied, err := database.CopyToArchive(now.Add(-archiveSettle))
+	copied, err := city.CopyToArchive(now.Add(-archiveSettle))
 	for _, n := range copied {
 		run.Copied += n
 	}
 	if err != nil {
 		errs = append(errs, "copy: "+err.Error())
 	}
-	if run.Versions, err = snapshotArchiveVersions(now); err != nil {
+	if run.Versions, err = city.snapshotArchiveVersions(now); err != nil {
 		errs = append(errs, "versions: "+err.Error())
 	}
-	if run.Pruned, err = database.PruneArchive(now.Add(-archiveRetention)); err != nil {
+	if run.Pruned, err = city.PruneArchive(now.Add(-archiveRetention)); err != nil {
 		errs = append(errs, "prune: "+err.Error())
 	}
-	if run.Summary, err = database.SummarizeArchive(); err != nil {
+	if run.Summary, err = city.SummarizeArchive(); err != nil {
 		errs = append(errs, "summary: "+err.Error())
 	}
 	run.Err = strings.Join(errs, "; ")
 	run.Took = time.Since(started)
 	if run.Err != "" {
-		log.Printf("archive failed: %s", run.Err)
+		city.log("archive failed: %s", run.Err)
 	} else {
-		log.Printf("archive: copied %d rows, %d new timetable or stop versions, pruned %d in %s", run.Copied, run.Versions, run.Pruned, run.Took.Round(time.Millisecond))
+		city.log("archive: copied %d rows, %d new timetable or stop versions, pruned %d in %s", run.Copied, run.Versions, run.Pruned, run.Took.Round(time.Millisecond))
 	}
-	lastArchive.Lock()
-	lastArchive.run = &run
-	lastArchive.Unlock()
+	city.lastArchive.Lock()
+	city.lastArchive.run = &run
+	city.lastArchive.Unlock()
 }
 
-func lastArchiveRun() *archiveRun {
-	lastArchive.Lock()
-	defer lastArchive.Unlock()
-	return lastArchive.run
+func (city *City) lastArchiveRun() *archiveRun {
+	city.lastArchive.Lock()
+	defer city.lastArchive.Unlock()
+	return city.lastArchive.run
 }
 
-func snapshotArchiveVersions(now time.Time) (int, error) {
-	timetables, err := queryRows(`
+func (city *City) snapshotArchiveVersions(now time.Time) (int, error) {
+	timetables, err := queryRows(city.DB, `
 		SELECT route_short_name, route_long_name, in_stop_name, out_stop_name, weekdays, saturday, sunday
 		FROM timetable`, nil,
 		func(rows *sql.Rows) (database.TimetableVersion, error) {
@@ -112,20 +109,20 @@ func snapshotArchiveVersions(now time.Time) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	stored, err := database.ArchiveTimetables(timetables, now)
+	stored, err := city.ArchiveTimetables(timetables, now)
 	if err != nil {
 		return stored, err
 	}
-	stopTimes, err := getStopTimesFromDB(StopTimeFilter{})
+	stopTimes, err := city.getStopTimesFromDB(StopTimeFilter{})
 	if err != nil {
 		return stored, err
 	}
-	trips, err := database.ArchiveTripStops(tripStopsJSON(stopTimes), now)
+	trips, err := city.ArchiveTripStops(tripStopsJSON(stopTimes), now)
 	return stored + trips, err
 }
 
-func archiveTimetable(t *models.Timetable, weekdays, saturday, sunday string) {
-	_, err := database.ArchiveTimetables([]database.TimetableVersion{{
+func (city *City) archiveTimetable(t *models.Timetable, weekdays, saturday, sunday string) {
+	_, err := city.ArchiveTimetables([]database.TimetableVersion{{
 		RouteShortName: t.RouteShortName,
 		RouteLongName:  t.RouteLongName,
 		InStopName:     t.InStopName,
@@ -135,13 +132,13 @@ func archiveTimetable(t *models.Timetable, weekdays, saturday, sunday string) {
 		Sunday:         sunday,
 	}}, time.Now())
 	if err != nil {
-		log.Printf("archive: timetable %s failed: %v", t.RouteShortName, err)
+		city.log("archive: timetable %s failed: %v", t.RouteShortName, err)
 	}
 }
 
-func archiveStopTimes(stopTimes []models.StopTime) {
-	if _, err := database.ArchiveTripStops(tripStopsJSON(stopTimes), time.Now()); err != nil {
-		log.Printf("archive: stop times failed: %v", err)
+func (city *City) archiveStopTimes(stopTimes []models.StopTime) {
+	if _, err := city.ArchiveTripStops(tripStopsJSON(stopTimes), time.Now()); err != nil {
+		city.log("archive: stop times failed: %v", err)
 	}
 }
 

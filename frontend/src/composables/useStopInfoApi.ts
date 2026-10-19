@@ -8,7 +8,7 @@ export function useStopInfoApi() {
   async function fetchStopData(stopId: string) {
     stopInfo.value = undefined
     error.value = undefined
-    await networkLoaded
+    await networkLoaded()
     if (!network.value) await refreshNetwork(true)
     const local = network.value && buildStopInfo(network.value, Number(stopId))
     if (local) {

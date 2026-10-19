@@ -1,9 +1,8 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
-	"conexiuni-cluj/services/tranzy"
 	"database/sql"
 	"fmt"
 	"sort"
@@ -11,30 +10,25 @@ import (
 	"time"
 )
 
-const (
-	StopTimesCacheId    = "STOP_TIMES"
-	APIStopTimesCacheId = "API_STOP_TIMES"
-)
-
 type StopTimeFilter struct {
 	RouteShortName *string
 }
 
-func GetStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, error) {
-	return GetStopTimesAt(tranzyClient, cacheTimes, filter, time.Now().In(tranzyClient.Location()))
+func (city *City) GetStopTimes(filter StopTimeFilter) ([]models.StopTime, error) {
+	return city.GetStopTimesAt(filter, time.Now().In(city.Location))
 }
 
-func GetStopTimesAt(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter, refTime time.Time) ([]models.StopTime, error) {
-	stopTimes, routeID, err := getBaseStopTimes(tranzyClient, cacheTimes, filter)
+func (city *City) GetStopTimesAt(filter StopTimeFilter, refTime time.Time) ([]models.StopTime, error) {
+	stopTimes, routeID, err := city.getBaseStopTimes(filter)
 	if err != nil || routeID == 0 {
 		return stopTimes, err
 	}
-	return applySegmentProfilesToStopTimes(stopTimes, routeID, refTime), nil
+	return city.applySegmentProfilesToStopTimes(stopTimes, routeID, refTime), nil
 }
 
-func dayOfType(from time.Time, dayType string) time.Time {
+func (city *City) dayOfType(from time.Time, dayType string) time.Time {
 	for i := 0; i < 7; i++ {
-		if d := from.AddDate(0, 0, i); scheduleDay(d) == dayType {
+		if d := from.AddDate(0, 0, i); city.scheduleDay(d) == dayType {
 			return d
 		}
 	}
@@ -42,130 +36,29 @@ func dayOfType(from time.Time, dayType string) time.Time {
 }
 
 // A routeID of 0 means the route is unknown and the stop times carry no learned profiles.
-func getBaseStopTimes(tranzyClient *tranzy.Client, cacheTimes models.CacheTimes, filter StopTimeFilter) ([]models.StopTime, int, error) {
+func (city *City) getBaseStopTimes(filter StopTimeFilter) ([]models.StopTime, int, error) {
 	if filter.RouteShortName == nil {
 		return nil, 0, fmt.Errorf("route_short_name is required")
 	}
-	cacheID := fmt.Sprintf("%s_%s", StopTimesCacheId, *filter.RouteShortName)
-	stopTimes, err := HandleCached(cacheID, cacheTimes.TranzyCacheShelfLife,
-		func() ([]models.StopTime, error) { return getStopTimesFromDB(filter) },
-		func() ([]models.StopTime, error) { return requestStopTimes(tranzyClient, filter, cacheTimes) },
-		storeStopTimesTrackingChanges(*filter.RouteShortName),
-		CacheOpts[[]models.StopTime]{
-			// Empty means transient state (warmup, Tranzy renumbering), so retry soon.
-			IsEmpty: func(s []models.StopTime) bool { return len(s) == 0 },
-		},
-	)
+	stopTimes, err := city.getStopTimesFromDB(filter)
 	if err != nil {
 		return nil, 0, err
 	}
-
-	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
+	routes, err := city.GetRoutes(RouteFilter{RouteShortName: filter.RouteShortName})
 	if err != nil || len(routes) == 0 {
 		return stopTimes, 0, nil
 	}
 	return stopTimes, routes[0].RouteID, nil
 }
 
-func requestStopTimes(tranzyClient *tranzy.Client, filter StopTimeFilter, cacheTimes models.CacheTimes) ([]models.StopTime, error) {
-	routes, err := GetRoutes(tranzyClient, cacheTimes.TranzyCacheShelfLife, RouteFilter{RouteShortName: filter.RouteShortName})
-	if err != nil || len(routes) == 0 {
-		return nil, err
-	}
-
-	trips, err := GetTrips(tranzyClient, cacheTimes.TranzyCacheShelfLife, TripFilter{RouteID: &routes[0].RouteID})
-	if err != nil || len(trips) == 0 {
-		return nil, err
-	}
-
-	apiStopTimes, err := getAPIStopTimes(tranzyClient, cacheTimes.TranzyCacheShelfLife, APIStopTimeFilter{})
-	if err != nil {
-		return nil, err
-	}
-
-	astByTrip := make(map[string][]models.RequestStopTime, len(trips))
-	for _, ast := range apiStopTimes {
-		astByTrip[ast.TripID] = append(astByTrip[ast.TripID], ast)
-	}
-
-	shapeByTrip := make(map[string]string, len(trips))
-	shapeIDsSeen := make(map[string]struct{})
-	for _, t := range trips {
-		shapeByTrip[t.TripID] = t.ShapeID
-		if t.ShapeID != "" {
-			shapeIDsSeen[t.ShapeID] = struct{}{}
-		}
-	}
-
-	shapesByID := make(map[string][]models.Shape)
-	if len(shapeIDsSeen) > 0 {
-		shapeIDs := make([]string, 0, len(shapeIDsSeen))
-		for id := range shapeIDsSeen {
-			shapeIDs = append(shapeIDs, id)
-		}
-		if allShapes, err := GetShapes(tranzyClient, cacheTimes.TranzyCacheShelfLife, ShapeFilter{ShapeIDs: shapeIDs}); err == nil {
-			for _, s := range allShapes {
-				shapesByID[s.ShapeID] = append(shapesByID[s.ShapeID], s)
-			}
-		}
-	}
-
-	allStops, err := GetStops(tranzyClient, cacheTimes.TranzyCacheShelfLife, StopFilter{})
-	if err != nil {
-		return nil, err
-	}
-	stopByID := make(map[int]models.Stop, len(allStops))
-	for _, s := range allStops {
-		stopByID[s.StopID] = s
-	}
-
-	var out []models.StopTime
-	for _, t := range trips {
-		gr := astByTrip[t.TripID]
-		if len(gr) == 0 {
-			continue
-		}
-		sort.Slice(gr, func(i, j int) bool {
-			return gr[i].StopSequence < gr[j].StopSequence
-		})
-		shapes := shapesByID[shapeByTrip[t.TripID]]
-		sort.Slice(shapes, func(i, j int) bool {
-			return shapes[i].ShapePtSequence < shapes[j].ShapePtSequence
-		})
-		var previousStop *models.Stop
-		stopIndex := 0
-		for _, st := range gr {
-			currentStop := stopByID[st.StopID]
-			offsetArrivalTime := 0.0
-			if previousStop != nil && st.StopSequence != 0 && len(shapes) > 0 {
-				// Tranzy has no arrival times: seed from the shape at bus pace until segments are learned.
-				offsetArrivalTime = calculateStopOffset(*previousStop, currentStop, shapes)
-			}
-			stopIndex++
-			out = append(out, models.StopTime{
-				TripID:            NormalizeTripID(st.TripID),
-				StopID:            st.StopID,
-				OffsetArrivalTime: offsetArrivalTime,
-				StopSequence:      st.StopSequence,
-				StopHeadsign:      currentStop.StopName,
-				RouteShortName:    *filter.RouteShortName,
-				StopLat:           currentStop.StopLat,
-				StopLon:           currentStop.StopLon,
-			})
-			previousStop = &currentStop
-		}
-	}
-	return out, nil
-}
-
-func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, refTime time.Time) []models.StopTime {
+func (city *City) applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, refTime time.Time) []models.StopTime {
 	if len(stopTimes) == 0 {
 		return stopTimes
 	}
 
 	out := make([]models.StopTime, len(stopTimes))
 	copy(out, stopTimes)
-	dayType, bucket := profileDay(refTime), segmentBucketStartMin(refTime)
+	dayType, bucket := city.profileDay(refTime), segmentBucketStartMin(refTime)
 
 	type directionProfile struct {
 		segments map[stopPair]segmentProfileEstimate
@@ -185,21 +78,38 @@ func applySegmentProfilesToStopTimes(stopTimes []models.StopTime, routeID int, r
 		}
 		profile, exists := byDirection[directionID]
 		if !exists {
-			profile.segments = snapshotSegmentProfiles(routeID, directionID, dayType, bucket)
-			profile.delay, profile.hasDelay = snapshotScheduleDelay(routeID, directionID, dayType, bucket)
+			profile.segments = city.snapshotSegmentProfiles(routeID, directionID, dayType, bucket)
+			profile.delay, profile.hasDelay = city.snapshotScheduleDelay(routeID, directionID, dayType, bucket)
 			byDirection[directionID] = profile
 		}
 
 		sort.Slice(indexes, func(i, j int) bool {
 			return out[indexes[i]].StopSequence < out[indexes[j]].StopSequence
 		})
-		applySegmentProfilesToTrip(out, indexes, profile.segments)
+		city.timeTrip(out, indexes, tripID, dayType, bucket, profile.segments)
 		// Every timetable consumer sums from the first stop; live ETAs never read it.
 		if profile.hasDelay && len(indexes) > 0 {
 			out[indexes[0]].OffsetArrivalTime = profile.delay
 		}
 	}
 	return out
+}
+
+func (city *City) timeTrip(stopTimes []models.StopTime, ordered []int, tripID, profileDay string, bucket int, profiles map[stopPair]segmentProfileEstimate) {
+	applyScheduledOffsets(stopTimes, ordered, city.snapshotScheduledOffsets(tripID, calendar.ScheduleOf(profileDay), bucket))
+	applySegmentProfilesToTrip(stopTimes, ordered, profiles)
+}
+
+func applyScheduledOffsets(stopTimes []models.StopTime, ordered []int, offsets []float64) {
+	// A different length is a trip that changed since.
+	if len(offsets) != len(ordered) {
+		return
+	}
+	for pos := 1; pos < len(ordered); pos++ {
+		if offsets[pos] >= 0 {
+			stopTimes[ordered[pos]].OffsetArrivalTime = offsets[pos]
+		}
+	}
 }
 
 // ordered indexes one trip's rows in stop_sequence order.
@@ -220,7 +130,7 @@ func scanStopTime(rows *sql.Rows) (models.StopTime, error) {
 	return st, err
 }
 
-func getStopTimesForTrips(tripIDs []string) ([]models.StopTime, error) {
+func (city *City) getStopTimesForTrips(tripIDs []string) ([]models.StopTime, error) {
 	if len(tripIDs) == 0 {
 		return nil, nil
 	}
@@ -228,7 +138,7 @@ func getStopTimesForTrips(tripIDs []string) ([]models.StopTime, error) {
 	for i, id := range tripIDs {
 		args[i] = id
 	}
-	return queryRows(`
+	return queryRows(city.DB, `
 		SELECT trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon
 		FROM stop_times
 		WHERE trip_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(tripIDs)), ",")+`)
@@ -236,12 +146,12 @@ func getStopTimesForTrips(tripIDs []string) ([]models.StopTime, error) {
 		args, scanStopTime)
 }
 
-func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
+func (city *City) getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 	if filter.RouteShortName == nil {
-		return queryRows(`SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scanStopTime)
+		return queryRows(city.DB, `SELECT * FROM stop_times ORDER BY trip_id, stop_sequence`, nil, scanStopTime)
 	}
 	// Through routes/trips: stop_times.route_short_name goes stale when Tranzy renumbers routes.
-	return queryRows(`
+	return queryRows(city.DB, `
 		SELECT st.trip_id, st.stop_id, st.offset_arrival_time, st.stop_sequence,
 		       st.stop_headsign, st.route_short_name, st.stop_lat, st.stop_lon
 		FROM stop_times st
@@ -253,7 +163,7 @@ func getStopTimesFromDB(filter StopTimeFilter) ([]models.StopTime, error) {
 }
 
 // Rows are keyed by stop_sequence, so a trip that lost stops would keep its old tail without the delete.
-func storeStopTimesInDB(stopTimes []models.StopTime) error {
+func (city *City) storeStopTimesInDB(stopTimes []models.StopTime) error {
 	clear := func(tx *sql.Tx) error {
 		for _, id := range tripIDsOf(stopTimes) {
 			if _, err := tx.Exec(`DELETE FROM stop_times WHERE trip_id = ?`, id); err != nil {
@@ -262,7 +172,7 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 		}
 		return nil
 	}
-	err := batchReplace(clear, `
+	err := batchReplace(city.DB, clear, `
 		INSERT OR REPLACE INTO stop_times
 		(trip_id, stop_id, offset_arrival_time, stop_sequence, stop_headsign, route_short_name, stop_lat, stop_lon)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -277,99 +187,16 @@ func storeStopTimesInDB(stopTimes []models.StopTime) error {
 	if err != nil {
 		return err
 	}
-	archiveStopTimes(stopTimes)
+	city.archiveStopTimes(stopTimes)
 	return nil
 }
 
-// Deletes orphaned rows and counts rows whose route_short_name drifted.
-func ScrubStopTimes() (int64, int64, error) {
-	res, err := database.DB.Exec(`DELETE FROM stop_times WHERE trip_id NOT IN (SELECT trip_id FROM trips)`)
+func (city *City) ScrubStopTimes() (int64, error) {
+	res, err := city.DB.Exec(`DELETE FROM stop_times WHERE trip_id NOT IN (SELECT trip_id FROM trips)`)
 	if err != nil {
-		return 0, 0, fmt.Errorf("scrub orphans: %w", err)
+		return 0, fmt.Errorf("scrub orphans: %w", err)
 	}
-	orphans, _ := res.RowsAffected()
-
-	var drifted int64
-	if err := database.DB.QueryRow(`
-		SELECT COUNT(*)
-		FROM stop_times st
-		JOIN trips t  ON st.trip_id = t.trip_id
-		JOIN routes r ON t.route_id = r.route_id
-		WHERE st.route_short_name != r.route_short_name`).Scan(&drifted); err != nil {
-		return orphans, 0, fmt.Errorf("scrub drift count: %w", err)
-	}
-
-	return orphans, drifted, nil
-}
-
-type APIStopTimeFilter struct {
-	TripID *string
-}
-
-func getAPIStopTimes(tranzyClient *tranzy.Client, cacheShelfLife time.Duration, filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
-	if filter.TripID != nil {
-		normalized := NormalizeTripID(*filter.TripID)
-		filter.TripID = &normalized
-	}
-	opts := CacheOpts[[]models.RequestStopTime]{}
-	if filter.TripID != nil {
-		f := filter
-		opts.PostProcess = func(ts []models.RequestStopTime) []models.RequestStopTime {
-			out := make([]models.RequestStopTime, 0)
-			for _, t := range ts {
-				if f.TripID != nil && t.TripID != *f.TripID {
-					continue
-				}
-				out = append(out, t)
-			}
-			return out
-		}
-	}
-	return HandleCached(APIStopTimesCacheId, cacheShelfLife,
-		func() ([]models.RequestStopTime, error) { return getAPIStopTimesFromDB(filter) },
-		func() ([]models.RequestStopTime, error) {
-			return tranzyFetch[[]models.RequestStopTime](tranzyClient, "/stop_times")
-		},
-		storeAPIStopTimesInDB,
-		opts,
-	)
-}
-
-func getAPIStopTimesFromDB(filter APIStopTimeFilter) ([]models.RequestStopTime, error) {
-	var conditions []string
-	var args []any
-	if filter.TripID != nil {
-		conditions = append(conditions, "trip_id = ?")
-		args = append(args, *filter.TripID)
-	}
-	return queryRows(`SELECT * FROM api_stop_times`+whereClause(conditions), args,
-		func(rows *sql.Rows) (models.RequestStopTime, error) {
-			var st models.RequestStopTime
-			err := rows.Scan(&st.TripID, &st.StopID, &st.StopSequence)
-			return st, err
-		})
-}
-
-func storeAPIStopTimesInDB(stopTimes []models.RequestStopTime) error {
-	var clear func(*sql.Tx) error
-	if len(stopTimes) > 0 {
-		clear = func(tx *sql.Tx) error {
-			_, err := tx.Exec(`DELETE FROM api_stop_times`)
-			return err
-		}
-	}
-	return batchReplace(clear, `
-		INSERT OR REPLACE INTO api_stop_times (trip_id, stop_id, stop_sequence)
-		VALUES (?, ?, ?)`,
-		func(stmt *sql.Stmt) error {
-			for _, st := range stopTimes {
-				st.TripID = NormalizeTripID(st.TripID)
-				if _, err := stmt.Exec(st.TripID, st.StopID, st.StopSequence); err != nil {
-					return fmt.Errorf("error inserting api stop time: %w", err)
-				}
-			}
-			return nil
-		})
+	return res.RowsAffected()
 }
 
 func filterAndSortStopTimesBySuffix(rows []models.StopTime, suffix string) []models.StopTime {

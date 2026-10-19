@@ -8,31 +8,31 @@ import (
 	"time"
 )
 
-func archiveSegmentSample(t *testing.T, at time.Time, duration float64) {
+func (city *City) archiveSegmentSample(t *testing.T, at time.Time, duration float64) {
 	t.Helper()
-	if _, err := database.Archive.Exec(`INSERT INTO segment_travel_time_samples
+	if _, err := city.Archive.Exec(`INSERT INTO segment_travel_time_samples
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at)
 		VALUES (7, 0, 1, 2, 'weekday', 480, ?, ?)`, duration, at.Unix()); err != nil {
 		t.Fatalf("archive sample: %v", err)
 	}
 }
 
-func keepVacationWindow(t *testing.T) {
+func (city *City) keepVacationWindow(t *testing.T) {
 	t.Helper()
-	prev, _ := dayWindowSize(calendar.WeekdayVacation)
-	t.Cleanup(func() { setDayWindowSize(calendar.WeekdayVacation, prev) })
+	prev, _ := city.dayWindowSize(calendar.WeekdayVacation)
+	t.Cleanup(func() { city.setDayWindowSize(calendar.WeekdayVacation, prev) })
 }
 
-func installDriftingVacation(t *testing.T, today time.Time) {
+func (city *City) installDriftingVacation(t *testing.T, today time.Time) {
 	t.Helper()
-	dates := daysOfType(currentCalendar(), today, calendar.WeekdayVacation, 20)
+	dates := city.daysOfType(city.currentCalendar(), today, calendar.WeekdayVacation, 20)
 	for i, d := range dates {
 		drift := float64(len(dates)-1-i) * 15
 		for m := range 6 {
-			archiveSegmentSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), 60+drift)
+			city.archiveSegmentSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), 60+drift)
 		}
 	}
-	if _, err := database.DB.Exec(`INSERT INTO segment_travel_time_profiles
+	if _, err := city.DB.Exec(`INSERT INTO segment_travel_time_profiles
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at)
 		VALUES (7, 0, 1, 2, 'weekday', 480, 10, 60, 70, 0)`); err != nil {
 		t.Fatalf("term profile: %v", err)
@@ -40,14 +40,13 @@ func installDriftingVacation(t *testing.T, today time.Time) {
 }
 
 func TestVacationWindowTuningFollowsDriftingTravelTimes(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
-	keepVacationWindow(t)
-	today := clujAt("2026-10-31", 0)
-	installDriftingVacation(t, today)
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	city.keepVacationWindow(t)
+	today := city.clujAt("2026-10-31", 0)
+	city.installDriftingVacation(t, today)
 
-	result, err := evaluateVacationWindows(currentCalendar(), today)
+	result, err := city.evaluateVacationWindows(city.currentCalendar(), today)
 	if err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}
@@ -59,30 +58,29 @@ func TestVacationWindowTuningFollowsDriftingTravelTimes(t *testing.T) {
 		t.Fatalf("scores %v, baseline %v: shorter windows should follow the drift better", s, result.Baseline)
 	}
 
-	tuneVacationWindow(clujAt("2026-10-31", 4))
-	if n, _ := dayWindowSize(calendar.WeekdayVacation); n != 3 {
+	city.tuneVacationWindow(city.clujAt("2026-10-31", 4))
+	if n, _ := city.dayWindowSize(calendar.WeekdayVacation); n != 3 {
 		t.Fatalf("window %d, want 3", n)
 	}
-	saved, ok, err := savedWindowTuning()
+	saved, ok, err := city.savedWindowTuning()
 	if err != nil || !ok || saved.Window != 3 || !saved.Changed {
 		t.Fatalf("saved %+v (%t, %v)", saved, ok, err)
 	}
 
-	setDayWindowSize(calendar.WeekdayVacation, 5)
-	LoadWindowTuning()
-	if n, _ := dayWindowSize(calendar.WeekdayVacation); n != 3 {
+	city.setDayWindowSize(calendar.WeekdayVacation, 5)
+	city.LoadWindowTuning()
+	if n, _ := city.dayWindowSize(calendar.WeekdayVacation); n != 3 {
 		t.Fatalf("a restart forgot the tuned window: %d", n)
 	}
 }
 
 func TestVacationWindowTuningWaitsForASchoolHoliday(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
-	keepVacationWindow(t)
-	installDriftingVacation(t, clujAt("2026-10-31", 0))
-	tuneVacationWindow(clujAt("2026-10-21", 4))
-	if _, ok, _ := savedWindowTuning(); ok {
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	city.keepVacationWindow(t)
+	city.installDriftingVacation(t, city.clujAt("2026-10-31", 0))
+	city.tuneVacationWindow(city.clujAt("2026-10-21", 4))
+	if _, ok, _ := city.savedWindowTuning(); ok {
 		t.Fatal("tuned after a school-term day")
 	}
 }
@@ -105,20 +103,19 @@ func TestPickVacationWindow(t *testing.T) {
 }
 
 func TestReplayComparesWithTheOldWindow(t *testing.T) {
-	withTestDB(t)
-	withTestArchive(t)
-	withSeedCalendar(t)
-	for d := clujAt("2026-09-01", 0); d.Before(clujAt("2026-09-26", 0)); d = d.AddDate(0, 0, 1) {
+	city := newTestCity(t)
+	city.withSeedCalendar(t)
+	for d := city.clujAt("2026-09-01", 0); d.Before(city.clujAt("2026-09-26", 0)); d = d.AddDate(0, 0, 1) {
 		duration := 60.0
-		if currentCalendar().ProfileDay(d) == calendar.WeekdayVacation {
+		if city.currentCalendar().ProfileDay(d) == calendar.WeekdayVacation {
 			duration = 200
 		}
 		for m := range 6 {
-			archiveSegmentSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), duration)
+			city.archiveSegmentSample(t, d.Add(8*time.Hour+time.Duration(m)*time.Minute), duration)
 		}
 	}
 	var out strings.Builder
-	if err := RunReplay(clujAt("2026-09-07", 0), clujAt("2026-09-11", 0), &out); err != nil {
+	if err := city.RunReplay(city.clujAt("2026-09-07", 0), city.clujAt("2026-09-11", 0), &out); err != nil {
 		t.Fatalf("replay: %v", err)
 	}
 	text := out.String()
@@ -133,21 +130,21 @@ func TestReplayComparesWithTheOldWindow(t *testing.T) {
 }
 
 func TestTimetableAccuracyOverAWeek(t *testing.T) {
-	withTestDB(t)
+	city := newTestCity(t)
 	// Other tests may leave today's unflushed counts behind.
-	before, err := adminAccuracySection(time.Now())
+	before, err := city.adminAccuracySection(time.Now())
 	if err != nil {
 		t.Fatalf("accuracy: %v", err)
 	}
 	for _, ago := range []int{1, 2, 8} {
 		date := database.StatsDaysAgo(ago)
 		for _, key := range []string{"ours|0", "ctp|2"} {
-			if _, err := database.DB.Exec(`INSERT INTO stats_daily (date, metric, key, count) VALUES (?, 'timetable_error', ?, 4)`, date, key); err != nil {
+			if _, err := city.DB.Exec(`INSERT INTO stats_daily (date, metric, key, count) VALUES (?, 'timetable_error', ?, 4)`, date, key); err != nil {
 				t.Fatalf("stat: %v", err)
 			}
 		}
 	}
-	a, err := adminAccuracySection(time.Now())
+	a, err := city.adminAccuracySection(time.Now())
 	if err != nil {
 		t.Fatalf("accuracy: %v", err)
 	}

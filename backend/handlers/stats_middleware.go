@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"conexiuni-cluj/database"
-
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -96,7 +94,7 @@ func responseStatus(c fiber.Ctx, err error) int {
 }
 
 // Must run before the access logger.
-func StatsMiddleware(salt string) fiber.Handler {
+func StatsMiddleware(cities map[string]*City, salt string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()
 		hash := ComputeClientHash(c, salt)
@@ -106,26 +104,29 @@ func StatsMiddleware(salt string) fiber.Handler {
 
 		err := c.Next()
 		route := c.Route().Path
-		if !strings.HasPrefix(route, "/api/") || strings.HasPrefix(route, "/api/admin") {
+		slug, rest, _ := strings.Cut(strings.TrimPrefix(route, "/api/"), "/")
+		city := cities[slug]
+		if !strings.HasPrefix(route, "/api/") || city == nil || !city.Enabled() || strings.HasPrefix(rest, "admin") {
 			return err
 		}
+		route = "/" + rest
 		key := c.Method() + " " + route
 		status := responseStatus(c, err)
 		if status >= fiber.StatusInternalServerError {
-			database.RecordEvent("endpoint_error", key)
+			city.RecordEvent("endpoint_error", key)
 		}
 		if status >= fiber.StatusBadRequest {
 			return err
 		}
-		if route == "/api/live" && c.Query("once") == "" {
+		if route == "/live" && c.Query("once") == "" {
 			key += " stream"
-			database.RecordEvent("endpoint_call", key)
+			city.RecordEvent("endpoint_call", key)
 		} else {
-			database.RecordEndpointTiming(key, time.Since(start))
+			city.RecordEndpointTiming(key, time.Since(start))
 		}
 		if kind != "" {
-			database.RecordVisit(hash, kind)
-			database.RecordEvent("person_call", key)
+			city.RecordVisit(hash, kind)
+			city.RecordEvent("person_call", key)
 		}
 		return err
 	}

@@ -8,6 +8,7 @@ import {clearMoveNotice, moveNotice} from '@/utils/hostMove.ts'
 import {usePushStore} from '@/stores/push.ts'
 import {useRemindersStore} from '@/stores/reminders.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
+import {DEFAULT_CITY} from '@/utils/city.ts'
 
 const {t} = useI18n()
 const push = usePushStore()
@@ -38,9 +39,9 @@ async function turnOn() {
       settings.showToast(t('pushDeniedToast'), {body: t('pushDeniedToastBody'), icon: 'bell-off'})
       return
     }
-    await reminders.sync()
+    await reminders.sync(DEFAULT_CITY)
     // The old host's subscription would keep sending the same reminders.
-    if (moved.pushEndpoint) await apiPost('push/unsubscribe', {endpoint: moved.pushEndpoint}).catch(() => {})
+    if (moved.pushEndpoint) await apiPost('push/unsubscribe', {endpoint: moved.pushEndpoint}, DEFAULT_CITY).catch(() => {})
     dismiss()
   } finally {
     busy.value = false

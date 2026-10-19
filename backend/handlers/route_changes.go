@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
 	"crypto/sha1"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -65,29 +63,27 @@ type RouteChange struct {
 	Changes        []RouteChangeItem `json:"changes"`
 }
 
-func storeTimetableTrackingChanges(t *models.Timetable) error {
-	previous, _ := getTimetableFromDB(t.RouteShortName)
-	if err := storeTimetableInDB(t); err != nil {
+func (city *City) storeTimetableTrackingChanges(t *models.Timetable) error {
+	previous, _ := city.GetTimetable(t.RouteShortName)
+	if err := city.storeTimetableInDB(t); err != nil {
 		return err
 	}
 	if previous != nil {
-		recordRouteChanges(t.RouteShortName, routeChangeSourceTimetable, diffTimetables(previous, t))
+		city.recordRouteChanges(t.RouteShortName, routeChangeSourceTimetable, diffTimetables(previous, t))
 	}
 	return nil
 }
 
-func storeStopTimesTrackingChanges(routeShortName string) func([]models.StopTime) error {
-	return func(stopTimes []models.StopTime) error {
-		previous, err := getStopTimesForTrips(tripIDsOf(stopTimes))
-		if err != nil {
-			log.Printf("route changes: could not read previous stops for line %s: %v", routeShortName, err)
-		}
-		if err := storeStopTimesInDB(stopTimes); err != nil {
-			return err
-		}
-		recordRouteChanges(routeShortName, routeChangeSourceStops, diffRouteStops(previous, stopTimes))
-		return nil
+func (city *City) storeStopTimesTrackingChanges(routeShortName string, stopTimes []models.StopTime) error {
+	previous, err := city.getStopTimesForTrips(tripIDsOf(stopTimes))
+	if err != nil {
+		city.log("route changes: could not read previous stops for line %s: %v", routeShortName, err)
 	}
+	if err := city.storeStopTimesInDB(stopTimes); err != nil {
+		return err
+	}
+	city.recordRouteChanges(routeShortName, routeChangeSourceStops, city.diffRouteStops(previous, stopTimes))
+	return nil
 }
 
 func diffTimetables(previous, current *models.Timetable) []RouteChangeItem {
@@ -321,7 +317,7 @@ func mergeChangeDays(items []RouteChangeItem) []RouteChangeItem {
 	return merged
 }
 
-func diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
+func (city *City) diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
 	before := stopsByTrip(previous)
 	after := stopsByTrip(current)
 
@@ -343,7 +339,7 @@ func diffRouteStops(previous, current []models.StopTime) []RouteChangeItem {
 			continue
 		}
 		if common*2 < min(len(old), len(cur)) {
-			log.Printf("route changes: ignoring stop diff for %s, only %d of %d/%d stops in common", tripID, common, len(old), len(cur))
+			city.log("route changes: ignoring stop diff for %s, only %d of %d/%d stops in common", tripID, common, len(old), len(cur))
 			continue
 		}
 		base := RouteChangeItem{
@@ -444,13 +440,13 @@ func tripIDsOf(stopTimes []models.StopTime) []string {
 	return ids
 }
 
-func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) {
+func (city *City) recordRouteChanges(routeShortName, source string, items []RouteChangeItem) {
 	if len(items) == 0 {
 		return
 	}
 	payload, err := json.Marshal(items)
 	if err != nil {
-		log.Printf("route changes: could not encode changes for line %s: %v", routeShortName, err)
+		city.log("route changes: could not encode changes for line %s: %v", routeShortName, err)
 		return
 	}
 	sum := sha1.Sum(append([]byte(source+"|"), payload...))
@@ -458,15 +454,15 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 	now := time.Now()
 	cutoff := now.Add(-routeChangeRetention).UnixMilli()
 
-	tx, err := database.DB.Begin()
+	tx, err := city.DB.Begin()
 	if err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(`DELETE FROM route_changes WHERE detected_at < ?`, cutoff); err != nil {
-		log.Printf("route changes: could not prune: %v", err)
+		city.log("route changes: could not prune: %v", err)
 		return
 	}
 	// Upstream data that flaps back and forth would otherwise repeat the same news.
@@ -478,29 +474,29 @@ func recordRouteChanges(routeShortName, source string, items []RouteChangeItem) 
 		return
 	}
 	if err != sql.ErrNoRows {
-		log.Printf("route changes: could not check line %s: %v", routeShortName, err)
+		city.log("route changes: could not check line %s: %v", routeShortName, err)
 		return
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO route_changes (route_short_name, source, changes, signature, detected_at, push_pending) VALUES (?, ?, ?, ?, ?, ?)`,
 		routeShortName, source, string(payload), signature, now.UnixMilli(), pushCfg != nil); err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		log.Printf("route changes: could not record line %s: %v", routeShortName, err)
+		city.log("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
-	wakePushSender()
+	city.wakePushSender()
 
 	kinds := make([]string, len(items))
 	for i, item := range items {
 		kinds[i] = item.Kind + "/" + item.Direction
 	}
-	log.Printf("route changes: line %s %s changed (%s)", routeShortName, source, strings.Join(kinds, ", "))
+	city.log("route changes: line %s %s changed (%s)", routeShortName, source, strings.Join(kinds, ", "))
 }
 
-func GetRouteChanges(c fiber.Ctx) error {
+func (city *City) GetRouteChanges(c fiber.Ctx) error {
 	conditions := []string{"c.detected_at >= ?"}
 	args := []any{time.Now().Add(-routeChangeRetention).UnixMilli()}
 
@@ -527,7 +523,7 @@ func GetRouteChanges(c fiber.Ctx) error {
 	}
 	args = append(args, maxRouteChangesPerRequest)
 
-	changes, err := queryRows(`
+	changes, err := queryRows(city.DB, `
 		SELECT c.id, c.route_short_name, COALESCE(r.route_id, 0), COALESCE(r.route_color, ''),
 		       c.source, c.detected_at, c.changes
 		FROM route_changes c

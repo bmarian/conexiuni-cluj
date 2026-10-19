@@ -5,17 +5,19 @@ import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import {buildHourlyOffsets, buildStopInfo, network, type DayType} from '@/utils/network.ts'
 import {getShapeStopTimes, getTimeOffsetToStop} from '@/utils/trips.ts'
 import {DAY_TYPES, MAX_REMINDERS, nextDeparture, nextOf, resolveSlots, stopTimesByDayType, type Reminder} from '@/utils/reminders.ts'
-import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription.ts'
+import {pushRegistration, pushSubscription, pushSupported, retractReminder} from '@/utils/pushSubscription.ts'
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {usePushStore} from '@/stores/push.ts'
+import {cacheKey, citiesSaving, currentCity} from '@/utils/city.ts'
 
-const STORAGE_KEY = 'reminders.v1'
-const SYNCED_KEY = 'reminders.synced'
+export const REMINDERS_KEY = 'reminders.v1'
+const storageKey = (city?: string) => cacheKey(REMINDERS_KEY, city)
+const syncedKey = (city?: string) => cacheKey('reminders.synced', city)
 
-function load(): Reminder[] {
+function load(city?: string): Reminder[] {
   try {
-    const list = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const list = JSON.parse(localStorage.getItem(storageKey(city)) ?? '[]')
     return Array.isArray(list) ? list.filter((r) => r && typeof r.id === 'string' && r.slots) : []
   } catch {
     return []
@@ -50,12 +52,17 @@ export const useRemindersStore = defineStore('reminders', () => {
   const settings = useSettingsStore()
   const reminders = ref<Reminder[]>(load())
   const editing = shallowRef<ReminderTarget | null>(null)
-  const syncing = ref(false)
-  let again = false
+  const syncing = new Set<string>()
+  const again = new Set<string>()
+
+  watch(currentCity, () => {
+    reminders.value = load()
+    editing.value = null
+  }, {flush: 'sync'})
 
   function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders.value))
+      localStorage.setItem(storageKey(), JSON.stringify(reminders.value))
     } catch {}
   }
 
@@ -64,9 +71,9 @@ export const useRemindersStore = defineStore('reminders', () => {
   }
 
   // Off: the server gets none; the list stays here.
-  function payload() {
+  function payload(list: Reminder[]) {
     if (!settings.busAlerts) return []
-    return reminders.value.map((r) => ({
+    return list.map((r) => ({
       id: r.id,
       stop_id: r.stopId,
       stop_name: r.stopName,
@@ -82,38 +89,39 @@ export const useRemindersStore = defineStore('reminders', () => {
     }))
   }
 
-  async function sync(): Promise<boolean> {
+  async function sync(city = currentCity.value): Promise<boolean> {
     if (!pushSupported()) return false
-    const hadServer = localStorage.getItem(SYNCED_KEY) === 'true'
-    const list = payload()
+    const hadServer = localStorage.getItem(syncedKey(city)) === 'true'
+    const list = payload(city === currentCity.value ? reminders.value : load(city))
     if (!list.length && !hadServer) return true
     if (Notification.permission !== 'granted') return false
-    if (syncing.value) {
-      again = true
+    if (syncing.has(city)) {
+      again.add(city)
       return true
     }
-    syncing.value = true
+    syncing.add(city)
     try {
       const reg = await pushRegistration()
       if (!reg) return false
       const sub = await pushSubscription(reg)
-      await apiPost('push/reminders', {...sub.toJSON(), locale: settings.locale, reminders: list})
-      localStorage.setItem(SYNCED_KEY, list.length ? 'true' : 'false')
-      if (!list.length && !usePushStore().enabled) await usePushStore().disable()
+      await apiPost('push/reminders', {...sub.toJSON(), locale: settings.locale, reminders: list}, city)
+      localStorage.setItem(syncedKey(city), list.length ? 'true' : 'false')
+      if (!list.length) await usePushStore().settleCity(city)
       return true
     } catch (err) {
       console.warn('Reminder sync failed:', err)
       return false
     } finally {
-      syncing.value = false
-      if (again) {
-        again = false
-        void sync()
-      }
+      syncing.delete(city)
+      if (again.delete(city)) void sync(city)
     }
   }
 
-  watch(() => settings.busAlerts, () => void sync())
+  async function syncAll() {
+    for (const city of new Set([currentCity.value, ...citiesSaving(REMINDERS_KEY)])) await sync(city)
+  }
+
+  watch(() => settings.busAlerts, () => void syncAll())
 
   const full = (id?: string) => reminders.value.length >= MAX_REMINDERS && !reminders.value.some((r) => r.id === id)
 
@@ -125,6 +133,8 @@ export const useRemindersStore = defineStore('reminders', () => {
   }
 
   function remove(id: string) {
+    const gone = reminders.value.find((r) => r.id === id)
+    if (gone && pushSupported()) void retractReminder(id, nextOf(gone, Date.now()) ?? Date.now())
     reminders.value = reminders.value.filter((r) => r.id !== id)
     persist()
     return sync()
@@ -159,7 +169,7 @@ export const useRemindersStore = defineStore('reminders', () => {
   watch(network, (index) => {
     if (index) refresh()
   }, {immediate: true})
-  watch(() => settings.locale, () => void sync())
+  watch(() => settings.locale, () => void syncAll())
 
   function openSheet(target: ReminderTarget) {
     if (!settings.busAlerts) return
@@ -174,5 +184,5 @@ export const useRemindersStore = defineStore('reminders', () => {
     editing.value = null
   }
 
-  return {reminders, syncing, editing, forBus, full, save, remove, refresh, sync, openSheet, closeSheet}
+  return {reminders, editing, forBus, full, save, remove, refresh, sync, openSheet, closeSheet}
 })

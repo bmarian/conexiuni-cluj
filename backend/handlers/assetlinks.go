@@ -35,10 +35,8 @@ func AssetLinksHandler(packageName string, fingerprints []string) fiber.Handler 
 	}
 }
 
-func EncodesItself(path string) bool {
-	switch path {
-	case "/api/live", "/api/network":
-		return true
-	}
-	return false
+// The network bundle and the live stream set their own encoding and ETag.
+func EncodesItself(c fiber.Ctx) bool {
+	_, endpoint, _ := strings.Cut(strings.TrimPrefix(c.Path(), "/api/"), "/")
+	return endpoint == "network" || endpoint == "live" && c.Query("once") == ""
 }
