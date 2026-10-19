@@ -4,6 +4,7 @@ import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {type DayNote, hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
 import {apiPath, cacheKey, currentCity} from '@/utils/city.ts'
+import {byModeThenNumber, mainMode, type Mode, modeOf} from '@/utils/modes.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -58,6 +59,89 @@ export class NetworkIndex {
     const route = this.routeById.get(Number(tripId.split('_')[0]))
     return route?.trips.find((t) => t.trip_id === tripId)?.shape_hash
   }
+
+  private stationIndex?: {platforms: Map<number, Stop[]>, looks: Map<number, StationLook>}
+
+  private get stations() {
+    if (this.stationIndex) return this.stationIndex
+    const platforms = new Map<number, Stop[]>()
+    for (const s of this.bundle.stops) {
+      const id = stationOf(s)
+      const list = platforms.get(id)
+      if (list) list.push(s)
+      else platforms.set(id, [s])
+    }
+    const routes = new Map<number, NetworkRoute[]>()
+    for (const route of [...this.bundle.routes].sort(byModeThenNumber)) {
+      const stations = new Set<number>()
+      for (const trip of route.trips) {
+        for (const stopId of trip.stop_ids) {
+          const stop = this.stopById.get(stopId)
+          if (stop) stations.add(stationOf(stop))
+        }
+      }
+      for (const id of stations) {
+        const list = routes.get(id)
+        if (list) list.push(route)
+        else routes.set(id, [route])
+      }
+    }
+    const modeColor = modeColors(this.bundle.routes)
+    const looks = new Map<number, StationLook>()
+    for (const [id, lines] of routes) {
+      const mode = mainMode(lines.map((l) => l.route_type))
+      const colors = new Set(lines.filter((l) => modeOf(l.route_type) === mode).map((l) => l.route_color))
+      looks.set(id, {mode, color: colors.size === 1 ? [...colors][0]! : modeColor.get(mode)!, routes: lines})
+    }
+    return (this.stationIndex = {platforms, looks})
+  }
+
+  // What stops at the stop's station: its biggest mode, that mode's colour, every line by mode then number.
+  look(stopId: number): StationLook | undefined {
+    const stop = this.stopById.get(stopId)
+    return stop && this.stations.looks.get(stationOf(stop))
+  }
+
+  // The stop's station, the stop itself first.
+  platforms(stopId: number): Stop[] {
+    const stop = this.stopById.get(stopId)
+    if (!stop) return []
+    const all = this.stations.platforms.get(stationOf(stop)) ?? [stop]
+    return [stop, ...all.filter((s) => s.stop_id !== stopId)]
+  }
+
+  // One stop per station, in the order the stations first come.
+  oneStopPerStation<T extends Stop>(stops: T[]): T[] {
+    const seen = new Set<number>()
+    return stops.filter((s) => {
+      const id = stationOf(this.stopById.get(s.stop_id) ?? s)
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+  }
+}
+
+export const stationOf = (stop: Stop): number => stop.station_id || stop.stop_id
+
+export type StationLook = {mode: Mode, color: string, routes: NetworkRoute[]}
+
+// The colour most of a mode's lines wear here; a tie goes to the first by number.
+function modeColors(routes: NetworkRoute[]): Map<Mode, string> {
+  const counts = new Map<Mode, Map<string, number>>()
+  for (const route of [...routes].sort(byModeThenNumber)) {
+    const mode = modeOf(route.route_type)
+    const byColor = counts.get(mode) ?? new Map<string, number>()
+    byColor.set(route.route_color, (byColor.get(route.route_color) ?? 0) + 1)
+    counts.set(mode, byColor)
+  }
+  const out = new Map<Mode, string>()
+  for (const [mode, byColor] of counts) {
+    let best = ''
+    for (const [color, n] of byColor) if (!best || n > byColor.get(best)!) best = color
+    out.set(mode, best)
+  }
+  return out
 }
 
 const CLUJ_TIME = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', weekday: 'short', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit'})

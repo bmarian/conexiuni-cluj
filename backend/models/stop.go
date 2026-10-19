@@ -20,6 +20,8 @@ type Stop struct {
 	StopLon      float64      `json:"stop_lon" db:"stop_lon"`
 	LocationType LocationType `json:"location_type" db:"location_type"`
 	StopCode     string       `json:"stop_code" db:"stop_code"`
+	// Shared by the platforms of one station: the lowest of their stop ids.
+	StationID int `json:"station_id" db:"station_id"`
 }
 
 func (s *Stop) UnmarshalJSON(data []byte) error {

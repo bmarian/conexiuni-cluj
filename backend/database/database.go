@@ -476,6 +476,9 @@ func (s *Store) addMissingColumns() error {
 		"push_subscriptions": {
 			"host TEXT NOT NULL DEFAULT ''",
 		},
+		"stops": {
+			"station_id INTEGER NOT NULL DEFAULT 0",
+		},
 	}
 	for table, columns := range additions {
 		existing, err := s.tableColumns(table)

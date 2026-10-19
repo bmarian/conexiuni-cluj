@@ -30,17 +30,30 @@ const (
 	gridCellDeg = 0.002
 )
 
-// WalkGraph is the walkable OSM network around the stops: undirected, lengths in meters.
-type WalkGraph struct {
+// segments are straight pieces between nodes, found by the grid cells they cross.
+type segments struct {
 	lat, lon []float64
-	first    []int32
-	to       []int32
-	meters   []float32
 	segU     []int32
 	segV     []int32
 	grid     map[[2]int32][]int32
 	box      BBox
-	pool     sync.Pool
+}
+
+func (g *segments) addSegment(u, v int32) {
+	s := int32(len(g.segU))
+	g.segU, g.segV = append(g.segU, u), append(g.segV, v)
+	for _, cell := range g.segmentCells(s) {
+		g.grid[cell] = append(g.grid[cell], s)
+	}
+}
+
+// WalkGraph is the walkable OSM network around the stops: undirected, lengths in meters.
+type WalkGraph struct {
+	segments
+	first  []int32
+	to     []int32
+	meters []float32
+	pool   sync.Pool
 }
 
 func (g *WalkGraph) Nodes() int { return len(g.lat) }
@@ -51,12 +64,21 @@ func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
 	var lat, lon []float64
 	var edges [][2]int32
 	var raw []pbfPlace
-	err := readPBF(bufio.NewReaderSize(r, 1<<20), pbfFilter{node: box.contains, way: walkable, place: placeOf}, func(b pbfBlock) {
+	keep := pbfFilter{
+		node: func(_ int64, lat, lon float64) (bool, bool) {
+			in := box.contains(lat, lon)
+			return in, in
+		},
+		way:   func(_ int64, tag func(string) string) (string, bool) { return "", walkable(tag) },
+		place: placeOf,
+	}
+	err := readPBF(bufio.NewReaderSize(r, 1<<20), keep, func(b pbfBlock) {
 		for _, n := range b.nodes {
 			index[n.id] = int32(len(lat))
 			lat, lon = append(lat, n.lat), append(lon, n.lon)
 		}
-		for _, refs := range b.ways {
+		for _, w := range b.ways {
+			refs := w.refs
 			for i := 1; i < len(refs); i++ {
 				a, okA := index[refs[i-1]]
 				b, okB := index[refs[i]]
@@ -146,7 +168,7 @@ func buildWalkGraph(lat, lon []float64, edges [][2]int32) *WalkGraph {
 	for i := range renumber {
 		renumber[i] = -1
 	}
-	g := &WalkGraph{grid: make(map[[2]int32][]int32)}
+	g := &WalkGraph{segments: segments{grid: make(map[[2]int32][]int32)}}
 	seen := make(map[[2]int32]bool, len(edges))
 	degree := []int32{}
 	for _, e := range edges {
@@ -169,7 +191,7 @@ func buildWalkGraph(lat, lon []float64, edges [][2]int32) *WalkGraph {
 			}
 		}
 		nu, nv := renumber[u], renumber[v]
-		g.segU, g.segV = append(g.segU, nu), append(g.segV, nv)
+		g.addSegment(nu, nv)
 		degree[nu]++
 		degree[nv]++
 	}
@@ -188,9 +210,6 @@ func buildWalkGraph(lat, lon []float64, edges [][2]int32) *WalkGraph {
 		fill[u]++
 		g.to[fill[v]], g.meters[fill[v]] = u, m
 		fill[v]++
-		for _, cell := range g.segmentCells(int32(s)) {
-			g.grid[cell] = append(g.grid[cell], int32(s))
-		}
 	}
 	return g
 }
@@ -199,7 +218,7 @@ func cellOf(lat, lon float64) [2]int32 {
 	return [2]int32{int32(math.Floor(lat / gridCellDeg)), int32(math.Floor(lon / gridCellDeg))}
 }
 
-func (g *WalkGraph) segmentCells(s int32) [][2]int32 {
+func (g *segments) segmentCells(s int32) [][2]int32 {
 	a := cellOf(g.lat[g.segU[s]], g.lon[g.segU[s]])
 	b := cellOf(g.lat[g.segV[s]], g.lon[g.segV[s]])
 	var out [][2]int32
@@ -211,18 +230,19 @@ func (g *WalkGraph) segmentCells(s int32) [][2]int32 {
 	return out
 }
 
-// Snap is a point attached to the nearest walkable segment; Off is the straight walk onto it.
+// Snap is a point attached to the nearest segment; Off is the straight walk onto it.
 type Snap struct {
 	Point  Point
 	Proj   Point
 	Off    float64
+	Seg    int32
 	U, V   int32
 	DU, DV float64
 }
 
-func (g *WalkGraph) Snap(p Point) Snap {
+func (g *segments) Snap(p Point) Snap {
 	center := cellOf(p.Lat, p.Lon)
-	best := Snap{Point: p, Off: math.Inf(1), U: -1, V: -1}
+	best := Snap{Point: p, Off: math.Inf(1), Seg: -1, U: -1, V: -1}
 	cellMeters := gridCellDeg * metersPerDegree * math.Cos(p.Lat*math.Pi/180)
 	for ring := int32(0); ; ring++ {
 		for i := center[0] - ring; i <= center[0]+ring; i++ {
@@ -243,7 +263,7 @@ func (g *WalkGraph) Snap(p Point) Snap {
 	}
 }
 
-func (g *WalkGraph) maxRing(center [2]int32) int32 {
+func (g *segments) maxRing(center [2]int32) int32 {
 	lo, hi := cellOf(g.box.MinLat, g.box.MinLon), cellOf(g.box.MaxLat, g.box.MaxLon)
 	return max(abs32(center[0]-lo[0]), abs32(center[0]-hi[0]), abs32(center[1]-lo[1]), abs32(center[1]-hi[1]))
 }
@@ -255,7 +275,7 @@ func abs32(x int32) int32 {
 	return x
 }
 
-func (g *WalkGraph) project(p Point, s int32) Snap {
+func (g *segments) project(p Point, s int32) Snap {
 	u, v := g.segU[s], g.segV[s]
 	kx := math.Cos(p.Lat * math.Pi / 180)
 	ax, ay := (g.lon[u]-p.Lon)*kx, g.lat[u]-p.Lat
@@ -269,7 +289,7 @@ func (g *WalkGraph) project(p Point, s int32) Snap {
 	seg := haversine(g.lat[u], g.lon[u], g.lat[v], g.lon[v])
 	return Snap{
 		Point: p, Proj: proj, Off: haversine(p.Lat, p.Lon, proj.Lat, proj.Lon),
-		U: u, V: v, DU: t * seg, DV: (1 - t) * seg,
+		Seg: s, U: u, V: v, DU: t * seg, DV: (1 - t) * seg,
 	}
 }
 

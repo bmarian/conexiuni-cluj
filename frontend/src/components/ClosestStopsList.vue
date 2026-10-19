@@ -2,10 +2,11 @@
 import {computed, onUnmounted, watch} from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useSettingsStore } from '@/stores/settings.ts'
 import { useMapStore } from '@/stores/map.ts'
 import type { Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
+import { network } from '@/utils/network.ts'
+import StationLabel from '@/components/StationLabel.vue'
 
 const props = defineProps<{
   stops: Stop[]
@@ -15,7 +16,6 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const router = useRouter()
-const settings = useSettingsStore()
 const mapStore = useMapStore()
 
 const closestStops = computed(() => {
@@ -27,7 +27,8 @@ const closestStops = computed(() => {
     s => s.stop_lon,
     700
   )
-  return sorted.slice(0, 6).map(stop => ({
+  const stations = network.value?.oneStopPerStation(sorted) ?? sorted
+  return stations.slice(0, 6).map(stop => ({
     stop,
     dist: formatMeters(haversineMeters(props.centerLat, props.centerLon, stop.stop_lat, stop.stop_lon))
   }))
@@ -65,20 +66,7 @@ onUnmounted(() => {
         @click="navigateToStop(item.stop)"
         @keydown.enter.space.prevent="navigateToStop(item.stop)"
       >
-        <div
-          class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                aria-hidden="true">🚏</span>
-          <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
-               viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-          </svg>
-        </div>
-        <span
-          class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-          {{ item.stop.stop_name }}
-        </span>
+        <StationLabel :stop="item.stop"/>
         <span v-if="item.dist" class="dist-badge">{{ item.dist }}</span>
         <svg
           class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"

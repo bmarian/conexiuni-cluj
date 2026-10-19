@@ -137,6 +137,12 @@ func (city *City) runIngest(now time.Time) error {
 		if snap, err = city.Static.Snapshot(); err != nil {
 			return fmt.Errorf("snapshot: %w", err)
 		}
+		named := time.Now()
+		if renamed, err := sources.Stations(snap, city.Locate, city.Name); err != nil {
+			city.log("ingest: stops sharing a name keep it: %v", err)
+		} else if renamed > 0 {
+			city.log("ingest: %d stops sharing a name told apart in %s", renamed, time.Since(named).Round(time.Millisecond))
+		}
 		if err := city.storeSnapshot(snap); err != nil {
 			return fmt.Errorf("store snapshot: %w", err)
 		}
@@ -201,10 +207,10 @@ func (city *City) storeSnapshot(snap *sources.Snapshot) error {
 		}); err != nil {
 		return fmt.Errorf("routes: %w", err)
 	}
-	if err := insertAll(tx, `INSERT OR REPLACE INTO stops (stop_id, stop_name, stop_desc, stop_lat, stop_lon, location_type, stop_code) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	if err := insertAll(tx, `INSERT OR REPLACE INTO stops (stop_id, stop_name, stop_desc, stop_lat, stop_lon, location_type, stop_code, station_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		len(snap.Stops), func(i int) []any {
 			s := snap.Stops[i]
-			return []any{s.StopID, s.StopName, s.StopDesc, s.StopLat, s.StopLon, s.LocationType, s.StopCode}
+			return []any{s.StopID, s.StopName, s.StopDesc, s.StopLat, s.StopLon, s.LocationType, s.StopCode, s.StationID}
 		}); err != nil {
 		return fmt.Errorf("stops: %w", err)
 	}

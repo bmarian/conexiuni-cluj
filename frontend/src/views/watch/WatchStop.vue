@@ -3,7 +3,6 @@ import {computed, toRef} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {storeToRefs} from 'pinia'
-import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useStopDepartures} from '@/composables/useStopDepartures.ts'
@@ -12,25 +11,29 @@ import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
 import type {ShapeInfo, VehiclesInStop} from '@/types/tranzy.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
 import {getDirectionFromTripId} from '@/utils/trips.ts'
+import {mainMode} from '@/utils/modes.ts'
 
 const props = defineProps<{ stopId: string }>()
 
 const {t} = useI18n()
 const router = useRouter()
 const routeStore = useRouteStore()
-const favoritesStore = useFavoritesStore()
 const {userTime} = storeToRefs(useUserStore())
 const {
-  stopInfo,
+  platformOf,
+  isFavorite,
+  toggleFavorite,
   stopName,
   isLoading,
   loadError,
   isComputingDepartures,
   departures,
+  busesWithAvailableTimetables,
   isDepartureFavorite,
 } = useStopDepartures(toRef(props, 'stopId'))
 
-const isFavorite = computed(() => favoritesStore.isStopFavorite(Number(props.stopId)))
+const stationMode = computed(() => mainMode((busesWithAvailableTimetables.value || []).map((s: ShapeInfo) => s.route_type)))
+
 
 const departuresSorted = computed(() => [...departures.value].sort((a, b) => {
   const aFav = isDepartureFavorite(a) ? 0 : 1
@@ -53,9 +56,9 @@ function laterTimes(shape: VehiclesInStop): string {
 }
 
 function openRoute(shape: VehiclesInStop) {
-  const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
+  const si = platformOf(shape.route_id)?.shapes_info.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
-  routeStore.setSelectedRoute(si, shape.trip_id, props.stopId, stopName.value || '')
+  routeStore.setSelectedRoute(si, shape.trip_id, String(shape.stop_id ?? props.stopId), stopName.value || '')
   void router.push({
     name: 'route',
     params: {routeId: shape.route_id, direction: getDirectionFromTripId(shape.trip_id)},
@@ -66,7 +69,7 @@ function openRoute(shape: VehiclesInStop) {
 <template>
   <div class="wt-list">
     <header class="wt-head">
-      <span class="wt-kicker">{{ t('busStop') }}</span>
+      <span class="wt-kicker">{{ t(`stopKind_${stationMode}`) }}</span>
       <h1 class="wt-heading">{{ stopName || '…' }}</h1>
     </header>
 
@@ -74,7 +77,7 @@ function openRoute(shape: VehiclesInStop) {
       type="button"
       class="wt-row wt-row-action wt-fish"
       :aria-pressed="isFavorite"
-      @click="favoritesStore.toggleStopFavorite(Number(stopId))"
+      @click="toggleFavorite"
     >
       <IconHeartFilled v-if="isFavorite" class="wt-heart"/>
       <IconHeartOutline v-else/>
@@ -87,7 +90,7 @@ function openRoute(shape: VehiclesInStop) {
     <template v-else>
       <button
         v-for="shape in departuresSorted"
-        :key="shape.route_short_name"
+        :key="shape.trip_id"
         type="button"
         class="wt-row wt-fish"
         @click="openRoute(shape)"

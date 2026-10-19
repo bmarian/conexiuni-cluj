@@ -3,6 +3,7 @@ package handlers
 import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/router"
+	"conexiuni-cluj/sources"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -26,7 +27,24 @@ const (
 	plannerTicketCost  = 15 * time.Minute
 )
 
-func plannerOSMPath() string { return filepath.Join("services", "osm", "romania-latest.osm.pbf") }
+func OSMPath() string { return filepath.Join("services", "osm", "romania-latest.osm.pbf") }
+
+// osmLocate reads towns and streets from the planner's OSM extract.
+func osmLocate(points []sources.Point) ([]string, []string, error) {
+	f, err := os.Open(OSMPath())
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	at := make([]router.Point, len(points))
+	for i, p := range points {
+		at[i] = router.Point{Lat: p.Lat, Lon: p.Lon}
+	}
+	towns, streets, err := router.Localities(f, at)
+	// Reading the country extract peaks far above what is kept.
+	debug.FreeOSMemory()
+	return towns, streets, err
+}
 
 // nil until the walk graph is read.
 func (city *City) plannerPlaces() *router.Places {
@@ -157,7 +175,7 @@ func (city *City) buildStreets(stops []models.Stop, opt router.Options) (*router
 		box.MinLat, box.MaxLat = math.Min(box.MinLat, s.StopLat), math.Max(box.MaxLat, s.StopLat)
 		box.MinLon, box.MaxLon = math.Min(box.MinLon, s.StopLon), math.Max(box.MaxLon, s.StopLon)
 	}
-	f, err := os.Open(plannerOSMPath())
+	f, err := os.Open(OSMPath())
 	if err != nil {
 		return nil, nil, err
 	}

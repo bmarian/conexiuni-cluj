@@ -14,10 +14,13 @@ import (
 // Expects nodes before ways, as Geofabrik writes them.
 
 type pbfFilter struct {
-	node func(lat, lon float64) bool
-	way  func(tag func(key string) string) bool
+	// keep stores the node; tagged is whether its tags may make it a place.
+	node func(id int64, lat, lon float64) (keep, tagged bool)
+	way  func(id int64, tag func(key string) string) (label string, keep bool)
 	// Tagged nodes in the area and ways that are places; nil keeps none.
 	place func(tag func(key string) string, way bool) (placeTags, bool)
+	// nil skips relations.
+	relation func(tag func(key string) string) (pbfRelation, bool)
 }
 
 type pbfNode struct {
@@ -25,11 +28,25 @@ type pbfNode struct {
 	lat, lon float64
 }
 
+type pbfWay struct {
+	id    int64
+	refs  []int64
+	label string
+}
+
+// pbfRelation keeps only its member ways.
+type pbfRelation struct {
+	name  string
+	level int
+	ways  []int64
+}
+
 type pbfBlock struct {
-	nodes  []pbfNode
-	ways   [][]int64
-	places []pbfPlace
-	err    error
+	nodes     []pbfNode
+	ways      []pbfWay
+	places    []pbfPlace
+	relations []pbfRelation
+	err       error
 }
 
 // readPBF decodes blocks on every core and hands them back in file order.
@@ -203,11 +220,11 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 	}
 	node := func(id, lat, lon int64) {
 		la, lo := coord(latOffset, lat), coord(lonOffset, lon)
-		if !keep.node(la, lo) {
-			return
+		kept, tagged := keep.node(id, la, lo)
+		if kept {
+			out.nodes = append(out.nodes, pbfNode{id, la, lo})
 		}
-		out.nodes = append(out.nodes, pbfNode{id, la, lo})
-		if keep.place != nil && len(keys) > 0 {
+		if tagged && keep.place != nil && len(keys) > 0 {
 			if p, ok := keep.place(tag, false); ok {
 				out.places = append(out.places, pbfPlace{placeTags: p, node: id, lat: la, lon: lo, placed: true})
 			}
@@ -272,9 +289,12 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 					node(id, lat, lon)
 				}
 			case 3:
+				var id int64
 				keys, vals, refs = keys[:0], vals[:0], refs[:0]
 				for wp := (pbuf{b: p.bytes()}); wp.more(); {
 					switch f, w := wp.key(); f {
+					case 1:
+						id = int64(wp.varint())
 					case 2:
 						keys = wp.uints(w, keys)
 					case 3:
@@ -290,7 +310,8 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 						out.places = append(out.places, pbfPlace{placeTags: p, node: refs[0]})
 					}
 				}
-				if !keep.way(tag) {
+				label, ok := keep.way(id, tag)
+				if !ok {
 					continue
 				}
 				way := make([]int64, len(refs))
@@ -301,7 +322,40 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 						way[i] = way[i-1] + d
 					}
 				}
-				out.ways = append(out.ways, way)
+				out.ways = append(out.ways, pbfWay{id: id, refs: way, label: label})
+			case 4:
+				if keep.relation == nil {
+					p.skip(w)
+					continue
+				}
+				keys, vals, refs, kv = keys[:0], vals[:0], refs[:0], kv[:0]
+				for rp := (pbuf{b: p.bytes()}); rp.more(); {
+					switch f, w := rp.key(); f {
+					case 2:
+						keys = rp.uints(w, keys)
+					case 3:
+						vals = rp.uints(w, vals)
+					case 9:
+						refs = rp.sints(w, refs)
+					case 10:
+						kv = rp.uints(w, kv)
+					default:
+						rp.skip(w)
+					}
+				}
+				rel, ok := keep.relation(tag)
+				if !ok {
+					continue
+				}
+				// Member ids are deltas; type 1 is a way.
+				var member int64
+				for i, d := range refs {
+					member += d
+					if i < len(kv) && kv[i] == 1 {
+						rel.ways = append(rel.ways, member)
+					}
+				}
+				out.relations = append(out.relations, rel)
 			default:
 				p.skip(w)
 			}

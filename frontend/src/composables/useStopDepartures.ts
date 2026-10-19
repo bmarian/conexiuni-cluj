@@ -5,11 +5,12 @@ import {type DisplayShape, useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import {entriesAt, liveRowKey, useLive} from '@/composables/useLive.ts'
-import type {Shape, ShapeInfo, VehiclesInStop} from '@/types/tranzy.ts'
+import type {Shape, ShapeInfo, StopInfo, VehiclesInStop} from '@/types/tranzy.ts'
 import {getAvailableBusesForStop, hasTimetableEntries} from '@/utils/time.ts'
 import {nextArrivals} from '@/utils/arrivals.ts'
 import {getRouteIdFromTripId} from '@/utils/trips.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
+import {buildStopInfo, network} from '@/utils/network.ts'
 
 const DEPARTURES_SHOWN = 3
 
@@ -48,22 +49,44 @@ export function useStopDepartures(stopId: Ref<string>) {
     mapStore.setLoadedShapes(entries)
   }
 
-  const busesWithAvailableTimetables = computed(() => {
-    return stopInfo.value?.shapes_info.filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable))
+  // The stop and the other platforms of its station.
+  const stopInfos = computed<StopInfo[]>(() => {
+    const info: StopInfo | undefined = stopInfo.value
+    const index = network.value
+    if (!info) return []
+    if (!index) return [info]
+    const others = index.platforms(info.stop_id).slice(1)
+      .map((s) => buildStopInfo(index, s.stop_id))
+      .filter((other): other is StopInfo => other !== null)
+    return [info, ...others]
   })
 
   const shapeInfoByRouteId = computed(() => {
-    const info = stopInfo.value
-    if (!info) return new Map<number, ShapeInfo>()
-    return new Map<number, ShapeInfo>(info.shapes_info.map((shapeInfo: ShapeInfo) => [shapeInfo.route_id, shapeInfo]))
+    const byRoute = new Map<number, ShapeInfo>()
+    for (const info of stopInfos.value) {
+      for (const shapeInfo of info.shapes_info) if (!byRoute.has(shapeInfo.route_id)) byRoute.set(shapeInfo.route_id, shapeInfo)
+    }
+    return byRoute
   })
 
-  // Trips at this stop whose route has a timetable, in the order the stop lists them.
+  // A station is a favourite when any of its platforms is.
+  const favoritePlatform = computed(() =>
+    (stopInfos.value.length ? stopInfos.value.map((info) => info.stop_id) : [stopIdNum.value]).find((id) => favoritesStore.isStopFavorite(id)))
+  const isFavorite = computed(() => favoritePlatform.value !== undefined)
+  const toggleFavorite = () => favoritesStore.toggleStopFavorite(favoritePlatform.value ?? stopIdNum.value)
+
+  const busesWithAvailableTimetables = computed(() =>
+    [...shapeInfoByRouteId.value.values()].filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable)))
+
+  // The platform where a line calls, the stop itself first.
+  function platformOf(routeId: number): StopInfo | undefined {
+    return stopInfos.value.find((info) => info.shapes_info.some((s: ShapeInfo) => s.route_id === routeId))
+  }
+
+  // Trips at the station whose route has a timetable, in the order the stops list them.
   const tripsHere = computed<string[]>(() => {
-    const info = stopInfo.value
-    if (!info) return []
-    const routeIds = new Set((busesWithAvailableTimetables.value ?? []).map((s: ShapeInfo) => s.route_id))
-    return [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]
+    const routeIds = new Set(busesWithAvailableTimetables.value.map((s: ShapeInfo) => s.route_id))
+    return [...new Set(stopInfos.value.flatMap((info) => [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]))]
       .filter((tid) => {
         const tripRouteId = getRouteIdFromTripId(tid)
         return tripRouteId !== null && routeIds.has(tripRouteId)
@@ -79,21 +102,25 @@ export function useStopDepartures(stopId: Ref<string>) {
     const routeId = getRouteIdFromTripId(tid)
     return routeId !== null && favoritesStore.isRouteFavorite(routeId)
   }))
-  const streamStopIds = computed<number[]>(() => (stopInfo.value ? [stopInfo.value.stop_id] : []))
+  const streamStopIds = computed<number[]>(() => stopInfos.value.map((info) => info.stop_id))
   const {rows, vehiclesByTrip, asOfMs} = useLive(streamStopIds, favoriteTripIds)
 
+  // A trip calling at two platforms is listed at the one it reaches first.
   const shapesComingToTheStopBasedOnTimetable = computed(() => {
-    if (!stopInfo.value) return []
-    return getAvailableBusesForStop(
-      stopInfo.value,
-      userTime.value || new Date(),
-      {maxMinutes: 480, limit: DEPARTURES_SHOWN + 1}
-    )
+    const byTrip = new Map<string, VehiclesInStop>()
+    for (const info of stopInfos.value) {
+      const here = getAvailableBusesForStop(info, userTime.value || new Date(), {maxMinutes: 480, limit: DEPARTURES_SHOWN + 1})
+      for (const shape of here) {
+        const known = byTrip.get(shape.trip_id)
+        if (!known || shape.minutes_left < known.minutes_left) byTrip.set(shape.trip_id, {...shape, stop_id: info.stop_id})
+      }
+    }
+    return [...byTrip.values()]
   })
 
   // The server's row replaces the timetable list; without one the timetable stands.
   function withArrivals(shape: VehiclesInStop): VehiclesInStop | null {
-    const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(shape.trip_id, stopIdNum.value))
+    const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(shape.trip_id, shape.stop_id ?? stopIdNum.value))
     if (row) {
       const entries = entriesAt(row, (userTime.value || new Date()).getTime())
       if (!entries.length) return null
@@ -182,6 +209,10 @@ export function useStopDepartures(stopId: Ref<string>) {
 
   return {
     stopInfo,
+    stopInfos,
+    platformOf,
+    isFavorite,
+    toggleFavorite,
     stopName,
     isLoading,
     loadError,

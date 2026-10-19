@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"conexiuni-cluj/sources"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
 
 	"golang.org/x/net/html"
 )
+
+// sctpiasi.ro posts job ads as plain news, with no marker of their own, so only the title tells them apart.
+var sctpJobAd = regexp.MustCompile(`(?i)\bpost\w*\s+(vacant|liber)|\bangajare\b|ocup[aă]rii\s+post`)
 
 func SCTP(page []byte, base *url.URL, loc *time.Location) ([]sources.NewsItem, error) {
 	doc, err := html.Parse(bytes.NewReader(page))
@@ -18,8 +22,12 @@ func SCTP(page []byte, base *url.URL, loc *time.Location) ([]sources.NewsItem, e
 	}
 	var items []sources.NewsItem
 	for _, n := range findAll(doc, withClass("stire-ratp")) {
+		title := text(first(n, withTag("h3")))
+		if sctpJobAd.MatchString(title) {
+			continue
+		}
 		day, _ := time.ParseInLocation("02.01.2006", text(first(n, withClass("data"))), loc)
-		if it, ok := item(text(first(n, withTag("h3"))), attr(first(n, withClass("readmore")), "href"), day, base); ok {
+		if it, ok := item(title, attr(first(n, withClass("readmore")), "href"), day, base); ok {
 			items = append(items, it)
 		}
 	}

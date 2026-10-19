@@ -12,6 +12,9 @@ import { useOnline } from '@/composables/useOnline.ts'
 import { OUTGOING_SUFFIX, type Route, type Stop } from '@/types/tranzy.ts'
 import { formatMeters, haversineMeters, sortByDistance } from '@/utils/geo.ts'
 import { searchPlaces, type Place } from '@/utils/places.ts'
+import { stopMatchRank } from '@/utils/stopSearch.ts'
+import { network } from '@/utils/network.ts'
+import StationLabel from '@/components/StationLabel.vue'
 import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {cityCenter, currentCity} from '@/utils/city.ts'
@@ -86,12 +89,15 @@ const metroLegacyVisible = computed(() => {
 const searchStopResults = computed<Stop[]>(() => {
   const q = norm(search.value.trim())
   if (!q) return []
-  const filtered = props.stops.filter(s => norm(s.stop_name).includes(q))
+  const matches = props.stops
+    .map(stop => ({stop, rank: stopMatchRank(norm(stop.stop_name), q)}))
+    .filter(m => m.rank >= 0)
   const loc = userStore.userLocation
   const sorted = loc
-    ? sortByDistance(filtered, loc.latitude, loc.longitude, s => s.stop_lat, s => s.stop_lon)
-    : filtered
-  return sorted.slice(0, 3)
+    ? sortByDistance(matches, loc.latitude, loc.longitude, m => m.stop.stop_lat, m => m.stop.stop_lon)
+    : matches
+  const ranked = sorted.sort((a, b) => a.rank - b.rank).map(m => m.stop)
+  return (network.value?.oneStopPerStation(ranked) ?? ranked).slice(0, 3)
 })
 
 async function fetchGeo(q: string) {
@@ -335,19 +341,7 @@ function navigateToStop(stop: Stop) {
           <div v-for="entry in stopResultsWithDist" :key="entry.stop.stop_id" class="all-route-row group"
             :data-kbd-item="`search-stop-${entry.stop.stop_id}`"
             @click="navigateToStop(entry.stop)">
-            <div
-              class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
-              <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
-                fill="currentColor">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-              </svg>
-            </div>
-            <span
-              class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-              {{ entry.stop.stop_name }}
-            </span>
+            <StationLabel :stop="entry.stop"/>
             <span v-if="entry.dist" class="dist-badge">{{ entry.dist }}</span>
             <svg
               class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"

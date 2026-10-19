@@ -55,6 +55,52 @@
   border-top-color: #ffffff !important;
 }
 
+.station-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.station-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: white;
+}
+
+.station-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.station-card-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 14rem;
+  white-space: normal;
+}
+
+.station-card-line {
+  min-width: 1.5rem;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 900;
+  text-align: center;
+  color: white;
+}
+
+html[data-paper] .station-card-icon {
+  display: none;
+}
+
 .arcade-theme .stop-name-tooltip {
   background-color: #fffbeb !important;
   color: #78350f !important;

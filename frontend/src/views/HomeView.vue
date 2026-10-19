@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch, watchPostEffect, type Ref} from 'vue'
+import {computed, nextTick, onMounted, ref, watch, watchPostEffect, type Ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -16,6 +16,9 @@ import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection, type Stop} from '@/types/tranzy.ts'
 import UniversalSearch from '@/components/UniversalSearch.vue'
+import StationLabel from '@/components/StationLabel.vue'
+import LoadMore from '@/components/LoadMore.vue'
+import {network} from '@/utils/network.ts'
 import FollowCard from '@/components/FollowCard.vue'
 import JourneyCard from '@/components/JourneyCard.vue'
 import {useFollowsStore} from '@/stores/follows.ts'
@@ -83,8 +86,7 @@ const showAllRoutes = persistedToggle('home.showAllRoutes')
 const showAllStops = persistedToggle('home.showAllStops')
 const scroller = ref<HTMLElement | null>(null)
 
-function revealHeader(ev: Event) {
-  const header = ev.currentTarget as HTMLElement
+function revealHeader(header: HTMLElement) {
   void nextTick(() => {
     const box = scroller.value
     if (!box) return
@@ -95,12 +97,12 @@ function revealHeader(ev: Event) {
 
 function toggleAllRoutes(ev: Event) {
   showAllRoutes.value = !showAllRoutes.value
-  if (showAllRoutes.value) revealHeader(ev)
+  if (showAllRoutes.value) revealHeader(ev.currentTarget as HTMLElement)
 }
 
 function toggleAllStops(ev: Event) {
   showAllStops.value = !showAllStops.value
-  if (showAllStops.value) revealHeader(ev)
+  if (showAllStops.value) revealHeader(ev.currentTarget as HTMLElement)
 }
 const navigatingRouteId = ref<number | null>(null)
 const navigatingRouteKey = ref<string | null>(null)
@@ -119,7 +121,7 @@ const stopsById = computed(() => {
 
 watchPostEffect(() => {
   mapStore.setHighlightedStops(
-    favoriteStopIds.value.map(id => ({stopId: String(id), color: 'red' as const}))
+    favoriteStopIds.value.map(id => ({stopId: String(id), color: 'favorite' as const}))
   )
 })
 
@@ -203,48 +205,28 @@ const sortedRoutes = computed<Route[]>(() => {
 })
 
 const sortedStops = computed<Stop[]>(() => {
-  return [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
+  const sorted = [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
+  return network.value?.oneStopPerStation(sorted) ?? sorted
 })
 
-const FIRST_CHUNK = 30
-const NEXT_CHUNK = 120
+// Rows added at a time as the list scrolls: thousands at once froze the page.
+const PAGE_SIZE = 30
 
-function useProgressiveList<T>(source: () => T[], open: Ref<boolean>) {
-  const limit = ref(0)
-  let frame = 0
-
-  function stop() {
-    cancelAnimationFrame(frame)
-    frame = 0
+function useGrowingList<T>(source: () => T[], open: Ref<boolean>) {
+  const shown = ref(PAGE_SIZE)
+  watch(open, () => {
+    shown.value = PAGE_SIZE
+  })
+  const items = computed(() => source().slice(0, shown.value))
+  const hasMore = computed(() => shown.value < source().length)
+  const more = () => {
+    if (hasMore.value) shown.value += PAGE_SIZE
   }
-
-  function fill() {
-    stop()
-    frame = requestAnimationFrame(() => {
-      frame = 0
-      const total = source().length
-      if (!open.value || limit.value >= total) return
-      limit.value = Math.min(limit.value + NEXT_CHUNK, total)
-      if (limit.value < total) fill()
-    })
-  }
-
-  watch([open, () => source().length], () => {
-    stop()
-    limit.value = open.value ? Math.min(FIRST_CHUNK, source().length) : 0
-    if (open.value) fill()
-  }, {immediate: true})
-
-  onUnmounted(stop)
-
-  return {
-    items: computed(() => source().slice(0, limit.value)),
-    filling: computed(() => open.value && limit.value < source().length),
-  }
+  return {items, hasMore, more}
 }
 
-const {items: visibleRoutes, filling: routesFilling} = useProgressiveList(() => sortedRoutes.value, showAllRoutes)
-const {items: visibleStops, filling: stopsFilling} = useProgressiveList(() => sortedStops.value, showAllStops)
+const {items: visibleRoutes, hasMore: moreRoutes, more: showMoreRoutes} = useGrowingList(() => sortedRoutes.value, showAllRoutes)
+const {items: visibleStops, hasMore: moreStops, more: showMoreStops} = useGrowingList(() => sortedStops.value, showAllStops)
 
 async function navigateToRoute(route: Route, direction?: RouteDirection) {
   if (navigatingRouteId.value === route.route_id) return
@@ -760,14 +742,7 @@ useKbdShortcuts({
               {{ t('allRoutes') }}
             </span>
             <span v-if="sortedRoutes.length" class="collapse-count">{{ sortedRoutes.length }}</span>
-            <svg v-if="routesFilling" class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-                 fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                      stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-            </svg>
             <svg
-              v-else
               class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
               :class="{ 'is-open': showAllRoutes }" fill="none" viewBox="0 0 24 24"
               stroke="currentColor" stroke-width="2.5">
@@ -820,6 +795,7 @@ useKbdShortcuts({
               </svg>
             </div>
           </div>
+          <LoadMore v-if="moreRoutes" :root="scroller" @more="showMoreRoutes"/>
         </template>
       </section>
 
@@ -846,14 +822,7 @@ useKbdShortcuts({
               {{ t('allStops') }}
             </span>
             <span v-if="sortedStops.length" class="collapse-count">{{ sortedStops.length }}</span>
-            <svg v-if="stopsFilling" class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-                 fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                      stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-            </svg>
             <svg
-              v-else
               class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
               :class="{ 'is-open': showAllStops }" fill="none" viewBox="0 0 24 24"
               stroke="currentColor" stroke-width="2.5">
@@ -878,19 +847,7 @@ useKbdShortcuts({
               class="all-route-row long-list-row group"
               :data-kbd-item="`stop-${stop.stop_id}`"
             >
-              <div
-                class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-                <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
-                <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
-                     fill="currentColor">
-                  <path
-                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-              </div>
-              <span
-                class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-                {{ stop.stop_name }}
-              </span>
+              <StationLabel :stop="stop"/>
               <svg
                 class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -898,6 +855,7 @@ useKbdShortcuts({
               </svg>
             </div>
           </div>
+          <LoadMore v-if="moreStops" :root="scroller" @more="showMoreStops"/>
         </template>
       </section>
 
