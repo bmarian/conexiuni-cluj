@@ -127,12 +127,5 @@ export function useSettingsTransfer() {
     importFavorites(data, true)
   }
 
-  // The simplified layout keeps its own look, so it only takes favorites and the language.
-  function applyFavorites(data: unknown) {
-    if (!isRecord(data)) throw new Error('not a settings export')
-    importFavorites(data, false)
-    applyLocale(isRecord(data.settings) ? data.settings.locale : undefined)
-  }
-
-  return {buildExport, applyExport, applyFavorites}
+  return {buildExport, applyExport}
 }
