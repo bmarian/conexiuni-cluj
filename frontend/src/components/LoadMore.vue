@@ -11,7 +11,7 @@ onMounted(() => {
   observer = new IntersectionObserver((entries) => {
     if (!entries.some((e) => e.isIntersecting)) return
     emit('more')
-    // The observer only reports changes, so look again while still in view.
+    // It only reports changes, so look again while still in view.
     void nextTick(() => {
       if (!observer || !el.value) return
       observer.unobserve(el.value)

@@ -24,7 +24,6 @@ var busRoads = map[string]bool{
 type boundary struct {
 	pbfRelation
 	box BBox
-	// End pairs of every ring segment; even-odd crossings handle holes.
 	ends []Point
 }
 
@@ -185,7 +184,7 @@ func Localities(r io.ReadSeeker, points []Point) (towns, streets []string, err e
 	return towns, streets, nil
 }
 
-// The nearest place inside the point's own boundary, so a city's edge is not taken for the next town.
+// Only places inside the point's own boundary.
 func locate(points []Point, roads *segments, labels []string, places []pbfPlace, bounds []boundary) (towns, streets []string) {
 	towns, streets = make([]string, len(points)), make([]string, len(points))
 	within := func(p Point) int {

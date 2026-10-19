@@ -20,7 +20,6 @@ func (city *City) GetStops(filter StopFilter) ([]models.Stop, error) {
 		func(rows *sql.Rows) (models.Stop, error) {
 			var s models.Stop
 			err := rows.Scan(&s.StopID, &s.StopName, &s.StopDesc, &s.StopLat, &s.StopLon, &s.LocationType, &s.StopCode, &s.StationID)
-			// Stored before stations were grouped.
 			if s.StationID == 0 {
 				s.StationID = s.StopID
 			}
