@@ -38,23 +38,11 @@ func (city *City) plannerPlaces() *router.Places {
 // plannerNetwork is the timetable around at's service day, rebuilt when the learned offsets roll over.
 func (city *City) plannerNetwork(at time.Time) (*router.Network, error) {
 	city.planner.Lock()
-	defer city.planner.Unlock()
-
-	stops, err := city.servedStops()
-	if err != nil {
-		return nil, err
-	}
-	h := fnv.New64a()
-	for _, s := range stops {
-		fmt.Fprint(h, s.StopID, s.StopLat, s.StopLon)
-	}
-	stopsKey := h.Sum64()
-	if city.planner.streets == nil || city.planner.stopsKey != stopsKey {
-		streets, places, err := city.buildPlannerStreets(stops)
-		if err != nil {
+	if city.planner.streets == nil {
+		if err := city.readPlannerStreets(); err != nil {
+			city.planner.Unlock()
 			return nil, err
 		}
-		city.planner.streets, city.planner.places, city.planner.stopsKey, city.planner.networks = streets, places, stopsKey, nil
 	}
 
 	day := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
@@ -63,22 +51,58 @@ func (city *City) plannerNetwork(at time.Time) (*router.Network, error) {
 		city.planner.period, city.planner.networks = period, make(map[string]*router.Network)
 	}
 	if n, ok := city.planner.networks[key]; ok {
+		city.planner.Unlock()
 		return n, nil
 	}
+	streets := city.planner.streets
+	if !livePlanDay(key, time.Now().In(at.Location())) {
+		// Built outside the lock: one far-off date must not hold up everyone's plans.
+		city.planner.Unlock()
+		return city.buildPlannerNetwork(streets, day)
+	}
+	defer city.planner.Unlock()
+	n, err := city.buildPlannerNetwork(streets, day)
+	if err != nil {
+		return nil, err
+	}
+	city.planner.networks[key] = n
+	return n, nil
+}
+
+// readPlannerStreets reads the walk graph again when the served stops changed. The caller holds the lock.
+func (city *City) readPlannerStreets() error {
+	stops, err := city.servedStops()
+	if err != nil {
+		return err
+	}
+	h := fnv.New64a()
+	for _, s := range stops {
+		fmt.Fprint(h, s.StopID, s.StopLat, s.StopLon)
+	}
+	stopsKey := h.Sum64()
+	if city.planner.streets != nil && city.planner.stopsKey == stopsKey {
+		return nil
+	}
+	streets, places, err := city.buildPlannerStreets(stops)
+	if err != nil {
+		return err
+	}
+	city.planner.streets, city.planner.places, city.planner.stopsKey, city.planner.networks = streets, places, stopsKey, nil
+	return nil
+}
+
+func (city *City) buildPlannerNetwork(streets *router.Streets, day time.Time) (*router.Network, error) {
 	started := time.Now()
 	patterns, err := city.plannerPatterns(day)
 	if err != nil {
 		return nil, err
 	}
-	n := city.planner.streets.Network(patterns)
+	n := streets.Network(patterns)
 	runs := 0
 	for _, p := range patterns {
 		runs += len(p.Trips)
 	}
 	city.log("planner: %d patterns, %d runs around %s in %s", len(patterns), runs, day.Format("2006-01-02"), time.Since(started).Round(time.Millisecond))
-	if livePlanDay(key, time.Now().In(at.Location())) {
-		city.planner.networks[key] = n
-	}
 	return n, nil
 }
 
@@ -276,8 +300,15 @@ type planResponse struct {
 	RefreshIn int64               `json:"refresh_in"`
 }
 
+// Runs after every ingest, the only writer of stops, so plans never re-read them.
 func (city *City) WarmPlanner() {
-	if _, err := city.plannerNetwork(time.Now().In(city.Location)); err != nil {
+	city.planner.Lock()
+	err := city.readPlannerStreets()
+	city.planner.Unlock()
+	if err == nil {
+		_, err = city.plannerNetwork(time.Now().In(city.Location))
+	}
+	if err != nil {
 		city.log("planner: %v", err)
 	}
 }
@@ -294,6 +325,11 @@ func (city *City) handlePlan(c fiber.Ctx) error {
 	if when.IsZero() {
 		when = time.Now().In(city.Location)
 	}
+	release, ok := acquirePlanSlot(ClientHashFromLocals(c))
+	if !ok {
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+	defer release()
 	asked := when
 	last := c.Query("last") == "true"
 	n, err := city.plannerNetwork(when)

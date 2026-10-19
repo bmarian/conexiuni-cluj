@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bufio"
-	"compress/gzip"
 	"conexiuni-cluj/database"
 	"encoding/json"
 	"fmt"
@@ -33,17 +32,22 @@ type liveSubscriber struct {
 	ch     chan *liveTable
 }
 
+// Shared by every city's hub, so the cap holds across cities.
+var liveClients = struct {
+	sync.Mutex
+	streams map[string]int
+}{streams: map[string]int{}}
+
 type liveHub struct {
 	mu          sync.Mutex
 	subscribers map[int64]*liveSubscriber
-	perClient   map[string]int
 	nextID      int64
 	running     bool
 	city        *City
 }
 
 func newLiveHub(city *City) *liveHub {
-	return &liveHub{subscribers: make(map[int64]*liveSubscriber), perClient: make(map[string]int), city: city}
+	return &liveHub{subscribers: make(map[int64]*liveSubscriber), city: city}
 }
 
 func (h *liveHub) intervalFor(subscribers int) time.Duration {
@@ -176,12 +180,14 @@ func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs [
 	for _, id := range tripIDs {
 		sub.trips[id] = struct{}{}
 	}
-	h.mu.Lock()
-	if h.perClient[client] >= maxLiveStreamsPerClient {
-		h.mu.Unlock()
+	liveClients.Lock()
+	if liveClients.streams[client] >= maxLiveStreamsPerClient {
+		liveClients.Unlock()
 		return nil, 0, false
 	}
-	h.perClient[client]++
+	liveClients.streams[client]++
+	liveClients.Unlock()
+	h.mu.Lock()
 	id := atomic.AddInt64(&h.nextID, 1)
 	h.subscribers[id] = sub
 	start := !h.running
@@ -203,13 +209,15 @@ func (h *liveHub) Unsubscribe(id int64) {
 	sub, ok := h.subscribers[id]
 	if ok {
 		delete(h.subscribers, id)
-		if h.perClient[sub.client]--; h.perClient[sub.client] <= 0 {
-			delete(h.perClient, sub.client)
-		}
 	}
 	remaining := len(h.subscribers)
 	h.mu.Unlock()
 	if ok {
+		liveClients.Lock()
+		if liveClients.streams[sub.client]--; liveClients.streams[sub.client] <= 0 {
+			delete(liveClients.streams, sub.client)
+		}
+		liveClients.Unlock()
 		h.city.log("live hub: -subscriber %d (remaining=%d)", id, remaining)
 	}
 }
@@ -422,7 +430,7 @@ func (city *City) ServeLive(c fiber.Ctx) error {
 		defer city.hub.Unsubscribe(id)
 		out := &eventWriter{w: w}
 		if gzipped {
-			out.gz, _ = gzip.NewWriterLevel(w, gzip.BestSpeed)
+			out.gz = newStreamGzip(w)
 		}
 		defer out.close()
 		keep := time.NewTicker(liveKeepAlive)
@@ -468,15 +476,12 @@ func (city *City) ServeLive(c fiber.Ctx) error {
 
 type eventWriter struct {
 	w  *bufio.Writer
-	gz *gzip.Writer
+	gz *streamGzip
 }
 
 func (e *eventWriter) write(text string) error {
 	if e.gz != nil {
-		if _, err := e.gz.Write([]byte(text)); err != nil {
-			return err
-		}
-		if err := e.gz.Flush(); err != nil {
+		if err := e.gz.write([]byte(text)); err != nil {
 			return err
 		}
 	} else if _, err := e.w.WriteString(text); err != nil {
@@ -487,7 +492,7 @@ func (e *eventWriter) write(text string) error {
 
 func (e *eventWriter) close() {
 	if e.gz != nil {
-		_ = e.gz.Close()
+		_ = e.gz.close()
 		_ = e.w.Flush()
 	}
 }

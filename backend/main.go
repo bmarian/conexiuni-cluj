@@ -172,7 +172,7 @@ func main() {
 	app.Use(handlers.SecurityHeaders)
 	app.Use(compress.New(compress.Config{
 		Next: func(c fiber.Ctx) bool {
-			return handlers.EncodesItself(c.Path())
+			return handlers.EncodesItself(c)
 		},
 	}))
 
@@ -182,7 +182,7 @@ func main() {
 	api.Use(etag.New(etag.Config{
 		Weak: true,
 		Next: func(c fiber.Ctx) bool {
-			return handlers.EncodesItself(c.Path())
+			return handlers.EncodesItself(c)
 		},
 	}))
 	api.Get("/cities", handlers.CitiesHandler(cities))
