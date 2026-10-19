@@ -72,7 +72,9 @@ export class NetworkIndex {
       else platforms.set(id, [s])
     }
     const routes = new Map<number, NetworkRoute[]>()
+    // The lines a stop page lists: those with a timetable.
     for (const route of [...this.bundle.routes].sort(byModeThenNumber)) {
+      if (!route.timetable || !hasTimetableEntries(route.timetable)) continue
       const stations = new Set<number>()
       for (const trip of route.trips) {
         for (const stopId of trip.stop_ids) {
