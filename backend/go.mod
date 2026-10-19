@@ -9,6 +9,7 @@ require (
 	github.com/klauspost/compress v1.19.2
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
 	github.com/mattn/go-sqlite3 v1.14.52
+	golang.org/x/net v0.61.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
 )
@@ -28,6 +29,5 @@ require (
 	github.com/valyala/fasthttp v1.73.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 )

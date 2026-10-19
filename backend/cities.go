@@ -8,6 +8,7 @@ import (
 	"conexiuni-cluj/sources/eltrans"
 	"conexiuni-cluj/sources/gtfs"
 	"conexiuni-cluj/sources/gtfsrt"
+	"conexiuni-cluj/sources/news"
 	"conexiuni-cluj/sources/stpt"
 	"conexiuni-cluj/sources/tranzy"
 	"fmt"
@@ -77,6 +78,7 @@ type tranzyAgency struct {
 	slug, name, operator, operatorURL, agencyID string
 	// Tranzy has no departure times; nil leaves only learned ones.
 	timetables sources.Timetables
+	news       sources.News
 }
 
 func (a tranzyAgency) keys() (key, learning string) {
@@ -99,7 +101,7 @@ func (a tranzyAgency) city(cfg *Config, opts handlers.Options) (*handlers.City, 
 		learning = tranzy.New(learningClient)
 	}
 	city := handlers.NewCity(a.slug, a.name, store, static, a.timetables, static, learning, learningFor(a.slug, opts))
-	city.Operator, city.OperatorURL = a.operator, a.operatorURL
+	city.Operator, city.OperatorURL, city.News = a.operator, a.operatorURL, a.news
 	return city, nil
 }
 
@@ -116,12 +118,15 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 	feed := func(city string) sources.Timetables {
 		return gtfs.New("https://external.gtfs.ro/"+city+"/"+strings.ToUpper(city)+".zip", cfg.TimetableRefresh, nil)
 	}
+	newsPage := func(url string, parse news.Parser) sources.News { return news.New(url, parse, cfg.NewsRefresh) }
 	agencies := []tranzyAgency{
-		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "https://ctpcj.ro/", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh)},
-		{"iasi", "Iași", "CTP Iași", "https://www.sctpiasi.ro/", "1", feed("iasi")},
-		{"botosani", "Botoșani", "Eltrans Botoșani", "https://eltransbt.ro/", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh)},
-		{"oradea", "Oradea", "OTL Oradea", "https://www.otl.ro/", "9", feed("oradea")},
-		{"constanta", "Constanța", "CT BUS Constanța", "https://www.ctbus.ro/", "10", feed("constanta")},
+		{"cluj", "Cluj-Napoca", "CTP Cluj-Napoca", "https://ctpcj.ro/", "2", ctpcsv.New(cfg.CtpCsvBaseUrl, cfg.CtpCjRateLimit, cfg.TimetableRefresh),
+			newsPage("https://www.ctpcj.ro/index.php/ro/despre-noi/stiri?format=feed&type=rss", news.RSS)},
+		{"iasi", "Iași", "CTP Iași", "https://www.sctpiasi.ro/", "1", feed("iasi"), newsPage("https://www.sctpiasi.ro/ro/stiri", news.SCTP)},
+		// eltransbt.ro posts only job ads.
+		{"botosani", "Botoșani", "Eltrans Botoșani", "https://eltransbt.ro/", "6", eltrans.New("https://primariabt.ro/storage/2020/07/microbusautobus.pdf", cfg.TimetableRefresh), nil},
+		{"oradea", "Oradea", "OTL Oradea", "https://www.otl.ro/", "9", feed("oradea"), newsPage("https://www.otl.ro/index.php/ro/?format=feed&type=rss", news.RSS)},
+		{"constanta", "Constanța", "CT BUS Constanța", "https://www.ctbus.ro/", "10", feed("constanta"), newsPage("https://www.ctbus.ro/comunicate", news.CTBus)},
 	}
 	var cities []*handlers.City
 	for _, a := range agencies {
@@ -142,9 +147,11 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 		return func(ids sources.IDMap) sources.Realtime { return stpt.New(url, ids) }
 	}
 	feeds := []gtfsCity{
-		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/", "https://tursib.ro/trasee/gtfs", nil},
-		{"bucuresti", "București", "TPBI", "https://tpbi.ro/", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", gtfsRealtime("https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions")},
-		{"timisoara", "Timișoara", "STPT Timișoara", "https://stpt.ro/", "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip", stptMap("https://live.stpt.ro/gtfs-vehicles.php")},
+		{"sibiu", "Sibiu", "Tursib", "https://tursib.ro/", "https://tursib.ro/trasee/gtfs", nil, newsPage("https://tursib.ro/news", news.Tursib)},
+		{"bucuresti", "București", "TPBI", "https://tpbi.ro/", "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip", gtfsRealtime("https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions"),
+			newsPage("https://tpbi.ro/feed/", news.RSS)},
+		{"timisoara", "Timișoara", "STPT Timișoara", "https://stpt.ro/", "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip", stptMap("https://live.stpt.ro/gtfs-vehicles.php"),
+			newsPage("https://stpt.ro/feed/", news.RSS)},
 	}
 	for _, g := range feeds {
 		city, err := g.city(cfg, opts)
@@ -162,6 +169,7 @@ func buildCities(cfg *Config) ([]*handlers.City, error) {
 type gtfsCity struct {
 	slug, name, operator, operatorURL, url string
 	realtime                               func(sources.IDMap) sources.Realtime
+	news                                   sources.News
 }
 
 func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, error) {
@@ -175,7 +183,7 @@ func (g gtfsCity) city(cfg *Config, opts handlers.Options) (*handlers.City, erro
 		realtime = g.realtime(store)
 	}
 	city := handlers.NewCity(g.slug, g.name, store, feed, nil, realtime, nil, learningFor(g.slug, opts))
-	city.Operator, city.OperatorURL = g.operator, g.operatorURL
+	city.Operator, city.OperatorURL, city.News = g.operator, g.operatorURL, g.news
 	if rt, ok := realtime.(*gtfsrt.Source); ok {
 		rt.Placement = city
 	}

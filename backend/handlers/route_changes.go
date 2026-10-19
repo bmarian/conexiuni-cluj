@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	routeChangeRetention = 30 * 24 * time.Hour
+	updateRetention = 30 * 24 * time.Hour
 
 	routeChangeSourceTimetable = "timetable"
 	routeChangeSourceStops     = "stops"
@@ -452,7 +452,7 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 	sum := sha1.Sum(append([]byte(source+"|"), payload...))
 	signature := hex.EncodeToString(sum[:])
 	now := time.Now()
-	cutoff := now.Add(-routeChangeRetention).UnixMilli()
+	cutoff := now.Add(-updateRetention).UnixMilli()
 
 	tx, err := city.DB.Begin()
 	if err != nil {
@@ -497,38 +497,55 @@ func (city *City) recordRouteChanges(routeShortName, source string, items []Rout
 }
 
 func (city *City) GetRouteChanges(c fiber.Ctx) error {
-	conditions := []string{"c.detected_at >= ?"}
-	args := []any{time.Now().Add(-routeChangeRetention).UnixMilli()}
-
+	var changes []RouteChange
+	var err error
 	if s := c.Query("id"); s != "" {
-		id, err := strconv.ParseInt(s, 10, 64)
-		if err != nil {
+		id, parseErr := strconv.ParseInt(s, 10, 64)
+		if parseErr != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 		}
-		conditions = append(conditions, "c.id = ?")
-		args = append(args, id)
+		changes, err = city.recentRouteChanges("c.id = ?", id)
 	} else {
-		var names []string
-		for _, name := range strings.Split(c.Query("routes"), ",") {
-			if name = strings.TrimSpace(name); name != "" && len(names) < maxRouteChangeFilterNames {
-				names = append(names, name)
-				args = append(args, name)
-			}
-		}
-		if len(names) == 0 {
-			c.Set("Cache-Control", revalidateCacheControl)
-			return c.JSON([]RouteChange{})
-		}
-		conditions = append(conditions, "c.route_short_name IN ("+strings.TrimSuffix(strings.Repeat("?,", len(names)), ",")+")")
+		changes, err = city.routeChangesOf(routeNamesQuery(c))
 	}
-	args = append(args, maxRouteChangesPerRequest)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	c.Set("Cache-Control", revalidateCacheControl)
+	return c.JSON(changes)
+}
 
-	changes, err := queryRows(city.DB, `
+func routeNamesQuery(c fiber.Ctx) []string {
+	var names []string
+	for _, name := range strings.Split(c.Query("routes"), ",") {
+		if name = strings.TrimSpace(name); name != "" && len(names) < maxRouteChangeFilterNames {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func (city *City) routeChangesOf(names []string) ([]RouteChange, error) {
+	if len(names) == 0 {
+		return []RouteChange{}, nil
+	}
+	args := make([]any, len(names))
+	for i, name := range names {
+		args[i] = name
+	}
+	return city.recentRouteChanges("c.route_short_name IN ("+strings.TrimSuffix(strings.Repeat("?,", len(names)), ",")+")", args...)
+}
+
+func (city *City) recentRouteChanges(condition string, args ...any) ([]RouteChange, error) {
+	args = append([]any{time.Now().Add(-updateRetention).UnixMilli()}, args...)
+	args = append(args, maxRouteChangesPerRequest)
+	return queryRows(city.DB, `
 		SELECT c.id, c.route_short_name, COALESCE(r.route_id, 0), COALESCE(r.route_color, ''),
 		       c.source, c.detected_at, c.changes
 		FROM route_changes c
 		LEFT JOIN (SELECT route_short_name, MAX(route_id) AS route_id, route_color FROM routes GROUP BY route_short_name) r
-		  ON r.route_short_name = c.route_short_name`+whereClause(conditions)+`
+		  ON r.route_short_name = c.route_short_name
+		WHERE c.detected_at >= ? AND `+condition+`
 		ORDER BY c.detected_at DESC, c.id DESC
 		LIMIT ?`,
 		args,
@@ -541,11 +558,6 @@ func (city *City) GetRouteChanges(c fiber.Ctx) error {
 			rc.Changes = []RouteChangeItem{}
 			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
 		})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-	}
-	c.Set("Cache-Control", revalidateCacheControl)
-	return c.JSON(changes)
 }
 
 func absInt(v int) int {

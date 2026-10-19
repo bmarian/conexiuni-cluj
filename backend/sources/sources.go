@@ -35,6 +35,17 @@ type Timetables interface {
 	Cadence() time.Duration
 }
 
+type NewsItem struct {
+	Title string
+	URL   string
+	At    time.Time
+}
+
+type News interface {
+	News() ([]NewsItem, error)
+	Cadence() time.Duration
+}
+
 type Budget struct {
 	Remaining int
 	// Zero means unmetered.

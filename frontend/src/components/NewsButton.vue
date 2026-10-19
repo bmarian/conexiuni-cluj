@@ -5,7 +5,8 @@ import {useRoute, useRouter} from 'vue-router'
 import {useSettingsStore} from '@/stores/settings'
 import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {changeDirection, changeKindLabels, changeTitle} from '@/utils/routeChanges'
-import {buildNewsFeed} from '@/utils/newsFeed'
+import {buildNewsFeed, newsSource} from '@/utils/newsFeed'
+import {cityInfo} from '@/utils/city.ts'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
@@ -33,12 +34,18 @@ watch([isOpen, () => routeUpdates.changes], ([open], [wasOpen]) => {
   routeUpdates.markAllSeen()
 })
 
-const feed = computed(() => buildNewsFeed(routeUpdates.changes, new Date(), locale.value, t).map((entry) => ({
-  ...entry,
-  title: changeTitle(entry.change, t),
-  meta: [entry.date, ...changeKindLabels(entry.change, t)].join(' · '),
-  isNew: freshIds.value.has(entry.change.id),
-})))
+const feed = computed(() => buildNewsFeed(routeUpdates.updates, new Date(), locale.value, t).map((entry) =>
+  entry.kind === 'change'
+    ? {
+      ...entry,
+      title: changeTitle(entry.change, t),
+      meta: [entry.date, ...changeKindLabels(entry.change, t)].join(' · '),
+      isNew: freshIds.value.has(entry.change.id),
+    }
+    : {...entry, title: entry.news.title, meta: `${entry.date} · ${newsSource(entry.news.url)}`, isNew: false},
+))
+
+const operatorWord = computed(() => cityInfo()?.operator.split(' ')[0] ?? '')
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
@@ -80,7 +87,7 @@ function onVisibilityChange() {
 }
 
 onMounted(() => {
-  void routeUpdates.fetchChanges()
+  void routeUpdates.fetchUpdates()
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
@@ -121,29 +128,60 @@ const topValue = computed(() => props.topOffset)
 
       <div class="news-scroll">
         <div v-if="feed.length" class="news-list" data-kbd-section="news">
-          <button
-            v-for="entry in feed"
-            :key="entry.key"
-            type="button"
-            class="news-item"
-            :class="{ 'is-new': entry.isNew }"
-            :disabled="!entry.change.route_id"
-            :data-kbd-item="entry.key"
-            @click="openChange(entry.change)"
-          >
-            <span class="news-lead">
-              <span class="news-change-badge" :style="{ backgroundColor: entry.change.route_color || '#64748b' }">
-                {{ entry.change.route_short_name }}
+          <template v-for="entry in feed" :key="entry.key">
+            <button
+              v-if="entry.kind === 'change'"
+              type="button"
+              class="news-item"
+              :class="{ 'is-new': entry.isNew }"
+              :disabled="!entry.change.route_id"
+              :data-kbd-item="entry.key"
+              @click="openChange(entry.change)"
+            >
+              <span class="news-lead">
+                <span class="news-change-badge" :style="{ backgroundColor: entry.change.route_color || '#64748b' }">
+                  {{ entry.change.route_short_name }}
+                </span>
               </span>
-            </span>
-            <span class="news-body">
-              <span class="news-title">
-                {{ entry.title }}
-                <span v-if="entry.isNew" class="news-unread"><span class="sr-only">{{ t('newsNew') }}</span></span>
+              <span class="news-body">
+                <span class="news-title">
+                  {{ entry.title }}
+                  <span v-if="entry.isNew" class="news-unread"><span class="sr-only">{{ t('newsNew') }}</span></span>
+                </span>
+                <span class="news-meta">{{ entry.meta }}</span>
               </span>
-              <span class="news-meta">{{ entry.meta }}</span>
-            </span>
-          </button>
+            </button>
+            <a
+              v-else
+              :href="entry.news.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="news-item"
+              :data-kbd-item="entry.key"
+            >
+              <span class="news-lead" aria-hidden="true">
+                <span v-if="settings.legacyBlueActive" class="emoji-icon">📰</span>
+                <span v-else-if="settings.paperActive" class="news-lead-word">{{ operatorWord }}</span>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     width="16" height="16">
+                  <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+                  <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
+                </svg>
+              </span>
+              <span class="news-body">
+                <span class="news-title">{{ entry.title }}</span>
+                <span class="news-meta">
+                  {{ entry.meta }}
+                  <svg class="news-external" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                       aria-hidden="true">
+                    <path d="M7 17 17 7M8 7h9v9"/>
+                  </svg>
+                </span>
+              </span>
+            </a>
+          </template>
         </div>
         <div v-else-if="routeUpdates.loading" class="news-state">{{ t('newsLoading') }}</div>
         <div v-else-if="routeUpdates.error" class="news-state news-state-error">{{ t('newsError') }}</div>
@@ -371,6 +409,12 @@ const topValue = computed(() => props.topOffset)
   font-weight: 800;
 }
 
+.news-lead-word {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .news-body {
   display: flex;
   flex-direction: column;
@@ -417,6 +461,15 @@ const topValue = computed(() => props.topOffset)
 
 .news-root.is-dark .news-meta {
   color: #94a3b8;
+}
+
+.news-external {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-left: 0.1rem;
+  vertical-align: baseline;
+  opacity: 0.7;
 }
 
 @keyframes news-blink-ring {

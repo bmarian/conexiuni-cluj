@@ -38,6 +38,7 @@ type City struct {
 	// nil for a schedule-only city.
 	Realtime sources.Realtime
 	Learning sources.Realtime
+	News     sources.News
 	Options  Options
 
 	run cityRun
@@ -90,6 +91,7 @@ func (city *City) start(r *runner) {
 	city.StartLive(r)
 	city.startPushSenders(r)
 	city.StartIngest(r)
+	city.StartNews(r)
 }
 
 func (city *City) Register(api fiber.Router) {
@@ -101,6 +103,7 @@ func (city *City) Register(api fiber.Router) {
 	api.Get("/network", city.NetworkHandler())
 	api.Get("/network/version", city.NetworkVersionHandler())
 	api.Get("/route-changes", city.GetRouteChanges)
+	api.Get("/updates", city.GetUpdates)
 	api.Get("/push/key", GetPushKey)
 	api.Post("/push/subscribe", city.SubscribePush)
 	api.Post("/push/unsubscribe", city.UnsubscribePush)
@@ -192,6 +195,7 @@ type cityInfo struct {
 	Operator    string           `json:"operator"`
 	OperatorURL string           `json:"operatorUrl"`
 	Realtime    bool             `json:"realtime"`
+	News        bool             `json:"news"`
 	Lat         float64          `json:"lat"`
 	Lon         float64          `json:"lon"`
 	Bounds      *Bounds          `json:"bounds,omitempty"`
@@ -217,7 +221,7 @@ func (city *City) credits() []sources.Credit {
 
 // The median, so outlying villages on long lines do not pull the centre away.
 func (city *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, OperatorURL: city.OperatorURL, Realtime: city.Realtime != nil, Credits: city.credits()}
+	info := cityInfo{Slug: city.Slug, Name: city.Name, Operator: city.Operator, OperatorURL: city.OperatorURL, Realtime: city.Realtime != nil, News: city.News != nil, Credits: city.credits()}
 	stops, err := city.GetStops(StopFilter{})
 	if err != nil || len(stops) == 0 {
 		return info, false

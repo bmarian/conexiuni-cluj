@@ -1,7 +1,7 @@
 import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
-import {cacheKey, currentCity} from '@/utils/city.ts'
+import {cacheKey, cityInfo, currentCity} from '@/utils/city.ts'
 
 export const FOLLOWS_KEY = 'follows:routes'
 const followedKey = (city?: string) => cacheKey(FOLLOWS_KEY, city)
@@ -34,6 +34,15 @@ export interface RouteChange {
   changes: RouteChangeItem[]
 }
 
+export interface NewsItem {
+  title: string
+  url: string
+}
+
+export type Update =
+  | { kind: 'news'; at: number; news: NewsItem }
+  | { kind: 'change'; at: number; change: RouteChange }
+
 function readList<T>(key: string, isItem: (v: unknown) => v is T): T[] {
   try {
     const raw = JSON.parse(localStorage.getItem(key) ?? 'null')
@@ -57,7 +66,9 @@ const isNumber = (v: unknown): v is number => typeof v === 'number'
 export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
   const followed = ref<string[]>(readList(followedKey(), isString).slice(0, MAX_FOLLOWED_LINES))
   const seenIds = ref(new Set(readList(seenKey(), isNumber)))
-  const changes = ref<RouteChange[]>([])
+  const updates = ref<Update[]>([])
+  const changes = computed(() => updates.value.flatMap((u) => (u.kind === 'change' ? [u.change] : [])))
+  const hasFeed = computed(() => followed.value.length > 0 || !!cityInfo()?.news)
   const loading = ref(false)
   const error = ref(false)
   let lastFetchAt = 0
@@ -66,7 +77,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
   watch(currentCity, () => {
     followed.value = readList(followedKey(), isString).slice(0, MAX_FOLLOWED_LINES)
     seenIds.value = new Set(readList(seenKey(), isNumber))
-    changes.value = []
+    updates.value = []
     lastFetchAt = 0
   }, {flush: 'sync'})
 
@@ -95,10 +106,10 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     if (city === currentCity.value) followed.value = list
   }
 
-  async function fetchChanges() {
+  async function fetchUpdates() {
     const seq = ++fetchSeq
-    if (!followed.value.length) {
-      changes.value = []
+    if (!hasFeed.value) {
+      updates.value = []
       error.value = false
       return
     }
@@ -106,9 +117,9 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     error.value = false
     try {
       const routes = [...followed.value].sort().map(encodeURIComponent).join(',')
-      const data = await apiRequest<RouteChange[]>(`route-changes?routes=${routes}`)
+      const data = await apiRequest<Update[]>(routes ? `updates?routes=${routes}` : 'updates')
       if (seq !== fetchSeq) return
-      changes.value = data
+      updates.value = data
       lastFetchAt = Date.now()
     } catch {
       if (seq === fetchSeq) error.value = true
@@ -118,7 +129,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
   }
 
   function refreshIfStale() {
-    if (Date.now() - lastFetchAt > REFRESH_AFTER_MS) void fetchChanges()
+    if (Date.now() - lastFetchAt > REFRESH_AFTER_MS) void fetchUpdates()
   }
 
   function markSeen(ids: number[]) {
@@ -144,11 +155,13 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     }
   }
 
-  watch(followed, () => void fetchChanges(), {deep: true})
+  watch(followed, () => void fetchUpdates(), {deep: true})
 
   return {
     followed,
+    updates,
     changes,
+    hasFeed,
     loading,
     error,
     unseenIds,
@@ -157,7 +170,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     toggleFollow,
     followedIn,
     importFollowed,
-    fetchChanges,
+    fetchUpdates,
     refreshIfStale,
     markSeen,
     markAllSeen,
