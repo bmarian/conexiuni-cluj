@@ -32,28 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const locale = ref<AppLocale>(detectInitialLocale())
 
-  // No phone is this small and square, so this picks out a watch.
-  const watchScreenQuery = window.matchMedia('(max-width: 520px) and (max-height: 520px) and (aspect-ratio: 1/1)')
-  const watchScreen = ref(watchScreenQuery.matches)
-  watchScreenQuery.addEventListener('change', (e) => {
-    watchScreen.value = e.matches
-  })
-  const savedSimplified = localStorage.getItem('settings.simplifiedLayout')
-  const simplifiedChoice = ref<boolean | null>(savedSimplified === 'on' ? true : savedSimplified === 'off' ? false : null)
-  const watchActive = computed(() => watchScreen.value && simplifiedChoice.value === true)
-  const askSimplified = computed(() => watchScreen.value && simplifiedChoice.value === null)
-
-  watch(watchActive, (active) => {
-    document.documentElement.toggleAttribute('data-watch', active)
-  }, {immediate: true})
-
-  function setSimplified(on: boolean) {
-    simplifiedChoice.value = on
-    localStorage.setItem('settings.simplifiedLayout', on ? 'on' : 'off')
-  }
-
   const isDark = computed(() => {
-    if (watchActive.value) return true
     if (theme.value === 'dark') return true
     if (theme.value === 'light') return false
     return systemDark.value
@@ -85,8 +64,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const arcadeUnlocked = ref(persistedBool('settings.arcadeUnlocked'))
   const arcadeActive = ref(persistedBool('settings.arcadeActive'))
 
-  watch([arcadeActive, watchActive], ([active, onWatch]) => {
-    if (active && !onWatch) {
+  watch(arcadeActive, (active) => {
+    if (active) {
       document.documentElement.setAttribute('data-arcade', '')
     } else {
       document.documentElement.removeAttribute('data-arcade')
@@ -113,8 +92,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const legacyBlueUnlocked = ref(persistedBool('settings.legacyBlueUnlocked'))
   const legacyBlueActive = ref(persistedBool('settings.legacyBlueActive'))
 
-  watch([legacyBlueActive, watchActive], ([active, onWatch]) => {
-    if (active && !onWatch) {
+  watch(legacyBlueActive, (active) => {
+    if (active) {
       document.documentElement.setAttribute('data-legacy-blue', '')
     } else {
       document.documentElement.removeAttribute('data-legacy-blue')
@@ -141,8 +120,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const paperActive = ref(persistedBool('settings.paperActive'))
 
-  watch([paperActive, watchActive], ([active, onWatch]) => {
-    if (active && !onWatch) {
+  watch(paperActive, (active) => {
+    if (active) {
       document.documentElement.setAttribute('data-paper', '')
     } else {
       document.documentElement.removeAttribute('data-paper')
@@ -224,7 +203,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     theme, locale, isDark, setTheme, setLocale,
-    watchScreen, watchActive, askSimplified, setSimplified,
     arcadeUnlocked, arcadeActive,
     unlockArcade, activateArcade, deactivateArcade,
     legacyBlueUnlocked, legacyBlueActive,

@@ -139,7 +139,7 @@ function planHere() {
 const mapStore = useMapStore()
 watch(() => stopInfo.value?.stop_id, () => {
   const info = stopInfo.value
-  if (info && !settings.watchActive) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
+  if (info) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
 }, {immediate: true})
 
 watch([stopInfo, () => route.query.follow], ([info, tripId]) => {

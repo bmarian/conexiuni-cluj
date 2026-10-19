@@ -73,10 +73,9 @@ const {
   preciseLocation,
 } = storeToRefs(mapStore)
 const {showVehicleExtras} = storeToRefs(settingsStore)
-// The watch layout only has the default look.
-const arcadeActive = computed(() => settingsStore.arcadeActive && !settingsStore.watchActive)
-const legacyBlueActive = computed(() => settingsStore.legacyBlueActive && !settingsStore.watchActive)
-const paperActive = computed(() => settingsStore.paperActive && !settingsStore.watchActive)
+const arcadeActive = computed(() => settingsStore.arcadeActive)
+const legacyBlueActive = computed(() => settingsStore.legacyBlueActive)
+const paperActive = computed(() => settingsStore.paperActive)
 const router = useRouter()
 const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
@@ -426,8 +425,7 @@ const onLocationError = (error: GeolocationPositionError) => {
 }
 
 const beginLocationWatch = (enableHighAccuracy = false) => {
-  // The watch has no usable location.
-  if (!map.value || settingsStore.watchActive) return
+  if (!map.value) return
   if (!navigator.geolocation) {
     userStore.setIsLocating(false)
     return
@@ -449,7 +447,7 @@ const beginLocationWatch = (enableHighAccuracy = false) => {
 const requestCurrentLocation = (enableHighAccuracy = false) => {
   beginLocationWatch(enableHighAccuracy)
 
-  if (!navigator.geolocation || settingsStore.watchActive) return
+  if (!navigator.geolocation) return
   navigator.geolocation.getCurrentPosition(
     (position) => {
       if (!map.value) return
@@ -807,7 +805,7 @@ onMounted(() => {
     mapInit({lat: cityCenter().lat, lng: cityCenter().lon}, DEFAULT_ZOOM)
   }
   void stopsInit()
-  // The watch mounts the map on demand, after a view has already filled the store.
+  // A view can fill the store before the map mounts.
   if (shapesToDisplay.value.length) renderShapes(shapesToDisplay.value as ShapeLayerEntry[])
   renderVehicles(vehiclesToDisplay.value as DisplayVehicle[])
 
@@ -1062,8 +1060,7 @@ watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionAr
 }, {deep: true})
 
 watch(shapesToDisplay, (newShapes) => {
-  // The watch frames its own view.
-  if (!settingsStore.autoFitMap || !map.value || settingsStore.watchActive) return
+  if (!settingsStore.autoFitMap || !map.value) return
   if (newShapes.length && mapStore.fitWalkingPolylines) return
   if (newShapes.length) {
     const bounds = linesBounds(lines.shapes)
