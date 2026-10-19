@@ -33,7 +33,7 @@ func (city *City) StartNews(r *runner) {
 			if !r.Sleep(time.Until(city.fetchedAt(ingestNews).Add(city.News.Cadence()))) {
 				return
 			}
-			items, err := city.News.News()
+			items, err := city.News.News(city.Location)
 			if err == nil {
 				err = city.storeNews(items)
 			}

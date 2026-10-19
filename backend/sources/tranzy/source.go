@@ -65,6 +65,9 @@ func (s *Source) Snapshot() (*sources.Snapshot, error) {
 }
 
 func (s *Source) Cadence() time.Duration {
+	if s.client.defaultQuota.limit <= 0 {
+		return 24 * time.Hour
+	}
 	return 24 * time.Hour * snapshotCalls / time.Duration(s.client.defaultQuota.limit)
 }
 

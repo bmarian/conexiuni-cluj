@@ -21,7 +21,6 @@ func SitemapHandler(cities *Cities) fiber.Handler {
 		mu.Lock()
 		defer mu.Unlock()
 		if version := cities.version.Load(); cached == nil || time.Since(cachedAt) >= sitemapTTL || version != cachedVersion {
-			cachedVersion = version
 			var sb strings.Builder
 			sb.Grow(64 * 1024)
 			sb.WriteString(xml.Header)
@@ -34,7 +33,7 @@ func SitemapHandler(cities *Cities) fiber.Handler {
 				}
 			}
 			sb.WriteString("</urlset>\n")
-			cached, cachedAt = []byte(sb.String()), time.Now()
+			cached, cachedAt, cachedVersion = []byte(sb.String()), time.Now(), version
 		}
 		c.Set("Content-Type", "application/xml; charset=utf-8")
 		c.Set("Cache-Control", "public, max-age=3600")

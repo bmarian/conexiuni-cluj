@@ -11,6 +11,8 @@ const allocatedIDFloor = 1_000_000
 
 // ExternalID keeps a numeric id as is and allocates a stable one otherwise.
 func (s *Store) ExternalID(kind, external string) (int, error) {
+	s.idsMu.Lock()
+	defer s.idsMu.Unlock()
 	var id int
 	err := s.DB.QueryRow(`SELECT id FROM external_ids WHERE kind = ? AND external = ?`, kind, external).Scan(&id)
 	if err == nil {

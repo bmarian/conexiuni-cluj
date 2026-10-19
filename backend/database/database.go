@@ -23,6 +23,7 @@ type Store struct {
 	visitorRetentionDays int
 	statsMu              sync.Mutex
 	statsBuf             *statsBuffer
+	idsMu                sync.Mutex
 }
 
 func Open(dbPath, archivePath string, visitorRetentionDays int) (*Store, error) {

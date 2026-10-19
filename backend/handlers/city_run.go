@@ -14,14 +14,29 @@ type runner struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	tasks  *sync.WaitGroup
+	joins  sync.RWMutex
 }
 
-func (r *runner) Go(fn func()) {
+// False once the runner is stopped: fn never runs.
+func (r *runner) Go(fn func()) bool {
+	r.joins.RLock()
+	defer r.joins.RUnlock()
+	if r.stopped() {
+		return false
+	}
 	r.tasks.Add(1)
 	go func() {
 		defer r.tasks.Done()
 		fn()
 	}()
+	return true
+}
+
+func (r *runner) stop() {
+	r.joins.Lock()
+	r.cancel()
+	r.joins.Unlock()
+	r.tasks.Wait()
 }
 
 // False once the city is stopped.
@@ -75,8 +90,7 @@ func (city *City) syncRun() {
 		city.run.current.Store(r)
 		city.start(r)
 	case !city.Enabled() && !current.stopped():
-		current.cancel()
-		current.tasks.Wait()
+		current.stop()
 		if err := city.FlushStats(); err != nil {
 			city.log("stats flush failed: %v", err)
 		}
