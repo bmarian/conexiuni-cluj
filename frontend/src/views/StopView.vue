@@ -4,7 +4,8 @@ import {storeToRefs} from "pinia"
 import {computed, ref, toRef, watch} from "vue"
 import {useHead} from '@unhead/vue'
 import {useI18n} from "vue-i18n"
-import StopIcon from "@/assets/stop.svg"
+import StationIcon from "@/components/StationIcon.vue"
+import {network} from "@/utils/network.ts";
 import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
 import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {
@@ -36,6 +37,7 @@ import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {keepHyphenatedWords} from "@/utils/text.ts";
 import {siteUrl} from "@/utils/site.ts";
 import {cityParams, cityPath} from "@/utils/city.ts";
+import {groupByMode, mainMode} from "@/utils/modes.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -49,12 +51,13 @@ const route = useRoute()
 const follows = useFollowsStore()
 const remindersStore = useRemindersStore()
 const stopIdNum = computed(() => Number(props.stopId))
-const isFavorite = computed(() => favoritesStore.isStopFavorite(stopIdNum.value))
-
-useKbdShortcuts({f: () => favoritesStore.toggleStopFavorite(stopIdNum.value)})
 const {userTime, userLocation} = storeToRefs(userStore)
 const {
   stopInfo,
+  stopInfos,
+  platformOf,
+  isFavorite,
+  toggleFavorite,
   stopName,
   isLoading,
   loadError,
@@ -65,14 +68,20 @@ const {
   reload,
 } = useStopDepartures(toRef(props, 'stopId'))
 
+useKbdShortcuts({f: toggleFavorite})
+
 const pointerHint = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 
+// The platform the bus calls at.
+const platformAt = (shape: VehiclesInStop) => shape.stop_id ?? stopIdNum.value
+
 function busAt(shape: VehiclesInStop): ReminderTarget & {stopLat: number, stopLon: number} {
+  const platform = stopInfos.value.find((info) => info.stop_id === platformAt(shape)) ?? stopInfo.value
   return {
-    stopId: stopIdNum.value,
+    stopId: platformAt(shape),
     stopName: stopName.value || '',
-    stopLat: stopInfo.value?.stop_lat ?? 0,
-    stopLon: stopInfo.value?.stop_lon ?? 0,
+    stopLat: platform?.stop_lat ?? 0,
+    stopLon: platform?.stop_lon ?? 0,
     routeId: shape.route_id,
     tripId: shape.trip_id,
     line: shape.route_short_name,
@@ -81,9 +90,9 @@ function busAt(shape: VehiclesInStop): ReminderTarget & {stopLat: number, stopLo
   }
 }
 
-const following = (shape: VehiclesInStop) => follows.find(stopIdNum.value, shape.route_id, shape.trip_id)
+const following = (shape: VehiclesInStop) => follows.find(platformAt(shape), shape.route_id, shape.trip_id)
 const busReminders = (shape: VehiclesInStop) => remindersStore.reminders.filter((r) =>
-  r.stopId === stopIdNum.value && r.routeId === shape.route_id && r.tripId === shape.trip_id)
+  r.stopId === platformAt(shape) && r.routeId === shape.route_id && r.tripId === shape.trip_id)
 const isReminded = (shape: VehiclesInStop) => busReminders(shape).some((r) => !r.date)
 const isRemindOn = (shape: VehiclesInStop) => !!following(shape) || busReminders(shape).some((r) => r.date)
 
@@ -174,14 +183,15 @@ function formatMinutes(minutes: number): string {
   return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
-const busesWithAvailableTimetablesSorted = computed(() => {
-  return [...(busesWithAvailableTimetables.value || [])].sort((a: ShapeInfo, b: ShapeInfo) => {
-    const aFav = favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1
-    const bFav = favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1
-    if (aFav !== bFav) return aFav - bFav
-    return a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
-  })
-})
+// By mode, each with its favourites first.
+const lineGroups = computed(() => groupByMode(busesWithAvailableTimetables.value || []).map((group) => ({
+  ...group,
+  lines: [...group.lines].sort((a: ShapeInfo, b: ShapeInfo) =>
+    (favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1) - (favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1)),
+})))
+
+const look = computed(() => network.value?.look(stopIdNum.value))
+const stationMode = computed(() => look.value?.mode ?? mainMode((busesWithAvailableTimetables.value || []).map((s: ShapeInfo) => s.route_type)))
 
 const departuresSorted = computed(() => {
   return [...shapesComingToTheStopBasedOnVehiclePositions.value].sort((a, b) => {
@@ -203,9 +213,9 @@ function routeOrigin(name: string): string {
 }
 
 const navigateToRoute = (shape: VehiclesInStop) => {
-  const si = stopInfo.value?.shapes_info?.find((s: ShapeInfo) => s.route_id === shape.route_id)
+  const si = platformOf(shape.route_id)?.shapes_info.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
-  routeStore.setSelectedRoute(si, shape.trip_id, props.stopId, stopName.value || '')
+  routeStore.setSelectedRoute(si, shape.trip_id, String(platformAt(shape)), stopName.value || '')
   router.push({
     name: 'route',
     params: {
@@ -216,8 +226,9 @@ const navigateToRoute = (shape: VehiclesInStop) => {
 }
 
 const navigateToAllRoute = (shape: ShapeInfo) => {
-  const tripId = getTripIdForRouteAtStop(stopInfo.value?.outgoing_trip_ids || [], stopInfo.value?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
-  routeStore.setSelectedRoute(shape, tripId, props.stopId, stopName.value || '')
+  const platform = platformOf(shape.route_id) ?? stopInfo.value
+  const tripId = getTripIdForRouteAtStop(platform?.outgoing_trip_ids || [], platform?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
+  routeStore.setSelectedRoute(shape, tripId, String(platform?.stop_id ?? props.stopId), stopName.value || '')
   router.push({
     name: 'route',
     params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)}
@@ -275,7 +286,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
 
     <header class="pp-masthead" data-kbd-section="actions" data-kbd-axis="x">
       <p class="pp-kicker">
-        {{ t('busStop') }}<template v-if="stopInfo?.stop_code"> · Nº {{ stopInfo.stop_code }}</template>
+        {{ t(`stopKind_${stationMode}`) }}<template v-if="stopInfo?.stop_code"> · Nº {{ stopInfo.stop_code }}</template>
       </p>
       <h1 class="pp-title">{{ keepHyphenatedWords(stopName || '') }}</h1>
       <div class="pp-actions">
@@ -285,7 +296,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           :aria-pressed="isFavorite"
           :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
           data-kbd-item="fav"
-          @click="favoritesStore.toggleStopFavorite(stopIdNum)"
+          @click="toggleFavorite"
         >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
         <button type="button" class="pp-action" data-kbd-item="directions" @click="planHere">{{ t('directions') }}</button>
         <ShareButton/>
@@ -306,10 +317,10 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         </p>
         <div
           v-for="shape in isComputingDepartures ? [] : departuresSorted"
-          :key="shape.route_short_name"
+          :key="shape.trip_id"
           class="pp-row"
           role="row"
-          :data-kbd-item="`dep-${shape.route_short_name}`"
+          :data-kbd-item="`dep-${shape.trip_id}`"
           v-bind="settings.busAlerts ? press.bind(shape) : {}"
           @click="press.click(() => navigateToRoute(shape))"
         >
@@ -340,10 +351,11 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </section>
 
     <section class="pb-6" data-kbd-section="stop-routes" data-kbd-entry="2">
-      <h2 class="pp-heading">{{ t('allRoutesAtStop') }}</h2>
+      <template v-for="group in lineGroups" :key="group.mode">
+      <h2 class="pp-heading">{{ lineGroups.length > 1 ? t(`modeLines_${group.mode}`) : t('allRoutesAtStop') }}</h2>
       <div class="pp-index">
         <div
-          v-for="shape in busesWithAvailableTimetablesSorted"
+          v-for="shape in group.lines"
           :key="shape.route_short_name"
           class="pp-index-row"
           :data-kbd-item="`route-${shape.route_short_name}`"
@@ -358,6 +370,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           <span class="pp-index-ref">{{ t('timetable') }}</span>
         </div>
       </div>
+      </template>
     </section>
     </template>
 
@@ -367,16 +380,16 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     </div>
 
     <header class="flex items-start gap-4" data-kbd-section="actions" data-kbd-axis="x">
-      <div
+      <div v-if="settings.legacyBlueActive"
         class="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 mt-0.5">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🚏</span>
-        <StopIcon v-else class="w-7 h-7 text-white"/>
+        <span class="emoji-icon-xl" aria-hidden="true">🚏</span>
       </div>
+      <StationIcon v-else :look="look" class="w-14 h-14 rounded-2xl shadow-lg mt-0.5"/>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
           <span
             class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide">{{
-              t('busStop')
+              t(`stopKind_${stationMode}`)
             }}</span>
           <span v-if="stopInfo?.stop_code"
                 class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{
@@ -409,7 +422,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
         :aria-pressed="isFavorite"
         data-kbd-item="fav"
-        @click="favoritesStore.toggleStopFavorite(stopIdNum)"
+        @click="toggleFavorite"
       >
         <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
         <IconHeartOutline v-else class="w-5 h-5"/>
@@ -448,11 +461,11 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         <div class="flex flex-col gap-2.5">
           <div
             v-for="shape in departuresSorted"
-            :key="shape.route_short_name"
+            :key="shape.trip_id"
             v-bind="settings.busAlerts ? press.bind(shape) : {}"
             @click="press.click(() => navigateToRoute(shape))"
             class="departure-card group"
-            :data-kbd-item="`dep-${shape.route_short_name}`"
+            :data-kbd-item="`dep-${shape.trip_id}`"
             :class="{ 'departure-card-fav': isDepartureFavorite(shape) }"
           >
             <div
@@ -532,9 +545,11 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
         {{ t('allRoutesAtStop') }}
       </h2>
 
+      <div v-for="group in lineGroups" :key="group.mode">
+      <h3 v-if="lineGroups.length > 1" class="sub-label">{{ t(`modeLines_${group.mode}`) }}</h3>
       <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
         <div
-          v-for="shape in busesWithAvailableTimetablesSorted"
+          v-for="shape in group.lines"
           :key="shape.route_short_name"
           @click="navigateToAllRoute(shape)"
           class="all-route-row group"
@@ -559,6 +574,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
           </svg>
         </div>
       </div>
+      </div>
     </section>
     </template>
 
@@ -572,6 +588,13 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   height: 100%;
   overflow-y: auto;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.sub-label {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #94a3b8;
 }
 
 .section-label {

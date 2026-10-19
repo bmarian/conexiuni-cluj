@@ -91,6 +91,8 @@ export type Stop = {
   stop_lon: number
   location_type: LocationType
   stop_code: string
+  // Shared by the platforms of one station; missing from servers that do not group them.
+  station_id?: number
 }
 
 export type Shape = {
@@ -151,4 +153,6 @@ export type VehiclesInStop = {
   route_long_name: string
   static_time_approximation: boolean
   vehicles?: Vehicle[]
+  // The platform it calls at, when a station has several.
+  stop_id?: number
 }

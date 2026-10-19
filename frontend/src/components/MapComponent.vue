@@ -32,7 +32,9 @@ import {
   makePinIcon,
   makeSelectedStopIcon,
   makeStopIcon,
+  stationCardHtml,
 } from '@/utils/mapIcons.ts'
+import {network} from '@/utils/network.ts'
 import {
   CLICK_TOLERANCE_PX,
   createTooltip,
@@ -311,7 +313,9 @@ const attachPlannerDragLift = (marker: Marker) => {
 }
 
 const stopIconForId = (stopId: string) =>
-  makeStopIcon(favoritesStore.isStopFavorite(parseInt(stopId)), themeOpts())
+  makeStopIcon(favoritesStore.isStopFavorite(parseInt(stopId)), themeOpts(), network.value?.look(Number(stopId)))
+
+const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, network.value?.look(Number(stopId)))
 
 // Only the stops around the view are on the map, so panning moves a few dozen markers, not all of them.
 const refreshStops = () => {
@@ -614,7 +618,7 @@ const stopMarker = (id: string): Marker | undefined => {
   const stop = stopData.get(id)
   if (!stop) return undefined
   const marker = htmlMarker(stop, stopIconForId(id))
-  tooltip?.bind(marker, stop.name, 'stop-name-tooltip', 14)
+  tooltip?.bind(marker, stationCard(id, stop.name), 'stop-name-tooltip', 14)
   onMarkerClick(marker, () => {
     router.push({name: 'stop', params: {stopId: id}})
   })
@@ -1104,9 +1108,9 @@ const renderHighlightedStops = () => {
     const stop = stopData.get(stopId)
     if (!stop) continue
     const highlight = htmlMarker(stop, makeHighlightIcon(color, themeOpts()), {
-      zIndex: color === 'green' ? 1200 : color === 'red' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
+      zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
-    tooltip?.bind(highlight, stop.name, 'stop-name-tooltip', 14)
+    tooltip?.bind(highlight, stationCard(stopId, stop.name), 'stop-name-tooltip', 14)
     onMarkerClick(highlight, () => router.push({name: 'stop', params: {stopId}}))
     highlightMarkers.push(highlight.addTo(m))
   }

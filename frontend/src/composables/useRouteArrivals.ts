@@ -4,7 +4,7 @@ import {storeToRefs} from 'pinia'
 import {useRouter} from 'vue-router'
 import {useRouteStore} from '@/stores/route.ts'
 import {useUserStore} from '@/stores/user.ts'
-import {useMapStore} from '@/stores/map.ts'
+import {type HighlightedStop, useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
 import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
@@ -248,12 +248,12 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   }
 
   watchEffect(() => {
-    const highlights: Array<{ stopId: string; color: 'green' | 'purple' | 'red' | 'gray' }> = []
+    const highlights: HighlightedStop[] = []
     stopsForDirection.value.forEach((stop, idx) => {
       const stopId = String(stop.stop_id)
       if (stopId === fromStopId.value) highlights.push({stopId, color: 'green'})
       else if (idx === nearestStopIdx.value) highlights.push({stopId, color: 'purple'})
-      else if (favoriteStopIds.value.includes(stop.stop_id)) highlights.push({stopId, color: 'red'})
+      else if (favoriteStopIds.value.includes(stop.stop_id)) highlights.push({stopId, color: 'favorite'})
       else highlights.push({stopId, color: 'gray'})
     })
     mapStore.setHighlightedStops(highlights)

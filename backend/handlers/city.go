@@ -39,7 +39,9 @@ type City struct {
 	Realtime sources.Realtime
 	Learning sources.Realtime
 	News     sources.News
-	Options  Options
+	// Names the town and street of stops that share a name.
+	Locate  sources.Locate
+	Options Options
 
 	run cityRun
 	cityState
@@ -54,7 +56,7 @@ func NewCity(slug, name string, store *database.Store, static sources.Static, ti
 	if learning == nil {
 		learning = realtime
 	}
-	city := &City{Slug: slug, Name: name, Location: loc, Store: store, Static: static, Timetables: timetables, Realtime: realtime, Learning: learning, Options: opts}
+	city := &City{Slug: slug, Name: name, Location: loc, Store: store, Static: static, Timetables: timetables, Realtime: realtime, Learning: learning, Locate: osmLocate, Options: opts}
 	city.cityState = newCityState()
 	city.hub = newLiveHub(city)
 	city.run.enabled.Store(true)

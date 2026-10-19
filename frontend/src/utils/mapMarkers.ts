@@ -76,14 +76,15 @@ export function createTooltip(map: MapLibreMap) {
     marker.remove()
   }
 
-  const show = (target: Marker, html: string, className: string, lift: number) => {
+  const show = (target: Marker, html: string | (() => string), className: string, lift: number) => {
     owner = target
     bubble.className = `map-tooltip ${className}`
-    bubble.innerHTML = html
+    bubble.innerHTML = typeof html === 'function' ? html() : html
     marker.setOffset([0, -lift]).setLngLat(target.getLngLat()).addTo(map)
   }
 
-  const bind = (target: Marker, html: string, className: string, lift: number) => {
+  // A function builds the html only when it shows.
+  const bind = (target: Marker, html: string | (() => string), className: string, lift: number) => {
     const targetEl = target.getElement()
     targetEl.addEventListener('mouseenter', () => show(target, html, className, lift))
     targetEl.addEventListener('mouseleave', () => {

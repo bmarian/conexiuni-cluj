@@ -1,4 +1,6 @@
 import type {Vehicle} from '@/types/tranzy.ts'
+import type {Mode} from '@/utils/modes.ts'
+import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string;
@@ -21,12 +23,12 @@ export interface IconThemeOptions {
   showVehicleExtras: boolean
 }
 
-const BUS_STOP_PATH =
-  'M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-10-7V6h11v4H6.5z'
+// What a station's marker shows: its biggest mode in that mode's colour.
+export type StationMark = {mode: Mode, color: string}
 
-function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = ''): string {
+function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = '', mode: Mode = 'bus'): string {
   return `<div style="width:${size}px;height:${size}px;background:${fill};color:${ink};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;${extra}">
-    <svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><path d="${BUS_STOP_PATH}"/></svg>
+    <svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}">${MODE_ICON[mode]}</svg>
   </div>`
 }
 
@@ -62,7 +64,38 @@ const defaultStopIcon: MarkerIcon = {
   anchor: [12, 12],
 }
 
-export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): MarkerIcon {
+const stationIcons = new Map<string, MarkerIcon>()
+
+function stationIcon({mode, color}: StationMark): MarkerIcon {
+  const key = `${mode}|${color}`
+  let icon = stationIcons.get(key)
+  if (!icon) {
+    icon = {
+      html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;color:white;">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mode]}</svg>
+      </div>`,
+      size: [24, 24],
+      anchor: [12, 12],
+    }
+    stationIcons.set(key, icon)
+  }
+  return icon
+}
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]!)
+
+// The same as a station's row in the stop lists: its icon, name and every line.
+export function stationCardHtml(name: string, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
+  if (!mark) return escapeHtml(name)
+  const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${r.route_color}">${escapeHtml(r.route_short_name)}</span>`).join('')
+  return `<div class="station-card">
+    <span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>
+    <span class="station-card-body"><span class="station-card-name">${escapeHtml(name)}</span><span class="station-card-lines">${lines}</span></span>
+  </div>`
+}
+
+export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
   if (opts.arcadeActive) {
     const body = isFav ? '#f43f5e' : '#94a3b8'
     const pupil = isFav ? '#881337' : '#334155'
@@ -96,14 +129,14 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions): MarkerIcon
   if (opts.paperActive) {
     return {
       html: isFav
-        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13)
-        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13),
+        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13, '', mark?.mode)
+        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', mark?.mode),
       size: [20, 20],
       anchor: [10, 10],
     }
   }
 
-  return defaultStopIcon
+  return mark ? stationIcon(mark) : defaultStopIcon
 }
 
 export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
@@ -150,14 +183,16 @@ export function makeSelectedStopIcon(opts: IconThemeOptions): MarkerIcon {
   }
 }
 
+const HEART_PATH = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
+
 export function makeHighlightIcon(
-  color: 'green' | 'purple' | 'red' | 'gray' | 'amber',
+  color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite',
   opts: IconThemeOptions,
 ): MarkerIcon {
   const bg =
     color === 'green' ? '#10b981'
       : color === 'purple' ? '#a855f7'
-        : color === 'red' ? '#f43f5e'
+        : color === 'red' || color === 'favorite' ? '#f43f5e'
           : color === 'amber' ? '#f59e0b'
             : '#64748b'
 
@@ -191,13 +226,24 @@ export function makeHighlightIcon(
     const ink =
       color === 'green' ? 'var(--pp-green)'
         : color === 'purple' ? 'var(--pp-plum)'
-          : color === 'red' ? 'var(--pp-red)'
+          : color === 'red' || color === 'favorite' ? 'var(--pp-red)'
             : color === 'amber' ? 'var(--pp-ochre)'
               : 'var(--pp-ink-2)'
     return {
       html: paperPlate(22, ink, 'var(--pp-paper)', 14),
       size: [22, 22],
       anchor: [11, 11],
+    }
+  }
+
+  // A plain stop's marker with a heart in place of the bus.
+  if (color === 'favorite') {
+    return {
+      html: `<div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-sm bg-slate-500 dark:bg-slate-600">
+        <svg viewBox="0 0 24 24" fill="${bg}" width="14" height="14"><path d="${HEART_PATH}"/></svg>
+      </div>`,
+      size: [24, 24],
+      anchor: [12, 12],
     }
   }
 
