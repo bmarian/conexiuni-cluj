@@ -3,7 +3,6 @@ import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 
-const props = defineProps<{ search: string }>()
 const {t, locale} = useI18n()
 const router = useRouter()
 
@@ -22,12 +21,6 @@ const QUOTES_EN = [
   'Project status: wishful thinking',
 ]
 
-const showMetro = computed(() => {
-  const q = props.search.trim().toLowerCase()
-  if (q.length < 2) return false
-  return 'metrou'.startsWith(q) || q === 'm1'
-})
-
 const quote = computed(() => {
   const pool = locale.value.startsWith('ro') ? QUOTES_RO : QUOTES_EN
   return pool[new Date().getMinutes() % pool.length]!
@@ -35,7 +28,7 @@ const quote = computed(() => {
 </script>
 
 <template>
-  <div v-if="showMetro" class="metro-legacy-wrap">
+  <div class="metro-legacy-wrap">
     <div
       class="metro-legacy-row"
       data-kbd-item="metro"
