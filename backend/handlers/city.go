@@ -40,6 +40,7 @@ type City struct {
 	Learning sources.Realtime
 	Options  Options
 
+	run cityRun
 	cityState
 }
 
@@ -55,6 +56,7 @@ func NewCity(slug, name string, store *database.Store, static sources.Static, ti
 	city := &City{Slug: slug, Name: name, Location: loc, Store: store, Static: static, Timetables: timetables, Realtime: realtime, Learning: learning, Options: opts}
 	city.cityState = newCityState()
 	city.hub = newLiveHub(city)
+	city.run.enabled.Store(true)
 	return city
 }
 
@@ -78,16 +80,16 @@ func (city *City) log(format string, args ...any) {
 	log.Printf(city.Slug+": "+format, args...)
 }
 
-func (city *City) Start() {
-	city.StartCalendar()
-	city.StartVacuumScheduler()
-	city.StartStatsFlusher()
-	city.StartVehicleLearningSampler()
-	city.StartScheduleDelayLearner(city.Location)
-	city.StartArchiver(city.Location)
-	city.StartLive()
-	city.startPushSenders()
-	city.StartIngest()
+func (city *City) start(r *runner) {
+	city.StartCalendar(r)
+	r.Go(func() { city.RunVacuumScheduler(r.ctx) })
+	r.Go(func() { city.RunStatsFlusher(r.ctx) })
+	city.StartVehicleLearningSampler(r)
+	city.StartScheduleDelayLearner(r, city.Location)
+	city.StartArchiver(r, city.Location)
+	city.StartLive(r)
+	city.startPushSenders(r)
+	city.StartIngest(r)
 }
 
 func (city *City) Register(api fiber.Router) {
@@ -236,10 +238,10 @@ func (city *City) info() (cityInfo, bool) {
 	return info, true
 }
 
-func CitiesHandler(cities []*City) fiber.Handler {
+func CitiesHandler(cities *Cities) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		out := make([]cityInfo, 0, len(cities))
-		for _, city := range cities {
+		out := make([]cityInfo, 0, len(cities.all))
+		for _, city := range cities.Enabled() {
 			if info, ok := city.info(); ok {
 				out = append(out, info)
 			}

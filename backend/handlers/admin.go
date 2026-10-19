@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -101,20 +103,33 @@ func RequireAdminSession(token string) fiber.Handler {
 	}
 }
 
-func RegisterAdminRoutes(api fiber.Router, cities []*City, token string, secureCookies bool) {
-	if token == "" || len(cities) == 0 {
+type adminCity struct {
+	Slug    string `json:"slug"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+}
+
+func adminCityList(cities *Cities) []adminCity {
+	out := make([]adminCity, 0, len(cities.All()))
+	for _, city := range cities.All() {
+		out = append(out, adminCity{Slug: city.Slug, Name: city.Name, Enabled: city.Enabled()})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func RegisterAdminRoutes(api fiber.Router, cities *Cities, token string, secureCookies bool) {
+	if token == "" || len(cities.All()) == 0 {
 		return
 	}
 	admin := api.Group("/admin")
 	cookiePath := "/api/admin"
+	// SetEnabled never turns the last city off, so there is always one.
 	cityOf := func(c fiber.Ctx) *City {
-		slug := c.Query("city")
-		for _, city := range cities {
-			if city.Slug == slug {
-				return city
-			}
+		if city := cities.Find(c.Query("city")); city != nil {
+			return city
 		}
-		return cities[0]
+		return cities.Enabled()[0]
 	}
 
 	admin.Post("/login", func(c fiber.Ctx) error {
@@ -143,6 +158,30 @@ func RegisterAdminRoutes(api fiber.Router, cities []*City, token string, secureC
 		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(overview)
+	})
+
+	admin.Get("/cities", RequireAdminSession(token), func(c fiber.Ctx) error {
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(adminCityList(cities))
+	})
+
+	admin.Put("/cities/:slug", RequireAdminSession(token), func(c fiber.Ctx) error {
+		var req struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := c.Bind().Body(&req); err != nil || req.Enabled == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
+		}
+		switch err := cities.SetEnabled(c.Params("slug"), *req.Enabled); {
+		case errors.Is(err, ErrUnknownCity):
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		case errors.Is(err, ErrLastCity):
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		case err != nil:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(adminCityList(cities))
 	})
 
 	registerAdminCalendarRoutes(admin, cityOf, token)

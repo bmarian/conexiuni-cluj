@@ -48,9 +48,11 @@ type runDeparture struct {
 	PairedMin  float64
 }
 
-func (city *City) StartScheduleDelayLearner(loc *time.Location) {
-	go func() {
-		time.Sleep(2 * time.Minute)
+func (city *City) StartScheduleDelayLearner(r *runner, loc *time.Location) {
+	r.Go(func() {
+		if !r.Sleep(2 * time.Minute) {
+			return
+		}
 		for {
 			started := time.Now()
 			if n, err := city.recomputeScheduleDelays(loc, started); err != nil {
@@ -58,9 +60,11 @@ func (city *City) StartScheduleDelayLearner(loc *time.Location) {
 			} else {
 				city.log("schedule delay: %d profiles in %s", n, time.Since(started).Round(time.Millisecond))
 			}
-			time.Sleep(scheduleDelayRefresh)
+			if !r.Sleep(scheduleDelayRefresh) {
+				return
+			}
 		}
-	}()
+	})
 }
 
 func (city *City) recomputeScheduleDelays(loc *time.Location, now time.Time) (int, error) {

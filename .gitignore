@@ -7,6 +7,7 @@ logs
 keys.env
 *.db
 *.db-*
+disabled-cities.json*
 api-tests/tranzy-api-docs.json
 .output.txt
 backend/.gocache

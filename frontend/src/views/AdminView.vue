@@ -3,7 +3,8 @@ import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminCalendar from '@/components/admin/AdminCalendar.vue'
-import {cities, currentCity} from '@/utils/city.ts'
+import AdminCities from '@/components/admin/AdminCities.vue'
+import {cities, currentCity, reloadCities} from '@/utils/city.ts'
 
 useHead(() => ({
   title: 'Admin',
@@ -117,6 +118,12 @@ function pickCity(slug: string) {
   cityOpen.value = false
   if (slug === adminCity.value) return
   adminCity.value = slug
+  void load()
+}
+
+async function onCitiesChanged() {
+  await reloadCities()
+  if (!cities.value.some((c) => c.slug === adminCity.value)) adminCity.value = cities.value[0]?.slug ?? adminCity.value
   void load()
 }
 
@@ -548,6 +555,11 @@ const meters = computed(() => {
           <section>
             <div class="label"><span>Calendar</span><i></i></div>
             <AdminCalendar :city="adminCity" @saved="load"/>
+          </section>
+
+          <section>
+            <div class="label"><span>Cities</span><i></i></div>
+            <AdminCities @changed="onCitiesChanged"/>
           </section>
 
           <section>

@@ -29,21 +29,25 @@ type archiveRun struct {
 	Summary  database.ArchiveSummary
 }
 
-func (city *City) StartArchiver(loc *time.Location) {
+func (city *City) StartArchiver(r *runner, loc *time.Location) {
 	if city.Archive == nil {
 		return
 	}
-	go func() {
-		time.Sleep(archiveStartDelay)
+	r.Go(func() {
+		if !r.Sleep(archiveStartDelay) {
+			return
+		}
 		for {
 			city.checkObservedSchedule(time.Now())
 			city.runArchive(time.Now())
 			city.tuneVacationWindow(time.Now())
 			city.tuneSeedFill(time.Now())
 			city.restoreSeededWindows(time.Now())
-			time.Sleep(time.Until(nextArchiveRun(time.Now(), loc)))
+			if !r.Sleep(time.Until(nextArchiveRun(time.Now(), loc))) {
+				return
+			}
 		}
-	}()
+	})
 }
 
 func nextArchiveRun(now time.Time, loc *time.Location) time.Time {

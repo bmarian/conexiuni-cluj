@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -216,16 +217,20 @@ func (s *Store) FlushStats() error {
 	return nil
 }
 
-func (s *Store) StartStatsFlusher() {
-	go func() {
-		ticker := time.NewTicker(statsFlushInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := s.FlushStats(); err != nil {
-				s.logf("stats flush failed: %v", err)
-			}
+// Returns once ctx is done.
+func (s *Store) RunStatsFlusher(ctx context.Context) {
+	ticker := time.NewTicker(statsFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return
 		}
-	}()
+		if err := s.FlushStats(); err != nil {
+			s.logf("stats flush failed: %v", err)
+		}
+	}
 }
 
 type MetricRow struct {

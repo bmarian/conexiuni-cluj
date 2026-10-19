@@ -12,21 +12,23 @@ import (
 
 const sitemapTTL = 1 * time.Hour
 
-func SitemapHandler(cities []*City) fiber.Handler {
+func SitemapHandler(cities *Cities) fiber.Handler {
 	var mu sync.Mutex
 	var cached []byte
 	var cachedAt time.Time
+	var cachedVersion int64
 	return func(c fiber.Ctx) error {
 		mu.Lock()
 		defer mu.Unlock()
-		if cached == nil || time.Since(cachedAt) >= sitemapTTL {
+		if version := cities.version.Load(); cached == nil || time.Since(cachedAt) >= sitemapTTL || version != cachedVersion {
+			cachedVersion = version
 			var sb strings.Builder
 			sb.Grow(64 * 1024)
 			sb.WriteString(xml.Header)
 			sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 			writeURL(&sb, siteOrigin+"/", "daily", "1.0")
 			writeURL(&sb, siteOrigin+"/android", "monthly", "0.5")
-			for _, city := range cities {
+			for _, city := range cities.Enabled() {
 				if err := city.writeSitemap(&sb); err != nil {
 					return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 				}

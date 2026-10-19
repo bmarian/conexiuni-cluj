@@ -193,7 +193,7 @@ func (h *liveHub) Subscribe(client string, person bool, stopIDs []int, tripIDs [
 	h.city.log("live hub: +subscriber %d (total=%d, stops=%d, trips=%d)", id, total, len(stopIDs), len(tripIDs))
 	go h.sendTo(sub)
 	if start {
-		go h.run()
+		go h.run(h.city.running())
 	}
 	return sub, id, true
 }
@@ -214,10 +214,10 @@ func (h *liveHub) Unsubscribe(id int64) {
 	}
 }
 
-func (h *liveHub) run() {
+func (h *liveHub) run(r *runner) {
 	for {
 		h.mu.Lock()
-		if len(h.subscribers) == 0 {
+		if len(h.subscribers) == 0 || r.stopped() {
 			h.running = false
 			h.mu.Unlock()
 			return
@@ -237,7 +237,7 @@ func (h *liveHub) run() {
 				sub.offer(table)
 			}
 		}
-		time.Sleep(interval)
+		r.Sleep(interval)
 	}
 }
 
@@ -400,6 +400,7 @@ func (city *City) ServeLive(c fiber.Ctx) error {
 		return c.JSON(sub.view(table))
 	}
 
+	run := city.running()
 	sub, id, ok := city.hub.Subscribe(client, person, stopIDs, tripIDs)
 	if !ok {
 		// A 200 that ends at once makes a browser reconnect after `retry`; a 429 would stop it for good.
@@ -458,6 +459,8 @@ func (city *City) ServeLive(c fiber.Ctx) error {
 				if err := out.write(": ping\n\n"); err != nil {
 					return
 				}
+			case <-run.ctx.Done():
+				return
 			}
 		}
 	})

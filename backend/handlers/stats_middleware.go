@@ -106,7 +106,7 @@ func StatsMiddleware(cities map[string]*City, salt string) fiber.Handler {
 		route := c.Route().Path
 		slug, rest, _ := strings.Cut(strings.TrimPrefix(route, "/api/"), "/")
 		city := cities[slug]
-		if !strings.HasPrefix(route, "/api/") || city == nil || strings.HasPrefix(rest, "admin") {
+		if !strings.HasPrefix(route, "/api/") || city == nil || !city.Enabled() || strings.HasPrefix(rest, "admin") {
 			return err
 		}
 		route = "/" + rest

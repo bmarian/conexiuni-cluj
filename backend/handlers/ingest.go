@@ -42,11 +42,11 @@ func (city *City) IngestStatus() IngestSnapshot {
 	}
 }
 
-func (city *City) StartIngest() {
-	go func() {
+func (city *City) StartIngest(r *runner) {
+	r.Go(func() {
 		defer func() {
-			if r := recover(); r != nil {
-				city.log("ingest: recovered from panic: %v\n%s", r, debug.Stack())
+			if p := recover(); p != nil {
+				city.log("ingest: recovered from panic: %v\n%s", p, debug.Stack())
 			}
 		}()
 		for {
@@ -54,7 +54,9 @@ func (city *City) StartIngest() {
 				// At the source's own pace, not in a tight loop.
 				wait := city.Static.Cadence()
 				city.log("ingest: %v; next try in %s", err, wait.Round(time.Minute))
-				time.Sleep(wait)
+				if !r.Sleep(wait) {
+					return
+				}
 				continue
 			}
 			next := city.nextIngestAt(time.Now())
@@ -62,9 +64,11 @@ func (city *City) StartIngest() {
 				return
 			}
 			city.log("ingest: next at %s (in %s)", next.Format(time.RFC3339), time.Until(next).Round(time.Minute))
-			time.Sleep(time.Until(next))
+			if !r.Sleep(time.Until(next)) {
+				return
+			}
 		}
-	}()
+	})
 }
 
 func (city *City) fetchedAt(source string) time.Time {

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -563,24 +564,29 @@ func (s *Store) Vacuum() error {
 	return nil
 }
 
-func (s *Store) StartVacuumScheduler() {
+// Returns once ctx is done.
+func (s *Store) RunVacuumScheduler(ctx context.Context) {
 	loc, err := time.LoadLocation("Europe/Bucharest")
 	if err != nil {
 		s.logf("Warning: could not load Europe/Bucharest timezone, falling back to UTC: %v", err)
 		loc = time.UTC
 	}
-	go func() {
-		for {
-			now := time.Now().In(loc)
-			next := time.Date(now.Year(), now.Month(), now.Day(), 2, 0, 0, 0, loc)
-			if !next.After(now) {
-				next = next.Add(24 * time.Hour)
-			}
-			s.logf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
-			time.Sleep(time.Until(next))
-			if err := s.Vacuum(); err != nil {
-				s.logf("Scheduled vacuum failed: %v", err)
-			}
+	for {
+		now := time.Now().In(loc)
+		next := time.Date(now.Year(), now.Month(), now.Day(), 2, 0, 0, 0, loc)
+		if !next.After(now) {
+			next = next.Add(24 * time.Hour)
 		}
-	}()
+		s.logf("Next scheduled vacuum at %s", next.Format("2006-01-02 15:04:05"))
+		timer := time.NewTimer(time.Until(next))
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		}
+		if err := s.Vacuum(); err != nil {
+			s.logf("Scheduled vacuum failed: %v", err)
+		}
+	}
 }

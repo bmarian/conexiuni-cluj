@@ -4,7 +4,7 @@ import {apiPost} from '@/utils/api'
 import {FOLLOWS_KEY, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {REMINDERS_KEY} from '@/stores/reminders'
-import {citiesSaving, currentCity} from '@/utils/city.ts'
+import {citiesSaving, currentCity, knownCity} from '@/utils/city.ts'
 import {pushRegistration, pushSubscription, pushSupported} from '@/utils/pushSubscription'
 import {translate as t} from '@/i18n.ts'
 
@@ -27,7 +27,7 @@ export const usePushStore = defineStore('push', () => {
     localStorage.setItem(ENABLED_KEY, value ? 'true' : 'false')
   }
 
-  const alertCities = () => [...new Set([currentCity.value, ...citiesSaving(FOLLOWS_KEY)])]
+  const alertCities = () => [...new Set([currentCity.value, ...citiesSaving(FOLLOWS_KEY).filter(knownCity)])]
 
   async function register(sub: PushSubscription, city: string) {
     await apiPost('push/subscribe', {
@@ -143,7 +143,7 @@ export const usePushStore = defineStore('push', () => {
   watch(() => [currentCity.value, [...routeUpdates.followed]] as const, ([city], [previous]) => {
     if (city === previous) scheduleSync(city)
   })
-  watch(() => settings.locale, () => citiesSaving(FOLLOWS_KEY).forEach((city) => scheduleSync(city)))
+  watch(() => settings.locale, () => citiesSaving(FOLLOWS_KEY).filter(knownCity).forEach((city) => scheduleSync(city)))
 
   return {supported, enabled, busy, ask, disable, sync, settleCity}
 })

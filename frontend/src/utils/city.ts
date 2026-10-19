@@ -58,7 +58,7 @@ function readList(): City[] {
 
 export const cities = ref<City[]>(readList())
 
-export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Promise.resolve([]) : (async () => {
+export async function reloadCities(): Promise<City[]> {
   try {
     const response = await fetch('/api/cities')
     if (response.ok) {
@@ -70,7 +70,9 @@ export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Pro
     }
   } catch { /* offline: the stored list stands */ }
   return cities.value
-})()
+}
+
+export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Promise.resolve([]) : reloadCities()
 
 export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav', 'bsod']
 

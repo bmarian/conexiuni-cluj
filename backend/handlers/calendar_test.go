@@ -277,7 +277,7 @@ func TestAdminSavesASchoolYear(t *testing.T) {
 	t.Cleanup(func() { relearnAfterCalendarChange = prevRelearn })
 
 	app := fiber.New()
-	RegisterAdminRoutes(app.Group("/api"), []*City{city}, "secret", false)
+	RegisterAdminRoutes(app.Group("/api"), testCities(t, city), "secret", false)
 	put := func(y calendar.SchoolYear) *http.Response {
 		body, _ := json.Marshal(y)
 		req := httptest.NewRequest("PUT", "/api/admin/calendar", bytes.NewReader(body))
@@ -442,7 +442,7 @@ func TestAdminSetsTheTimetableForADay(t *testing.T) {
 	t.Cleanup(func() { relearnAfterCalendarChange = prevRelearn })
 
 	app := fiber.New()
-	RegisterAdminRoutes(app.Group("/api"), []*City{city}, "secret", false)
+	RegisterAdminRoutes(app.Group("/api"), testCities(t, city), "secret", false)
 	cookie := &http.Cookie{Name: adminSessionCookie, Value: newAdminSession("secret", time.Now())}
 	set := func(date, schedule string) (int, adminDayResponse) {
 		body, _ := json.Marshal(adminDayRequest{Date: date, Schedule: schedule})

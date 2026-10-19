@@ -271,12 +271,16 @@ func (city *City) saveReminders(sub pushSubscriber, reminders []pushReminder, no
 	return tx.Commit()
 }
 
-func (city *City) runReminderSender(loc *time.Location) {
+func (city *City) runReminderSender(r *runner, loc *time.Location) {
 	ticker := time.NewTicker(reminderCheckEvery)
 	defer ticker.Stop()
 	for {
 		city.fireDueReminders(time.Now(), loc)
-		<-ticker.C
+		select {
+		case <-ticker.C:
+		case <-r.ctx.Done():
+			return
+		}
 	}
 }
 

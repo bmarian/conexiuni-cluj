@@ -32,6 +32,10 @@ func clientIDForLog(c fiber.Ctx, salt string) string {
 	return hash
 }
 
+func sendIndex(c fiber.Ctx) error {
+	return c.SendFile("./dist/index.html")
+}
+
 func runReplay(cfg *Config, slug, span string) {
 	fromText, toText, ok := strings.Cut(span, ":")
 	if !ok {
@@ -125,12 +129,16 @@ func main() {
 		log.Printf("Warning: push notifications disabled: %v", err)
 	}
 
-	cities, err := buildCities(config)
+	built, err := buildCities(config)
 	if err != nil {
 		log.Fatalf("Failed to set up the cities: %v", err)
 	}
-	bySlug := make(map[string]*handlers.City, len(cities))
-	for _, city := range cities {
+	cities, err := handlers.NewCities(built, filepath.Join(config.DBDir, "disabled-cities.json"))
+	if err != nil {
+		log.Fatalf("Failed to read the disabled cities: %v", err)
+	}
+	bySlug := make(map[string]*handlers.City, len(built))
+	for _, city := range built {
 		if *refresh {
 			if err := city.ForgetFetches(); err != nil {
 				log.Fatalf("%s: %v", city.Slug, err)
@@ -183,8 +191,9 @@ func main() {
 	api.Get("/transfer/:code", handlers.ReadTransferLink)
 	api.Delete("/transfer/:code", handlers.DeleteTransferLink)
 	handlers.RegisterAdminRoutes(api, cities, config.AdminToken, config.Environment == "production")
-	for _, city := range cities {
-		city.Register(api.Group("/" + city.Slug))
+	notFound := func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNotFound) }
+	for _, city := range built {
+		city.Register(api.Group("/"+city.Slug, city.OnlyEnabled(notFound)))
 	}
 
 	if _, err := os.Stat("./dist"); err == nil {
@@ -212,8 +221,8 @@ func main() {
 		if _, ok := bySlug["cluj"]; ok {
 			handlers.RegisterLegacyPages(app, "cluj")
 		}
-		for _, city := range cities {
-			city.RegisterPages(app.Group("/" + city.Slug))
+		for _, city := range built {
+			city.RegisterPages(app.Group("/"+city.Slug, city.OnlyEnabled(sendIndex)))
 		}
 
 		app.Use("/", static.New("./dist", static.Config{
@@ -229,7 +238,7 @@ func main() {
 			if ext := filepath.Ext(path); ext != "" && ext != ".html" {
 				return c.SendStatus(fiber.StatusNotFound)
 			}
-			return c.SendFile("./dist/index.html")
+			return sendIndex(c)
 		})
 
 		log.Println("Serving frontend from ./dist")
@@ -253,9 +262,7 @@ func main() {
 	// Only once the port is bound, so a failed bind leaves nothing running.
 	err = app.Listen(listenAddr, fiber.ListenConfig{ListenerAddrFunc: func(addr net.Addr) {
 		log.Printf("Server listening on http://%s", addr)
-		for _, city := range cities {
-			city.Start()
-		}
+		cities.Start()
 	}})
 	if err != nil {
 		log.Fatalf("Server stopped: %v", err)

@@ -47,7 +47,7 @@ type learnerState struct {
 	disabledReason string
 }
 
-func (city *City) StartVehicleLearningSampler() {
+func (city *City) StartVehicleLearningSampler(r *runner) {
 	cfg := VehicleLearningSamplerConfig{
 		Enabled:                city.Options.LearningEnabled && city.Learning != nil,
 		MaxDailyQuota:          city.Options.LearningMaxQuota,
@@ -69,17 +69,19 @@ func (city *City) StartVehicleLearningSampler() {
 	)
 	counter := city.newVehicleLearningDailyCounter(vehicleLearningQuotaName, city.Location)
 	city.rememberVehicleLearningSamplerRuntime(cfg, counter, "")
-	go func() {
+	r.Go(func() {
 		for {
 			plan := city.currentVehicleLearningPlan(cfg, counter)
 			delay := plan.Interval
 			if delay <= 0 {
 				delay = vehicleLearningNoBudgetCheckInterval
 			}
-			time.Sleep(delay)
+			if !r.Sleep(delay) {
+				return
+			}
 			city.runVehicleLearningSample(cfg, counter)
 		}
-	}()
+	})
 }
 
 func (city *City) rememberVehicleLearningSamplerRuntime(cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter, disabledReason string) {

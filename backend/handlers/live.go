@@ -100,13 +100,15 @@ func (city *City) learnLiveRules() liveRules {
 	return rules
 }
 
-func (city *City) StartLive() {
-	go func() {
+func (city *City) StartLive(r *runner) {
+	r.Go(func() {
 		for {
 			city.refreshLiveTrips(false)
-			time.Sleep(liveTripsRefresh)
+			if !r.Sleep(liveTripsRefresh) {
+				return
+			}
 		}
-	}()
+	})
 }
 
 // Callers wait for a rebuild in progress, so the first table never sees empty trips.

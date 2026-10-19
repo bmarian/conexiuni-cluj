@@ -89,15 +89,16 @@ func (city *City) setCalendar(c *calendar.Calendar) {
 func (city *City) profileDay(t time.Time) string  { return city.currentCalendar().ProfileDay(t) }
 func (city *City) scheduleDay(t time.Time) string { return city.currentCalendar().ScheduleDay(t) }
 
-func (city *City) StartCalendar() {
+func (city *City) StartCalendar(r *runner) {
 	if err := city.LoadCalendar(); err != nil {
 		city.log("calendar: load failed, using the built-in school year: %v", err)
 	}
 	city.LoadWindowTuning()
-	go func() {
-		time.Sleep(calendarApplyDelay)
-		city.applyCalendar(time.Now())
-	}()
+	r.Go(func() {
+		if r.Sleep(calendarApplyDelay) {
+			city.applyCalendar(time.Now())
+		}
+	})
 }
 
 func (city *City) LoadCalendar() error {

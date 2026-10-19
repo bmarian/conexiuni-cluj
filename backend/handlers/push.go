@@ -152,25 +152,33 @@ func InitPush(publicKey, privateKey, subject string) error {
 	return nil
 }
 
-func (city *City) startPushSenders() {
+func (city *City) startPushSenders(r *runner) {
 	if pushCfg == nil {
 		return
 	}
-	city.pushWake = make(chan struct{}, 1)
-	go city.runPushSender(city.Location)
-	go city.runReminderSender(city.Location)
+	if city.pushWake == nil {
+		city.pushWake = make(chan struct{}, 1)
+	}
+	r.Go(func() { city.runPushSender(r, city.Location) })
+	r.Go(func() { city.runReminderSender(r, city.Location) })
 }
 
 // Changes found overnight (the 04:00 warmup, a deploy) wait for the morning instead of waking people up.
-func (city *City) runPushSender(loc *time.Location) {
+func (city *City) runPushSender(r *runner, loc *time.Location) {
 	for {
 		now := time.Now().In(loc)
 		if !inPushWindow(now) {
-			time.Sleep(time.Until(nextPushWindow(now)))
+			if !r.Sleep(time.Until(nextPushWindow(now))) {
+				return
+			}
 			continue
 		}
 		city.flushPendingPushes()
-		<-city.pushWake
+		select {
+		case <-city.pushWake:
+		case <-r.ctx.Done():
+			return
+		}
 	}
 }
 
