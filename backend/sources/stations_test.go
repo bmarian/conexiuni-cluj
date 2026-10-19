@@ -104,13 +104,11 @@ func TestAStationsPlatformsShareItsLowestStopID(t *testing.T) {
 func TestTheSameNameAndModeInOtherTownsGetTheirTown(t *testing.T) {
 	snap, locate := placesSnapshot([]testPlace{
 		{"1 Decembrie 1918", "București", 1, []string{"Bulevardul Theodor Pallady", "Bulevardul Theodor Pallady"}},
-		// Two platforms naming different streets are still one place, told apart by its town.
 		{"1 Decembrie 1918", "Dărăști-Ilfov", 2, []string{"Strada 1 Decembrie 1918", "Strada Argeș"}},
 		{"1 Decembrie 1918", "Tânganu", 3, []string{"Strada Gării"}},
 		{"Gara", "București", 4, []string{"Calea Griviței"}},
 		{"Gara", "Buftea", 5, []string{"Strada Gării"}},
 	})
-	// The metro is the only metro of its name; the buses share theirs.
 	setMode(snap, 1, models.Subway)
 	n, err := Stations(snap, locate)
 	if err != nil {

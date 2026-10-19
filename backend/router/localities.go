@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-// OSM's levels in Romania: 8 is a town or commune, 4 a county or Bucharest, which has no 8.
+// Romania's OSM admin levels; Bucharest has no 8.
 const (
 	adminTown   = 8
 	adminCounty = 4
@@ -24,7 +24,7 @@ var busRoads = map[string]bool{
 type boundary struct {
 	pbfRelation
 	box BBox
-	// Segment ends in pairs, outer and inner rings alike: crossings count even-odd.
+	// End pairs of every ring segment; even-odd crossings handle holes.
 	ends []Point
 }
 
@@ -59,9 +59,6 @@ func adminBoundary(tag func(string) string) (pbfRelation, bool) {
 	return pbfRelation{name: tag("name"), level: level}, level == adminTown || level == adminCounty
 }
 
-// Localities names the town or village of each point and the nearest named road, "" when unknown.
-// The town is the nearest one inside the point's boundary, so a city's edge is not taken for the next town.
-// Boundaries take three reads: their relations, then their ways, then their nodes.
 func Localities(r io.ReadSeeker, points []Point) (towns, streets []string, err error) {
 	if len(points) == 0 {
 		return nil, nil, nil
@@ -188,10 +185,9 @@ func Localities(r io.ReadSeeker, points []Point) (towns, streets []string, err e
 	return towns, streets, nil
 }
 
-// The street is the nearest road's label; the town the nearest place inside the point's boundary, else the boundary's name.
+// The nearest place inside the point's own boundary, so a city's edge is not taken for the next town.
 func locate(points []Point, roads *segments, labels []string, places []pbfPlace, bounds []boundary) (towns, streets []string) {
 	towns, streets = make([]string, len(points)), make([]string, len(points))
-	// A town's own boundary, else the county's.
 	within := func(p Point) int {
 		county := -1
 		for i := range bounds {

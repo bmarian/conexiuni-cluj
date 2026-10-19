@@ -39,7 +39,6 @@ export type DisplayShape = {
 /** The line the traveller rides, drawn in place of their location while on board. */
 export type RideAs = { line: string; color: string }
 
-// A favourite stop is drawn as a heart, apart from the red of a journey's end.
 export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite' }
 
 export const useMapStore = defineStore('map', () => {

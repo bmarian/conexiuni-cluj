@@ -5,7 +5,6 @@ import ModeIcon from '@/components/icons/ModeIcon.vue'
 defineProps<{ look?: StationLook }>()
 </script>
 
-<!-- The station's biggest mode in that mode's colour; size and corners come from the caller. -->
 <template>
   <span class="station-icon shrink-0" :class="{ 'is-plain': !look }" :style="look ? { backgroundColor: look.color } : undefined">
     <ModeIcon :mode="look?.mode ?? 'bus'" class="station-icon-glyph"/>

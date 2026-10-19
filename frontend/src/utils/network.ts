@@ -72,7 +72,7 @@ export class NetworkIndex {
       else platforms.set(id, [s])
     }
     const routes = new Map<number, NetworkRoute[]>()
-    // The lines a stop page lists: those with a timetable.
+    // Only the lines a stop page lists.
     for (const route of [...this.bundle.routes].sort(byModeThenNumber)) {
       if (!route.timetable || !hasTimetableEntries(route.timetable)) continue
       const stations = new Set<number>()
@@ -98,13 +98,11 @@ export class NetworkIndex {
     return (this.stationIndex = {platforms, looks})
   }
 
-  // What stops at the stop's station: its biggest mode, that mode's colour, every line by mode then number.
   look(stopId: number): StationLook | undefined {
     const stop = this.stopById.get(stopId)
     return stop && this.stations.looks.get(stationOf(stop))
   }
 
-  // The stop's station, the stop itself first.
   platforms(stopId: number): Stop[] {
     const stop = this.stopById.get(stopId)
     if (!stop) return []
@@ -112,7 +110,6 @@ export class NetworkIndex {
     return [stop, ...all.filter((s) => s.stop_id !== stopId)]
   }
 
-  // One stop per station, in the order the stations first come.
   oneStopPerStation<T extends Stop>(stops: T[]): T[] {
     const seen = new Set<number>()
     return stops.filter((s) => {
@@ -128,7 +125,6 @@ export const stationOf = (stop: Stop): number => stop.station_id || stop.stop_id
 
 export type StationLook = {mode: Mode, color: string, routes: NetworkRoute[]}
 
-// The colour most of a mode's lines wear here; a tie goes to the first by number.
 function modeColors(routes: NetworkRoute[]): Map<Mode, string> {
   const counts = new Map<Mode, Map<string, number>>()
   for (const route of [...routes].sort(byModeThenNumber)) {

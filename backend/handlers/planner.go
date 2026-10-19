@@ -29,7 +29,6 @@ const (
 
 func OSMPath() string { return filepath.Join("services", "osm", "romania-latest.osm.pbf") }
 
-// osmLocate reads towns and streets from the planner's OSM extract.
 func osmLocate(points []sources.Point) ([]string, []string, error) {
 	f, err := os.Open(OSMPath())
 	if err != nil {
@@ -41,7 +40,6 @@ func osmLocate(points []sources.Point) ([]string, []string, error) {
 		at[i] = router.Point{Lat: p.Lat, Lon: p.Lon}
 	}
 	towns, streets, err := router.Localities(f, at)
-	// Reading the country extract peaks far above what is kept.
 	debug.FreeOSMemory()
 	return towns, streets, err
 }

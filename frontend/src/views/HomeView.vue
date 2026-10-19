@@ -209,7 +209,6 @@ const sortedStops = computed<Stop[]>(() => {
   return network.value?.oneStopPerStation(sorted) ?? sorted
 })
 
-// Rows added at a time as the list scrolls: thousands at once froze the page.
 const PAGE_SIZE = 30
 
 function useGrowingList<T>(source: () => T[], open: Ref<boolean>) {

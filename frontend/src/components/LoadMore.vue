@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {nextTick, onMounted, onUnmounted, ref} from 'vue'
 
-// Asks for more while it is within a screen of the list's end.
 const props = defineProps<{ root: HTMLElement | null }>()
 const emit = defineEmits<{ more: [] }>()
 
@@ -12,7 +11,7 @@ onMounted(() => {
   observer = new IntersectionObserver((entries) => {
     if (!entries.some((e) => e.isIntersecting)) return
     emit('more')
-    // Still in view after the rows came in: look again, since the observer only reports changes.
+    // The observer only reports changes, so look again while still in view.
     void nextTick(() => {
       if (!observer || !el.value) return
       observer.unobserve(el.value)

@@ -2,10 +2,9 @@ import type {RouteType} from '@/types/tranzy.ts'
 
 export type Mode = 'metro' | 'rail' | 'tram' | 'trolleybus' | 'bus'
 
-// Biggest first: a station is named after the biggest thing that stops there, and lists group in this order.
+// Biggest first.
 export const MODES: Mode[] = ['metro', 'rail', 'tram', 'trolleybus', 'bus']
 
-// The legacy blue theme draws in emoji.
 export const MODE_EMOJI: Record<Mode, string> = {metro: '🚇', rail: '🚆', tram: '🚋', trolleybus: '🚎', bus: '🚌'}
 
 export function modeOf(routeType: RouteType | number | undefined): Mode {
@@ -33,7 +32,6 @@ export function mainMode(routeTypes: Iterable<RouteType | number>): Mode {
 
 type Line = {route_type: RouteType | number, route_short_name: string}
 
-// By mode, then as the numbers read.
 export function byModeThenNumber(a: Line, b: Line): number {
   return MODES.indexOf(modeOf(a.route_type)) - MODES.indexOf(modeOf(b.route_type))
     || a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})

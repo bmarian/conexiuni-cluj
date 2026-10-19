@@ -12,10 +12,8 @@ const TRAIN_PATH =
 // The inside of a 24x24 svg drawn in currentColor.
 export const MODE_ICON: Record<Mode, string> = {
   bus: `<path d="${BUS_PATH}"/>`,
-  // A smaller bus under its two poles.
   trolleybus: `<path d="${BUS_PATH}" transform="translate(2.4 4.4) scale(.8)"/><path d="M10.5 6.4 8.5 1.5M14 6.4 12 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   tram: `<path d="${TRAM_PATH}"/>`,
-  // The M of metro signs.
   metro: '<path d="M3.5 20.5v-17h3.6L12 11l4.9-7.5h3.6v17h-3.3V9.4L12 17.2 6.8 9.4v11.1z"/>',
   rail: `<path d="${TRAIN_PATH}"/>`,
 }

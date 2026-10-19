@@ -23,7 +23,6 @@ export interface IconThemeOptions {
   showVehicleExtras: boolean
 }
 
-// What a station's marker shows: its biggest mode in that mode's colour.
 export type StationMark = {mode: Mode, color: string}
 
 function paperPlate(size: number, fill: string, ink: string, iconSize: number, extra: string = '', glyph: string = MODE_ICON.bus): string {
@@ -86,7 +85,6 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]!)
 
-// The station as the theme draws it on the map, for its hover card.
 function stationCardIcon(mark: StationMark, opts: IconThemeOptions): string {
   if (opts.legacyBlueActive) return `<span class="station-card-emoji">${MODE_EMOJI[mark.mode]}</span>`
   if (opts.arcadeActive) {
@@ -97,7 +95,6 @@ function stationCardIcon(mark: StationMark, opts: IconThemeOptions): string {
   return `<span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>`
 }
 
-// The same as a station's row in the stop lists: its icon, name and every line.
 export function stationCardHtml(name: string, opts: IconThemeOptions, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
   if (!mark) return escapeHtml(name)
   const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${r.route_color}">${escapeHtml(r.route_short_name)}</span>`).join('')
@@ -109,7 +106,6 @@ export function stationCardHtml(name: string, opts: IconThemeOptions, mark?: Sta
 
 export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
   if (opts.arcadeActive) {
-    // Each ghost wears its station's colour.
     const body = isFav ? '#f43f5e' : mark?.color ?? '#94a3b8'
     const pupil = isFav ? '#881337' : '#334155'
     return {
@@ -128,7 +124,6 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
   }
 
   if (opts.legacyBlueActive) {
-    // Each clip bent from its station's colour.
     const wire = isFav ? '#E89C2A' : mark?.color ?? '#9CA3AF'
     const wireDark = isFav ? '#A06010' : '#5C6470'
     return {
@@ -185,7 +180,6 @@ export function makeSelectedStopIcon(opts: IconThemeOptions, mark?: StationMark)
     }
   }
 
-  // The station's own icon and colour, larger and lifted.
   return {
     html: `
       <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-lg z-50 text-white animate-bounce ${mark ? '' : 'bg-emerald-500'}"
@@ -251,7 +245,6 @@ export function makeHighlightIcon(
     }
   }
 
-  // Shaped like every station marker, with a heart for the mode.
   if (color === 'favorite') {
     return {
       html: `<div style="width:24px;height:24px;border-radius:50%;background:${bg};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">

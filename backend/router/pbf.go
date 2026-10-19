@@ -14,12 +14,10 @@ import (
 // Expects nodes before ways, as Geofabrik writes them.
 
 type pbfFilter struct {
-	// keep stores the node; tagged is whether its tags may make it a place.
 	node func(id int64, lat, lon float64) (keep, tagged bool)
 	way  func(id int64, tag func(key string) string) (label string, keep bool)
 	// Tagged nodes in the area and ways that are places; nil keeps none.
 	place func(tag func(key string) string, way bool) (placeTags, bool)
-	// nil skips relations.
 	relation func(tag func(key string) string) (pbfRelation, bool)
 }
 
@@ -34,7 +32,6 @@ type pbfWay struct {
 	label string
 }
 
-// pbfRelation keeps only its member ways.
 type pbfRelation struct {
 	name  string
 	level int
