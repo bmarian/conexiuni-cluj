@@ -220,6 +220,7 @@
   "routeChangeShowMore": "Arată mai multe",
   "routeChangeShowLess": "Arată mai puține",
   "routeChangeMore": "încă {n}",
+  "mapMoreStations": "și încă {n}",
   "routeChangeListAnd": "și",
   "routeChangeDayWeekdays": "din timpul săptămânii",
   "routeChangeDaySaturday": "de sâmbătă",

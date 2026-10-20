@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {getVehicleMarkerHtml, type DisplayVehicle, type IconThemeOptions} from '@/utils/mapIcons.ts'
+import {getVehicleMarkerHtml, makeClusterIcon, type DisplayVehicle, type IconThemeOptions} from '@/utils/mapIcons.ts'
 
 const t = (key: string) => key
 const bus: DisplayVehicle = {id: 1, trip_id: '25_0', route_id: 25, latitude: 46.77, longitude: 23.6, heading: 90, timestamp: '', route_short_name: '25'}
@@ -37,5 +37,26 @@ describe('vehicle accessibility', () => {
     const paper = getVehicleMarkerHtml(half, '#123456', true, themes[3]!, t)
     expect(paper).toContain('paperBikes')
     expect(paper).not.toContain('Wheelchair')
+  })
+})
+
+describe('station group marker', () => {
+  const tram = {mode: 'tram' as const, color: '#BE1622'}
+
+  it('wraps three icons a row in every theme', () => {
+    for (const theme of themes) {
+      const one = makeClusterIcon(['heart', tram], 'Piața Unirii', 1, 0, theme)
+      const four = makeClusterIcon(['heart', tram, tram, tram], 'Piața Unirii', 3, 0, theme)
+      expect(four.size[0]).toBe(makeClusterIcon(['heart', tram, tram], 'Piața Unirii', 2, 0, theme).size[0])
+      expect(four.size[1]).toBeGreaterThan(one.size[1])
+      expect(one.html).toContain('Piața Unirii')
+      expect(one.html).toContain('+1')
+    }
+  })
+
+  it('is as wide as its label', () => {
+    const icon = makeClusterIcon([tram, tram], 'Piața Victoriei 1 (M1)', 1, 180, themes[0]!)
+    expect(icon.size[0]).toBe(180)
+    expect(icon.anchor[0]).toBe(90)
   })
 })

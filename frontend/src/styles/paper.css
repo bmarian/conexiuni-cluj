@@ -669,6 +669,25 @@ html[data-paper] .pp-line-sm {
   font-size: 0.875rem;
 }
 
+html[data-paper] .maplibregl-map .stop-cluster-pill {
+  border-radius: 0 !important;
+  background: var(--pp-paper) var(--pp-grain);
+  box-shadow: var(--pp-slip-shadow), inset 0 0 0 1px var(--pp-ink);
+}
+
+html[data-paper] .maplibregl-map .stop-cluster-label {
+  font-family: var(--pp-sans);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pp-ink);
+  text-shadow: 0 0 2px var(--pp-paper), 0 0 2px var(--pp-paper), 0 0 3px var(--pp-paper);
+}
+
+html[data-paper] .maplibregl-map .stop-cluster-more {
+  color: var(--pp-ink-2);
+}
+
 html[data-paper] .station-line,
 html[data-paper] .station-card-line {
   border-radius: 0;

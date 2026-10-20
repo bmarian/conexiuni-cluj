@@ -85,11 +85,7 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
 
 function stationCardIcon(mark: StationMark, opts: IconThemeOptions): string {
   if (opts.legacyBlueActive) return `<span class="station-card-emoji">${MODE_EMOJI[mark.mode]}</span>`
-  if (opts.arcadeActive) {
-    return `<svg viewBox="0 0 12 16" width="18" height="24"><path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${mark.color}"/>
-      <circle cx="3.8" cy="8" r="1.3" fill="white"/><circle cx="7.8" cy="8" r="1.3" fill="white"/>
-      <circle cx="4.2" cy="8.4" r="0.7" fill="#334155"/><circle cx="8.2" cy="8.4" r="0.7" fill="#334155"/></svg>`
-  }
+  if (opts.arcadeActive) return ghost(mark.color)
   return `<span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>`
 }
 
@@ -102,10 +98,10 @@ export function stationCardHtml(name: string, opts: IconThemeOptions, mark?: Sta
   </div>`
 }
 
-export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
+export function makeStopIcon(opts: IconThemeOptions, mark?: StationMark): MarkerIcon {
   if (opts.arcadeActive) {
-    const body = isFav ? '#f43f5e' : mark?.color ?? '#94a3b8'
-    const pupil = isFav ? '#881337' : '#334155'
+    const body = mark?.color ?? '#94a3b8'
+    const pupil = '#334155'
     return {
       html: `<div style="width:20px;height:26px;display:flex;align-items:flex-end;justify-content:center;">
         <svg viewBox="0 0 12 16" width="18" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -122,8 +118,8 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
   }
 
   if (opts.legacyBlueActive) {
-    const wire = isFav ? '#E89C2A' : mark?.color ?? '#9CA3AF'
-    const wireDark = isFav ? '#A06010' : '#5C6470'
+    const wire = mark?.color ?? '#9CA3AF'
+    const wireDark = '#5C6470'
     return {
       html: `<div style="width:26px;height:32px;display:flex;align-items:flex-end;justify-content:center;filter:drop-shadow(1px 2px 1.5px rgba(0,0,0,0.35));">
         ${clippySvg(wire, wireDark, 24, 30)}
@@ -135,15 +131,88 @@ export function makeStopIcon(isFav: boolean, opts: IconThemeOptions, mark?: Stat
 
   if (opts.paperActive) {
     return {
-      html: isFav
-        ? paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13, '', MODE_ICON[mark?.mode ?? 'bus'])
-        : paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', MODE_ICON[mark?.mode ?? 'bus']),
+      html: paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', MODE_ICON[mark?.mode ?? 'bus']),
       size: [20, 20],
       anchor: [10, 10],
     }
   }
 
   return mark ? stationIcon(mark) : defaultStopIcon
+}
+
+const CLUSTER_LABEL_PX = 15
+const CLUSTER_PAD_PX = 3
+const CLUSTER_GAP_PX = 2
+const CLUSTER_ROW = 3
+export const CLUSTER_STATIONS_MAX = 3
+const CLUSTER_NAMES_MAX = 8
+
+const ghost = (fill: string, extra = '') => `<svg viewBox="0 0 12 16" width="18" height="24"><path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z" fill="${fill}"/>
+  <circle cx="3.8" cy="8" r="1.3" fill="white"/><circle cx="7.8" cy="8" r="1.3" fill="white"/>
+  <circle cx="4.2" cy="8.4" r="0.7" fill="#334155"/><circle cx="8.2" cy="8.4" r="0.7" fill="#334155"/>${extra}</svg>`
+
+type ClusterLook = {w: number, h: number, icon: (mark: StationMark) => string, heart: () => string}
+
+function clusterLook(opts: IconThemeOptions): ClusterLook {
+  if (opts.arcadeActive) {
+    return {w: 18, h: 24, icon: (mark) => ghost(mark.color), heart: () => ghost('#f43f5e', `<path d="${HEART_PATH}" fill="white" transform="translate(4.1 9.6) scale(0.16)"/>`)}
+  }
+  if (opts.legacyBlueActive) {
+    return {w: 22, h: 22, icon: (mark) => `<span class="stop-cluster-emoji">${MODE_EMOJI[mark.mode]}</span>`, heart: () => '<span class="stop-cluster-emoji">\u2764\ufe0f</span>'}
+  }
+  if (opts.paperActive) {
+    return {
+      w: 20,
+      h: 20,
+      icon: (mark) => paperPlate(20, 'var(--pp-paper)', 'var(--pp-ink)', 13, '', MODE_ICON[mark.mode]),
+      heart: () => paperPlate(20, 'var(--pp-red)', 'var(--pp-paper)', 13, '', `<path d="${HEART_PATH}"/>`),
+    }
+  }
+  return {w: 24, h: 24, icon: (mark) => stationIcon(mark).html as string, heart: () => makeHighlightIcon('favorite', opts).html as string}
+}
+
+function clusterPill(count: number, look: ClusterLook): [number, number] {
+  const cols = Math.min(count, CLUSTER_ROW)
+  const rows = Math.ceil(count / CLUSTER_ROW)
+  return [cols * look.w + (cols - 1) * CLUSTER_GAP_PX + 2 * CLUSTER_PAD_PX, rows * look.h + (rows - 1) * CLUSTER_GAP_PX + 2 * CLUSTER_PAD_PX]
+}
+
+export function clusterIconBox(count: number, labelWidth: number, opts: IconThemeOptions): Pick<MarkerIcon, 'size' | 'anchor'> {
+  const [w, h] = clusterPill(count, clusterLook(opts))
+  const width = Math.max(w, Math.ceil(labelWidth))
+  return {size: [width, h + CLUSTER_LABEL_PX], anchor: [width / 2, h / 2]}
+}
+
+export type ClusterIcon = StationMark | 'heart'
+
+export function makeClusterIcon(icons: ClusterIcon[], name: string, more: number, labelWidth: number, opts: IconThemeOptions): MarkerIcon {
+  const look = clusterLook(opts)
+  const [w, h] = clusterPill(icons.length, look)
+  const box = clusterIconBox(icons.length, labelWidth, opts)
+  const cells = icons.map((icon) =>
+    `<div style="width:${look.w}px;height:${look.h}px;display:flex;align-items:center;justify-content:center;">${icon === 'heart' ? look.heart() : look.icon(icon)}</div>`).join('')
+  return {
+    html: `<div class="stop-cluster" style="width:${box.size[0]}px;">
+      <div class="stop-cluster-pill" style="width:${w}px;height:${h}px;padding:${CLUSTER_PAD_PX}px;gap:${CLUSTER_GAP_PX}px;border-radius:${look.h / 2 + CLUSTER_PAD_PX}px;">${cells}</div>
+      <div class="stop-cluster-label"><span>${escapeHtml(name)}</span> <span class="stop-cluster-more">+${more}</span></div>
+    </div>`,
+    ...box,
+  }
+}
+
+export type ClusterStation = {name: string, mark?: Parameters<typeof stationCardHtml>[2]}
+
+export function clusterCardHtml(stations: ClusterStation[], opts: IconThemeOptions, more: (n: number) => string): string {
+  if (stations.length <= CLUSTER_STATIONS_MAX) {
+    return `<div class="station-cards">${stations.map((s) => stationCardHtml(s.name, opts, s.mark)).join('')}</div>`
+  }
+  const names = [...new Set(stations.map((s) => s.name))].sort((a, b) => a.localeCompare(b))
+  const shown = names.slice(0, CLUSTER_NAMES_MAX)
+  const rest = names.length - shown.length
+  return `<div class="station-names">
+    ${shown.map((name) => `<div>${escapeHtml(name)}</div>`).join('')}
+    ${rest ? `<div class="station-names-more">${escapeHtml(more(rest))}</div>` : ''}
+  </div>`
 }
 
 export function makeSelectedStopIcon(opts: IconThemeOptions, mark?: StationMark): MarkerIcon {

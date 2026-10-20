@@ -220,6 +220,7 @@
   "routeChangeShowMore": "Show more",
   "routeChangeShowLess": "Show less",
   "routeChangeMore": "{n} more",
+  "mapMoreStations": "and {n} more",
   "routeChangeListAnd": "and",
   "routeChangeDayWeekdays": "weekday",
   "routeChangeDaySaturday": "Saturday",

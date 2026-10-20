@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, ref, watch, watchPostEffect, type Ref} from 'vue'
+import {computed, nextTick, onMounted, ref, watch, type Ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -8,7 +8,6 @@ import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
-import {useMapStore} from '@/stores/map.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
@@ -64,7 +63,6 @@ useHead(() => ({
   link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
-const mapStore = useMapStore()
 const routeStore = useRouteStore()
 const settings = useSettingsStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
@@ -117,12 +115,6 @@ const stopsById = computed(() => {
   const map = new Map<number, Stop>()
   for (const s of stops.value) map.set(s.stop_id, s)
   return map
-})
-
-watchPostEffect(() => {
-  mapStore.setHighlightedStops(
-    favoriteStopIds.value.map(id => ({stopId: String(id), color: 'favorite' as const}))
-  )
 })
 
 onMounted(() => {
