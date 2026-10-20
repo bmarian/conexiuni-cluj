@@ -119,6 +119,7 @@ let stopRefreshFrame = 0
 let styleReady = false
 
 const DEFAULT_ZOOM = 15
+const STOP_ZOOM_THRESHOLD = 15
 const CLUSTER_ZOOM_STEP = 0.25
 const UNKNOWN_MODE_COLOR = '#64748b'
 const FIT_MAX_ZOOM = 15
@@ -488,11 +489,15 @@ const groupMarker = (index: StopClusters, group: StopGroup): Marker => {
 }
 
 // Only the stops around the view are on the map, so panning moves a few dozen markers, not all of them.
+// While the map shows a stop's, line's or trip's own content, other stops only appear from street zoom.
+const showsContent = computed(() => shapesToDisplay.value.length > 0 || vehiclesToDisplay.value.length > 0
+  || walkingPolylines.value.length > 0 || highlightedStops.value.length > 0 || !!currentlyHighlightedStopId.value)
+
 const refreshStops = () => {
   const m = map.value
   if (!m) return
   const wanted = new Map<string, () => Marker | undefined>()
-  if (stopData.size) {
+  if (stopData.size && (!showsContent.value || m.getZoom() >= STOP_ZOOM_THRESHOLD)) {
     const index = stopClusters()
     const bounds = m.getBounds()
     const padLat = (bounds.getNorth() - bounds.getSouth()) / 2
@@ -1032,6 +1037,8 @@ watch(legacyBlueActive, (active) => {
 watch(paperActive, refreshStopIcons)
 
 watch(network, resetClusters)
+
+watch(showsContent, () => refreshStops())
 
 watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
