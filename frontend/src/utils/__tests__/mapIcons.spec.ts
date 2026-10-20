@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {getVehicleMarkerHtml, makeClusterIcon, type DisplayVehicle, type IconThemeOptions} from '@/utils/mapIcons.ts'
+import {getVehicleMarkerHtml, makeClusterIcon, makeSpiderIcon, makeStopIcon, type DisplayVehicle, type IconThemeOptions} from '@/utils/mapIcons.ts'
+import {spiderLegs} from '@/utils/spider.ts'
 
 const t = (key: string) => key
 const bus: DisplayVehicle = {id: 1, trip_id: '25_0', route_id: 25, latitude: 46.77, longitude: 23.6, heading: 90, timestamp: '', route_short_name: '25'}
@@ -58,5 +59,21 @@ describe('station group marker', () => {
     const icon = makeClusterIcon([tram, tram], 'Piața Victoriei 1 (M1)', 1, 180, themes[0]!)
     expect(icon.size[0]).toBe(180)
     expect(icon.anchor[0]).toBe(90)
+  })
+})
+
+describe('spider icon', () => {
+  it('lays every station out with its name and a leg, in every theme', () => {
+    const legs = spiderLegs(3)
+    for (const theme of themes) {
+      const stations = ['Guhring S', 'Guhring N', 'A & B'].map((name, i) => ({id: String(i + 1), name, icon: makeStopIcon(theme), leg: legs[i]!}))
+      const icon = makeSpiderIcon(stations, theme)
+      const html = icon.html as string
+      expect(html.match(/data-stop="/g)).toHaveLength(3)
+      expect(html.match(/<line /g)).toHaveLength(3)
+      expect(html).toContain('A &amp; B')
+      expect(html).toContain('flex-direction:row-reverse')
+      expect(icon.anchor).toEqual([icon.size[0] / 2, icon.size[1] / 2])
+    }
   })
 })

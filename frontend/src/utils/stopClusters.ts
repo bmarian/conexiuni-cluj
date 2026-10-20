@@ -106,8 +106,8 @@ export class StopClusters {
     return [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]]
   }
 
-  // The zooms at which the group first breaks up, and at which each of its stations stands alone.
-  expansion(group: StopGroup, zoom: number): {split: number, apart: number} {
+  // The zooms at which the group first breaks up, and at which each of its stations stands alone; null when no zoom breaks it up.
+  expansion(group: StopGroup, zoom: number): {split: number, apart: number} | null {
     let split: number | null = null
     for (let level = this.levelOf(zoom) - 1; level >= 0; level--) {
       const owner = this.ownerAt(level)
@@ -116,7 +116,7 @@ export class StopClusters {
       if (split === null && group.points.some((i) => owner[i] !== first)) split = this.zoomOf(level)
       if (group.points.every((i) => groups[owner[i]!]!.stations.size === 1)) return {split: split ?? this.zoomOf(level), apart: this.zoomOf(level)}
     }
-    return {split: split ?? this.maxZoom, apart: this.maxZoom}
+    return split === null ? null : {split, apart: this.maxZoom}
   }
 
   private levelOf(zoom: number): number {

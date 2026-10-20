@@ -156,6 +156,61 @@
   line-height: 1;
 }
 
+.maplibregl-marker.is-spiderfied {
+  visibility: hidden;
+}
+
+.stop-spider {
+  position: relative;
+}
+
+.stop-spider-legs {
+  position: absolute;
+  inset: 0;
+  stroke: #0f172a;
+  stroke-width: 1.5;
+  stroke-opacity: 0.7;
+  fill: #0f172a;
+}
+
+.stop-spider-item {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.stop-spider-item .stop-cluster-label {
+  margin-top: 0;
+}
+
+.stop-spider-item:hover .stop-cluster-label {
+  text-decoration: underline;
+}
+
+:root.dark .stop-spider-legs {
+  stroke: #f1f5f9;
+  fill: #f1f5f9;
+}
+
+.arcade-theme .stop-spider-legs,
+:root.dark .arcade-theme .stop-spider-legs {
+  stroke: #f59e0b;
+  fill: #f59e0b;
+}
+
+.legacy-blue-theme .stop-spider-legs {
+  stroke: #245EDC;
+  fill: #245EDC;
+}
+
+:root.dark .legacy-blue-theme .stop-spider-legs {
+  stroke: #4e88d8;
+  fill: #4e88d8;
+}
+
 :root.dark .stop-cluster-pill {
   background: #1e293b;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 4px 16px -2px rgba(0, 0, 0, 0.40);
