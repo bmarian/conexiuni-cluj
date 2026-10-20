@@ -1,3 +1,4 @@
+import {cityDateTime} from '@/utils/cityClock.ts'
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 
@@ -22,9 +23,7 @@ export const usePlannerStore = defineStore('planner', () => {
   function setTimeMode(mode: PlanTimeMode) {
     timeMode.value = mode
     if (mode !== 'now' && mode !== 'last' && !timeValue.value) {
-      const now = new Date()
-      const pad = (n: number) => String(n).padStart(2, '0')
-      timeValue.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+      timeValue.value = cityDateTime(new Date())
     }
   }
 

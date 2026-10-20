@@ -1,6 +1,7 @@
 import type {Vehicle} from '@/types/tranzy.ts'
 import {type Mode, MODE_EMOJI} from '@/utils/modes.ts'
 import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
+import {escapeHtml} from '@/utils/text.ts'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string;
@@ -81,9 +82,6 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
   }
   return icon
 }
-
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]!)
 
 function stationCardIcon(mark: StationMark, opts: IconThemeOptions): string {
   if (opts.legacyBlueActive) return `<span class="station-card-emoji">${MODE_EMOJI[mark.mode]}</span>`
@@ -313,20 +311,35 @@ export function makePinIcon(opts: IconThemeOptions, color: string = "#0ea5e9"): 
   }
 }
 
+// What the feed says about each, if anything; a feed that does not say gets no icon rather than a "no".
+function accessibility(vehicle: DisplayVehicle): {wheelchair?: boolean, bike?: boolean} {
+  const told = (value?: string) => value !== undefined && value !== '' && value !== 'UNKNOWN'
+  return {
+    wheelchair: told(vehicle.wheelchair_accessible) ? vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE' : undefined,
+    bike: told(vehicle.bike_accessible) ? vehicle.bike_accessible === 'BIKE_ACCESSIBLE' : undefined,
+  }
+}
+
 function accessibilityIcons(vehicle: DisplayVehicle, color: string): string {
-  const bikeOk = vehicle.bike_accessible === 'BIKE_ACCESSIBLE'
-  const wheelchairOk = vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE'
+  const {wheelchair, bike} = accessibility(vehicle)
   const sz = 12
   const strike = `<line x1="2" y1="2" x2="22" y2="22" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>`
-  const wheelchair = `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="${color}" stroke-width="2.5"${!wheelchairOk ? ' opacity="0.4"' : ''}><circle cx="12" cy="3.5" r="2.5" fill="${color}" stroke="none"/><path d="M10 8v6h5l2 5"/><circle cx="9" cy="19.5" r="3.5"/></g>${!wheelchairOk ? strike : ''}</svg>`
-  const bike = `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="${color}" stroke-width="2.5"${!bikeOk ? ' opacity="0.4"' : ''}><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="14" cy="4.5" r="2" fill="${color}" stroke="none"/><path d="M12 17.5V13l-3-3 4-3 2 3h3"/></g>${!bikeOk ? strike : ''}</svg>`
-  return `<span style="display:flex;gap:4px;align-items:center;">${wheelchair}${bike}</span>`
+  const icon = (ok: boolean, shape: string) =>
+    `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="${color}" stroke-width="2.5"${!ok ? ' opacity="0.4"' : ''}>${shape}</g>${!ok ? strike : ''}</svg>`
+  const icons = [
+    wheelchair === undefined ? '' : icon(wheelchair, `<circle cx="12" cy="3.5" r="2.5" fill="${color}" stroke="none"/><path d="M10 8v6h5l2 5"/><circle cx="9" cy="19.5" r="3.5"/>`),
+    bike === undefined ? '' : icon(bike, `<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="14" cy="4.5" r="2" fill="${color}" stroke="none"/><path d="M12 17.5V13l-3-3 4-3 2 3h3"/>`),
+  ].join('')
+  return icons && `<span style="display:flex;gap:4px;align-items:center;">${icons}</span>`
 }
 
 function accessibilityWords(vehicle: DisplayVehicle, t: (key: string) => string): string {
-  const wheelchair = t(vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE' ? 'paperWheelchair' : 'paperNoWheelchair')
-  const bikes = t(vehicle.bike_accessible === 'BIKE_ACCESSIBLE' ? 'paperBikes' : 'paperNoBikes')
-  return `<div style="font-size:10px;font-stretch:85%;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">${wheelchair} · ${bikes}</div>`
+  const {wheelchair, bike} = accessibility(vehicle)
+  const words = [
+    wheelchair === undefined ? '' : t(wheelchair ? 'paperWheelchair' : 'paperNoWheelchair'),
+    bike === undefined ? '' : t(bike ? 'paperBikes' : 'paperNoBikes'),
+  ].filter(Boolean)
+  return words.length ? `<div style="font-size:10px;font-stretch:85%;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">${words.join(' · ')}</div>` : ''
 }
 
 export function getVehicleMarkerHtml(
@@ -342,7 +355,10 @@ export function getVehicleMarkerHtml(
   const label = String(vehicle.label ?? '').replace(/[^\w -]/g, '')
   const speedText = `${label ? `#${label} · ` : ''}${roundedSpeed} km/h`
   const heading = vehicle.heading || 0
-  const extrasHtml = (color: string) => opts.showVehicleExtras ? `<span style="color:${color};font-weight:700;">·</span>${accessibilityIcons(vehicle, color)}` : ''
+  const extrasHtml = (color: string) => {
+    const icons = opts.showVehicleExtras ? accessibilityIcons(vehicle, color) : ''
+    return icons && `<span style="color:${color};font-weight:700;">·</span>${icons}`
+  }
 
   if (opts.arcadeActive) {
     const rotation = heading - 90
@@ -437,4 +453,14 @@ export function getVehicleMarkerHtml(
       ` : ''}
     </div>
   `
+}
+
+// A planned place's label, "Name, area", as its pin's tooltip; it can come from a shared link.
+export function placeTooltipHtml(label: string): string {
+  const parts = label.split(',').map((p) => escapeHtml(p.trim()))
+  const main = parts[0] ?? escapeHtml(label)
+  const sub = parts.slice(1).join(', ')
+  return sub
+    ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
+    : `<div class="pin-tip-main">${main}</div>`
 }

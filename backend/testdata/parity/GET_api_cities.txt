@@ -1,0 +1,48 @@
+GET /api/cities
+200
+Cache-Control: no-cache
+Content-Length: 576
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"576-508975589"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+[
+ {
+  "slug": "fixture",
+  "name": "Fixture",
+  "operator": "Fixture Transit",
+  "operatorUrl": "https://fixture.example/",
+  "realtime": true,
+  "news": true,
+  "lat": 46,
+  "lon": 24,
+  "bounds": {
+   "south": 45.902067839408126,
+   "west": 23.858537570097297,
+   "north": 46.097932160591874,
+   "east": 24.141462429902703
+  },
+  "credits": []
+ },
+ {
+  "slug": "fixturegtfs",
+  "name": "Fixture GTFS",
+  "operator": "Fixture Rail",
+  "operatorUrl": "https://rail.fixture.example/",
+  "realtime": false,
+  "news": false,
+  "lat": 45,
+  "lon": 25,
+  "bounds": {
+   "south": 44.902067839408126,
+   "west": 24.86081671879746,
+   "north": 45.097932160591874,
+   "east": 25.13918328120254
+  },
+  "credits": []
+ }
+]

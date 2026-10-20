@@ -1,0 +1,108 @@
+GET /api/fixturegtfs/plan?from_lat=45.000000&from_lng=25.000000&to_lat=44.996000&to_lng=25.000000&last=true
+200
+Cache-Control: no-cache
+Content-Length: 982
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"982-604063990"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "options": [
+  {
+   "key": "703\u003e712",
+   "transfers": 0,
+   "walk_m": 268.45927794379213,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 703,
+     "meters": 111.1949266435095,
+     "seconds": 83,
+     "path": "_atqG_yqwCbB?cB?"
+    },
+    {
+     "kind": "ride",
+     "from": 703,
+     "to": 712,
+     "seconds": 75,
+     "path": "_atqG_yqwCfE?fE?fE?fE?",
+     "lines": [
+      8
+     ]
+    },
+    {
+     "kind": "walk",
+     "from": 712,
+     "to": 0,
+     "meters": 157.26435130028264,
+     "seconds": 118,
+     "path": "_hsqG_yqwC?gE?fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792526827,
+     "arrive": 1792527103,
+     "rides": [
+      {
+       "route_id": 8,
+       "trip_id": "8_1",
+       "depart": 1792526910,
+       "arrive": 1792526985
+      }
+     ]
+    },
+    {
+     "depart": 1792525627,
+     "arrive": 1792525903,
+     "rides": [
+      {
+       "route_id": 8,
+       "trip_id": "8_1",
+       "depart": 1792525710,
+       "arrive": 1792525785
+      }
+     ]
+    },
+    {
+     "depart": 1792524427,
+     "arrive": 1792524703,
+     "rides": [
+      {
+       "route_id": 8,
+       "trip_id": "8_1",
+       "depart": 1792524510,
+       "arrive": 1792524585
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "stops": {
+  "703": {
+   "name": "Stația 703",
+   "lat": 45,
+   "lon": 25
+  },
+  "712": {
+   "name": "Stația 712",
+   "lat": 44.996,
+   "lon": 25
+  }
+ },
+ "lines": {
+  "8": {
+   "short_name": "8B",
+   "long_name": "Capăt 711 - Capăt 715",
+   "color": "#1C38D9",
+   "type": 0
+  }
+ },
+ "refresh_in": 0
+}

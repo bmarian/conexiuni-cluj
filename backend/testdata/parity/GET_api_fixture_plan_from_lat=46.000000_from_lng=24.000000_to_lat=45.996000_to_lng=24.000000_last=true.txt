@@ -1,0 +1,108 @@
+GET /api/fixture/plan?from_lat=46.000000&from_lng=24.000000&to_lat=45.996000&to_lng=24.000000&last=true
+200
+Cache-Control: no-cache
+Content-Length: 981
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"981-3691369341"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "options": [
+  {
+   "key": "103\u003e112",
+   "transfers": 0,
+   "walk_m": 265.6910676418185,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 103,
+     "meters": 111.1949266435095,
+     "seconds": 83,
+     "path": "_kwwG_onqCbB?cB?"
+    },
+    {
+     "kind": "ride",
+     "from": 103,
+     "to": 112,
+     "seconds": 64,
+     "path": "_kwwG_onqCfE?fE?fE?fE?",
+     "lines": [
+      2
+     ]
+    },
+    {
+     "kind": "walk",
+     "from": 112,
+     "to": 0,
+     "meters": 154.49614099830902,
+     "seconds": 116,
+     "path": "_rvwG_onqC?gE?fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792526745,
+     "arrive": 1792527008,
+     "rides": [
+      {
+       "route_id": 2,
+       "trip_id": "2_1",
+       "depart": 1792526828,
+       "arrive": 1792526892
+      }
+     ]
+    },
+    {
+     "depart": 1792525545,
+     "arrive": 1792525808,
+     "rides": [
+      {
+       "route_id": 2,
+       "trip_id": "2_1",
+       "depart": 1792525628,
+       "arrive": 1792525692
+      }
+     ]
+    },
+    {
+     "depart": 1792524345,
+     "arrive": 1792524608,
+     "rides": [
+      {
+       "route_id": 2,
+       "trip_id": "2_1",
+       "depart": 1792524428,
+       "arrive": 1792524492
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "stops": {
+  "103": {
+   "name": "Stația 103",
+   "lat": 46,
+   "lon": 24
+  },
+  "112": {
+   "name": "Stația 112",
+   "lat": 45.996,
+   "lon": 24
+  }
+ },
+ "lines": {
+  "2": {
+   "short_name": "2B",
+   "long_name": "Capăt 111 - Capăt 115",
+   "color": "#16D057",
+   "type": 0
+  }
+ },
+ "refresh_in": 0
+}

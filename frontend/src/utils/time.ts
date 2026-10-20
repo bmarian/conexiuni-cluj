@@ -1,3 +1,4 @@
+import {cityClock, cityDate, cityMinutes, cityTime} from '@/utils/cityClock.ts'
 import {shallowRef} from 'vue'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
 import {
@@ -26,19 +27,13 @@ export const timeStringToMinutes = (timeString: string): number | null => {
   return (hours * 60) + minutes;
 }
 
-export const getMinutesFromDate = (dateObject: Date): number => {
-  const hours = dateObject.getHours();
-  const minutes = dateObject.getMinutes() + dateObject.getSeconds() / 60;
-
-  return (hours * 60) + minutes;
-}
+export const getMinutesFromDate = (dateObject: Date): number => cityMinutes(dateObject)
 
 export const formatMinutesFromNow = (rawMinutes: number, referenceDate: Date, nowLabel: string): string => {
   const minutes = Math.round(rawMinutes);
   if (minutes === 0) return nowLabel;
   if (minutes > 0 && minutes < 60) return `${minutes}m`;
-  const future = new Date(referenceDate.getTime() + minutes * 60_000);
-  return `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}`;
+  return cityClock(referenceDate.getTime() + minutes * 60_000);
 }
 
 export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'
@@ -59,24 +54,21 @@ export const setScheduleDays = (days: Record<string, ScheduleDay> | undefined, n
 
 export const scheduleDayOn = (date: string): ScheduleDay | undefined => scheduleDays.value[date]
 
-const localDate = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
 export const plainTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
-  const day = referenceDate.getDay()
+  const day = cityTime(referenceDate).weekday
   if (day === 0) return 'sunday'
   if (day === 6) return 'saturday'
   return 'weekdays'
 }
 
 export const getTimetableDayKey = (referenceDate: Date): TimetableDayKey => {
-  const special = scheduleDays.value[localDate(referenceDate)]
+  const special = scheduleDays.value[cityDate(referenceDate)]
   if (special) return special === 'weekday' ? 'weekdays' : special
   return plainTimetableDayKey(referenceDate)
 }
 
 export const specialDayOn = (referenceDate: Date): SpecialDay | null => {
-  const date = localDate(referenceDate)
+  const date = cityDate(referenceDate)
   const schedule = scheduleDays.value[date]
   return schedule ? {schedule, note: dayNotes.value[date] ?? null} : null
 }

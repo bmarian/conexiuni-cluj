@@ -1,6 +1,7 @@
 import {translate as t} from '@/i18n.ts'
-import {addDays, clujDate, formatSlot} from '@/utils/reminders.ts'
-import {clujMinutes} from '@/utils/follow.ts'
+import {addDays, formatSlot} from '@/utils/reminders.ts'
+import {cityDate} from '@/utils/cityClock.ts'
+import {cityMinuteOfDay} from '@/utils/follow.ts'
 
 const weekday = (locale: string, iso: number, style: 'short' | 'narrow') =>
   // 2024-01-01 was a Monday.
@@ -12,9 +13,9 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 export const dayLetter = (locale: string, iso: number) => capitalize(weekday(locale, iso, 'narrow'))
 
 export function reminderWhen(atMs: number, locale: string, nowMs = Date.now()): string {
-  const clock = formatSlot(clujMinutes(atMs))
-  const day = clujDate(atMs)
-  const today = clujDate(nowMs)
+  const clock = formatSlot(cityMinuteOfDay(atMs))
+  const day = cityDate(atMs)
+  const today = cityDate(nowMs)
   if (day === today) return t('remindToday', {time: clock})
   if (day === addDays(today, 1)) return t('remindTomorrow', {time: clock})
   const iso = ((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7) + 1

@@ -1,0 +1,229 @@
+GET /api/fixture/live?once=1&route_ids=1
+200
+Cache-Control: no-store
+Content-Length: 1881
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"1881-2156253733"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "as_of": 1792454400,
+ "rows": [
+  {
+   "trip_id": "1_0",
+   "stop_id": 101,
+   "entries": [
+    {
+     "at": 1792461600,
+     "live": false
+    },
+    {
+     "at": 1792462320,
+     "live": false
+    },
+    {
+     "at": 1792463040,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_0",
+   "stop_id": 102,
+   "entries": [
+    {
+     "at": 1792461667,
+     "live": false
+    },
+    {
+     "at": 1792462387,
+     "live": false
+    },
+    {
+     "at": 1792463107,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_0",
+   "stop_id": 103,
+   "entries": [
+    {
+     "at": 1792461733,
+     "live": false
+    },
+    {
+     "at": 1792462453,
+     "live": false
+    },
+    {
+     "at": 1792463173,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_0",
+   "stop_id": 104,
+   "entries": [
+    {
+     "at": 1792454417,
+     "live": true,
+     "vehicle_id": 11
+    },
+    {
+     "at": 1792461800,
+     "live": false
+    },
+    {
+     "at": 1792462520,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_0",
+   "stop_id": 105,
+   "entries": [
+    {
+     "at": 1792454483,
+     "live": true,
+     "vehicle_id": 11
+    },
+    {
+     "at": 1792461867,
+     "live": false
+    },
+    {
+     "at": 1792462587,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_1",
+   "stop_id": 105,
+   "entries": [
+    {
+     "at": 1792461900,
+     "live": false
+    },
+    {
+     "at": 1792462620,
+     "live": false
+    },
+    {
+     "at": 1792463340,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_1",
+   "stop_id": 104,
+   "entries": [
+    {
+     "at": 1792461967,
+     "live": false
+    },
+    {
+     "at": 1792462687,
+     "live": false
+    },
+    {
+     "at": 1792463407,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_1",
+   "stop_id": 103,
+   "entries": [
+    {
+     "at": 1792462033,
+     "live": false
+    },
+    {
+     "at": 1792462753,
+     "live": false
+    },
+    {
+     "at": 1792463473,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_1",
+   "stop_id": 102,
+   "entries": [
+    {
+     "at": 1792454417,
+     "live": true,
+     "vehicle_id": 12
+    },
+    {
+     "at": 1792462100,
+     "live": false
+    },
+    {
+     "at": 1792462820,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "1_1",
+   "stop_id": 101,
+   "entries": [
+    {
+     "at": 1792454483,
+     "live": true,
+     "vehicle_id": 12
+    },
+    {
+     "at": 1792462167,
+     "live": false
+    },
+    {
+     "at": 1792462887,
+     "live": false
+    }
+   ]
+  }
+ ],
+ "vehicles": [
+  {
+   "id": 11,
+   "trip_id": "1_0",
+   "route_id": 1,
+   "latitude": 46,
+   "longitude": 24.004,
+   "heading": 90,
+   "speed": 20,
+   "timestamp": "2026-10-20T00:00:00Z",
+   "label": "B11",
+   "vehicle_type": 3,
+   "bike_accessible": "BIKE_ACCESSIBLE",
+   "wheelchair_accessible": "WHEELCHAIR_ACCESSIBLE"
+  },
+  {
+   "id": 12,
+   "trip_id": "1_1",
+   "route_id": 1,
+   "latitude": 46,
+   "longitude": 23.996,
+   "heading": 270,
+   "speed": 20,
+   "timestamp": "2026-10-20T00:00:00Z",
+   "label": "B12",
+   "vehicle_type": 3
+  }
+ ]
+}

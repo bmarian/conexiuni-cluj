@@ -3,11 +3,9 @@ import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {useOnline} from '@/composables/useOnline'
-import {useSettingsStore} from '@/stores/settings'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 
 const {t} = useI18n()
-const settings = useSettingsStore()
 const routeUpdates = useRouteUpdatesStore()
 const {isOnline} = useOnline()
 const {closeLayers} = useKeyboardNav()

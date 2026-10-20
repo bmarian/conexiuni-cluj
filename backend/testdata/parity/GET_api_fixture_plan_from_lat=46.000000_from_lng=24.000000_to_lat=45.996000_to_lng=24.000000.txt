@@ -1,0 +1,41 @@
+GET /api/fixture/plan?from_lat=46.000000&from_lng=24.000000&to_lat=45.996000&to_lng=24.000000
+200
+Cache-Control: no-cache
+Content-Length: 285
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"285-2300919830"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "options": [
+  {
+   "key": "walk",
+   "transfers": 0,
+   "walk_m": 599.2709497075634,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 0,
+     "meters": 599.2709497075634,
+     "seconds": 449,
+     "path": "_kwwG_onqCbB??gErN?fE??fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792454400,
+     "arrive": 1792454849,
+     "rides": []
+    }
+   ]
+  }
+ ],
+ "stops": {},
+ "lines": {},
+ "refresh_in": 0
+}

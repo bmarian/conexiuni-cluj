@@ -1,8 +1,15 @@
 package main
 
 import (
-	"conexiuni-cluj/handlers"
+	"conexiuni-cluj/admin"
+	"conexiuni-cluj/cities"
+	"conexiuni-cluj/config"
+	"conexiuni-cluj/pages"
+	"conexiuni-cluj/push"
+	"conexiuni-cluj/transfer"
+	"conexiuni-cluj/web"
 	"flag"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -22,10 +29,10 @@ import (
 )
 
 func clientIDForLog(c fiber.Ctx, salt string) string {
-	if cached := handlers.ClientHashFromLocals(c); cached != "" {
+	if cached := web.ClientHash(c); cached != "" {
 		return cached
 	}
-	hash := handlers.ComputeClientHash(c, salt)
+	hash := web.ComputeClientHash(c, salt)
 	if hash == "" {
 		return "-"
 	}
@@ -36,7 +43,7 @@ func sendIndex(c fiber.Ctx) error {
 	return c.SendFile("./dist/index.html")
 }
 
-func runReplay(cfg *Config, slug, span string) {
+func runReplay(cfg *config.Config, slug, span string) {
 	fromText, toText, ok := strings.Cut(span, ":")
 	if !ok {
 		log.Fatalf("replay: want FROM:TO, like 2026-09-01:2026-10-15")
@@ -51,16 +58,16 @@ func runReplay(cfg *Config, slug, span string) {
 	if errFrom != nil || errTo != nil || to.Before(from) {
 		log.Fatalf("replay: %q is not a FROM:TO date range", span)
 	}
-	if err := city.LoadCalendar(); err != nil {
+	if err := city.Live.LoadCalendar(); err != nil {
 		log.Fatalf("Failed to load the calendar: %v", err)
 	}
-	city.LoadWindowTuning()
-	if err := city.RunReplay(from, to, os.Stdout); err != nil {
+	city.Live.LoadWindowTuning()
+	if err := city.Live.RunReplay(from, to, os.Stdout); err != nil {
 		log.Fatalf("replay: %v", err)
 	}
 }
 
-func runShift(cfg *Config, slug, date string) {
+func runShift(cfg *config.Config, slug, date string) {
 	city, err := offlineCity(cfg, slug)
 	if err != nil {
 		log.Fatalf("Failed to open %s: %v", slug, err)
@@ -70,140 +77,71 @@ func runShift(cfg *Config, slug, date string) {
 	if err != nil {
 		log.Fatalf("shift: want a date like 2026-09-28, got %q", date)
 	}
-	if err := city.LoadCalendar(); err != nil {
+	if err := city.Live.LoadCalendar(); err != nil {
 		log.Fatalf("Failed to load the calendar: %v", err)
 	}
-	if err := city.RunShift(day, os.Stdout); err != nil {
+	if err := city.Live.RunShift(day, os.Stdout); err != nil {
 		log.Fatalf("shift: %v", err)
 	}
 }
 
-func main() {
-	_ = os.Setenv("TZ", "Europe/Bucharest")
-
-	replay := flag.String("replay", "", "compare the calendar learning windows with the old 14-day window on archived days FROM:TO (YYYY-MM-DD:YYYY-MM-DD), print the results and exit")
-	shift := flag.String("shift", "", "print whether archived travel times stepped up on YYYY-MM-DD against the 10 days of its kind before it, then exit")
-	citySlug := flag.String("city", "cluj", "the city a maintenance command works on")
-	refresh := flag.Bool("refresh", false, "fetch every source again at start, whatever the database holds")
-	flag.Parse()
-
-	config := Load()
-
-	if *replay != "" {
-		runReplay(config, *citySlug, *replay)
-		return
-	}
-	if *shift != "" {
-		runShift(config, *citySlug, *shift)
-		return
-	}
-
-	logHashSalt := config.LogIPHashSalt
-	if logHashSalt == "" {
-		if config.Environment == "production" {
-			log.Fatal("LOG_IP_HASH_SALT must be set in production")
-		}
-		logHashSalt = "conexiuni-cluj-default-salt"
-		log.Printf("Warning: LOG_IP_HASH_SALT not set, using default salt; set LOG_IP_HASH_SALT for stronger pseudonymization")
-	}
-
-	logs, err := setupLogging(config.LogDir, config.LogRetentionDays)
-	if err != nil {
-		log.Fatalf("Failed to initialize logging: %v", err)
-	}
-	defer func() {
-		if err := logs.close(); err != nil {
-			log.Printf("Warning: failed to close log file: %v", err)
-		}
-	}()
-
-	log.Printf("Starting Ce autobuz iau? server in %s mode on port %s", config.Environment, config.Port)
-
-	if config.AdminToken == "" {
-		if config.Environment == "production" {
-			log.Fatal("ADMIN_TOKEN must be set in production")
-		}
-		log.Printf("Warning: ADMIN_TOKEN not set; admin routes are disabled")
-	}
-	if err := handlers.InitPush(config.VapidPublicKey, config.VapidPrivateKey, config.VapidSubject); err != nil {
-		log.Printf("Warning: push notifications disabled: %v", err)
-	}
-
-	built, err := buildCities(config)
-	if err != nil {
-		log.Fatalf("Failed to set up the cities: %v", err)
-	}
-	cities, err := handlers.NewCities(built, filepath.Join(config.DBDir, "disabled-cities.json"))
-	if err != nil {
-		log.Fatalf("Failed to read the disabled cities: %v", err)
-	}
-	bySlug := make(map[string]*handlers.City, len(built))
-	for _, city := range built {
-		if *refresh {
-			if err := city.ForgetFetches(); err != nil {
-				log.Fatalf("%s: %v", city.Slug, err)
-			}
-		}
-		bySlug[city.Slug] = city
-		defer func() {
-			if err := city.FlushStats(); err != nil {
-				log.Printf("%s: final stats flush failed: %v", city.Slug, err)
-			}
-			city.Close()
-		}()
-	}
-
-	app := fiber.New(fiber.Config{
-		AppName: "Ce autobuz iau?",
-	})
-	app.Use(handlers.StatsMiddleware(bySlug, logHashSalt))
-	app.Use(logger.New(logger.Config{
-		Stream: logs.accessOut,
+func accessLogger(out io.Writer, logHashSalt string) fiber.Handler {
+	return logger.New(logger.Config{
+		Stream: out,
 		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
 		CustomTags: map[string]logger.LogFunc{"clientId": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
 			return output.WriteString(clientIDForLog(c, logHashSalt))
 		}},
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Europe/Bucharest",
-	}))
+	})
+}
+
+func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry, accessLog io.Writer, logHashSalt string) *fiber.App {
+	app := fiber.New(fiber.Config{
+		AppName: "Ce autobuz iau?",
+	})
+	bySlug := make(map[string]*cities.City, len(built))
+	for _, city := range built {
+		bySlug[city.Slug] = city
+	}
+	app.Use(cities.StatsMiddleware(bySlug, logHashSalt))
+	app.Use(accessLogger(accessLog, logHashSalt))
 	app.Use(cors.New(cors.Config{
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
-	app.Use(handlers.SecurityHeaders)
+	app.Use(web.SecurityHeaders)
 	app.Use(compress.New(compress.Config{
 		Next: func(c fiber.Ctx) bool {
-			return handlers.EncodesItself(c)
+			return web.EncodesItself(c)
 		},
 	}))
 
-	app.Get("/.well-known/assetlinks.json", handlers.AssetLinksHandler(config.AndroidPackage, config.AndroidCertSHA256))
+	app.Get("/.well-known/assetlinks.json", web.AssetLinksHandler(cfg.AndroidPackage, cfg.AndroidCertSHA256))
 
 	api := app.Group("/api")
 	api.Use(etag.New(etag.Config{
 		Weak: true,
 		Next: func(c fiber.Ctx) bool {
-			return handlers.EncodesItself(c)
+			return web.EncodesItself(c)
 		},
 	}))
-	api.Get("/cities", handlers.CitiesHandler(cities))
-	api.Post("/transfer", handlers.CreateTransferLink)
-	api.Put("/transfer/:code", handlers.SendToTransferLink)
-	api.Get("/transfer/:code", handlers.ReadTransferLink)
-	api.Delete("/transfer/:code", handlers.DeleteTransferLink)
-	handlers.RegisterAdminRoutes(api, cities, config.AdminToken, config.Environment == "production")
+	api.Get("/cities", cities.Handler(registry))
+	transfer.New().Register(api)
+	admin.Register(api, registry, cfg.AdminToken, cfg.Environment == "production")
 	notFound := func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNotFound) }
 	for _, city := range built {
 		city.Register(api.Group("/"+city.Slug, city.OnlyEnabled(notFound)))
 	}
 
 	if _, err := os.Stat("./dist"); err == nil {
-		handlers.LoadIndexHTML()
+		pages.LoadIndexHTML()
 
 		app.Get("/robots.txt", func(c fiber.Ctx) error {
 			c.Set("Cache-Control", "public, max-age=86400")
 			return c.SendFile("./dist/robots.txt")
 		})
-		app.Get("/sitemap.xml", handlers.SitemapHandler(cities))
+		app.Get("/sitemap.xml", pages.Sitemap(registry))
 		for _, name := range []string{"sw.js", "push-sw.js", "registerSW.js"} {
 			app.Get("/"+name, func(c fiber.Ctx) error {
 				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -217,12 +155,12 @@ func main() {
 			return c.SendFile("./dist/manifest.webmanifest")
 		})
 
-		app.Get("/android", handlers.AndroidOGHandler)
+		app.Get("/android", pages.Android)
 		if _, ok := bySlug["cluj"]; ok {
-			handlers.RegisterLegacyPages(app, "cluj")
+			pages.RegisterLegacy(app, "cluj")
 		}
 		for _, city := range built {
-			city.RegisterPages(app.Group("/"+city.Slug, city.OnlyEnabled(sendIndex)))
+			pages.Register(app.Group("/"+city.Slug, city.OnlyEnabled(sendIndex)), city)
 		}
 
 		app.Use("/", static.New("./dist", static.Config{
@@ -245,10 +183,87 @@ func main() {
 	} else {
 		log.Println("Frontend dist folder not found. Run 'npm run build' in frontend directory.")
 	}
+	return app
+}
 
-	listenAddr := ":" + config.Port
-	if config.Environment == "development" && runtime.GOOS == "windows" {
-		listenAddr = "0.0.0.0:" + config.Port
+func main() {
+	_ = os.Setenv("TZ", "Europe/Bucharest")
+
+	replay := flag.String("replay", "", "compare the calendar learning windows with the old 14-day window on archived days FROM:TO (YYYY-MM-DD:YYYY-MM-DD), print the results and exit")
+	shift := flag.String("shift", "", "print whether archived travel times stepped up on YYYY-MM-DD against the 10 days of its kind before it, then exit")
+	citySlug := flag.String("city", "cluj", "the city a maintenance command works on")
+	refresh := flag.Bool("refresh", false, "fetch every source again at start, whatever the database holds")
+	flag.Parse()
+
+	cfg := config.Load()
+
+	if *replay != "" {
+		runReplay(cfg, *citySlug, *replay)
+		return
+	}
+	if *shift != "" {
+		runShift(cfg, *citySlug, *shift)
+		return
+	}
+
+	logHashSalt := cfg.LogIPHashSalt
+	if logHashSalt == "" {
+		if cfg.Environment == "production" {
+			log.Fatal("LOG_IP_HASH_SALT must be set in production")
+		}
+		logHashSalt = "conexiuni-cluj-default-salt"
+		log.Printf("Warning: LOG_IP_HASH_SALT not set, using default salt; set LOG_IP_HASH_SALT for stronger pseudonymization")
+	}
+
+	logs, err := setupLogging(cfg.LogDir, cfg.LogRetentionDays)
+	if err != nil {
+		log.Fatalf("Failed to initialize logging: %v", err)
+	}
+	defer func() {
+		if err := logs.close(); err != nil {
+			log.Printf("Warning: failed to close log file: %v", err)
+		}
+	}()
+
+	log.Printf("Starting Ce autobuz iau? server in %s mode on port %s", cfg.Environment, cfg.Port)
+
+	if cfg.AdminToken == "" {
+		if cfg.Environment == "production" {
+			log.Fatal("ADMIN_TOKEN must be set in production")
+		}
+		log.Printf("Warning: ADMIN_TOKEN not set; admin routes are disabled")
+	}
+	if err := push.Configure(cfg.VapidPublicKey, cfg.VapidPrivateKey, cfg.VapidSubject); err != nil {
+		log.Printf("Warning: push notifications disabled: %v", err)
+	}
+
+	built, err := buildCities(cfg)
+	if err != nil {
+		log.Fatalf("Failed to set up the cities: %v", err)
+	}
+	registry, err := cities.NewRegistry(built, filepath.Join(cfg.DBDir, "disabled-cities.json"))
+	if err != nil {
+		log.Fatalf("Failed to read the disabled cities: %v", err)
+	}
+	for _, city := range built {
+		if *refresh {
+			if err := city.ForgetFetches(); err != nil {
+				log.Fatalf("%s: %v", city.Slug, err)
+			}
+		}
+		defer func() {
+			if err := city.FlushStats(); err != nil {
+				log.Printf("%s: final stats flush failed: %v", city.Slug, err)
+			}
+			city.Close()
+		}()
+	}
+
+	app := newApp(cfg, built, registry, logs.accessOut, logHashSalt)
+
+	listenAddr := ":" + cfg.Port
+	if cfg.Environment == "development" && runtime.GOOS == "windows" {
+		listenAddr = "0.0.0.0:" + cfg.Port
 	}
 	shutdownSignals := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignals, os.Interrupt, syscall.SIGTERM)
@@ -262,8 +277,9 @@ func main() {
 	// Only once the port is bound, so a failed bind leaves nothing running.
 	err = app.Listen(listenAddr, fiber.ListenConfig{ListenerAddrFunc: func(addr net.Addr) {
 		log.Printf("Server listening on http://%s", addr)
-		cities.Start()
+		registry.Start()
 	}})
+	registry.Shutdown()
 	if err != nil {
 		log.Fatalf("Server stopped: %v", err)
 	}

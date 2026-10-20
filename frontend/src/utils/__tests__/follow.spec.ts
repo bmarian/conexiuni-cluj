@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {
-  clockAt, clujMinutes, freshProgress, GIVE_UP_MS, justNotify, leadMinutes, stepFollow, targetMinutes,
+  clockAt, cityMinuteOfDay, freshProgress, GIVE_UP_MS, justNotify, leadMinutes, stepFollow, targetMinutes,
   targetReading, walkFrom, walkMinutes, type FollowProgress, type FollowReading,
 } from '@/utils/follow.ts'
 
@@ -87,7 +87,7 @@ describe('a reminder’s own bus', () => {
   it('reads minutes from the target time in Cluj', () => {
     const now = Date.parse('2026-10-09T22:40:00+03:00')
     const target = Date.parse('2026-10-09T22:50:00+03:00')
-    expect(clujMinutes(target)).toBe(22 * 60 + 50)
+    expect(cityMinuteOfDay(target)).toBe(22 * 60 + 50)
     expect(targetReading([10, 40], null, target, now, 3)).toEqual({minutes: 10, live: false, later: [40]})
     const late = Date.parse('2026-10-10T00:05:00+03:00')
     expect(targetReading([25, 85], null, late, now, 3)!.minutes).toBe(85)

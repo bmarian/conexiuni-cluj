@@ -1,0 +1,54 @@
+GET /api/fixturegtfs/live?once=1&stop_ids=701
+200
+Cache-Control: no-store
+Content-Length: 317
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"317-1423646501"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "as_of": 1792454400,
+ "rows": [
+  {
+   "trip_id": "7_0",
+   "stop_id": 701,
+   "entries": [
+    {
+     "at": 1792461600,
+     "live": false
+    },
+    {
+     "at": 1792462320,
+     "live": false
+    },
+    {
+     "at": 1792463040,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 701,
+   "entries": [
+    {
+     "at": 1792462285,
+     "live": false
+    },
+    {
+     "at": 1792463005,
+     "live": false
+    },
+    {
+     "at": 1792463725,
+     "live": false
+    }
+   ]
+  }
+ ],
+ "vehicles": []
+}

@@ -1,0 +1,378 @@
+GET /api/fixturegtfs/live?once=1&trip_ids=7_0,7_1,8_0,8_1
+200
+Cache-Control: no-store
+Content-Length: 2783
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"2783-405846428"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "as_of": 1792454400,
+ "rows": [
+  {
+   "trip_id": "7_0",
+   "stop_id": 701,
+   "entries": [
+    {
+     "at": 1792461600,
+     "live": false
+    },
+    {
+     "at": 1792462320,
+     "live": false
+    },
+    {
+     "at": 1792463040,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_0",
+   "stop_id": 702,
+   "entries": [
+    {
+     "at": 1792461690,
+     "live": false
+    },
+    {
+     "at": 1792462410,
+     "live": false
+    },
+    {
+     "at": 1792463130,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_0",
+   "stop_id": 703,
+   "entries": [
+    {
+     "at": 1792461810,
+     "live": false
+    },
+    {
+     "at": 1792462530,
+     "live": false
+    },
+    {
+     "at": 1792463250,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_0",
+   "stop_id": 704,
+   "entries": [
+    {
+     "at": 1792461885,
+     "live": false
+    },
+    {
+     "at": 1792462605,
+     "live": false
+    },
+    {
+     "at": 1792463325,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_0",
+   "stop_id": 705,
+   "entries": [
+    {
+     "at": 1792461985,
+     "live": false
+    },
+    {
+     "at": 1792462705,
+     "live": false
+    },
+    {
+     "at": 1792463425,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 705,
+   "entries": [
+    {
+     "at": 1792461900,
+     "live": false
+    },
+    {
+     "at": 1792462620,
+     "live": false
+    },
+    {
+     "at": 1792463340,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 704,
+   "entries": [
+    {
+     "at": 1792461990,
+     "live": false
+    },
+    {
+     "at": 1792462710,
+     "live": false
+    },
+    {
+     "at": 1792463430,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 703,
+   "entries": [
+    {
+     "at": 1792462110,
+     "live": false
+    },
+    {
+     "at": 1792462830,
+     "live": false
+    },
+    {
+     "at": 1792463550,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 702,
+   "entries": [
+    {
+     "at": 1792462185,
+     "live": false
+    },
+    {
+     "at": 1792462905,
+     "live": false
+    },
+    {
+     "at": 1792463625,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "7_1",
+   "stop_id": 701,
+   "entries": [
+    {
+     "at": 1792462285,
+     "live": false
+    },
+    {
+     "at": 1792463005,
+     "live": false
+    },
+    {
+     "at": 1792463725,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_0",
+   "stop_id": 711,
+   "entries": [
+    {
+     "at": 1792461600,
+     "live": false
+    },
+    {
+     "at": 1792462800,
+     "live": false
+    },
+    {
+     "at": 1792464000,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_0",
+   "stop_id": 712,
+   "entries": [
+    {
+     "at": 1792461690,
+     "live": false
+    },
+    {
+     "at": 1792462890,
+     "live": false
+    },
+    {
+     "at": 1792464090,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_0",
+   "stop_id": 703,
+   "entries": [
+    {
+     "at": 1792461810,
+     "live": false
+    },
+    {
+     "at": 1792463010,
+     "live": false
+    },
+    {
+     "at": 1792464210,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_0",
+   "stop_id": 714,
+   "entries": [
+    {
+     "at": 1792461885,
+     "live": false
+    },
+    {
+     "at": 1792463085,
+     "live": false
+    },
+    {
+     "at": 1792464285,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_0",
+   "stop_id": 715,
+   "entries": [
+    {
+     "at": 1792461985,
+     "live": false
+    },
+    {
+     "at": 1792463185,
+     "live": false
+    },
+    {
+     "at": 1792464385,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_1",
+   "stop_id": 715,
+   "entries": [
+    {
+     "at": 1792461900,
+     "live": false
+    },
+    {
+     "at": 1792463100,
+     "live": false
+    },
+    {
+     "at": 1792464300,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_1",
+   "stop_id": 714,
+   "entries": [
+    {
+     "at": 1792461990,
+     "live": false
+    },
+    {
+     "at": 1792463190,
+     "live": false
+    },
+    {
+     "at": 1792464390,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_1",
+   "stop_id": 703,
+   "entries": [
+    {
+     "at": 1792462110,
+     "live": false
+    },
+    {
+     "at": 1792463310,
+     "live": false
+    },
+    {
+     "at": 1792464510,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_1",
+   "stop_id": 712,
+   "entries": [
+    {
+     "at": 1792462185,
+     "live": false
+    },
+    {
+     "at": 1792463385,
+     "live": false
+    },
+    {
+     "at": 1792464585,
+     "live": false
+    }
+   ]
+  },
+  {
+   "trip_id": "8_1",
+   "stop_id": 711,
+   "entries": [
+    {
+     "at": 1792462285,
+     "live": false
+    },
+    {
+     "at": 1792463485,
+     "live": false
+    },
+    {
+     "at": 1792464685,
+     "live": false
+    }
+   ]
+  }
+ ],
+ "vehicles": []
+}

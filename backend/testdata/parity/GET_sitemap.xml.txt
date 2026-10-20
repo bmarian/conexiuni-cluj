@@ -1,0 +1,47 @@
+GET /sitemap.xml
+200
+Cache-Control: public, max-age=3600
+Content-Length: 3969
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/xml; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://ceautobuziau.ro/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://ceautobuziau.ro/android</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/plan</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/route/1/0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/route/1/1</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/route/2/0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/route/2/1</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/101</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/102</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/103</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/104</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/105</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/111</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/112</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/114</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/stop/115</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/plan</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/route/7/0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/route/7/1</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/route/8/0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/route/8/1</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/701</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/702</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/703</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/704</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/705</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/711</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/712</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/714</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/715</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+</urlset>
+

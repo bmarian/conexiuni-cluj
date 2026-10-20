@@ -1,3 +1,4 @@
+import {cityAt, cityDate} from '@/utils/cityClock.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DayType} from '@/utils/network.ts'
@@ -80,32 +81,6 @@ export function resolveSlots(times: Partial<Record<DayType, number[]>>, time: nu
   return slots
 }
 
-const CLUJ = 'Europe/Bucharest'
-const DATE_PARTS = new Intl.DateTimeFormat('en-GB', {
-  timeZone: CLUJ, year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
-})
-
-export function clujDate(ms: number): string {
-  const parts = DATE_PARTS.formatToParts(new Date(ms))
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
-  return `${get('year')}-${get('month')}-${get('day')}`
-}
-
-function clujOffsetMs(ms: number): number {
-  const parts = DATE_PARTS.formatToParts(new Date(ms))
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0)
-  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'))
-  return asUtc - Math.floor(ms / 60_000) * 60_000
-}
-
-export function clujAt(date: string, minutes: number): number {
-  const [y, m, d] = date.split('-').map(Number)
-  const local = Date.UTC(y!, m! - 1, d!) + minutes * 60_000
-  let guess = local - clujOffsetMs(local)
-  guess = local - clujOffsetMs(guess)
-  return guess
-}
-
 export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split('-').map(Number)
   const t = new Date(Date.UTC(y!, m! - 1, d! + days))
@@ -126,14 +101,14 @@ export function dayTypeOf(date: string): DayType {
 
 // Starts a day back: late buses run past midnight.
 export function nextOccurrence(slots: Slots, days: number[], date: string | null, afterMs: number): number | null {
-  const today = clujDate(afterMs)
+  const today = cityDate(afterMs)
   for (let i = -1; i <= 8; i++) {
     const day = addDays(today, i)
     if (date !== null && day !== date) continue
     if (date === null && !days.includes(isoWeekday(day))) continue
     const minute = slots[dayTypeOf(day)]
     if (minute === undefined) continue
-    const at = clujAt(day, minute)
+    const at = cityAt(day, minute)
     if (at > afterMs) return at
   }
   return null
@@ -143,13 +118,13 @@ export const nextOf = (reminder: Reminder, afterMs: number) => nextOccurrence(re
 
 /** The first of the timetable [times] after [afterMs]: its service day and its minute in that day. */
 export function nextDeparture(times: Partial<Record<DayType, number[]>>, afterMs: number): {date: string, minute: number} | null {
-  const today = clujDate(afterMs)
+  const today = cityDate(afterMs)
   let first: {date: string, minute: number} | null = null
   let firstAt = Infinity
   for (let i = -1; i <= 8; i++) {
     const date = addDays(today, i)
     for (const minute of times[dayTypeOf(date)] ?? []) {
-      const at = clujAt(date, minute)
+      const at = cityAt(date, minute)
       if (at > afterMs && at < firstAt) {
         first = {date, minute}
         firstAt = at

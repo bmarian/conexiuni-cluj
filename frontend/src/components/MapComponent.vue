@@ -33,6 +33,7 @@ import {
   makeSelectedStopIcon,
   makeStopIcon,
   stationCardHtml,
+  placeTooltipHtml,
 } from '@/utils/mapIcons.ts'
 import {network} from '@/utils/network.ts'
 import {
@@ -1180,15 +1181,6 @@ watch(flyToLocation, (loc) => {
   flyToVisible(loc, DEFAULT_ZOOM)
   flyToLocation.value = null
 })
-
-const placeTooltipHtml = (label: string) => {
-  const parts = label.split(',').map((p: string) => p.trim())
-  const main = parts[0] ?? label
-  const sub = parts.slice(1).join(', ')
-  return sub
-    ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
-    : `<div class="pin-tip-main">${main}</div>`
-}
 
 const placePin = (loc: { lat: number, lng: number, label: string }, color: string | undefined, onDragged: (lat: number, lng: number) => void) => {
   const marker = htmlMarker(loc, makePinIcon(themeOpts(), color), {zIndex: 9000, draggable: true})
