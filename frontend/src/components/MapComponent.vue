@@ -45,6 +45,7 @@ import {
 import {network, stationOf} from '@/utils/network.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {spiderLegs} from '@/utils/spider.ts'
+import {fadeOutMarker, flightMs, glideMarker, linear} from '@/utils/markerMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {
   CLICK_TOLERANCE_PX,
@@ -107,7 +108,7 @@ const userDot = shallowRef<Marker>()
 const pinMarker = shallowRef<Marker>()
 const originMarker = shallowRef<Marker>()
 let shapeMarkers: Marker[] = []
-let vehicleMarkers: Marker[] = []
+const vehicleMarkers = new Map<number, {marker: Marker, html: string, settle: () => void}>()
 let highlightMarkers: Marker[] = []
 let tooltip: ReturnType<typeof createTooltip> | null = null
 const routeColorsCache = new Map<string | number, string>()
@@ -134,7 +135,8 @@ const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
-const FLY_DURATION_MS = 1000
+const VEHICLE_GLIDE_MS = 900
+const SPIDER_CLOSE_MS = 180
 const CITY_FLIGHT_MS = 2500
 const FIT_DURATION_MS = 800
 const EARTH_RADIUS_M = 6371008.8
@@ -375,10 +377,12 @@ const showCoverage = (index: StopClusters, group: StopGroup) => {
 
 const unspiderfy = () => {
   if (!spider) return
-  shownStops.get(spider.key)?.getElement().classList.remove('is-spiderfied')
-  for (const el of spider.items) tooltip?.forget(el)
-  spider.marker.remove()
+  const {key, marker, items} = spider
   spider = null
+  shownStops.get(key)?.getElement().classList.remove('is-spiderfied')
+  for (const el of items) tooltip?.forget(el)
+  marker.getElement().querySelector('.stop-spider')?.classList.add('is-closing')
+  setTimeout(() => marker.remove(), SPIDER_CLOSE_MS)
 }
 
 const dropClusterMarkers = () => {
@@ -387,7 +391,7 @@ const dropClusterMarkers = () => {
     if (key === spider?.key) unspiderfy()
     hideCoverage(key)
     tooltip?.forget(marker)
-    marker.remove()
+    fadeOutMarker(marker)
     shownStops.delete(key)
   }
 }
@@ -485,9 +489,18 @@ const spiderfy = (index: StopClusters, group: StopGroup) => {
   spider = {key: group.key, marker, items}
 }
 
+const pulseGroup = (group: StopGroup) => {
+  const pill = shownStops.get(group.key)?.getElement().querySelector<HTMLElement>('.stop-cluster-pill')
+  if (!pill) return
+  pill.classList.remove('is-opening')
+  void pill.offsetWidth
+  pill.classList.add('is-opening')
+}
+
 const expandGroup = (index: StopClusters, group: StopGroup) => {
   const m = map.value
   if (!m) return
+  pulseGroup(group)
   const expansion = index.expansion(group, m.getZoom())
   if (!expansion) return spiderfy(index, group)
   unspiderfy()
@@ -519,6 +532,7 @@ const groupMarker = (index: StopClusters, group: StopGroup): Marker => {
   const marker = htmlMarker(at, makeClusterIcon(icons, name, more, labelWidth, themeOpts()))
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
   tooltip?.bind(marker, () => clusterCardHtml(card(), themeOpts(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
+  marker.getElement().classList.add('stop-group')
   marker.getElement().addEventListener('mouseenter', () => showCoverage(index, group))
   marker.getElement().addEventListener('mouseleave', () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
@@ -558,7 +572,8 @@ const refreshStops = () => {
     if (key === spider?.key) unspiderfy()
     hideCoverage(key)
     tooltip?.forget(marker)
-    marker.remove()
+    if (stopMarkers.get(key) === marker) marker.remove()
+    else fadeOutMarker(marker)
     shownStops.delete(key)
   }
   for (const [key, make] of wanted) {
@@ -606,11 +621,16 @@ const invalidateMapSize = () => {
 
 // Offset so flyTo centres the point in the currently visible map area.
 const flyToVisible = ({lat, lng}: LatLng, zoom: number) => {
-  map.value?.flyTo({
+  const m = map.value
+  if (!m) return
+  const from = m.project(m.getCenter())
+  const to = m.project([lng, lat])
+  m.flyTo({
     center: [lng, lat],
     zoom,
     offset: [-drawerRightPx.value / 2, -drawerBottomPx.value / 2],
-    duration: FLY_DURATION_MS,
+    duration: flightMs(Math.hypot(to.x - from.x, to.y - from.y), zoom - m.getZoom()),
+    essential: true,
   })
 }
 
@@ -881,7 +901,7 @@ const blueDotIcon: MarkerIcon = {
 let rideHeading = 0
 let headingFrom: LatLng | null = null
 let lastFixMs = 0
-let glideFrame = 0
+let settleUserDot = () => {}
 
 const userIcon = (): MarkerIcon => {
   const ride = rideAs.value
@@ -897,19 +917,8 @@ const userIcon = (): MarkerIcon => {
 const moveUserDot = (to: LatLng, ms: number) => {
   const dot = userDot.value
   if (!dot) return
-  cancelAnimationFrame(glideFrame)
-  if (!rideAs.value || ms <= 0) {
-    dot.setLngLat([to.lng, to.lat])
-    return
-  }
-  const from = markerLatLng(dot)
-  const start = performance.now()
-  const step = (now: number) => {
-    const k = Math.min(1, (now - start) / ms)
-    dot.setLngLat([from.lng + (to.lng - from.lng) * k, from.lat + (to.lat - from.lat) * k])
-    if (k < 1) glideFrame = requestAnimationFrame(step)
-  }
-  glideFrame = requestAnimationFrame(step)
+  settleUserDot()
+  settleUserDot = glideMarker(dot, to, rideAs.value ? ms : 0, linear)
 }
 
 const updateLiveLocation = (fix: Fix) => {
@@ -1357,8 +1366,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
   const m = map.value
   if (!m) return
 
-  clearMarkers(vehicleMarkers)
-  vehicleMarkers = []
+  const seen = new Set<number>()
   for (const vehicle of vehicles) {
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
@@ -1369,21 +1377,35 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     const faded = vehicle.faded && !showStopInfo
     const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
     // Scaled around the icon anchor so the bus stays where it is.
-    const markerHtml = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
-    const marker = htmlMarker({lat: vehicle.latitude, lng: vehicle.longitude}, {
-      html: markerHtml,
-      size: [36, 36],
-      anchor: [18, 18],
-    }, {
-      zIndex: showStopInfo ? 5600 : vehicle.faded ? 4000 : 5000,
-      opacity: faded ? FADED_VEHICLE_OPACITY : 1,
-    })
-
+    const html = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
+    const icon: MarkerIcon = {html, size: [36, 36], anchor: [18, 18]}
+    const zIndex = showStopInfo ? 5600 : vehicle.faded ? 4000 : 5000
+    const opacity = faded ? FADED_VEHICLE_OPACITY : 1
+    const at = {lat: vehicle.latitude, lng: vehicle.longitude}
+    seen.add(vehicle.id)
+    const shown = vehicleMarkers.get(vehicle.id)
+    if (shown) {
+      if (shown.html !== html) {
+        setMarkerIcon(shown.marker, icon)
+        shown.html = html
+      }
+      shown.marker.getElement().style.zIndex = String(zIndex)
+      shown.marker.setOpacity(String(opacity))
+      shown.settle()
+      shown.settle = glideMarker(shown.marker, at, VEHICLE_GLIDE_MS)
+      continue
+    }
+    const marker = htmlMarker(at, icon, {zIndex, opacity})
     onMarkerClick(marker, () => {
       selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
     })
-
-    vehicleMarkers.push(marker.addTo(m))
+    vehicleMarkers.set(vehicle.id, {marker: marker.addTo(m), html, settle: () => {}})
+  }
+  for (const [id, shown] of vehicleMarkers) {
+    if (seen.has(id)) continue
+    shown.settle()
+    fadeOutMarker(shown.marker)
+    vehicleMarkers.delete(id)
   }
 }
 
@@ -1463,7 +1485,8 @@ onUnmounted(() => {
 
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
   if (stopRefreshFrame) cancelAnimationFrame(stopRefreshFrame)
-  cancelAnimationFrame(glideFrame)
+  settleUserDot()
+  for (const {settle} of vehicleMarkers.values()) settle()
   if (resizeTimer) clearTimeout(resizeTimer)
   if (locationRetryTimer) clearTimeout(locationRetryTimer)
 

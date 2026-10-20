@@ -224,12 +224,12 @@ export function makeSpiderIcon(stations: SpiderStation[], opts: IconThemeOptions
   const r = spiderRadius(stations.map((s) => s.leg)) + SPIDER_PAD_PX
   const size = 2 * r
   const legs = stations.map(({leg}) => `<line x1="${r}" y1="${r}" x2="${r + leg.x}" y2="${r + leg.y}"/>`).join('')
-  const items = stations.map(({id, name, icon, leg}) => {
+  const items = stations.map(({id, name, icon, leg}, i) => {
     const [w, h] = icon.size
     const [ax, ay] = icon.anchor
     const place = leg.side === 'right' ? `left:${r + leg.x - ax}px;` : `right:${r - leg.x - (w - ax)}px;flex-direction:row-reverse;`
     const html = typeof icon.html === 'string' ? icon.html : icon.html.outerHTML
-    return `<div class="stop-spider-item" data-stop="${escapeHtml(id)}" style="${place}top:${r + leg.y - ay}px;">
+    return `<div class="stop-spider-item" data-stop="${escapeHtml(id)}" style="${place}top:${r + leg.y - ay}px;--dx:${-leg.x}px;--dy:${-leg.y}px;--i:${i};">
       <div style="width:${w}px;height:${h}px;flex:none;">${html}</div>
       <div class="stop-cluster-label">${escapeHtml(name)}</div>
     </div>`

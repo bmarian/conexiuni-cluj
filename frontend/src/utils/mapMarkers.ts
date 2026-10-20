@@ -16,14 +16,18 @@ export interface HtmlMarkerOptions {
 function fillIcon(el: HTMLElement, icon: MarkerIcon) {
   el.style.width = `${icon.size[0]}px`
   el.style.height = `${icon.size[1]}px`
-  if (typeof icon.html === 'string') el.innerHTML = icon.html
-  else el.replaceChildren(icon.html)
+  const body = document.createElement('div')
+  body.className = 'marker-body'
+  if (typeof icon.html === 'string') body.innerHTML = icon.html
+  else body.append(icon.html)
+  el.replaceChildren(body)
 }
 
 const offsetOf = (icon: MarkerIcon): [number, number] => [-icon.anchor[0], -icon.anchor[1]]
 
 export function htmlMarker({lat, lng}: LatLng, icon: MarkerIcon, options: HtmlMarkerOptions = {}): Marker {
   const el = document.createElement('div')
+  el.className = 'marker-enter'
   fillIcon(el, icon)
   if (options.interactive === false) el.style.pointerEvents = 'none'
   if (options.zIndex) el.style.zIndex = String(options.zIndex)
@@ -40,6 +44,7 @@ export function htmlMarker({lat, lng}: LatLng, icon: MarkerIcon, options: HtmlMa
 export function onElementClick(el: HTMLElement, handler: () => void) {
   let down: { x: number, y: number } | null = null
   el.style.cursor = 'pointer'
+  el.classList.add('marker-clickable')
   el.addEventListener('pointerdown', (e) => {
     down = {x: e.clientX, y: e.clientY}
   })
