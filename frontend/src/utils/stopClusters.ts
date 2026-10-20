@@ -67,8 +67,7 @@ export function groupName(leader: string, others: string[]): {name: string, cove
   return best
 }
 
-// Markers drop out, lowest ranked first, wherever they would overlap; every stop then belongs to the nearest marker left,
-// so a group's stops never reach past another marker.
+// Markers drop out, lowest ranked first, where they would overlap; each stop then goes to its nearest remaining marker.
 export class StopClusters {
   private readonly levels: StopGroup[][] = []
   private readonly owners: Int32Array[] = []
