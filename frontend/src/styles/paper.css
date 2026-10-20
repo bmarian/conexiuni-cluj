@@ -688,6 +688,12 @@ html[data-paper] .maplibregl-map .stop-cluster-more {
   color: var(--pp-ink-2);
 }
 
+html[data-paper] .maplibregl-map .stop-spider-legs {
+  stroke: var(--pp-ink);
+  stroke-dasharray: 3 3;
+  fill: var(--pp-ink);
+}
+
 html[data-paper] .station-line,
 html[data-paper] .station-card-line {
   border-radius: 0;

@@ -37,8 +37,7 @@ export function htmlMarker({lat, lng}: LatLng, icon: MarkerIcon, options: HtmlMa
 }
 
 // The marker moves with the map while it's dragged, so a pan that starts on it still ends in a click.
-export function onMarkerClick(marker: Marker, handler: () => void) {
-  const el = marker.getElement()
+export function onElementClick(el: HTMLElement, handler: () => void) {
   let down: { x: number, y: number } | null = null
   el.style.cursor = 'pointer'
   el.addEventListener('pointerdown', (e) => {
@@ -49,6 +48,10 @@ export function onMarkerClick(marker: Marker, handler: () => void) {
     down = null
     if (!moved) handler()
   })
+}
+
+export function onMarkerClick(marker: Marker, handler: () => void) {
+  onElementClick(marker.getElement(), handler)
 }
 
 export function setMarkerIcon(marker: Marker, icon: MarkerIcon) {
@@ -69,32 +72,35 @@ export function createTooltip(map: MapLibreMap) {
   const bubble = document.createElement('div')
   el.append(bubble)
   const marker = new Marker({element: el, anchor: 'bottom'})
-  let owner: Marker | null = null
+  let owner: object | null = null
 
   const hide = () => {
     owner = null
     marker.remove()
   }
 
-  const show = (target: Marker, html: string | (() => string), className: string, lift: number) => {
-    owner = target
+  const show = (key: object, at: LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {
+    owner = key
     bubble.className = `map-tooltip ${className}`
     bubble.innerHTML = typeof html === 'function' ? html() : html
-    marker.setOffset([0, -lift]).setLngLat(target.getLngLat()).addTo(map)
+    marker.setOffset([offset[0], offset[1] - lift]).setLngLat([at.lng, at.lat]).addTo(map)
+  }
+
+  const bindAt = (key: object, targetEl: HTMLElement, at: () => LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {
+    targetEl.addEventListener('mouseenter', () => show(key, at(), offset, html, className, lift))
+    targetEl.addEventListener('mouseleave', () => {
+      if (owner === key) hide()
+    })
   }
 
   const bind = (target: Marker, html: string | (() => string), className: string, lift: number) => {
-    const targetEl = target.getElement()
-    targetEl.addEventListener('mouseenter', () => show(target, html, className, lift))
-    targetEl.addEventListener('mouseleave', () => {
-      if (owner === target) hide()
-    })
+    bindAt(target, target.getElement(), () => markerLatLng(target), [0, 0], html, className, lift)
     target.on('dragstart', hide)
   }
 
-  const forget = (target: Marker) => {
+  const forget = (target: object) => {
     if (owner === target) hide()
   }
 
-  return {bind, forget, hide}
+  return {bind, bindAt, forget, hide}
 }

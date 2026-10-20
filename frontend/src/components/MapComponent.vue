@@ -34,6 +34,7 @@ import {
   clusterCardHtml,
   clusterIconBox,
   makeClusterIcon,
+  makeSpiderIcon,
   makeHighlightIcon,
   makePinIcon,
   makeSelectedStopIcon,
@@ -43,6 +44,7 @@ import {
 } from '@/utils/mapIcons.ts'
 import {network, stationOf} from '@/utils/network.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
+import {spiderLegs} from '@/utils/spider.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {
   CLICK_TOLERANCE_PX,
@@ -51,6 +53,7 @@ import {
   type HtmlMarkerOptions,
   type LatLng,
   markerLatLng,
+  onElementClick,
   onMarkerClick,
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
@@ -93,6 +96,7 @@ const shownStops = new Map<string, Marker>()
 let clusters: {index: StopClusters, without: string, labelWidth: (text: string) => number} | null = null
 let labelProbe: HTMLElement | null = null
 let coverageOwner: string | null = null
+let spider: {key: string, marker: Marker, items: HTMLElement[]} | null = null
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedVehicleId = ref<number | null>(null)
 const {t} = useI18n()
@@ -369,9 +373,18 @@ const showCoverage = (index: StopClusters, group: StopGroup) => {
   coverageOwner = group.key
 }
 
+const unspiderfy = () => {
+  if (!spider) return
+  shownStops.get(spider.key)?.getElement().classList.remove('is-spiderfied')
+  for (const el of spider.items) tooltip?.forget(el)
+  spider.marker.remove()
+  spider = null
+}
+
 const dropClusterMarkers = () => {
   for (const [key, marker] of shownStops) {
     if (stopMarkers.get(key) === marker) continue
+    if (key === spider?.key) unspiderfy()
     hideCoverage(key)
     tooltip?.forget(marker)
     marker.remove()
@@ -408,7 +421,7 @@ const stopClusters = (): StopClusters => {
   dropClusterMarkers()
   const skip = new Set(without.split(','))
   const net = network.value
-  const points = [...stopData].filter(([id]) => !skip.has(id)).map(([id, {lat, lng}]) => {
+  const points = [...stopData].filter(([id]) => !skip.has(id) && (!net || net.look(Number(id)))).map(([id, {lat, lng}]) => {
     const stop = net?.stopById.get(Number(id))
     const types = net?.look(Number(id))?.routes.map((r) => r.route_type) ?? []
     return {
@@ -451,11 +464,35 @@ const groupStations = (index: StopClusters, group: StopGroup) => {
   return [leader!, ...rest.sort((a, b) => b.rank - a.rank)]
 }
 
+const spiderfy = (index: StopClusters, group: StopGroup) => {
+  const m = map.value
+  if (!m) return
+  unspiderfy()
+  const legs = spiderLegs(group.stations.size)
+  const stations = groupStations(index, group).map(({id}, i) => ({id, name: stopData.get(id)?.name ?? '', icon: stopIconForId(id), leg: legs[i]!}))
+  const at = index.lngLat(group)
+  const marker = htmlMarker(at, makeSpiderIcon(stations, themeOpts()), {interactive: false, zIndex: 900}).addTo(m)
+  const items = [...marker.getElement().querySelectorAll<HTMLElement>('[data-stop]')]
+  items.forEach((el, i) => {
+    const {id, name, leg} = stations[i]!
+    tooltip?.bindAt(el, el, () => at, [leg.x, leg.y], stationCard(id, name), 'stop-name-tooltip', 14)
+    onElementClick(el, () => {
+      unspiderfy()
+      router.push({name: 'stop', params: {stopId: id}})
+    })
+  })
+  shownStops.get(group.key)?.getElement().classList.add('is-spiderfied')
+  spider = {key: group.key, marker, items}
+}
+
 const expandGroup = (index: StopClusters, group: StopGroup) => {
   const m = map.value
   if (!m) return
+  const expansion = index.expansion(group, m.getZoom())
+  if (!expansion) return spiderfy(index, group)
+  unspiderfy()
   const bounds = new LngLatBounds(...index.bounds(group))
-  const {split, apart} = index.expansion(group, m.getZoom())
+  const {split, apart} = expansion
   const fit = m.cameraForBounds(bounds, {padding: fitPadding()})?.zoom ?? apart
   const {lng, lat} = bounds.getCenter()
   flyToVisible({lat, lng}, Math.min(apart, Math.max(split, fit)))
@@ -518,6 +555,7 @@ const refreshStops = () => {
   if (selected && stopData.has(selected)) wanted.set(selected, () => stopMarker(selected))
   for (const [key, marker] of shownStops) {
     if (wanted.has(key)) continue
+    if (key === spider?.key) unspiderfy()
     hideCoverage(key)
     tooltip?.forget(marker)
     marker.remove()
@@ -781,6 +819,7 @@ const mapInit = (center: LatLng, zoom: number) => {
   })
   mapValue.on('click', (e) => {
     if ((e.originalEvent.target as Element | null)?.closest?.('.maplibregl-marker')) return
+    unspiderfy()
     selectedVehicleId.value = null
   })
 
@@ -951,6 +990,7 @@ const clearStops = () => {
     marker.remove()
   }
   shownStops.clear()
+  unspiderfy()
   clusters = null
   stopMarkers.clear()
   stopData.clear()

@@ -2,6 +2,7 @@ import type {Vehicle} from '@/types/tranzy.ts'
 import {type Mode, MODE_EMOJI} from '@/utils/modes.ts'
 import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
 import {escapeHtml} from '@/utils/text.ts'
+import {type SpiderLeg, spiderRadius} from '@/utils/spider.ts'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string;
@@ -213,6 +214,34 @@ export function clusterCardHtml(stations: ClusterStation[], opts: IconThemeOptio
     ${shown.map((name) => `<div>${escapeHtml(name)}</div>`).join('')}
     ${rest ? `<div class="station-names-more">${escapeHtml(more(rest))}</div>` : ''}
   </div>`
+}
+
+export type SpiderStation = {id: string, name: string, icon: MarkerIcon, leg: SpiderLeg}
+
+const SPIDER_PAD_PX = 16
+
+export function makeSpiderIcon(stations: SpiderStation[], opts: IconThemeOptions): MarkerIcon {
+  const r = spiderRadius(stations.map((s) => s.leg)) + SPIDER_PAD_PX
+  const size = 2 * r
+  const legs = stations.map(({leg}) => `<line x1="${r}" y1="${r}" x2="${r + leg.x}" y2="${r + leg.y}"/>`).join('')
+  const items = stations.map(({id, name, icon, leg}) => {
+    const [w, h] = icon.size
+    const [ax, ay] = icon.anchor
+    const place = leg.side === 'right' ? `left:${r + leg.x - ax}px;` : `right:${r - leg.x - (w - ax)}px;flex-direction:row-reverse;`
+    const html = typeof icon.html === 'string' ? icon.html : icon.html.outerHTML
+    return `<div class="stop-spider-item" data-stop="${escapeHtml(id)}" style="${place}top:${r + leg.y - ay}px;">
+      <div style="width:${w}px;height:${h}px;flex:none;">${html}</div>
+      <div class="stop-cluster-label">${escapeHtml(name)}</div>
+    </div>`
+  }).join('')
+  const hub = opts.legacyBlueActive || opts.paperActive ? `<rect x="${r - 4}" y="${r - 4}" width="8" height="8"/>` : `<circle cx="${r}" cy="${r}" r="4"/>`
+  return {
+    html: `<div class="stop-spider" style="width:${size}px;height:${size}px;">
+      <svg class="stop-spider-legs" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${legs}${hub}</svg>${items}
+    </div>`,
+    size: [size, size],
+    anchor: [r, r],
+  }
 }
 
 export function makeSelectedStopIcon(opts: IconThemeOptions, mark?: StationMark): MarkerIcon {

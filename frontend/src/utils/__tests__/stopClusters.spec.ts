@@ -38,10 +38,19 @@ describe('stop clusters', () => {
   it('expands to where the group breaks up', () => {
     const clusters = new StopClusters([point('1', 0), point('2', 0.0002)], box, 19, 0.25)
     const [group] = clusters.at(14)
-    const {split, apart} = clusters.expansion(group!, 14)
+    const {split, apart} = clusters.expansion(group!, 14)!
     expect(split).toBeGreaterThan(14)
     expect(apart).toBeGreaterThanOrEqual(split)
     expect(clusters.at(apart).every((g) => g.stations.size === 1)).toBe(true)
+  })
+
+  it('has no expansion for stations that share a spot', () => {
+    const clusters = new StopClusters([point('1', 0), point('2', 0.000005, 2)], box, 19, 0.25)
+    const [group] = clusters.at(14)
+    expect(group!.stations.size).toBe(2)
+    expect(clusters.expansion(group!, 14)).toBeNull()
+    const [top] = clusters.at(19)
+    expect(clusters.expansion(top!, 19)).toBeNull()
   })
 
   it('gives every stop to its nearest marker, and no markers overlap', () => {
