@@ -62,6 +62,11 @@ export class NetworkIndex {
   }
 
   private stationIndex?: {platforms: Map<number, Stop[]>, looks: Map<number, StationLook>}
+  private modeColorIndex?: Map<Mode, string>
+
+  modeColor(mode: Mode): string | undefined {
+    return (this.modeColorIndex ??= modeColors(this.bundle.routes)).get(mode)
+  }
 
   private get stations() {
     if (this.stationIndex) return this.stationIndex
@@ -89,12 +94,11 @@ export class NetworkIndex {
         else routes.set(id, [route])
       }
     }
-    const modeColor = modeColors(this.bundle.routes)
     const looks = new Map<number, StationLook>()
     for (const [id, lines] of routes) {
       const mode = mainMode(lines.map((l) => l.route_type))
       const colors = new Set(lines.filter((l) => modeOf(l.route_type) === mode).map((l) => l.route_color))
-      looks.set(id, {mode, color: colors.size === 1 ? [...colors][0]! : modeColor.get(mode)!, routes: lines})
+      looks.set(id, {mode, color: colors.size === 1 ? [...colors][0]! : this.modeColor(mode)!, routes: lines})
     }
     return (this.stationIndex = {platforms, looks})
   }
