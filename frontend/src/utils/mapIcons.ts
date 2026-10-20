@@ -194,7 +194,7 @@ export function makeClusterIcon(icons: ClusterIcon[], name: string, more: number
   return {
     html: `<div class="stop-cluster" style="width:${box.size[0]}px;">
       <div class="stop-cluster-pill" style="width:${w}px;height:${h}px;padding:${CLUSTER_PAD_PX}px;gap:${CLUSTER_GAP_PX}px;border-radius:${look.h / 2 + CLUSTER_PAD_PX}px;">${cells}</div>
-      <div class="stop-cluster-label"><span>${escapeHtml(name)}</span> <span class="stop-cluster-more">+${more}</span></div>
+      <div class="stop-cluster-label"><span>${escapeHtml(name)}</span>${more ? ` <span class="stop-cluster-more">+${more}</span>` : ''}</div>
     </div>`,
     ...box,
   }

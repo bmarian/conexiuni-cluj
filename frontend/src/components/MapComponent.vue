@@ -22,7 +22,7 @@ import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map
 import type {ShapePoint} from "@/types/map.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {calculateBearing, haversineMeters} from "@/utils/geo.ts";
+import {calculateBearing, haversineMeters, roundedHull} from "@/utils/geo.ts";
 import {
   type DisplayVehicle,
   type MarkerIcon,
@@ -42,7 +42,7 @@ import {
   placeTooltipHtml,
 } from '@/utils/mapIcons.ts'
 import {network, stationOf} from '@/utils/network.ts'
-import {modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
+import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {
   CLICK_TOLERANCE_PX,
@@ -92,6 +92,7 @@ const stopMarkers = new Map<string, Marker>()
 const shownStops = new Map<string, Marker>()
 let clusters: {index: StopClusters, without: string, labelWidth: (text: string) => number} | null = null
 let labelProbe: HTMLElement | null = null
+let coverageOwner: string | null = null
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedVehicleId = ref<number | null>(null)
 const {t} = useI18n()
@@ -332,19 +333,69 @@ const stationCard = (stopId: string, name: string) => () => stationCardHtml(name
 // The selected and highlighted stops have their own markers, so they stay out of the clusters.
 const ownMarkerIds = () => [currentlyHighlightedStopId.value, ...highlightedStops.value.map((h) => h.stopId)].filter(Boolean).join(',')
 
+const coverageColor = () => paperActive.value ? paperInk()
+  : arcadeActive.value ? '#f59e0b'
+    : legacyBlueActive.value ? (isDarkMode.value ? '#4e88d8' : '#245EDC')
+      : isDarkMode.value ? '#f1f5f9' : '#0f172a'
+
+const hideCoverage = (key: string) => {
+  const m = map.value
+  if (key !== coverageOwner || !m) return
+  coverageOwner = null
+  const id = `${OVERLAY}coverage`
+  for (const layer of [`${id}-fill`, `${id}-line`]) if (m.getLayer(layer)) m.removeLayer(layer)
+  if (m.getSource(id)) m.removeSource(id)
+}
+
+// The ground a group stands for, widened by half a station icon so its stops sit inside it.
+const showCoverage = (index: StopClusters, group: StopGroup) => {
+  const m = map.value
+  if (!m || !styleReady) return
+  const radius = Math.max(...makeStopIcon(themeOpts()).size) / 2 * lngPerPixel(m.getZoom())
+  const ring = roundedHull(group.points.map((i): [number, number] => [index.points[i]!.lng, index.points[i]!.lat]), radius)
+  const data: Feature<Polygon> = {type: 'Feature', properties: {}, geometry: {type: 'Polygon', coordinates: [ring]}}
+  const id = `${OVERLAY}coverage`
+  const source = m.getSource<GeoJSONSource>(id)
+  if (source) {
+    source.setData(data)
+  } else {
+    m.addSource(id, {type: 'geojson', data})
+    m.addLayer({id: `${id}-fill`, type: 'fill', source: id, paint: {'fill-opacity': 0.18}}, slotId('accuracy'))
+    m.addLayer({id: `${id}-line`, type: 'line', source: id, paint: {'line-width': 2, 'line-opacity': 0.85}}, slotId('accuracy'))
+  }
+  m.setPaintProperty(`${id}-fill`, 'fill-color', coverageColor())
+  m.setPaintProperty(`${id}-line`, 'line-color', coverageColor())
+  coverageOwner = group.key
+}
+
 const dropClusterMarkers = () => {
   for (const [key, marker] of shownStops) {
     if (stopMarkers.get(key) === marker) continue
+    hideCoverage(key)
     tooltip?.forget(marker)
     marker.remove()
     shownStops.delete(key)
   }
 }
 
-const groupLabel = (index: StopClusters, group: StopGroup) => ({
-  name: stopData.get(index.points[group.leader]!.id)?.name ?? '',
-  more: group.stations.size - 1,
-})
+const groupLabels = new WeakMap<StopGroup, {name: string, more: number, text: string}>()
+
+const groupLabel = (index: StopClusters, group: StopGroup) => {
+  let label = groupLabels.get(group)
+  if (!label) {
+    const leader = index.points[group.leader]!
+    const others = new Map<number, string>()
+    for (const i of group.points) {
+      const {id, station} = index.points[i]!
+      if (station !== leader.station && !others.has(station)) others.set(station, stopData.get(id)?.name ?? '')
+    }
+    const {name, covered} = groupName(stopData.get(leader.id)?.name ?? '', [...others.values()])
+    const more = others.size - covered
+    label = {name, more, text: more ? `${name} +${more}` : name}
+    groupLabels.set(group, label)
+  }
+  return label
+}
 
 const groupIconCount = (group: StopGroup) => group.stations.size <= CLUSTER_STATIONS_MAX
   ? group.stations.size
@@ -379,10 +430,9 @@ const stopClusters = (): StopClusters => {
     mapContainer.value.append(labelProbe)
   }
   const labelWidth = labelProbe ? textMeasurer(labelProbe) : () => 0
-  const index = new StopClusters(points, (group) => {
+  const index: StopClusters = new StopClusters(points, (group) => {
     if (group.stations.size === 1) return group.favorite ? heart : station
-    const {name, more} = groupLabel(index, group)
-    return clusterIconBox(groupIconCount(group), labelWidth(`${name} +${more}`), opts)
+    return clusterIconBox(groupIconCount(group), labelWidth(groupLabel(index, group).text), opts)
   }, MAX_ZOOM, CLUSTER_ZOOM_STEP)
   clusters = {index, without, labelWidth}
   return index
@@ -413,7 +463,7 @@ const expandGroup = (index: StopClusters, group: StopGroup) => {
 const groupMarker = (index: StopClusters, group: StopGroup): Marker => {
   const leaderId = index.points[group.leader]!.id
   const at = index.lngLat(group)
-  const {name, more} = groupLabel(index, group)
+  const {name, more, text} = groupLabel(index, group)
   if (group.stations.size === 1) {
     const marker = htmlMarker(at, group.favorite ? makeHighlightIcon('favorite', themeOpts()) : stopIconForId(leaderId))
     tooltip?.bind(marker, stationCard(leaderId, name), 'stop-name-tooltip', 14)
@@ -427,10 +477,12 @@ const groupMarker = (index: StopClusters, group: StopGroup): Marker => {
       ...(group.favorite ? ['heart' as const] : []),
       ...modesIn(group.modes).map((mode) => ({mode, color: network.value?.modeColor(mode) ?? UNKNOWN_MODE_COLOR})),
     ]
-  const labelWidth = clusters?.labelWidth(`${name} +${more}`) ?? 0
+  const labelWidth = clusters?.labelWidth(text) ?? 0
   const marker = htmlMarker(at, makeClusterIcon(icons, name, more, labelWidth, themeOpts()))
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
   tooltip?.bind(marker, () => clusterCardHtml(card(), themeOpts(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
+  marker.getElement().addEventListener('mouseenter', () => showCoverage(index, group))
+  marker.getElement().addEventListener('mouseleave', () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
   return marker
 }
@@ -461,6 +513,7 @@ const refreshStops = () => {
   if (selected && stopData.has(selected)) wanted.set(selected, () => stopMarker(selected))
   for (const [key, marker] of shownStops) {
     if (wanted.has(key)) continue
+    hideCoverage(key)
     tooltip?.forget(marker)
     marker.remove()
     shownStops.delete(key)
