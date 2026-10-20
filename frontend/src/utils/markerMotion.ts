@@ -1,4 +1,4 @@
-import type {Marker} from 'maplibre-gl'
+import type {Map as MapLibreMap, Marker} from 'maplibre-gl'
 import {type LatLng, markerLatLng} from '@/utils/mapMarkers.ts'
 
 export const LEAVE_MS = 160
@@ -23,9 +23,19 @@ export function glideMarker(marker: Marker, to: LatLng, ms: number, ease: (k: nu
   return () => cancelAnimationFrame(frame)
 }
 
+export function showMarker(marker: Marker, map: MapLibreMap, enter: boolean) {
+  const el = marker.getElement()
+  el.classList.remove('marker-leave')
+  el.classList.toggle('marker-enter', enter)
+  marker.addTo(map)
+}
+
 export function fadeOutMarker(marker: Marker) {
-  marker.getElement().classList.add('marker-leave')
-  setTimeout(() => marker.remove(), LEAVE_MS)
+  const el = marker.getElement()
+  el.classList.add('marker-leave')
+  setTimeout(() => {
+    if (el.classList.contains('marker-leave')) marker.remove()
+  }, LEAVE_MS)
 }
 
 export function flightMs(distancePx: number, zoomDelta: number): number {

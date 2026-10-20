@@ -86,6 +86,25 @@ describe('stop clusters', () => {
     }
   })
 
+  it('builds the same levels a step at a time', () => {
+    let seed = 3
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    const points = Array.from({length: 300}, (_, i) => ({...point(String(i), random() * 0.05), lat: 44.43 + random() * 0.03}))
+    const stepped = new StopClusters(points, box, 19, 0.25)
+    while (!stepped.ready(12)) stepped.advance()
+    expect(stepped.ready(11.75)).toBe(false)
+    const direct = new StopClusters(points, box, 19, 0.25)
+    for (const zoom of [18, 15, 12]) expect(stepped.at(zoom).map((g) => g.key).sort()).toEqual(direct.at(zoom).map((g) => g.key).sort())
+  })
+
+  it('finds the markers whose boxes reach into the view', () => {
+    const clusters = new StopClusters([point('1', 0), point('2', 0.01)], box, 19, 0.25)
+    const ids = (west: number, east: number) => clusters.within(18, 26.1 + west, 44.4299, 26.1 + east, 44.4301).map((g) => clusters.points[g.leader]!.id)
+    expect(ids(-0.0001, 0.0001)).toEqual(['1'])
+    expect(ids(0.00003, 0.0002)).toEqual(['1'])
+    expect(ids(0.00004, 0.0002)).toEqual([])
+  })
+
   it('ranks bigger modes first, then more lines', () => {
     expect(stationRank([1])).toBeGreaterThan(stationRank([3, 3, 3, 3]))
     expect(stationRank([3, 3])).toBeGreaterThan(stationRank([3]))

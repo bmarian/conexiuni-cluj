@@ -161,25 +161,24 @@
   height: 100%;
 }
 
-.marker-enter {
+/* Animating the element MapLibre moves makes every frame's move a full style recalc. */
+.marker-enter .marker-body {
   animation: marker-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.marker-enter .marker-body {
-  animation: marker-pop 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
 .marker-leave {
-  animation: marker-leave 160ms ease-in forwards;
   pointer-events: none;
 }
 
-@keyframes marker-enter {
-  from { opacity: 0; }
+.marker-leave .marker-body {
+  animation: marker-leave 160ms ease-in forwards;
 }
 
-@keyframes marker-pop {
-  from { transform: scale(0.6); }
+@keyframes marker-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 
 @keyframes marker-leave {
@@ -289,9 +288,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marker-enter,
   .marker-enter .marker-body,
-  .marker-leave,
+  .marker-leave .marker-body,
   .stop-cluster-pill.is-opening,
   .stop-spider-item,
   .stop-spider-legs,

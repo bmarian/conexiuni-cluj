@@ -46,7 +46,9 @@ export const stationRank = (routeTypes: Array<RouteType | number>): number => {
   return (MODES.length - best) * 10_000 + routeTypes.length
 }
 
-const sameWord = (a: string, b: string) => a.localeCompare(b, undefined, {sensitivity: 'base'}) === 0
+const collator = new Intl.Collator(undefined, {sensitivity: 'base'})
+
+const sameWord = (a: string, b: string) => collator.compare(a, b) === 0
 
 const plainWords = (name: string) => name.replace(/\s*\([^)]*\)/g, '').split(' ').filter(Boolean)
 
@@ -71,6 +73,8 @@ export function groupName(leader: string, others: string[]): {name: string, cove
 export class StopClusters {
   private readonly levels: StopGroup[][] = []
   private readonly owners: Int32Array[] = []
+  private readonly boxes = new Map<string, ClusterBox>()
+  private pending: StopGroup[] | null = null
   private readonly xs: Float64Array
   private readonly ys: Float64Array
   private readonly span: number
@@ -93,6 +97,26 @@ export class StopClusters {
     const level = this.levelOf(zoom)
     while (this.levels.length <= level) this.build()
     return this.levels[level]!
+  }
+
+  ready(zoom: number): boolean {
+    return this.levels.length > this.levelOf(zoom)
+  }
+
+  // One sweep of the next level and the regrouping it calls for.
+  advance() {
+    const level = this.levels.length
+    const groups = this.pending ?? (level ? this.levels[level - 1]! : this.points.map((_, i) => this.group(i, [i])))
+    const kept = this.sweep(groups, TILE_PX * 2 ** this.zoomOf(level))
+    this.pending = kept.length === groups.length ? null : this.assign(groups, kept)
+    if (!this.pending) this.levels.push(groups)
+  }
+
+  // The groups whose drawn boxes reach into the view.
+  within(zoom: number, west: number, south: number, east: number, north: number): StopGroup[] {
+    const px = TILE_PX * 2 ** zoom
+    const view: Rect = {left: mercX(west) * px, top: mercY(north) * px, right: mercX(east) * px, bottom: mercY(south) * px}
+    return this.at(zoom).filter((group) => overlaps(this.rect(group, px), view))
   }
 
   lngLat(group: StopGroup) {
@@ -138,7 +162,9 @@ export class StopClusters {
   }
 
   private rect(group: StopGroup, px: number): Rect {
-    const {size, anchor} = this.boxOf(group)
+    let box = this.boxes.get(group.key)
+    if (!box) this.boxes.set(group.key, box = this.boxOf(group))
+    const {size, anchor} = box
     const left = this.xs[group.leader]! * px - anchor[0]
     const top = this.ys[group.leader]! * px - anchor[1]
     return {left, top, right: left + size[0], bottom: top + size[1]}
@@ -146,14 +172,7 @@ export class StopClusters {
 
   private build() {
     const level = this.levels.length
-    const px = TILE_PX * 2 ** this.zoomOf(level)
-    let groups = level ? this.levels[level - 1]! : this.assign(this.points.map((_, i) => i))
-    for (;;) {
-      const kept = this.sweep(groups, px)
-      if (kept.length === groups.length) break
-      groups = this.assign(kept)
-    }
-    this.levels.push(groups)
+    while (this.levels.length === level) this.advance()
   }
 
   // The leaders whose markers fit, highest ranked first.
@@ -182,54 +201,68 @@ export class StopClusters {
     return kept
   }
 
-  // Every stop goes to its nearest leader.
-  private assign(leaders: number[]): StopGroup[] {
-    const n = this.points.length
-    const cell = Math.sqrt(this.span / leaders.length) || 1
+  // Leaders only ever drop out, so only the stops of dropped groups need their nearest remaining leader.
+  private assign(groups: StopGroup[], kept: number[]): StopGroup[] {
+    const cell = Math.sqrt(this.span / kept.length) || 1
     const grid = new Map<number, number[]>()
-    for (const l of leaders) {
+    for (const l of kept) {
       const key = cellKey(Math.floor(this.xs[l]! / cell), Math.floor(this.ys[l]! / cell))
       const list = grid.get(key)
       if (list) list.push(l)
       else grid.set(key, [l])
     }
-    const owner = new Int32Array(n).fill(-1)
-    for (const l of leaders) owner[l] = l
-    for (let i = 0; i < n; i++) {
-      if (owner[i]! >= 0) continue
-      const x = this.xs[i]!
-      const y = this.ys[i]!
-      const cx = Math.floor(x / cell)
-      const cy = Math.floor(y / cell)
-      let best = -1
-      let bestD = Infinity
-      for (let ring = 0; best < 0 || (ring - 1) * cell < Math.sqrt(bestD); ring++) {
-        for (let dx = -ring; dx <= ring; dx++) {
-          for (let dy = -ring; dy <= ring; dy++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue
-            for (const l of grid.get(cellKey(cx + dx, cy + dy)) ?? []) {
-              const d = (this.xs[l]! - x) ** 2 + (this.ys[l]! - y) ** 2
-              if (d < bestD) {
-                bestD = d
-                best = l
-              }
+    const alive = new Set(kept)
+    const gained = new Map<number, number[]>()
+    for (const group of groups) {
+      if (alive.has(group.leader)) continue
+      for (const i of group.points) {
+        const l = this.nearest(i, grid, cell)
+        const list = gained.get(l)
+        if (list) list.push(i)
+        else gained.set(l, [i])
+      }
+    }
+    const byLeader = new Map(groups.map((g) => [g.leader, g]))
+    return kept.map((l) => {
+      const group = byLeader.get(l)!
+      const extra = gained.get(l)
+      return extra ? this.group(l, [...group.points, ...extra].sort((a, b) => a - b)) : group
+    })
+  }
+
+  private nearest(i: number, grid: Map<number, number[]>, cell: number): number {
+    const x = this.xs[i]!
+    const y = this.ys[i]!
+    const cx = Math.floor(x / cell)
+    const cy = Math.floor(y / cell)
+    let best = -1
+    let bestD = Infinity
+    for (let ring = 0; best < 0 || (ring - 1) * cell < Math.sqrt(bestD); ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue
+          for (const l of grid.get(cellKey(cx + dx, cy + dy)) ?? []) {
+            const d = (this.xs[l]! - x) ** 2 + (this.ys[l]! - y) ** 2
+            if (d < bestD) {
+              bestD = d
+              best = l
             }
           }
         }
       }
-      owner[i] = best
     }
-    const byLeader = new Map<number, StopGroup>()
-    for (const l of leaders) byLeader.set(l, {key: '', leader: l, points: [], stations: new Set(), modes: 0, favorite: false})
-    for (let i = 0; i < n; i++) {
-      const group = byLeader.get(owner[i]!)!
+    return best
+  }
+
+  private group(leader: number, points: number[]): StopGroup {
+    const group: StopGroup = {key: '', leader, points, stations: new Set(), modes: 0, favorite: false}
+    for (const i of points) {
       const p = this.points[i]!
-      group.points.push(i)
       group.stations.add(p.station)
       group.modes |= p.modes
       group.favorite ||= p.favorite
     }
-    for (const group of byLeader.values()) group.key = `${group.leader}:${group.points.length}:${group.points.reduce((h, i) => (h * 31 + i) | 0, 0)}`
-    return [...byLeader.values()]
+    group.key = `${leader}:${points.length}:${points.reduce((h, i) => (h * 31 + i) | 0, 0)}`
+    return group
   }
 }
