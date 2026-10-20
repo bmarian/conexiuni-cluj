@@ -84,7 +84,7 @@ func (s *Store) RecordEndpointTiming(key string, duration time.Duration) {
 	s.statsMu.Unlock()
 }
 
-func (s *Store) RecordTranzyQuotaUsage(name string) {
+func (s *Store) RecordQuotaUsage(name string) {
 	s.RecordEvent("tranzy_quota", name)
 }
 
@@ -228,7 +228,7 @@ func (s *Store) RunStatsFlusher(ctx context.Context) {
 			return
 		}
 		if err := s.FlushStats(); err != nil {
-			s.logf("stats flush failed: %v", err)
+			s.Logf("stats flush failed: %v", err)
 		}
 	}
 }

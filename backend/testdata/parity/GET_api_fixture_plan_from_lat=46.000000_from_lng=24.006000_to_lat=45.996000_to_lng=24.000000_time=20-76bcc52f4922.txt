@@ -1,0 +1,106 @@
+GET /api/fixture/plan?from_lat=46.000000&from_lng=24.006000&to_lat=45.996000&to_lng=24.000000&time=2026-10-20T08:30&arrive_by=1
+200
+Cache-Control: no-cache
+Content-Length: 980
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"980-1514598423"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "options": [
+  {
+   "key": "104\u003e103",
+   "transfers": 0,
+   "walk_m": 710.4658763510729,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 104,
+     "meters": 111.1949266435095,
+     "seconds": 83,
+     "path": "_kwwGotoqCbB?cB?"
+    },
+    {
+     "kind": "ride",
+     "from": 104,
+     "to": 103,
+     "seconds": 66,
+     "path": "_kwwGotoqC?jH?jH?jH?jH",
+     "lines": [
+      1
+     ]
+    },
+    {
+     "kind": "walk",
+     "from": 103,
+     "to": 0,
+     "meters": 599.2709497075634,
+     "seconds": 449,
+     "path": "_kwwG_onqCbB??gErN?fE??fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792473404,
+     "arrive": 1792474002,
+     "rides": [
+      {
+       "route_id": 1,
+       "trip_id": "1_1",
+       "depart": 1792473487,
+       "arrive": 1792473553
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "walk",
+   "transfers": 0,
+   "walk_m": 908.2436772387597,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 0,
+     "meters": 908.2436772387597,
+     "seconds": 681,
+     "path": "_kwwGotoqCbB??jH?zTrN?fE??fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792473519,
+     "arrive": 1792474200,
+     "rides": []
+    }
+   ]
+  }
+ ],
+ "stops": {
+  "103": {
+   "name": "Stația 103",
+   "lat": 46,
+   "lon": 24
+  },
+  "104": {
+   "name": "Stația 104",
+   "lat": 46,
+   "lon": 24.006
+  }
+ },
+ "lines": {
+  "1": {
+   "short_name": "1",
+   "long_name": "Capăt 101 - Capăt 105",
+   "color": "#C62F24",
+   "type": 3
+  }
+ },
+ "refresh_in": 0
+}

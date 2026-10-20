@@ -1,3 +1,4 @@
+import {cityTime} from '@/utils/cityClock.ts'
 import {shallowRef, watch} from 'vue'
 import type {HourlyStopOffsets, Route, ShapeInfo, Stop, StopInfo, StopTime} from '@/types/tranzy.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
@@ -142,16 +143,12 @@ function modeColors(routes: NetworkRoute[]): Map<Mode, string> {
   return out
 }
 
-const CLUJ_TIME = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', weekday: 'short', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit'})
-
-export function clujClock(at: Date = new Date()): {dayType: DayType, hour: number} {
-  const parts = CLUJ_TIME.formatToParts(at)
-  const weekday = parts.find((p) => p.type === 'weekday')?.value
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
-  const special = scheduleDayOn(`${part('year')}-${part('month')}-${part('day')}`)
+// The kind of day and the hour in the city, which pick the learned offsets.
+export function dayTypeAndHour(at: Date = new Date()): {dayType: DayType, hour: number} {
+  const {date, weekday, hour} = cityTime(at)
+  const special = scheduleDayOn(date)
   if (special) return {dayType: special, hour}
-  return {dayType: weekday === 'Sat' ? 'saturday' : weekday === 'Sun' ? 'sunday' : 'weekday', hour}
+  return {dayType: weekday === 6 ? 'saturday' : weekday === 0 ? 'sunday' : 'weekday', hour}
 }
 
 export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType: DayType, hour: number): StopTime[] {
@@ -180,7 +177,7 @@ export function routeStopTimes(index: NetworkIndex, route: NetworkRoute, dayType
 export function buildStopInfo(index: NetworkIndex, stopId: number, at: Date = new Date()): StopInfo | null {
   const stop = index.stopById.get(stopId)
   if (!stop) return null
-  const {dayType, hour} = clujClock(at)
+  const {dayType, hour} = dayTypeAndHour(at)
   const trips = new Set<string>()
   const shapes: ShapeInfo[] = []
   for (const route of [...index.bundle.routes].sort((a, b) => a.route_id - b.route_id)) {

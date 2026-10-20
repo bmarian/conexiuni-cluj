@@ -1,3 +1,4 @@
+import {cityClock, cityMinutes} from '@/utils/cityClock.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {minutesUntil} from '@/utils/arrivals.ts'
 import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
@@ -60,12 +61,8 @@ export function walkFrom(here: {latitude: number, longitude: number} | null, sto
   return walkMinutes(here.latitude, here.longitude, stopLat, stopLon)
 }
 
-export function clujMinutes(ms: number): number {
-  const parts = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'})
-    .formatToParts(new Date(ms))
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24
-  return hour * 60 + Number(parts.find((p) => p.type === 'minute')?.value ?? 0)
-}
+// Whole minutes past the city's midnight.
+export const cityMinuteOfDay = (ms: number): number => Math.floor(cityMinutes(ms))
 
 export function targetMinutes(scheduled: number[], live: number | null, expected: number, graceMinutes: number): number | null {
   const nearest = (to: number) => scheduled.reduce<number | null>((best, m) =>
@@ -78,7 +75,7 @@ export function targetMinutes(scheduled: number[], live: number | null, expected
 }
 
 export function targetReading(scheduled: number[], live: number | null, targetAt: number, nowMs: number, graceMinutes: number): FollowReading | null {
-  const expected = minutesUntil(clujMinutes(targetAt), clujMinutes(nowMs))
+  const expected = minutesUntil(cityMinuteOfDay(targetAt), cityMinuteOfDay(nowMs))
   const minutes = targetMinutes(scheduled, live, expected, graceMinutes)
   if (minutes === null) return null
   return {minutes, live: minutes === live, later: scheduled.filter((m) => m > minutes + graceMinutes).slice(0, 2).map(Math.round)}
@@ -126,6 +123,5 @@ export function stepFollow(
 export const isClockTime = (minutes: number) => minutes >= CLOCK_FROM_MINUTES
 
 export function clockAt(nowMs: number, minutes: number): string {
-  return new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Bucharest', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})
-    .format(new Date(nowMs + minutes * 60_000))
+  return cityClock(nowMs + minutes * 60_000)
 }

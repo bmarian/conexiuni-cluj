@@ -1,0 +1,26 @@
+GET /fixturegtfs/stop/999999999
+200
+Content-Length: 454
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Last-Modified: Thu, 01 Jan 2026 00:00:00 GMT
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>index</title>
+<meta name="description" content="index">
+<link rel="canonical" href="https://ceautobuziau.ro/">
+<meta property="og:title" content="index">
+<meta property="og:description" content="index">
+<meta property="og:url" content="https://ceautobuziau.ro/">
+<meta name="twitter:title" content="index">
+<meta name="twitter:description" content="index">
+</head>
+<body><div id="app"></div></body>
+</html>
+

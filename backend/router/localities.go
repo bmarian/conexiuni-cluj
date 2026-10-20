@@ -23,7 +23,7 @@ var busRoads = map[string]bool{
 
 type boundary struct {
 	pbfRelation
-	box BBox
+	box  BBox
 	ends []Point
 }
 

@@ -1,0 +1,18 @@
+GET /api/fixturegtfs/shapes?format=polyline&shape_ids=7_0,7_1,8_0,8_1
+200
+Cache-Control: no-cache
+Content-Length: 341
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"341-1321263735"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "7_0": "_sqytA_uctn@?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A?w|A",
+ "7_1": "_sqytA_qrun@?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A?v|A",
+ "8_0": "__bytA_c{tn@o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?o}@?",
+ "8_1": "_gaztA_c{tn@n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?n}@?"
+}

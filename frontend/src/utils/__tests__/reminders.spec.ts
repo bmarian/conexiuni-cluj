@@ -1,7 +1,8 @@
+import {cityAt, cityDate} from '@/utils/cityClock.ts'
 import {describe, expect, it} from 'vitest'
 import type {Timetable} from '@/types/ctp.ts'
 import {
-  addDays, clujAt, clujDate, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOccurrence, pickSlot, resolveSlots,
+  addDays, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOccurrence, pickSlot, resolveSlots,
   stopTimesByDayType,
 } from '@/utils/reminders.ts'
 import {setScheduleDays} from '@/utils/time.ts'
@@ -62,13 +63,13 @@ describe('Cluj days', () => {
   })
 
   it('turns a Cluj day and minute into the right instant across DST', () => {
-    expect(clujAt('2026-10-09', 23 * 60 + 42)).toBe(ms('2026-10-09T23:42:00+03:00'))
-    expect(clujAt('2026-12-01', 8 * 60)).toBe(ms('2026-12-01T08:00:00+02:00'))
+    expect(cityAt('2026-10-09', 23 * 60 + 42)).toBe(ms('2026-10-09T23:42:00+03:00'))
+    expect(cityAt('2026-12-01', 8 * 60)).toBe(ms('2026-12-01T08:00:00+02:00'))
     // Clocks go back on 2026-10-25.
-    expect(clujAt('2026-10-24', 24 * 60 + 30)).toBe(ms('2026-10-25T00:30:00+03:00'))
-    expect(clujAt('2026-10-25', 12 * 60)).toBe(ms('2026-10-25T12:00:00+02:00'))
-    expect(clujDate(ms('2026-10-09T23:30:00+03:00'))).toBe('2026-10-09')
-    expect(clujDate(ms('2026-10-09T21:30:00Z'))).toBe('2026-10-10')
+    expect(cityAt('2026-10-24', 24 * 60 + 30)).toBe(ms('2026-10-25T00:30:00+03:00'))
+    expect(cityAt('2026-10-25', 12 * 60)).toBe(ms('2026-10-25T12:00:00+02:00'))
+    expect(cityDate(ms('2026-10-09T23:30:00+03:00'))).toBe('2026-10-09')
+    expect(cityDate(ms('2026-10-09T21:30:00Z'))).toBe('2026-10-10')
     expect(formatSlot(24 * 60 + 5)).toBe('00:05')
     expect(formatSlot(23 * 60 + 9)).toBe('23:09')
   })

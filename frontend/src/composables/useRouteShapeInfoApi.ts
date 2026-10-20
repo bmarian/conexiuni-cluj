@@ -1,6 +1,6 @@
 import {type HourlyStopOffsets, OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
-import {buildHourlyOffsets, clujClock, network, networkLoaded, refreshNetwork, routeStopTimes} from '@/utils/network.ts'
+import {buildHourlyOffsets, dayTypeAndHour, network, networkLoaded, refreshNetwork, routeStopTimes} from '@/utils/network.ts'
 import {currentCity} from '@/utils/city.ts'
 import {watch} from 'vue'
 
@@ -52,7 +52,7 @@ export function useRouteShapeInfoApi() {
     const promise = (async () => {
       const index = await loadedNetwork()
       const local = index?.routeById.get(route.route_id)
-      const {dayType, hour} = clujClock()
+      const {dayType, hour} = dayTypeAndHour()
       const timetable: Timetable = local?.timetable ? structuredClone(local.timetable) : emptyTimetable(route)
       const stopTimes: StopTime[] = index && local ? routeStopTimes(index, local, dayType, hour) : []
       if (!local?.timetable) console.warn(`No timetable for route ${route.route_short_name}`)

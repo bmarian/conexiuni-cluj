@@ -2,11 +2,12 @@
 import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useKeyboardNav } from "@/composables/useKeyboardNav.ts";
+import { cityDate, cityTime } from "@/utils/cityClock.ts";
 
 const { t } = useI18n();
 const kbd = useKeyboardNav();
-const isFriday = computed(() => new Date().getDay() === 5);
-const todayKey = new Date().toISOString().slice(0, 10);
+const isFriday = computed(() => cityTime(new Date()).weekday === 5);
+const todayKey = cityDate(new Date());
 const dismissed = ref(localStorage.getItem("greenFridayDismissed") === todayKey);
 const animationKey = ref(0);
 

@@ -1,0 +1,106 @@
+GET /api/fixturegtfs/plan?from_lat=45.000000&from_lng=25.006000&to_lat=44.996000&to_lng=25.000000&time=2026-10-20T08:30&arrive_by=1
+200
+Cache-Control: no-cache
+Content-Length: 981
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"981-739861380"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "options": [
+  {
+   "key": "704\u003e703",
+   "transfers": 0,
+   "walk_m": 713.2341697493841,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 704,
+     "meters": 111.1949266435095,
+     "seconds": 83,
+     "path": "_atqGo~rwCbB?cB?"
+    },
+    {
+     "kind": "ride",
+     "from": 704,
+     "to": 703,
+     "seconds": 120,
+     "path": "_atqGo~rwC?jH?jH?jH?jH",
+     "lines": [
+      7
+     ]
+    },
+    {
+     "kind": "walk",
+     "from": 703,
+     "to": 0,
+     "meters": 602.0392431058747,
+     "seconds": 452,
+     "path": "_atqG_yqwCbB??gErN?fE??fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792473427,
+     "arrive": 1792474082,
+     "rides": [
+      {
+       "route_id": 7,
+       "trip_id": "7_1",
+       "depart": 1792473510,
+       "arrive": 1792473630
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "walk",
+   "transfers": 0,
+   "walk_m": 916.5487302880745,
+   "legs": [
+    {
+     "kind": "walk",
+     "from": 0,
+     "to": 0,
+     "meters": 916.5487302880745,
+     "seconds": 687,
+     "path": "_atqGo~rwCbB??jH?zTrN?fE??fE"
+    }
+   ],
+   "runs": [
+    {
+     "depart": 1792473513,
+     "arrive": 1792474200,
+     "rides": []
+    }
+   ]
+  }
+ ],
+ "stops": {
+  "703": {
+   "name": "Stația 703",
+   "lat": 45,
+   "lon": 25
+  },
+  "704": {
+   "name": "Stația 704",
+   "lat": 45,
+   "lon": 25.006
+  }
+ },
+ "lines": {
+  "7": {
+   "short_name": "7",
+   "long_name": "Capăt 701 - Capăt 705",
+   "color": "#D84B3B",
+   "type": 3
+  }
+ },
+ "refresh_in": 0
+}

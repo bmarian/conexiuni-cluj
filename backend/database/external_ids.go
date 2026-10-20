@@ -13,9 +13,14 @@ const allocatedIDFloor = 1_000_000
 func (s *Store) ExternalID(kind, external string) (int, error) {
 	s.idsMu.Lock()
 	defer s.idsMu.Unlock()
+	key := [2]string{kind, external}
+	if id, ok := s.ids[key]; ok {
+		return id, nil
+	}
 	var id int
 	err := s.DB.QueryRow(`SELECT id FROM external_ids WHERE kind = ? AND external = ?`, kind, external).Scan(&id)
 	if err == nil {
+		s.ids[key] = id
 		return id, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -36,5 +41,6 @@ func (s *Store) ExternalID(kind, external string) (int, error) {
 	if _, err := s.DB.Exec(`INSERT INTO external_ids (kind, external, id) VALUES (?, ?, ?)`, kind, external, id); err != nil {
 		return 0, err
 	}
+	s.ids[key] = id
 	return id, nil
 }

@@ -1,0 +1,3129 @@
+GET /api/fixturegtfs/network
+200
+Cache-Control: no-cache
+Content-Length: 22126
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json
+Etag: "4560ead7fcbc111d"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "version": "4560ead7fcbc111d",
+ "static_version": "7fecfa37e0f1c69b",
+ "generated_at": "2026-10-20T00:00:00Z",
+ "routes": [
+  {
+   "route_id": 7,
+   "agency_id": 1,
+   "route_short_name": "7",
+   "route_long_name": "Capăt 701 - Capăt 705",
+   "route_type": 3,
+   "route_desc": "",
+   "route_color": "#D84B3B",
+   "timetable": {
+    "route_short_name": "7",
+    "route_long_name": "Capăt 701 - Capăt 705",
+    "in_stop_name": "Stația 701",
+    "out_stop_name": "Stația 705",
+    "weekdays": {
+     "service_name": "",
+     "service_start": "",
+     "entries": [
+      {
+       "departure_in": "05:00",
+       "departure_out": "05:05"
+      },
+      {
+       "departure_in": "05:12",
+       "departure_out": "05:17"
+      },
+      {
+       "departure_in": "05:24",
+       "departure_out": "05:29"
+      },
+      {
+       "departure_in": "05:36",
+       "departure_out": "05:41"
+      },
+      {
+       "departure_in": "05:48",
+       "departure_out": "05:53"
+      },
+      {
+       "departure_in": "06:00",
+       "departure_out": "06:05"
+      },
+      {
+       "departure_in": "06:12",
+       "departure_out": "06:17"
+      },
+      {
+       "departure_in": "06:24",
+       "departure_out": "06:29"
+      },
+      {
+       "departure_in": "06:36",
+       "departure_out": "06:41"
+      },
+      {
+       "departure_in": "06:48",
+       "departure_out": "06:53"
+      },
+      {
+       "departure_in": "07:00",
+       "departure_out": "07:05"
+      },
+      {
+       "departure_in": "07:12",
+       "departure_out": "07:17"
+      },
+      {
+       "departure_in": "07:24",
+       "departure_out": "07:29"
+      },
+      {
+       "departure_in": "07:36",
+       "departure_out": "07:41"
+      },
+      {
+       "departure_in": "07:48",
+       "departure_out": "07:53"
+      },
+      {
+       "departure_in": "08:00",
+       "departure_out": "08:05"
+      },
+      {
+       "departure_in": "08:12",
+       "departure_out": "08:17"
+      },
+      {
+       "departure_in": "08:24",
+       "departure_out": "08:29"
+      },
+      {
+       "departure_in": "08:36",
+       "departure_out": "08:41"
+      },
+      {
+       "departure_in": "08:48",
+       "departure_out": "08:53"
+      },
+      {
+       "departure_in": "09:00",
+       "departure_out": "09:05"
+      },
+      {
+       "departure_in": "09:12",
+       "departure_out": "09:17"
+      },
+      {
+       "departure_in": "09:24",
+       "departure_out": "09:29"
+      },
+      {
+       "departure_in": "09:36",
+       "departure_out": "09:41"
+      },
+      {
+       "departure_in": "09:48",
+       "departure_out": "09:53"
+      },
+      {
+       "departure_in": "10:00",
+       "departure_out": "10:05"
+      },
+      {
+       "departure_in": "10:12",
+       "departure_out": "10:17"
+      },
+      {
+       "departure_in": "10:24",
+       "departure_out": "10:29"
+      },
+      {
+       "departure_in": "10:36",
+       "departure_out": "10:41"
+      },
+      {
+       "departure_in": "10:48",
+       "departure_out": "10:53"
+      },
+      {
+       "departure_in": "11:00",
+       "departure_out": "11:05"
+      },
+      {
+       "departure_in": "11:12",
+       "departure_out": "11:17"
+      },
+      {
+       "departure_in": "11:24",
+       "departure_out": "11:29"
+      },
+      {
+       "departure_in": "11:36",
+       "departure_out": "11:41"
+      },
+      {
+       "departure_in": "11:48",
+       "departure_out": "11:53"
+      },
+      {
+       "departure_in": "12:00",
+       "departure_out": "12:05"
+      },
+      {
+       "departure_in": "12:12",
+       "departure_out": "12:17"
+      },
+      {
+       "departure_in": "12:24",
+       "departure_out": "12:29"
+      },
+      {
+       "departure_in": "12:36",
+       "departure_out": "12:41"
+      },
+      {
+       "departure_in": "12:48",
+       "departure_out": "12:53"
+      },
+      {
+       "departure_in": "13:00",
+       "departure_out": "13:05"
+      },
+      {
+       "departure_in": "13:12",
+       "departure_out": "13:17"
+      },
+      {
+       "departure_in": "13:24",
+       "departure_out": "13:29"
+      },
+      {
+       "departure_in": "13:36",
+       "departure_out": "13:41"
+      },
+      {
+       "departure_in": "13:48",
+       "departure_out": "13:53"
+      },
+      {
+       "departure_in": "14:00",
+       "departure_out": "14:05"
+      },
+      {
+       "departure_in": "14:12",
+       "departure_out": "14:17"
+      },
+      {
+       "departure_in": "14:24",
+       "departure_out": "14:29"
+      },
+      {
+       "departure_in": "14:36",
+       "departure_out": "14:41"
+      },
+      {
+       "departure_in": "14:48",
+       "departure_out": "14:53"
+      },
+      {
+       "departure_in": "15:00",
+       "departure_out": "15:05"
+      },
+      {
+       "departure_in": "15:12",
+       "departure_out": "15:17"
+      },
+      {
+       "departure_in": "15:24",
+       "departure_out": "15:29"
+      },
+      {
+       "departure_in": "15:36",
+       "departure_out": "15:41"
+      },
+      {
+       "departure_in": "15:48",
+       "departure_out": "15:53"
+      },
+      {
+       "departure_in": "16:00",
+       "departure_out": "16:05"
+      },
+      {
+       "departure_in": "16:12",
+       "departure_out": "16:17"
+      },
+      {
+       "departure_in": "16:24",
+       "departure_out": "16:29"
+      },
+      {
+       "departure_in": "16:36",
+       "departure_out": "16:41"
+      },
+      {
+       "departure_in": "16:48",
+       "departure_out": "16:53"
+      },
+      {
+       "departure_in": "17:00",
+       "departure_out": "17:05"
+      },
+      {
+       "departure_in": "17:12",
+       "departure_out": "17:17"
+      },
+      {
+       "departure_in": "17:24",
+       "departure_out": "17:29"
+      },
+      {
+       "departure_in": "17:36",
+       "departure_out": "17:41"
+      },
+      {
+       "departure_in": "17:48",
+       "departure_out": "17:53"
+      },
+      {
+       "departure_in": "18:00",
+       "departure_out": "18:05"
+      },
+      {
+       "departure_in": "18:12",
+       "departure_out": "18:17"
+      },
+      {
+       "departure_in": "18:24",
+       "departure_out": "18:29"
+      },
+      {
+       "departure_in": "18:36",
+       "departure_out": "18:41"
+      },
+      {
+       "departure_in": "18:48",
+       "departure_out": "18:53"
+      },
+      {
+       "departure_in": "19:00",
+       "departure_out": "19:05"
+      },
+      {
+       "departure_in": "19:12",
+       "departure_out": "19:17"
+      },
+      {
+       "departure_in": "19:24",
+       "departure_out": "19:29"
+      },
+      {
+       "departure_in": "19:36",
+       "departure_out": "19:41"
+      },
+      {
+       "departure_in": "19:48",
+       "departure_out": "19:53"
+      },
+      {
+       "departure_in": "20:00",
+       "departure_out": "20:05"
+      },
+      {
+       "departure_in": "20:12",
+       "departure_out": "20:17"
+      },
+      {
+       "departure_in": "20:24",
+       "departure_out": "20:29"
+      },
+      {
+       "departure_in": "20:36",
+       "departure_out": "20:41"
+      },
+      {
+       "departure_in": "20:48",
+       "departure_out": "20:53"
+      },
+      {
+       "departure_in": "21:00",
+       "departure_out": "21:05"
+      },
+      {
+       "departure_in": "21:12",
+       "departure_out": "21:17"
+      },
+      {
+       "departure_in": "21:24",
+       "departure_out": "21:29"
+      },
+      {
+       "departure_in": "21:36",
+       "departure_out": "21:41"
+      },
+      {
+       "departure_in": "21:48",
+       "departure_out": "21:53"
+      },
+      {
+       "departure_in": "22:00",
+       "departure_out": "22:05"
+      },
+      {
+       "departure_in": "22:12",
+       "departure_out": "22:17"
+      },
+      {
+       "departure_in": "22:24",
+       "departure_out": "22:29"
+      },
+      {
+       "departure_in": "22:36",
+       "departure_out": "22:41"
+      },
+      {
+       "departure_in": "22:48",
+       "departure_out": "22:53"
+      },
+      {
+       "departure_in": "23:00",
+       "departure_out": "23:05"
+      }
+     ]
+    },
+    "saturday": {
+     "service_name": "",
+     "service_start": "",
+     "entries": [
+      {
+       "departure_in": "06:00",
+       "departure_out": "06:05"
+      },
+      {
+       "departure_in": "06:24",
+       "departure_out": "06:29"
+      },
+      {
+       "departure_in": "06:48",
+       "departure_out": "06:53"
+      },
+      {
+       "departure_in": "07:12",
+       "departure_out": "07:17"
+      },
+      {
+       "departure_in": "07:36",
+       "departure_out": "07:41"
+      },
+      {
+       "departure_in": "08:00",
+       "departure_out": "08:05"
+      },
+      {
+       "departure_in": "08:24",
+       "departure_out": "08:29"
+      },
+      {
+       "departure_in": "08:48",
+       "departure_out": "08:53"
+      },
+      {
+       "departure_in": "09:12",
+       "departure_out": "09:17"
+      },
+      {
+       "departure_in": "09:36",
+       "departure_out": "09:41"
+      },
+      {
+       "departure_in": "10:00",
+       "departure_out": "10:05"
+      },
+      {
+       "departure_in": "10:24",
+       "departure_out": "10:29"
+      },
+      {
+       "departure_in": "10:48",
+       "departure_out": "10:53"
+      },
+      {
+       "departure_in": "11:12",
+       "departure_out": "11:17"
+      },
+      {
+       "departure_in": "11:36",
+       "departure_out": "11:41"
+      },
+      {
+       "departure_in": "12:00",
+       "departure_out": "12:05"
+      },
+      {
+       "departure_in": "12:24",
+       "departure_out": "12:29"
+      },
+      {
+       "departure_in": "12:48",
+       "departure_out": "12:53"
+      },
+      {
+       "departure_in": "13:12",
+       "departure_out": "13:17"
+      },
+      {
+       "departure_in": "13:36",
+       "departure_out": "13:41"
+      },
+      {
+       "departure_in": "14:00",
+       "departure_out": "14:05"
+      },
+      {
+       "departure_in": "14:24",
+       "departure_out": "14:29"
+      },
+      {
+       "departure_in": "14:48",
+       "departure_out": "14:53"
+      },
+      {
+       "departure_in": "15:12",
+       "departure_out": "15:17"
+      },
+      {
+       "departure_in": "15:36",
+       "departure_out": "15:41"
+      },
+      {
+       "departure_in": "16:00",
+       "departure_out": "16:05"
+      },
+      {
+       "departure_in": "16:24",
+       "departure_out": "16:29"
+      },
+      {
+       "departure_in": "16:48",
+       "departure_out": "16:53"
+      },
+      {
+       "departure_in": "17:12",
+       "departure_out": "17:17"
+      },
+      {
+       "departure_in": "17:36",
+       "departure_out": "17:41"
+      },
+      {
+       "departure_in": "18:00",
+       "departure_out": "18:05"
+      },
+      {
+       "departure_in": "18:24",
+       "departure_out": "18:29"
+      },
+      {
+       "departure_in": "18:48",
+       "departure_out": "18:53"
+      },
+      {
+       "departure_in": "19:12",
+       "departure_out": "19:17"
+      },
+      {
+       "departure_in": "19:36",
+       "departure_out": "19:41"
+      },
+      {
+       "departure_in": "20:00",
+       "departure_out": "20:05"
+      },
+      {
+       "departure_in": "20:24",
+       "departure_out": "20:29"
+      },
+      {
+       "departure_in": "20:48",
+       "departure_out": "20:53"
+      },
+      {
+       "departure_in": "21:12",
+       "departure_out": "21:17"
+      },
+      {
+       "departure_in": "21:36",
+       "departure_out": "21:41"
+      },
+      {
+       "departure_in": "22:00",
+       "departure_out": "22:05"
+      },
+      {
+       "departure_in": "22:24",
+       "departure_out": "22:29"
+      },
+      {
+       "departure_in": "22:48",
+       "departure_out": "22:53"
+      }
+     ]
+    },
+    "sunday": {
+     "service_name": "",
+     "service_start": "",
+     "entries": [
+      {
+       "departure_in": "07:00",
+       "departure_out": "07:05"
+      },
+      {
+       "departure_in": "07:30",
+       "departure_out": "07:35"
+      },
+      {
+       "departure_in": "08:00",
+       "departure_out": "08:05"
+      },
+      {
+       "departure_in": "08:30",
+       "departure_out": "08:35"
+      },
+      {
+       "departure_in": "09:00",
+       "departure_out": "09:05"
+      },
+      {
+       "departure_in": "09:30",
+       "departure_out": "09:35"
+      },
+      {
+       "departure_in": "10:00",
+       "departure_out": "10:05"
+      },
+      {
+       "departure_in": "10:30",
+       "departure_out": "10:35"
+      },
+      {
+       "departure_in": "11:00",
+       "departure_out": "11:05"
+      },
+      {
+       "departure_in": "11:30",
+       "departure_out": "11:35"
+      },
+      {
+       "departure_in": "12:00",
+       "departure_out": "12:05"
+      },
+      {
+       "departure_in": "12:30",
+       "departure_out": "12:35"
+      },
+      {
+       "departure_in": "13:00",
+       "departure_out": "13:05"
+      },
+      {
+       "departure_in": "13:30",
+       "departure_out": "13:35"
+      },
+      {
+       "departure_in": "14:00",
+       "departure_out": "14:05"
+      },
+      {
+       "departure_in": "14:30",
+       "departure_out": "14:35"
+      },
+      {
+       "departure_in": "15:00",
+       "departure_out": "15:05"
+      },
+      {
+       "departure_in": "15:30",
+       "departure_out": "15:35"
+      },
+      {
+       "departure_in": "16:00",
+       "departure_out": "16:05"
+      },
+      {
+       "departure_in": "16:30",
+       "departure_out": "16:35"
+      },
+      {
+       "departure_in": "17:00",
+       "departure_out": "17:05"
+      },
+      {
+       "departure_in": "17:30",
+       "departure_out": "17:35"
+      },
+      {
+       "departure_in": "18:00",
+       "departure_out": "18:05"
+      },
+      {
+       "departure_in": "18:30",
+       "departure_out": "18:35"
+      },
+      {
+       "departure_in": "19:00",
+       "departure_out": "19:05"
+      },
+      {
+       "departure_in": "19:30",
+       "departure_out": "19:35"
+      },
+      {
+       "departure_in": "20:00",
+       "departure_out": "20:05"
+      },
+      {
+       "departure_in": "20:30",
+       "departure_out": "20:35"
+      },
+      {
+       "departure_in": "21:00",
+       "departure_out": "21:05"
+      },
+      {
+       "departure_in": "21:30",
+       "departure_out": "21:35"
+      },
+      {
+       "departure_in": "22:00",
+       "departure_out": "22:05"
+      }
+     ]
+    }
+   },
+   "trips": [
+    {
+     "trip_id": "7_0",
+     "stop_ids": [
+      701,
+      702,
+      703,
+      704,
+      705
+     ],
+     "stop_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "shape_hash": "e5cf0ccd3822"
+    },
+    {
+     "trip_id": "7_1",
+     "stop_ids": [
+      705,
+      704,
+      703,
+      702,
+      701
+     ],
+     "stop_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "shape_hash": "818622d75759"
+    }
+   ],
+   "offsets": {
+    "saturday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ],
+    "sunday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ],
+    "weekday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ]
+   }
+  },
+  {
+   "route_id": 8,
+   "agency_id": 1,
+   "route_short_name": "8B",
+   "route_long_name": "Capăt 711 - Capăt 715",
+   "route_type": 0,
+   "route_desc": "",
+   "route_color": "#1C38D9",
+   "timetable": {
+    "route_short_name": "8B",
+    "route_long_name": "Capăt 711 - Capăt 715",
+    "in_stop_name": "Stația 711",
+    "out_stop_name": "Stația 715",
+    "weekdays": {
+     "service_name": "",
+     "service_start": "",
+     "entries": [
+      {
+       "departure_in": "05:00",
+       "departure_out": "05:05"
+      },
+      {
+       "departure_in": "05:20",
+       "departure_out": "05:25"
+      },
+      {
+       "departure_in": "05:40",
+       "departure_out": "05:45"
+      },
+      {
+       "departure_in": "06:00",
+       "departure_out": "06:05"
+      },
+      {
+       "departure_in": "06:20",
+       "departure_out": "06:25"
+      },
+      {
+       "departure_in": "06:40",
+       "departure_out": "06:45"
+      },
+      {
+       "departure_in": "07:00",
+       "departure_out": "07:05"
+      },
+      {
+       "departure_in": "07:20",
+       "departure_out": "07:25"
+      },
+      {
+       "departure_in": "07:40",
+       "departure_out": "07:45"
+      },
+      {
+       "departure_in": "08:00",
+       "departure_out": "08:05"
+      },
+      {
+       "departure_in": "08:20",
+       "departure_out": "08:25"
+      },
+      {
+       "departure_in": "08:40",
+       "departure_out": "08:45"
+      },
+      {
+       "departure_in": "09:00",
+       "departure_out": "09:05"
+      },
+      {
+       "departure_in": "09:20",
+       "departure_out": "09:25"
+      },
+      {
+       "departure_in": "09:40",
+       "departure_out": "09:45"
+      },
+      {
+       "departure_in": "10:00",
+       "departure_out": "10:05"
+      },
+      {
+       "departure_in": "10:20",
+       "departure_out": "10:25"
+      },
+      {
+       "departure_in": "10:40",
+       "departure_out": "10:45"
+      },
+      {
+       "departure_in": "11:00",
+       "departure_out": "11:05"
+      },
+      {
+       "departure_in": "11:20",
+       "departure_out": "11:25"
+      },
+      {
+       "departure_in": "11:40",
+       "departure_out": "11:45"
+      },
+      {
+       "departure_in": "12:00",
+       "departure_out": "12:05"
+      },
+      {
+       "departure_in": "12:20",
+       "departure_out": "12:25"
+      },
+      {
+       "departure_in": "12:40",
+       "departure_out": "12:45"
+      },
+      {
+       "departure_in": "13:00",
+       "departure_out": "13:05"
+      },
+      {
+       "departure_in": "13:20",
+       "departure_out": "13:25"
+      },
+      {
+       "departure_in": "13:40",
+       "departure_out": "13:45"
+      },
+      {
+       "departure_in": "14:00",
+       "departure_out": "14:05"
+      },
+      {
+       "departure_in": "14:20",
+       "departure_out": "14:25"
+      },
+      {
+       "departure_in": "14:40",
+       "departure_out": "14:45"
+      },
+      {
+       "departure_in": "15:00",
+       "departure_out": "15:05"
+      },
+      {
+       "departure_in": "15:20",
+       "departure_out": "15:25"
+      },
+      {
+       "departure_in": "15:40",
+       "departure_out": "15:45"
+      },
+      {
+       "departure_in": "16:00",
+       "departure_out": "16:05"
+      },
+      {
+       "departure_in": "16:20",
+       "departure_out": "16:25"
+      },
+      {
+       "departure_in": "16:40",
+       "departure_out": "16:45"
+      },
+      {
+       "departure_in": "17:00",
+       "departure_out": "17:05"
+      },
+      {
+       "departure_in": "17:20",
+       "departure_out": "17:25"
+      },
+      {
+       "departure_in": "17:40",
+       "departure_out": "17:45"
+      },
+      {
+       "departure_in": "18:00",
+       "departure_out": "18:05"
+      },
+      {
+       "departure_in": "18:20",
+       "departure_out": "18:25"
+      },
+      {
+       "departure_in": "18:40",
+       "departure_out": "18:45"
+      },
+      {
+       "departure_in": "19:00",
+       "departure_out": "19:05"
+      },
+      {
+       "departure_in": "19:20",
+       "departure_out": "19:25"
+      },
+      {
+       "departure_in": "19:40",
+       "departure_out": "19:45"
+      },
+      {
+       "departure_in": "20:00",
+       "departure_out": "20:05"
+      },
+      {
+       "departure_in": "20:20",
+       "departure_out": "20:25"
+      },
+      {
+       "departure_in": "20:40",
+       "departure_out": "20:45"
+      },
+      {
+       "departure_in": "21:00",
+       "departure_out": "21:05"
+      },
+      {
+       "departure_in": "21:20",
+       "departure_out": "21:25"
+      },
+      {
+       "departure_in": "21:40",
+       "departure_out": "21:45"
+      },
+      {
+       "departure_in": "22:00",
+       "departure_out": "22:05"
+      },
+      {
+       "departure_in": "22:20",
+       "departure_out": "22:25"
+      },
+      {
+       "departure_in": "22:40",
+       "departure_out": "22:45"
+      },
+      {
+       "departure_in": "23:00",
+       "departure_out": "23:05"
+      }
+     ]
+    },
+    "saturday": {
+     "service_name": "",
+     "service_start": "",
+     "entries": [
+      {
+       "departure_in": "06:00",
+       "departure_out": "06:05"
+      },
+      {
+       "departure_in": "06:40",
+       "departure_out": "06:45"
+      },
+      {
+       "departure_in": "07:20",
+       "departure_out": "07:25"
+      },
+      {
+       "departure_in": "08:00",
+       "departure_out": "08:05"
+      },
+      {
+       "departure_in": "08:40",
+       "departure_out": "08:45"
+      },
+      {
+       "departure_in": "09:20",
+       "departure_out": "09:25"
+      },
+      {
+       "departure_in": "10:00",
+       "departure_out": "10:05"
+      },
+      {
+       "departure_in": "10:40",
+       "departure_out": "10:45"
+      },
+      {
+       "departure_in": "11:20",
+       "departure_out": "11:25"
+      },
+      {
+       "departure_in": "12:00",
+       "departure_out": "12:05"
+      },
+      {
+       "departure_in": "12:40",
+       "departure_out": "12:45"
+      },
+      {
+       "departure_in": "13:20",
+       "departure_out": "13:25"
+      },
+      {
+       "departure_in": "14:00",
+       "departure_out": "14:05"
+      },
+      {
+       "departure_in": "14:40",
+       "departure_out": "14:45"
+      },
+      {
+       "departure_in": "15:20",
+       "departure_out": "15:25"
+      },
+      {
+       "departure_in": "16:00",
+       "departure_out": "16:05"
+      },
+      {
+       "departure_in": "16:40",
+       "departure_out": "16:45"
+      },
+      {
+       "departure_in": "17:20",
+       "departure_out": "17:25"
+      },
+      {
+       "departure_in": "18:00",
+       "departure_out": "18:05"
+      },
+      {
+       "departure_in": "18:40",
+       "departure_out": "18:45"
+      },
+      {
+       "departure_in": "19:20",
+       "departure_out": "19:25"
+      },
+      {
+       "departure_in": "20:00",
+       "departure_out": "20:05"
+      },
+      {
+       "departure_in": "20:40",
+       "departure_out": "20:45"
+      },
+      {
+       "departure_in": "21:20",
+       "departure_out": "21:25"
+      },
+      {
+       "departure_in": "22:00",
+       "departure_out": "22:05"
+      },
+      {
+       "departure_in": "22:40",
+       "departure_out": "22:45"
+      }
+     ]
+    },
+    "sunday": {
+     "service_name": "",
+     "service_start": "",
+     "entries": null,
+     "in_frequency": {
+      "start": "07:00",
+      "end": "22:00",
+      "min_minutes": 25,
+      "max_minutes": 35
+     },
+     "out_frequency": {
+      "start": "07:10",
+      "end": "22:10",
+      "min_minutes": 25,
+      "max_minutes": 35
+     }
+    }
+   },
+   "trips": [
+    {
+     "trip_id": "8_0",
+     "stop_ids": [
+      711,
+      712,
+      703,
+      714,
+      715
+     ],
+     "stop_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "shape_hash": "c0347158de48"
+    },
+    {
+     "trip_id": "8_1",
+     "stop_ids": [
+      715,
+      714,
+      703,
+      712,
+      711
+     ],
+     "stop_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "shape_hash": "2c2f0a5f11e0"
+    }
+   ],
+   "offsets": {
+    "saturday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ],
+    "sunday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ],
+    "weekday": [
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ],
+     [
+      0,
+      90,
+      120,
+      75,
+      100,
+      0,
+      90,
+      120,
+      75,
+      100
+     ]
+    ]
+   }
+  }
+ ],
+ "stops": [
+  {
+   "stop_id": 701,
+   "stop_name": "Stația 701",
+   "stop_desc": "",
+   "stop_lat": 45,
+   "stop_lon": 24.988,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 701
+  },
+  {
+   "stop_id": 702,
+   "stop_name": "Stația 702",
+   "stop_desc": "",
+   "stop_lat": 45,
+   "stop_lon": 24.994,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 702
+  },
+  {
+   "stop_id": 703,
+   "stop_name": "Stația 703",
+   "stop_desc": "",
+   "stop_lat": 45,
+   "stop_lon": 25,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 703
+  },
+  {
+   "stop_id": 704,
+   "stop_name": "Stația 704",
+   "stop_desc": "",
+   "stop_lat": 45,
+   "stop_lon": 25.006,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 704
+  },
+  {
+   "stop_id": 705,
+   "stop_name": "Stația 705",
+   "stop_desc": "",
+   "stop_lat": 45,
+   "stop_lon": 25.012,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 705
+  },
+  {
+   "stop_id": 711,
+   "stop_name": "Stația 711",
+   "stop_desc": "",
+   "stop_lat": 44.992,
+   "stop_lon": 25,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 711
+  },
+  {
+   "stop_id": 712,
+   "stop_name": "Stația 712",
+   "stop_desc": "",
+   "stop_lat": 44.996,
+   "stop_lon": 25,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 712
+  },
+  {
+   "stop_id": 714,
+   "stop_name": "Stația 714",
+   "stop_desc": "",
+   "stop_lat": 45.004,
+   "stop_lon": 25,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 714
+  },
+  {
+   "stop_id": 715,
+   "stop_name": "Stația 715",
+   "stop_desc": "",
+   "stop_lat": 45.008,
+   "stop_lon": 25,
+   "location_type": 0,
+   "stop_code": "",
+   "station_id": 715
+  }
+ ],
+ "rules": {
+  "late_grace_min": 0.5
+ },
+ "schedule_days": {
+  "2026-01-01": "sunday",
+  "2026-01-02": "sunday",
+  "2026-01-06": "sunday",
+  "2026-01-07": "sunday",
+  "2026-01-24": "sunday",
+  "2026-04-10": "sunday",
+  "2026-04-13": "sunday",
+  "2026-05-01": "sunday",
+  "2026-06-01": "sunday",
+  "2026-08-15": "sunday",
+  "2026-11-30": "sunday",
+  "2026-12-01": "sunday",
+  "2026-12-25": "sunday",
+  "2026-12-26": "sunday",
+  "2027-01-01": "sunday",
+  "2027-01-02": "sunday",
+  "2027-01-06": "sunday",
+  "2027-01-07": "sunday",
+  "2027-04-30": "sunday",
+  "2027-05-01": "sunday",
+  "2027-05-03": "sunday",
+  "2027-06-01": "sunday",
+  "2027-06-21": "sunday",
+  "2027-11-30": "sunday",
+  "2027-12-01": "sunday",
+  "2027-12-25": "sunday"
+ },
+ "day_notes": {
+  "2026-01-01": {
+   "reason": "holiday",
+   "holiday": "new_year"
+  },
+  "2026-01-02": {
+   "reason": "holiday",
+   "holiday": "new_year_2"
+  },
+  "2026-01-06": {
+   "reason": "holiday",
+   "holiday": "epiphany"
+  },
+  "2026-01-07": {
+   "reason": "holiday",
+   "holiday": "saint_john"
+  },
+  "2026-01-24": {
+   "reason": "holiday",
+   "holiday": "union_day"
+  },
+  "2026-04-10": {
+   "reason": "holiday",
+   "holiday": "good_friday"
+  },
+  "2026-04-13": {
+   "reason": "holiday",
+   "holiday": "easter_monday"
+  },
+  "2026-05-01": {
+   "reason": "holiday",
+   "holiday": "labour_day"
+  },
+  "2026-06-01": {
+   "reason": "holiday",
+   "holiday": "pentecost_monday"
+  },
+  "2026-08-15": {
+   "reason": "holiday",
+   "holiday": "assumption"
+  },
+  "2026-11-30": {
+   "reason": "holiday",
+   "holiday": "saint_andrew"
+  },
+  "2026-12-01": {
+   "reason": "holiday",
+   "holiday": "national_day"
+  },
+  "2026-12-25": {
+   "reason": "holiday",
+   "holiday": "christmas"
+  },
+  "2026-12-26": {
+   "reason": "holiday",
+   "holiday": "christmas_2"
+  },
+  "2027-01-01": {
+   "reason": "holiday",
+   "holiday": "new_year"
+  },
+  "2027-01-02": {
+   "reason": "holiday",
+   "holiday": "new_year_2"
+  },
+  "2027-01-06": {
+   "reason": "holiday",
+   "holiday": "epiphany"
+  },
+  "2027-01-07": {
+   "reason": "holiday",
+   "holiday": "saint_john"
+  },
+  "2027-04-30": {
+   "reason": "holiday",
+   "holiday": "good_friday"
+  },
+  "2027-05-01": {
+   "reason": "holiday",
+   "holiday": "labour_day"
+  },
+  "2027-05-03": {
+   "reason": "holiday",
+   "holiday": "easter_monday"
+  },
+  "2027-06-01": {
+   "reason": "holiday",
+   "holiday": "childrens_day"
+  },
+  "2027-06-21": {
+   "reason": "holiday",
+   "holiday": "pentecost_monday"
+  },
+  "2027-11-30": {
+   "reason": "holiday",
+   "holiday": "saint_andrew"
+  },
+  "2027-12-01": {
+   "reason": "holiday",
+   "holiday": "national_day"
+  },
+  "2027-12-25": {
+   "reason": "holiday",
+   "holiday": "christmas"
+  }
+ }
+}

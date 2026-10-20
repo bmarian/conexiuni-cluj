@@ -2,6 +2,7 @@
 package router
 
 import (
+	"maps"
 	"math"
 	"slices"
 	"sort"
@@ -333,7 +334,8 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		}
 		marked = marked[:0]
 		var rode []*label
-		for pi, start := range queue {
+		for _, pi := range slices.Sorted(maps.Keys(queue)) {
+			start := queue[pi]
 			p := &r.tt.patterns[pi]
 			var route []onboard
 			for pos := start; pos < int32(len(p.stops)); pos++ {

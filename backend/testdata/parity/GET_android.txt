@@ -1,0 +1,26 @@
+GET /android
+200
+Cache-Control: public, max-age=300
+Content-Length: 1661
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>Aplicația Android — Ce autobuz iau?</title>
+<meta name="description" content="Intră în beta și testează aplicația pentru telefon și ceas Wear OS.">
+<link rel="canonical" href="https://ceautobuziau.ro/android">
+<meta property="og:title" content="Aplicația Android — Ce autobuz iau?">
+<meta property="og:description" content="Intră în beta și testează aplicația pentru telefon și ceas Wear OS.">
+<meta property="og:url" content="https://ceautobuziau.ro/android">
+<meta name="twitter:title" content="Aplicația Android — Ce autobuz iau?">
+<meta name="twitter:description" content="Intră în beta și testează aplicația pentru telefon și ceas Wear OS.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/android"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/android?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/android"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","description":"Intră în beta și testează aplicația pentru telefon și ceas Wear OS.","inLanguage":"ro","name":"Aplicația Android — Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/android"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Aplicația Android — Ce autobuz iau?</h1><p>Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.</p></div></div></body>
+</html>
+

@@ -1,0 +1,26 @@
+GET /fixturegtfs/plan?name=Pia%C8%9Ba+%3Cb%3EUnirii%3C%2Fb%3E&lat=46.77&lon=23.59
+200
+Cache-Control: public, max-age=300
+Content-Length: 1558
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?</title>
+<meta name="description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixturegtfs/plan">
+<meta property="og:title" content="Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
+<meta property="og:description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixturegtfs/plan">
+<meta name="twitter:title" content="Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
+<meta name="twitter:description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/plan"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/plan?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/plan"></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?</h1><p>Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.</p></div></div></body>
+</html>
+

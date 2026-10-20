@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import fixture from './fixtures/network_fixture.json'
-import {buildHourlyOffsets, buildStopInfo, clujClock, decodePolyline, NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
+import {buildHourlyOffsets, buildStopInfo, dayTypeAndHour, decodePolyline, NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
 import type {StopInfo} from '@/types/tranzy.ts'
 import {getTimetableDayKey, plainTimetableDayKey, setScheduleDays, specialDayOn} from '@/utils/time.ts'
 
@@ -47,15 +47,15 @@ describe('network bundle', () => {
   })
 
   it('reads the day and hour in Cluj, wherever the browser is', () => {
-    expect(clujClock(new Date('2026-10-10T21:30:00Z'))).toEqual({dayType: 'sunday', hour: 0})
-    expect(clujClock(new Date('2026-10-09T06:00:00Z'))).toEqual({dayType: 'weekday', hour: 9})
+    expect(dayTypeAndHour(new Date('2026-10-10T21:30:00Z'))).toEqual({dayType: 'sunday', hour: 0})
+    expect(dayTypeAndHour(new Date('2026-10-09T06:00:00Z'))).toEqual({dayType: 'weekday', hour: 9})
   })
 
   it('runs the timetable the calendar names on a holiday', () => {
     setScheduleDays({'2026-12-01': 'sunday'}, {'2026-12-01': {reason: 'holiday', holiday: 'national_day'}})
     try {
-      expect(clujClock(new Date('2026-12-01T08:00:00Z'))).toEqual({dayType: 'sunday', hour: 10})
-      expect(clujClock(new Date('2026-12-02T08:00:00Z'))).toEqual({dayType: 'weekday', hour: 10})
+      expect(dayTypeAndHour(new Date('2026-12-01T08:00:00Z'))).toEqual({dayType: 'sunday', hour: 10})
+      expect(dayTypeAndHour(new Date('2026-12-02T08:00:00Z'))).toEqual({dayType: 'weekday', hour: 10})
       expect(getTimetableDayKey(new Date(2026, 11, 1, 10))).toBe('sunday')
       expect(getTimetableDayKey(new Date(2026, 11, 2, 10))).toBe('weekdays')
       expect(plainTimetableDayKey(new Date(2026, 11, 1, 10))).toBe('weekdays')

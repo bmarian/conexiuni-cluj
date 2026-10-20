@@ -1,7 +1,7 @@
 package main
 
 import (
-	"conexiuni-cluj/handlers"
+	"conexiuni-cluj/admin"
 	"fmt"
 	"io"
 	"log"
@@ -124,7 +124,7 @@ func setupLogging(logDir string, retainDays int) (*loggingHandles, error) {
 		return nil, err
 	}
 
-	appOut := io.MultiWriter(os.Stdout, appW, handlers.ProblemLog)
+	appOut := io.MultiWriter(os.Stdout, appW, admin.ProblemLog)
 	accessOut := io.MultiWriter(os.Stdout, accessW)
 
 	log.SetOutput(appOut)

@@ -1,0 +1,205 @@
+GET /api/admin/calendar?city=fixture
+200
+Cache-Control: no-store
+Content-Length: 2298
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"2298-4248181200"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "today": {
+  "date": "2026-10-20",
+  "profile_day": "weekday",
+  "schedule_day": "weekday"
+ },
+ "editable": true,
+ "years": [
+  {
+   "year": 2026,
+   "start": "2026-09-07",
+   "end": "2027-06-18",
+   "breaks": [
+    {
+     "name": "Autumn",
+     "start": "2026-10-24",
+     "end": "2026-11-01"
+    },
+    {
+     "name": "Winter",
+     "start": "2026-12-23",
+     "end": "2027-01-10"
+    },
+    {
+     "name": "Ski week",
+     "start": "2027-02-15",
+     "end": "2027-02-21"
+    },
+    {
+     "name": "Easter",
+     "start": "2027-04-24",
+     "end": "2027-05-04"
+    }
+   ],
+   "status": "built_in"
+  },
+  {
+   "year": 2027,
+   "start": "2027-09-06",
+   "end": "2028-06-16",
+   "breaks": [
+    {
+     "name": "Autumn",
+     "start": "2027-10-23",
+     "end": "2027-10-31"
+    },
+    {
+     "name": "Winter",
+     "start": "2027-12-22",
+     "end": "2028-01-09"
+    },
+    {
+     "name": "Ski week",
+     "start": "2028-02-14",
+     "end": "2028-02-20"
+    },
+    {
+     "name": "Easter",
+     "start": "2028-04-08",
+     "end": "2028-04-18"
+    }
+   ],
+   "status": "estimate"
+  }
+ ],
+ "holidays": [
+  {
+   "date": "2026-11-30",
+   "name": "Saint Andrew",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2026-12-01",
+   "name": "National Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2026-12-25",
+   "name": "Christmas Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2026-12-26",
+   "name": "Christmas holiday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-01-01",
+   "name": "New Year's Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-01-02",
+   "name": "New Year holiday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-01-06",
+   "name": "Epiphany",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-01-07",
+   "name": "Saint John",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-01-24",
+   "name": "Union Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-04-30",
+   "name": "Good Friday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-05-01",
+   "name": "Labour Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-05-02",
+   "name": "Easter Sunday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-05-03",
+   "name": "Easter Monday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-06-01",
+   "name": "Children's Day",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-06-20",
+   "name": "Pentecost Sunday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-06-21",
+   "name": "Pentecost Monday",
+   "schedule": "sunday"
+  },
+  {
+   "date": "2027-08-15",
+   "name": "Assumption",
+   "schedule": "sunday"
+  }
+ ],
+ "overrides": [],
+ "learning": {
+  "windows": [
+   {
+    "day_type": "weekday",
+    "days": 10,
+    "from": "2026-10-07",
+    "seed": "previous",
+    "last_year_days": 0
+   },
+   {
+    "day_type": "weekday_vacation",
+    "days": 5,
+    "from": "2026-08-31",
+    "seed": "previous",
+    "last_year_days": 0
+   },
+   {
+    "day_type": "saturday",
+    "days": 2,
+    "from": "2026-10-10",
+    "seed": "previous",
+    "last_year_days": 0
+   },
+   {
+    "day_type": "sunday",
+    "days": 2,
+    "from": "2026-10-11",
+    "seed": "previous",
+    "last_year_days": 0
+   }
+  ],
+  "candidates": [
+   3,
+   5,
+   7,
+   10
+  ],
+  "min_days": 6
+ }
+}

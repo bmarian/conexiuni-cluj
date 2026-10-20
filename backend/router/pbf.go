@@ -17,7 +17,7 @@ type pbfFilter struct {
 	node func(id int64, lat, lon float64) (keep, tagged bool)
 	way  func(id int64, tag func(key string) string) (label string, keep bool)
 	// Tagged nodes in the area and ways that are places; nil keeps none.
-	place func(tag func(key string) string, way bool) (placeTags, bool)
+	place    func(tag func(key string) string, way bool) (placeTags, bool)
 	relation func(tag func(key string) string) (pbfRelation, bool)
 }
 
@@ -239,7 +239,7 @@ func decodeBlock(blob []byte, keep pbfFilter) (out pbfBlock) {
 						id = zigzag(n.varint())
 					case 2:
 						keys = n.uints(w, keys)
-					case 4:
+					case 3:
 						vals = n.uints(w, vals)
 					case 8:
 						lat = zigzag(n.varint())

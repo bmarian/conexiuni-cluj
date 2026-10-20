@@ -19,7 +19,7 @@ const (
 	maxRunMatchMin       = 8.0
 	runMatchHeadwayShare = 0.4
 	pairedSlotMarginMin  = 3.0
-	// Measured defaults until each terminus learns its own (handlers/turnaround.go).
+	// Measured defaults until each terminus learns its own (live/turnaround.go).
 	DefaultStandSec = 90.0
 	minSlotWaitMin  = 10.0
 	maxSlotWaitMin  = 20.0

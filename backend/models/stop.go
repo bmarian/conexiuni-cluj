@@ -20,7 +20,7 @@ type Stop struct {
 	StopLon      float64      `json:"stop_lon" db:"stop_lon"`
 	LocationType LocationType `json:"location_type" db:"location_type"`
 	StopCode     string       `json:"stop_code" db:"stop_code"`
-	StationID int `json:"station_id" db:"station_id"`
+	StationID    int          `json:"station_id" db:"station_id"`
 }
 
 func (s *Stop) UnmarshalJSON(data []byte) error {

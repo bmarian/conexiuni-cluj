@@ -6,8 +6,9 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useKbdEscape} from '@/composables/useKeyboardNav.ts'
 import {network, type DayType} from '@/utils/network.ts'
-import {addDays, clujDate, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOf, resolveSlots, type Reminder} from '@/utils/reminders.ts'
-import {clujMinutes, walkFrom} from '@/utils/follow.ts'
+import {addDays, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOf, resolveSlots, type Reminder} from '@/utils/reminders.ts'
+import {cityDate} from '@/utils/cityClock.ts'
+import {cityMinuteOfDay, walkFrom} from '@/utils/follow.ts'
 import {dayLetter, reminderWhen} from '@/utils/reminderText.ts'
 import {askNotifications} from '@/utils/notify.ts'
 import {pushSupported} from '@/utils/pushSubscription.ts'
@@ -44,7 +45,7 @@ const times = computed(() => {
   void network.value
   return reminderTimes(props.target.stopId, props.target.routeId, props.target.tripId) ?? {}
 })
-const today = computed(() => clujDate(now.value))
+const today = computed(() => cityDate(now.value))
 const upcoming = computed(() => nextDeparture(times.value, now.value))
 
 const dayTimes = computed<number[]>(() => {
@@ -53,7 +54,7 @@ const dayTimes = computed<number[]>(() => {
     const day = Array.from({length: 7}, (_, i) => addDays(today.value, i)).find((d) => days.value.includes(isoWeekday(d))) ?? today.value
     return all[dayTypeOf(day)] ?? []
   }
-  const nowMinutes = clujMinutes(now.value)
+  const nowMinutes = cityMinuteOfDay(now.value)
   const left = (all[dayTypeOf(today.value)] ?? []).filter((m) => m > nowMinutes)
   return left.length ? left : all[dayTypeOf(addDays(today.value, 1))] ?? []
 })
