@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {modeMask, modesIn, type StopGroup, StopClusters, type StopPoint, stationRank} from '@/utils/stopClusters.ts'
+import {groupName, modeMask, modesIn, type StopGroup, StopClusters, type StopPoint, stationRank} from '@/utils/stopClusters.ts'
 
 const icon = {size: [24, 24] as [number, number], anchor: [12, 12] as [number, number]}
 const pill = {size: [100, 40] as [number, number], anchor: [50, 15] as [number, number]}
@@ -44,9 +44,57 @@ describe('stop clusters', () => {
     expect(clusters.at(apart).every((g) => g.stations.size === 1)).toBe(true)
   })
 
+  it('gives every stop to its nearest marker, and no markers overlap', () => {
+    let seed = 7
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    const points = Array.from({length: 300}, (_, i) => ({
+      ...point(String(i), random() * 0.05),
+      lat: 44.43 + random() * 0.03,
+      rank: Math.floor(random() * 5) * 10_000,
+    }))
+    const clusters = new StopClusters(points, box, 19, 0.25)
+    const mx = (lng: number) => lng / 360
+    const my = (lat: number) => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / (2 * Math.PI)
+    for (const zoom of [12, 13.5, 15, 16.75, 18]) {
+      const groups = clusters.at(zoom)
+      const at = (i: number) => [mx(points[i]!.lng), my(points[i]!.lat)] as const
+      for (const group of groups) {
+        for (const i of group.points) {
+          const [x, y] = at(i)
+          const d = (l: number) => (at(l)[0] - x) ** 2 + (at(l)[1] - y) ** 2
+          const nearest = Math.min(...groups.map((g) => d(g.leader)))
+          expect(d(group.leader)).toBeCloseTo(nearest, 12)
+        }
+      }
+      const px = 512 * 2 ** (19 - Math.ceil((19 - zoom) / 0.25 - 1e-9) * 0.25)
+      const rects = groups.map((g) => {
+        const {size, anchor} = box(g)
+        const [x, y] = at(g.leader)
+        return {left: x * px - anchor[0], top: y * px - anchor[1], right: x * px - anchor[0] + size[0], bottom: y * px - anchor[1] + size[1]}
+      })
+      rects.forEach((a, i) => rects.slice(i + 1).forEach((b) =>
+        expect(a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom).toBe(false)))
+    }
+  })
+
   it('ranks bigger modes first, then more lines', () => {
     expect(stationRank([1])).toBeGreaterThan(stationRank([3, 3, 3, 3]))
     expect(stationRank([3, 3])).toBeGreaterThan(stationRank([3]))
     expect(modesIn(modeMask([3, 1, 0]))).toEqual(['metro', 'tram', 'bus'])
+  })
+})
+
+describe('group names', () => {
+  it('uses the root the stations share', () => {
+    expect(groupName('C-tin Brâncoveanu Est', ['C-tin Brâncoveanu Vest'])).toEqual({name: 'C-tin Brâncoveanu', covered: 1})
+    expect(groupName('Piața Unirii 1 (M1/3)', ['Piata Unirii 2', 'Piața Unirii', 'Piața Romană'])).toEqual({name: 'Piața Unirii', covered: 2})
+    expect(groupName('Mărăști Nord', ['Mărăști Sud'])).toEqual({name: 'Mărăști', covered: 1})
+    expect(groupName('Eroilor 1 (M1/3)', ['Eroilor 2', 'Eroilor (Bragadiru)'])).toEqual({name: 'Eroilor', covered: 2})
+  })
+
+  it('keeps the full name when the shared part says less than the rest', () => {
+    expect(groupName('Calea Moților', ['Calea Turzii'])).toEqual({name: 'Calea Moților', covered: 0})
+    expect(groupName('Piața Romană', ['Piața Victoriei 1 (M1)'])).toEqual({name: 'Piața Romană', covered: 0})
+    expect(groupName('Universitate', ['Colțea'])).toEqual({name: 'Universitate', covered: 0})
   })
 })

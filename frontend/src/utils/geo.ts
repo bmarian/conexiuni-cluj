@@ -91,3 +91,35 @@ export const closestStop = (latitude: number, longitude: number, stops: StopTime
 
   return clStop
 }
+
+type LngLat = [number, number]
+
+const cross = (o: LngLat, a: LngLat, b: LngLat) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+const halfHull = (points: LngLat[]) => {
+  const out: LngLat[] = []
+  for (const p of points) {
+    while (out.length >= 2 && cross(out.at(-2)!, out.at(-1)!, p) <= 0) out.pop()
+    out.push(p)
+  }
+  return out.slice(0, -1)
+}
+
+export const convexHull = (points: LngLat[]): LngLat[] => {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  if (sorted.length < 3) return sorted
+  return [...halfHull(sorted), ...halfHull(sorted.reverse())]
+}
+
+// The hull widened all round by `radius` degrees of longitude, drawn round on a Mercator map, as a closed ring.
+export const roundedHull = (points: LngLat[], radius: number, steps = 16): LngLat[] => {
+  const around = convexHull(points).flatMap(([lng, lat]) => {
+    const k = Math.cos(lat * Math.PI / 180)
+    return Array.from({length: steps}, (_, i): LngLat => {
+      const a = 2 * Math.PI * i / steps
+      return [lng + radius * Math.cos(a), lat + radius * k * Math.sin(a)]
+    })
+  })
+  const ring = convexHull(around)
+  return [...ring, ring[0]!]
+}
