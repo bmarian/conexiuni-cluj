@@ -1,4 +1,4 @@
-const HOLD_MS = 500
+export const HOLD_MS = 500
 const MOVE_TOLERANCE_PX = 10
 
 export function useLongPress<T>(onHold: (item: T, x: number, y: number) => void) {

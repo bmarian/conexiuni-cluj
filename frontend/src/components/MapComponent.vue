@@ -56,6 +56,7 @@ import {
   markerLatLng,
   onElementClick,
   onMarkerClick,
+  onPreview,
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
@@ -533,8 +534,7 @@ const groupMarker = (index: StopClusters, group: StopGroup): Marker => {
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
   tooltip?.bind(marker, () => clusterCardHtml(card(), themeOpts(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
   marker.getElement().classList.add('stop-group')
-  marker.getElement().addEventListener('mouseenter', () => showCoverage(index, group))
-  marker.getElement().addEventListener('mouseleave', () => hideCoverage(group.key))
+  onPreview(marker.getElement(), () => showCoverage(index, group), () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
   return marker
 }

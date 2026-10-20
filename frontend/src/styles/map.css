@@ -198,6 +198,13 @@
   }
 }
 
+/* A hold previews the stop, so it must not select text or open the callout. */
+.marker-clickable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .stop-group {
   transition: opacity 160ms ease-out;
 }

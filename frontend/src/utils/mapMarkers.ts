@@ -1,5 +1,6 @@
 import {Marker, type Map as MapLibreMap} from 'maplibre-gl'
 import type {MarkerIcon} from '@/utils/mapIcons.ts'
+import {HOLD_MS} from '@/composables/useLongPress.ts'
 
 export type LatLng = { lat: number, lng: number }
 
@@ -40,6 +41,9 @@ export function htmlMarker({lat, lng}: LatLng, icon: MarkerIcon, options: HtmlMa
   }).setLngLat([lng, lat])
 }
 
+// Elements whose last press was a hold, so its lift is not a click.
+const held = new WeakSet<HTMLElement>()
+
 // The marker moves with the map while it's dragged, so a pan that starts on it still ends in a click.
 export function onElementClick(el: HTMLElement, handler: () => void) {
   let down: { x: number, y: number } | null = null
@@ -51,7 +55,50 @@ export function onElementClick(el: HTMLElement, handler: () => void) {
   el.addEventListener('click', (e) => {
     const moved = down !== null && Math.hypot(e.clientX - down.x, e.clientY - down.y) > CLICK_TOLERANCE_PX
     down = null
-    if (!moved) handler()
+    if (!moved && !held.has(el)) handler()
+  })
+}
+
+// A mouse previews on hover, a finger on hold; a hold's preview stays until the next press anywhere.
+export function onPreview(el: HTMLElement, show: () => void, hide: () => void) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let start = {x: 0, y: 0}
+  let holding = false
+  const cancel = () => {
+    clearTimeout(timer)
+    timer = undefined
+  }
+  const hold = () => {
+    cancel()
+    if (holding) return
+    holding = true
+    held.add(el)
+    show()
+    document.addEventListener('pointerdown', hide, {capture: true, once: true})
+  }
+  el.addEventListener('pointerenter', (e) => {
+    if (e.pointerType === 'mouse') show()
+  })
+  el.addEventListener('pointerleave', (e) => {
+    if (e.pointerType === 'mouse') hide()
+  })
+  el.addEventListener('pointerdown', (e) => {
+    holding = false
+    held.delete(el)
+    if (e.pointerType === 'mouse') return
+    start = {x: e.clientX, y: e.clientY}
+    timer = setTimeout(hold, HOLD_MS)
+  })
+  el.addEventListener('pointermove', (e) => {
+    if (timer && Math.hypot(e.clientX - start.x, e.clientY - start.y) > CLICK_TOLERANCE_PX) cancel()
+  })
+  el.addEventListener('pointerup', cancel)
+  el.addEventListener('pointercancel', cancel)
+  // Touch browsers also send this on a hold.
+  el.addEventListener('contextmenu', (e) => {
+    if (!timer && !holding && (e as PointerEvent).pointerType !== 'touch') return
+    e.preventDefault()
+    hold()
   })
 }
 
@@ -92,8 +139,7 @@ export function createTooltip(map: MapLibreMap) {
   }
 
   const bindAt = (key: object, targetEl: HTMLElement, at: () => LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {
-    targetEl.addEventListener('mouseenter', () => show(key, at(), offset, html, className, lift))
-    targetEl.addEventListener('mouseleave', () => {
+    onPreview(targetEl, () => show(key, at(), offset, html, className, lift), () => {
       if (owner === key) hide()
     })
   }
