@@ -4,10 +4,13 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/live"
+	"conexiuni-cluj/models"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -126,4 +129,36 @@ func TestStoppedCityFetchesNothingUntilEnabled(t *testing.T) {
 	waitFor("the fetch after enabling", func() bool { return static.calls.Load() == 2 })
 	eng.run.enabled.Store(false)
 	eng.Stop()
+}
+
+type silentRealtime struct{}
+
+func (silentRealtime) Vehicles() ([]models.Vehicle, error) { return nil, nil }
+func (silentRealtime) Budget() feeds.Budget                { return feeds.Budget{} }
+
+func TestCityListPutsTimetableOnlyCitiesLast(t *testing.T) {
+	var all []*City
+	for _, name := range []string{"Sibiu", "Oradea", "Botoșani", "Cluj"} {
+		c := newNamedTestCity(t, name, nil)
+		c.centre.ok = true
+		all = append(all, c)
+	}
+	all[1].Realtime, all[3].Realtime = silentRealtime{}, silentRealtime{}
+	app := fiber.New()
+	app.Get("/api/cities", Handler(testCities(t, all...)))
+	resp, err := app.Test(httptest.NewRequest("GET", "/api/cities", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list []cityInfo
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, c := range list {
+		names = append(names, c.Name)
+	}
+	if got, want := strings.Join(names, ", "), "Cluj, Oradea, Botoșani, Sibiu"; got != want {
+		t.Fatalf("order %q, want %q", got, want)
+	}
 }

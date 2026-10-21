@@ -223,7 +223,7 @@ func (c *City) info() (cityInfo, bool) {
 	return info, true
 }
 
-// Handler lists the cities that are on, by name, each with where it lies and what it offers.
+// Handler lists the cities that are on, live ones first, then timetables only, each by name, with where it lies and what it offers.
 func Handler(cities *Registry) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		out := make([]cityInfo, 0, len(cities.all))
@@ -232,7 +232,12 @@ func Handler(cities *Registry) fiber.Handler {
 				out = append(out, info)
 			}
 		}
-		sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+		sort.Slice(out, func(i, j int) bool {
+			if out[i].Realtime != out[j].Realtime {
+				return out[i].Realtime
+			}
+			return out[i].Name < out[j].Name
+		})
 		c.Set("Cache-Control", web.Revalidate)
 		return c.JSON(out)
 	}
