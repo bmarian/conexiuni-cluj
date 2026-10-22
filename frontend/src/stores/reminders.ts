@@ -9,6 +9,8 @@ import {pushRegistration, pushSubscription, pushSupported, retractReminder} from
 import {translate as t} from '@/i18n.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {usePushStore} from '@/stores/push.ts'
+import {useJourneyStore} from '@/stores/journey.ts'
+import {useUserStore} from '@/stores/user.ts'
 import {cacheKey, citiesSaving, currentCity} from '@/utils/city.ts'
 
 export const REMINDERS_KEY = 'reminders.v1'
@@ -67,7 +69,13 @@ export const useRemindersStore = defineStore('reminders', () => {
   }
 
   function forBus(stopId: number, routeId: number, tripId: string): Reminder | undefined {
-    return reminders.value.find((r) => r.stopId === stopId && r.routeId === routeId && r.tripId === tripId)
+    return reminders.value.find((r) => !r.journey && r.stopId === stopId && r.routeId === routeId && r.tripId === tripId)
+  }
+
+  function forTrip(draft: Reminder): Reminder | undefined {
+    const to = draft.journey?.destination
+    return reminders.value.find((r) => r.journey && r.tripId === draft.tripId && r.stopId === draft.stopId && r.date === draft.date
+      && r.time === draft.time && r.journey.destination.lat === to?.lat && r.journey.destination.lon === to?.lon)
   }
 
   // Off: the server gets none; the list stays here.
@@ -86,6 +94,7 @@ export const useRemindersStore = defineStore('reminders', () => {
       slots: r.slots,
       walk: r.walk ?? undefined,
       walk_at: r.walk == null ? undefined : r.walkAt,
+      journey: r.journey ? true : undefined,
     }))
   }
 
@@ -144,7 +153,8 @@ export const useRemindersStore = defineStore('reminders', () => {
     let changed = false
     const kept: Reminder[] = []
     for (const reminder of reminders.value) {
-      const times = reminderTimes(reminder.stopId, reminder.routeId, reminder.tripId)
+      // A trip keeps the minute its plan gave.
+      const times = reminder.journey ? null : reminderTimes(reminder.stopId, reminder.routeId, reminder.tripId)
       let next = reminder
       if (times) {
         const slots = resolveSlots(times, reminder.time)
@@ -184,5 +194,16 @@ export const useRemindersStore = defineStore('reminders', () => {
     editing.value = null
   }
 
-  return {reminders, editing, forBus, full, save, remove, refresh, sync, openSheet, closeSheet}
+  // Opened from the reminder's notification: the trip starts there.
+  function startTrip(id: string) {
+    const trip = reminders.value.find((r) => r.id === id)?.journey
+    if (!trip) return
+    const location = useUserStore().userLocation
+    void useJourneyStore().start(
+      {...trip, id: crypto.randomUUID(), startedAt: Date.now()},
+      location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null,
+    )
+  }
+
+  return {reminders, editing, forBus, forTrip, full, save, remove, refresh, sync, openSheet, closeSheet, startTrip}
 })

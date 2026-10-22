@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, ref, watch, type Ref} from 'vue'
+import {computed, nextTick, onMounted} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -7,28 +7,36 @@ import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
-import {useRouteStore} from '@/stores/route.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
-import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
-import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection, type Stop} from '@/types/tranzy.ts'
-import UniversalSearch from '@/components/UniversalSearch.vue'
-import StationLabel from '@/components/StationLabel.vue'
-import LoadMore from '@/components/LoadMore.vue'
+import {useOpenRoute} from '@/composables/useOpenRoute.ts'
+import type {Route, RouteDirection, Stop} from '@/types/tranzy.ts'
 import {network} from '@/utils/network.ts'
 import FollowCard from '@/components/FollowCard.vue'
 import JourneyCard from '@/components/JourneyCard.vue'
+import StationIcon from '@/components/StationIcon.vue'
+import StationLines from '@/components/rows/StationLines.vue'
+import SubLabel from '@/components/ui/SubLabel.vue'
+import LineBadge from '@/components/ui/LineBadge.vue'
+import RowIcon from '@/components/ui/RowIcon.vue'
+import ListRow from '@/components/ui/ListRow.vue'
+import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {useFollowsStore} from '@/stores/follows.ts'
 import {useJourneyStore} from '@/stores/journey.ts'
 import {useRemindersStore} from '@/stores/reminders.ts'
 import {useUserStore} from '@/stores/user.ts'
-import {nextOf} from '@/utils/reminders.ts'
+import {nextOf, type Reminder} from '@/utils/reminders.ts'
+import {lineLabel} from '@/utils/journey.ts'
 import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
+import {planQuery} from '@/utils/planQuery.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
+
+const RECENTS_SHOWN = 5
+const LONG_PRESS_MS = 350
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -44,8 +52,12 @@ const reminderRows = computed(() => {
     return {
       reminder,
       title: `${next !== null ? reminderWhen(next, locale.value, nowMs) : t('remindNoBus')} → ${reminder.destination}`,
-      kicker: [reminder.time === null ? t('remindLastBus') : null, reminderRepeat(reminder.days, locale.value), reminder.stopName]
-        .filter(Boolean).join(' · '),
+      kicker: [
+        reminder.journey?.legs.map(lineLabel).join(' › '),
+        reminder.time === null ? t('remindLastBus') : null,
+        reminderRepeat(reminder.days, locale.value),
+        reminder.stopName,
+      ].filter(Boolean).join(' · '),
     }
   })
 })
@@ -63,59 +75,16 @@ useHead(() => ({
   link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
-const routeStore = useRouteStore()
 const settings = useSettingsStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
 
-const {routes, isLoading: routesLoading, fetchRoutes} = useRoutesApi()
-const {stops, isLoading: stopsLoading, fetchStops} = useStopsApi()
-const {fetchShapeInfo} = useRouteShapeInfoApi()
+const {routes, fetchRoutes} = useRoutesApi()
+const {stops, fetchStops} = useStopsApi()
 const {isOnline} = useOnline()
+const {openingRouteId, openRoute} = useOpenRoute()
 
-const isSearchMode = ref(false)
-
-function persistedToggle(key: string) {
-  const open = ref(localStorage.getItem(key) === 'true')
-  watch(open, (v) => localStorage.setItem(key, String(v)))
-  return open
-}
-
-const showAllRoutes = persistedToggle('home.showAllRoutes')
-const showAllStops = persistedToggle('home.showAllStops')
-const scroller = ref<HTMLElement | null>(null)
-
-function revealHeader(header: HTMLElement) {
-  void nextTick(() => {
-    const box = scroller.value
-    if (!box) return
-    const top = box.scrollTop + header.getBoundingClientRect().top - box.getBoundingClientRect().top - 8
-    box.scrollTo({top, behavior: 'smooth'})
-  })
-}
-
-function toggleAllRoutes(ev: Event) {
-  showAllRoutes.value = !showAllRoutes.value
-  if (showAllRoutes.value) revealHeader(ev.currentTarget as HTMLElement)
-}
-
-function toggleAllStops(ev: Event) {
-  showAllStops.value = !showAllStops.value
-  if (showAllStops.value) revealHeader(ev.currentTarget as HTMLElement)
-}
-const navigatingRouteId = ref<number | null>(null)
-const navigatingRouteKey = ref<string | null>(null)
-
-const routesById = computed(() => {
-  const map = new Map<number, Route>()
-  for (const r of routes.value) map.set(r.route_id, r)
-  return map
-})
-
-const stopsById = computed(() => {
-  const map = new Map<number, Stop>()
-  for (const s of stops.value) map.set(s.stop_id, s)
-  return map
-})
+const routesById = computed(() => new Map(routes.value.map((r) => [r.route_id, r])))
+const stopsById = computed(() => new Map(stops.value.map((s) => [s.stop_id, s])))
 
 onMounted(() => {
   void fetchRoutes()
@@ -144,12 +113,9 @@ const favoriteRouteGroups = computed<FavoriteRouteGroup[]>(() => {
   return [...groups.values()]
 })
 
-function favoriteRouteKey(group: FavoriteRouteGroup): string {
-  return String(group.routeId)
-}
-
+// Both directions saved show as one chip that opens the direction nearest the user.
 const favoriteRouteChips = computed(() => {
-  const chips = new Map<string, FavoriteRouteChip>()
+  const chips = new Map<number, FavoriteRouteChip>()
   for (const group of favoriteRouteGroups.value) {
     const route = routesById.value.get(group.routeId)
     if (!route) continue
@@ -162,20 +128,14 @@ const favoriteRouteChips = computed(() => {
     if (!single) chip = {route, label: origin ? `${origin} ⇄ ${end}` : longName, name: longName}
     else if (single.direction === '1' && origin) chip = {route, label: `→ ${origin}`, name: `${end} - ${origin}`, direction: '1'}
     else chip = {route, label: `→ ${end}`, name: longName, direction: single.direction}
-    chips.set(favoriteRouteKey(group), chip)
+    chips.set(group.routeId, chip)
   }
   return chips
 })
 
-function chipFor(group: FavoriteRouteGroup): FavoriteRouteChip | undefined {
-  return favoriteRouteChips.value.get(favoriteRouteKey(group))
-}
-
-const favoriteStops = computed<Stop[]>(() => {
-  return favoriteStopIds.value
-    .map((id) => stopsById.value.get(id))
-    .filter((s): s is Stop => !!s)
-})
+const favoriteStops = computed<Stop[]>(() => favoriteStopIds.value
+  .map((id) => stopsById.value.get(id))
+  .filter((s): s is Stop => !!s))
 
 const hasFavorites = computed(() =>
   favoriteRoutes.value.length > 0 ||
@@ -183,104 +143,27 @@ const hasFavorites = computed(() =>
   (isOnline.value && favoritePlans.value.length > 0)
 )
 
-const recentNonFavoritePlans = computed<FavoritePlan[]>(() => {
-  return recentPlans.value
-    .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon))
-    .slice(0, 5)
-})
+const recentNonFavoritePlans = computed<FavoritePlan[]>(() => recentPlans.value
+  .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon))
+  .slice(0, RECENTS_SHOWN))
 
-// One collator: localeCompare with options builds a new one per comparison.
-const byName = new Intl.Collator(undefined, {numeric: true})
+const lookOf = (stopId: number) => network.value?.look(stopId)
 
-const sortedRoutes = computed<Route[]>(() => {
-  return [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name))
-})
-
-const sortedStops = computed<Stop[]>(() => {
-  const sorted = [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
-  return network.value?.oneStopPerStation(sorted) ?? sorted
-})
-
-const PAGE_SIZE = 30
-
-function useGrowingList<T>(source: () => T[], open: Ref<boolean>) {
-  const shown = ref(PAGE_SIZE)
-  watch(open, () => {
-    shown.value = PAGE_SIZE
-  })
-  const items = computed(() => source().slice(0, shown.value))
-  const hasMore = computed(() => shown.value < source().length)
-  const more = () => {
-    if (hasMore.value) shown.value += PAGE_SIZE
-  }
-  return {items, hasMore, more}
+function openReminder(reminder: Reminder) {
+  if (reminder.journey?.planPath) void router.push(reminder.journey.planPath)
+  else remindersStore.openSheet(reminder)
 }
 
-const {items: visibleRoutes, hasMore: moreRoutes, more: showMoreRoutes} = useGrowingList(() => sortedRoutes.value, showAllRoutes)
-const {items: visibleStops, hasMore: moreStops, more: showMoreStops} = useGrowingList(() => sortedStops.value, showAllStops)
-
-async function navigateToRoute(route: Route, direction?: RouteDirection) {
-  if (navigatingRouteId.value === route.route_id) return
-  navigatingRouteId.value = route.route_id
-  navigatingRouteKey.value = String(route.route_id)
-  try {
-    const shapeInfo = await fetchShapeInfo(route)
-    const tripId = `${route.route_id}${direction === '1' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
-    routeStore.setSelectedRoute(shapeInfo, tripId, '', '')
-    await router.push({
-      name: 'route',
-      params: {routeId: String(route.route_id), direction: direction ?? 'auto'},
-    })
-  } catch (e) {
-    console.error('Failed to load route:', e)
-  } finally {
-    navigatingRouteId.value = null
-    navigatingRouteKey.value = null
-  }
-}
-
-function navigateToStop(stop: Stop) {
+function openStop(stop: Stop) {
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
 }
 
-function navigateToPlan(plan: FavoritePlan) {
-  if (!isOnline.value) return
-  const query: Record<string, string> = {
-    lat: String(plan.lat),
-    lon: String(plan.lon),
-    name: plan.name,
-  }
-  if (plan.originLat !== undefined && plan.originLon !== undefined && plan.originName) {
-    query.originLat = String(plan.originLat)
-    query.originLon = String(plan.originLon)
-    query.originName = plan.originName
-  }
-  void router.push({
-    name: 'plan',
-    query,
-  })
+function openPlan(plan: FavoritePlan) {
+  if (isOnline.value) void router.push({name: 'plan', query: planQuery(plan)})
 }
 
-function removeFavoriteRoute(group: FavoriteRouteGroup, ev: Event) {
-  ev.stopPropagation()
+function removeRouteGroup(group: FavoriteRouteGroup) {
   for (const fav of group.favorites) favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
-}
-
-function removeFavoriteStop(stop: Stop, ev: Event) {
-  ev.stopPropagation()
-  favoritesStore.toggleStopFavorite(stop.stop_id)
-}
-
-function removeFavoritePlan(plan: FavoritePlan, ev: Event) {
-  if (!isOnline.value) return
-  ev.stopPropagation()
-  favoritesStore.togglePlanFavorite(plan)
-}
-
-function dismissRecentPlan(plan: FavoritePlan, ev: Event) {
-  if (!isOnline.value) return
-  ev.stopPropagation()
-  favoritesStore.removeRecentPlan(plan)
 }
 
 const routeFavoritesModel = computed<FavoriteRouteGroup[]>({
@@ -300,7 +183,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 
 const kbd = useKeyboardNav()
 
-const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${favoriteRouteKey(group)}`
+const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${group.routeId}`
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
@@ -314,7 +197,7 @@ function removeFocused(): boolean {
   const stopId = favoriteStopIds.value.find(id => favStopItemKey(id) === key)
   const plan = favoritePlans.value.find(p => favPlanItemKey(p) === key)
   const recent = recentNonFavoritePlans.value.find(p => recentItemKey(p) === key)
-  if (group) group.favorites.forEach((fav) => favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction))
+  if (group) removeRouteGroup(group)
   else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
   else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
   else if (recent && isOnline.value) favoritesStore.removeRecentPlan(recent)
@@ -352,746 +235,214 @@ useKbdShortcuts({
   J: () => moveFocused(1),
   K: () => moveFocused(-1),
 })
+
+const dragOptions = {
+  delay: LONG_PRESS_MS,
+  delayOnTouchOnly: true,
+  animation: 180,
+  ghostClass: 'drag-ghost',
+  chosenClass: 'drag-chosen',
+}
 </script>
 
 <template>
-  <div
-    ref="scroller"
-    class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
-    <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
+  <div class="home-view">
+    <section v-if="journeyStore.journey || (settings.busAlerts && followsStore.follows.length)" class="live-cards"
+             data-kbd-section="live" data-kbd-entry="1">
+      <JourneyCard v-if="journeyStore.journey"/>
+      <template v-if="settings.busAlerts">
+        <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
+      </template>
+    </section>
 
-    <UniversalSearch
-      :routes="sortedRoutes"
-      :stops="stops"
-      @update:active="isSearchMode = $event"
-    />
-
-    <template v-if="!isSearchMode">
-
-      <section v-if="journeyStore.journey || (settings.busAlerts && followsStore.follows.length)" class="flex flex-col gap-2.5"
-               data-kbd-section="live" data-kbd-entry="1">
-        <JourneyCard v-if="journeyStore.journey"/>
-        <template v-if="settings.busAlerts">
-          <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
+    <section v-if="settings.busAlerts && remindersStore.reminders.length" class="pt-3" data-kbd-section="reminders" data-kbd-entry="1">
+      <SubLabel :text="t('reminders')"/>
+      <ListRow
+        v-for="row in reminderRows"
+        :key="row.reminder.id"
+        :title="row.title"
+        :kicker="row.kicker"
+        :remove-label="t('remindDelete')"
+        :data-kbd-item="`reminder-${row.reminder.id}`"
+        @open="openReminder(row.reminder)"
+        @remove="remindersStore.remove(row.reminder.id)"
+      >
+        <template #icon>
+          <LineBadge :name="row.reminder.line" :color="row.reminder.color" :height="30" :min-width="38" :corner="8"/>
         </template>
-      </section>
+      </ListRow>
+    </section>
 
-      <section v-if="settings.busAlerts && remindersStore.reminders.length" class="flex flex-col gap-2"
-               data-kbd-section="reminders" data-kbd-entry="1">
-        <h3 class="sub-label">{{ t('reminders') }}</h3>
-        <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
-          <div
-            v-for="row in reminderRows"
-            :key="row.reminder.id"
-            class="fav-stop-row group"
-            role="button"
-            tabindex="0"
-            :data-kbd-item="`reminder-${row.reminder.id}`"
-            @click="remindersStore.openSheet(row.reminder)"
-            @keydown.enter.prevent="remindersStore.openSheet(row.reminder)"
-          >
-            <span class="reminder-badge" :style="{ backgroundColor: row.reminder.color }">{{ row.reminder.line }}</span>
-            <div class="flex-1 min-w-0">
-              <p class="reminder-kicker">{{ row.kicker }}</p>
-              <p class="reminder-title">{{ row.title }}</p>
-            </div>
-            <button
-              type="button"
-              class="fav-stop-remove"
-              :title="t('remindDelete')"
-              :aria-label="t('remindDelete')"
-              @click.stop="remindersStore.remove(row.reminder.id)"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
-        <h2 v-if="hasFavorites" class="section-label">
-          <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
-               viewBox="0 0 24 24">
-            <path
-              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          {{ t('favorites') }}
-        </h2>
-
-        <div v-if="favoriteRouteChips.size" class="flex flex-col gap-2"
-             data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
-          <h3 class="sub-label">{{ t('favoriteRoutes') }}</h3>
-          <Draggable
-            v-model="routeFavoritesModel"
-            :item-key="favoriteRouteKey"
-            class="favorite-routes-grid"
-            tag="div"
-            handle=".drag-handle"
-            ghost-class="drag-ghost"
-            chosen-class="drag-chosen"
-            :animation="180"
-          >
-            <template #item="{element: group}">
-              <div
-                v-if="chipFor(group)"
-                class="fav-route-chip group"
-                :data-kbd-item="favRouteItemKey(group)"
-                :class="{ 'opacity-60 pointer-events-none': navigatingRouteKey === favoriteRouteKey(group) }"
-                :style="{ '--chip-color': chipFor(group)?.route.route_color }"
-                :title="chipFor(group)?.name"
-                @click="navigateToRoute(chipFor(group)!.route, chipFor(group)!.direction)"
-                @keydown.enter.space.prevent="navigateToRoute(chipFor(group)!.route, chipFor(group)!.direction)"
-                role="button"
-                tabindex="0"
-              >
-                <div class="fav-route-body">
-                  <svg
-                    class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                    viewBox="0 0 24 24" fill="currentColor">
-                    <circle cx="9" cy="5" r="1.5"/>
-                    <circle cx="15" cy="5" r="1.5"/>
-                    <circle cx="9" cy="12" r="1.5"/>
-                    <circle cx="15" cy="12" r="1.5"/>
-                    <circle cx="9" cy="19" r="1.5"/>
-                    <circle cx="15" cy="19" r="1.5"/>
-                  </svg>
-                  <span
-                    class="fav-route-badge"
-                    :style="{ backgroundColor: chipFor(group)?.route.route_color }"
-                  >{{ chipFor(group)?.route.route_short_name }}</span>
-                  <span class="fav-route-name">{{ chipFor(group)?.label }}</span>
-                  <button
-                    type="button"
-                    class="fav-remove"
-                    :title="t('removeFromFavorites')"
-                    :aria-label="t('removeFromFavorites')"
-                    @click.stop="removeFavoriteRoute(group, $event)"
-                  >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                         stroke-width="2.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </template>
-          </Draggable>
-        </div>
-
-        <div v-if="favoriteStops.length" class="flex flex-col gap-2"
-             data-kbd-section="fav-stops" data-kbd-entry="1">
-          <h3 class="sub-label">{{ t('favoriteStops') }}</h3>
-          <Draggable
-            v-model="stopFavoritesModel"
-            :item-key="(id: number) => id"
-            class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
-            tag="div"
-            handle=".drag-handle"
-            ghost-class="drag-ghost"
-            chosen-class="drag-chosen"
-            :animation="180"
-          >
-            <template #item="{element: stopId}">
-              <div
-                v-if="stopsById.get(stopId)"
-                class="fav-stop-row group"
-                :data-kbd-item="favStopItemKey(stopId)"
-                @click="navigateToStop(stopsById.get(stopId)!)"
-              >
-                <svg
-                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                  viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="9" cy="5" r="1.5"/>
-                  <circle cx="15" cy="5" r="1.5"/>
-                  <circle cx="9" cy="12" r="1.5"/>
-                  <circle cx="15" cy="12" r="1.5"/>
-                  <circle cx="9" cy="19" r="1.5"/>
-                  <circle cx="15" cy="19" r="1.5"/>
-                </svg>
-                <StationLabel :stop="stopsById.get(stopId)!"/>
-                <button
-                  type="button"
-                  class="fav-stop-remove"
-                  :title="t('removeFromFavorites')"
-                  :aria-label="t('removeFromFavorites')"
-                  @click.stop="removeFavoriteStop(stopsById.get(stopId)!, $event)"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                       stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-                <svg
-                  class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
-              </div>
-            </template>
-          </Draggable>
-        </div>
-
-        <div v-if="isOnline && favoritePlans.length" class="flex flex-col gap-2"
-             data-kbd-section="fav-plans" data-kbd-entry="1">
-          <h3 class="sub-label">{{ t('favoritePlans') }}</h3>
-          <Draggable
-            v-model="planFavoritesModel"
-            :item-key="(p: any) => `${p.lat}-${p.lon}`"
-            class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60"
-            tag="div"
-            handle=".drag-handle"
-            ghost-class="drag-ghost"
-            chosen-class="drag-chosen"
-            :animation="180"
-          >
-            <template #item="{element: plan}">
-              <div
-                class="fav-stop-row group"
-                :data-kbd-item="favPlanItemKey(plan)"
-                @click="navigateToPlan(plan)"
-              >
-                <svg
-                  class="drag-handle w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 cursor-grab"
-                  viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="9" cy="5" r="1.5"/>
-                  <circle cx="15" cy="5" r="1.5"/>
-                  <circle cx="9" cy="12" r="1.5"/>
-                  <circle cx="15" cy="12" r="1.5"/>
-                  <circle cx="9" cy="19" r="1.5"/>
-                  <circle cx="15" cy="19" r="1.5"/>
-                </svg>
-                <div
-                  class="w-7 h-7 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-                  <svg class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
-                       viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  </svg>
-                </div>
-                <div class="flex-1 flex flex-col min-w-0">
-                  <span
-                    v-if="plan.originName && !plan.label"
-                    class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold leading-[1.3] mb-0.5 truncate">
-                    {{ t('planFrom') }}: {{ plan.originName }}
-                  </span>
-                  <span
-                    v-if="!plan.label"
-                    class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
-                    <span v-if="plan.originName" class="text-slate-400 dark:text-slate-500 mr-1">{{ t('planTo') }}:</span>{{ plan.name }}
-                  </span>
-                  <span
-                    v-if="plan.label"
-                    class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
-                    {{ plan.label }}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  class="fav-stop-remove"
-                  :title="t('removeFromFavorites')"
-                  :aria-label="t('removeFromFavorites')"
-                  @click.stop="removeFavoritePlan(plan, $event)"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                       stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-                <svg
-                  class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
-              </div>
-            </template>
-          </Draggable>
-        </div>
-
-        <div v-if="isOnline && recentNonFavoritePlans.length" class="flex flex-col gap-2"
-             data-kbd-section="recent-plans" data-kbd-entry="1">
-          <h3 class="sub-label">{{ t('recentDestinations') }}</h3>
-          <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+    <template v-if="isHydrated">
+      <section v-if="favoriteRouteChips.size" class="pt-3" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
+        <SubLabel :text="t('favoriteRoutes')"/>
+        <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
+          <template #item="{element: group}">
             <div
-              v-for="plan in recentNonFavoritePlans"
-              :key="`${plan.lat}-${plan.lon}`"
-              class="fav-stop-row group"
-              :data-kbd-item="recentItemKey(plan)"
-              @click="navigateToPlan(plan)"
+              v-if="favoriteRouteChips.get(group.routeId)"
+              class="route-chip state squish"
+              :class="{ 'is-busy': openingRouteId === group.routeId }"
+              role="button"
+              tabindex="0"
+              :title="favoriteRouteChips.get(group.routeId)!.name"
+              :data-kbd-item="favRouteItemKey(group)"
+              @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
+              @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
             >
-              <div
-                class="w-7 h-7 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center">
-                <svg class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
-                     viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M12 2a10 10 0 100 20 10 10 0 000-20zm.75 5h-1.5v6.31l5.27 3.16.75-1.23-4.52-2.71V7z"/>
-                </svg>
-              </div>
-              <div class="flex-1 flex flex-col min-w-0">
-                <span
-                  v-if="plan.originName"
-                  class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold leading-[1.3] mb-0.5 truncate">
-                  {{ t('planFrom') }}: {{ plan.originName }}
-                </span>
-                <span
-                  class="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white leading-[1.4] truncate">
-                  <span v-if="plan.originName" class="text-slate-400 dark:text-slate-500 mr-1">{{ t('planTo') }}:</span>{{ plan.name }}
-                </span>
-              </div>
+              <LineBadge
+                :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
+                :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
+                :height="28" :min-width="36" :corner="8"
+              />
+              <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
               <button
                 type="button"
-                class="fav-stop-remove"
-                :title="t('removeFromRecents')"
-                :aria-label="t('removeFromRecents')"
-                @click.stop="dismissRecentPlan(plan, $event)"
+                class="icon-btn chip-remove"
+                :title="t('removeFromFavorites')"
+                :aria-label="t('removeFromFavorites')"
+                @click.stop="removeRouteGroup(group)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                     stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
+                <CloseIcon class="m-icon size-4"/>
               </button>
-              <svg
-                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
             </div>
-          </div>
-        </div>
+          </template>
+        </Draggable>
       </section>
 
-      <p v-if="isHydrated && !hasFavorites && !(isOnline && recentNonFavoritePlans.length)"
-         class="no-favorites-hint text-xs leading-relaxed -mt-3">
+      <section v-if="favoriteStops.length" :class="favoriteRouteChips.size ? 'pt-2' : 'pt-3'" data-kbd-section="fav-stops" data-kbd-entry="1">
+        <SubLabel :text="t('favoriteStops')"/>
+        <Draggable v-model="stopFavoritesModel" :item-key="(id: number) => id" tag="div" v-bind="dragOptions">
+          <template #item="{element: stopId}">
+            <ListRow
+              v-if="stopsById.get(stopId)"
+              :title="stopsById.get(stopId)!.stop_name"
+              :remove-label="t('removeFromFavorites')"
+              :data-kbd-item="favStopItemKey(stopId)"
+              @open="openStop(stopsById.get(stopId)!)"
+              @remove="favoritesStore.toggleStopFavorite(stopId)"
+            >
+              <template #icon>
+                <StationIcon :look="lookOf(stopId)" class="size-[30px]"/>
+              </template>
+              <template #lines>
+                <StationLines :routes="lookOf(stopId)?.routes ?? []"/>
+              </template>
+            </ListRow>
+          </template>
+        </Draggable>
+      </section>
+
+      <section v-if="isOnline && favoritePlans.length" class="pt-2" data-kbd-section="fav-plans" data-kbd-entry="1">
+        <SubLabel :text="t('favoritePlans')"/>
+        <Draggable v-model="planFavoritesModel" :item-key="planKey" tag="div" v-bind="dragOptions">
+          <template #item="{element: plan}">
+            <ListRow
+              :title="plan.label ?? plan.name"
+              :title-prefix="!plan.label && plan.originName ? `${t('planTo')}: ` : undefined"
+              :kicker="!plan.label && plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
+              :remove-label="t('removeFromFavorites')"
+              :data-kbd-item="favPlanItemKey(plan)"
+              @open="openPlan(plan)"
+              @remove="favoritesStore.togglePlanFavorite(plan)"
+            >
+              <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30"/></template>
+            </ListRow>
+          </template>
+        </Draggable>
+      </section>
+
+      <section v-if="isOnline && recentNonFavoritePlans.length" :class="hasFavorites ? 'pt-2' : 'pt-3'" data-kbd-section="recent-plans" data-kbd-entry="1">
+        <SubLabel :text="t('recentDestinations')"/>
+        <ListRow
+          v-for="plan in recentNonFavoritePlans"
+          :key="planKey(plan)"
+          :title="plan.name"
+          :title-prefix="plan.originName ? `${t('planTo')}: ` : undefined"
+          :kicker="plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
+          :remove-label="t('removeFromRecents')"
+          :data-kbd-item="recentItemKey(plan)"
+          @open="openPlan(plan)"
+          @remove="favoritesStore.removeRecentPlan(plan)"
+        >
+          <template #icon><RowIcon :icon="ScheduleIcon" :size="30"/></template>
+        </ListRow>
+      </section>
+
+      <p v-if="!hasFavorites && !(isOnline && recentNonFavoritePlans.length)" class="empty">
         {{ t('noFavorites') }}
       </p>
-
-      <section class="flex flex-col gap-3" data-kbd-section="all-routes" data-kbd-entry="2">
-        <h2 class="flex flex-col">
-          <button
-            type="button"
-            class="all-route-row collapse-toggle group"
-            :aria-expanded="showAllRoutes"
-            data-kbd-item="toggle-all-routes"
-            @click="toggleAllRoutes"
-          >
-            <div
-              class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none"
-                   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-              </svg>
-            </div>
-            <span
-              class="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-              {{ t('allRoutes') }}
-            </span>
-            <span v-if="sortedRoutes.length" class="collapse-count">{{ sortedRoutes.length }}</span>
-            <svg
-              class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
-              :class="{ 'is-open': showAllRoutes }" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-        </h2>
-
-        <template v-if="showAllRoutes">
-          <div v-if="routesLoading && !routes.length" class="flex flex-col gap-1 animate-pulse">
-            <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
-              <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-              <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
-            </div>
-          </div>
-
-          <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
-            <div
-              v-for="route in visibleRoutes"
-              :key="route.route_id"
-              @click="navigateToRoute(route)"
-              class="all-route-row long-list-row group"
-              :data-kbd-item="`route-${route.route_id}`"
-              :class="{ 'opacity-60 pointer-events-none': navigatingRouteId === route.route_id }"
-            >
-              <div
-                class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-                :style="{ backgroundColor: route.route_color }"
-              >{{ route.route_short_name }}
-              </div>
-              <span
-                class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-                {{ route.route_long_name }}
-              </span>
-              <svg
-                v-if="navigatingRouteId === route.route_id"
-                class="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin"
-                fill="none" viewBox="0 0 24 24"
-              >
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                        stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-              </svg>
-              <svg
-                v-else
-                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
-            </div>
-          </div>
-          <LoadMore v-if="moreRoutes" :root="scroller" @more="showMoreRoutes"/>
-        </template>
-      </section>
-
-      <section class="flex flex-col gap-3" data-kbd-section="all-stops" data-kbd-entry="3">
-        <h2 class="flex flex-col">
-          <button
-            type="button"
-            class="all-route-row collapse-toggle group"
-            :aria-expanded="showAllStops"
-            data-kbd-item="toggle-all-stops"
-            @click="toggleAllStops"
-          >
-            <div
-              class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-              <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
-                   fill="currentColor">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-              </svg>
-            </div>
-            <span
-              class="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-              {{ t('allStops') }}
-            </span>
-            <span v-if="sortedStops.length" class="collapse-count">{{ sortedStops.length }}</span>
-            <svg
-              class="collapse-chevron w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400"
-              :class="{ 'is-open': showAllStops }" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-        </h2>
-
-        <template v-if="showAllStops">
-          <div v-if="stopsLoading && !stops.length" class="flex flex-col gap-1 animate-pulse">
-            <div v-for="i in 8" :key="i" class="flex items-center gap-3 py-2.5">
-              <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-              <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
-            </div>
-          </div>
-
-          <div v-else class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
-            <div
-              v-for="stop in visibleStops"
-              :key="stop.stop_id"
-              @click="navigateToStop(stop)"
-              class="all-route-row long-list-row group"
-              :data-kbd-item="`stop-${stop.stop_id}`"
-            >
-              <StationLabel :stop="stop"/>
-              <svg
-                class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
-            </div>
-          </div>
-          <LoadMore v-if="moreStops" :root="scroller" @more="showMoreStops"/>
-        </template>
-      </section>
-
     </template>
+    <div class="h-6"></div>
   </div>
 </template>
 
 <style scoped>
-.home-view-container {
-  position: relative;
-  padding: 1.25rem 1.5rem 1.5rem;
-  height: 100%;
-  overflow-y: auto;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-}
-
-.nav-loading-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #10b981, #06b6d4, #10b981);
-  background-size: 200% 100%;
-  animation: nav-sweep 1.2s linear infinite;
-}
-
-@keyframes nav-sweep {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.section-label {
+.live-cards {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 16px;
 }
 
-.sub-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.collapse-toggle {
-  text-align: left;
-  user-select: none;
-}
-
-.collapse-count {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #94a3b8;
-  font-variant-numeric: tabular-nums;
-}
-
-.collapse-chevron {
-  transition: transform 0.2s, color 0.15s;
-}
-
-.collapse-chevron.is-open {
-  transform: rotate(90deg);
-}
-
-.no-favorites-hint {
-  color: #64748b;
-}
-
-:root.dark .no-favorites-hint {
-  color: #94a3b8;
-}
-
-.favorite-routes-grid {
+.route-chips {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 4px 12px;
 }
 
-.fav-route-chip {
-  container-type: inline-size;
-  container-name: fav-chip;
-  position: relative;
+.route-chip {
+  --squish: 0.93;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 2.5rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid #f1f5f9;
-  background: #f8fafc;
-  cursor: grab;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  text-align: left;
-  user-select: none;
+  min-width: 0;
+  padding: 6px 0 6px 10px;
+  border-radius: 14px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  cursor: pointer;
 }
 
-.fav-route-chip::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 0.75rem;
-  background: var(--chip-color, transparent);
-  opacity: 0.09;
+.route-chip.is-busy {
+  opacity: 0.6;
   pointer-events: none;
-  transition: opacity 0.15s;
 }
 
-.fav-route-chip:active {
-  cursor: grabbing;
-}
-
-.fav-route-chip:hover {
-  background: white;
-  border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.fav-route-chip:hover::before {
-  opacity: 0.13;
-}
-
-.fav-route-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 1.75rem;
-  flex-shrink: 0;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 900;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
-}
-
-.fav-route-name {
+.chip-label {
   flex: 1;
   min-width: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  white-space: nowrap;
+  padding-left: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.fav-route-body {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  width: 100%;
+.chip-remove {
+  width: 32px;
+  height: 32px;
+  color: var(--md-outline);
 }
 
-@container fav-chip (max-width: 12rem) {
-  .fav-route-name {
-    grid-row: 2;
-    grid-column: 1 / -1;
-  }
-}
-
-.fav-remove {
-  grid-column: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.fav-remove:hover {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.reminder-badge {
-  min-width: 2rem;
-  height: 1.6rem;
-  padding: 0 0.35rem;
-  border-radius: 0.45rem;
-  color: var(--color-white, #fff);
-  font-size: 0.75rem;
-  font-weight: 900;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.reminder-kicker {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-slate-400, #94a3b8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reminder-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fav-stop-row {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.625rem 0.25rem;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-radius: 0.5rem;
-  margin: 0 -0.25rem;
-  user-select: none;
-}
-
-.fav-stop-row:hover {
-  background: #f8fafc;
-}
-
-.fav-stop-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  background: transparent;
-  transition: background 0.15s, color 0.15s;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.fav-stop-row:hover .fav-stop-remove {
-  opacity: 1;
-}
-
-.fav-stop-remove:hover {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-@media (hover: none) {
-  .fav-stop-remove {
-    opacity: 1;
-  }
-}
-
-.drag-handle {
-  touch-action: none;
+.empty {
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
 }
 
 .drag-ghost {
-  opacity: 0.55;
+  opacity: 0.3;
 }
 
 .drag-chosen {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
-}
-
-.all-route-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.25rem;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-radius: 0.5rem;
-  margin: 0 -0.25rem;
-}
-
-.all-route-row:hover {
-  background: #f8fafc;
-}
-
-.long-list-row {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 3rem;
+  scale: 1.03;
+  box-shadow: var(--md-elevation-3);
+  background: var(--md-surface-container-high);
 }
 </style>

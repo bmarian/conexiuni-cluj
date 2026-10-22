@@ -1,60 +1,69 @@
 <script setup lang="ts">
-import {computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
 import {useI18n} from "vue-i18n"
 import {useRoute, useRouter} from "vue-router"
 import {useHead} from "@unhead/vue"
 import MapComponent from "@/components/MapComponent.vue"
 import {mapCreditsHTML} from "@/utils/mapStyles.ts"
-import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AppToast from "@/components/AppToast.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
 import BackgroundTracking from "@/components/BackgroundTracking.vue"
 import ReminderSheet from "@/components/ReminderSheet.vue"
+import HomeChrome from "@/components/home/HomeChrome.vue"
+import MapFabs from "@/components/home/MapFabs.vue"
+import SearchOverlay from "@/components/home/SearchOverlay.vue"
 import {useRemindersStore} from "@/stores/reminders.ts"
+import {useRouteUpdatesStore} from "@/stores/routeUpdates.ts"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
-import {useOnline} from "@/composables/useOnline.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
-import {useRouteUpdatesStore} from "@/stores/routeUpdates"
-import {cityParams} from "@/utils/city.ts"
+import {cityParams, cityPath} from "@/utils/city.ts"
 import {isTypingTarget} from "@/utils/keyboardFocus.ts"
 import {useSheetMetrics} from "@/composables/useSheetMetrics.ts"
 import {useIOSKeyboard} from "@/composables/useIOSKeyboard.ts"
 import {useStandaloneRootBackground} from "@/composables/useStandaloneRootBackground.ts"
-
-const CityButton = defineAsyncComponent(() => import("@/components/CityButton.vue"))
-const NewsButton = defineAsyncComponent(() => import("@/components/NewsButton.vue"))
+import {KeyboardArrowLeftIcon, KeyboardArrowRightIcon} from "@/utils/icons.ts"
 
 const {t} = useI18n()
 useHead(() => ({title: t('headHomeTitle', cityParams())}))
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
 const reminders = useRemindersStore()
-const {isOnline} = useOnline()
-const route = useRoute()
-const {keyboardMode} = useKeyboardNav()
-useKeyboardNavRoot(useRouter())
-const isAdminRoute = computed(() => route.name === 'admin')
 const routeUpdates = useRouteUpdatesStore()
-const showNews = computed(() => routeUpdates.hasFeed && isOnline.value)
+const route = useRoute()
+const router = useRouter()
+const {keyboardMode, focusSectionSoon} = useKeyboardNav()
+useKeyboardNavRoot(router)
+const isAdminRoute = computed(() => route.name === 'admin')
+const atHome = computed(() => route.name === 'home')
+// Pinch zooms on touch screens, so the zoom buttons are for a mouse.
+const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
 
 type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
 
-const MINIMIZED_PX = 44
+const SHEET_HANDLE_PX = 28
+const PEEK_CONTENT_PX = 64
+const MINIMIZED_PX = SHEET_HANDLE_PX + PEEK_CONTENT_PX
+const SHEET_SETTLE_MS = 400
+const FABS_GAP_PX = 28
+const FABS_FADE_PX = 120
 
 const SNAP_FRAC: Record<DrawerState, number> = {
   minimized: 0,
   collapsed: 0.22,
-  half: 0.60,
+  half: 0.50,
   expanded: 0.92,
   fullscreen: 1.0,
 }
 
+const shellEl = ref<HTMLElement | null>(null)
 const drawerEl = ref<HTMLElement | null>(null)
+const chromeEl = ref<{ $el: HTMLElement } | null>(null)
+const chromeH = ref(0)
 const drawerState = ref<DrawerState>('half')
-const isLandscapeDrawerOpen = ref(false)
+const isLandscapeDrawerOpen = ref(true)
 const isDragging = ref(false)
 let mapInsetRaf = 0
 let mapInsetTimer: ReturnType<typeof setTimeout> | null = null
@@ -171,10 +180,52 @@ const drawerStyle = computed(() => {
   }
 })
 
+// The FABs ride above the sheet and the search pill fades under it.
+function sheetFollowers(top: number) {
+  const half = snapTopPx('half')
+  const reach = chromeH.value
+  return {
+    '--sheet-top': `${top}px`,
+    '--fabs-alpha': String(Math.min(1, Math.max(0, (top - (half - FABS_FADE_PX)) / FABS_FADE_PX))),
+    '--chrome-alpha': reach <= 0 ? '1' : String(Math.min(1, Math.max(0, (top - reach * 0.25) / reach))),
+  }
+}
+
+const shellStyle = computed(() => isPortraitMobile.value ? sheetFollowers(snapTopPx(drawerState.value)) : {})
+
+function followDrag(top: number) {
+  const shell = shellEl.value
+  if (!shell) return
+  for (const [name, value] of Object.entries(sheetFollowers(top))) shell.style.setProperty(name, value)
+}
+
 watch([drawerState, isDragging], async ([, dragging]) => {
   if (dragging) return
   await nextTick()
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
+  setTimeout(() => window.dispatchEvent(new Event('resize')), SHEET_SETTLE_MS)
+})
+
+let chromeObserver: ResizeObserver | null = null
+watch(chromeEl, (chrome) => {
+  chromeObserver?.disconnect()
+  chromeH.value = 0
+  if (!chrome) return
+  chromeObserver = new ResizeObserver(() => {
+    chromeH.value = chrome.$el.getBoundingClientRect().bottom
+  })
+  chromeObserver.observe(chrome.$el)
+})
+
+watch([atHome, chromeH], ([home, h]) => {
+  mapStore.chromeTopPx = home ? h : safeTop.value
+}, {immediate: true})
+
+const navBack = ref(false)
+let lastPosition = history.state?.position ?? 0
+watch(() => route.fullPath, () => {
+  const position = history.state?.position ?? 0
+  navBack.value = position < lastPosition
+  lastPosition = position
 })
 
 watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
@@ -191,7 +242,7 @@ watch(() => mapStore.revealDrawer, (reveal) => {
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()
   window.dispatchEvent(new Event('resize'))
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 280)
+  setTimeout(() => window.dispatchEvent(new Event('resize')), SHEET_SETTLE_MS)
 })
 
 let pointerId = -1
@@ -214,14 +265,14 @@ function updateMapInsets() {
   mapStore.setDrawerBottomPx(isPortraitMobile.value ? sheetH.value - snapTopPx(drawerState.value, 0) : 0)
 
   if (isPortraitMobile.value) {
-    mapStore.setDrawerRightPx(0)
+    mapStore.setDrawerLeftPx(0)
     return
   }
 
   const drawer = drawerEl.value
   const mapEl = document.querySelector('.app-map') as HTMLElement | null
   if (!drawer || !mapEl) {
-    mapStore.setDrawerRightPx(0)
+    mapStore.setDrawerLeftPx(0)
     return
   }
 
@@ -229,7 +280,7 @@ function updateMapInsets() {
   const drawerRect = drawer.getBoundingClientRect()
   const verticalOverlap = Math.max(0, Math.min(mapRect.bottom, drawerRect.bottom) - Math.max(mapRect.top, drawerRect.top))
   const horizontalOverlap = Math.max(0, Math.min(mapRect.right, drawerRect.right) - Math.max(mapRect.left, drawerRect.left))
-  mapStore.setDrawerRightPx(verticalOverlap > 0 && horizontalOverlap > 2 ? horizontalOverlap : 0)
+  mapStore.setDrawerLeftPx(verticalOverlap > 0 && horizontalOverlap > 2 ? horizontalOverlap : 0)
 }
 
 function scheduleMapInsetSync() {
@@ -240,7 +291,7 @@ function scheduleMapInsetSync() {
   })
 
   if (mapInsetTimer) clearTimeout(mapInsetTimer)
-  mapInsetTimer = setTimeout(updateMapInsets, 280)
+  mapInsetTimer = setTimeout(updateMapInsets, SHEET_SETTLE_MS)
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -276,6 +327,7 @@ function onPointerMove(e: PointerEvent) {
   lastT = e.timeStamp
   currentDragTopPx = Math.min(snapTopPx('minimized'), Math.max(safeTop.value, startTop + dy))
   el.style.transform = `translateY(${currentDragTopPx}px)`
+  followDrag(currentDragTopPx)
 }
 
 function endDrag() {
@@ -316,6 +368,7 @@ function endDrag() {
   }
   isDragging.value = false
   drawerState.value = best
+  followDrag(snapTopPx(best))
   pointerId = -1
 }
 
@@ -355,48 +408,50 @@ function onDrawerFocusIn(e: FocusEvent) {
   })
 }
 
-useKbdShortcuts({m: cycleDrawerSize}, {global: true})
+useKbdShortcuts({
+  m: cycleDrawerSize,
+  o: () => void router.push(cityPath('/settings')),
+  n: () => {
+    if (routeUpdates.hasFeed) void router.push(cityPath('/news'))
+  },
+  c: () => {
+    void router.push(cityPath('/settings'))
+    focusSectionSoon('city')
+  },
+}, {global: true})
 </script>
 
 <template>
   <RouterView v-if="isAdminRoute"/>
-  <main v-else class="app-shell bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-    <OfflinePill :landscape-open="isLandscapeDrawerOpen"/>
+  <main
+    v-else
+    ref="shellEl"
+    class="app-shell"
+    :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
+    :style="shellStyle"
+  >
     <MapComponent class="app-map"/>
-    <SettingsButton
-      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
-      :style="{ '--controls-row-index': 0 }"
-    />
-    <NewsButton
-      v-if="showNews"
-      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
-      :style="{ '--controls-row-index': 1 }"
-    />
-    <CityButton
-      :top-offset="showNews ? '6.25rem' : '3.5rem'"
-      :class="{ 'landscape-open': isLandscapeDrawerOpen }"
-      :style="{ '--controls-row-index': showNews ? 2 : 1 }"
-    />
-    <AppToast :landscape-open="isLandscapeDrawerOpen"/>
+    <Transition name="chrome">
+      <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place"/>
+    </Transition>
+    <OfflinePill class="offline-place"/>
+    <MapFabs class="fabs-place" :zoom="finePointer"/>
+    <AppToast/>
     <button
       type="button"
-      class="landscape-drawer-toggle"
-      :class="{ 'is-open': isLandscapeDrawerOpen }"
+      class="fab fab-small side-toggle squish"
       :title="t('toggleDrawer')"
       :aria-label="t('toggleDrawer')"
       :aria-expanded="isLandscapeDrawerOpen"
       @click="toggleLandscapeDrawer"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path v-if="isLandscapeDrawerOpen" d="M9 18l6-6-6-6"/>
-        <path v-else d="M15 18l-6-6 6-6"/>
-      </svg>
+      <KeyboardArrowLeftIcon v-if="isLandscapeDrawerOpen" class="m-icon"/>
+      <KeyboardArrowRightIcon v-else class="m-icon"/>
     </button>
 
     <aside
       ref="drawerEl"
-      class="app-drawer bg-slate-100 dark:bg-slate-900 shadow-xl/30"
+      class="app-drawer"
       :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
       :style="drawerStyle"
       data-kbd-root
@@ -405,10 +460,10 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       <div v-if="isPortraitMobile" class="drawer-credits" v-html="mapCreditsHTML()"></div>
       <!-- touchend.prevent: iOS fires the tap's click late, on whatever the moving drawer slid under the finger. -->
       <div
-        class="drawer-handle lg:hidden"
+        class="drawer-handle"
         role="button"
         tabindex="0"
-        aria-label="Drag or tap to resize panel"
+        :aria-label="t('toggleDrawer')"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
@@ -423,14 +478,17 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
         <div class="drawer-view">
           <!-- RouteView only loads on mount, so another line needs a fresh instance. -->
           <RouterView v-slot="{ Component, route: viewRoute }">
-            <KeepAlive include="RoutePlanningView">
-              <component :is="Component"
-                         :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
-            </KeepAlive>
+            <Transition :name="navBack ? 'page-back' : 'page'" mode="out-in">
+              <KeepAlive include="RoutePlanningView">
+                <component :is="Component"
+                           :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
+              </KeepAlive>
+            </Transition>
           </RouterView>
         </div>
       </div>
     </aside>
+    <SearchOverlay/>
   </main>
   <KeyboardHelp v-if="!isAdminRoute"/>
   <BackgroundTracking v-if="!isAdminRoute"/>
@@ -438,12 +496,38 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 </template>
 
 <style scoped>
+@property --sheet-top {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --fabs-alpha {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+@property --chrome-alpha {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 .app-shell {
-  --landscape-drawer-width: min(26rem, 58vw);
+  --panel-w: min(420px, 58vw);
+  --panel-shown: 0px;
   position: relative;
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+  transition: --sheet-top var(--spring-sheet-ms) var(--spring-sheet), --fabs-alpha var(--spring-sheet-ms) var(--spring-sheet), --chrome-alpha var(--spring-sheet-ms) var(--spring-sheet);
+}
+
+.app-shell.is-dragging {
+  transition: none;
 }
 
 .app-map {
@@ -455,37 +539,49 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   height: 100dvh;
 }
 
-.landscape-drawer-toggle {
-  position: fixed;
-  top: 50%;
-  right: calc(0.625rem + env(safe-area-inset-right));
-  transform: translateY(-50%);
-  z-index: 4500;
-  width: 2.25rem;
-  height: 2.25rem;
+.home-chrome-place {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3000;
+  opacity: var(--chrome-alpha);
+}
+
+.chrome-enter-active {
+  transition: opacity 200ms linear;
+}
+
+.chrome-leave-active {
+  transition: opacity 120ms linear;
+}
+
+.chrome-enter-from,
+.chrome-leave-to {
+  opacity: 0;
+}
+
+.fabs-place {
+  position: absolute;
+  right: 16px;
+  top: calc(var(--sheet-top) - 28px);
+  z-index: 3500;
+  translate: 0 -100%;
+  opacity: var(--fabs-alpha);
+}
+
+.offline-place {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  left: 50%;
+  translate: -50% 0;
+  z-index: 3200;
+}
+
+.side-toggle {
   display: none;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0.875rem;
-  background: #ffffff;
-  color: #334155;
-  box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: right 250ms cubic-bezier(0.32, 0.72, 0, 1), background 150ms ease, color 150ms ease;
 }
 
-.landscape-drawer-toggle:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.landscape-drawer-toggle svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-/* Height stays 100dvh so translateY never triggers a layout reflow on the map behind it. */
 .app-drawer {
   position: fixed;
   bottom: 0;
@@ -493,11 +589,14 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   right: 0;
   z-index: 4000;
   height: 100dvh;
-  border-top-left-radius: 1.25rem;
-  border-top-right-radius: 1.25rem;
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
   display: flex;
   flex-direction: column;
-  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  background: var(--md-surface-container-low);
+  color: var(--md-on-surface);
+  box-shadow: 0 -1px 3px rgb(0 0 0 / 0.12), 0 -4px 12px rgb(0 0 0 / 0.08);
+  transition: transform var(--spring-sheet-ms) var(--spring-sheet);
   will-change: transform;
 }
 
@@ -518,28 +617,21 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 .drawer-credits {
   position: absolute;
   bottom: 100%;
-  right: 0.5rem;
-  padding: 2px 8px;
-  background: none;
-  border-radius: 6px 6px 0 0;
+  left: 0;
+  padding: 0 0 2px 8px;
   font-size: 10px;
-  color: #64748b;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
   pointer-events: auto;
   white-space: nowrap;
   z-index: 10;
 }
 
 .drawer-credits :deep(a) {
-  color: #475569;
+  color: inherit;
   text-decoration: none;
-}
-
-:root.dark .drawer-credits {
-  color: #94a3b8;
-}
-
-:root.dark .drawer-credits :deep(a) {
-  color: #64748b;
 }
 
 .drawer-handle {
@@ -547,7 +639,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  height: 2.75rem;
+  height: 28px;
   width: 100%;
   background: transparent;
   border: 0;
@@ -561,17 +653,17 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 }
 
 .drawer-grip {
-  width: 3.5rem;
-  height: 0.375rem;
-  border-radius: 9999px;
-  background: #cbd5e1;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--md-on-surface-variant) 40%, transparent);
 }
 
 .drawer-scroll {
   flex: 1 1 auto;
   min-height: 0;
   /* Clamp scroll area to the visually exposed portion so content doesn't hide below the fold. */
-  max-height: calc(var(--drawer-visible-h, 100dvh) - 2.75rem);
+  max-height: calc(var(--drawer-visible-h, 100dvh) - 28px);
   display: flex;
   flex-direction: column;
   touch-action: pan-y;
@@ -581,6 +673,7 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: clip;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior: contain;
@@ -593,41 +686,68 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   height: env(safe-area-inset-bottom);
 }
 
-@media (max-width: 1023px) and (orientation: landscape) {
-  .app-shell {
-    position: relative;
-  }
+.page-enter-active,
+.page-back-enter-active {
+  transition: opacity 210ms cubic-bezier(0, 0, 0.2, 1) 90ms, translate var(--spring-page-ms) var(--spring-page) 90ms, scale var(--spring-page-ms) var(--spring-page) 90ms;
+}
 
-  .landscape-drawer-toggle {
-    display: inline-flex;
-  }
+.page-leave-active,
+.page-back-leave-active {
+  transition: opacity 90ms cubic-bezier(0.4, 0, 1, 1), translate 90ms cubic-bezier(0.4, 0, 1, 1), scale 90ms cubic-bezier(0.4, 0, 1, 1);
+}
 
-  .landscape-drawer-toggle.is-open {
-    right: calc(var(--landscape-drawer-width) + 0.625rem + env(safe-area-inset-right));
-  }
+.page-enter-from {
+  opacity: 0;
+  translate: 25% 0;
+  scale: 0.9;
+}
 
-  /* drawerStyle returns {} here, so this CSS transform won't be shadowed by an inline style. */
-  .app-drawer {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: auto;
-    width: var(--landscape-drawer-width);
-    height: 100dvh !important;
-    border-radius: 1.25rem 0 0 1.25rem;
-    padding-right: env(safe-area-inset-right);
-    transform: translateX(calc(100% + env(safe-area-inset-right)));
-    opacity: 0;
-    pointer-events: none;
-    z-index: 4400;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24);
-    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease;
-  }
+.page-leave-to {
+  opacity: 0;
+  translate: -12.5% 0;
+  scale: 0.95;
+}
 
-  .app-drawer.is-landscape-open {
-    transform: translateX(0);
+.page-back-enter-from {
+  opacity: 0;
+  translate: -25% 0;
+  scale: 0.9;
+}
+
+.page-back-leave-to {
+  opacity: 0;
+  translate: 12.5% 0;
+  scale: 0.95;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-from,
+  .page-leave-to,
+  .page-back-enter-from,
+  .page-back-leave-to {
+    translate: none;
+    scale: none;
+  }
+}
+
+@media (max-width: 1023px) and (orientation: landscape), (min-width: 1024px) {
+  .home-chrome-place {
+    left: var(--panel-shown);
+    right: auto;
+    width: min(520px, calc(100vw - var(--panel-shown)));
     opacity: 1;
-    pointer-events: auto;
+    transition: left var(--spring-sheet-ms) var(--spring-sheet);
+  }
+
+  .fabs-place {
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    translate: none;
+    opacity: 1;
+  }
+
+  .offline-place {
+    left: calc(var(--panel-shown) + (100vw - var(--panel-shown)) / 2);
   }
 
   .drawer-handle {
@@ -639,15 +759,50 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
   }
 }
 
-@media (min-width: 1024px) {
-  .landscape-drawer-toggle {
-    display: none !important;
+@media (max-width: 1023px) and (orientation: landscape) {
+  .app-shell.is-landscape-open {
+    --panel-shown: var(--panel-w);
+    --map-overlap: var(--panel-w);
   }
 
+  .side-toggle {
+    display: inline-flex;
+    position: absolute;
+    top: 50%;
+    left: calc(var(--panel-shown) + 8px + env(safe-area-inset-left));
+    z-index: 4500;
+    translate: 0 -50%;
+    transition: left var(--spring-sheet-ms) var(--spring-sheet), scale var(--spring-press-ms) var(--spring-press);
+  }
+
+  /* drawerStyle returns {} here, so this CSS transform won't be shadowed by an inline style. */
+  .app-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: auto;
+    width: var(--panel-w);
+    height: 100dvh !important;
+    border-radius: 0 28px 28px 0;
+    padding-left: env(safe-area-inset-left);
+    transform: translateX(calc(-100% - env(safe-area-inset-left)));
+    pointer-events: none;
+    z-index: 4400;
+    box-shadow: 1px 0 3px rgb(0 0 0 / 0.12), 4px 0 12px rgb(0 0 0 / 0.08);
+  }
+
+  .app-drawer.is-landscape-open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 1024px) {
   .app-shell {
+    --panel-w: max(30vw, 360px);
+    --panel-shown: var(--panel-w);
     display: flex;
     flex-direction: row;
-    height: 100dvh;
   }
 
   .app-map {
@@ -657,20 +812,15 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
 
   .app-drawer {
     position: relative;
+    order: -1;
     transform: none;
     flex-shrink: 0;
-    width: 30vw;
+    width: var(--panel-w);
     height: 100dvh !important;
     border-radius: 0;
+    box-shadow: 1px 0 3px rgb(0 0 0 / 0.12), 4px 0 12px rgb(0 0 0 / 0.08);
     transition: none;
-  }
-
-  .drawer-handle {
-    display: none;
-  }
-
-  .drawer-scroll {
-    max-height: 100dvh;
+    z-index: 4400;
   }
 }
 </style>

@@ -1,8 +1,9 @@
-import {cityAt, cityDate} from '@/utils/cityClock.ts'
+import {cityAt, cityDate, cityMinutes} from '@/utils/cityClock.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DayType} from '@/utils/network.ts'
 import {scheduleDayOn, timeStringToMinutes} from '@/utils/time.ts'
+import type {Journey} from '@/utils/journey.ts'
 
 // Earlier times belong to the previous service day.
 const NIGHT_END_MIN = 180
@@ -34,6 +35,8 @@ export interface Reminder {
   walk?: number | null
   /** Epoch ms when the walk was measured. */
   walkAt?: number
+  /** Set from a planned trip, which starts when it is opened. */
+  journey?: Journey
 }
 
 const scheduleFor = (timetable: Timetable, dayType: DayType) =>
@@ -132,6 +135,13 @@ export function nextDeparture(times: Partial<Record<DayType, number[]>>, afterMs
     }
   }
   return first
+}
+
+/** The service day and minute of [atMs]; a bus after midnight belongs to the day before. */
+export function serviceSlot(atMs: number): {date: string, minute: number} {
+  const date = cityDate(atMs)
+  const minute = Math.floor(cityMinutes(atMs))
+  return minute < NIGHT_END_MIN ? {date: addDays(date, -1), minute: minute + 1440} : {date, minute}
 }
 
 export function formatSlot(minutes: number): string {

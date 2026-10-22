@@ -17,6 +17,7 @@ import {
   stepSection,
   stepVertical,
 } from '@/utils/keyboardFocus.ts'
+import {useSearch} from '@/composables/useSearch.ts'
 
 type Handler = (e: KeyboardEvent) => void | boolean
 type ShortcutMap = Record<string, Handler>
@@ -56,7 +57,6 @@ const layers: Layer[] = []
 const shortcuts: ShortcutEntry[] = []
 const savedFocus = new Map<string, string>()
 let navSeq = 0
-let pendingFocus: string | null = null
 let lastFieldBackspace = -Infinity
 let router: Router | null = null
 
@@ -170,12 +170,8 @@ function goHome() {
 
 function focusSearch() {
   closeLayers()
-  if (router?.currentRoute.value.name === 'home') {
-    focusKey('search')
-    return
-  }
-  pendingFocus = 'search'
-  void router?.push({name: 'home'})
+  if (router?.currentRoute.value.name !== 'home') void router?.push({name: 'home'})
+  useSearch().open.value = true
 }
 
 function move(scope: HTMLElement, target: Element | null, kind: 'v' | 'h', dir: 1 | -1) {
@@ -299,17 +295,18 @@ function onPointerDown() {
   setKeyboardMode(false)
 }
 
-function restoreFocus(target: string | null, saved: string | null) {
+function restoreFocus(wanted: string | null) {
   const seq = navSeq
   const started = performance.now()
   const tick = () => {
     if (seq !== navSeq || !keyboardMode.value) return
     const root = rootEl()
     if (!root) return
+    // The page before leaves first, so its items would take the focus.
+    if (root.querySelector('.page-leave-active, .page-back-leave-active')) return void requestAnimationFrame(tick)
     const active = document.activeElement
-    if (!target && active && active !== document.body && root.contains(active)) return
+    if (active && active !== document.body && root.contains(active)) return
     const waited = performance.now() - started
-    const wanted = target ?? saved
     if (wanted) {
       const item = findItem(root, wanted)
       if (item) return focusItem(item)
@@ -338,12 +335,8 @@ export function useKeyboardNavRoot(appRouter: Router) {
   })
 
   const removeAfter = appRouter.afterEach((to, from, failure) => {
-    if (failure) return
-    const target = pendingFocus
-    pendingFocus = null
-    if (!keyboardMode.value) return
-    if (to.name === from.name && !target) return
-    restoreFocus(target, savedFocus.get(to.fullPath) ?? null)
+    if (failure || !keyboardMode.value || to.name === from.name) return
+    restoreFocus(savedFocus.get(to.fullPath) ?? null)
   })
 
   onUnmounted(() => {

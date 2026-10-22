@@ -51,13 +51,17 @@ export const useMapStore = defineStore('map', () => {
   const directionArrowAtStart = ref(false)
   const centerOnUser = ref(false)
   const revealDrawer = ref(false)
+  const centerRequest = ref(0)
+  const fitRequest = ref(0)
+  const zoomRequest = ref(0)
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
   const customOriginLocation = ref<{lat: number; lng: number; label: string} | null>(null)
   const pinnedLocationDragged = ref<{lat: number; lng: number} | null>(null)
   const customOriginLocationDragged = ref<{lat: number; lng: number} | null>(null)
   const drawerBottomPx = ref(0)
-  const drawerRightPx = ref(0)
+  const drawerLeftPx = ref(0)
+  const chromeTopPx = ref(0)
   const fitWalkingPolylines = ref(false)
   const rideAs = ref<RideAs | null>(null)
   // Navigation wants every fix as it comes, not a cached one.
@@ -67,8 +71,8 @@ export const useMapStore = defineStore('map', () => {
     drawerBottomPx.value = px
   }
 
-  const setDrawerRightPx = (px: number) => {
-    drawerRightPx.value = px
+  const setDrawerLeftPx = (px: number) => {
+    drawerLeftPx.value = px
   }
 
   const setShapesToDisplay = async (displayShapes: DisplayShape[]) => {
@@ -148,6 +152,9 @@ export const useMapStore = defineStore('map', () => {
   return {
     centerOnUser,
     revealDrawer,
+    centerRequest,
+    fitRequest,
+    zoomRequest,
     flyToLocation,
     pinnedLocation,
     customOriginLocation,
@@ -179,8 +186,9 @@ export const useMapStore = defineStore('map', () => {
     clearWalkingPolylines,
     drawerBottomPx,
     setDrawerBottomPx,
-    drawerRightPx,
-    setDrawerRightPx,
+    drawerLeftPx,
+    chromeTopPx,
+    setDrawerLeftPx,
     fitWalkingPolylines,
     rideAs,
     preciseLocation,

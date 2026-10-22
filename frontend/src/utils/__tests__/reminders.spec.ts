@@ -3,7 +3,7 @@ import {describe, expect, it} from 'vitest'
 import type {Timetable} from '@/types/ctp.ts'
 import {
   addDays, dayTypeOf, formatSlot, isoWeekday, nextDeparture, nextOccurrence, pickSlot, resolveSlots,
-  stopTimesByDayType,
+  serviceSlot, stopTimesByDayType,
 } from '@/utils/reminders.ts'
 import {setScheduleDays} from '@/utils/time.ts'
 
@@ -123,5 +123,15 @@ describe('nextDeparture', () => {
 
   it('is null without buses', () => {
     expect(nextDeparture({}, ms('2026-10-09T07:00:00+03:00'))).toBeNull()
+  })
+})
+
+describe('serviceSlot', () => {
+  it('keeps a daytime bus on its day', () => {
+    expect(serviceSlot(ms('2026-10-09T07:40:00+03:00'))).toEqual({date: '2026-10-09', minute: 7 * 60 + 40})
+  })
+
+  it('puts a bus after midnight on the day before', () => {
+    expect(serviceSlot(ms('2026-10-10T00:20:00+03:00'))).toEqual({date: '2026-10-09', minute: 24 * 60 + 20})
   })
 })

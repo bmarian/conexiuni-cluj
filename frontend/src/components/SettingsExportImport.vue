@@ -2,12 +2,12 @@
 import {computed, defineAsyncComponent, nextTick, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {useSettingsStore} from '@/stores/settings'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {describeExport, useSettingsTransfer} from '@/composables/useSettingsTransfer.ts'
 import {useTransferReceiver} from '@/composables/useTransferReceiver.ts'
 import {focusItem} from '@/utils/keyboardFocus.ts'
 import {sendToTransferLink, TRANSFER_QUERY} from '@/utils/transferLink.ts'
+import {CheckIcon, CloseIcon, ContentCopyIcon, FileUploadIcon, QrCode2Icon, SendIcon} from '@/utils/icons.ts'
 
 const QrCode = defineAsyncComponent(() => import('@/components/QrCode.vue'))
 
@@ -16,7 +16,6 @@ const props = defineProps<{ sendCode?: string; sendKey?: string }>()
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
-const settings = useSettingsStore()
 const {buildExport, applyExport} = useSettingsTransfer()
 
 type Mode = 'export' | 'import' | 'send' | 'receive' | null
@@ -245,35 +244,23 @@ async function doImport() {
 </script>
 
 <template>
-  <div ref="rootRef" class="ei-root" :class="{ 'is-dark': settings.isDark }">
-    <div class="ei-group" data-kbd-section="ei-transfer" data-kbd-axis="x">
-      <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-send" @click="openSend()">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             width="13" height="13" aria-hidden="true">
-          <path d="M22 2 11 13"/>
-          <path d="M22 2 15 22l-4-9-9-4 20-7z"/>
-        </svg>
+  <div ref="rootRef" class="transfer">
+    <div class="button-row" data-kbd-section="ei-transfer" data-kbd-axis="x">
+      <button type="button" class="btn btn-filled" data-kbd-item="ei-send" @click="openSend()">
+        <SendIcon class="m-icon"/>
         {{ t('transferSend') }}
       </button>
-      <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-receive" @click="openReceive">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             width="13" height="13" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M17 20h4v-3"/>
-        </svg>
+      <button type="button" class="btn btn-filled" data-kbd-item="ei-receive" @click="openReceive">
+        <QrCode2Icon class="m-icon"/>
         {{ t('transferReceive') }}
       </button>
     </div>
 
-    <template v-if="mode === 'send'">
+    <div v-if="mode === 'send'" class="panel">
       <input
         ref="codeRef"
         v-model="code"
-        class="ei-textarea ei-code"
+        class="field code-field"
         data-kbd-section="ei-code"
         data-kbd-item="ei-code"
         type="text"
@@ -283,98 +270,76 @@ async function doImport() {
         :placeholder="t('sendCodePlaceholder')"
         @keydown.enter="doSend"
       />
-      <div class="ei-actions" data-kbd-section="ei-send-actions" data-kbd-axis="x">
+      <div class="button-row" data-kbd-section="ei-send-actions" data-kbd-axis="x">
         <button
           type="button"
-          class="ei-btn ei-btn-primary"
+          class="btn btn-filled"
           data-kbd-item="ei-send-confirm"
-          :class="{'ei-btn-success': sendState === 'sent', 'ei-btn-error': sendState === 'unknown' || sendState === 'limited' || sendState === 'failed'}"
-          :disabled="!canSend"
+          :class="{ 'is-success': sendState === 'sent', 'is-error': sendState === 'unknown' || sendState === 'limited' || sendState === 'failed' }"
+          :disabled="!canSend && sendState === 'idle'"
           @click="doSend"
         >
-          <template v-if="sendState === 'sent'">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-            {{ t('sendDone') }}
-          </template>
+          <span v-if="sendState === 'busy'" class="spinner"></span>
+          <template v-else-if="sendState === 'sent'">✓ {{ t('sendDone') }}</template>
           <template v-else-if="sendState === 'unknown' || sendState === 'limited' || sendState === 'failed'">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            {{ sendState === 'unknown' ? t('sendUnknownCode') : sendState === 'limited' ? t('sendTooMany') : t('sendFailed') }}
+            ✕ {{ sendState === 'unknown' ? t('sendUnknownCode') : sendState === 'limited' ? t('sendTooMany') : t('sendFailed') }}
           </template>
-          <template v-else>
-            {{ t('sendConfirm') }}
-          </template>
+          <template v-else>{{ t('sendConfirm') }}</template>
         </button>
-        <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
+        <button type="button" class="btn btn-outlined" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
       </div>
-    </template>
+    </div>
 
-    <template v-else-if="mode === 'receive'">
-      <div v-if="receiveState !== 'done'" class="ei-receive">
-        <template v-if="receiveState === 'waiting'">
-          <div class="ei-qr">
-            <QrCode :text="receiveUrl" :label="receiveCode"/>
+    <div v-else-if="mode === 'receive'" class="panel items-center text-center">
+      <template v-if="receiveState === 'waiting'">
+        <div class="qr">
+          <QrCode :text="receiveUrl" :label="receiveCode"/>
+        </div>
+        <p class="text-headline-medium font-extrabold tracking-[2px]">{{ receiveCode }}</p>
+        <p class="text-body-small text-on-surface-variant">{{ t('transferHint') }}</p>
+      </template>
+      <template v-else-if="receiveState === 'review' || receiveState === 'done'">
+        <p class="text-body-medium">{{ t('receiveReview') }}</p>
+        <dl class="summary">
+          <div v-for="row in summaryRows" :key="row.label" class="flex justify-between">
+            <dt class="text-body-medium">{{ row.label }}</dt>
+            <dd class="text-body-medium font-bold">{{ row.count }}</dd>
           </div>
-          <p class="ei-receive-code">{{ receiveCode }}</p>
-          <p class="ei-note setting-desc">{{ t('transferHint') }}</p>
-        </template>
-        <template v-else-if="receiveState === 'review'">
-          <p class="ei-note setting-desc">{{ t('receiveReview') }}</p>
-          <dl class="ei-summary">
-            <div v-for="row in summaryRows" :key="row.label" class="ei-summary-row">
-              <dt>{{ row.label }}</dt>
-              <dd>{{ row.count }}</dd>
-            </div>
-          </dl>
-        </template>
-        <p v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'"
-           class="ei-note setting-desc">
-          {{ t({expired: 'transferExpired', failed: 'transferFailed', broken: 'transferBroken'}[receiveState]) }}
-        </p>
-        <p v-else class="ei-note setting-desc">{{ t('transferLoading') }}</p>
-      </div>
-      <div class="ei-actions" data-kbd-section="ei-receive-actions" data-kbd-axis="x">
-        <button v-if="receiveState === 'done'" type="button" class="ei-btn ei-btn-primary ei-btn-success" disabled>
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-          </svg>
-          {{ t('receiveDone') }}
-        </button>
+        </dl>
+      </template>
+      <p v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'" class="text-body-medium">
+        {{ t({expired: 'transferExpired', failed: 'transferFailed', broken: 'transferBroken'}[receiveState]) }}
+      </p>
+      <p v-else class="flex items-center gap-2 text-body-medium">
+        <span class="spinner is-primary"></span>{{ t('transferLoading') }}
+      </p>
+      <div class="button-row w-full" data-kbd-section="ei-receive-actions" data-kbd-axis="x">
+        <button v-if="receiveState === 'done'" type="button" class="btn btn-filled" disabled>✓ {{ t('receiveDone') }}</button>
         <template v-else>
-          <button v-if="receiveState === 'review'" type="button"
-                  class="ei-btn ei-btn-primary" data-kbd-item="ei-receive-confirm" @click="replaceWithReceived">
+          <button v-if="receiveState === 'review'" type="button" class="btn btn-filled" data-kbd-item="ei-receive-confirm" @click="replaceWithReceived">
             {{ t('receiveReplace') }}
           </button>
-          <button v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'"
-                  type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-new-code" @click="startReceive">
-            {{ t('transferNewCode') }}
+          <button
+            v-else-if="receiveState === 'expired' || receiveState === 'failed' || receiveState === 'broken'"
+            type="button"
+            class="btn btn-filled"
+            data-kbd-item="ei-new-code"
+            @click="startReceive"
+          >{{ t('transferNewCode') }}</button>
+          <button type="button" class="btn btn-text" data-kbd-item="ei-cancel" @click="cancel">
+            <CloseIcon class="m-icon"/>{{ t('cancel') }}
           </button>
-          <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
         </template>
       </div>
-    </template>
+    </div>
 
-    <div class="ei-group ei-group-text" data-kbd-section="ei" data-kbd-axis="x">
-      <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             width="13" height="13" aria-hidden="true">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-        </svg>
+    <div class="button-row" data-kbd-section="ei" data-kbd-axis="x">
+      <button type="button" class="btn btn-tonal" data-kbd-item="ei-export" @click="openExport">
+        <ContentCopyIcon class="m-icon"/>
         {{ t('exportSettings') }}
       </button>
-      <button type="button" class="ei-btn" data-kbd-item="ei-import" @click="openImport">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             width="13" height="13" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
+      <button type="button" class="btn btn-tonal" data-kbd-item="ei-import" @click="openImport">
+        <FileUploadIcon class="m-icon"/>
         {{ t('importSettings') }}
       </button>
     </div>
@@ -383,237 +348,153 @@ async function doImport() {
       <textarea
         ref="textareaRef"
         v-model="text"
-        class="ei-textarea"
+        class="field text-field"
         data-kbd-section="ei-text"
         data-kbd-item="ei-text"
         :readonly="mode === 'export'"
         :placeholder="mode === 'import' ? t('importPastePlaceholder') : ''"
-        rows="7"
+        rows="6"
         spellcheck="false"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
       />
-      <div class="ei-actions" data-kbd-section="ei-actions" data-kbd-axis="x">
+      <div class="button-row" data-kbd-section="ei-actions" data-kbd-axis="x">
         <button
           v-if="mode === 'export'"
           type="button"
-          class="ei-btn ei-btn-primary"
+          class="btn btn-filled"
           data-kbd-item="ei-share"
-          :class="{'ei-btn-success': exportDone}"
           :disabled="exportDone"
           @click="doExportShare"
         >
-          <template v-if="exportDone">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-            {{ t('exportCopied') }}
-          </template>
-          <template v-else>
-            {{ canShare ? t('share') : t('exportCopyBtn') }}
-          </template>
+          <CheckIcon v-if="exportDone" class="m-icon"/>
+          {{ exportDone ? t('exportCopied') : canShare ? t('share') : t('exportCopyBtn') }}
         </button>
         <button
           v-if="mode === 'import'"
           type="button"
-          class="ei-btn ei-btn-primary"
+          class="btn btn-filled"
           data-kbd-item="ei-confirm"
-          :class="{'ei-btn-success': importState === 'success', 'ei-btn-error': importState === 'error'}"
+          :class="{ 'is-error': importState === 'error' }"
           :disabled="!text.trim() || importState !== 'idle'"
           @click="doImport"
         >
-          <template v-if="importState === 'success'">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-            {{ t('importSuccess') }}
-          </template>
-          <template v-else-if="importState === 'error'">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            {{ t('importError') }}
-          </template>
-          <template v-else>
-            {{ t('importConfirm') }}
-          </template>
+          {{ importState === 'success' ? `✓ ${t('importSuccess')}` : importState === 'error' ? `✕ ${t('importError')}` : t('importConfirm') }}
         </button>
-        <button type="button" class="ei-btn" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
+        <button type="button" class="btn btn-outlined" data-kbd-item="ei-cancel" @click="cancel">{{ t('cancel') }}</button>
       </div>
     </template>
   </div>
 </template>
 
 <style scoped>
-.ei-root {
+.transfer {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 10px;
+  padding: 8px 16px;
 }
 
-.ei-group {
+.button-row {
   display: flex;
-  gap: 0.25rem;
+  gap: 8px;
 }
 
-.ei-btn {
+.button-row > .btn {
   flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.25rem;
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
+  min-width: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--md-surface-container);
+}
+
+.field {
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-  white-space: nowrap;
+  color: var(--md-on-surface);
+  box-shadow: inset 0 0 0 1px var(--md-outline);
+  outline: 0;
+  caret-color: var(--md-primary);
 }
 
-.ei-btn:hover { background: #f1f5f9; color: #0f172a; }
-.ei-btn:disabled { opacity: 0.4; cursor: default; }
-
-.ei-btn.ei-btn-primary {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-}
-.ei-btn.ei-btn-primary:hover:not(:disabled) {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
+.field:focus {
+  box-shadow: inset 0 0 0 2px var(--md-primary);
 }
 
-.ei-btn.ei-btn-success {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
-}
-
-.ei-btn.ei-btn-error {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.ei-root.is-dark .ei-btn { color: #64748b; }
-.ei-root.is-dark .ei-btn:hover { background: #334155; color: #e2e8f0; }
-.ei-root.is-dark .ei-btn.ei-btn-primary { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
-.ei-root.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1e40af; color: #bfdbfe; border-color: #3b82f6; }
-.ei-root.is-dark .ei-btn.ei-btn-success { background: #052e16; color: #4ade80; border-color: #14532d; }
-.ei-root.is-dark .ei-btn.ei-btn-error { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
-
-.ei-textarea {
-  width: 100%;
-  padding: 0.5rem 0.625rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 0.6875rem;
-  font-family: ui-monospace, monospace;
-  line-height: 1.5;
-  resize: none;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.ei-textarea:focus { border-color: #93c5fd; background: #fff; }
-.ei-textarea[readonly] { cursor: text; }
-
-.ei-root.is-dark .ei-textarea { border-color: #334155; background: #0f172a; color: #cbd5e1; }
-.ei-root.is-dark .ei-textarea:focus { border-color: #3b82f6; background: #0f172a; }
-
-.ei-code {
-  font-size: 1.125rem;
-  letter-spacing: 0.2em;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.ei-code::placeholder {
-  font-size: 0.75rem;
+.field::placeholder {
+  color: var(--md-on-surface-variant);
   letter-spacing: normal;
+  font-weight: 400;
+  font-size: 16px;
 }
 
-.ei-note {
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: #64748b;
-}
-
-.ei-root.is-dark .ei-note { color: #94a3b8; }
-
-.ei-group-text {
-  margin-top: 0.25rem;
-}
-
-.ei-receive {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0 0.25rem;
-}
-
-/* Dark on white in every theme: that's what cameras read. */
-.ei-qr {
-  width: 10rem;
-  height: 10rem;
-  padding: 0.625rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: #fff;
-}
-
-.ei-qr :deep(svg) {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.ei-root.is-dark .ei-qr { border-color: transparent; }
-
-.ei-receive-code {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
-}
-
-.ei-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  width: 100%;
-  max-width: 16rem;
-  font-size: 0.8125rem;
-}
-
-.ei-summary-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.ei-summary dd {
+.code-field {
+  font-size: 20px;
+  line-height: 28px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.ei-receive .ei-note {
-  max-width: 18rem;
+  letter-spacing: 4px;
   text-align: center;
 }
 
-.ei-actions {
+.text-field {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.qr {
+  width: 170px;
+  height: 170px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.summary {
   display: flex;
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.btn.is-success {
+  background: var(--md-tertiary);
+  color: var(--md-on-tertiary);
+}
+
+.btn.is-error {
+  background: var(--md-error);
+  color: var(--md-on-error);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+.spinner.is-primary {
+  color: var(--md-primary);
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
 }
 </style>

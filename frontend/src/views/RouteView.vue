@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {computed, nextTick, ref, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
-import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import {useUserStore} from '@/stores/user.ts'
@@ -20,19 +19,22 @@ import type {JourneyStop} from '@/utils/journey.ts'
 import {ridePath} from '@/utils/rideLine.ts'
 import {fetchHourlyStopOffsets} from '@/composables/useRouteShapeInfoApi.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
-import IconHeartFilled from '@/components/icons/IconHeartFilled.vue'
-import IconHeartOutline from '@/components/icons/IconHeartOutline.vue'
-import IconBellFilled from '@/components/icons/IconBellFilled.vue'
-import IconBellOutline from '@/components/icons/IconBellOutline.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
 import {usePushStore} from '@/stores/push.ts'
-import ShareButton from '@/components/ShareButton.vue'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
+import {useShare} from '@/composables/useShare.ts'
+import SheetTopBar from '@/components/ui/SheetTopBar.vue'
+import ActionChips from '@/components/ui/ActionChips.vue'
+import ChoiceRow from '@/components/ui/ChoiceRow.vue'
+import LineBadge from '@/components/ui/LineBadge.vue'
+import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
+import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
+import {CloseIcon, FavoriteBorderIcon, FavoriteIcon, NotificationsIcon, NotificationsNoneIcon, ShareIcon} from '@/utils/icons.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
@@ -417,799 +419,337 @@ useKbdShortcuts({
   d: switchDirection,
   t: () => kbd.focusSection('tt-minutes') || kbd.focusSection('tt-tabs'),
 })
+
+const {share} = useShare()
+
+const barTitle = computed(() => shapeInfo.value
+  ? `${shapeInfo.value.route_short_name} · ${timetable.value?.route_long_name || shapeInfo.value.route_short_name}`
+  : null)
+
+const topMenu = computed<MenuAction[]>(() => shapeInfo.value
+  ? [{label: t(isFollowing.value ? 'followingChanges' : 'followChanges'), icon: isFollowing.value ? NotificationsIcon : NotificationsNoneIcon, onClick: toggleFollow}]
+  : [])
+
+const chips = computed<ChipAction[]>(() => [
+  {
+    label: t(isFavorite.value ? 'saved' : 'save'),
+    icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
+    selected: isFavorite.value,
+    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    kbd: 'fav',
+    onClick: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
+  },
+  {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
+])
+
+const directionChoices = computed<Choice<'0' | '1'>[]>(() => [
+  {value: '0', label: directionTerminals.value.outgoing.last || timetable.value?.out_stop_name || '', disabled: !hasOutgoing.value},
+  {value: '1', label: directionTerminals.value.incoming.last || timetable.value?.in_stop_name || '', disabled: !hasIncoming.value},
+])
+
+const tabChoices = computed<Choice<TimetableTab>[]>(() => availableTabs.value.map((tab) => ({value: tab.key, label: tab.label})))
+
+function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
+  if (String(stop.stop_id) === fromStopId.value) return 'from'
+  if (idx === nearestStopIdx.value) return 'nearest'
+  if (favoritesStore.isStopFavorite(stop.stop_id)) return 'favorite'
+  if (idx === 0 || idx === count - 1) return 'terminal'
+  return 'plain'
+}
+
+const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_id}`))
 </script>
 
 <template>
-  <div v-if="isInitialLoading"
-       class="route-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-6">
-    <div class="h-6 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
-    <header class="flex items-start gap-4 pb-1">
-      <div class="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-      <div class="flex-1 flex flex-col gap-2">
-        <div class="h-3 w-14 bg-slate-200 dark:bg-slate-800 rounded"></div>
-        <div class="h-6 w-56 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
-      </div>
-      <div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-    </header>
-    <div class="flex gap-2">
-      <div class="flex-1 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
-      <div class="flex-1 h-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
-    </div>
-    <section class="flex flex-col gap-2.5">
-      <div v-for="i in 7" :key="i" class="flex items-center gap-3 py-1.5">
-        <div class="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-        <div class="h-3.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded"></div>
-        <div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
-      </div>
-    </section>
-  </div>
+  <div class="route-view">
+    <SheetTopBar :title="barTitle" :menu="topMenu"/>
 
-  <div v-else-if="!shapeInfo" class="route-view-container flex flex-col">
-    <LoadingIndicator :text="t('loadingRoute')"/>
-  </div>
+    <LoadingIndicator v-if="isInitialLoading || !shapeInfo" :text="t('loadingRoute')"/>
 
-  <div v-else
-       class="route-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100">
+    <template v-else>
+      <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange"/>
 
-    <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange"/>
-
-    <div class="flex items-center mb-4!">
-      <HeaderNavigation/>
-    </div>
-
-    <header class="flex items-start gap-4 pb-3">
-      <div
-        class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
-        :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
-      >
-        <span class="text-2xl font-black text-white leading-none">{{
-            shapeInfo.route_short_name
-          }}</span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div
-          class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
-          {{ t('route') }}
+      <header class="header">
+        <LineBadge :name="shapeInfo.route_short_name" :color="shapeInfo.route_color" :height="52" :min-width="52" :corner="16"/>
+        <div class="flex-1 min-w-0">
+          <p class="text-label-medium text-on-surface-variant">{{ t('route') }}</p>
+          <h1 class="text-title-large font-bold">{{ timetable?.route_long_name || shapeInfo.route_short_name }}</h1>
+          <p v-if="fromStopName" class="flex items-center gap-1.5 pt-1 text-body-small text-on-surface-variant">
+            <span class="size-1.5 rounded-full bg-[#10b981] shrink-0"></span>
+            <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
+          </p>
         </div>
-        <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
-          {{ timetable?.route_long_name || shapeInfo.route_short_name }}
-        </h1>
-        <p v-if="fromStopName"
-           class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
-          <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
-          <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
-        </p>
-      </div>
-    </header>
+      </header>
+      <ActionChips :actions="chips" class="pb-3"/>
 
-    <div class="header-actions" data-kbd-section="actions" data-kbd-axis="x">
-      <button
-        type="button"
-        class="fav-btn"
-        :class="{ 'is-fav': isFavorite }"
-        :aria-pressed="isFavorite"
-        data-kbd-item="fav"
-        @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
-      >
-        <IconHeartFilled v-if="isFavorite" class="w-[18px] h-[18px]"/>
-        <IconHeartOutline v-else class="w-[18px] h-[18px]"/>
-        {{ t(isFavorite ? 'saved' : 'save') }}
-      </button>
-      <ShareButton labelled/>
-      <button
-        type="button"
-        class="bell-btn"
-        :class="{ 'is-following': isFollowing }"
-        :aria-pressed="isFollowing"
-        data-kbd-item="bell"
-        @click="toggleFollow"
-      >
-        <IconBellFilled v-if="isFollowing" class="w-[18px] h-[18px]"/>
-        <IconBellOutline v-else class="w-[18px] h-[18px]"/>
-        {{ t(isFollowing ? 'followingChanges' : 'followChanges') }}
-      </button>
-    </div>
+      <ChoiceRow
+        :options="directionChoices"
+        :model-value="currentDirection"
+        kbd="dir"
+        class="mx-4"
+        data-kbd-entry="3"
+        @update:model-value="onDirClick"
+      />
 
-    <div class="direction-toggle-wrap" data-kbd-section="direction" data-kbd-axis="x" data-kbd-entry="3">
-      <button :disabled="!hasOutgoing" @click="onDirClick('0')"
-              data-kbd-item="dir-0" :data-kbd-active="currentDirection === '0'"
-              :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
-        <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-             stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-        <span class="truncate">{{ directionTerminals.outgoing.last || timetable?.out_stop_name }}</span>
-      </button>
-      <button :disabled="!hasIncoming" @click="onDirClick('1')"
-              data-kbd-item="dir-1" :data-kbd-active="currentDirection === '1'"
-              :class="['dir-btn', currentDirection === '1' ? 'dir-btn-active' : 'dir-btn-inactive']">
-        <span class="truncate">{{ directionTerminals.incoming.last || timetable?.in_stop_name }}</span>
-        <svg class="w-3 h-3 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24"
-             stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
-    </div>
+      <p v-if="!stopsForDirection.length" class="text-body-medium text-on-surface-variant px-4 pt-4">{{ t('noSchedule') }}</p>
 
-    <div v-if="!stopsForDirection.length"
-         class="mt-8 text-center text-slate-400 dark:text-slate-500 text-sm">
-      {{ t('noSchedule') }}
-    </div>
-
-    <div v-else>
-
-      <div class="stops-header">
-        <span class="flex flex-col">
-          <span class="section-label-text">{{ t('stops') }}</span>
-          <span v-if="settings.busAlerts" class="stops-hint">{{ pointerHint ? t('stopsClickHint') : t('stopsHoldHint') }}</span>
-        </span>
-        <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800 mx-2"></div>
-        <div class="flex flex-col items-end gap-0.5">
-          <span
-            class="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{
-              t('nextDepartures')
-            }}</span>
-          <div class="times-cols">
-            <span v-for="(time, i) in getHeaderTimes()" :key="i"
-                  class="time-cell text-slate-400 dark:text-slate-500">{{ time }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="relative" data-kbd-section="stops">
-        <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
-
-        <div
-          v-for="(stop, idx) in stopsForDirection"
-          :key="stop.stop_id + '-' + idx"
-          :data-kbd-item="`stop-${stop.stop_id}`"
-          :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
-          :class="['stop-row',
-            String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
-            idx === nearestStopIdx ? 'stop-row-nearest' :
-            favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
-          ]"
-          v-bind="settings.busAlerts ? stopPress.bind({stop, idx}) : {}"
-          @click.capture="stopPress.swallow"
-        >
-          <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-            <div v-if="String(stop.stop_id) === fromStopId"
-                 class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === nearestStopIdx"
-                 class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                 class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
-                 class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-            <div v-else
-                 class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
-          </div>
-
-          <div class="flex-1 min-w-0 flex items-center gap-1.5">
-            <router-link :class="[
-              'text-sm leading-tight truncate cursor-pointer',
-              String(stop.stop_id) === fromStopId ? 'font-bold text-emerald-500 dark:text-emerald-400' :
-              idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
-              idx === 0 || idx === stopsForDirection.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
-              'font-medium text-slate-500 dark:text-slate-400'
-            ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}
-            </router-link>
-            <svg v-if="String(stop.stop_id) === fromStopId"
-                 class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
-                 fill="currentColor">
-              <path
-                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
-            <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0"
-                 viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                 class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-            <svg v-if="settings.busAlerts && isStopFollowed(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
-                 fill="currentColor" :aria-label="t('following')">
-              <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2z"/>
-            </svg>
-            <svg v-if="settings.busAlerts && isStopReminded(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24"
-                 stroke="currentColor" stroke-width="2.2" :aria-label="t('remindSaved')">
-              <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
-            </svg>
-          </div>
-
-          <div class="times-cols shrink-0">
-            <span
-              v-for="(stopTime, i) in stopTimesByStop[idx]"
-              :key="i"
-              :class="[
-                'time-cell',
-                stopTime.isLive ? 'time-cell-live' :
-                'text-slate-500 dark:text-slate-400'
-              ]"
-            >{{ stopTime.label }}</span>
-          </div>
-        </div>
-      </div>
-
-      <BusMenu v-if="stopMenu" :x="stopMenu.x" :y="stopMenu.y" :items="stopMenu.items" @close="stopMenu = null"/>
-
-      <div v-if="availableTabs.length" class="mt-8">
-        <div class="flex items-center gap-2 my-3!">
-          <span class="section-label-text">{{ t('timetable') }}</span>
-          <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{
-              t('timetableClickHint')
-            }}</span>
-        </div>
-
-        <div class="flex gap-1.5 mb-4!" data-kbd-section="tt-tabs" data-kbd-axis="x">
-          <button
-            v-for="tab in availableTabs"
-            :key="tab.key"
-            @click="selectedTimetableTab = tab.key"
-            :data-kbd-item="`tab-${tab.key}`"
-            :data-kbd-active="selectedTimetableTab === tab.key"
-            :class="[
-              'tt-tab',
-              selectedTimetableTab === tab.key ? 'tt-tab-active' : 'tt-tab-inactive',
-              isPastTab(tab.key) ? 'tt-tab-past' : '',
-            ]"
-          >
-            {{ tab.label }}
-            <span v-if="tab.key === todayTab" class="tt-today-dot"></span>
-          </button>
-        </div>
-
-        <p v-if="todayNotice" class="flex items-center gap-1.5 -mt-2! mb-4! text-xs text-slate-500 dark:text-slate-400">
-          <span class="tt-today-dot"></span>{{ todayNotice }}
-        </p>
-
-        <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
-
-        <div v-if="activeFrequency || timetableByHour.length" class="tt-table"
-             data-kbd-section="tt-minutes" data-kbd-axis="grid">
-          <div v-if="activeFrequency" class="tt-row">
-            <span class="tt-hour">
-              <svg class="tt-freq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2.5" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5V12l3 1.8"/>
-              </svg>
+      <template v-else>
+        <div class="stops-head">
+          <span class="flex flex-col">
+            <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>
+            <span v-if="settings.busAlerts" class="text-label-small text-outline">{{ pointerHint ? t('stopsClickHint') : t('stopsHoldHint') }}</span>
+          </span>
+          <span class="divider"></span>
+          <span class="flex flex-col items-end">
+            <span class="next-head">{{ t('nextDepartures') }}</span>
+            <span class="flex gap-1">
+              <span v-for="(time, i) in getHeaderTimes()" :key="i" class="head-time">{{ time }}</span>
             </span>
-            <div class="tt-mins tt-freq-mins">
-              <span v-if="activeFrequency.min_minutes || activeFrequency.max_minutes"
-                    class="tt-freq-primary text-[15px] font-semibold tabular-nums leading-tight text-slate-800 dark:text-slate-200">{{
-                  frequencyLabel(activeFrequency)
-                }}</span>
-              <span v-if="activeFrequency.start"
-                    class="tt-freq-window text-[13px] font-medium tabular-nums text-slate-400 dark:text-slate-500">{{
-                  t('frequencyWindow', {start: activeFrequency.start, end: activeFrequency.end})
-                }}</span>
-            </div>
-          </div>
-          <div v-for="group in timetableByHour" :key="group.hour" class="tt-row">
-            <span class="tt-hour" :class="group.isNextDay ? 'tt-hour-next-day' : ''">{{
-                group.hour
-              }}</span>
-            <div class="tt-mins">
-              <span
-                v-for="chip in group.chips"
-                :key="chip.time"
-                @click="selectDeparture(chip)"
-                :data-kbd-item="`min-${chip.time}`"
-                :data-kbd-active="selectedDepartureTime ? selectedDepartureTime === chip.time : nextChipTime === chip.time"
-                :class="[
-                  'tt-min',
-                  selectedDepartureTime === chip.time ? 'tt-min-selected' :
-                  chip.isPast ? 'tt-min-past' : 'tt-min-future'
-                ]"
-              >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</span>
-            </div>
-          </div>
+          </span>
         </div>
 
-        <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef"
-             class="trip-view">
-          <div class="flex items-center gap-2 mb-3" data-kbd-section="trip-head" data-kbd-axis="x">
-            <span class="section-label-text">{{
-                t('tripAt', {time: selectedDepartureTimeDisplay})
-              }}</span>
-            <div class="flex-1"></div>
-            <button
-              @click="selectedDepartureTime = null"
-              class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold"
-              :aria-label="t('closeTripView')"
-              data-kbd-item="trip-close"
-            >×
-            </button>
+        <div data-kbd-section="stops">
+          <StopLine
+            v-for="(stop, idx) in stopsForDirection"
+            :key="`${stop.stop_id}-${idx}`"
+            :class="{ cascade: idx < 12 }"
+            :style="{ '--i': idx }"
+            :name="getStopLabel(idx, stop)"
+            :mark="stopMark(idx, stop, stopsForDirection.length)"
+            :favorite="favoritesStore.isStopFavorite(stop.stop_id)"
+            :first="idx === 0"
+            :last="idx === stopsForDirection.length - 1"
+            :times="stopTimesByStop[idx]"
+            :alerting="settings.busAlerts && isStopFollowed(stop)"
+            :reminded="settings.busAlerts && isStopReminded(stop)"
+            :data-kbd-item="`stop-${stop.stop_id}`"
+            :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
+            v-bind="settings.busAlerts ? stopPress.bind({stop, idx}) : {}"
+            @click.capture="stopPress.swallow"
+            @open="openStop(stop)"
+          />
+        </div>
+
+        <BusMenu v-if="stopMenu" :x="stopMenu.x" :y="stopMenu.y" :items="stopMenu.items" @close="stopMenu = null"/>
+
+        <template v-if="availableTabs.length">
+          <div class="tt-head">
+            <span class="text-title-small text-on-surface-variant">{{ t('timetable') }}</span>
+            <span class="divider"></span>
+            <span class="text-label-small text-outline">{{ t('timetableClickHint') }}</span>
           </div>
 
-          <div class="relative" data-kbd-section="trip">
-            <div
-              class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
-            <div
-              v-for="(stop, idx) in selectedDepartureStops"
-              :key="stop.stop_id + '-trip'"
-              :data-kbd-item="`trip-stop-${stop.stop_id}`"
-              :class="['trip-stop-row',
-                String(stop.stop_id) === fromStopId ? 'stop-row-selected' :
-                idx === nearestStopIdx ? 'stop-row-nearest' :
-                favoritesStore.isStopFavorite(stop.stop_id) ? 'stop-row-fav' : ''
-              ]"
-            >
-              <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-                <div v-if="String(stop.stop_id) === fromStopId"
-                     class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="idx === nearestStopIdx"
-                     class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                     class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
-                     class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-                <div v-else
-                     class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
-              </div>
+          <ChoiceRow v-model="selectedTimetableTab" :options="tabChoices" kbd="tab" class="mx-4" data-kbd-section="tt-tabs">
+            <template #label="{option, checked}">
+              <span class="truncate" :class="{ 'text-outline': isPastTab(option.value) && !checked }">{{ option.label }}</span>
+              <span v-if="option.value === todayTab" class="today-dot"></span>
+            </template>
+          </ChoiceRow>
 
-              <div class="flex-1 min-w-0 flex items-center gap-1.5">
-                <router-link :class="[
-                  'text-sm leading-tight truncate cursor-pointer',
-                  String(stop.stop_id) === fromStopId ? 'font-bold text-emerald-500 dark:text-emerald-400' :
-                  idx === nearestStopIdx ? 'font-semibold text-purple-500 dark:text-purple-400' :
-                  idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
-                  'font-medium text-slate-500 dark:text-slate-400'
-                ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}</router-link>
-                <svg v-if="String(stop.stop_id) === fromStopId"
-                     class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
-                     fill="currentColor">
-                  <path
-                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-                <svg v-else-if="idx === nearestStopIdx"
-                     class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24"
-                     fill="currentColor">
-                  <path
-                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-                <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                     class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24"
-                     fill="currentColor">
-                  <path
-                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
-              </div>
+          <p v-if="todayNotice" class="flex items-center gap-1.5 px-4 pt-2 text-label-small text-on-surface-variant">
+            <span class="today-dot ml-0!"></span>{{ todayNotice }}
+          </p>
 
-              <span :class="[
-                'text-sm font-bold tabular-nums shrink-0',
-                idx === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
-              ]">{{ stop.arrivalTimeStr }}</span>
+          <div v-if="allEntriesSuspended" class="suspended">{{ t('serviceSuspended') }}</div>
+
+          <div v-if="activeFrequency" class="frequency">
+            <span class="w-8 text-title-large text-primary">↻</span>
+            <span class="flex flex-col">
+              <span v-if="activeFrequency.min_minutes || activeFrequency.max_minutes" class="text-title-small">{{ frequencyLabel(activeFrequency) }}</span>
+              <span v-if="activeFrequency.start" class="text-body-small text-on-surface-variant">
+                {{ t('frequencyWindow', {start: activeFrequency.start, end: activeFrequency.end}) }}
+              </span>
+            </span>
+          </div>
+
+          <div v-if="timetableByHour.length" class="pt-2" data-kbd-section="tt-minutes" data-kbd-axis="grid">
+            <div v-for="group in timetableByHour" :key="group.hour" class="hour-row">
+              <span class="hour" :class="{ 'is-gone': group.isNextDay || group.chips.every((c) => c.isPast) }">{{ group.hour }}</span>
+              <span class="minutes">
+                <button
+                  v-for="chip in group.chips"
+                  :key="chip.time"
+                  type="button"
+                  class="minute squish"
+                  :class="{
+                    'is-selected': selectedDepartureTime === chip.time,
+                    'is-past': chip.isPast,
+                    'is-next': !selectedDepartureTime && nextChipTime === chip.time,
+                  }"
+                  :data-kbd-item="`min-${chip.time}`"
+                  :data-kbd-active="selectedDepartureTime ? selectedDepartureTime === chip.time : nextChipTime === chip.time"
+                  @click="selectDeparture(chip)"
+                >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</button>
+              </span>
             </div>
           </div>
-        </div>
-      </div>
 
-    </div>
+          <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef" class="pt-5">
+            <div class="trip-head" data-kbd-section="trip-head" data-kbd-axis="x">
+              <span class="flex-1 text-title-small text-on-surface-variant">{{ t('tripAt', {time: selectedDepartureTimeDisplay}) }}</span>
+              <button type="button" class="icon-btn" :aria-label="t('closeTripView')" :title="t('closeTripView')" data-kbd-item="trip-close" @click="selectedDepartureTime = null">
+                <CloseIcon class="m-icon"/>
+              </button>
+            </div>
+            <div data-kbd-section="trip">
+              <StopLine
+                v-for="(stop, idx) in selectedDepartureStops"
+                :key="`${stop.stop_id}-trip`"
+                :name="getStopLabel(idx, stop)"
+                :mark="stopMark(idx, stop, selectedDepartureStops.length)"
+                :favorite="favoritesStore.isStopFavorite(stop.stop_id)"
+                :first="idx === 0"
+                :last="idx === selectedDepartureStops.length - 1"
+                :trailing="stop.arrivalTimeStr"
+                :trailing-highlight="idx === 0"
+                :data-kbd-item="`trip-stop-${stop.stop_id}`"
+                @open="openStop(stop)"
+              />
+            </div>
+          </div>
+        </template>
+      </template>
+      <div class="h-8"></div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.route-view-container {
-  padding: 1.25rem 1.5rem 2rem;
-  height: 100%;
-  overflow-y: auto;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 4px 4px 12px 16px;
 }
 
-.section-label-text {
-  font-size: 0.75rem;
+.stops-head {
+  display: flex;
+  align-items: flex-end;
+  padding: 20px 16px 6px;
+}
+
+.divider {
+  flex: 1;
+  height: 1px;
+  margin: 8px;
+  align-self: center;
+  background: var(--md-outline-variant);
+}
+
+.next-head {
+  font-size: 9px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+}
+
+.head-time {
+  width: 44px;
+  font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
-  color: #64748b;
+  text-align: right;
+  color: var(--md-outline);
   white-space: nowrap;
 }
 
-.direction-toggle-wrap {
-  display: flex;
-  gap: 0;
-  margin: 1rem 0 1.5rem;
-  background: #f1f5f9;
-  border-radius: 0.875rem;
-  padding: 0.25rem;
-}
-
-.dir-btn {
-  flex: 1;
+.tt-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  padding: 0.45rem 0.75rem;
-  border-radius: 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border: none;
-  overflow: hidden;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  padding: 28px 16px 8px;
 }
 
-.dir-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.dir-btn-active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.dir-btn-inactive {
-  background: transparent;
-  color: #64748b;
-}
-
-.dir-btn-inactive:hover:not(:disabled) {
-  color: #334155;
-}
-
-.stops-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.875rem;
-}
-
-.times-cols {
-  display: flex;
-  gap: 0;
-}
-
-.time-cell {
-  font-size: 0.7rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  width: 2.75rem;
-  text-align: right;
-  letter-spacing: -0.01em;
-}
-
-.time-cell-live {
-  color: #10b981;
-}
-
-.stop-row {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.55rem 0.5rem;
-  border-radius: 0.75rem;
-  margin: 0 -0.5rem;
-  transition: background 0.15s;
-}
-
-.stop-row-selected {
-  background: #ecfdf5;
-  padding: 0.625rem 0.5rem;
-}
-
-.stop-row-nearest {
-  background: #faf5ff;
-  padding: 0.625rem 0.5rem;
-}
-
-.stop-row-fav {
-  background: #fff1f2;
-  padding: 0.625rem 0.5rem;
-}
-
-.tt-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.625rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.tt-tab-active {
-  background: #0f172a;
-  color: white;
-  border-color: #0f172a;
-}
-
-.tt-tab-inactive {
-  background: transparent;
-  color: #64748b;
-  border-color: #e2e8f0;
-}
-
-.tt-tab-inactive:hover {
-  background: #f8fafc;
-  color: #334155;
-  border-color: #cbd5e1;
-}
-
-.tt-tab-past {
-  opacity: 0.55;
-}
-
-.tt-today-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #10b981;
+.today-dot {
   flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
-.tt-tab-active .tt-today-dot {
-  background: #6ee7b7;
+.suspended {
+  margin: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--md-error-container);
+  color: var(--md-on-error-container);
 }
 
-.tt-table {
-  width: 100%;
-}
-
-.tt-row {
+.frequency {
   display: flex;
-  align-items: center;
-  border-bottom: 1px solid #f1f5f9;
+  gap: 12px;
+  padding: 8px 16px;
 }
 
-.tt-row:last-child {
-  border-bottom: none;
+.hour-row {
+  display: flex;
+  align-items: stretch;
+  padding: 0 16px;
 }
 
-.tt-hour {
-  width: 2.5rem;
-  align-self: stretch;
+.hour {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding-right: 0.625rem;
-  font-size: 0.9375rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: #94a3b8;
   flex-shrink: 0;
-  border-right: 2px solid #e2e8f0;
-  line-height: 1;
+  width: 36px;
+  padding-right: 10px;
+  border-right: 2px solid var(--md-outline-variant);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--md-primary);
 }
 
-.tt-mins {
+.hour.is-gone {
+  color: var(--md-outline-variant);
+}
+
+.minutes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.125rem;
-  padding: 0.25rem 0 0.25rem 0.375rem;
-  flex: 1;
+  gap: 6px;
+  padding: 4px 0 4px 10px;
 }
 
-.tt-min {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  min-width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-  user-select: none;
-}
-
-.tt-min-future {
-  color: #1e293b;
-}
-
-.tt-min-future:hover {
-  background: #f1f5f9;
-}
-
-.tt-min-past {
-  color: #cbd5e1;
-  cursor: default;
-}
-
-.tt-min-selected {
-  background: #1e40af;
-  color: white !important;
-}
-
-.suspended-banner {
-  display: flex;
-  align-items: center;
-  padding: 0.55rem 0.75rem;
-  margin-bottom: 0.75rem;
-  border-radius: 0.625rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.72rem;
+.minute {
+  --squish: 0.88;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.tt-freq-mins {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.1rem;
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
-}
-
-.tt-freq-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-}
-
-.trip-view {
-  margin-top: 1.25rem;
-}
-
-.trip-stop-row {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.45rem 0.5rem;
-  border-radius: 0.625rem;
-  margin: 0 -0.5rem;
-}
-
-.fav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  background: transparent;
+  letter-spacing: 0.1px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
+  transition: border-radius var(--spring-fast-ms) var(--spring-fast), scale var(--spring-press-ms) var(--spring-press), background-color 150ms linear;
 }
 
-.fav-btn:hover {
-  background: #fef2f2;
-  color: #f43f5e;
+.minute.is-past {
+  background: transparent;
+  color: var(--md-outline-variant);
+  font-weight: 400;
 }
 
-.fav-btn:active {
-  transform: scale(0.92);
+.minute.is-next {
+  box-shadow: inset 0 0 0 1.5px var(--md-primary);
 }
 
-.fav-btn.is-fav {
-  color: #f43f5e;
+.minute.is-selected {
+  border-radius: 16px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-weight: 700;
 }
 
-.fav-btn.is-fav:hover {
-  background: #fee2e2;
-}
-
-.bell-btn {
+.trip-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.bell-btn:hover {
-  background: #fefce8;
-  color: #eab308;
-}
-
-.bell-btn:active {
-  transform: scale(0.92);
-}
-
-.bell-btn.is-following {
-  color: #eab308;
-}
-
-.bell-btn.is-following:hover {
-  background: #fef9c3;
-}
-
-/* Bleeds to the container edges so the buttons scroll sideways like the phone's chip row; the
-   vertical padding keeps the keyboard focus ring inside the scroll box. */
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin: -0.25rem -1.5rem;
-  padding: 0.25rem 1.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.header-actions::-webkit-scrollbar {
-  display: none;
-}
-
-.header-actions > button {
-  flex-shrink: 0;
-  width: auto;
-  gap: 0.5rem;
-  padding: 0 0.875rem 0 0.625rem;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  white-space: nowrap;
-  color: #475569;
-  background: #f1f5f9;
-}
-
-.header-actions > button:hover {
-  background: #e2e8f0;
-  color: #1e293b;
-}
-
-.header-actions > .fav-btn.is-fav {
-  background: #ffe4e6;
-  color: #1e293b;
-}
-
-.header-actions > .fav-btn.is-fav svg {
-  color: #f43f5e;
-}
-
-.header-actions > .bell-btn.is-following {
-  background: #fef9c3;
-  color: #1e293b;
-}
-
-.header-actions > .bell-btn.is-following svg {
-  color: #eab308;
-}
-
-:root.dark .header-actions > button {
-  color: #cbd5e1;
-  background: #1e293b;
-}
-
-:root.dark .header-actions > button:hover {
-  background: #334155;
-  color: #f1f5f9;
-}
-
-:root.dark .header-actions > .fav-btn.is-fav {
-  background: rgb(244 63 94 / 0.18);
-  color: #f1f5f9;
-}
-
-:root.dark .header-actions > .fav-btn.is-fav svg {
-  color: #fb7185;
-}
-
-:root.dark .header-actions > .bell-btn.is-following {
-  background: rgb(234 179 8 / 0.16);
-  color: #f1f5f9;
-}
-
-:root.dark .header-actions > .bell-btn.is-following svg {
-  color: #facc15;
-}
-
-.tt-hour-next-day {
-  color: #7dd3fc !important;
-}
-
-.stops-hint {
-  font-size: 0.625rem;
-  font-weight: 500;
-  color: var(--color-slate-400, #94a3b8);
+  padding: 0 8px 0 16px;
 }
 </style>

@@ -376,5 +376,10 @@
   "androidShotAlt": "Captură de ecran pentru pasul {n}",
   "androidBetaAsk": "Intră în beta și testează aplicația",
   "contact": "Contact",
-  "contactDesc": "Ajutor, sugestii sau orice altceva."
+  "contactDesc": "Ajutor, sugestii sau orice altceva.",
+  "refresh": "Reîmprospătează",
+  "moreOptions": "Mai multe opțiuni",
+  "clearSearch": "Șterge căutarea",
+  "zoomIn": "Mărește",
+  "zoomOut": "Micșorează"
 }

@@ -3,7 +3,7 @@ import {onBeforeUnmount, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import HeaderNavigation from '@/components/HeaderNavigation.vue'
+import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
 import {BETA_GROUP_URL, TESTING_URL} from '@/utils/androidApp.ts'
 
@@ -59,10 +59,8 @@ const steps = [
 </script>
 
 <template>
-  <div class="settings-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
-    <div class="flex items-center -mb-3">
-      <HeaderNavigation/>
-    </div>
+  <div class="android-view">
+    <SheetTopBar :title="t('androidPageTitle')"/>
 
     <header class="aa-head">
       <h1 class="aa-title">
@@ -80,7 +78,7 @@ const steps = [
           <div class="aa-step-body">
             <h3 class="aa-step-title">{{ t(step.title) }}</h3>
             <p>{{ t(step.text) }}</p>
-            <a v-if="step.link" :href="step.link" class="aa-button" target="_blank" rel="noopener"
+            <a v-if="step.link" :href="step.link" class="btn btn-filled" target="_blank" rel="noopener"
                :data-kbd-item="`android-step-${step.id}`">
               {{ t(step.button) }}
             </a>
@@ -113,11 +111,15 @@ const steps = [
 </template>
 
 <style scoped>
-.settings-view-container {
-  padding: 1.25rem 1.5rem 2rem;
-  height: 100%;
-  overflow-y: auto;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+.android-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 32px;
+}
+
+.android-view > :not(:first-child, :last-child) {
+  padding: 0 16px;
 }
 
 .aa-head {
@@ -130,23 +132,28 @@ const steps = [
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 1.375rem;
-  font-weight: 800;
+  gap: 8px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
 }
 
 .aa-part {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  color: var(--md-on-surface-variant);
 }
 
 .section-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  color: var(--md-primary);
 }
 
 .aa-steps {
@@ -171,10 +178,10 @@ const steps = [
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 9999px;
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
-  font-weight: 800;
-  font-size: 0.875rem;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .aa-step-body {
@@ -186,8 +193,10 @@ const steps = [
 }
 
 .aa-step-title {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--md-on-surface);
 }
 
 .aa-shots {
@@ -204,8 +213,8 @@ const steps = [
   max-width: 18rem;
   padding: 0;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 16px;
   background: none;
   cursor: zoom-in;
 }
@@ -213,10 +222,6 @@ const steps = [
 .aa-shot img {
   display: block;
   width: 100%;
-}
-
-:root.dark .aa-shot {
-  border-color: #334155;
 }
 
 .aa-viewer {
@@ -267,35 +272,15 @@ const steps = [
   }
 }
 
-.aa-button {
-  padding: 0.6rem 1.1rem;
-  border-radius: 9999px;
-  font-weight: 700;
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
-}
-
-.aa-button:hover {
-  background: var(--color-emerald-600, #059669);
-}
-
 .beta-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.375rem;
-  border: 1px solid #fde68a;
-  border-radius: 9999px;
-  background: #fffbeb;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--md-amber) 18%, transparent);
   color: #b45309;
-  font-size: 0.625rem;
-  font-weight: 700;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-:root.dark .beta-badge {
-  border-color: rgb(245 158 11 / 0.35);
-  background: rgb(245 158 11 / 0.15);
-  color: #fcd34d;
 }
 </style>
