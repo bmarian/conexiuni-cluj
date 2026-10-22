@@ -11,7 +11,6 @@ import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AndroidAppBanner from "@/components/AndroidAppBanner.vue"
 import HostMoveBanner from "@/components/HostMoveBanner.vue"
 import AppToast from "@/components/AppToast.vue"
-import ArcadeTransition from "@/components/ArcadeTransition.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
 import BackgroundTracking from "@/components/BackgroundTracking.vue"
 import ReminderSheet from "@/components/ReminderSheet.vue"
@@ -437,7 +436,6 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       </div>
     </aside>
   </main>
-  <ArcadeTransition/>
   <KeyboardHelp v-if="!isAdminRoute"/>
   <BackgroundTracking v-if="!isAdminRoute"/>
   <ReminderSheet v-if="reminders.editing" :key="`${reminders.editing.stopId}:${reminders.editing.tripId}`" :target="reminders.editing" @close="reminders.closeSheet()"/>

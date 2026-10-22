@@ -360,32 +360,6 @@ useKbdShortcuts({
     class="home-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-7">
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
-    <header v-if="settings.paperActive && !isSearchMode" class="pp-masthead pp-cover">
-      <svg class="pp-engraving" viewBox="0 0 240 92" aria-hidden="true">
-        <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
-          <path d="M18 72V34Q18 16 38 14H214Q226 14 226 26V72Z" fill="var(--pp-paper)"/>
-          <path d="M22 44V35Q22 22 36 20H48V44Z"/>
-          <path d="M54 20H72V66H54Z"/>
-          <path d="M63 20V66"/>
-          <path d="M78 22H102V44H78ZM106 22H130V44H106ZM134 22H158V44H134ZM162 22H186V44H162ZM190 22H214V44H190Z"/>
-          <path d="M18 50H226M18 60H226"/>
-          <path d="M34 72A16 16 0 0 1 66 72M164 72A16 16 0 0 1 196 72"/>
-          <circle cx="50" cy="74" r="11" fill="var(--pp-paper)"/>
-          <circle cx="180" cy="74" r="11" fill="var(--pp-paper)"/>
-          <circle cx="50" cy="74" r="4"/>
-          <circle cx="180" cy="74" r="4"/>
-          <path d="M40 8H96V14H40Z"/>
-        </g>
-        <path d="M19 51H225V59H19Z" fill="var(--pp-red)" style="mix-blend-mode: var(--pp-blend)"/>
-        <g stroke="currentColor" stroke-width="0.8" opacity="0.6">
-          <path d="M82 25L98 41M110 25L126 41M138 25L154 41M166 25L182 41M194 25L210 41"/>
-          <path d="M8 88H232M24 85H70M150 85H210"/>
-        </g>
-      </svg>
-      <p class="pp-kicker">{{ t('paperEdition', {year: new Date().getFullYear()}) }}</p>
-      <h1 class="pp-title">Ce autobuz iau?</h1>
-    </header>
-
     <UniversalSearch
       :routes="sortedRoutes"
       :stops="stops"
@@ -438,8 +412,7 @@ useKbdShortcuts({
 
       <section v-if="isHydrated && (hasFavorites || recentNonFavoritePlans.length)" class="flex flex-col gap-5">
         <h2 v-if="hasFavorites" class="section-label">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">❤️</span>
-          <svg v-else class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
+          <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="currentColor"
                viewBox="0 0 24 24">
             <path
               d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -591,9 +564,7 @@ useKbdShortcuts({
                 </svg>
                 <div
                   class="w-7 h-7 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-                  <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                        aria-hidden="true">🗺️</span>
-                  <svg v-else class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
+                  <svg class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400"
                        viewBox="0 0 24 24" fill="currentColor">
                     <path
                       d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
@@ -651,9 +622,7 @@ useKbdShortcuts({
             >
               <div
                 class="w-7 h-7 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center">
-                <span v-if="settings.legacyBlueActive" class="emoji-icon-md"
-                      aria-hidden="true">🕒</span>
-                <svg v-else class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
+                <svg class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
                      viewBox="0 0 24 24" fill="currentColor">
                   <path
                     d="M12 2a10 10 0 100 20 10 10 0 000-20zm.75 5h-1.5v6.31l5.27 3.16.75-1.23-4.52-2.71V7z"/>
@@ -708,8 +677,7 @@ useKbdShortcuts({
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🗺️</span>
-              <svg v-else class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none"
+              <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none"
                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
                       d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
@@ -788,8 +756,7 @@ useKbdShortcuts({
           >
             <div
               class="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🚏</span>
-              <svg v-else class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
+              <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24"
                    fill="currentColor">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
@@ -907,14 +874,6 @@ useKbdShortcuts({
 
 :root.dark .no-favorites-hint {
   color: #94a3b8;
-}
-
-html[data-legacy-blue] .no-favorites-hint {
-  color: #3b4d63;
-}
-
-html.dark[data-legacy-blue] .no-favorites-hint {
-  color: #4f5f73;
 }
 
 .favorite-routes-grid {

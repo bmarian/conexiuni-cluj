@@ -53,17 +53,9 @@ export default defineConfig({
       workbox: {
         importScripts: ["push-sw.js"],
         globPatterns: ["**/*.{js,mjs,css,html,svg,png,ico,woff2}"],
-        globIgnores: ["**/node_modules/**/*", "sw.js", "workbox-*.js", "**/archivo-*.woff2", "**/libre-caslon-text-*.woff2"],
+        globIgnores: ["**/node_modules/**/*", "sw.js", "workbox-*.js"],
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
-          {
-            urlPattern: /\/assets\/(archivo|libre-caslon-text)-.*\.woff2$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "paper-fonts",
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
           {
             // Names the current tile set, so it has to be fresh.
             urlPattern: /^https:\/\/tiles\.openfreemap\.org\/planet$/,

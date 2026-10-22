@@ -77,7 +77,7 @@ export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Pro
 
 export const citiesReady: Promise<City[]> = cities.value.length ? Promise.resolve(cities.value) : citiesLoaded
 
-export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav', 'bsod']
+export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav']
 
 function cityFromPath(): string | null {
   const first = window.location.pathname.split('/')[1] ?? ''

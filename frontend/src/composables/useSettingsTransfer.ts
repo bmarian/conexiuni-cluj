@@ -60,11 +60,6 @@ export function useSettingsTransfer() {
       settings: {
         theme: settings.theme,
         locale: settings.locale,
-        arcadeUnlocked: settings.arcadeUnlocked,
-        arcadeActive: settings.arcadeActive,
-        legacyBlueUnlocked: settings.legacyBlueUnlocked,
-        legacyBlueActive: settings.legacyBlueActive,
-        paperActive: settings.paperActive,
         autoCenterOnMe: settings.autoCenterOnMe,
         autoFitMap: settings.autoFitMap,
         regions: regionsExport(),
@@ -105,14 +100,6 @@ export function useSettingsTransfer() {
     const s = (isRecord(data.settings) ? data.settings : {}) as Partial<ReturnType<typeof buildExport>['settings']>
     if (s.theme === 'light' || s.theme === 'dark' || s.theme === 'system') settings.setTheme(s.theme)
     applyLocale(s.locale)
-    if (s.arcadeUnlocked) settings.unlockArcade()
-    if (s.arcadeActive) settings.activateArcade()
-    else settings.deactivateArcade()
-    if (s.legacyBlueUnlocked) settings.unlockLegacyBlue()
-    if (s.legacyBlueActive) settings.activateLegacyBlue()
-    else settings.deactivateLegacyBlue()
-    if (s.paperActive) settings.activatePaper()
-    else settings.deactivatePaper()
     if (typeof s.autoCenterOnMe === 'boolean') settings.setAutoCenterOnMe(s.autoCenterOnMe)
     if (typeof s.autoFitMap === 'boolean') settings.setAutoFitMap(s.autoFitMap)
     // Exports from before cities hold Cluj's settings at the top level.

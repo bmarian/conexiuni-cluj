@@ -29,22 +29,8 @@ useKbdShortcuts({
   },
 }, {global: true})
 
-let arcadeClickCount = 0
-
 function toggle() {
   isOpen.value = !isOpen.value
-
-  if (!settings.arcadeUnlocked) {
-    arcadeClickCount++
-    if (arcadeClickCount === 5) {
-      settings.showToast(t('arcadeInsertCoinToast'), {icon: 'joystick'})
-    } else if (arcadeClickCount === 10) {
-      settings.showToast(t('arcadeGameStartToast'), {icon: 'ghost'})
-      settings.unlockArcade()
-      settings.activateArcade()
-      isOpen.value = false
-    }
-  }
 }
 
 function goToSettings() {
@@ -64,25 +50,6 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerD
 function setTheme(theme: Theme) {
   settings.setTheme(theme)
 }
-
-const activeSpecialTheme = computed(() => {
-  if (settings.arcadeActive) return 'arcade'
-  if (settings.legacyBlueActive) return 'legacy-blue'
-  if (settings.paperActive) return 'paper'
-  return 'default'
-})
-
-function onSpecialThemeChange(e: Event) {
-  const val = (e.target as HTMLSelectElement).value
-  if (val === 'arcade') settings.activateArcade()
-  else if (val === 'legacy-blue') settings.activateLegacyBlue()
-  else if (val === 'paper') settings.activatePaper()
-  else {
-    settings.deactivateArcade();
-    settings.deactivateLegacyBlue()
-    settings.deactivatePaper()
-  }
-}
 </script>
 
 <template>
@@ -96,9 +63,7 @@ function onSpecialThemeChange(e: Event) {
       :aria-expanded="isOpen"
       @click="toggle"
     >
-      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">⚙️</span>
-      <span v-else-if="settings.paperActive" class="pp-slip-label">{{ t('paperSettingsShort') }}</span>
-      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">
         <path
@@ -114,8 +79,7 @@ function onSpecialThemeChange(e: Event) {
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'light' }"
                 data-kbd-item="theme-light" :data-kbd-active="settings.theme === 'light'"
                 @click="setTheme('light')">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">☀️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
             <circle cx="12" cy="12" r="4"/>
@@ -127,8 +91,7 @@ function onSpecialThemeChange(e: Event) {
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'dark' }"
                 data-kbd-item="theme-dark" :data-kbd-active="settings.theme === 'dark'"
                 @click="setTheme('dark')">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🌙</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
             <path d="M12 3a6 6 0 009 9 9 9 0 11-9-9z"/>
@@ -138,8 +101,7 @@ function onSpecialThemeChange(e: Event) {
         <button type="button" class="option-btn" :class="{ active: settings.theme === 'system' }"
                 data-kbd-item="theme-system" :data-kbd-active="settings.theme === 'system'"
                 @click="setTheme('system')">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🖥️</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                width="13" height="13" aria-hidden="true">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -149,38 +111,9 @@ function onSpecialThemeChange(e: Event) {
         </button>
       </div>
 
-      <div class="select-wrap" data-kbd-section="special-theme">
-        <select
-          class="theme-select"
-          data-kbd-item="special-theme"
-          :value="activeSpecialTheme"
-          :class="{
-              'is-arcade': settings.arcadeActive,
-              'is-legacy-blue': settings.legacyBlueActive,
-              'is-paper': settings.paperActive,
-            }"
-          @change="onSpecialThemeChange"
-          :aria-label="t('theme')"
-        >
-          <option value="default">{{ t('themeDefault') }}</option>
-          <option value="paper">{{ t('paperTheme') }}</option>
-          <option v-if="settings.arcadeUnlocked" value="arcade">{{ t('arcadeTheme') }}</option>
-          <option v-if="settings.legacyBlueUnlocked" value="legacy-blue">{{
-              t('legacyBlueTheme')
-            }}
-          </option>
-        </select>
-        <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </div>
-
-
       <button type="button" class="option-btn all-settings-btn" data-kbd-section="all-settings"
               data-kbd-item="all-settings" @click="goToSettings">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">🎛️</span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
           <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3"/>
@@ -334,96 +267,5 @@ function onSpecialThemeChange(e: Event) {
 
 .all-settings-btn {
   margin-top: 0.4rem;
-}
-
-.select-wrap {
-  position: relative;
-  width: 100%;
-}
-
-.theme-select {
-  width: 100%;
-  padding: 0.4rem 2rem 0.4rem 0.625rem;
-  margin: 0.4rem 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: transparent;
-  color: #334155;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  outline: none;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.theme-select:hover {
-  border-color: #94a3b8;
-  background: #f8fafc;
-}
-
-.theme-select:focus {
-  border-color: #94a3b8;
-}
-
-.theme-select.is-arcade {
-  border-color: #fcd34d;
-  background: #fef9c3;
-  color: #92400e;
-}
-
-.theme-select.is-legacy-blue {
-  border-color: #245EDC;
-  background: #EEF3FF;
-  color: #1A3A8C;
-}
-
-.settings-root.is-dark .theme-select {
-  border-color: #334155;
-  color: #cbd5e1;
-  background: transparent;
-}
-
-.settings-root.is-dark .theme-select:hover {
-  border-color: #475569;
-  background: #1e293b;
-}
-
-.settings-root.is-dark .theme-select option {
-  background: #1e293b;
-  color: #cbd5e1;
-}
-
-.settings-root.is-dark .theme-select.is-arcade {
-  border-color: #d97706;
-  background: #422006;
-  color: #fde68a;
-}
-
-.settings-root.is-dark .theme-select.is-arcade option {
-  background: #422006;
-  color: #fde68a;
-}
-
-.settings-root.is-dark .theme-select.is-legacy-blue {
-  border-color: #2A508C;
-  background: #10193A;
-  color: #90B4E0;
-}
-
-.select-chevron {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0.875rem;
-  height: 0.875rem;
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.settings-root.is-dark .select-chevron {
-  color: #475569;
 }
 </style>

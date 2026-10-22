@@ -5,8 +5,6 @@ export type Mode = 'metro' | 'rail' | 'tram' | 'trolleybus' | 'bus'
 // Biggest first.
 export const MODES: Mode[] = ['metro', 'rail', 'tram', 'trolleybus', 'bus']
 
-export const MODE_EMOJI: Record<Mode, string> = {metro: '🚇', rail: '🚆', tram: '🚋', trolleybus: '🚎', bus: '🚌'}
-
 export function modeOf(routeType: RouteType | number | undefined): Mode {
   switch (routeType) {
     case 1:

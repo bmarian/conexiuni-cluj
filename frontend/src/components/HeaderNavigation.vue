@@ -4,12 +4,10 @@ import { useI18n } from 'vue-i18n'
 import IconBack from '@/components/icons/IconBack.vue'
 import IconHome from '@/components/icons/IconHome.vue'
 import {computed} from "vue";
-import {useSettingsStore} from '@/stores/settings'
 import {cityPath} from '@/utils/city.ts'
 
 const router = useRouter()
 const { t } = useI18n()
-const settings = useSettingsStore()
 
 const hasBack = computed(() => !!history.state?.back)
 
@@ -32,8 +30,7 @@ const goHome = () => {
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       :title="t('back')"
     >
-      <span v-if="settings.paperActive" aria-hidden="true">←</span>
-      <IconBack v-else class="w-4 h-4"/>
+      <IconBack class="w-4 h-4"/>
       <span>{{ t('back') }}</span>
     </button>
 
@@ -43,7 +40,7 @@ const goHome = () => {
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
       :title="t('home')"
     >
-      <IconHome v-if="!settings.paperActive" class="w-4 h-4"/>
+      <IconHome class="w-4 h-4"/>
       <span>{{ t('home') }}</span>
     </button>
   </div>

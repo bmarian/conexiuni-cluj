@@ -2,7 +2,6 @@
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import type {RouteChange} from '@/stores/routeUpdates'
-import {useSettingsStore} from '@/stores/settings'
 import IconBellFilled from '@/components/icons/IconBellFilled.vue'
 import {
   changeRows,
@@ -21,7 +20,6 @@ const props = defineProps<{ change: RouteChange }>()
 const emit = defineEmits<{ dismiss: [] }>()
 
 const {t, locale} = useI18n()
-const settings = useSettingsStore()
 
 const showMore = ref(false)
 const openRows = ref(new Set<string>())
@@ -71,8 +69,7 @@ function openRow(key: string) {
     :aria-label="title"
   >
     <span class="rc-icon" aria-hidden="true">
-      <span v-if="settings.legacyBlueActive" class="rc-emoji">🔔</span>
-      <IconBellFilled v-else/>
+      <IconBellFilled/>
     </span>
 
     <div class="rc-body">
@@ -156,11 +153,6 @@ function openRow(key: string) {
   height: 1.125rem;
   margin-top: 0.1rem;
   color: var(--line);
-}
-
-.rc-emoji {
-  font-size: 0.95rem;
-  line-height: 1;
 }
 
 .rc-body {

@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMapStore } from '@/stores/map.ts'
 import { useRouteStore } from '@/stores/route.ts'
-import { useSettingsStore } from '@/stores/settings.ts'
 import { useUserStore } from '@/stores/user.ts'
 import { useFavoritesStore } from '@/stores/favorites.ts'
 import { useRouteShapeInfoApi } from '@/composables/useRouteShapeInfoApi.ts'
@@ -15,9 +14,8 @@ import { searchPlaces, type Place } from '@/utils/places.ts'
 import { stopMatchRank } from '@/utils/stopSearch.ts'
 import { network } from '@/utils/network.ts'
 import StationLabel from '@/components/StationLabel.vue'
-import MetroLegacyBlue from '@/components/MetroLegacyBlue.vue'
 import {useKbdEscape, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {cityCenter, currentCity} from '@/utils/city.ts'
+import {cityCenter} from '@/utils/city.ts'
 
 interface EnrichedGeoResult extends Place {
   parsedLat: number
@@ -45,7 +43,6 @@ const { t } = useI18n()
 const router = useRouter()
 const mapStore = useMapStore()
 const routeStore = useRouteStore()
-const settings = useSettingsStore()
 const userStore = useUserStore()
 const favoritesStore = useFavoritesStore()
 const { fetchShapeInfo } = useRouteShapeInfoApi()
@@ -78,12 +75,6 @@ const searchRouteResults = computed<Route[]>(() => {
       norm(r.route_long_name).includes(q)
     )
     .slice(0, 3)
-})
-
-const metroLegacyVisible = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (currentCity.value !== 'cluj' || q.length < 2) return false
-  return 'metrou'.startsWith(q) || q === 'm1'
 })
 
 const searchStopResults = computed<Stop[]>(() => {
@@ -251,8 +242,7 @@ function navigateToStop(stop: Stop) {
     <div v-if="navigatingRouteId" class="nav-loading-bar" aria-hidden="true"></div>
 
     <div class="search-wrap" data-kbd-section="search" data-kbd-item="search" data-kbd-inner>
-      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">🔍</span>
-      <svg v-else class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24"
+      <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24"
         stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
       </svg>
@@ -268,8 +258,7 @@ function navigateToStop(stop: Stop) {
 
     <div v-if="isSearchMode" class="search-results" data-kbd-section="search-results">
 
-      <p v-if="geoLoading && settings.paperActive" class="pp-empty" role="status">{{ t('paperSearchingPlaces') }}</p>
-      <div v-else-if="geoLoading" class="geo-loading" aria-label="Loading places">
+      <div v-if="geoLoading" class="geo-loading" aria-label="Loading places">
         <span class="geo-loading-dot"></span>
         <span class="geo-loading-dot"></span>
         <span class="geo-loading-dot"></span>
@@ -281,8 +270,7 @@ function navigateToStop(stop: Stop) {
           <div v-for="result in enrichedGeoResults" :key="result.id" class="geo-result-row group" role="button"
             tabindex="0" :data-kbd-item="`place-${result.id}`" @click="navigateToPlan(result)" @keydown.enter.space.prevent="navigateToPlan(result)">
             <div class="w-8 h-8 shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center">
-              <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
-              <svg v-else class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24" fill="currentColor">
+              <svg class="w-4 h-4 text-sky-500 dark:text-sky-400" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
@@ -352,9 +340,7 @@ function navigateToStop(stop: Stop) {
         </div>
       </div>
 
-      <MetroLegacyBlue v-if="metroLegacyVisible" />
-
-      <template v-if="!metroLegacyVisible && !geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length">
+      <template v-if="!geoLoading && !enrichedGeoResults.length && !searchRouteResults.length && !stopResultsWithDist.length">
         <div v-if="isOnline" class="result-group">
           <div class="geo-result-row group" role="button" tabindex="0" data-kbd-item="drop-pin"
             @click="dropPin" @keydown.enter.space.prevent="dropPin">
