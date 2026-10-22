@@ -1,9 +1,5 @@
 // Imported by the generated service worker (workbox.importScripts in vite.config.ts).
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(Promise.all(['map-tiles', 'map-tiles-v2', 'leaflet-assets'].map((name) => caches.delete(name))))
-})
-
 self.addEventListener('push', (event) => {
   let message
   try {
