@@ -179,6 +179,15 @@ html[data-arcade] .dir-btn-inactive {
   color: #b45309 !important;
 }
 
+html[data-arcade] .header-actions > button:not(.is-fav, .is-following) {
+  background: #fde68a !important;
+  color: #78350f !important;
+}
+
+html[data-arcade] .header-actions > button:not(.is-fav, .is-following):hover {
+  background: #fcd34d !important;
+}
+
 html[data-arcade] .settings-btn {
   background: #facc15 !important;
   color: #78350f !important;
@@ -418,6 +427,15 @@ html.dark[data-arcade] .dir-btn-active {
 
 html.dark[data-arcade] .dir-btn-inactive {
   color: #d97706 !important;
+}
+
+html.dark[data-arcade] .header-actions > button:not(.is-fav, .is-following) {
+  background: #451a03 !important;
+  color: #fde68a !important;
+}
+
+html.dark[data-arcade] .header-actions > button:not(.is-fav, .is-following):hover {
+  background: #78350f !important;
 }
 
 html.dark[data-arcade] .settings-btn {

@@ -192,7 +192,7 @@ func TestPruneKeepsLastYearsDays(t *testing.T) {
 		eng.insertSample(t, eng.clujAt(date, 8), calendar.Weekday)
 	}
 
-	if _, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, eng.clujAt("2027-09-08", 12)); err != nil {
+	if _, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", SampleRetention, eng.clujAt("2027-09-08", 12)); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
 	got := eng.sampleDays(t)

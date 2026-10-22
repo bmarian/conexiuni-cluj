@@ -129,6 +129,22 @@ func (s *Store) initSchemas() error {
             fetched_at INTEGER NOT NULL
         );
 
+		-- Where the buses of traced lines stood, one row per place they moved to.
+		CREATE TABLE IF NOT EXISTS line_traces
+        (
+            line     TEXT    NOT NULL,
+            vehicle  TEXT    NOT NULL,
+            lat      REAL    NOT NULL,
+            lon      REAL    NOT NULL,
+            first_at INTEGER NOT NULL,
+            last_at  INTEGER NOT NULL
+        );
+
+		CREATE TABLE IF NOT EXISTS traced_lines
+        (
+            line TEXT PRIMARY KEY
+        );
+
 		DROP TABLE IF EXISTS cache_times;
 		DROP TABLE IF EXISTS stop_info;
 		DROP TABLE IF EXISTS api_stop_times;
@@ -298,6 +314,7 @@ func (s *Store) initSchemas() error {
 
 	indexes := `
 		-- Vehicles indexes
+		CREATE INDEX IF NOT EXISTS idx_line_traces ON line_traces(line, vehicle, first_at);
 		CREATE INDEX IF NOT EXISTS idx_vehicles_route_id ON vehicles(route_id);
 		CREATE INDEX IF NOT EXISTS idx_vehicles_trip_id ON vehicles(trip_id);
 		CREATE INDEX IF NOT EXISTS idx_vehicles_timestamp ON vehicles(timestamp);

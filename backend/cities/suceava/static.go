@@ -3,7 +3,9 @@ package suceava
 import (
 	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/geo"
+	"conexiuni-cluj/live"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/planner"
 	"conexiuni-cluj/router"
@@ -23,6 +25,8 @@ type static struct {
 	zip   feeds.Static
 	pages string
 	ids   feeds.IDMap
+	// Shared with the live map reader, which records the buses of the lines it names.
+	rec *traces.Recorder
 }
 
 func (s *static) Cadence() time.Duration { return s.zip.Cadence() }
@@ -46,14 +50,30 @@ func (s *static) Snapshot() (*feeds.Snapshot, error) {
 			missing = append(missing, l)
 		}
 	}
+	recorded, err := s.recorded(missing, time.Now())
+	if err != nil {
+		return nil, err
+	}
 	if len(missing) == 0 {
 		return snap, nil
 	}
 	roads, places := loadOSM(snap.Stops)
-	if err := addLines(snap, missing, newPlacer(snap, roads, places), s.ids); err != nil {
+	if err := addLines(snap, missing, newPlacer(snap, roads, places), recorded, s.ids); err != nil {
 		return nil, err
 	}
 	return snap, nil
+}
+
+// The live map's buses on the lines the pages add, since each page last changed (an older route is another route) and within what is kept to learn from.
+func (s *static) recorded(lines []pageLine, now time.Time) (map[string]*traces.Line, error) {
+	since := make(map[string]time.Time, len(lines))
+	for _, l := range lines {
+		since[l.short] = now.Add(-live.SampleRetention)
+		if l.modified.After(since[l.short]) {
+			since[l.short] = l.modified
+		}
+	}
+	return s.rec.Trace(since)
 }
 
 // The roads and places around the zip's stops, as far again as half their spread; nil without the extract.
@@ -83,8 +103,8 @@ func loadOSM(stops []models.Stop) (*router.WalkGraph, *router.Places) {
 
 var title = cases.Title(language.Romanian)
 
-func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, ids feeds.IDMap) error {
-	placed, counts := p.place(lines)
+func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, recorded map[string]*traces.Line, ids feeds.IDMap) error {
+	placed, counts := p.place(lines, recorded)
 	color := commonColor(snap.Routes)
 	stopIDs := map[string]int{}
 	pointsOf := map[string][]router.Point{}
@@ -117,8 +137,7 @@ func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, ids feeds.IDMap
 	}
 	added := 0
 	for i, line := range lines {
-		dirs := placed[i]
-		if len(dirs) == 0 {
+		if placed[i] == nil {
 			log.Printf("suceava: line %s from tpl-sv.ro left out: nothing places its first or last station", line.short)
 			continue
 		}
@@ -127,6 +146,7 @@ func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, ids feeds.IDMap
 		if err != nil {
 			return err
 		}
+		dirs := placed[i].dirs
 		var first [2]string
 		for d, dir := range dirs {
 			patternID := models.PatternID(routeID, d)
@@ -141,7 +161,7 @@ func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, ids feeds.IDMap
 			}
 			first[d] = names[0]
 			snap.Trips = append(snap.Trips, models.Trip{TripID: patternID, RouteID: routeID, DirectionID: models.DirectionType(d), TripHeadsign: names[len(names)-1], ShapeID: patternID})
-			for k, pt := range p.shape(dir) {
+			for k, pt := range placed[i].shapes[d] {
 				snap.Shapes = append(snap.Shapes, models.Shape{ShapeID: patternID, ShapePtLat: pt.Lat, ShapePtLon: pt.Lon, ShapePtSequence: k})
 			}
 		}
@@ -164,8 +184,12 @@ func addLines(snap *feeds.Snapshot, lines []pageLine, p *placer, ids feeds.IDMap
 		snap.Timetables[line.short] = t
 		added++
 	}
-	log.Printf("suceava: %d lines from tpl-sv.ro added; stations: %d on the zip's stops, %d at places of their name, %d spaced along the road, %d left out as nothing places them",
-		added, counts[fromZip], counts[fromName], counts[spaced], counts[unplaced])
+	buses := 0
+	for _, l := range recorded {
+		buses += l.Buses()
+	}
+	log.Printf("suceava: %d lines from tpl-sv.ro added, %d recorded buses; stations: %d on the zip's stops, %d at places of their name, %d where recorded buses stand, %d spaced along the road, %d left out as nothing places them",
+		added, buses, counts[fromZip], counts[fromName], counts[fromTraces], counts[spaced], counts[unplaced])
 	return nil
 }
 

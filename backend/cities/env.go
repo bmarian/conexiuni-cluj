@@ -7,7 +7,9 @@ import (
 	"conexiuni-cluj/feeds/gtfs"
 	"conexiuni-cluj/feeds/gtfsrt"
 	"conexiuni-cluj/feeds/news"
+	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/feeds/tranzy"
+	"conexiuni-cluj/live"
 	"fmt"
 	"os"
 	"strconv"
@@ -23,6 +25,7 @@ type Env struct {
 	store  *database.Store
 	err    error
 	place  placement
+	traces *traces.Recorder
 }
 
 func NewEnv(slug string, cfg *config.Config, open func() (*database.Store, error)) *Env {
@@ -43,6 +46,16 @@ func (e *Env) IDs() feeds.IDMap {
 		return store
 	}
 	return nil
+}
+
+// Traces records the buses of the lines the city's feeds lack routes for; nil when the database would not open, which Store reports.
+func (e *Env) Traces() *traces.Recorder {
+	if e.traces == nil {
+		if store, err := e.Store(); err == nil {
+			e.traces = traces.NewRecorder(store, live.StationaryRadiusMeters)
+		}
+	}
+	return e.traces
 }
 
 // Placement answers once the city runs; until then no stop is on any pattern.

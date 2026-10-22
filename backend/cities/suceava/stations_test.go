@@ -23,8 +23,8 @@ func testSnapshot() *feeds.Snapshot {
 
 func TestStationsTakeTheNearestStopOfTheirName(t *testing.T) {
 	p := newPlacer(testSnapshot(), nil, nil)
-	placed, counts := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "SPITAL", "FARA NUME", "METRO"}}}})
-	dir := placed[0][0]
+	placed, counts := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "SPITAL", "FARA NUME", "METRO"}}}}, nil)
+	dir := placed[0].dirs[0]
 	if len(dir) != 4 || dir[1].stop.StopID != 2 || dir[3].stop.StopID != 3 {
 		t.Fatalf("placed %+v", dir)
 	}
@@ -39,7 +39,7 @@ func TestStationsTakeTheNearestStopOfTheirName(t *testing.T) {
 
 func TestALineWithoutItsEndIsLeftOut(t *testing.T) {
 	p := newPlacer(testSnapshot(), nil, nil)
-	placed, counts := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "SPITAL", "CAPAT"}}}})
+	placed, counts := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "SPITAL", "CAPAT"}}}}, nil)
 	if placed[0] != nil || counts[unplaced] != 1 {
 		t.Fatalf("placed %+v, counts %v", placed[0], counts)
 	}
@@ -47,8 +47,8 @@ func TestALineWithoutItsEndIsLeftOut(t *testing.T) {
 
 func TestAStopFarFromItsNeighboursIsAnotherOfThatName(t *testing.T) {
 	p := newPlacer(testSnapshot(), nil, nil)
-	placed, _ := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "DEPARTE", "METRO"}}}})
-	if dir := placed[0][0]; len(dir) != 3 || dir[1].stop != nil || dir[1].from != spaced {
+	placed, _ := p.place([]pageLine{{short: "M1", directions: [][]string{{"OBCINI", "DEPARTE", "METRO"}}}}, nil)
+	if dir := placed[0].dirs[0]; len(dir) != 3 || dir[1].stop != nil || dir[1].from != spaced {
 		t.Fatalf("placed %+v", dir)
 	}
 }

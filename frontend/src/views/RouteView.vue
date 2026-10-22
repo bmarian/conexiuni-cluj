@@ -607,61 +607,60 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <header v-else class="flex items-start gap-4 pb-5" data-kbd-section="actions" data-kbd-axis="x">
-      <div
-        class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
-        :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
-      >
-        <span class="text-2xl font-black text-white leading-none">{{
-            shapeInfo.route_short_name
-          }}</span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-start gap-4">
-          <div class="flex-1 min-w-0">
-            <div
-              class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
-              {{ t('route') }}
-            </div>
-            <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
-              {{ timetable?.route_long_name || shapeInfo.route_short_name }}
-            </h1>
-          </div>
-          <ShareButton class="mt-1"/>
-          <button
-            type="button"
-            class="bell-btn mt-1 shrink-0"
-            :class="{ 'is-following': isFollowing }"
-            :title="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
-            :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
-            :aria-pressed="isFollowing"
-            data-kbd-item="bell"
-            @click="toggleFollow"
-          >
-            <IconBellFilled v-if="isFollowing" class="w-5 h-5"/>
-            <IconBellOutline v-else class="w-5 h-5"/>
-          </button>
-          <button
-            type="button"
-            class="fav-btn mt-1 shrink-0"
-            :class="{ 'is-fav': isFavorite }"
-            :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-            :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-            :aria-pressed="isFavorite"
-            data-kbd-item="fav"
-            @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
-          >
-            <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
-            <IconHeartOutline v-else class="w-5 h-5"/>
-          </button>
+    <template v-else>
+      <header class="flex items-start gap-4 pb-3">
+        <div
+          class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
+          :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
+        >
+          <span class="text-2xl font-black text-white leading-none">{{
+              shapeInfo.route_short_name
+            }}</span>
         </div>
-        <p v-if="fromStopName"
-           class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
-          <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
-          <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
-        </p>
+        <div class="flex-1 min-w-0">
+          <div
+            class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
+            {{ t('route') }}
+          </div>
+          <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
+            {{ timetable?.route_long_name || shapeInfo.route_short_name }}
+          </h1>
+          <p v-if="fromStopName"
+             class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
+            <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
+            <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
+          </p>
+        </div>
+      </header>
+
+      <div class="header-actions" data-kbd-section="actions" data-kbd-axis="x">
+        <button
+          type="button"
+          class="fav-btn"
+          :class="{ 'is-fav': isFavorite }"
+          :aria-pressed="isFavorite"
+          data-kbd-item="fav"
+          @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
+        >
+          <IconHeartFilled v-if="isFavorite" class="w-[18px] h-[18px]"/>
+          <IconHeartOutline v-else class="w-[18px] h-[18px]"/>
+          {{ t(isFavorite ? 'saved' : 'save') }}
+        </button>
+        <ShareButton labelled/>
+        <button
+          type="button"
+          class="bell-btn"
+          :class="{ 'is-following': isFollowing }"
+          :aria-pressed="isFollowing"
+          data-kbd-item="bell"
+          @click="toggleFollow"
+        >
+          <IconBellFilled v-if="isFollowing" class="w-[18px] h-[18px]"/>
+          <IconBellOutline v-else class="w-[18px] h-[18px]"/>
+          {{ t(isFollowing ? 'followingChanges' : 'followChanges') }}
+        </button>
       </div>
-    </header>
+    </template>
 
     <RoutePong
       v-if="pongActive"
@@ -1396,6 +1395,85 @@ onUnmounted(() => {
 
 .bell-btn.is-following:hover {
   background: #fef9c3;
+}
+
+/* Bleeds to the container edges so the buttons scroll sideways like the phone's chip row; the
+   vertical padding keeps the keyboard focus ring inside the scroll box. */
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: -0.25rem -1.5rem;
+  padding: 0.25rem 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.header-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.header-actions > button {
+  flex-shrink: 0;
+  width: auto;
+  gap: 0.5rem;
+  padding: 0 0.875rem 0 0.625rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.header-actions > button:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.header-actions > .fav-btn.is-fav {
+  background: #ffe4e6;
+  color: #1e293b;
+}
+
+.header-actions > .fav-btn.is-fav svg {
+  color: #f43f5e;
+}
+
+.header-actions > .bell-btn.is-following {
+  background: #fef9c3;
+  color: #1e293b;
+}
+
+.header-actions > .bell-btn.is-following svg {
+  color: #eab308;
+}
+
+:root.dark .header-actions > button {
+  color: #cbd5e1;
+  background: #1e293b;
+}
+
+:root.dark .header-actions > button:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+:root.dark .header-actions > .fav-btn.is-fav {
+  background: rgb(244 63 94 / 0.18);
+  color: #f1f5f9;
+}
+
+:root.dark .header-actions > .fav-btn.is-fav svg {
+  color: #fb7185;
+}
+
+:root.dark .header-actions > .bell-btn.is-following {
+  background: rgb(234 179 8 / 0.16);
+  color: #f1f5f9;
+}
+
+:root.dark .header-actions > .bell-btn.is-following svg {
+  color: #facc15;
 }
 
 .tt-hour-next-day {
