@@ -127,7 +127,7 @@ func TestNearbyNamesAnAddressThenAStreet(t *testing.T) {
 	}
 }
 
-func TestAreasAreTheTownsAndTheirDistricts(t *testing.T) {
+func TestAreasAreTheTownsAndDistricts(t *testing.T) {
 	raw := []pbfPlace{
 		{placeTags: placeTags{kind: placeTown, name: "Cluj-Napoca", big: true, place: "city"}, lat: 46.77, lon: 23.59, placed: true},
 		{placeTags: placeTags{kind: placeTown, name: "Florești", place: "village"}, lat: 46.745, lon: 23.49, placed: true},
@@ -137,9 +137,9 @@ func TestAreasAreTheTownsAndTheirDistricts(t *testing.T) {
 	}
 	got := newPlaces(raw, BBox{46.70, 23.45, 46.84, 23.73}).Areas()
 	want := []Area{
-		{Name: "Cluj-Napoca", Lat: 46.77, Lon: 23.59, Place: "city", Town: "Cluj-Napoca"},
-		{Name: "Florești", Lat: 46.745, Lon: 23.49, Place: "village", Town: "Florești"},
-		{Name: "Mănăștur", Lat: 46.755, Lon: 23.557, Place: "suburb", Town: "Cluj-Napoca"},
+		{Name: "Cluj-Napoca", Lat: 46.77, Lon: 23.59, Place: "city"},
+		{Name: "Florești", Lat: 46.745, Lon: 23.49, Place: "village"},
+		{Name: "Mănăștur", Lat: 46.755, Lon: 23.557, Place: "suburb"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v", got)

@@ -102,6 +102,16 @@ export const reverseRouteLongName = (routeLongName: string): string => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
+export function routeDestination(name: string): string {
+  const i = name.lastIndexOf(' - ')
+  return i >= 0 ? name.slice(i + 3) : name
+}
+
+export function routeOrigin(name: string): string {
+  const i = name.lastIndexOf(' - ')
+  return i >= 0 ? name.slice(0, i) : ''
+}
+
 export const getAvailableBusesForStop = (
   stopInfo: StopInfo,
   referenceDate: Date,

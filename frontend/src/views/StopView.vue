@@ -13,7 +13,7 @@ import {
   type ShapeInfo,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
-import {formatMinutesFromNow} from "@/utils/time.ts";
+import {formatMinutesFromNow, routeDestination, routeOrigin} from "@/utils/time.ts";
 import {useStopDepartures} from "@/composables/useStopDepartures.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
@@ -199,16 +199,6 @@ const departuresSorted = computed(() => {
     return a.minutes_left - b.minutes_left
   })
 })
-
-function routeDestination(name: string): string {
-  const i = name.lastIndexOf(' - ')
-  return i >= 0 ? name.slice(i + 3) : name
-}
-
-function routeOrigin(name: string): string {
-  const i = name.lastIndexOf(' - ')
-  return i >= 0 ? name.slice(0, i) : ''
-}
 
 const navigateToRoute = (shape: VehiclesInStop) => {
   const si = platformOf(shape.route_id)?.shapes_info.find((s: ShapeInfo) => s.route_id === shape.route_id)

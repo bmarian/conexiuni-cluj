@@ -1,17 +1,8 @@
 import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
-import type {NetworkIndex, NetworkRoute, NetworkTrip} from '@/utils/network.ts'
-import {reverseRouteLongName} from '@/utils/time.ts'
+import type {NetworkIndex, NetworkRoute} from '@/utils/network.ts'
+import {reverseRouteLongName, routeDestination} from '@/utils/time.ts'
 
-// name is null for the lines that only end at the station.
 export type Destination = {name: string | null, routes: NetworkRoute[]}
-
-// Named like the stop page names a departure's end.
-const tripEnd = (route: NetworkRoute, trip: NetworkTrip): string => {
-  const name = route.timetable?.route_long_name || route.route_long_name
-  const oriented = trip.trip_id.endsWith(OUTGOING_SUFFIX) ? name : reverseRouteLongName(name)
-  const i = oriented.lastIndexOf(' - ')
-  return i >= 0 ? oriented.slice(i + 3) : oriented
-}
 
 export function stationDestinations(index: NetworkIndex, stopId: number): Destination[] {
   const platforms = new Set(index.platforms(stopId).map((s) => s.stop_id))
@@ -27,7 +18,8 @@ export function stationDestinations(index: NetworkIndex, stopId: number): Destin
         continue
       }
       leaving.add(route)
-      const name = tripEnd(route, trip)
+      const longName = route.timetable?.route_long_name || route.route_long_name
+      const name = routeDestination(trip.trip_id.endsWith(OUTGOING_SUFFIX) ? longName : reverseRouteLongName(longName))
       const routes = out.get(name)
       if (!routes) out.set(name, [route])
       else if (!routes.includes(route)) routes.push(route)

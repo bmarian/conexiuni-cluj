@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useHead} from '@unhead/vue'
-import {useRouter} from 'vue-router'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import StationLabel from '@/components/StationLabel.vue'
 import {network} from '@/utils/network.ts'
 import {stationDestinations} from '@/utils/destinations.ts'
+import {useMapPicks} from '@/composables/useMapPicks.ts'
 import type {Stop} from '@/types/tranzy.ts'
 
 const props = defineProps<{ stopIds: string }>()
 
-const router = useRouter()
+const {openStop} = useMapPicks()
 
 const stations = computed(() => {
   const index = network.value
@@ -25,7 +25,7 @@ useHead(() => ({
   meta: [{name: 'robots', content: 'noindex'}],
 }))
 
-const open = (stop: Stop) => router.replace({name: 'stop', params: {stopId: String(stop.stop_id)}})
+const open = (stop: Stop) => openStop(String(stop.stop_id))
 </script>
 
 <template>

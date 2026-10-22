@@ -31,7 +31,7 @@ describe('spider legs', () => {
   })
 
   it('puts a fanned-out station on the clear spot nearest where it is', () => {
-    const item = {at: {x: 0, y: -10}, size: [24, 24] as [number, number], anchor: [12, 12] as [number, number], label: 80}
+    const item = {station: {x: 0, y: -10}, icon: {size: [24, 24] as [number, number], anchor: [12, 12] as [number, number]}, labelWidth: 80}
     expect(spiderLegsClear([item], [])[0]).toMatchObject({x: 0, y: -44})
     const above = {left: -200, top: -300, right: 200, bottom: -20}
     const [leg] = spiderLegsClear([item], [above])

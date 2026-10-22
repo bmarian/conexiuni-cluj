@@ -11,8 +11,7 @@ export type StopGroup = {
   stations: Set<number>
   modes: number
   favorite: boolean
-  // The towns or districts the group stands for, the one it is named after first.
-  areas?: number[]
+  area?: number
 }
 
 export type ClusterBox = Pick<MarkerIcon, 'size' | 'anchor'>
@@ -33,6 +32,12 @@ export const mercY = (lat: number) => {
 const cellKey = (cx: number, cy: number) => cx * 0x4000000 + cy
 
 export const overlaps = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+
+export const boxAt = (x: number, y: number, {size, anchor}: ClusterBox): Rect =>
+  ({left: x - anchor[0], top: y - anchor[1], right: x - anchor[0] + size[0], bottom: y - anchor[1] + size[1]})
+
+export const viewRect = (px: number, west: number, south: number, east: number, north: number): Rect =>
+  ({left: mercX(west) * px, top: mercY(north) * px, right: mercX(east) * px, bottom: mercY(south) * px})
 
 export const modeMask = (routeTypes: Iterable<RouteType | number>): number => {
   let mask = 0
@@ -121,7 +126,7 @@ export class StopClusters {
   // The groups whose drawn boxes reach into the view.
   within(zoom: number, west: number, south: number, east: number, north: number): StopGroup[] {
     const px = TILE_PX * 2 ** zoom
-    const view: Rect = {left: mercX(west) * px, top: mercY(north) * px, right: mercX(east) * px, bottom: mercY(south) * px}
+    const view = viewRect(px, west, south, east, north)
     return this.at(zoom).filter((group) => overlaps(this.rect(group, px), view))
   }
 
@@ -174,10 +179,7 @@ export class StopClusters {
   }
 
   private rect(group: StopGroup, px: number): Rect {
-    const {size, anchor} = this.box(group)
-    const left = this.xs[group.leader]! * px - anchor[0]
-    const top = this.ys[group.leader]! * px - anchor[1]
-    return {left, top, right: left + size[0], bottom: top + size[1]}
+    return boxAt(this.xs[group.leader]! * px, this.ys[group.leader]! * px, this.box(group))
   }
 
   private build() {
