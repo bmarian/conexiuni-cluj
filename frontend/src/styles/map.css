@@ -287,6 +287,11 @@
   }
 }
 
+.stop-spider.is-settled .stop-spider-item,
+.stop-spider.is-settled .stop-spider-legs {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marker-enter .marker-body,
   .marker-leave .marker-body,

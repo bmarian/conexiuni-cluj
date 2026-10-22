@@ -167,10 +167,14 @@ export class StopClusters {
     return owner
   }
 
-  private rect(group: StopGroup, px: number): Rect {
+  box(group: StopGroup): ClusterBox {
     let box = this.boxes.get(group.key)
     if (!box) this.boxes.set(group.key, box = this.boxOf(group))
-    const {size, anchor} = box
+    return box
+  }
+
+  private rect(group: StopGroup, px: number): Rect {
+    const {size, anchor} = this.box(group)
     const left = this.xs[group.leader]! * px - anchor[0]
     const top = this.ys[group.leader]! * px - anchor[1]
     return {left, top, right: left + size[0], bottom: top + size[1]}

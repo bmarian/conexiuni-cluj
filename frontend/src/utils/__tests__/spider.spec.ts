@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {spiderLegs, spiderLegsToward, spiderRadius} from '@/utils/spider.ts'
+import {spiderLegs, spiderLegsClear, spiderLegsToward, spiderRadius} from '@/utils/spider.ts'
 
 describe('spider legs', () => {
   it('puts two stations side by side', () => {
@@ -28,6 +28,16 @@ describe('spider legs', () => {
     expect(east!.side).toBe('right')
     const legs = spiderLegsToward([0.3, 0.2, 0.25])
     legs.forEach((a, i) => legs.slice(i + 1).forEach((b) => expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(28)))
+  })
+
+  it('puts a fanned-out station on the clear spot nearest where it is', () => {
+    const item = {at: {x: 0, y: -10}, size: [24, 24] as [number, number], anchor: [12, 12] as [number, number], label: 80}
+    expect(spiderLegsClear([item], [])[0]).toMatchObject({x: 0, y: -44})
+    const above = {left: -200, top: -300, right: 200, bottom: -20}
+    const [leg] = spiderLegsClear([item], [above])
+    expect(leg!.y).toBeGreaterThan(-20 + 12)
+    const legs = spiderLegsClear([item, item], [])
+    expect(Math.hypot(legs[0]!.x - legs[1]!.x, legs[0]!.y - legs[1]!.y)).toBeGreaterThanOrEqual(13)
   })
 
   it('measures the reach of the longest leg', () => {

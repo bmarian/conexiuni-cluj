@@ -49,4 +49,48 @@ export function spiderLegsToward(angles: number[]): SpiderLeg[] {
   return angles.map((_, i) => leg(r, turn + slot.get(i)! * step))
 }
 
-export const spiderRadius = (legs: SpiderLeg[]): number => Math.ceil(Math.max(0, ...legs.map((l) => Math.hypot(l.x, l.y))))
+export type SpiderBox = {left: number, top: number, right: number, bottom: number}
+
+// at: where the station really is; label: its name's width. Pixels from the spider's centre.
+export type SpiderItem = {at: {x: number, y: number}, size: [number, number], anchor: [number, number], label: number}
+
+// Same as .stop-spider-item's gap and .stop-cluster-label's line-height in map.css.
+const LABEL_GAP_PX = 4
+const LABEL_HEIGHT_PX = 13
+const RINGS = 3
+
+const itemBoxes = ({size: [w, h], anchor: [ax, ay], label}: SpiderItem, {x, y, side}: SpiderLeg): SpiderBox[] => {
+  const icon = {left: x - ax, top: y - ay, right: x - ax + w, bottom: y - ay + h}
+  const middle = icon.top + h / 2
+  const start = side === 'right' ? icon.right + LABEL_GAP_PX : icon.left - LABEL_GAP_PX - label
+  return [icon, {left: start, top: middle - LABEL_HEIGHT_PX / 2, right: start + label, bottom: middle + LABEL_HEIGHT_PX / 2}]
+}
+
+const overlap = (a: SpiderBox, b: SpiderBox) =>
+  Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+
+// Each station, in turn, on the spot nearest where it really is that its icon and name leave the obstacles clear; the least covered spot when none does.
+export function spiderLegsClear(items: SpiderItem[], obstacles: SpiderBox[]): SpiderLeg[] {
+  const taken = [...obstacles]
+  return items.map((item) => {
+    const toward = Math.atan2(item.at.y, item.at.x)
+    let best: {leg: SpiderLeg, covered: number, far: number} | null = null
+    for (let ring = 0; ring < RINGS; ring++) {
+      const r = MIN_RADIUS_PX + ring * FOOT_PX
+      const step = item.size[0] / r
+      for (let k = 0; k * step <= Math.PI; k++) {
+        for (const turn of k ? [k * step, -k * step] : [0]) {
+          const l = leg(r, toward + turn)
+          const boxes = itemBoxes(item, l)
+          const covered = taken.reduce((sum, t) => sum + overlap(boxes[0]!, t) + overlap(boxes[1]!, t), 0)
+          const far = Math.hypot(l.x - item.at.x, l.y - item.at.y)
+          if (!best || covered < best.covered || (covered === best.covered && far < best.far)) best = {leg: l, covered, far}
+        }
+      }
+    }
+    taken.push(...itemBoxes(item, best!.leg))
+    return best!.leg
+  })
+}
+
+export const spiderRadius =(legs: SpiderLeg[]): number => Math.ceil(Math.max(0, ...legs.map((l) => Math.hypot(l.x, l.y))))

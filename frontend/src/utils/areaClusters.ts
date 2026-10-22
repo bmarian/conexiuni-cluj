@@ -140,9 +140,14 @@ export class AreaClusters {
     return groups
   }
 
-  private rect(group: StopGroup, px: number): Rect {
+  box(group: StopGroup): ClusterBox {
     let box = this.boxes.get(group.key)
     if (!box) this.boxes.set(group.key, box = this.boxOf(group))
+    return box
+  }
+
+  private rect(group: StopGroup, px: number): Rect {
+    const box = this.box(group)
     const k = group.areas![0]!
     const left = this.ax[k]! * px - box.anchor[0]
     const top = this.ay[k]! * px - box.anchor[1]
@@ -227,6 +232,16 @@ export class MapClusters {
 
   bounds(group: StopGroup) {
     return this.stations.bounds(group)
+  }
+
+  box(group: StopGroup) {
+    return group.areas ? this.areas!.box(group) : this.stations.box(group)
+  }
+
+  // The zooms the level shown at zoom covers.
+  span(zoom: number): [number, number] {
+    const level = this.stations.levelOf(zoom)
+    return [this.stations.zoomOf(level), this.stations.zoomOf(Math.max(0, level - 1))]
   }
 
   expansion(group: StopGroup, zoom: number) {

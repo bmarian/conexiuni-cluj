@@ -44,12 +44,16 @@ describe('vehicle accessibility', () => {
 describe('station group marker', () => {
   const tram = {mode: 'tram' as const, color: '#BE1622'}
 
-  it('wraps three icons a row in every theme', () => {
+  it('puts up to three icons in a row, more in two even rows, in every theme', () => {
+    const icons = (n: number) => Array.from({length: n}, () => tram)
     for (const theme of themes) {
       const one = makeClusterIcon(['heart', tram], 'Piața Unirii', 1, 0, theme)
-      const four = makeClusterIcon(['heart', tram, tram, tram], 'Piața Unirii', 3, 0, theme)
-      expect(four.size[0]).toBe(makeClusterIcon(['heart', tram, tram], 'Piața Unirii', 2, 0, theme).size[0])
-      expect(four.size[1]).toBeGreaterThan(one.size[1])
+      const width = (n: number) => makeClusterIcon(icons(n), '', 0, 0, theme).size[0]
+      expect(width(4)).toBe(width(2))
+      expect(width(5)).toBe(width(3))
+      expect(width(6)).toBe(width(3))
+      expect(width(7)).toBeGreaterThan(width(3))
+      expect(makeClusterIcon(icons(4), '', 0, 0, theme).size[1]).toBeGreaterThan(one.size[1])
       expect(one.html).toContain('Piața Unirii')
       expect(one.html).toContain('+1')
     }
