@@ -18,34 +18,34 @@
 }
 
 :root {
-  --md-primary: #006c48;
+  --md-primary: #4d5d8b;
   --md-on-primary: #ffffff;
-  --md-primary-container: #82f8c1;
-  --md-on-primary-container: #002113;
-  --md-secondary: #4c6356;
+  --md-primary-container: #dae2ff;
+  --md-on-primary-container: #354571;
+  --md-secondary: #585e71;
   --md-on-secondary: #ffffff;
-  --md-secondary-container: #d0e8da;
-  --md-on-secondary-container: #092016;
-  --md-tertiary: #3d6373;
+  --md-secondary-container: #dce2f9;
+  --md-on-secondary-container: #404659;
+  --md-tertiary: #6b567e;
   --md-on-tertiary: #ffffff;
-  --md-tertiary-container: #c1e8fb;
-  --md-on-tertiary-container: #001f29;
+  --md-tertiary-container: #f1dbff;
+  --md-on-tertiary-container: #533e65;
   --md-error: #ba1a1a;
   --md-on-error: #ffffff;
   --md-error-container: #ffdad6;
-  --md-on-error-container: #410002;
-  --md-surface: #f5fbf5;
-  --md-on-surface: #171d1a;
-  --md-on-surface-variant: #404943;
-  --md-inverse-surface: #2c322e;
-  --md-inverse-on-surface: #ecf2ed;
-  --md-outline: #707973;
-  --md-outline-variant: #bfc9c1;
+  --md-on-error-container: #93000a;
+  --md-surface: #faf8ff;
+  --md-on-surface: #1a1b21;
+  --md-on-surface-variant: #45464f;
+  --md-inverse-surface: #2f3036;
+  --md-inverse-on-surface: #f1f0f7;
+  --md-outline: #757680;
+  --md-outline-variant: #c5c6d0;
   --md-surface-container-lowest: #ffffff;
-  --md-surface-container-low: #eff5ef;
-  --md-surface-container: #e9efea;
-  --md-surface-container-high: #e3eae4;
-  --md-surface-container-highest: #dee4df;
+  --md-surface-container-low: #f4f3fa;
+  --md-surface-container: #eeedf4;
+  --md-surface-container-high: #e8e7ef;
+  --md-surface-container-highest: #e3e2e9;
   --md-live: #137333;
   --md-live-container: #ceead6;
   --md-on-live-container: #0d652d;
@@ -74,34 +74,34 @@
 }
 
 :root.dark {
-  --md-primary: #63dba6;
-  --md-on-primary: #003824;
-  --md-primary-container: #005236;
-  --md-on-primary-container: #82f8c1;
-  --md-secondary: #b4ccbe;
-  --md-on-secondary: #20352b;
-  --md-secondary-container: #354b40;
-  --md-on-secondary-container: #d0e8da;
-  --md-tertiary: #a5ccdf;
-  --md-on-tertiary: #073543;
-  --md-tertiary-container: #244c5b;
-  --md-on-tertiary-container: #c1e8fb;
+  --md-primary: #b5c5f9;
+  --md-on-primary: #1d2f59;
+  --md-primary-container: #354571;
+  --md-on-primary-container: #dae2ff;
+  --md-secondary: #c0c6dd;
+  --md-on-secondary: #2a3042;
+  --md-secondary-container: #404659;
+  --md-on-secondary-container: #dce2f9;
+  --md-tertiary: #d7bdeb;
+  --md-on-tertiary: #3b284d;
+  --md-tertiary-container: #533e65;
+  --md-on-tertiary-container: #f1dbff;
   --md-error: #ffb4ab;
   --md-on-error: #690005;
   --md-error-container: #93000a;
   --md-on-error-container: #ffdad6;
-  --md-surface: #0f1512;
-  --md-on-surface: #dee4df;
-  --md-on-surface-variant: #bfc9c1;
-  --md-inverse-surface: #dee4df;
-  --md-inverse-on-surface: #2c322e;
-  --md-outline: #89938c;
-  --md-outline-variant: #3f4943;
-  --md-surface-container-lowest: #0a0f0d;
-  --md-surface-container-low: #171d1a;
-  --md-surface-container: #1b211e;
-  --md-surface-container-high: #252b28;
-  --md-surface-container-highest: #303633;
+  --md-surface: #121318;
+  --md-on-surface: #e3e2e9;
+  --md-on-surface-variant: #c5c6d0;
+  --md-inverse-surface: #e3e2e9;
+  --md-inverse-on-surface: #2f3036;
+  --md-outline: #8f909a;
+  --md-outline-variant: #45464f;
+  --md-surface-container-lowest: #0d0e13;
+  --md-surface-container-low: #1a1b21;
+  --md-surface-container: #1e1f25;
+  --md-surface-container-high: #292a2f;
+  --md-surface-container-highest: #33343a;
   --md-live: #81c995;
   --md-live-container: #0f5223;
   --md-on-live-container: #a8dab5;
@@ -255,12 +255,14 @@
     opacity: 0.1;
   }
 
+  /* Like Material's minimum touch target: a 40px button takes 48px. */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     min-height: 40px;
+    margin-block: 4px;
     padding: 0 24px;
     border: 0;
     border-radius: 20px;
@@ -322,6 +324,7 @@
     flex-shrink: 0;
     width: 40px;
     height: 40px;
+    margin: 4px;
     border: 0;
     border-radius: 9999px;
     background: transparent;

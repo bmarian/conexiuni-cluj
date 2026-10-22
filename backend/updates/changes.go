@@ -453,17 +453,14 @@ func (s *Service) Record(routeShortName, source string, items []RouteChangeItem)
 		return
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO route_changes (route_short_name, source, changes, signature, detected_at, push_pending) VALUES (?, ?, ?, ?, ?, ?)`,
-		routeShortName, source, string(payload), signature, now.UnixMilli(), s.PushPending != nil && s.PushPending()); err != nil {
+		`INSERT INTO route_changes (route_short_name, source, changes, signature, detected_at) VALUES (?, ?, ?, ?, ?)`,
+		routeShortName, source, string(payload), signature, now.UnixMilli()); err != nil {
 		s.store.Logf("route changes: could not record line %s: %v", routeShortName, err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
 		s.store.Logf("route changes: could not record line %s: %v", routeShortName, err)
 		return
-	}
-	if s.Notify != nil {
-		s.Notify()
 	}
 
 	kinds := make([]string, len(items))

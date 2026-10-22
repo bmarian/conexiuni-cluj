@@ -1,24 +1,17 @@
 <script setup lang="ts">
-import {useI18n} from 'vue-i18n'
 import type {VehiclesInStop} from '@/types/tranzy.ts'
 import {routeDestination, routeOrigin} from '@/utils/time.ts'
-import {AlarmAddIcon, AlarmIcon, AlarmOnIcon, KeyboardArrowRightIcon} from '@/utils/icons.ts'
+import {KeyboardArrowRightIcon} from '@/utils/icons.ts'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import TimePill from '@/components/ui/TimePill.vue'
-import PopIcon from '@/components/ui/PopIcon.vue'
 
 defineProps<{
   shape: VehiclesInStop
   label: (minutes: number) => string
   favorite?: boolean
-  remindable?: boolean
-  remindOn?: boolean
-  reminded?: boolean
 }>()
-const emit = defineEmits<{ open: [], remind: [] }>()
-
-const {t} = useI18n()
+const emit = defineEmits<{ open: [] }>()
 </script>
 
 <template>
@@ -29,7 +22,6 @@ const {t} = useI18n()
       <div class="flex items-center gap-1.5 min-w-0">
         <LiveBadge v-if="!shape.static_time_approximation"/>
         <span class="destination text-title-small">→ {{ routeDestination(shape.route_long_name) }}</span>
-        <AlarmIcon v-if="reminded" class="m-icon size-3.5 text-primary" :aria-label="t('remindSaved')"/>
       </div>
       <span v-if="routeOrigin(shape.route_long_name)" class="text-body-small text-on-surface-variant truncate">
         {{ routeOrigin(shape.route_long_name) }}
@@ -44,20 +36,7 @@ const {t} = useI18n()
         />
       </div>
     </div>
-    <button
-      v-if="remindable"
-      type="button"
-      class="icon-btn remind"
-      :class="{ 'is-on': remindOn }"
-      :aria-pressed="remindOn"
-      :title="remindOn ? t('notifyMeOff') : t('remindSet')"
-      :aria-label="remindOn ? t('notifyMeOff') : t('remindSet')"
-      @click.stop="emit('remind')"
-      @pointerdown.stop
-    >
-      <PopIcon :icon="remindOn ? AlarmOnIcon : AlarmAddIcon" :on="!!remindOn" class="size-6"/>
-    </button>
-    <KeyboardArrowRightIcon v-else class="m-icon size-5 text-outline"/>
+    <KeyboardArrowRightIcon class="m-icon size-5 text-outline"/>
   </div>
 </template>
 
@@ -120,15 +99,5 @@ const {t} = useI18n()
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.remind {
-  border-radius: 9999px;
-  transition: border-radius var(--spring-fast-ms) var(--spring-fast), background-color 150ms linear;
-}
-
-.remind.is-on {
-  border-radius: 12px;
-  color: var(--md-primary);
 }
 </style>

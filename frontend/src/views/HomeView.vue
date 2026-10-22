@@ -7,15 +7,12 @@ import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
-import {useSettingsStore} from '@/stores/settings.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {useOpenRoute} from '@/composables/useOpenRoute.ts'
 import type {Route, RouteDirection, Stop} from '@/types/tranzy.ts'
 import {network} from '@/utils/network.ts'
-import FollowCard from '@/components/FollowCard.vue'
-import JourneyCard from '@/components/JourneyCard.vue'
 import StationIcon from '@/components/StationIcon.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
@@ -23,13 +20,6 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
-import {useFollowsStore} from '@/stores/follows.ts'
-import {useJourneyStore} from '@/stores/journey.ts'
-import {useRemindersStore} from '@/stores/reminders.ts'
-import {useUserStore} from '@/stores/user.ts'
-import {nextOf, type Reminder} from '@/utils/reminders.ts'
-import {lineLabel} from '@/utils/journey.ts'
-import {reminderRepeat, reminderWhen} from '@/utils/reminderText.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
@@ -38,29 +28,8 @@ import {cityParams, cityPath} from '@/utils/city.ts'
 const RECENTS_SHOWN = 5
 const LONG_PRESS_MS = 350
 
-const {t, locale} = useI18n()
+const {t} = useI18n()
 const router = useRouter()
-const followsStore = useFollowsStore()
-const journeyStore = useJourneyStore()
-const remindersStore = useRemindersStore()
-const {userTime} = storeToRefs(useUserStore())
-
-const reminderRows = computed(() => {
-  const nowMs = (userTime.value ?? new Date()).getTime()
-  return remindersStore.reminders.map((reminder) => {
-    const next = nextOf(reminder, nowMs)
-    return {
-      reminder,
-      title: `${next !== null ? reminderWhen(next, locale.value, nowMs) : t('remindNoBus')} → ${reminder.destination}`,
-      kicker: [
-        reminder.journey?.legs.map(lineLabel).join(' › '),
-        reminder.time === null ? t('remindLastBus') : null,
-        reminderRepeat(reminder.days, locale.value),
-        reminder.stopName,
-      ].filter(Boolean).join(' · '),
-    }
-  })
-})
 
 useHead(() => ({
   title: t('headHomeTitle', cityParams()),
@@ -75,7 +44,6 @@ useHead(() => ({
   link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
-const settings = useSettingsStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, fetchRoutes} = useRoutesApi()
@@ -148,11 +116,6 @@ const recentNonFavoritePlans = computed<FavoritePlan[]>(() => recentPlans.value
   .slice(0, RECENTS_SHOWN))
 
 const lookOf = (stopId: number) => network.value?.look(stopId)
-
-function openReminder(reminder: Reminder) {
-  if (reminder.journey?.planPath) void router.push(reminder.journey.planPath)
-  else remindersStore.openSheet(reminder)
-}
 
 function openStop(stop: Stop) {
   void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
@@ -247,63 +210,38 @@ const dragOptions = {
 
 <template>
   <div class="home-view">
-    <section v-if="journeyStore.journey || (settings.busAlerts && followsStore.follows.length)" class="live-cards"
-             data-kbd-section="live" data-kbd-entry="1">
-      <JourneyCard v-if="journeyStore.journey"/>
-      <template v-if="settings.busAlerts">
-        <FollowCard v-for="f in followsStore.follows" :key="f.id" :followed="f"/>
-      </template>
-    </section>
-
-    <section v-if="settings.busAlerts && remindersStore.reminders.length" class="pt-3" data-kbd-section="reminders" data-kbd-entry="1">
-      <SubLabel :text="t('reminders')"/>
-      <ListRow
-        v-for="row in reminderRows"
-        :key="row.reminder.id"
-        :title="row.title"
-        :kicker="row.kicker"
-        :remove-label="t('remindDelete')"
-        :data-kbd-item="`reminder-${row.reminder.id}`"
-        @open="openReminder(row.reminder)"
-        @remove="remindersStore.remove(row.reminder.id)"
-      >
-        <template #icon>
-          <LineBadge :name="row.reminder.line" :color="row.reminder.color" :height="30" :min-width="38" :corner="8"/>
-        </template>
-      </ListRow>
-    </section>
-
     <template v-if="isHydrated">
       <section v-if="favoriteRouteChips.size" class="pt-3" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
         <SubLabel :text="t('favoriteRoutes')"/>
         <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
           <template #item="{element: group}">
-            <div
-              v-if="favoriteRouteChips.get(group.routeId)"
-              class="route-chip state squish"
-              :class="{ 'is-busy': openingRouteId === group.routeId }"
-              role="button"
-              tabindex="0"
-              :title="favoriteRouteChips.get(group.routeId)!.name"
-              :data-kbd-item="favRouteItemKey(group)"
-              @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
-              @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
-            >
-              <LineBadge
-                :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
-                :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
-                :height="28" :min-width="36" :corner="8"
-              />
-              <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
-              <button
-                type="button"
-                class="icon-btn chip-remove"
-                :title="t('removeFromFavorites')"
-                :aria-label="t('removeFromFavorites')"
-                @click.stop="removeRouteGroup(group)"
+            <div v-if="favoriteRouteChips.get(group.routeId)" class="chip-cell">
+              <div
+                class="route-chip state squish"
+                :class="{ 'is-busy': openingRouteId === group.routeId }"
+                role="button"
+                tabindex="0"
+                :title="favoriteRouteChips.get(group.routeId)!.name"
+                :data-kbd-item="favRouteItemKey(group)"
+                @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
+                @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
               >
-                <CloseIcon class="m-icon size-4"/>
-              </button>
+                <LineBadge
+                  :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
+                  :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
+                  :height="28" :min-width="36" :corner="8"
+                />
+                <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
+                <button
+                  type="button"
+                  class="icon-btn chip-remove"
+                  :title="t('removeFromFavorites')"
+                  :aria-label="t('removeFromFavorites')"
+                  @click.stop="removeRouteGroup(group)"
+                >
+                  <CloseIcon class="m-icon size-4"/>
+                </button>
+              </div>
             </div>
           </template>
         </Draggable>
@@ -377,23 +315,26 @@ const dragOptions = {
 </template>
 
 <style scoped>
-.live-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 8px 16px;
-}
-
 .route-chips {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 8px;
   padding: 4px 12px;
+}
+
+/* Material's 48px touch target: a one-line card sits centred in it, like on the phone. */
+.chip-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 48px;
 }
 
 .route-chip {
   --squish: 0.93;
   display: flex;
+  flex: 1;
   align-items: center;
   min-width: 0;
   padding: 6px 0 6px 10px;
@@ -425,6 +366,7 @@ const dragOptions = {
 .chip-remove {
   width: 32px;
   height: 32px;
+  margin: 0;
   color: var(--md-outline);
 }
 
@@ -442,6 +384,10 @@ const dragOptions = {
 
 .drag-chosen {
   scale: 1.03;
+}
+
+.drag-chosen:not(.chip-cell),
+.drag-chosen > .route-chip {
   box-shadow: var(--md-elevation-3);
   background: var(--md-surface-container-high);
 }

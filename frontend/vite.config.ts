@@ -26,8 +26,8 @@ export default defineConfig({
         name: "Ce autobuz iau?",
         short_name: "Ce autobuz iau?",
         description: "Transport public Cluj-Napoca în timp real",
-        theme_color: "#0f1512",
-        background_color: "#0f1512",
+        theme_color: "#121318",
+        background_color: "#121318",
         display_override: ["standalone", "minimal-ui", "browser"],
         display: "standalone",
         start_url: "/",
@@ -54,7 +54,6 @@ export default defineConfig({
         ],
       },
       workbox: {
-        importScripts: ["push-sw.js"],
         globPatterns: ["**/*.{js,mjs,css,html,svg,png,ico,woff2}"],
         globIgnores: ["**/node_modules/**/*", "sw.js", "workbox-*.js"],
         navigateFallbackDenylist: [/^\/api/],

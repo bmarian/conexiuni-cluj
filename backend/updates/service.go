@@ -13,9 +13,6 @@ type Service struct {
 	store *database.Store
 	data  *transit.Data
 	loc   *time.Location
-	// Whether recorded changes wait for the push sender, and how to wake it.
-	PushPending func() bool
-	Notify      func()
 }
 
 func New(store *database.Store, data *transit.Data, loc *time.Location) *Service {

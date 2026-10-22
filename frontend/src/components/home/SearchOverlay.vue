@@ -208,6 +208,7 @@ function dropPin() {
 </script>
 
 <template>
+  <div v-if="open" class="search-backdrop" @pointerdown="close(false)"></div>
   <Transition name="search">
     <div v-if="open" ref="panel" class="search-overlay" role="dialog" :aria-label="t('searchPlaceholder')">
       <div class="search-bar" data-kbd-section="search" data-kbd-axis="x">
@@ -481,5 +482,42 @@ function dropPin() {
 .search-leave-to {
   opacity: 0;
   translate: 0 -6.25%;
+}
+
+.search-backdrop {
+  display: none;
+}
+
+/* Wide windows dock the search over its bar, like Material's docked search: at most 2/3 of the screen, at least 240px. */
+@media (max-width: 1023px) and (orientation: landscape), (min-width: 1024px) {
+  .search-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 5999;
+  }
+
+  .search-overlay {
+    inset: auto;
+    top: calc(8px + var(--safe-top));
+    left: calc(var(--panel-shown) + 16px);
+    width: calc(min(520px, 100vw - var(--panel-shown)) - 32px);
+    max-height: max(240px, calc((100dvh - var(--safe-top)) * 2 / 3));
+    padding-top: 0;
+    overflow: hidden;
+    border-radius: 28px;
+    background: var(--md-surface-container-high);
+    box-shadow: var(--md-elevation-3);
+  }
+
+  .search-bar {
+    min-height: 56px;
+    padding: 0 4px;
+  }
+
+  .search-scroll {
+    flex: 0 1 auto;
+    padding-bottom: 8px;
+  }
 }
 </style>

@@ -172,46 +172,12 @@ func (s *Store) initSchemas() error {
             source           TEXT    NOT NULL,
             changes          TEXT    NOT NULL,
             signature        TEXT    NOT NULL,
-            detected_at      INTEGER NOT NULL,
-            push_pending     INTEGER NOT NULL DEFAULT 0
+            detected_at      INTEGER NOT NULL
         );
 
-		CREATE TABLE IF NOT EXISTS push_subscriptions
-        (
-            endpoint   TEXT PRIMARY KEY,
-            p256dh     TEXT    NOT NULL,
-            auth       TEXT    NOT NULL,
-            locale     TEXT    NOT NULL,
-            updated_at INTEGER NOT NULL
-        );
-
-		CREATE TABLE IF NOT EXISTS push_subscription_routes
-        (
-            endpoint         TEXT NOT NULL,
-            route_short_name TEXT NOT NULL,
-            PRIMARY KEY (endpoint, route_short_name)
-        );
-
-		CREATE TABLE IF NOT EXISTS push_reminders
-        (
-            endpoint      TEXT    NOT NULL,
-            id            TEXT    NOT NULL,
-            stop_id       INTEGER NOT NULL,
-            stop_name     TEXT    NOT NULL,
-            route_id      INTEGER NOT NULL,
-            trip_id       TEXT    NOT NULL,
-            line          TEXT    NOT NULL,
-            destination   TEXT    NOT NULL,
-            days          TEXT    NOT NULL,
-            date          TEXT    NOT NULL,
-            slots         TEXT    NOT NULL,
-            walk          INTEGER,
-            walk_at       INTEGER NOT NULL DEFAULT 0,
-            last_fired_at INTEGER NOT NULL DEFAULT 0,
-            leave_at      INTEGER NOT NULL DEFAULT 0,
-            journey       INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (endpoint, id)
-        );
+		DROP TABLE IF EXISTS push_subscriptions;
+		DROP TABLE IF EXISTS push_subscription_routes;
+		DROP TABLE IF EXISTS push_reminders;
 
 		CREATE TABLE IF NOT EXISTS stats_visitors_daily
         (
@@ -311,6 +277,9 @@ func (s *Store) initSchemas() error {
 	if err := s.retireLifetimeVisitors(); err != nil {
 		return err
 	}
+	if err := s.dropPushPending(); err != nil {
+		return err
+	}
 
 	indexes := `
 		-- Vehicles indexes
@@ -344,9 +313,6 @@ func (s *Store) initSchemas() error {
 		-- Route change indexes
 		CREATE INDEX IF NOT EXISTS idx_route_changes_route ON route_changes(route_short_name, detected_at);
 		CREATE INDEX IF NOT EXISTS idx_route_changes_detected_at ON route_changes(detected_at);
-
-		-- Push subscription indexes
-		CREATE INDEX IF NOT EXISTS idx_push_subscription_routes_route ON push_subscription_routes(route_short_name);
 
 		-- Stats indexes
 		CREATE INDEX IF NOT EXISTS idx_stats_visitors_daily_date ON stats_visitors_daily(date);
@@ -383,15 +349,6 @@ func (s *Store) addMissingColumns() error {
 		},
 		"schedule_delay_profiles": {
 			"spread_sec REAL NOT NULL DEFAULT 0",
-		},
-		"route_changes": {
-			"push_pending INTEGER NOT NULL DEFAULT 0",
-		},
-		"push_reminders": {
-			"walk INTEGER",
-			"walk_at INTEGER NOT NULL DEFAULT 0",
-			"leave_at INTEGER NOT NULL DEFAULT 0",
-			"journey INTEGER NOT NULL DEFAULT 0",
 		},
 		"stops": {
 			"station_id INTEGER NOT NULL DEFAULT 0",
@@ -444,6 +401,22 @@ func (s *Store) retireLifetimeVisitors() error {
 		return err
 	}
 	s.Logf("schema: moved stats_visitors into daily counts")
+	return nil
+}
+
+// Web push is gone, so recorded line changes no longer wait for it.
+func (s *Store) dropPushPending() error {
+	cols, err := s.tableColumns("route_changes")
+	if err != nil {
+		return err
+	}
+	if _, ok := cols["push_pending"]; !ok {
+		return nil
+	}
+	if _, err := s.DB.Exec(`ALTER TABLE route_changes DROP COLUMN push_pending`); err != nil {
+		return fmt.Errorf("drop route_changes.push_pending: %w", err)
+	}
+	s.Logf("schema: dropped route_changes.push_pending")
 	return nil
 }
 

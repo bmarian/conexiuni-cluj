@@ -9,20 +9,18 @@ import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AppToast from "@/components/AppToast.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
-import BackgroundTracking from "@/components/BackgroundTracking.vue"
-import ReminderSheet from "@/components/ReminderSheet.vue"
 import HomeChrome from "@/components/home/HomeChrome.vue"
 import MapFabs from "@/components/home/MapFabs.vue"
 import SearchOverlay from "@/components/home/SearchOverlay.vue"
-import {useRemindersStore} from "@/stores/reminders.ts"
 import {useRouteUpdatesStore} from "@/stores/routeUpdates.ts"
 import {useMapStore} from "@/stores/map.ts"
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
 import {cityParams, cityPath} from "@/utils/city.ts"
-import {isTypingTarget} from "@/utils/keyboardFocus.ts"
 import {useSheetMetrics} from "@/composables/useSheetMetrics.ts"
+import {useSheetGestures, type SheetSnap} from "@/composables/useSheetGestures.ts"
 import {useIOSKeyboard} from "@/composables/useIOSKeyboard.ts"
+import {useSheetKeyboard} from "@/composables/useSheetKeyboard.ts"
 import {useStandaloneRootBackground} from "@/composables/useStandaloneRootBackground.ts"
 import {KeyboardArrowLeftIcon, KeyboardArrowRightIcon} from "@/utils/icons.ts"
 
@@ -30,7 +28,6 @@ const {t} = useI18n()
 useHead(() => ({title: t('headHomeTitle', cityParams())}))
 const mapStore = useMapStore()
 const appSettings = useSettingsStore()
-const reminders = useRemindersStore()
 const routeUpdates = useRouteUpdatesStore()
 const route = useRoute()
 const router = useRouter()
@@ -38,23 +35,18 @@ const {keyboardMode, focusSectionSoon} = useKeyboardNav()
 useKeyboardNavRoot(router)
 const isAdminRoute = computed(() => route.name === 'admin')
 const atHome = computed(() => route.name === 'home')
-// Pinch zooms on touch screens, so the zoom buttons are for a mouse.
-const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
 
-type DrawerState = 'minimized' | 'collapsed' | 'half' | 'expanded' | 'fullscreen'
+type DrawerState = SheetSnap
 
 const SHEET_HANDLE_PX = 28
 const PEEK_CONTENT_PX = 64
 const MINIMIZED_PX = SHEET_HANDLE_PX + PEEK_CONTENT_PX
 const SHEET_SETTLE_MS = 400
-const FABS_GAP_PX = 28
 const FABS_FADE_PX = 120
 
 const SNAP_FRAC: Record<DrawerState, number> = {
   minimized: 0,
-  collapsed: 0.22,
   half: 0.50,
-  expanded: 0.92,
   fullscreen: 1.0,
 }
 
@@ -89,6 +81,14 @@ const onKeyboardGeometryChange = () => {
 }
 
 const iosKeyboard = useIOSKeyboard(drawerEl, {enabled: isPortraitMobile, sheetHeight: sheetH, liftTo: safeTop, keyboardPx})
+useSheetKeyboard(drawerEl, {
+  enabled: isPortraitMobile,
+  keyboardPx,
+  measure: !virtualKeyboard,
+  open: () => {
+    drawerState.value = 'fullscreen'
+  },
+})
 
 useStandaloneRootBackground(
   () => isPortraitMobile.value && drawerState.value === 'minimized'
@@ -245,15 +245,6 @@ watch(isLandscapeDrawerOpen, () => {
   setTimeout(() => window.dispatchEvent(new Event('resize')), SHEET_SETTLE_MS)
 })
 
-let pointerId = -1
-let startY = 0
-let startTop = 0
-let moved = false
-let lastY = 0
-let lastT = 0
-let velocityY = 0 // px/ms, positive = downward
-let currentDragTopPx = 0
-
 function snapTopPx(state: DrawerState, kb = keyboardPx.value): number {
   const h = sheetH.value
   const minimizedTop = h - MINIMIZED_PX - Math.max(kb, safeBottom.value)
@@ -294,95 +285,15 @@ function scheduleMapInsetSync() {
   mapInsetTimer = setTimeout(updateMapInsets, SHEET_SETTLE_MS)
 }
 
-function onPointerDown(e: PointerEvent) {
-  if (e.button !== 0 && e.pointerType === 'mouse') return
-  const el = drawerEl.value
-  if (!el) return
-  const active = document.activeElement
-  if (isTypingTarget(active) && el.contains(active)) (active as HTMLElement).blur()
-  pointerId = e.pointerId
-  startY = e.clientY
-  startTop = snapTopPx(drawerState.value)
-  currentDragTopPx = startTop
-  moved = false
-  velocityY = 0
-  lastY = e.clientY
-  lastT = e.timeStamp
-  isDragging.value = true
-  el.style.transition = 'none'
-  // Pin the drawer where it is so the drag doesn't jump.
-  el.style.transform = `translateY(${startTop}px)`
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-}
-
-function onPointerMove(e: PointerEvent) {
-  if (!isDragging.value || e.pointerId !== pointerId) return
-  const el = drawerEl.value
-  if (!el) return
-  const dy = e.clientY - startY
-  if (Math.abs(dy) > 3) moved = true
-  const dt = e.timeStamp - lastT
-  if (dt > 0) velocityY = (e.clientY - lastY) / dt
-  lastY = e.clientY
-  lastT = e.timeStamp
-  currentDragTopPx = Math.min(snapTopPx('minimized'), Math.max(safeTop.value, startTop + dy))
-  el.style.transform = `translateY(${currentDragTopPx}px)`
-  followDrag(currentDragTopPx)
-}
-
-function endDrag() {
-  if (!isDragging.value) return
-  const el = drawerEl.value
-  const top = currentDragTopPx
-
-  const snapStates: DrawerState[] = ['minimized', 'half', 'fullscreen']
-
-  let best: DrawerState = 'half'
-
-  if (performance.now() - lastT > 100) velocityY = 0
-
-  const FLICK_THRESHOLD = 0.4 // px/ms
-  if (!moved) {
-    if (drawerState.value === 'minimized' || drawerState.value === 'fullscreen') best = 'half'
-    else best = 'minimized'
-  } else if (velocityY > FLICK_THRESHOLD) {
-    const cur = snapStates.indexOf(drawerState.value)
-    best = snapStates[Math.max(0, cur - 1)]!
-  } else if (velocityY < -FLICK_THRESHOLD) {
-    const cur = snapStates.indexOf(drawerState.value)
-    best = snapStates[Math.min(snapStates.length - 1, cur + 1)]!
-  } else {
-    let bestDist = Infinity
-    for (const s of snapStates) {
-      const d = Math.abs(snapTopPx(s) - top)
-      if (d < bestDist) {
-        bestDist = d
-        best = s
-      }
-    }
-  }
-
-  if (el) {
-    // Keeping el.style.transform lets the CSS transition animate from wherever the drag ended.
-    el.style.transition = ''
-  }
-  isDragging.value = false
-  drawerState.value = best
-  followDrag(snapTopPx(best))
-  pointerId = -1
-}
-
-function onPointerUp(e: PointerEvent) {
-  if (e.pointerId !== pointerId) return
-  const el = e.currentTarget as HTMLElement
-  if (el.hasPointerCapture?.(e.pointerId)) {
-    try {
-      el.releasePointerCapture(e.pointerId)
-    } catch { /* noop */
-    }
-  }
-  endDrag()
-}
+const sheetGestures = useSheetGestures({
+  sheet: drawerEl,
+  enabled: isPortraitMobile,
+  state: drawerState,
+  dragging: isDragging,
+  topFor: (snap) => snapTopPx(snap),
+  onMove: followDrag,
+  held: () => iosKeyboard.fieldFocused.value,
+})
 
 function toggleLandscapeDrawer() {
   isLandscapeDrawerOpen.value = !isLandscapeDrawerOpen.value
@@ -435,7 +346,7 @@ useKbdShortcuts({
       <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place"/>
     </Transition>
     <OfflinePill class="offline-place"/>
-    <MapFabs class="fabs-place" :zoom="finePointer"/>
+    <MapFabs class="fabs-place"/>
     <AppToast/>
     <button
       type="button"
@@ -464,10 +375,10 @@ useKbdShortcuts({
         role="button"
         tabindex="0"
         :aria-label="t('toggleDrawer')"
-        @pointerdown="onPointerDown"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerUp"
+        @pointerdown="sheetGestures.onHandleDown"
+        @pointermove="sheetGestures.onHandleMove"
+        @pointerup="sheetGestures.onHandleUp"
+        @pointercancel="sheetGestures.onHandleUp"
         @touchend.prevent
         @keydown.enter.space.prevent="cycleDrawerSize"
       >
@@ -491,8 +402,6 @@ useKbdShortcuts({
     <SearchOverlay/>
   </main>
   <KeyboardHelp v-if="!isAdminRoute"/>
-  <BackgroundTracking v-if="!isAdminRoute"/>
-  <ReminderSheet v-if="reminders.editing" :key="`${reminders.editing.stopId}:${reminders.editing.tripId}`" :target="reminders.editing" @close="reminders.closeSheet()"/>
 </template>
 
 <style scoped>

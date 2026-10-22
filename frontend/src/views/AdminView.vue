@@ -57,9 +57,6 @@ type Overview = {
     plans: number
     places: number
     installs: number
-    push_followers: number
-    reminders: number
-    reminder_users: number
   }
   quota: {
     quotas: {name: string; used: number; limit: number}[]
@@ -452,8 +449,6 @@ const meters = computed(() => {
               <div><dt>New today</dt><dd>{{ num(data.people.new) }}</dd></div>
               <div><dt>Trips planned</dt><dd>{{ num(data.people.plans) }}</dd></div>
               <div><dt>Place searches</dt><dd>{{ num(data.people.places) }}</dd></div>
-              <div><dt>Follow line changes</dt><dd>{{ num(data.people.push_followers) }}</dd></div>
-              <div><dt>Reminders</dt><dd>{{ num(data.people.reminders) }} from {{ num(data.people.reminder_users) }}</dd></div>
               <div><dt>Web installs</dt><dd>{{ num(data.people.installs) }}</dd></div>
               <div v-for="v in versionsToday" :key="v.platform + v.version">
                 <dt>{{ platformLabels[v.platform] ?? v.platform }} {{ v.version }}</dt><dd>{{ num(v.today) }}</dd>

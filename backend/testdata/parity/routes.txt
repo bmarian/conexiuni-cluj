@@ -12,7 +12,6 @@ GET /api/fixture/network
 GET /api/fixture/network/version
 GET /api/fixture/places
 GET /api/fixture/plan
-GET /api/fixture/push/key
 GET /api/fixture/route-changes
 GET /api/fixture/shapes
 GET /api/fixture/updates
@@ -22,7 +21,6 @@ GET /api/fixturegtfs/network
 GET /api/fixturegtfs/network/version
 GET /api/fixturegtfs/places
 GET /api/fixturegtfs/plan
-GET /api/fixturegtfs/push/key
 GET /api/fixturegtfs/route-changes
 GET /api/fixturegtfs/shapes
 GET /api/fixturegtfs/updates
@@ -36,20 +34,13 @@ GET /fixturegtfs/plan
 GET /fixturegtfs/route/:routeId/:direction
 GET /fixturegtfs/stop/:stopId
 GET /manifest.webmanifest
-GET /push-sw.js
 GET /registerSW.js
 GET /robots.txt
 GET /sitemap.xml
 GET /sw.js
 POST /api/admin/login
 POST /api/admin/logout
-POST /api/fixture/push/reminders
-POST /api/fixture/push/subscribe
-POST /api/fixture/push/unsubscribe
 POST /api/fixture/stats/event
-POST /api/fixturegtfs/push/reminders
-POST /api/fixturegtfs/push/subscribe
-POST /api/fixturegtfs/push/unsubscribe
 POST /api/fixturegtfs/stats/event
 POST /api/transfer
 PUT /api/admin/calendar
