@@ -44,8 +44,19 @@ import {
   placeTooltipHtml,
 } from '@/utils/mapIcons.ts'
 import {network, stationOf} from '@/utils/network.ts'
-import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
-import {type SpiderLeg, spiderLegsToward} from '@/utils/spider.ts'
+import {
+  groupName,
+  lngPerPixel,
+  mercX,
+  mercY,
+  modeMask,
+  modesIn,
+  StopClusters,
+  type StopGroup,
+  stationRank,
+  TILE_PX,
+} from '@/utils/stopClusters.ts'
+import {type SpiderBox, type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, linear, showMarker} from '@/utils/markerMotion.ts'
@@ -114,6 +125,8 @@ let shownLevel: {groups: StopGroup[], keys: Set<string>} | null = null
 let labelProbe: HTMLElement | null = null
 let coverageOwner: string | null = null
 let spider: {key: string, marker: Marker} | null = null
+let aroundCache: {groups: StopGroup[], group: StopGroup, legs: SpiderLeg[]} | null = null
+let aroundShown: string | null = null
 let areaList: Area[] = []
 const currentlyHighlightedStopId = ref<string | null>(null)
 const selectedVehicleId = ref<number | null>(null)
@@ -154,6 +167,7 @@ const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
 const VEHICLE_GLIDE_MS = 900
 const SPIDER_CLOSE_MS = 180
+const AROUND = 'around:'
 const CITY_FLIGHT_MS = 2500
 const FIT_DURATION_MS = 800
 const EARTH_RADIUS_M = 6371008.8
@@ -553,11 +567,39 @@ const spiderfy = (index: MapClusters, group: StopGroup) => {
   spider = {key: group.key, marker}
 }
 
-// The stations the selected stop's marker would hide, fanned out around it.
-const aroundMarker = (index: MapClusters, group: StopGroup): Marker => {
-  const at = index.lngLat(group)
-  const ids = groupStations(index, group).slice(1).map(({id}) => id)
-  return spiderMarker(at, ids, legsToward(at, ids))
+// The stations the selected stop's marker would hide fan out around it, clear of the markers drawn anywhere in this zoom level.
+const aroundLegs = ({index, labelWidth}: Clusters, group: StopGroup, zoom: number): SpiderLeg[] => {
+  const groups = index.at(zoom)
+  if (aroundCache?.groups === groups && aroundCache.group === group) return aroundCache.legs
+  const centre = index.lngLat(group)
+  const [low, high] = index.span(zoom)
+  const offset = ({lat, lng}: LatLng, z: number) => {
+    const px = TILE_PX * 2 ** z
+    return {x: (mercX(lng) - mercX(centre.lng)) * px, y: (mercY(lat) - mercY(centre.lat)) * px}
+  }
+  const boxAt = ({x, y}: {x: number, y: number}, {size, anchor}: {size: [number, number], anchor: [number, number]}): SpiderBox =>
+    ({left: x - anchor[0], top: y - anchor[1], right: x - anchor[0] + size[0], bottom: y - anchor[1] + size[1]})
+  const obstacles = groups.filter((g) => g !== group).map((g) => {
+    const a = boxAt(offset(index.lngLat(g), low), index.box(g))
+    const b = boxAt(offset(index.lngLat(g), high), index.box(g))
+    return {left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom)}
+  })
+  obstacles.push(boxAt({x: 0, y: 0}, index.box(group)))
+  const items = groupStations(index, group).slice(1).map(({id}) => {
+    const stop = stopData.get(id)!
+    const {size, anchor} = stopIconForId(id)
+    return {at: offset(stop, low), size, anchor, label: labelWidth(stop.name)}
+  })
+  const legs = spiderLegsClear(items, obstacles)
+  aroundCache = {groups, group, legs}
+  return legs
+}
+
+const aroundMarker = (index: MapClusters, group: StopGroup, legs: SpiderLeg[]): Marker => {
+  const marker = spiderMarker(index.lngLat(group), groupStations(index, group).slice(1).map(({id}) => id), legs)
+  if (aroundShown === group.key) marker.getElement().querySelector('.stop-spider')?.classList.add('is-settled')
+  aroundShown = group.key
+  return marker
 }
 
 const pulseGroup = (group: StopGroup) => {
@@ -663,7 +705,10 @@ const refreshStops = () => {
         const enter = !!before && !before.has(group.key)
         const id = index.points[group.leader]!.id
         if (id === selected) {
-          if (group.stations.size > 1) wanted.set(group.key, {enter: false, make: () => aroundMarker(index, group)})
+          if (group.stations.size > 1) {
+            const legs = aroundLegs(clusters, group, zoom)
+            wanted.set(`${AROUND}${group.key}|${legs.map((l) => `${l.x},${l.y}`).join(';')}`, {enter: false, make: () => aroundMarker(index, group, legs)})
+          }
         } else if (group.points.length === 1 && !group.areas) {
           wanted.set(id, {enter, make: () => stopMarker(id)})
         } else {
@@ -681,7 +726,7 @@ const refreshStops = () => {
     if (key === spider?.key) unspiderfy()
     hideCoverage(key)
     tooltip?.forget(marker)
-    if (stopMarkers.get(key) === marker || shownLevel?.keys.has(key)) marker.remove()
+    if (stopMarkers.get(key) === marker || shownLevel?.keys.has(key) || key.startsWith(AROUND)) marker.remove()
     else fadeOutMarker(marker)
     shownStops.delete(key)
   }
@@ -715,6 +760,7 @@ const highlightSelectedStop = (stopId?: string) => {
     oldMarker.getElement().style.zIndex = ''
   }
   currentlyHighlightedStopId.value = null
+  aroundShown = null
   const newMarker = stopId ? stopMarker(stopId) : null
   if (stopId && newMarker) {
     setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts(), network.value?.look(Number(stopId))))

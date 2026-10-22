@@ -172,9 +172,10 @@ function clusterLook(opts: IconThemeOptions): ClusterLook {
   return {w: 24, h: 24, icon: (mark) => stationIcon(mark).html as string, heart: () => makeHighlightIcon('favorite', opts).html as string}
 }
 
+// Up to a row in one line; more in two, the top one taking the odd icon, and the wrap centres the bottom one.
 function clusterPill(count: number, look: ClusterLook): [number, number] {
-  const cols = Math.min(count, CLUSTER_ROW)
-  const rows = Math.ceil(count / CLUSTER_ROW)
+  const rows = count > CLUSTER_ROW ? 2 : 1
+  const cols = Math.ceil(count / rows)
   return [cols * look.w + (cols - 1) * CLUSTER_GAP_PX + 2 * CLUSTER_PAD_PX, rows * look.h + (rows - 1) * CLUSTER_GAP_PX + 2 * CLUSTER_PAD_PX]
 }
 
