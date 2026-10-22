@@ -30,7 +30,6 @@ func TestOpenDropsWebPush(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Twice: the second open finds nothing left to drop.
 	for range 2 {
 		s := openTestStore(t, path, filepath.Join(dir, "b.db"))
 		var tables int

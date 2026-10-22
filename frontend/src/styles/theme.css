@@ -1,4 +1,4 @@
-/* Same colours as the phone's ui/theme/Theme.kt. */
+/* Same colours as Theme.kt in the Android app. */
 @font-face {
   font-family: "Roboto Flex";
   font-style: normal;
@@ -207,7 +207,6 @@
     fill: currentColor;
   }
 
-  /* Squashes while pressed and springs back, like Bouncy.press. */
   .squish {
     transition: scale var(--spring-press-ms) var(--spring-press);
   }
@@ -255,7 +254,7 @@
     opacity: 0.1;
   }
 
-  /* Like Material's minimum touch target: a 40px button takes 48px. */
+  /* 48px touch target */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -352,7 +351,6 @@
     border-radius: 12px;
   }
 
-  /* Rows rise into place one beat after another, like Modifier.cascade. */
   .cascade {
     animation: cascade-in var(--spring-land-ms) var(--spring-land) both;
     animation-delay: calc(min(var(--i, 0), 12) * 28ms);

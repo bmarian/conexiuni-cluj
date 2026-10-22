@@ -302,7 +302,7 @@ function restoreFocus(wanted: string | null) {
     if (seq !== navSeq || !keyboardMode.value) return
     const root = rootEl()
     if (!root) return
-    // The page before leaves first, so its items would take the focus.
+    // Wait for the leaving page to go.
     if (root.querySelector('.page-leave-active, .page-back-leave-active')) return void requestAnimationFrame(tick)
     const active = document.activeElement
     if (active && active !== document.body && root.contains(active)) return

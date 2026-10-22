@@ -17,7 +17,6 @@ const routeUpdates = useRouteUpdatesStore()
 
 useHead(() => ({title: `${t('news')} · ${t('headHomeTitle', cityParams())}`}))
 
-// Stays bold for the visit, so the "new" marks don't vanish on first render.
 const freshIds = ref(new Set<number>())
 
 watch(() => routeUpdates.changes, () => {

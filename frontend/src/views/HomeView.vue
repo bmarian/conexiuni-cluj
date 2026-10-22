@@ -81,7 +81,6 @@ const favoriteRouteGroups = computed<FavoriteRouteGroup[]>(() => {
   return [...groups.values()]
 })
 
-// Both directions saved show as one chip that opens the direction nearest the user.
 const favoriteRouteChips = computed(() => {
   const chips = new Map<number, FavoriteRouteChip>()
   for (const group of favoriteRouteGroups.value) {
@@ -323,7 +322,7 @@ const dragOptions = {
   padding: 4px 12px;
 }
 
-/* Material's 48px touch target: a one-line card sits centred in it, like on the phone. */
+/* 48px touch target */
 .chip-cell {
   display: flex;
   align-items: center;

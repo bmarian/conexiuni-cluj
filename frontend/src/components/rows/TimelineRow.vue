@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// A rail is a line colour for a ride, 'walk' for a dotted walk, or nothing.
 defineProps<{
   top?: string | 'walk' | null
   bottom?: string | 'walk' | null

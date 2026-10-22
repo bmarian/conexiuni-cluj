@@ -74,7 +74,6 @@ const themes = computed<Choice<Theme>[]>(() => [
   {value: 'system', label: t('themeSystem'), icon: BrightnessMediumIcon},
 ])
 
-// The nearest city is offered only while location is already allowed.
 const automatic = computed(() => locationGranted.value && !cityChoice.value)
 const cityOpen = ref(false)
 const info = computed(() => cityInfo())
@@ -89,7 +88,6 @@ async function choose(slug: string | null) {
 
 <template>
   <div class="settings-view flex flex-col">
-    <!-- Columns, so stacked margins add up like the phone's padding. -->
     <SheetTopBar :title="t('settings')"/>
     <h1 class="text-headline-small font-bold px-4 py-1">{{ t('settings') }}</h1>
 

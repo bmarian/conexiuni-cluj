@@ -15,7 +15,7 @@ export default defineConfig({
     tailwindcss(),
     vue(),
     svgLoader({
-      // Icons are drawn at other sizes than 24, which needs the viewBox.
+      // Icons are scaled, which needs the viewBox.
       svgoConfig: {plugins: [{name: "preset-default", params: {overrides: {removeViewBox: false}}}]},
     }),
     VitePWA({

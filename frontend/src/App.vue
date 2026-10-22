@@ -84,7 +84,7 @@ const iosKeyboard = useIOSKeyboard(drawerEl, {enabled: isPortraitMobile, sheetHe
 useSheetKeyboard(drawerEl, {
   enabled: isPortraitMobile,
   keyboardPx,
-  measure: !virtualKeyboard,
+  measureViewport: !virtualKeyboard,
   open: () => {
     drawerState.value = 'fullscreen'
   },
@@ -180,7 +180,6 @@ const drawerStyle = computed(() => {
   }
 })
 
-// The FABs ride above the sheet and the search pill fades under it.
 function sheetFollowers(top: number) {
   const half = snapTopPx('half')
   const reach = chromeH.value
@@ -230,14 +229,26 @@ watch(() => route.fullPath, () => {
 
 watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
 
+function reveal() {
+  if (isPortraitMobile.value) {
+    if (drawerState.value !== 'minimized') return
+    drawerState.value = 'half'
+    updateMapInsets()
+  } else if (mqlLandscape?.matches && !isLandscapeDrawerOpen.value) {
+    isLandscapeDrawerOpen.value = true
+  }
+}
+
 // Sync, because the map flies to the pick right after and has to aim above the raised drawer.
-watch(() => mapStore.revealDrawer, (reveal) => {
-  if (!reveal) return
+watch(() => mapStore.revealDrawer, (requested) => {
+  if (!requested) return
   mapStore.revealDrawer = false
-  if (!isPortraitMobile.value || drawerState.value !== 'minimized') return
-  drawerState.value = 'half'
-  updateMapInsets()
+  reveal()
 }, {flush: 'sync'})
+
+watch(() => route.path, () => {
+  if (!atHome.value && !isAdminRoute.value) reveal()
+})
 
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()

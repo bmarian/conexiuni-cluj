@@ -488,7 +488,6 @@ function dropPin() {
   display: none;
 }
 
-/* Wide windows dock the search over its bar, like Material's docked search: at most 2/3 of the screen, at least 240px. */
 @media (max-width: 1023px) and (orientation: landscape), (min-width: 1024px) {
   .search-backdrop {
     display: block;
