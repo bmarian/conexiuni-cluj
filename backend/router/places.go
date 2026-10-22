@@ -26,7 +26,7 @@ type placeTags struct {
 	name, street, number, suburb string
 	// A city or a town, not a village: what a district belongs to.
 	big bool
-	// OSM's place value of a town or district mapped as a node; a way only has its first node to stand on.
+	// Only for nodes: a way stands on its first node.
 	place string
 }
 
@@ -97,13 +97,11 @@ type Places struct {
 	areas  []Area
 }
 
-// An Area is a town or a district of one, as OSM places it; Town is the town it is part of.
 type Area struct {
 	Name  string  `json:"name"`
 	Lat   float64 `json:"lat"`
 	Lon   float64 `json:"lon"`
 	Place string  `json:"place"`
-	Town  string  `json:"town"`
 }
 
 // How far a place still is the one at a position: the GPS error of a phone.
@@ -126,7 +124,7 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 	if len(cities) == 0 {
 		cities = towns
 	}
-	p.areas = areasOf(towns, districts, cities)
+	p.areas = areasOf(append(towns, districts...))
 	// The area a place is in: its district when one is nearer than any town, else the town.
 	area := func(r pbfPlace) string {
 		if r.suburb != "" {
@@ -183,25 +181,16 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 	return p
 }
 
-// A district is part of the nearest city or town, as in place labels.
-func areasOf(towns, districts, cities []pbfPlace) []Area {
+func areasOf(places []pbfPlace) []Area {
 	out := []Area{}
 	seen := make(map[string]bool)
-	add := func(r pbfPlace, town string) {
+	for _, r := range places {
 		key := r.place + "|" + fold(r.name)
-		if r.place == "" || town == "" || seen[key] {
-			return
+		if r.place == "" || seen[key] {
+			continue
 		}
 		seen[key] = true
-		out = append(out, Area{Name: r.name, Lat: r.lat, Lon: r.lon, Place: r.place, Town: town})
-	}
-	for _, r := range towns {
-		add(r, r.name)
-	}
-	for _, r := range districts {
-		if t, _ := nearestPlace(cities, r.lat, r.lon); t != nil {
-			add(r, t.name)
-		}
+		out = append(out, Area{Name: r.name, Lat: r.lat, Lon: r.lon, Place: r.place})
 	}
 	return out
 }

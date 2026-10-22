@@ -16,7 +16,7 @@ import type {Feature, Polygon} from 'geojson'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {useStopsApi} from "@/composables/useStopsApi.ts";
-import {type RouteLocationRaw, useRoute, useRouter} from "vue-router";
+import {useRoute} from "vue-router";
 import {useI18n} from "vue-i18n";
 import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
@@ -36,7 +36,6 @@ import {
   makeClusterIcon,
   makeSpiderIcon,
   makeHighlightIcon,
-  namesCardHtml,
   makePinIcon,
   makeSelectedStopIcon,
   makeStopIcon,
@@ -47,16 +46,14 @@ import {network, stationOf} from '@/utils/network.ts'
 import {
   groupName,
   lngPerPixel,
-  mercX,
-  mercY,
   modeMask,
   modesIn,
   StopClusters,
   type StopGroup,
   stationRank,
-  TILE_PX,
 } from '@/utils/stopClusters.ts'
-import {type SpiderBox, type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
+import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
+import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, linear, showMarker} from '@/utils/markerMotion.ts'
@@ -105,7 +102,6 @@ const {showVehicleExtras} = storeToRefs(settingsStore)
 const arcadeActive = computed(() => settingsStore.arcadeActive)
 const legacyBlueActive = computed(() => settingsStore.legacyBlueActive)
 const paperActive = computed(() => settingsStore.paperActive)
-const router = useRouter()
 const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
 const stopMarkers = new Map<string, Marker>()
@@ -368,12 +364,9 @@ const stopIconForId = (stopId: string) => favoritesStore.isStopFavorite(Number(s
 
 const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, themeOpts(), network.value?.look(Number(stopId)))
 
-// Stops picked one after another on the map take each other's place in the history.
-const openFromMap = (target: RouteLocationRaw) => route.name === 'stop' || route.name === 'stops' ? router.replace(target) : router.push(target)
+const {openStop, openStops} = useMapPicks()
 
-const openStop = (stopId: string) => openFromMap({name: 'stop', params: {stopId}})
-
-// Highlighted stops have their own markers, so they stay out of the groups; the selected stop leads the stops its marker covers.
+// The selected stop leads its own group; highlighted stops stay out of the groups.
 const clusterKey = () => {
   const selected = currentlyHighlightedStopId.value
   const skip = highlightedStops.value.map((h) => h.stopId).filter((id) => id !== selected)
@@ -438,9 +431,9 @@ const dropClusterMarkers = () => {
 
 const groupLabel = ({index, labels}: Clusters, group: StopGroup) => {
   let label = labels.get(group.key)
-  const area = !label && index.label(group)
+  const area = !label && index.areaName(group)
   if (area) {
-    label = {name: area.name, more: area.more, text: area.more ? `${area.name} +${area.more}` : area.name}
+    label = {name: area, more: 0, text: area}
     labels.set(group.key, label)
   } else if (!label) {
     const leader = index.points[group.leader]!
@@ -495,11 +488,11 @@ const stopClusters = (): Clusters => {
   const selected = anchor ? makeSelectedStopIcon(opts, net?.look(Number(anchor))) : null
   const boxOf = (group: StopGroup) => {
     if (selected && points[group.leader]!.id === anchor) return selected
-    if (group.stations.size === 1 && !group.areas) return group.favorite ? heart : station
+    if (group.stations.size === 1 && group.area === undefined) return group.favorite ? heart : station
     return clusterIconBox(groupIconCount(group), labelWidth(groupLabel(clusters, group).text), opts)
   }
   const stations = new StopClusters(points, boxOf, MAX_ZOOM, CLUSTER_ZOOM_STEP)
-  const towns = !key && areaList.length ? new AreaClusters(points, areaList, boxOf, MAX_ZOOM, CLUSTER_ZOOM_STEP) : null
+  const towns = !key && areaList.length ? new AreaClusters(stations, areaList, boxOf) : null
   const index = new MapClusters(stations, towns, CLUSTER_STATIONS_MAX)
   const clusters: Clusters = {index, labelWidth, labels: new Map(), markers: new Map()}
   clusterCache.set(key, clusters)
@@ -567,28 +560,14 @@ const spiderfy = (index: MapClusters, group: StopGroup) => {
   spider = {key: group.key, marker}
 }
 
-// The stations the selected stop's marker would hide fan out around it, clear of the markers drawn anywhere in this zoom level.
+// The stations the selected stop's marker covers fan out around it, clear of the other markers.
 const aroundLegs = ({index, labelWidth}: Clusters, group: StopGroup, zoom: number): SpiderLeg[] => {
   const groups = index.at(zoom)
   if (aroundCache?.groups === groups && aroundCache.group === group) return aroundCache.legs
-  const centre = index.lngLat(group)
-  const [low, high] = index.span(zoom)
-  const offset = ({lat, lng}: LatLng, z: number) => {
-    const px = TILE_PX * 2 ** z
-    return {x: (mercX(lng) - mercX(centre.lng)) * px, y: (mercY(lat) - mercY(centre.lat)) * px}
-  }
-  const boxAt = ({x, y}: {x: number, y: number}, {size, anchor}: {size: [number, number], anchor: [number, number]}): SpiderBox =>
-    ({left: x - anchor[0], top: y - anchor[1], right: x - anchor[0] + size[0], bottom: y - anchor[1] + size[1]})
-  const obstacles = groups.filter((g) => g !== group).map((g) => {
-    const a = boxAt(offset(index.lngLat(g), low), index.box(g))
-    const b = boxAt(offset(index.lngLat(g), high), index.box(g))
-    return {left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom)}
-  })
-  obstacles.push(boxAt({x: 0, y: 0}, index.box(group)))
+  const {obstacles, offset} = index.surroundings(group, zoom)
   const items = groupStations(index, group).slice(1).map(({id}) => {
     const stop = stopData.get(id)!
-    const {size, anchor} = stopIconForId(id)
-    return {at: offset(stop, low), size, anchor, label: labelWidth(stop.name)}
+    return {station: offset(stop.lat, stop.lng), icon: stopIconForId(id), labelWidth: labelWidth(stop.name)}
   })
   const legs = spiderLegsClear(items, obstacles)
   aroundCache = {groups, group, legs}
@@ -614,16 +593,13 @@ const expandGroup = (index: MapClusters, group: StopGroup) => {
   const m = map.value
   if (!m) return
   pulseGroup(group)
-  if (group.stations.size <= CLUSTER_STATIONS_MAX) {
-    const target = {name: 'stops', params: {stopIds: groupStations(index, group).map(({id}) => id).join(',')}}
-    void openFromMap(target)
-  }
+  if (group.stations.size <= CLUSTER_STATIONS_MAX) void openStops(groupStations(index, group).map(({id}) => id))
   const bounds = new LngLatBounds(...index.bounds(group))
-  if (group.areas) {
+  if (group.area !== undefined) {
     unspiderfy()
     const fit = m.cameraForBounds(bounds, {padding: fitPadding()})?.zoom ?? m.getZoom()
     const {lng, lat} = bounds.getCenter()
-    return flyToVisible({lat, lng}, Math.max(fit, index.stationsFrom() ?? fit))
+    return flyToVisible({lat, lng}, Math.max(fit, index.lowestStationZoom() ?? fit))
   }
   const expansion = index.expansion(group, m.getZoom())
   if (!expansion) return spiderfy(index, group)
@@ -639,7 +615,7 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
   const leaderId = index.points[group.leader]!.id
   const at = index.lngLat(group)
   const {name, more, text} = groupLabel(clusters, group)
-  if (group.stations.size === 1 && !group.areas) {
+  if (group.stations.size === 1 && group.area === undefined) {
     const marker = htmlMarker(at, group.favorite ? makeHighlightIcon('favorite', themeOpts()) : stopIconForId(leaderId))
     tooltip?.bind(marker, stationCard(leaderId, name), 'stop-name-tooltip', 14)
     onMarkerClick(marker, () => openStop(leaderId))
@@ -653,10 +629,8 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
       ...modesIn(group.modes).map((mode) => ({mode, color: network.value?.modeColor(mode) ?? UNKNOWN_MODE_COLOR})),
     ]
   const marker = htmlMarker(at, makeClusterIcon(icons, name, more, clusters.labelWidth(text), themeOpts()))
-  const areaNames = index.label(group)?.names
-  const andMore = (n: number) => t('mapMoreStations', {n})
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
-  tooltip?.bind(marker, () => areaNames ? namesCardHtml(areaNames, andMore) : clusterCardHtml(card(), themeOpts(), andMore), 'stop-name-tooltip', 14)
+  tooltip?.bind(marker, () => clusterCardHtml(card(), themeOpts(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
   marker.getElement().classList.add('stop-group')
   onPreview(marker.getElement(), () => showCoverage(index, group), () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
@@ -709,7 +683,7 @@ const refreshStops = () => {
             const legs = aroundLegs(clusters, group, zoom)
             wanted.set(`${AROUND}${group.key}|${legs.map((l) => `${l.x},${l.y}`).join(';')}`, {enter: false, make: () => aroundMarker(index, group, legs)})
           }
-        } else if (group.points.length === 1 && !group.areas) {
+        } else if (group.points.length === 1 && group.area === undefined) {
           wanted.set(id, {enter, make: () => stopMarker(id)})
         } else {
           wanted.set(group.key, {enter, make: () => groupMarker(clusters, group)})

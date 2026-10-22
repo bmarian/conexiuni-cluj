@@ -1,4 +1,4 @@
-// Package planner answers /plan, /places and /areas: journeys on foot and by line over the city's network, the places a rider can type, and the towns and districts they know.
+// Package planner answers /plan, /places and /areas: journeys on foot and by line over the city's network, and the places a rider can type.
 package planner
 
 import (

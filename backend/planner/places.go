@@ -46,7 +46,6 @@ func (s *Service) searchPlaces(c fiber.Ctx) error {
 	return c.JSON([]router.Place{})
 }
 
-// The towns and districts around the stops, which name the map's groups from afar.
 func (s *Service) listAreas(c fiber.Ctx) error {
 	places := s.placeIndex()
 	if places == nil {

@@ -1,3 +1,5 @@
+import {boxAt, type ClusterBox, type Rect} from '@/utils/stopClusters.ts'
+
 export type SpiderLeg = {x: number, y: number, side: 'left' | 'right'}
 
 const CIRCLE_MAX = 8
@@ -31,59 +33,55 @@ export function spiderLegs(count: number): SpiderLeg[] {
   return legs
 }
 
-// angles: each station's real direction in screen radians; the circle turns to match them best.
-export function spiderLegsToward(angles: number[]): SpiderLeg[] {
-  const count = angles.length
+export function spiderLegsToward(screenAngles: number[]): SpiderLeg[] {
+  const count = screenAngles.length
   if (count > CIRCLE_MAX) return spiderLegs(count)
-  const order = angles.map((_, i) => i).sort((a, b) => angles[a]! - angles[b]!)
+  const order = screenAngles.map((_, i) => i).sort((a, b) => screenAngles[a]! - screenAngles[b]!)
   const step = 2 * Math.PI / count
   let x = 0
   let y = 0
   order.forEach((i, k) => {
-    x += Math.cos(angles[i]! - k * step)
-    y += Math.sin(angles[i]! - k * step)
+    x += Math.cos(screenAngles[i]! - k * step)
+    y += Math.sin(screenAngles[i]! - k * step)
   })
   const turn = Math.atan2(y, x)
   const r = circleRadius(count)
   const slot = new Map(order.map((i, k) => [i, k]))
-  return angles.map((_, i) => leg(r, turn + slot.get(i)! * step))
+  return screenAngles.map((_, i) => leg(r, turn + slot.get(i)! * step))
 }
 
-export type SpiderBox = {left: number, top: number, right: number, bottom: number}
-
-// at: where the station really is; label: its name's width. Pixels from the spider's centre.
-export type SpiderItem = {at: {x: number, y: number}, size: [number, number], anchor: [number, number], label: number}
+export type SpiderItem = {station: {x: number, y: number}, icon: ClusterBox, labelWidth: number}
 
 // Same as .stop-spider-item's gap and .stop-cluster-label's line-height in map.css.
 const LABEL_GAP_PX = 4
 const LABEL_HEIGHT_PX = 13
 const RINGS = 3
 
-const itemBoxes = ({size: [w, h], anchor: [ax, ay], label}: SpiderItem, {x, y, side}: SpiderLeg): SpiderBox[] => {
-  const icon = {left: x - ax, top: y - ay, right: x - ax + w, bottom: y - ay + h}
-  const middle = icon.top + h / 2
-  const start = side === 'right' ? icon.right + LABEL_GAP_PX : icon.left - LABEL_GAP_PX - label
-  return [icon, {left: start, top: middle - LABEL_HEIGHT_PX / 2, right: start + label, bottom: middle + LABEL_HEIGHT_PX / 2}]
+const itemBoxes = ({icon, labelWidth}: SpiderItem, {x, y, side}: SpiderLeg): Rect[] => {
+  const box = boxAt(x, y, icon)
+  const middle = (box.top + box.bottom) / 2
+  const start = side === 'right' ? box.right + LABEL_GAP_PX : box.left - LABEL_GAP_PX - labelWidth
+  return [box, {left: start, top: middle - LABEL_HEIGHT_PX / 2, right: start + labelWidth, bottom: middle + LABEL_HEIGHT_PX / 2}]
 }
 
-const overlap = (a: SpiderBox, b: SpiderBox) =>
+const overlap = (a: Rect, b: Rect) =>
   Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
 
-// Each station, in turn, on the spot nearest where it really is that its icon and name leave the obstacles clear; the least covered spot when none does.
-export function spiderLegsClear(items: SpiderItem[], obstacles: SpiderBox[]): SpiderLeg[] {
+// The free spot nearest each station, else the least covered one.
+export function spiderLegsClear(items: SpiderItem[], obstacles: Rect[]): SpiderLeg[] {
   const taken = [...obstacles]
   return items.map((item) => {
-    const toward = Math.atan2(item.at.y, item.at.x)
+    const toward = Math.atan2(item.station.y, item.station.x)
     let best: {leg: SpiderLeg, covered: number, far: number} | null = null
     for (let ring = 0; ring < RINGS; ring++) {
       const r = MIN_RADIUS_PX + ring * FOOT_PX
-      const step = item.size[0] / r
+      const step = item.icon.size[0] / r
       for (let k = 0; k * step <= Math.PI; k++) {
         for (const turn of k ? [k * step, -k * step] : [0]) {
           const l = leg(r, toward + turn)
           const boxes = itemBoxes(item, l)
           const covered = taken.reduce((sum, t) => sum + overlap(boxes[0]!, t) + overlap(boxes[1]!, t), 0)
-          const far = Math.hypot(l.x - item.at.x, l.y - item.at.y)
+          const far = Math.hypot(l.x - item.station.x, l.y - item.station.y)
           if (!best || covered < best.covered || (covered === best.covered && far < best.far)) best = {leg: l, covered, far}
         }
       }

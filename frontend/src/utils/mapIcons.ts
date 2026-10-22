@@ -172,7 +172,6 @@ function clusterLook(opts: IconThemeOptions): ClusterLook {
   return {w: 24, h: 24, icon: (mark) => stationIcon(mark).html as string, heart: () => makeHighlightIcon('favorite', opts).html as string}
 }
 
-// Up to a row in one line; more in two, the top one taking the odd icon, and the wrap centres the bottom one.
 function clusterPill(count: number, look: ClusterLook): [number, number] {
   const rows = count > CLUSTER_ROW ? 2 : 1
   const cols = Math.ceil(count / rows)
@@ -208,10 +207,7 @@ export function clusterCardHtml(stations: ClusterStation[], opts: IconThemeOptio
   if (stations.length <= CLUSTER_STATIONS_MAX) {
     return `<div class="station-cards">${stations.map((s) => stationCardHtml(s.name, opts, s.mark)).join('')}</div>`
   }
-  return namesCardHtml([...new Set(stations.map((s) => s.name))].sort((a, b) => a.localeCompare(b)), more)
-}
-
-export function namesCardHtml(names: string[], more: (n: number) => string): string {
+  const names = [...new Set(stations.map((s) => s.name))].sort((a, b) => a.localeCompare(b))
   const shown = names.slice(0, CLUSTER_NAMES_MAX)
   const rest = names.length - shown.length
   return `<div class="station-names">

@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 
 import { defineConfig } from "vite";
@@ -95,7 +96,8 @@ export default defineConfig({
     // Remove this when chrome or vite fixes it https://github.com/vite-pwa/vite-plugin-pwa/issues/945
     emptyOutDir: true,
     modulePreload: false,
-    chunkSizeWarningLimit: 650,
+    // MapLibre ships as one minified file; no chunk of ours should outgrow it.
+    chunkSizeWarningLimit: Math.ceil(statSync(fileURLToPath(new URL("./node_modules/maplibre-gl/dist/maplibre-gl.mjs", import.meta.url))).size / 1000),
     rollupOptions: {
       onwarn(warning, warn) {
         if (
