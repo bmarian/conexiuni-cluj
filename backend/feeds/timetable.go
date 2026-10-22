@@ -7,6 +7,20 @@ import (
 	"strings"
 )
 
+// Columns lays two directions' departures side by side, row by row.
+func Columns(in, out []string) models.DaySchedule {
+	entries := make([]models.TimetableEntry, max(len(in), len(out)))
+	for i := range entries {
+		if i < len(in) {
+			entries[i].DepartureIn = in[i]
+		}
+		if i < len(out) {
+			entries[i].DepartureOut = out[i]
+		}
+	}
+	return models.DaySchedule{Entries: entries}
+}
+
 // CanonicalTime moves a leading annotation to the end, so "*07:25" becomes "07:25*".
 func CanonicalTime(s string) string {
 	s = strings.TrimSpace(s)

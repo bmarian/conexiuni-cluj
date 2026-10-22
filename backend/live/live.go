@@ -136,7 +136,9 @@ func (eng *Engine) refreshLiveTrips(force bool) {
 	}
 	started := time.Now()
 	byTrip := make(map[string]*liveTrip)
+	routeIDs := make(map[string]int, len(routes))
 	for _, route := range routes {
+		routeIDs[route.RouteShortName] = route.RouteID
 		for _, lt := range eng.buildLiveTrips(route, now) {
 			byTrip[lt.trip.ID] = lt
 		}
@@ -144,6 +146,7 @@ func (eng *Engine) refreshLiveTrips(force bool) {
 	rules := eng.learnLiveRules()
 	eng.liveTrips.Lock()
 	eng.liveTrips.byTrip, eng.liveTrips.period, eng.liveTrips.day, eng.liveTrips.rules = byTrip, period, day, rules
+	eng.liveTrips.routeIDs = routeIDs
 	eng.liveTrips.Unlock()
 	eng.log("live: %d trips prepared in %s, grace %.0fs, reminder window %s", len(byTrip), time.Since(started).Round(time.Millisecond), rules.graceSec, rules.slotWindow)
 }
@@ -366,6 +369,8 @@ type liveTripsState struct {
 	day    string
 	byTrip map[string]*liveTrip
 	rules  liveRules
+	// By line number, every route of the network.
+	routeIDs map[string]int
 }
 
 type liveTableState struct {

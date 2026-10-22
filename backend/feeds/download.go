@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"conexiuni-cluj/web"
 )
 
 const StallTimeout = 30 * time.Second
@@ -78,6 +81,9 @@ func fetchIssuer(cert *x509.Certificate, fetched map[string]bool) *x509.Certific
 	return nil
 }
 
+// Some hosts turn away Go's own agent (gtfs.opendev.ro resets it and then the address for a while).
+var userAgent = strings.TrimPrefix(web.SiteOrigin, "https://") + " (+" + web.SiteOrigin + "/)"
+
 func fetch(c *http.Client, url string) ([]byte, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -87,6 +93,7 @@ func fetch(c *http.Client, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, stallError(ctx, url, err)

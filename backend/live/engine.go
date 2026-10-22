@@ -52,6 +52,25 @@ func New(slug string, loc *time.Location, store *database.Store, data *transit.D
 
 func (eng *Engine) running() *jobs.Runner { return eng.Runner() }
 
+// RouteIDs implements feeds.Tracing.
+func (eng *Engine) RouteIDs() map[string]int {
+	eng.liveTrips.RLock()
+	defer eng.liveTrips.RUnlock()
+	return eng.liveTrips.routeIDs
+}
+
+// Along implements feeds.Tracing.
+func (eng *Engine) Along(routeID, direction int, lat, lon float64) (float64, float64, bool) {
+	eng.liveTrips.RLock()
+	lt := eng.liveTrips.byTrip[models.PatternID(routeID, direction)]
+	eng.liveTrips.RUnlock()
+	if lt == nil || lt.trip.Shape == nil || len(lt.trip.Shape.Points) == 0 {
+		return 0, 0, false
+	}
+	idx, off := lt.trip.Shape.Closest(lat, lon)
+	return lt.trip.Shape.Cumulative[idx], off, true
+}
+
 // StopIndex implements feeds.Placement.
 func (eng *Engine) StopIndex(routeID, direction, stopID int) int {
 	eng.liveTrips.RLock()

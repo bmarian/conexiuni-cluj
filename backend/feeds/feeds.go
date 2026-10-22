@@ -63,6 +63,14 @@ type Placement interface {
 	StopIndex(routeID, direction, stopID int) int
 }
 
+// Tracing places a vehicle whose feed names only its line.
+type Tracing interface {
+	// Route ids by line number; read only.
+	RouteIDs() map[string]int
+	// Metres along a direction's shape to the point nearest the position, and how far the position is from it; false when the direction has no shape.
+	Along(routeID, direction int, lat, lon float64) (along, off float64, ok bool)
+}
+
 type Credit struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`

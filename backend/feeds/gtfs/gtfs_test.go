@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"conexiuni-cluj/calendar"
+	"conexiuni-cluj/models"
 	"reflect"
 	"slices"
 	"strconv"
@@ -230,5 +231,33 @@ func TestALineWithoutDirectionsTakesThemFromWhereItsRunsHead(t *testing.T) {
 	}
 	if !reflect.DeepEqual(unnamed.trips, named.trips) || !reflect.DeepEqual(unnamed.patterns, named.patterns) || unnamed.dropped != named.dropped {
 		t.Fatalf("patterns %+v, want %+v", unnamed.patterns, named.patterns)
+	}
+}
+
+func TestHeadwayTripsBecomeTimedRuns(t *testing.T) {
+	f := testFeedWith(t, map[string]string{
+		"trips.txt": "route_id,service_id,trip_id,direction_id,shape_id,trip_headsign\nL1,WK,every,0,s0,Delta\n",
+		"stop_times.txt": "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n" +
+			"every,05:00:00,05:00:00,A,1\nevery,05:05:00,05:05:00,B,2\nevery,05:12:00,05:12:00,C,3\nevery,05:20:00,05:20:00,D,4\n",
+		"frequencies.txt": "trip_id,start_time,end_time,headway_secs\nevery,06:00:00,06:30:00,600\nevery,06:30:00,07:10:00,1200\n",
+	})
+	snap, err := f.snapshot(ids{}, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tt := snap.Timetables["7"]
+	var in []string
+	for _, e := range tt.Weekdays.Entries {
+		in = append(in, e.DepartureIn)
+	}
+	// Each window's runs, its end excluded; the template's own 05:00 is only a shape for them.
+	if want := []string{"06:00", "06:10", "06:20", "06:30", "06:50"}; !reflect.DeepEqual(in, want) {
+		t.Fatalf("weekdays %v, want %v", in, want)
+	}
+	if fr := tt.Weekdays.InFrequency; fr == nil || *fr != (models.Frequency{Start: "06:00", End: "07:10", MinMinutes: 10, MaxMinutes: 20}) {
+		t.Fatalf("frequency %+v", fr)
+	}
+	if offsets := snap.Offsets[snap.Trips[0].TripID]; !reflect.DeepEqual(offsets, []float64{0, 300, 420, 480}) {
+		t.Fatalf("offsets %v", offsets)
 	}
 }

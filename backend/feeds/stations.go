@@ -15,7 +15,7 @@ func Stations(snap *Snapshot, locate Locate) (int, error) {
 	key := make([]string, len(snap.Stops))
 	at := make(map[int]int, len(snap.Stops))
 	for i, s := range snap.Stops {
-		key[i], at[s.StopID] = normalizeStopLabelForMatch(s.StopName), i
+		key[i], at[s.StopID] = NormalizeStopLabel(s.StopName), i
 	}
 	runs := patternStops(snap, at)
 
