@@ -126,3 +126,36 @@ func TestNearbyNamesAnAddressThenAStreet(t *testing.T) {
 		t.Fatalf("nothing is near the corner of the area, got %+v", got)
 	}
 }
+
+func TestAreasAreTheTownsAndTheirDistricts(t *testing.T) {
+	raw := []pbfPlace{
+		{placeTags: placeTags{kind: placeTown, name: "Cluj-Napoca", big: true, place: "city"}, lat: 46.77, lon: 23.59, placed: true},
+		{placeTags: placeTags{kind: placeTown, name: "Florești", place: "village"}, lat: 46.745, lon: 23.49, placed: true},
+		{placeTags: placeTags{kind: placeDistrict, name: "Mănăștur", place: "suburb"}, lat: 46.755, lon: 23.557, placed: true},
+		{placeTags: placeTags{kind: placeDistrict, name: "Mănăștur", place: "suburb"}, lat: 46.756, lon: 23.558, placed: true},
+		{placeTags: placeTags{kind: placeDistrict, name: "Gruia"}, lat: 46.777, lon: 23.577, placed: true},
+	}
+	got := newPlaces(raw, BBox{46.70, 23.45, 46.84, 23.73}).Areas()
+	want := []Area{
+		{Name: "Cluj-Napoca", Lat: 46.77, Lon: 23.59, Place: "city", Town: "Cluj-Napoca"},
+		{Name: "Florești", Lat: 46.745, Lon: 23.49, Place: "village", Town: "Florești"},
+		{Name: "Mănăștur", Lat: 46.755, Lon: 23.557, Place: "suburb", Town: "Cluj-Napoca"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("area %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestOnlyANodePlacesAnArea(t *testing.T) {
+	if p, _ := placeOf(tags(map[string]string{"place": "suburb", "name": "Mărăști"}), true); p.place != "" {
+		t.Fatalf("a way is placed by its first node: %+v", p)
+	}
+	if p, _ := placeOf(tags(map[string]string{"place": "village", "name": "Florești"}), false); p.place != "village" {
+		t.Fatalf("node: %+v", p)
+	}
+}

@@ -577,12 +577,7 @@ func (f *feed) snapshot(ids feeds.IDMap, now time.Time) (*feeds.Snapshot, error)
 		}
 		routeIDs[external] = id
 		routeType, _ := strconv.Atoi(routes.get(row, "route_type"))
-		color := strings.TrimPrefix(routes.get(row, "route_color"), "#")
-		if len(color) == 6 {
-			color = "#" + strings.ToUpper(color)
-		} else {
-			color = models.ResolveRouteDisplayColor(routes.get(row, "route_short_name"))
-		}
+		color := models.FeedRouteColor(routes.get(row, "route_color"))
 		longName := routes.get(row, "route_long_name")
 		if longName == "" {
 			longName = routeName(f.patterns, external, f.stopName)

@@ -4,6 +4,7 @@ import {isShare, sharedDestination} from '@/utils/share.ts'
 import {citiesReady, currentCity, DEFAULT_CITY, knownCity, LEGACY_SECTIONS, resolveCity, setCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
+const StopsView = () => import('@/views/StopsView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
 const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
@@ -51,6 +52,12 @@ const router = createRouter({
           path: 'stop/:stopId',
           name: 'stop',
           component: StopView,
+          props: true,
+        },
+        {
+          path: 'stops/:stopIds',
+          name: 'stops',
+          component: StopsView,
           props: true,
         },
         {

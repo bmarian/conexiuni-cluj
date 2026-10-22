@@ -127,21 +127,23 @@ func firstDifference(a, b string) string {
 func fixtureSnapshot(base int, lat, lon float64, changed bool) *feeds.Snapshot {
 	snap := &feeds.Snapshot{}
 	shared := base*100 + 3
+	colors := map[int][2]string{1: {"#C62F24", "#16D057"}, 7: {"#D84B3B", "#1C38D9"}}[base]
 	lines := []struct {
 		id         int
 		name       string
+		color      string
 		kind       models.RouteType
 		stops      []int
 		dLat, dLon float64
 	}{
-		{base, fmt.Sprint(base), 3, []int{base*100 + 1, base*100 + 2, shared, base*100 + 4, base*100 + 5}, 0, 0.006},
-		{base + 1, fmt.Sprintf("%dB", base+1), 0, []int{base*100 + 11, base*100 + 12, shared, base*100 + 14, base*100 + 15}, 0.004, 0},
+		{base, fmt.Sprint(base), colors[0], 3, []int{base*100 + 1, base*100 + 2, shared, base*100 + 4, base*100 + 5}, 0, 0.006},
+		{base + 1, fmt.Sprintf("%dB", base+1), colors[1], 0, []int{base*100 + 11, base*100 + 12, shared, base*100 + 14, base*100 + 15}, 0.004, 0},
 	}
 	seen := map[int]bool{}
 	for _, l := range lines {
 		snap.Routes = append(snap.Routes, models.Route{RouteID: l.id, AgencyID: 1, RouteShortName: l.name,
 			RouteLongName: fmt.Sprintf("Capăt %d - Capăt %d", l.stops[0], l.stops[len(l.stops)-1]), RouteType: l.kind,
-			RouteColor: models.ResolveRouteDisplayColor(l.name)})
+			RouteColor: l.color})
 		points := make([][2]float64, len(l.stops))
 		for i, id := range l.stops {
 			offset := float64(i - 2)

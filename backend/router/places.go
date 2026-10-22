@@ -26,6 +26,8 @@ type placeTags struct {
 	name, street, number, suburb string
 	// A city or a town, not a village: what a district belongs to.
 	big bool
+	// OSM's place value of a town or district mapped as a node; a way only has its first node to stand on.
+	place string
 }
 
 // pbfPlace is a tagged element the reader kept: a node with its position, a way by its first node.
@@ -40,11 +42,16 @@ var namedKeys = []string{"amenity", "shop", "tourism", "leisure", "office", "cra
 
 func placeOf(tag func(string) string, way bool) (placeTags, bool) {
 	name := strings.TrimSpace(tag("name"))
-	switch p := tag("place"); p {
+	p := tag("place")
+	node := p
+	if way {
+		node = ""
+	}
+	switch p {
 	case "city", "town", "village":
-		return placeTags{kind: placeTown, name: name, big: p != "village"}, name != ""
+		return placeTags{kind: placeTown, name: name, big: p != "village", place: node}, name != ""
 	case "suburb", "neighbourhood", "quarter":
-		return placeTags{kind: placeDistrict, name: name}, name != ""
+		return placeTags{kind: placeDistrict, name: name, place: node}, name != ""
 	}
 	street, number := strings.TrimSpace(tag("addr:street")), strings.TrimSpace(tag("addr:housenumber"))
 	suburb := strings.TrimSpace(tag("addr:suburb"))
@@ -87,6 +94,16 @@ type Places struct {
 	// Entries by the first letters, up to three, of each of their words.
 	index  map[string][]int32
 	center Point
+	areas  []Area
+}
+
+// An Area is a town or a district of one, as OSM places it; Town is the town it is part of.
+type Area struct {
+	Name  string  `json:"name"`
+	Lat   float64 `json:"lat"`
+	Lon   float64 `json:"lon"`
+	Place string  `json:"place"`
+	Town  string  `json:"town"`
 }
 
 // How far a place still is the one at a position: the GPS error of a phone.
@@ -109,6 +126,7 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 	if len(cities) == 0 {
 		cities = towns
 	}
+	p.areas = areasOf(towns, districts, cities)
 	// The area a place is in: its district when one is nearer than any town, else the town.
 	area := func(r pbfPlace) string {
 		if r.suburb != "" {
@@ -164,6 +182,31 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 	}
 	return p
 }
+
+// A district is part of the nearest city or town, as in place labels.
+func areasOf(towns, districts, cities []pbfPlace) []Area {
+	out := []Area{}
+	seen := make(map[string]bool)
+	add := func(r pbfPlace, town string) {
+		key := r.place + "|" + fold(r.name)
+		if r.place == "" || town == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, Area{Name: r.name, Lat: r.lat, Lon: r.lon, Place: r.place, Town: town})
+	}
+	for _, r := range towns {
+		add(r, r.name)
+	}
+	for _, r := range districts {
+		if t, _ := nearestPlace(cities, r.lat, r.lon); t != nil {
+			add(r, t.name)
+		}
+	}
+	return out
+}
+
+func (p *Places) Areas() []Area { return p.areas }
 
 func nearestPlace(among []pbfPlace, lat, lon float64) (*pbfPlace, float64) {
 	var best *pbfPlace

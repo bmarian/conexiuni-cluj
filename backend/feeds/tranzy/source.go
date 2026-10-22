@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/models"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -27,6 +28,9 @@ func (s *Source) Snapshot() (*feeds.Snapshot, error) {
 	routes, err := fetch[[]models.Route](s.client, "/routes")
 	if err != nil {
 		return nil, err
+	}
+	for i := range routes {
+		routes[i].RouteColor = lineColor(routes[i])
 	}
 	stops, err := fetch[[]models.Stop](s.client, "/stops")
 	if err != nil {
@@ -62,6 +66,22 @@ func (s *Source) Snapshot() (*feeds.Snapshot, error) {
 		tripStops[i].TripID = PatternID(tripStops[i].TripID)
 	}
 	return &feeds.Snapshot{Routes: routes, Stops: stops, Trips: trips, Shapes: shapes, TripStops: tripStops}, nil
+}
+
+// A night line has an N before or after its number, as STB's N1 or CTP's 25N and M26N.
+var nightLine = regexp.MustCompile(`(?i)^N\d|\dN$`)
+
+// Tranzy's own colours don't tell its lines apart, so each kind takes STB's colour for it.
+func lineColor(r models.Route) string {
+	switch {
+	case nightLine.MatchString(r.RouteShortName):
+		return "#2D2E83"
+	case r.RouteType == models.Tram || r.RouteType == models.CableTram:
+		return "#BE1622"
+	case r.RouteType == models.Trolleybus:
+		return "#008D36"
+	}
+	return "#1D71B8"
 }
 
 func (s *Source) Cadence() time.Duration {

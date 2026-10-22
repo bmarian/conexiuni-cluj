@@ -12,12 +12,16 @@ import (
 
 const placesLimit = 10
 
+func placesLoading(c fiber.Ctx) error {
+	c.Set("Retry-After", "10")
+	return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "places still loading", "retry_after_seconds": 10})
+}
+
 // q searches; lat and lon name the place at a position.
 func (s *Service) searchPlaces(c fiber.Ctx) error {
 	places := s.placeIndex()
 	if places == nil {
-		c.Set("Retry-After", "10")
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "places still loading", "retry_after_seconds": 10})
+		return placesLoading(c)
 	}
 	c.Set("Cache-Control", web.Revalidate)
 	if q := strings.TrimSpace(c.Query("q")); q != "" {
@@ -40,4 +44,14 @@ func (s *Service) searchPlaces(c fiber.Ctx) error {
 		return c.JSON([]router.Place{place})
 	}
 	return c.JSON([]router.Place{})
+}
+
+// The towns and districts around the stops, which name the map's groups from afar.
+func (s *Service) listAreas(c fiber.Ctx) error {
+	places := s.placeIndex()
+	if places == nil {
+		return placesLoading(c)
+	}
+	c.Set("Cache-Control", web.Revalidate)
+	return c.JSON(places.Areas())
 }
