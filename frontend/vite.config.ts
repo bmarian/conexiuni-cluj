@@ -14,7 +14,10 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     vue(),
-    svgLoader(),
+    svgLoader({
+      // Icons are drawn at other sizes than 24, which needs the viewBox.
+      svgoConfig: {plugins: [{name: "preset-default", params: {overrides: {removeViewBox: false}}}]},
+    }),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["bus.svg", "favicon.ico", "apple-touch-icon-180x180.png"],
@@ -23,8 +26,8 @@ export default defineConfig({
         name: "Ce autobuz iau?",
         short_name: "Ce autobuz iau?",
         description: "Transport public Cluj-Napoca în timp real",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
+        theme_color: "#0f1512",
+        background_color: "#0f1512",
         display_override: ["standalone", "minimal-ui", "browser"],
         display: "standalone",
         start_url: "/",

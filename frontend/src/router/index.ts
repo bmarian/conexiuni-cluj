@@ -2,6 +2,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
 import {citiesReady, currentCity, knownCity, resolveCity, setCity} from '@/utils/city.ts'
+import {useRemindersStore} from '@/stores/reminders.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const StopsView = () => import('@/views/StopsView.vue')
@@ -11,6 +12,7 @@ const AdminView = () => import('@/views/AdminView.vue')
 const SettingsView = () => import('@/views/SettingsView.vue')
 const NavigationView = () => import('@/views/NavigationView.vue')
 const AndroidView = () => import('@/views/AndroidView.vue')
+const NewsView = () => import('@/views/NewsView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -76,6 +78,16 @@ const router = createRouter({
           path: 'nav',
           name: 'nav',
           component: NavigationView,
+          beforeEnter: (to) => {
+            if (typeof to.query.reminder !== 'string') return true
+            useRemindersStore().startTrip(to.query.reminder)
+            return {name: 'nav', params: to.params}
+          },
+        },
+        {
+          path: 'news',
+          name: 'news',
+          component: NewsView,
         },
       ],
     },

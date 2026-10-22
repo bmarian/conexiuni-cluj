@@ -1,405 +1,78 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useKeyboardNav } from "@/composables/useKeyboardNav.ts";
-import { cityDate, cityTime } from "@/utils/cityClock.ts";
+import {computed, nextTick, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {cityDate, cityTime} from '@/utils/cityClock.ts'
+import {CloseIcon, EcoIcon} from '@/utils/icons.ts'
 
-const { t } = useI18n();
-const kbd = useKeyboardNav();
-const isFriday = computed(() => cityTime(new Date()).weekday === 5);
-const todayKey = cityDate(new Date());
-const dismissed = ref(localStorage.getItem("greenFridayDismissed") === todayKey);
-const animationKey = ref(0);
+const {t} = useI18n()
+const kbd = useKeyboardNav()
+const isFriday = computed(() => cityTime(new Date()).weekday === 5)
+const todayKey = cityDate(new Date())
+const dismissed = ref(localStorage.getItem('greenFridayDismissed') === todayKey)
 
 function dismiss() {
   // A one-item section has no neighbour, so focus would drop onto the body.
-  const wasKeyboard = kbd.keyboardMode.value;
-  const neighbor = wasKeyboard ? kbd.neighborKey() : null;
-  localStorage.setItem("greenFridayDismissed", todayKey);
-  dismissed.value = true;
-  if (!wasKeyboard) return;
+  const wasKeyboard = kbd.keyboardMode.value
+  const neighbor = wasKeyboard ? kbd.neighborKey() : null
+  localStorage.setItem('greenFridayDismissed', todayKey)
+  dismissed.value = true
+  if (!wasKeyboard) return
   void nextTick(() => {
-    if (!neighbor || !kbd.focusKey(neighbor)) kbd.focusEntry();
-  });
-}
-
-function replayAnimation() {
-  animationKey.value += 1;
+    if (!neighbor || !kbd.focusKey(neighbor)) kbd.focusEntry()
+  })
 }
 </script>
 
 <template>
-  <div
-    v-if="isFriday && !dismissed"
-    class="green-friday-banner"
-    data-kbd-section="banner"
-    data-kbd-axis="x"
-  >
-    <div :key="animationKey" class="gf-icon" aria-hidden="true" @click="replayAnimation">
-      <svg class="gf-svg" viewBox="0 0 115 75" fill="none" overflow="visible">
-        <defs>
-          <linearGradient id="gf-card-grad" x1="0%" y1="0%" x2="70%" y2="100%">
-            <stop offset="0%" stop-color="#a5b4fc" />
-            <stop offset="100%" stop-color="#3730a3" />
-          </linearGradient>
-          <linearGradient id="gf-chip-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#fde68a" />
-            <stop offset="100%" stop-color="#b45309" />
-          </linearGradient>
-        </defs>
-
-        <g class="gf-terminal">
-          <rect x="4" y="5" width="30" height="65" rx="5" fill="#1e293b" />
-          <rect x="4" y="5" width="5" height="65" rx="4" fill="rgba(255,255,255,0.055)" />
-          <rect x="7" y="8" width="24" height="18" rx="2.5" fill="#0f172a" />
-          <rect x="10" y="11" width="9" height="2" rx="1" fill="#22c55e" opacity="0.9" />
-          <rect x="10" y="15" width="16" height="2" rx="1" fill="#22c55e" opacity="0.5" />
-          <rect x="10" y="19" width="12" height="2" rx="1" fill="#22c55e" opacity="0.3" />
-          <line x1="4" y1="29" x2="34" y2="29" stroke="#334155" stroke-width="0.75" />
-          <rect x="7" y="31" width="24" height="26" rx="2.5" fill="#0f172a" opacity="0.4" />
-          <g class="gf-nfc">
-            <circle cx="13" cy="44" r="2.5" fill="#22c55e" />
-            <path
-              d="M17.5 40.5 Q20.5 44 17.5 47.5"
-              stroke="#22c55e"
-              fill="none"
-              stroke-width="2.25"
-              stroke-linecap="round"
-            />
-            <path
-              d="M21.5 37.5 Q26   44 21.5 50.5"
-              stroke="#22c55e"
-              fill="none"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <path
-              d="M25.5 34.5 Q31.5 44 25.5 53.5"
-              stroke="#22c55e"
-              fill="none"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </g>
-          <circle cx="19" cy="64" r="2.5" fill="#22c55e" opacity="0.85" />
-          <circle cx="19" cy="64" r="1.5" fill="#4ade80" />
-        </g>
-
-        <g class="gf-card-grp">
-          <rect x="75" y="22" width="27" height="42" rx="4" fill="url(#gf-card-grad)" />
-          <rect x="75" y="22" width="27" height="10" rx="4" fill="rgba(255,255,255,0.1)" />
-          <rect
-            x="75"
-            y="22"
-            width="27"
-            height="42"
-            rx="4"
-            fill="none"
-            stroke="rgba(255,255,255,0.18)"
-            stroke-width="0.75"
-          />
-          <rect x="79" y="32" width="12" height="10" rx="2" fill="url(#gf-chip-grad)" />
-          <rect x="80" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
-          <rect x="86" y="33" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
-          <rect x="80" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
-          <rect x="86" y="37" width="4" height="3" rx="0.75" fill="rgba(180,130,0,0.6)" />
-          <circle cx="95" cy="37" r="1.5" fill="rgba(255,255,255,0.7)" />
-          <path
-            d="M97.5 34.5 Q99.5 37 97.5 39.5"
-            stroke="rgba(255,255,255,0.7)"
-            fill="none"
-            stroke-width="1.3"
-            stroke-linecap="round"
-          />
-          <path
-            d="M100 32   Q103  37 100  42"
-            stroke="rgba(255,255,255,0.7)"
-            fill="none"
-            stroke-width="1.3"
-            stroke-linecap="round"
-          />
-          <circle cx="79" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
-          <circle cx="81.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
-          <circle cx="84" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
-          <circle cx="86.5" cy="48" r="1.1" fill="rgba(255,255,255,0.55)" />
-          <circle cx="90" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
-          <circle cx="92.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
-          <circle cx="95" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
-          <circle cx="97.5" cy="48" r="1.1" fill="rgba(255,255,255,0.45)" />
-          <rect x="79" y="54" width="17" height="2.5" rx="1.25" fill="rgba(255,255,255,0.3)" />
-          <rect x="79" y="58" width="11" height="2" rx="1" fill="rgba(255,255,255,0.18)" />
-        </g>
-      </svg>
-
-      <div class="gf-x-mark" aria-hidden="true">
-        <span class="gf-x-bar gf-x-bar-a"></span>
-        <span class="gf-x-bar gf-x-bar-b"></span>
-      </div>
+  <div v-if="isFriday && !dismissed" class="green-friday" data-kbd-section="banner" data-kbd-axis="x">
+    <span class="tile"><EcoIcon class="m-icon"/></span>
+    <div class="flex-1 min-w-0">
+      <p class="title">{{ t('greenFridayTitle') }}</p>
+      <p class="desc">{{ t('greenFridayDesc') }}</p>
     </div>
-
-    <div class="green-friday-text">
-      <p class="green-friday-title">{{ t("greenFridayTitle") }}</p>
-      <p class="green-friday-desc">{{ t("greenFridayDesc") }}</p>
-    </div>
-
-    <button
-      type="button"
-      class="green-friday-close"
-      :aria-label="t('dismiss')"
-      data-kbd-item="banner-dismiss"
-      @click="dismiss"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M18 6L6 18M6 6l12 12" />
-      </svg>
+    <button type="button" class="icon-btn close" :aria-label="t('dismiss')" :title="t('dismiss')" data-kbd-item="banner-dismiss" @click="dismiss">
+      <CloseIcon class="m-icon"/>
     </button>
   </div>
 </template>
 
 <style scoped>
-.green-friday-banner {
+.green-friday {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.5rem 1rem;
+  gap: 12px;
+  padding: 8px 4px 8px 16px;
   background: linear-gradient(135deg, #dcfce7, #d1fae5);
-  border-bottom: 1px solid #a7f3d0;
 }
 
-.gf-icon {
-  position: relative;
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  width: 4.75rem;
-  height: 4rem;
-  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #10b981;
+  color: #fff;
 }
 
-.gf-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.gf-card-grp {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: gf-card-pay 11.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.gf-terminal {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: gf-terminal-confirm 11.6s ease-in-out forwards;
-}
-
-@keyframes gf-card-pay {
-  0%,
-  7% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  21%,
-  38% {
-    transform: translate(-66px, 1px) rotate(-7deg);
-  }
-  48%,
-  52% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  66%,
-  100% {
-    transform: translate(-66px, 1px) rotate(-7deg);
-  }
-}
-
-@keyframes gf-terminal-confirm {
-  0%,
-  21%,
-  31%,
-  48%,
-  66%,
-  76%,
-  100% {
-    filter: none;
-    transform: scale(1);
-  }
-  24%,
-  28%,
-  69%,
-  73% {
-    filter: drop-shadow(0 0 4px rgb(34 197 94 / 0.65));
-    transform: scale(1.03);
-  }
-}
-
-.gf-nfc {
-  animation: gf-nfc-confirm 11.6s ease-in-out forwards;
-}
-
-@keyframes gf-nfc-confirm {
-  0%,
-  20%,
-  31%,
-  48%,
-  65%,
-  76%,
-  100% {
-    opacity: 0.7;
-    filter: none;
-  }
-  23%,
-  29%,
-  68%,
-  74% {
-    opacity: 1;
-    filter: drop-shadow(0 0 3px #22c55e);
-  }
-}
-
-.gf-x-mark {
-  position: absolute;
-  top: 50%;
-  left: 1.15rem;
-  width: 4.45rem;
-  height: 4.45rem;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-}
-
-.gf-x-bar {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 0.28rem;
-  border-radius: 9999px;
-  background: #dc2626;
-  box-shadow: 0 0.12rem 0.25rem rgb(127 29 29 / 0.22);
-  opacity: 0;
-  transform-origin: center;
-}
-
-.gf-x-bar-a {
-  transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
-  animation: gf-x-bar-a 11.6s ease-in-out forwards;
-}
-
-.gf-x-bar-b {
-  transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
-  animation: gf-x-bar-b 11.6s ease-in-out forwards;
-}
-
-@keyframes gf-x-bar-a {
-  0%,
-  30%,
-  52%,
-  80% {
-    transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
-    opacity: 0;
-  }
-  34%,
-  40%,
-  84%,
-  100% {
-    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
-    opacity: 1;
-  }
-  48% {
-    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
-    opacity: 0;
-  }
-}
-
-@keyframes gf-x-bar-b {
-  0%,
-  34%,
-  52%,
-  84% {
-    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
-    opacity: 0;
-  }
-  38%,
-  40%,
-  88%,
-  100% {
-    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
-    opacity: 1;
-  }
-  48% {
-    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
-    opacity: 0;
-  }
-}
-
-.green-friday-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.green-friday-title {
-  margin: 0;
-  font-size: 0.8125rem;
+.title {
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 800;
   color: #065f46;
 }
 
-.green-friday-desc {
-  margin: 0.1rem 0 0;
-  font-size: 0.75rem;
-  font-weight: 500;
+.desc {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
   color: #047857;
 }
 
-.green-friday-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  flex-shrink: 0;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
+.close {
   color: #059669;
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-
-.green-friday-close:hover {
-  background: rgb(16 185 129 / 0.15);
-}
-
-.green-friday-close svg {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .gf-card-grp,
-  .gf-terminal,
-  .gf-nfc,
-  .gf-x-bar-a,
-  .gf-x-bar-b {
-    animation: none;
-  }
-
-  .gf-x-bar {
-    opacity: 1;
-  }
-
-  .gf-x-bar-a {
-    transform: translate(-50%, -50%) rotate(45deg) scaleX(1);
-  }
-
-  .gf-x-bar-b {
-    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
-  }
 }
 </style>

@@ -398,4 +398,17 @@ func TestReminderPushMessage(t *testing.T) {
 	}
 }
 
+func TestReminderPushMessageLinks(t *testing.T) {
+	bus := clujTime(t, "2026-10-09 08:00")
+	now := clujTime(t, "2026-10-09 07:50")
+	r := reminder("x", nil, "2026-10-09", nil)
+	if got := reminderPushMessage("cluj", r, "en", reminderGetReady, nil, bus, bus, now, cluj).URL; got != "/cluj/stop/120?follow=57_0&at="+strconv.FormatInt(bus.UnixMilli(), 10) {
+		t.Errorf("bus reminder links to %q", got)
+	}
+	r.Journey = true
+	if got := reminderPushMessage("cluj", r, "en", reminderGetReady, nil, bus, bus, now, cluj).URL; got != "/cluj/nav?reminder=x" {
+		t.Errorf("trip reminder links to %q", got)
+	}
+}
+
 func ptr(n int) *int { return &n }

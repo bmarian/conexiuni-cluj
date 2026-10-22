@@ -12,11 +12,17 @@ import {cityMinuteOfDay, walkFrom} from '@/utils/follow.ts'
 import {dayLetter, reminderWhen} from '@/utils/reminderText.ts'
 import {askNotifications} from '@/utils/notify.ts'
 import {pushSupported} from '@/utils/pushSubscription.ts'
+import {AlarmIcon, BedtimeIcon, CloseIcon, NotificationsActiveIcon} from '@/utils/icons.ts'
+import LineBadge from '@/components/ui/LineBadge.vue'
+import ChoiceRow from '@/components/ui/ChoiceRow.vue'
+import PopIcon from '@/components/ui/PopIcon.vue'
+import Ticker from '@/components/ui/Ticker.vue'
 
 const props = defineProps<{ target: ReminderTarget }>()
 const emit = defineEmits<{ close: [] }>()
 
 const {t, locale} = useI18n()
+const repeatChoices = computed(() => [{value: 'once' as const, label: t('remindOnce')}, {value: 'repeat' as const, label: t('remindRepeat')}])
 const store = useRemindersStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
@@ -164,77 +170,91 @@ function remove() {
 
 <template>
   <Teleport to="body">
-    <div class="rs-scrim" @click.self="emit('close')">
-      <section class="rs-sheet" role="dialog" aria-modal="true" :aria-label="t('remindSet')">
-        <div class="rs-scroll">
-          <header class="rs-head">
-            <span class="rs-badge" :style="{ backgroundColor: target.color }">{{ target.line }}</span>
+    <div class="scrim" @click.self="emit('close')">
+      <section class="sheet" role="dialog" aria-modal="true" :aria-label="t('remindSet')">
+        <span class="grip" aria-hidden="true"></span>
+        <div class="scroll">
+          <header class="flex items-center gap-3">
+            <LineBadge :name="target.line" :color="target.color" :height="40" :min-width="48" :corner="12"/>
             <div class="min-w-0 flex-1">
-              <p class="rs-dest">→ {{ target.destination }}</p>
-              <p class="rs-stop">{{ target.stopName }}</p>
+              <p class="text-title-medium font-bold truncate">→ {{ target.destination }}</p>
+              <p class="text-body-medium text-on-surface-variant truncate">{{ target.stopName }}</p>
             </div>
-            <button type="button" class="rs-close" :aria-label="t('close')" @click="emit('close')">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
+            <button type="button" class="icon-btn" :aria-label="t('close')" :title="t('close')" @click="emit('close')">
+              <CloseIcon class="m-icon"/>
             </button>
           </header>
 
-          <div class="rs-choice" role="radiogroup">
-            <button type="button" role="radio" :aria-checked="!repeat" :class="{ 'is-on': !repeat }" @click="setRepeat(false)">{{ t('remindOnce') }}</button>
-            <button type="button" role="radio" :aria-checked="repeat" :class="{ 'is-on': repeat }" @click="setRepeat(true)">{{ t('remindRepeat') }}</button>
-          </div>
+          <ChoiceRow :options="repeatChoices" :model-value="repeat ? 'repeat' : 'once'" @update:model-value="setRepeat($event === 'repeat')"/>
 
-          <div v-if="repeat" class="rs-days">
-            <button v-for="day in 7" :key="day" type="button" class="rs-day" :class="{ 'is-on': days.includes(day) }"
-                    :aria-pressed="days.includes(day)" @click="toggleDay(day)">{{ dayLetter(locale, day) }}</button>
-          </div>
+          <Transition name="days">
+            <div v-if="repeat" class="days">
+              <button
+                v-for="day in 7"
+                :key="day"
+                type="button"
+                class="day squish"
+                :class="{ 'is-on': days.includes(day) }"
+                :aria-pressed="days.includes(day)"
+                @click="toggleDay(day)"
+              >{{ dayLetter(locale, day) }}</button>
+            </div>
+          </Transition>
 
           <template v-if="dayTimes.length">
-            <div class="rs-pair">
-              <button v-if="!repeat && upcoming" type="button" class="rs-last" :class="{ 'is-on': soonest && !last }"
-                      :aria-pressed="soonest && !last" @click="pickNext">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2zM3.6 4.4l1.4-1.4A11 11 0 0 0 1.1 11h2a9 9 0 0 1 .5-6.6zM19 3l1.4 1.4A9 9 0 0 1 20.9 11h2A11 11 0 0 0 19 3z"/>
-                </svg>
+            <div class="flex gap-2">
+              <button
+                v-if="!repeat && upcoming"
+                type="button"
+                class="choice squish flex-1"
+                :class="{ 'is-on': soonest && !last }"
+                :aria-pressed="soonest && !last"
+                @click="pickNext"
+              >
+                <PopIcon :icon="NotificationsActiveIcon" :on="soonest && !last" class="size-[18px]"/>
                 {{ t('remindNext') }} · {{ formatSlot(upcoming.minute) }}
               </button>
-              <button type="button" class="rs-last" :class="{ 'is-on': last }" :aria-pressed="last" @click="pickLast">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.3 2a10 10 0 1 0 9.7 12.4A8 8 0 0 1 12.3 2z"/></svg>
+              <button type="button" class="choice squish flex-1" :class="{ 'is-on': last }" :aria-pressed="last" @click="pickLast">
+                <PopIcon :icon="BedtimeIcon" :on="last" class="size-[18px]"/>
                 {{ t(!repeat && upcoming ? 'remindLast' : 'remindLastBus') }}<template v-if="lastToday !== null"> · {{ formatSlot(lastToday) }}</template>
               </button>
             </div>
-            <div class="rs-hours">
-              <div v-for="group in groups" :key="group.hour" class="rs-hour-row">
-                <span class="rs-hour" :class="{ 'is-next-day': group.hour >= 24 }">{{ String(group.hour % 24).padStart(2, '0') }}</span>
-                <div class="rs-minutes">
-                  <button v-for="minute in group.minutes" :key="minute" type="button" class="rs-time"
-                          :class="{ 'is-on': !last && !soonest && time === minute }" :aria-pressed="!last && !soonest && time === minute"
-                          @click="pick(minute)">{{ formatSlot(minute).slice(3) }}</button>
+            <div>
+              <div v-for="group in groups" :key="group.hour" class="hour-row">
+                <span class="hour" :class="{ 'is-next-day': group.hour >= 24 }">{{ String(group.hour % 24).padStart(2, '0') }}</span>
+                <div class="minutes">
+                  <button
+                    v-for="minute in group.minutes"
+                    :key="minute"
+                    type="button"
+                    class="choice squish"
+                    :class="{ 'is-on': !last && !soonest && time === minute }"
+                    :aria-pressed="!last && !soonest && time === minute"
+                    @click="pick(minute)"
+                  >{{ formatSlot(minute).slice(3) }}</button>
                 </div>
               </div>
             </div>
           </template>
-          <p v-else class="rs-empty">{{ t('noSchedule') }}</p>
+          <p v-else class="text-body-medium text-on-surface-variant">{{ t('noSchedule') }}</p>
         </div>
 
-        <footer class="rs-foot">
-          <div v-if="permission !== 'granted'" class="rs-permission">
-            <span>{{ t('remindNeedsNotifications') }}</span>
-            <button type="button" class="rs-text-btn" @click="allow">{{ t('remindAllow') }}</button>
+        <footer class="foot">
+          <div v-if="permission !== 'granted'" class="permission">
+            <span class="flex-1 text-body-small">{{ t('remindNeedsNotifications') }}</span>
+            <button type="button" class="btn btn-text" @click="allow">{{ t('remindAllow') }}</button>
           </div>
-          <div class="rs-actions">
+          <div class="flex items-center gap-2">
             <div class="min-w-0 flex-1">
-              <p v-if="draft" class="rs-next">
-                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
-                </svg>
-                {{ next !== null ? reminderWhen(next, locale, now) : t('remindNoBus') }}
+              <p v-if="draft" class="flex items-center gap-1.5 text-title-small">
+                <AlarmIcon class="m-icon size-[18px] text-primary"/>
+                <Ticker :text="next !== null ? reminderWhen(next, locale, now) : t('remindNoBus')"/>
               </p>
-              <p v-for="line in missing" :key="line" class="rs-missing">{{ line }}</p>
+              <p v-for="line in missing" :key="line" class="text-body-small text-error">{{ line }}</p>
             </div>
-            <button v-if="existing" type="button" class="rs-text-btn" @click="remove">{{ t('remindDelete') }}</button>
-            <button type="button" class="rs-save" :disabled="!draft || next === null || saving" @click="save">
+            <button v-if="existing" type="button" class="btn btn-text" @click="remove">{{ t('remindDelete') }}</button>
+            <button type="button" class="btn btn-filled" :disabled="!draft || next === null || saving" @click="save">
+              <AlarmIcon class="m-icon"/>
               {{ existing ? t('save') : t('remindSet') }}
             </button>
           </div>
@@ -245,318 +265,165 @@ function remove() {
 </template>
 
 <style scoped>
-.rs-scrim {
+.scrim {
   position: fixed;
   inset: 0;
-  z-index: 10000;
-  background: rgba(15, 23, 42, 0.45);
+  z-index: 9500;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  background: var(--md-scrim);
+  animation: fade 200ms linear;
 }
 
-.rs-sheet {
-  width: 100%;
-  max-width: 32rem;
-  max-height: 88vh;
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet {
   display: flex;
   flex-direction: column;
-  background: var(--color-white, #fff);
-  color: var(--color-slate-900, #0f172a);
-  border-radius: 1.25rem 1.25rem 0 0;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.2);
+  width: min(640px, 100%);
+  max-height: calc(100dvh - var(--safe-top) - 56px);
+  border-radius: 28px 28px 0 0;
+  background: var(--md-surface-container-low);
+  color: var(--md-on-surface);
+  box-shadow: var(--md-elevation-1);
+  animation: rise var(--spring-sheet-ms) var(--spring-sheet);
 }
 
-@media (min-width: 768px) {
-  .rs-scrim {
-    align-items: center;
-  }
-
-  .rs-sheet {
-    border-radius: 1.25rem;
+@keyframes rise {
+  from {
+    translate: 0 100%;
   }
 }
 
-.rs-scroll {
+.grip {
+  align-self: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 4px;
+  margin: 22px 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--md-on-surface-variant) 40%, transparent);
+}
+
+.scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 0 20px;
   overflow-y: auto;
-  padding: 1.25rem 1.25rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  overscroll-behavior: contain;
 }
 
-.rs-head {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.rs-badge {
-  min-width: 3rem;
-  height: 2.5rem;
-  padding: 0 0.5rem;
-  border-radius: 0.75rem;
-  color: var(--color-white, #fff);
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rs-dest {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rs-stop {
-  font-size: 0.8125rem;
-  color: var(--color-slate-500, #64748b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rs-close {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-slate-400, #94a3b8);
-}
-
-.rs-close:hover {
-  background: var(--color-slate-100, #f1f5f9);
-}
-
-.rs-choice {
+.days {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border-radius: 9999px;
-  background: var(--color-slate-100, #f1f5f9);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
 }
 
-.rs-choice button {
-  padding: 0.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--color-slate-600, #475569);
-}
-
-.rs-choice button.is-on {
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
-}
-
-.rs-days {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.375rem;
-}
-
-.rs-day {
+.day {
+  --squish: 0.9;
   aspect-ratio: 1;
-  border-radius: 0.75rem;
-  font-weight: 700;
-  background: var(--color-slate-100, #f1f5f9);
-  color: var(--color-slate-600, #475569);
+  border: 0;
+  border-radius: 9999px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-radius var(--spring-fast-ms) var(--spring-fast), background-color 150ms linear, color 150ms linear, scale var(--spring-press-ms) var(--spring-press);
 }
 
-.rs-day.is-on {
-  background: var(--color-emerald-100, #d1fae5);
-  color: var(--color-emerald-700, #047857);
+.day.is-on {
+  border-radius: 12px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
 }
 
-.rs-pair {
-  display: flex;
-  gap: 0.5rem;
+.days-enter-active,
+.days-leave-active {
+  transition: opacity 200ms linear, translate var(--spring-fast-ms) var(--spring-fast);
 }
 
-.rs-pair .rs-last {
-  flex: 1;
-  min-width: 0;
+.days-enter-from,
+.days-leave-to {
+  opacity: 0;
+  translate: 0 -8px;
 }
 
-.rs-last {
-  display: flex;
+.choice {
+  --squish: 0.88;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  background: var(--color-slate-100, #f1f5f9);
-  color: var(--color-slate-700, #334155);
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-radius var(--spring-fast-ms) var(--spring-fast), background-color 150ms linear, color 150ms linear, scale var(--spring-press-ms) var(--spring-press);
 }
 
-.rs-last.is-on,
-.rs-time.is-on {
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
+.choice.is-on {
+  border-radius: 18px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
 }
 
-.rs-hours {
+.hour-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: stretch;
 }
 
-.rs-hour-row {
+.hour {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  width: 36px;
+  padding-right: 10px;
+  border-right: 2px solid var(--md-outline-variant);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--md-primary);
 }
 
-.rs-hour {
-  width: 1.75rem;
-  font-weight: 800;
-  color: var(--color-emerald-600, #059669);
-  font-variant-numeric: tabular-nums;
+.hour.is-next-day {
+  color: var(--md-outline);
 }
 
-.rs-hour.is-next-day {
-  color: var(--color-slate-400, #94a3b8);
-}
-
-.rs-minutes {
+.minutes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: 6px;
+  padding: 3px 0 3px 10px;
 }
 
-.rs-time {
-  min-width: 2.75rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 0.6rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  background: var(--color-slate-100, #f1f5f9);
-  color: var(--color-slate-700, #334155);
-}
-
-.rs-empty {
-  font-size: 0.875rem;
-  color: var(--color-slate-400, #94a3b8);
-}
-
-.rs-foot {
-  padding: 0.75rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
+.foot {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  border-top: 1px solid var(--color-slate-100, #f1f5f9);
+  gap: 12px;
+  padding: 12px 20px calc(16px + var(--safe-bottom));
 }
 
-.rs-permission {
+.permission {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--color-slate-600, #475569);
-}
-
-.rs-permission span {
-  flex: 1;
-}
-
-.rs-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.rs-next {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-weight: 700;
-  color: var(--color-emerald-600, #059669);
-}
-
-.rs-missing {
-  font-size: 0.75rem;
-  color: var(--color-red-600, #dc2626);
-}
-
-.rs-text-btn {
-  padding: 0.5rem 0.75rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  color: var(--color-emerald-600, #059669);
-}
-
-.rs-text-btn:hover {
-  background: var(--color-emerald-50, #ecfdf5);
-}
-
-.rs-save {
-  padding: 0.6rem 1.1rem;
-  border-radius: 9999px;
-  font-weight: 700;
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
-}
-
-.rs-save:disabled {
-  opacity: 0.45;
-}
-
-:root.dark .rs-sheet {
-  background: var(--color-slate-900, #0f172a);
-  color: var(--color-slate-100, #f1f5f9);
-}
-
-:root.dark .rs-choice,
-:root.dark .rs-day,
-:root.dark .rs-last,
-:root.dark .rs-time {
-  background: var(--color-slate-800, #1e293b);
-  color: var(--color-slate-300, #cbd5e1);
-}
-
-:root.dark .rs-choice {
-  color: var(--color-slate-300, #cbd5e1);
-}
-
-:root.dark .rs-choice button {
-  color: var(--color-slate-300, #cbd5e1);
-}
-
-:root.dark .rs-choice button.is-on,
-:root.dark .rs-last.is-on,
-:root.dark .rs-time.is-on {
-  background: var(--color-emerald-500, #10b981);
-  color: var(--color-white, #fff);
-}
-
-:root.dark .rs-day.is-on {
-  background: var(--color-emerald-900, #064e3b);
-  color: var(--color-emerald-300, #6ee7b7);
-}
-
-:root.dark .rs-stop,
-:root.dark .rs-permission {
-  color: var(--color-slate-400, #94a3b8);
-}
-
-:root.dark .rs-foot {
-  border-color: var(--color-slate-800, #1e293b);
-}
-
-:root.dark .rs-close:hover,
-:root.dark .rs-text-btn:hover {
-  background: var(--color-slate-800, #1e293b);
-}
-
-:root.dark .rs-next,
-:root.dark .rs-text-btn,
-:root.dark .rs-hour {
-  color: var(--color-emerald-400, #34d399);
+  padding: 6px 8px 6px 16px;
+  border-radius: 16px;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
 }
 </style>

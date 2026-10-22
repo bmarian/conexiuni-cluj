@@ -6,14 +6,12 @@ import {useHead} from '@unhead/vue'
 import {useI18n} from "vue-i18n"
 import StationIcon from "@/components/StationIcon.vue"
 import {network} from "@/utils/network.ts";
-import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
-import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
 import {
   OUTGOING_SUFFIX,
   type ShapeInfo,
   type VehiclesInStop
 } from "@/types/tranzy.ts";
-import {formatMinutesFromNow, routeDestination, routeOrigin} from "@/utils/time.ts";
+import {formatMinutesFromNow, routeDestination} from "@/utils/time.ts";
 import {useStopDepartures} from "@/composables/useStopDepartures.ts";
 import {useRouteStore} from "@/stores/route.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
@@ -28,15 +26,22 @@ import {reminderWhen} from "@/utils/reminderText.ts";
 import {askNotifications} from "@/utils/notify.ts";
 import {pushSupported} from "@/utils/pushSubscription.ts";
 import {getRouteIdFromTripId} from "@/utils/trips.ts";
-import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 import {useSettingsStore} from "@/stores/settings.ts"
 import {useMapStore} from "@/stores/map.ts"
-import ShareButton from "@/components/ShareButton.vue";
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
 import {siteUrl} from "@/utils/site.ts";
 import {cityParams, cityPath} from "@/utils/city.ts";
 import {groupByMode, mainMode} from "@/utils/modes.ts";
+import {useShare} from "@/composables/useShare.ts";
+import SheetTopBar from "@/components/ui/SheetTopBar.vue";
+import ActionChips from "@/components/ui/ActionChips.vue";
+import SectionLabel from "@/components/ui/SectionLabel.vue";
+import SubLabel from "@/components/ui/SubLabel.vue";
+import DepartureCard from "@/components/rows/DepartureCard.vue";
+import RouteRow from "@/components/rows/RouteRow.vue";
+import type {ChipAction, MenuAction} from "@/components/ui/types.ts";
+import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from "@/utils/icons.ts";
 
 const props = defineProps<{ stopId: string }>()
 
@@ -221,509 +226,149 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
     params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)}
   })
 }
+
+const {share} = useShare()
+
+const topMenu = computed<MenuAction[]>(() => [{label: t('refresh'), icon: RefreshIcon, onClick: reload}])
+
+const chips = computed<ChipAction[]>(() => [
+  ...(stopInfo.value ? [{label: t('directions'), icon: DirectionsIcon, primary: true, kbd: 'directions', onClick: planHere}] : []),
+  {
+    label: isFavorite.value ? t('saved') : t('save'),
+    icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
+    selected: isFavorite.value,
+    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    kbd: 'fav',
+    onClick: toggleFavorite,
+  },
+  {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
+])
 </script>
 
 <template>
-  <div v-if="isLoading"
-       class="stop-view-container bg-white dark:bg-[#0f172a] animate-pulse flex flex-col gap-8">
-    <header class="flex items-center gap-4">
-      <div class="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-      <div class="h-7 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
-    </header>
-    <section class="flex flex-col gap-3">
-      <div class="h-3 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
-      <div v-for="i in 4" :key="i"
-           class="flex items-center gap-3 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
-        <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
-        <div class="flex-1 flex flex-col gap-1.5">
-          <div class="h-2.5 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
-          <div class="h-4 w-36 bg-slate-200 dark:bg-slate-700 rounded"></div>
-        </div>
-        <div class="flex gap-1.5">
-          <div v-for="j in 3" :key="j"
-               class="w-9 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
+  <div class="stop-view">
+    <SheetTopBar :title="stopName" :menu="topMenu"/>
+
+    <template v-if="isLoading">
+      <div class="header">
+        <span class="skeleton size-[52px] rounded-2xl"></span>
+        <div class="flex-1 flex flex-col gap-2 pt-1">
+          <span class="skeleton h-3 w-24 rounded"></span>
+          <span class="skeleton h-6 w-44 rounded-lg"></span>
         </div>
       </div>
-    </section>
-    <section class="flex flex-col gap-2">
-      <div class="h-3 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
-      <div v-for="i in 5" :key="i" class="flex items-center gap-3 py-2">
-        <div class="w-10 h-7 rounded-md bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-        <div class="h-3.5 w-40 bg-slate-200 dark:bg-slate-800 rounded"></div>
-      </div>
-    </section>
-  </div>
+      <div v-for="i in 3" :key="i" class="skeleton card-skeleton"></div>
+    </template>
 
-  <div v-else-if="loadError"
-       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-4">
-    <div class="flex items-center -mb-2">
-      <HeaderNavigation />
-    </div>
-    <p class="text-sm text-slate-500 dark:text-slate-400">{{ t('loadFailed') }}</p>
-    <button type="button" class="retry-btn self-start" @click="reload">{{ t('retry') }}</button>
-  </div>
-
-  <div v-else
-       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-8">
-
-    <div class="flex items-center -mb-4">
-      <HeaderNavigation />
+    <div v-else-if="loadError" class="flex flex-col items-start gap-3 p-4">
+      <p class="text-body-medium text-on-surface-variant">{{ t('loadFailed') }}</p>
+      <button type="button" class="btn btn-tonal" @click="reload">{{ t('retry') }}</button>
     </div>
 
-    <header class="flex items-start gap-4" data-kbd-section="actions" data-kbd-axis="x">
-      <StationIcon :look="look" class="w-14 h-14 rounded-2xl shadow-lg mt-0.5"/>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-0.5">
-          <span
-            class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide">{{
-              t(`stopKind_${stationMode}`)
-            }}</span>
-          <span v-if="stopInfo?.stop_code"
-                class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 font-mono tracking-wide">#{{
-              stopInfo.stop_code
-            }}</span>
-        </div>
-        <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
-          {{ stopName }}
-        </h1>
-      </div>
-      <button
-        type="button"
-        class="directions-btn mt-1 shrink-0"
-        :title="t('directions')"
-        :aria-label="t('directions')"
-        data-kbd-item="directions"
-        @click="planHere"
-      >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21.7 11.3l-9-9a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/>
-        </svg>
-      </button>
-      <ShareButton class="mt-1"/>
-      <button
-        type="button"
-        class="fav-btn mt-1 shrink-0"
-        :class="{ 'is-fav': isFavorite }"
-        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-pressed="isFavorite"
-        data-kbd-item="fav"
-        @click="toggleFavorite"
-      >
-        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
-        <IconHeartOutline v-else class="w-5 h-5"/>
-      </button>
-    </header>
-
-    <section data-kbd-section="departures" data-kbd-entry="1">
-      <h2 class="section-label">
-        <span
-          class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)] shrink-0"></span>
-        {{ t('nextDepartures') }}
-        <span v-if="settings.busAlerts" class="dep-hint">{{ pointerHint ? t('departuresClickHint') : t('departuresHoldHint') }}</span>
-      </h2>
-
-      <div v-if="isComputingDepartures" class="flex flex-col gap-2.5 animate-pulse">
-        <div v-for="i in 3" :key="i"
-             class="flex items-center gap-2.5 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-800/30">
-          <div class="w-1 self-stretch rounded-full bg-slate-200 dark:bg-slate-700 shrink-0"></div>
-          <div class="w-11 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0"></div>
-          <div class="flex-1 flex flex-col gap-1.5">
-            <div class="h-2.5 w-12 bg-slate-200 dark:bg-slate-700 rounded"></div>
-            <div class="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div>
+    <template v-else>
+      <header class="header">
+        <StationIcon :look="look" :corner="16" class="size-[52px]"/>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <div class="flex gap-2 text-label-medium">
+            <span class="text-primary">{{ t(`stopKind_${stationMode}`) }}</span>
+            <span v-if="stopInfo?.stop_code" class="text-outline">#{{ stopInfo.stop_code }}</span>
           </div>
-          <div class="flex gap-1">
-            <div v-for="j in 3" :key="j"
-                 class="w-10 h-6 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
-          </div>
-          <div class="w-4 h-4 rounded bg-slate-100 dark:bg-slate-800 shrink-0"></div>
+          <h1 class="text-title-large font-bold">{{ stopName }}</h1>
         </div>
-      </div>
-      <template v-else>
-        <p v-if="!shapesComingToTheStopBasedOnVehiclePositions.length"
-           class="text-sm text-slate-400 dark:text-slate-500 py-2">
-          {{ t('noSchedule') }}
-        </p>
-        <div class="flex flex-col gap-2.5">
-          <div
-            v-for="shape in departuresSorted"
-            :key="shape.trip_id"
-            v-bind="settings.busAlerts ? press.bind(shape) : {}"
-            @click="press.click(() => navigateToRoute(shape))"
-            class="departure-card group"
-            :data-kbd-item="`dep-${shape.trip_id}`"
-            :class="{ 'departure-card-fav': isDepartureFavorite(shape) }"
-          >
-            <div
-              :class="['w-1 self-stretch rounded-full shrink-0', !shape.static_time_approximation ? 'bg-emerald-500' : 'bg-transparent']"></div>
+      </header>
+      <ActionChips :actions="chips" class="pb-2"/>
 
-            <div
-              class="flex items-center justify-center shrink-0 w-11 h-9 rounded-xl font-black text-sm text-white shadow-sm"
-              :style="{ backgroundColor: shape.route_color }"
-            >{{ shape.route_short_name }}
-            </div>
-
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-              <div class="flex items-center gap-1.5 mb-0.5">
-                <span v-if="!shape.static_time_approximation" class="live-badge">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {{ t('live') }}
-                </span>
-                <span class="card-dest">→ {{ routeDestination(shape.route_long_name) }}</span>
-                <svg v-if="settings.busAlerts && isReminded(shape)" class="w-3.5 h-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24"
-                     stroke="currentColor" stroke-width="2.2" :aria-label="t('remindSaved')">
-                  <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
-                </svg>
-              </div>
-              <span class="card-origin">{{ routeOrigin(shape.route_long_name) }}</span>
-            </div>
-
-            <div class="flex items-center gap-1 shrink-0">
-              <span
-                v-for="(t, i) in shape.next_times"
-                :key="i"
-                :class="[
-                  'time-pill',
-                  i === 0 && !shape.static_time_approximation
-                    ? 'time-pill-live'
-                    : 'time-pill-sched',
-                  i > 0 ? 'time-pill-extra' : '',
-                  i > 1 ? 'time-pill-third' : ''
-                ]"
-              >{{
-                  i === 0 && shape.static_time_approximation ? '~\u202f' : ''
-                }}{{ formatMinutes(t.minutes) }}</span>
-            </div>
-
-            <button
-              v-if="settings.busAlerts"
-              type="button"
-              class="dep-follow"
-              :class="{ 'is-on': isRemindOn(shape) }"
-              :aria-pressed="isRemindOn(shape)"
-              :title="isRemindOn(shape) ? t('notifyMeOff') : t('remindSet')"
-              :aria-label="isRemindOn(shape) ? t('notifyMeOff') : t('remindSet')"
-              @click.stop="toggleRemind(shape)"
-              @pointerdown.stop
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="13" r="8"/>
-                <path d="M5 3 2 6m17-3 3 3"/>
-                <path v-if="isRemindOn(shape)" d="m9 13 2 2 4-4"/>
-                <path v-else d="M12 10v6m-3-3h6"/>
-              </svg>
-            </button>
-          </div>
+      <section data-kbd-section="departures" data-kbd-entry="1">
+        <div class="departures-label">
+          <span class="live-dot"></span>
+          <h2 class="text-title-small text-on-surface-variant">{{ t('nextDepartures') }}</h2>
+          <span class="flex-1"></span>
+          <span v-if="settings.busAlerts" class="text-label-small text-outline">{{ pointerHint ? t('departuresClickHint') : t('departuresHoldHint') }}</span>
         </div>
-      </template>
-    </section>
+        <template v-if="isComputingDepartures">
+          <div v-for="i in 3" :key="i" class="skeleton card-skeleton"></div>
+        </template>
+        <p v-else-if="!departuresSorted.length" class="text-body-medium text-on-surface-variant px-4 py-3">{{ t('noSchedule') }}</p>
+        <template v-else>
+        <DepartureCard
+          v-for="(shape, i) in departuresSorted"
+          :key="shape.trip_id"
+          v-bind="settings.busAlerts ? press.bind(shape) : {}"
+          :class="{ cascade: i < 12 }"
+          :style="{ '--i': i }"
+          :shape="shape"
+          :label="formatMinutes"
+          :favorite="isDepartureFavorite(shape)"
+          :remindable="settings.busAlerts"
+          :remind-on="isRemindOn(shape)"
+          :reminded="settings.busAlerts && isReminded(shape)"
+          :data-kbd-item="`dep-${shape.trip_id}`"
+          @open="press.click(() => navigateToRoute(shape))"
+          @remind="toggleRemind(shape)"
+        />
+        </template>
+      </section>
 
-    <section class="pb-6" data-kbd-section="stop-routes" data-kbd-entry="2">
-      <h2 class="section-label">
-        <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-        </svg>
-        {{ t('allRoutesAtStop') }}
-      </h2>
-
-      <div v-for="group in lineGroups" :key="group.mode">
-      <h3 v-if="lineGroups.length > 1" class="sub-label">{{ t(`modeLines_${group.mode}`) }}</h3>
-      <div class="flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
-        <div
-          v-for="shape in group.lines"
-          :key="shape.route_short_name"
-          @click="navigateToAllRoute(shape)"
-          class="all-route-row group"
-          :data-kbd-item="`route-${shape.route_short_name}`"
-          :class="{ 'all-route-row-fav': favoritesStore.isRouteFavorite(shape.route_id) }"
-        >
-          <div
-            class="flex items-center justify-center shrink-0 w-10 h-7 rounded-md text-xs font-black text-white shadow-sm opacity-90 group-hover:opacity-100 transition-opacity"
-            :style="{ backgroundColor: shape.route_color }"
-          >{{ shape.route_short_name }}
-          </div>
-
-          <span
-            class="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
-            {{ shape.timetable.route_long_name }}
-          </span>
-
-          <svg
-            class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-          </svg>
-        </div>
-      </div>
-      </div>
-    </section>
+      <section v-if="lineGroups.length" class="pt-4" data-kbd-section="stop-routes" data-kbd-entry="2">
+        <SectionLabel :text="t('allRoutesAtStop')" :icon="MapIcon"/>
+        <template v-for="group in lineGroups" :key="group.mode">
+          <SubLabel v-if="lineGroups.length > 1" :text="t(`modeLines_${group.mode}`)" class="pt-2"/>
+          <RouteRow
+            v-for="shape in group.lines"
+            :key="shape.route_short_name"
+            :name="shape.route_short_name"
+            :color="shape.route_color"
+            :title="shape.timetable.route_long_name"
+            :favorite="favoritesStore.isRouteFavorite(shape.route_id)"
+            :data-kbd-item="`route-${shape.route_short_name}`"
+            @open="navigateToAllRoute(shape)"
+          />
+        </template>
+      </section>
+      <div class="h-6"></div>
+    </template>
 
     <BusMenu v-if="menu" :x="menu.x" :y="menu.y" :items="menu.items" @close="menu = null"/>
   </div>
 </template>
 
 <style scoped>
-.stop-view-container {
-  padding: 1.25rem 1.5rem 0;
-  height: 100%;
-  overflow-y: auto;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 4px 8px 8px 16px;
 }
 
-.sub-label {
-  margin: 0.75rem 0 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.section-label {
+.departures-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 0.875rem;
+  gap: 8px;
+  padding: 8px 16px;
 }
 
-.departure-card {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.75rem 0.625rem 0.75rem 0.5rem;
-  border-radius: 1rem;
-  border: 1px solid #f1f5f9;
-  background: #f8fafc;
-  container-type: inline-size;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--md-live);
+  animation: live-pulse 1s ease-in-out infinite alternate;
 }
 
-.departure-card:hover {
-  background: white;
-  border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #059669;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  padding: 0.125rem 0.375rem;
-  border-radius: 9999px;
-}
-
-.time-pill {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.5rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.time-pill-live {
-  background: #10b981;
-  color: white;
-}
-
-.time-pill-sched {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-/* Hide 2nd + 3rd pill when card is narrow */
-@container (max-width: 380px) {
-  .time-pill-third,
-  .live-badge {
-    display: none;
+@keyframes live-pulse {
+  to {
+    opacity: 0.35;
   }
 }
 
-@container (max-width: 300px) {
-  .time-pill-extra {
-    display: none;
-  }
+.skeleton {
+  display: block;
+  background: var(--md-surface-container);
 }
 
-.all-route-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.25rem;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-radius: 0.5rem;
-  margin: 0 -0.25rem;
+.card-skeleton {
+  height: 64px;
+  margin: 4px 12px;
+  border-radius: 12px;
 }
-
-.all-route-row:hover {
-  background: #f8fafc;
-}
-
-.departure-card-fav {
-  background: #fff1f2;
-  border-color: #fecdd3;
-}
-
-.departure-card-fav:hover {
-  background: #ffe4e6;
-  border-color: #fda4af;
-}
-
-.all-route-row-fav {
-  background: #fff1f2;
-}
-
-.all-route-row-fav:hover {
-  background: #ffe4e6 !important;
-}
-
-.card-dest {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.card-origin {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: #94a3b8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dep-hint {
-  margin-left: auto;
-  font-size: 0.625rem;
-  font-weight: 500;
-  color: var(--color-slate-400, #94a3b8);
-}
-
-.directions-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
-  color: var(--color-emerald-600, #059669);
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.directions-btn:hover {
-  background: var(--color-emerald-50, #ecfdf5);
-}
-
-.directions-btn:active {
-  transform: scale(0.92);
-}
-
-:root.dark .directions-btn {
-  color: var(--color-emerald-400, #34d399);
-}
-
-:root.dark .directions-btn:hover {
-  background: rgb(16 185 129 / 0.15);
-}
-
-.retry-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  background: var(--color-emerald-100, #d1fae5);
-  color: var(--color-emerald-800, #065f46);
-}
-
-.dep-follow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  margin: -0.25rem -0.25rem -0.25rem 0;
-  border-radius: 9999px;
-  color: var(--color-slate-400, #94a3b8);
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.dep-follow:hover {
-  background: var(--color-emerald-50, #ecfdf5);
-  color: var(--color-emerald-600, #059669);
-}
-
-.dep-follow:active {
-  transform: scale(0.9);
-}
-
-.dep-follow.is-on {
-  color: var(--color-emerald-600, #059669);
-  background: var(--color-emerald-100, #d1fae5);
-}
-
-:root.dark .dep-follow:hover {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--color-emerald-400, #34d399);
-}
-
-:root.dark .dep-follow.is-on {
-  color: var(--color-emerald-400, #34d399);
-  background: rgba(16, 185, 129, 0.2);
-}
-
-:root.dark .retry-btn {
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--color-emerald-300, #6ee7b7);
-}
-
-.fav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.fav-btn:hover {
-  background: #fef2f2;
-  color: #f43f5e;
-}
-
-.fav-btn:active {
-  transform: scale(0.92);
-}
-
-.fav-btn.is-fav {
-  color: #f43f5e;
-}
-
-.fav-btn.is-fav:hover {
-  background: #fee2e2;
-}
-
 </style>

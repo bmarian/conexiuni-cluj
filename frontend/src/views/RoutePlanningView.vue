@@ -9,16 +9,12 @@ import {cityDateTime} from '@/utils/cityClock.ts'
 import {computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {RouterLink, useRoute, useRouter, type LocationQueryRaw} from 'vue-router'
-import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {usePlannerStore} from '@/stores/planner.ts'
-import IconHeartFilled from "@/components/icons/IconHeartFilled.vue"
-import IconHeartOutline from "@/components/icons/IconHeartOutline.vue"
-import ShareButton from "@/components/ShareButton.vue"
 import {useJourneyStore} from "@/stores/journey.ts"
 import {apiRequest} from "@/utils/api.ts"
 import type {RouteType, Shape} from "@/types/tranzy.ts"
@@ -40,8 +36,40 @@ import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import {siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
+import {useShare} from '@/composables/useShare.ts'
+import SheetTopBar from '@/components/ui/SheetTopBar.vue'
+import ActionChips from '@/components/ui/ActionChips.vue'
+import TimelineRow from '@/components/rows/TimelineRow.vue'
+import type {ChipAction} from '@/components/ui/types.ts'
+import {useRemindersStore} from '@/stores/reminders.ts'
+import {dayTypeOf, MAX_REMINDERS, nextOf, serviceSlot, type Reminder} from '@/utils/reminders.ts'
+import {reminderWhen} from '@/utils/reminderText.ts'
+import {askNotifications} from '@/utils/notify.ts'
+import {pushSupported} from '@/utils/pushSubscription.ts'
+import {
+  AlarmIcon,
+  CheckIcon,
+  CloseIcon,
+  DirectionsBusIcon,
+  DirectionsWalkIcon,
+  EditIcon,
+  ExpandMoreIcon,
+  FavoriteBorderIcon,
+  FavoriteIcon,
+  KeyboardArrowRightIcon,
+  MapIcon,
+  MyLocationIcon,
+  NavigationIcon,
+  PlaceIcon,
+  PushPinIcon,
+  RefreshIcon,
+  ScheduleIcon,
+  SearchIcon,
+  ShareIcon,
+  SwapVertIcon,
+} from '@/utils/icons.ts'
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -50,6 +78,7 @@ const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
+const remindersStore = useRemindersStore()
 const {isOnline} = useOnline()
 const {userLocation, hasLocationPermission, isLocating, userTime} = storeToRefs(userStore)
 const {timeMode, timeValue} = storeToRefs(plannerStore)
@@ -124,16 +153,20 @@ const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
 
 const journeyStore = useJourneyStore()
 
-function startJourney() {
-  const plan = selectedPlan.value
-  if (!plan || !planData.value || !rideLegs(plan).length || !hasValidCoords.value) return
-  const last = rideLegs(plan).at(-1)!
-  const journey = journeyFromOption(plan, planData.value, {
+function journeyFor(plan: PlanOption) {
+  const last = rideLegs(plan).at(-1)
+  if (!last || !planData.value || !hasValidCoords.value) return null
+  return journeyFromOption(plan, planData.value, {
     id: -1,
     name: destName.value || stopName(last.to),
     lat: destLat.value,
     lon: destLon.value,
   }, route.fullPath)
+}
+
+function startJourney() {
+  const plan = selectedPlan.value
+  const journey = plan && journeyFor(plan)
   if (!journey) return
   const location = userLocation.value
   void journeyStore.start(journey, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
@@ -821,562 +854,890 @@ watch(timeValue, (val) => {
   }
 })
 
-</script>
 
+const {share} = useShare()
+
+// A one-off reminder timed on the plan's first bus; the whole trip is guided from there.
+const tripReminder = computed<Reminder | null>(() => {
+  const plan = selectedPlan.value
+  if (!plan || isCalculating.value || timeMode.value === 'now') return null
+  const journey = journeyFor(plan)
+  const leg = rideLegs(plan)[0]
+  const ride = firstRide(plan)
+  const stop = leg && planData.value?.stops[String(leg.from)]
+  const info = ride && line(ride.route_id)
+  if (!journey || !leg || !ride || !stop || !info) return null
+  const {date, minute} = serviceSlot(ride.depart * 1000)
+  const firstWalk = plan.legs[0]?.kind === 'walk' ? Math.round(plan.legs[0].seconds / 60) : 0
+  const draft: Reminder = {
+    id: crypto.randomUUID(),
+    stopId: leg.from,
+    stopName: stop.name,
+    stopLat: stop.lat,
+    stopLon: stop.lon,
+    routeId: ride.route_id,
+    tripId: ride.trip_id,
+    line: info.short_name,
+    color: info.color,
+    destination: journey.destination.name,
+    time: minute,
+    days: [],
+    date,
+    slots: {[dayTypeOf(date)]: minute},
+    walk: firstWalk,
+    walkAt: Date.now(),
+    journey,
+  }
+  return nextOf(draft, now.value.getTime()) === null ? null : draft
+})
+
+const savedTripReminder = computed(() => tripReminder.value && remindersStore.forTrip(tripReminder.value))
+
+async function toggleTripReminder() {
+  const saved = savedTripReminder.value
+  if (saved) return void remindersStore.remove(saved.id)
+  const draft = tripReminder.value
+  if (!draft) return
+  if (!pushSupported()) return settings.showToast(t('pushUnsupportedToast'), {icon: 'bell-off'})
+  if (remindersStore.full()) return settings.showToast(t('limitReached', {n: MAX_REMINDERS}), {icon: 'bell-off'})
+  if ((await askNotifications()) !== 'granted') return settings.showToast(t('notificationsBlocked'), {icon: 'bell-off'})
+  const next = nextOf(draft, Date.now())
+  if (await remindersStore.save(draft)) {
+    settings.showToast(t('remindSaved'), {body: next === null ? undefined : reminderWhen(next, locale.value), icon: 'bell'})
+  } else {
+    settings.showToast(t('remindFailed'), {icon: 'bell-off'})
+  }
+}
+
+const chips = computed<ChipAction[]>(() => {
+  const plan = selectedPlan.value
+  const startable = plan && !isCalculating.value && timeMode.value === 'now' && rideLegs(plan).length > 0
+  return [
+    ...(startable ? [{label: t('journeyStart'), icon: NavigationIcon, primary: true, kbd: 'start', onClick: startJourney}] : []),
+    ...(settings.busAlerts && tripReminder.value ? [{
+      label: t(savedTripReminder.value ? 'remindSaved' : 'remindSet'),
+      icon: AlarmIcon,
+      selected: !!savedTripReminder.value,
+      kbd: 'remind',
+      onClick: () => void toggleTripReminder(),
+    }] : []),
+    {
+      label: t(isFavorite.value ? 'saved' : 'save'),
+      icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
+      selected: isFavorite.value,
+      tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+      disabled: !isOnline.value,
+      kbd: 'fav',
+      onClick: toggleFavorite,
+    },
+    {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
+    ...(isOnline.value && isFavorite.value ? [{label: t('renameFavorite'), icon: EditIcon, kbd: 'rename', onClick: startRename}] : []),
+  ]
+})
+</script>
 <template>
-  <div v-if="!hasValidCoords"
-       class="stop-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col">
-    <ViewErrorState/>
-  </div>
-  <div v-else
-       class="plan-view-container bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col gap-6">
-    <div class="flex items-center -mb-2">
-      <HeaderNavigation/>
-    </div>
-    <header class="flex items-center gap-3" data-kbd-section="actions" data-kbd-axis="x">
-      <div
-        class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor"
-             stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-        </svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <span
-          class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase">{{
-            t('planTitle')
-          }}</span>
-        <div v-if="isRenaming" class="flex items-center gap-1.5 mt-0.5">
+  <div class="plan-view">
+    <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)"/>
+
+    <ViewErrorState v-if="!hasValidCoords"/>
+
+    <template v-else>
+      <header class="header" data-kbd-section="rename" data-kbd-axis="x">
+        <span class="tile"><MapIcon class="m-icon"/></span>
+        <div class="flex-1 min-w-0">
+          <p class="text-label-medium text-tertiary">{{ t('planTitle') }}</p>
           <input
+            v-if="isRenaming"
             v-model="renameValue"
-            class="rename-input"
+            v-focus
+            class="rename-field text-title-large"
             :placeholder="t('renameFavoritePlaceholder')"
             data-kbd-item="rename-input"
             @keydown.enter.prevent="confirmRename"
-            v-focus
           />
-          <button class="rename-confirm-btn" type="button" data-kbd-item="rename-confirm" :aria-label="t('renameFavorite')" @click="confirmRename">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-            </svg>
-          </button>
-          <button class="rename-cancel-btn" type="button" data-kbd-item="rename-cancel" aria-label="Cancel" @click="cancelRename">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
+          <h1 v-else class="text-title-large font-bold truncate" :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
+            {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
+          </h1>
         </div>
-        <h1
-          v-else
-          class="text-lg font-bold text-slate-900 dark:text-white leading-snug truncate"
-          :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
-          {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
-        </h1>
-      </div>
-      <button
-        v-if="selectedPlan && rideLegs(selectedPlan).length && !isCalculating && hasValidCoords && !isRenaming"
-        type="button"
-        class="start-btn mt-1 shrink-0"
-        :title="t('journeyStart')"
-        :aria-label="t('journeyStart')"
-        data-kbd-item="start"
-        @click="startJourney"
-      >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
-      </button>
-      <button
-        v-if="isOnline && hasValidCoords && isFavorite && !isRenaming"
-        type="button"
-        class="rename-btn mt-1 shrink-0"
-        :title="t('renameFavorite')"
-        :aria-label="t('renameFavorite')"
-        data-kbd-item="rename"
-        @click="startRename"
-      >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
-        </svg>
-      </button>
-      <ShareButton v-if="hasValidCoords && !isRenaming" class="mt-1"/>
-      <button
-        v-if="hasValidCoords"
-        type="button"
-        class="fav-btn mt-1 shrink-0"
-        :class="{ 'is-fav': isFavorite }"
-        :title="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-        :aria-pressed="isFavorite"
-        :disabled="!isOnline"
-        data-kbd-item="fav"
-        @click="toggleFavorite"
-      >
-        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
-        <IconHeartOutline v-else class="w-5 h-5"/>
-      </button>
-    </header>
+        <template v-if="isRenaming">
+          <button type="button" class="icon-btn" data-kbd-item="rename-confirm" :aria-label="t('renameFavorite')" :title="t('renameFavorite')" @click="confirmRename">
+            <CheckIcon class="m-icon"/>
+          </button>
+          <button type="button" class="icon-btn" data-kbd-item="rename-cancel" :aria-label="t('cancel')" :title="t('cancel')" @click="cancelRename">
+            <CloseIcon class="m-icon"/>
+          </button>
+        </template>
+      </header>
+      <ActionChips v-if="!isRenaming" :actions="chips" class="pb-2"/>
 
-    <div>
-      <section v-if="selectedPlan && !isCalculating" class="trip-summary">
-        <div class="trip-summary-stat" v-if="timeMode === 'now'">
-          <span class="trip-summary-stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
-          <span class="trip-summary-stat-label">{{ t('planTripTotal') }}</span>
+      <section v-if="selectedPlan && !isCalculating" class="summary">
+        <div v-if="timeMode === 'now'" class="stat">
+          <span class="stat-value">{{ formatMinutes(totalTripMinutes) }}</span>
+          <span class="stat-label">{{ t('planTripTotal') }}</span>
         </div>
-        <div v-if="firstRide(selectedPlan)" class="trip-summary-stat">
-          <span class="trip-summary-stat-value" :class="firstRide(selectedPlan)!.live ? 'is-live' : ''">
+        <div v-if="firstRide(selectedPlan)" class="stat">
+          <span class="stat-value" :class="{ 'is-live': firstRide(selectedPlan)!.live }">
             <span v-if="firstRide(selectedPlan)!.live" class="live-dot"></span>{{ fromNow(firstRide(selectedPlan)!) }}
           </span>
-          <span class="trip-summary-stat-label">{{ t(timeMode === 'last' ? 'planLastDeparture' : 'planNextDepartures') }}</span>
+          <span class="stat-label">{{ t(timeMode === 'last' ? 'planLastDeparture' : 'planNextDepartures') }}</span>
         </div>
-        <div v-if="selectedPlan.transfers > 0" class="trip-summary-stat">
-          <span class="trip-summary-stat-value">{{ selectedPlan.transfers }}</span>
-          <span class="trip-summary-stat-label">{{ selectedPlan.transfers === 1 ? t('planChange') : t('planChanges') }}</span>
+        <div v-if="selectedPlan.transfers > 0" class="stat">
+          <span class="stat-value">{{ selectedPlan.transfers }}</span>
+          <span class="stat-label">{{ selectedPlan.transfers === 1 ? t('planChange') : t('planChanges') }}</span>
         </div>
       </section>
-      <!-- From/To card — always shown -->
-      <section class="route-legs-card">
-        <div class="leg-row" data-kbd-section="from" data-kbd-entry="2">
-          <div class="leg-icon-col">
-            <div class="leg-dot leg-dot-origin">
-              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="6"/>
-              </svg>
-            </div>
-            <div class="leg-line"></div>
-          </div>
-          <div class="leg-label-col" v-if="activeSearchField !== 'origin'">
-            <div class="origin-clickable" data-kbd-item="from" @click="openSearchField('origin')">
-              <span class="leg-type-badge">{{ t('planFrom') }}</span>
-              <div class="leg-name-wrap">
-                <span class="leg-name">{{ originLabel }}</span>
-                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="leg-label-col search-active-col" v-else>
-            <div class="search-wrap">
+
+      <section class="legs-card">
+        <div data-kbd-section="from" data-kbd-entry="2">
+          <TimelineRow
+            v-if="activeSearchField !== 'origin'"
+            :bottom="selectedPlan ? 'walk' : null" dot="station" color="var(--md-tertiary)"
+            class="endpoint state squish"
+            role="button"
+            tabindex="0"
+            data-kbd-item="from"
+            @click="openSearchField('origin')"
+            @keydown.enter.prevent="openSearchField('origin')"
+          >
+            <span class="kicker">{{ t('planFrom') }}</span>
+            <span class="text-body-large truncate">{{ originLabel }}</span>
+            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2"/></template>
+          </TimelineRow>
+          <div v-else class="place-search" data-kbd-section="from-results">
+            <label class="search-field">
+              <SearchIcon class="m-icon text-on-surface-variant"/>
               <input
-                type="text"
                 v-model="searchQuery"
-                class="search-input"
+                v-focus
+                type="text"
                 :placeholder="t('planSearchPlaceholder')"
                 data-kbd-item="from-input"
                 @keydown.enter="onSearchEnter"
-                v-focus
               />
-              <button class="search-cancel" @click="activeSearchField = null">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M6 18L18 6M6 6l12 12"/>
-                </svg>
+              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon"/></button>
+            </label>
+            <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
+            <template v-else>
+              <button v-if="hasLocationPermission" type="button" class="result squish" data-kbd-item="from-current" @click="useCurrentLocation">
+                <MyLocationIcon class="m-icon size-5 text-primary"/>{{ t('planOriginCurrentLocation') }}
               </button>
-            </div>
-            <div class="search-results" v-if="searchResults.length > 0 || isSearching || hasLocationPermission"
-                 data-kbd-section="from-results">
-              <div v-if="isSearching" class="search-loading">
-                <div class="mini-spinner"></div>
-                {{ t('planSearching') }}
-              </div>
-              <template v-else>
-                <div
-                  v-if="hasLocationPermission"
-                  class="search-result-item current-loc-option"
-                  data-kbd-item="from-current"
-                  @click="useCurrentLocation"
-                >
-                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
-                </div>
-                <div
-                  v-for="res in searchResults"
-                  :key="res.id"
-                  class="search-result-item"
-                  :data-kbd-item="`from-res-${res.id}`"
-                  @click="selectOrigin(res)"
-                >
-                  <span class="res-main">{{ res.label }}</span>
-                </div>
-              </template>
-            </div>
+              <button v-for="res in searchResults" :key="res.id" type="button" class="result squish" :data-kbd-item="`from-res-${res.id}`" @click="selectOrigin(res)">
+                <PlaceIcon class="m-icon size-5 text-tertiary"/>{{ res.label }}
+              </button>
+            </template>
           </div>
         </div>
 
         <template v-if="selectedPlan">
-          <div v-if="!rideLegs(selectedPlan).length" class="leg-row">
-            <div class="leg-icon-col">
-              <div class="leg-dot intermediate-dot">
-                <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-              </div>
-              <div class="leg-line leg-line-dashed"></div>
-            </div>
-            <div class="leg-label-col">
-              <span class="leg-type-badge">{{ t('planWalk') }}</span>
-              <span class="leg-name">{{ formatMinutes(journeyMinutes(selectedPlan)) }}</span>
-            </div>
-          </div>
+          <TimelineRow v-if="!rideLegs(selectedPlan).length" top="walk" bottom="walk" dot="none" color="var(--md-outline)">
+            <span class="kicker">{{ t('planWalk') }}</span>
+            <span class="text-body-medium">{{ formatMinutes(journeyMinutes(selectedPlan)) }}</span>
+          </TimelineRow>
           <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx" data-kbd-section="legs">
-            <div class="leg-row">
-              <div class="leg-icon-col">
-                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.color }">
-                  <div class="dot-inner" :style="{ backgroundColor: ld.color }"></div>
-                </div>
-                <div class="leg-line" :style="{ backgroundColor: ld.color, backgroundImage: 'none' }"></div>
-              </div>
-              <div class="leg-label-col">
-                <span class="leg-type-badge" :style="{ color: ld.color }">
-                  {{ t('planBoarding') }}
-                  <template v-for="(routeId, rIdx) in (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines : ld.lines.slice(0, 4))" :key="routeId">
-                    <RouterLink
-                      class="leg-route-link"
-                      :data-kbd-item="`leg-${legIdx}-route-${routeId}`"
-                      :to="{ name: 'route', params: { routeId: routeId, direction: ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0' } }"
-                      @click.stop
-                    >{{ line(routeId)?.short_name }}</RouterLink><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines.length : Math.min(ld.lines.length, 4)) - 1" class="leg-route-sep"> / </span>
-                  </template><span v-if="ld.lines.length > 4" class="leg-route-overflow cursor-pointer" :data-kbd-item="`leg-${legIdx}-more`" @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"> {{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.lines.length - 4) }}</span>
-                  <span v-if="Math.max(0, Math.round(ld.leg.seconds / 60)) > 0" class="leg-ride-time">
-                    · {{ Math.max(0, Math.round(ld.leg.seconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
-                  </span>
+            <TimelineRow top="walk" :bottom="ld.color" dot="station" :color="ld.color">
+              <span class="kicker leg-lines" :style="{ color: ld.color }">
+                <span class="font-bold">{{ t('planBoarding') }}&nbsp;</span>
+                <template v-for="(routeId, rIdx) in (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines : ld.lines.slice(0, 4))" :key="routeId">
+                  <RouterLink
+                    class="font-black"
+                    :data-kbd-item="`leg-${legIdx}-route-${routeId}`"
+                    :to="{ name: 'route', params: { routeId: routeId, direction: ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0' } }"
+                    @click.stop
+                  >{{ line(routeId)?.short_name }}</RouterLink><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines.length : Math.min(ld.lines.length, 4)) - 1">&nbsp;/&nbsp;</span>
+                </template>
+                <button
+                  v-if="ld.lines.length > 4"
+                  type="button"
+                  class="more"
+                  :data-kbd-item="`leg-${legIdx}-more`"
+                  @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"
+                >{{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.lines.length - 4) }}</button>
+                <span v-if="Math.max(0, Math.round(ld.leg.seconds / 60)) > 0" class="text-on-surface-variant">
+                  &nbsp;· {{ Math.max(0, Math.round(ld.leg.seconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                 </span>
-                <RouterLink class="leg-name leg-name-link" :data-kbd-item="`leg-${legIdx}-start`" :to="{ name: 'stop', params: { stopId: ld.leg.from } }">{{ stopName(ld.leg.from) }}</RouterLink>
-              </div>
-            </div>
-
-            <div v-for="stop in ld.intermediates" :key="stop.stop_id" class="leg-row intermediate-leg">
-              <div class="leg-icon-col">
-                <div class="leg-dot intermediate-dot">
-                  <div class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                </div>
-                <div class="leg-line" :style="{ backgroundColor: ld.color, backgroundImage: 'none' }"></div>
-              </div>
-              <div class="leg-label-col">
-                <RouterLink class="leg-name intermediate-name leg-name-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
-              </div>
-            </div>
-
-            <div class="leg-row" :class="{ 'leg-row-alight-transfer': legIdx < selectedPlanLegsData.length - 1 }">
-              <div class="leg-icon-col">
-                <div class="leg-dot boarding-dot" :style="{ borderColor: ld.color }">
-                  <div class="dot-inner" :style="{ backgroundColor: ld.color }"></div>
-                </div>
-                <div v-if="legIdx === selectedPlanLegsData.length - 1" class="leg-line leg-line-dashed"></div>
-              </div>
-              <div class="leg-label-col">
-                <span class="leg-type-badge" :style="{ color: ld.color }">{{ t('planAlighting') }}</span>
-                <RouterLink class="leg-name leg-name-link" :data-kbd-item="`leg-${legIdx}-end`" :to="{ name: 'stop', params: { stopId: ld.leg.to } }">{{ stopName(ld.leg.to) }}</RouterLink>
-              </div>
-            </div>
-
-            <div v-if="legIdx < selectedPlanLegsData.length - 1" class="transfer-block">
-              <div class="transfer-block-rail">
-                <span class="transfer-block-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="13" cy="4" r="2"/>
-                    <path d="M5 22l4-9 4 4 4 5"/>
-                    <path d="M9 13l-2-4 4-2 3 4 3 1"/>
-                  </svg>
+              </span>
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-start`" :to="{ name: 'stop', params: { stopId: ld.leg.from } }">{{ stopName(ld.leg.from) }}</RouterLink>
+            </TimelineRow>
+            <TimelineRow v-for="stop in ld.intermediates" :key="stop.stop_id" :top="ld.color" :bottom="ld.color" dot="stop" :color="ld.color" compact>
+              <RouterLink class="stop-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
+            </TimelineRow>
+            <TimelineRow :top="ld.color" bottom="walk" dot="station" :color="ld.color">
+              <span class="kicker font-bold" :style="{ color: ld.color }">{{ t('planAlighting') }}</span>
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="{ name: 'stop', params: { stopId: ld.leg.to } }">{{ stopName(ld.leg.to) }}</RouterLink>
+            </TimelineRow>
+            <TimelineRow v-if="legIdx < selectedPlanLegsData.length - 1" top="walk" bottom="walk" dot="none" :color="ld.color" compact>
+              <div class="transfer">
+                <DirectionsWalkIcon class="m-icon size-[18px] text-amber"/>
+                <span class="text-label-large font-bold">{{ t('planTransfer') }}</span>
+                <span class="text-body-small text-on-surface-variant">
+                  {{ ld.transferMeters > 0 ? `${Math.round(ld.transferMeters)} m ${t('planTransferWalk')}` : t('planTransferSameStop') }}
                 </span>
               </div>
-              <div class="transfer-block-content">
-                <span class="transfer-block-label">{{ t('planTransfer') }}</span>
-                <span class="transfer-block-detail">
-                  <template v-if="ld.transferMeters > 0">
-                    {{ Math.round(ld.transferMeters) }}&nbsp;m {{ t('planTransferWalk') }}
-                  </template>
-                  <template v-else>
-                    {{ t('planTransferSameStop') }}
-                  </template>
-                </span>
-              </div>
-            </div>
+            </TimelineRow>
           </div>
         </template>
 
-        <div class="leg-row" data-kbd-section="to" :data-kbd-entry="hasValidDest ? undefined : 1">
-          <div class="leg-icon-col">
-            <div class="leg-dot leg-dot-dest">
-              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-              </svg>
-            </div>
-          </div>
-          <div class="leg-label-col" v-if="activeSearchField !== 'destination'">
-            <div
-              class="origin-clickable"
-              :class="{ 'opacity-60 pointer-events-none': !isOnline }"
-              data-kbd-item="to"
-              @click="openSearchField('destination')"
-            >
-              <span class="leg-type-badge leg-type-badge-dest">{{ t('planTo') }}</span>
-              <div class="leg-name-wrap">
-                <span class="leg-name" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
-                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="leg-label-col search-active-col" v-else>
-            <div class="search-wrap">
+        <div data-kbd-section="to" :data-kbd-entry="hasValidDest ? undefined : 1">
+          <TimelineRow
+            v-if="activeSearchField !== 'destination'"
+            :top="selectedPlan ? 'walk' : null" dot="station" color="var(--md-primary)"
+            class="endpoint state squish"
+            :class="{ 'is-disabled': !isOnline }"
+            role="button"
+            tabindex="0"
+            data-kbd-item="to"
+            @click="openSearchField('destination')"
+            @keydown.enter.prevent="openSearchField('destination')"
+          >
+            <span class="kicker">{{ t('planTo') }}</span>
+            <span class="text-body-large truncate" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2"/></template>
+          </TimelineRow>
+          <div v-else class="place-search" data-kbd-section="to-results">
+            <label class="search-field">
+              <SearchIcon class="m-icon text-on-surface-variant"/>
               <input
-                type="text"
                 v-model="searchQuery"
-                class="search-input"
+                v-focus
+                type="text"
                 :placeholder="t('planDestSearchPlaceholder')"
                 :disabled="!isOnline"
                 data-kbd-item="to-input"
                 @keydown.enter="onSearchEnter"
-                v-focus
               />
-              <button class="search-cancel" @click="activeSearchField = null">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="search-results" v-if="isOnline && (searchResults.length > 0 || isSearching || (hasLocationPermission && userLocation) || (!isSearching && searchQuery.trim().length >= 3))"
-                 data-kbd-section="to-results">
-              <div v-if="isSearching" class="search-loading">
-                <div class="mini-spinner"></div>
-                {{ t('planSearching') }}
-              </div>
+              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon"/></button>
+            </label>
+            <template v-if="isOnline">
+              <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
               <template v-else>
-                <div
-                  v-if="hasLocationPermission && userLocation"
-                  class="search-result-item current-loc-option"
-                  data-kbd-item="to-current"
-                  @click="useCurrentLocationAsDestination"
-                >
-                  <span class="res-main">{{ t('planOriginCurrentLocation') }}</span>
-                </div>
-                <div
-                  v-for="res in searchResults"
-                  :key="res.id"
-                  class="search-result-item"
-                  :data-kbd-item="`to-res-${res.id}`"
-                  @click="selectDestination(res)"
-                >
-                  <span class="res-main">{{ res.label }}</span>
-                </div>
-                <div
+                <button v-if="hasLocationPermission && userLocation" type="button" class="result squish" data-kbd-item="to-current" @click="useCurrentLocationAsDestination">
+                  <MyLocationIcon class="m-icon size-5 text-primary"/>{{ t('planOriginCurrentLocation') }}
+                </button>
+                <button v-for="res in searchResults" :key="res.id" type="button" class="result squish" :data-kbd-item="`to-res-${res.id}`" @click="selectDestination(res)">
+                  <PlaceIcon class="m-icon size-5 text-tertiary"/>{{ res.label }}
+                </button>
+                <button
                   v-if="!searchResults.length && searchQuery.trim().length >= 3"
-                  class="search-result-item drop-pin-option"
+                  type="button"
+                  class="result squish"
                   data-kbd-item="to-drop-pin"
                   @click="dropPinAsDestination"
                 >
-                  <svg class="w-4 h-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21c0 0-7-6.686-7-11a7 7 0 1 1 14 0c0 4.314-7 11-7 11z"/>
-                    <circle cx="12" cy="10" r="2.5" fill="currentColor" stroke="none"/>
-                  </svg>
-                  <span class="res-main">{{ t('dropPin') }}</span>
-                </div>
+                  <PushPinIcon class="m-icon size-5 text-on-surface-variant"/>{{ t('dropPin') }}
+                </button>
               </template>
-            </div>
+            </template>
           </div>
         </div>
       </section>
-      <!-- Routes section — always shown -->
-      <section class="flex flex-col gap-3 pb-8">
-        <div class="plan-section-head">
-          <h2 class="section-label">
-            <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
-            {{ t('planRoutesLabel') }}
-          </h2>
-        </div>
 
-        <div class="plan-time-filter" role="group" :aria-label="t('planTimeFilterLabel')"
-             data-kbd-section="time" data-kbd-axis="x">
-          <label class="plan-time-mode">
-            <select
-              v-model="timeMode"
-              class="plan-time-select"
-              data-kbd-item="time-mode"
-              :aria-label="t('planTimeFilterLabel')"
-            >
+      <div class="routes-label">
+        <span class="size-2 rounded-full bg-tertiary"></span>
+        <h2 class="text-title-small text-on-surface-variant">{{ t('planRoutesLabel') }}</h2>
+      </div>
+
+      <div class="time-filter" role="group" :aria-label="t('planTimeFilterLabel')" data-kbd-section="time" data-kbd-axis="x">
+        <div class="flex items-center gap-2">
+          <label class="select-field">
+            <span class="select-label">{{ t('planTimeFilterLabel') }}</span>
+            <select v-model="timeMode" data-kbd-item="time-mode" :aria-label="t('planTimeFilterLabel')">
               <option value="now">{{ t('planTimeLeaveNow') }}</option>
               <option value="leave">{{ t('planTimeLeaveAt') }}</option>
               <option value="arrive">{{ t('planTimeArriveBy') }}</option>
               <option value="last">{{ t('planTimeLast') }}</option>
             </select>
-            <svg class="plan-time-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
-            </svg>
+            <ExpandMoreIcon class="m-icon text-on-surface-variant pointer-events-none"/>
           </label>
-          <div class="plan-time-filter-actions">
-            <button
-              v-if="timeMode !== 'now' && timeMode !== 'last'"
-              type="button"
-              class="plan-time-search-btn shrink-0"
-              data-kbd-item="time-search"
-              :title="t('planTimeSearchAria')"
-              :aria-label="t('planTimeSearchAria')"
-              :disabled="isCalculating || !timeValue || (!hasLocationPermission && !customOrigin)"
-              @click="refreshRoutes"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="m20 20-3.5-3.5" />
-              </svg>
-              <span class="plan-time-search-label">{{ t('planTimeSearch') }}</span>
-            </button>
-            <button
-              v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
-              type="button"
-              class="swap-btn shrink-0"
-              data-kbd-item="swap"
-              :title="t('planSwap')"
-              :aria-label="t('planSwap')"
-              :disabled="isCalculating"
-              @click="swapOriginDestination"
-            >
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-              </svg>
-            </button>
-            <button
-              v-if="hasValidCoords"
-              type="button"
-              class="refresh-btn shrink-0"
-              data-kbd-item="refresh"
-              :class="{ 'is-busy': isCalculating }"
-              :title="t('planRefresh')"
-              :aria-label="t('planRefresh')"
-              :disabled="isCalculating || (!hasLocationPermission && !customOrigin)"
-              @click="refreshRoutes"
-            >
-              <svg class="w-5 h-5" :class="{ 'animate-spin': isCalculating }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 6 5l-2 2m0 8a8 8 0 0 0 14 4l2-2"/>
-              </svg>
-            </button>
-          </div>
-          <VueDatePicker
-            v-if="timeMode !== 'now' && timeMode !== 'last'"
-            v-model="timeValue"
-            :min-date="minDateObj"
-            model-type="yyyy-MM-dd'T'HH:mm"
-            format="dd/MM/yyyy HH:mm"
-            :is24="true"
-            :enable-seconds="false"
-            :minutes-increment="1"
-            :week-start="1"
-            :auto-apply="false"
-            :teleport="true"
-            :floating="{ arrow: false, strategy: 'fixed', offset: 0, placement: 'bottom-start' }"
-            :ui="{ menu: 'plan-time-menu' }"
-            :input-attrs="{ clearable: true, alwaysClearable: true, inputmode: 'none' }"
-            :dark="isDarkTheme"
-            text-input
-            class="plan-time-datetime"
-            data-kbd-item="time-date"
-            data-kbd-inner
-            :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
-          />
-        </div>
-
-        <!-- GPS resolving: waiting for device location -->
-        <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')"/>
-
-        <!-- Route calculation in progress -->
-        <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
-
-        <!-- Results -->
-        <div v-else-if="options.length > 0" class="route-results-list flex flex-col gap-2.5"
-             data-kbd-section="results" data-kbd-entry="1">
-          <div
-            v-for="(plan, index) in options"
-            :key="plan.key"
-            class="departure-card group"
-            :class="{ 'is-selected': selectedPlanIndex === index }"
-            :data-kbd-item="`plan-${plan.key}`"
-            :data-kbd-active="selectedPlanIndex === index"
-            @click="selectPlanAt(index)"
-            @keydown.enter.prevent="onResultEnter($event, index)"
+          <button
+            v-if="timeMode === 'leave' || timeMode === 'arrive'"
+            type="button"
+            class="btn btn-tonal"
+            data-kbd-item="time-search"
+            :title="t('planTimeSearchAria')"
+            :aria-label="t('planTimeSearchAria')"
+            :disabled="isCalculating || !timeValue || (!hasLocationPermission && !customOrigin)"
+            @click="refreshRoutes"
           >
-            <div class="card-rail" :class="{ 'is-active': selectedPlanIndex === index }"></div>
+            <SearchIcon class="m-icon"/>{{ t('planTimeSearch') }}
+          </button>
+          <button
+            v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
+            type="button"
+            class="tonal-icon squish"
+            data-kbd-item="swap"
+            :title="t('planSwap')"
+            :aria-label="t('planSwap')"
+            :disabled="isCalculating"
+            @click="swapOriginDestination"
+          >
+            <SwapVertIcon class="m-icon"/>
+          </button>
+          <button
+            type="button"
+            class="tonal-icon squish"
+            data-kbd-item="refresh"
+            :title="t('planRefresh')"
+            :aria-label="t('planRefresh')"
+            :disabled="isCalculating || (!hasLocationPermission && !customOrigin)"
+            @click="refreshRoutes"
+          >
+            <span v-if="isCalculating" class="spinner"></span>
+            <RefreshIcon v-else class="m-icon"/>
+          </button>
+        </div>
+        <VueDatePicker
+          v-if="timeMode === 'leave' || timeMode === 'arrive'"
+          v-model="timeValue"
+          :min-date="minDateObj"
+          model-type="yyyy-MM-dd'T'HH:mm"
+          format="dd/MM/yyyy HH:mm"
+          :is24="true"
+          :enable-seconds="false"
+          :minutes-increment="1"
+          :week-start="1"
+          :auto-apply="false"
+          :teleport="true"
+          :floating="{ arrow: false, strategy: 'fixed', offset: 4, placement: 'bottom-start' }"
+          :ui="{ menu: 'plan-time-menu' }"
+          :input-attrs="{ clearable: true, alwaysClearable: true, inputmode: 'none' }"
+          :dark="isDarkTheme"
+          text-input
+          class="plan-time-datetime"
+          data-kbd-item="time-date"
+          data-kbd-inner
+          :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
+        />
+      </div>
 
-            <div class="card-body">
-              <div class="card-row-primary">
-                <div class="bus-chain">
-                  <span v-if="!rideLegs(plan).length" class="bus-chip">
-                    <span class="bus-chip-name">{{ t('planWalk') }}</span>
-                  </span>
-                  <template v-for="(leg, lIdx) in rideLegs(plan)" :key="lIdx">
-                    <span
-                      class="bus-chip"
-                      :class="{ 'is-expanded': expandedLegs['list-' + plan.key + '-' + lIdx] }"
-                      :style="{ backgroundColor: lineColor(leg.lines?.[0]) }"
-                      :title="(leg.lines ?? []).map(id => line(id)?.short_name).join(' / ')"
-                    ><template v-for="(routeId, rIdx) in (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.lines ?? [] : (leg.lines ?? []).slice(0, 3))" :key="rIdx"><span class="bus-chip-name">{{ line(routeId)?.short_name }}</span><span v-if="rIdx < (expandedLegs['list-' + plan.key + '-' + lIdx] ? (leg.lines ?? []).length : Math.min((leg.lines ?? []).length, 3)) - 1" class="bus-chip-sep">/</span></template></span><span v-if="(leg.lines ?? []).length > 3" class="bus-chip-overflow cursor-pointer" @click.stop="toggleLegExpansion('list-' + plan.key + '-' + lIdx)">{{ expandedLegs['list-' + plan.key + '-' + lIdx] ? '«' : '+' + ((leg.lines ?? []).length - 3) }}</span>
-                    <svg v-if="lIdx < rideLegs(plan).length - 1" class="bus-chain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
-                    </svg>
-                  </template>
-                </div>
+      <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')"/>
+      <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
 
-                <div v-if="plan.runs[0]"
-                  class="card-primary-time"
-                  :class="firstRide(plan)?.live ? 'card-primary-time-live' : 'card-primary-time-sched'">
-                  <div v-if="firstRide(plan)" class="card-relative-time">
-                    <span v-if="firstRide(plan)!.live" class="live-dot"></span>
-                    {{ departureLabel(firstRide(plan)!) }}
-                  </div>
-                  <div class="card-arrival-time">
-                    {{ arrivalLabel(plan) }}
-                  </div>
-                </div>
-
-                <svg class="card-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
-              </div>
-
-              <div class="card-row-meta">
-                <span class="card-arrow">→</span>
-                <span class="card-dest" :title="rideLegs(plan).length ? stopName(rideLegs(plan).at(-1)?.to) : destName">
-                  {{ rideLegs(plan).length ? stopName(rideLegs(plan).at(-1)?.to) : destName }}
+      <div v-else-if="options.length" data-kbd-section="results" data-kbd-entry="1">
+        <div
+          v-for="(plan, index) in options"
+          :key="plan.key"
+          class="plan-card squish"
+          :class="{ 'is-selected': selectedPlanIndex === index, cascade: index < 12 }"
+          :style="{ '--i': index }"
+          role="button"
+          tabindex="0"
+          :data-kbd-item="`plan-${plan.key}`"
+          :data-kbd-active="selectedPlanIndex === index"
+          @click="selectPlanAt(index)"
+          @keydown.enter.prevent="onResultEnter($event, index)"
+        >
+          <div class="flex items-center gap-1">
+            <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1">
+              <span v-if="!rideLegs(plan).length" class="line-chip is-walk">{{ t('planWalk') }}</span>
+              <template v-for="(leg, lIdx) in rideLegs(plan)" :key="lIdx">
+                <span class="line-chip" :style="{ backgroundColor: lineColor(leg.lines?.[0]) }" :title="(leg.lines ?? []).map(id => line(id)?.short_name).join(' / ')">
+                  {{ (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.lines ?? [] : (leg.lines ?? []).slice(0, 3)).map(id => line(id)?.short_name).join('/') }}
                 </span>
-              </div>
-
-              <div class="card-row-stats">
-                <span class="stat-chip stat-chip-duration">
-                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                  </svg>
-                  {{ formatMinutes(Math.round(journeyMinutes(plan))) }}
-                </span>
-                <span v-if="plan.transfers > 0" class="stat-chip stat-chip-transfer">
-                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v12m-3-3l3 3 3-3m7 9V4m-3 3l3-3 3 3"/>
-                  </svg>
-                  {{ plan.transfers }}&nbsp;{{ plan.transfers === 1 ? t('planChange') : t('planChanges') }}
-                </span>
-                <span v-if="firstRide(plan)?.live" class="stat-chip stat-chip-live">
-                  <span class="live-dot"></span>{{ t('live') }}
-                </span>
-                <span v-if="laterRides(plan).length" class="stat-chip-next">
-                  <span class="stat-chip-label">{{ t(timeMode === 'last' ? 'planEarlier' : 'planThen') }}</span>
-                  <template v-for="(ride, i) in laterRides(plan)" :key="i"><span class="stat-chip-time">{{ fromNow(ride) }}</span></template>
-                </span>
-              </div>
+                <button
+                  v-if="(leg.lines ?? []).length > 3"
+                  type="button"
+                  class="more"
+                  @click.stop="toggleLegExpansion('list-' + plan.key + '-' + lIdx)"
+                >{{ expandedLegs['list-' + plan.key + '-' + lIdx] ? '«' : '+' + ((leg.lines ?? []).length - 3) }}</button>
+                <KeyboardArrowRightIcon v-if="lIdx < rideLegs(plan).length - 1" class="m-icon size-4 text-outline"/>
+              </template>
             </div>
+            <div v-if="plan.runs[0]" class="flex flex-col items-end">
+              <span v-if="firstRide(plan)" class="departure" :class="{ 'is-live': firstRide(plan)!.live }">
+                <span v-if="firstRide(plan)!.live" class="live-dot"></span>{{ departureLabel(firstRide(plan)!) }}
+              </span>
+              <span class="text-body-small text-on-surface-variant">{{ arrivalLabel(plan) }}</span>
+            </div>
+            <KeyboardArrowRightIcon class="m-icon size-5 text-outline"/>
+          </div>
+          <p class="text-body-medium text-on-surface-variant truncate">
+            → {{ rideLegs(plan).length ? stopName(rideLegs(plan).at(-1)?.to) : destName }}
+          </p>
+          <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span class="stat-chip"><ScheduleIcon class="m-icon size-3"/>{{ formatMinutes(Math.round(journeyMinutes(plan))) }}</span>
+            <span v-if="plan.transfers > 0" class="stat-chip">
+              <SwapVertIcon class="m-icon size-3"/>{{ plan.transfers }} {{ plan.transfers === 1 ? t('planChange') : t('planChanges') }}
+            </span>
+            <span v-if="firstRide(plan)?.live" class="stat-chip is-live"><span class="live-dot"></span>{{ t('live') }}</span>
+            <span v-if="laterRides(plan).length" class="text-label-medium text-on-surface-variant">
+              {{ t(timeMode === 'last' ? 'planEarlier' : 'planThen') }} {{ laterRides(plan).map(fromNow).join('  ') }}
+            </span>
           </div>
         </div>
+      </div>
 
-        <!-- No results -->
-        <div v-else class="plan-placeholder">
-            <svg class="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-            </svg>
-            <p class="text-sm font-medium text-slate-400 dark:text-slate-500 text-center">
-              {{ t('planNoResults') }}</p>
-        </div>
-      </section>
-    </div>
+      <div v-else class="empty">
+        <DirectionsBusIcon class="m-icon size-10 text-outline-variant"/>
+        <p class="text-body-medium text-on-surface-variant text-center">{{ t('planNoResults') }}</p>
+      </div>
+      <div class="h-8"></div>
+    </template>
   </div>
 </template>
 
-<style scoped src="./RoutePlanningView.css"></style>
+<style scoped>
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 4px 8px 16px;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--md-tertiary);
+  color: var(--md-on-tertiary);
+}
+
+.rename-field {
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 2px solid var(--md-primary);
+  outline: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+}
+
+.summary {
+  display: flex;
+  margin: 4px 12px;
+  padding: 12px 0;
+  border-radius: 12px;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--md-outline-variant);
+}
+
+.stat-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 800;
+}
+
+.stat-value.is-live {
+  color: var(--md-live);
+}
+
+.stat-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  opacity: 0.75;
+}
+
+.live-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--md-live);
+  animation: live-pulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes live-pulse {
+  to {
+    opacity: 0.35;
+  }
+}
+
+.legs-card {
+  margin: 8px 12px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--md-surface-container);
+}
+
+.endpoint {
+  cursor: pointer;
+}
+
+.endpoint.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.kicker {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+}
+
+.leg-lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.leg-lines a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.more {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--md-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.stop-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--md-on-surface-variant);
+  text-decoration: none;
+}
+
+.stop-link.is-bold {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--md-on-surface);
+}
+
+.transfer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--md-amber) 12%, transparent);
+}
+
+.place-search {
+  padding: 4px 12px;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 56px;
+  padding: 0 4px 0 12px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--md-outline);
+}
+
+.search-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--md-primary);
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  font-size: 16px;
+  caret-color: var(--md-primary);
+}
+
+.search-field input::placeholder {
+  color: var(--md-on-surface-variant);
+}
+
+.searching {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--md-on-surface);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .result:hover {
+    background: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+  }
+}
+
+.routes-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+
+.time-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px;
+}
+
+.select-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding-right: 12px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--md-outline);
+}
+
+.select-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--md-primary);
+}
+
+.select-label {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  padding: 0 4px;
+  background: var(--md-surface-container-low);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--md-on-surface-variant);
+}
+
+.select-field select {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 0 0 16px;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--md-on-surface);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.select-field option {
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+}
+
+.tonal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  cursor: pointer;
+}
+
+.tonal-icon:disabled {
+  background: color-mix(in srgb, var(--md-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+  pointer-events: none;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--md-primary);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.plan-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  cursor: pointer;
+}
+
+.plan-card.is-selected {
+  background: var(--md-secondary-container);
+  box-shadow: inset 0 0 0 1.5px var(--md-primary);
+}
+
+.line-chip {
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 900;
+}
+
+.line-chip.is-walk {
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+}
+
+.departure {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.departure.is-live {
+  color: var(--md-live);
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface-variant);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.stat-chip.is-live {
+  background: var(--md-live-container);
+  color: var(--md-on-live-container);
+  font-weight: 700;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+}
+
+.plan-time-datetime {
+  max-width: 100%;
+}
+
+.plan-time-datetime :deep(.dp__main),
+.plan-time-datetime :deep(.dp__theme_light),
+.plan-time-datetime :deep(.dp__theme_dark),
+.plan-time-datetime :deep(.dp--main),
+.plan-time-datetime :deep(.dp--theme-light),
+.plan-time-datetime :deep(.dp--theme-dark) {
+  --dp-font-family: var(--font-sans);
+  --dp-font-size: 16px;
+  --dp-border-radius: 14px;
+  --dp-input-padding: 16px 12px;
+  --dp-input-icon-padding: 44px;
+  --dp-background-color: transparent;
+  --dp-text-color: var(--md-on-surface);
+  --dp-border-color: var(--md-outline);
+  --dp-border-color-hover: var(--md-on-surface);
+  --dp-border-color-focus: var(--md-primary);
+  --dp-icon-color: var(--md-on-surface-variant);
+  --dp-primary-color: var(--md-primary);
+  --dp-primary-text-color: var(--md-on-primary);
+}
+
+.plan-time-datetime :deep(input) {
+  height: 56px;
+}
+</style>
+
+<style>
+/* The menu is teleported out of the view. */
+.plan-time-menu {
+  --dp-font-family: var(--font-sans);
+  --dp-font-size: 14px;
+  --dp-border-radius: 28px;
+  --dp-cell-border-radius: 9999px;
+  --dp-menu-min-width: 300px;
+  --dp-action-button-height: 40px;
+  --dp-action-buttons-padding: 0 16px;
+  --dp-background-color: var(--md-surface-container-high);
+  --dp-text-color: var(--md-on-surface);
+  --dp-hover-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+  --dp-hover-text-color: var(--md-on-surface);
+  --dp-primary-color: var(--md-primary);
+  --dp-primary-text-color: var(--md-on-primary);
+  --dp-secondary-color: var(--md-outline);
+  --dp-border-color: transparent;
+  --dp-menu-border-color: transparent;
+  --dp-success-color: var(--md-primary);
+  --dp-disabled-color: transparent;
+  --dp-icon-color: var(--md-on-surface-variant);
+  --dp-scroll-bar-background: var(--md-surface-container-high);
+  --dp-scroll-bar-color: var(--md-outline-variant);
+  box-shadow: var(--md-elevation-3);
+}
+
+.plan-time-menu .dp__action_select,
+.plan-time-menu .dp--action-select {
+  border-radius: 20px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-weight: 500;
+}
+
+.plan-time-menu .dp__action_cancel,
+.plan-time-menu .dp--action-cancel {
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--md-primary);
+  font-weight: 500;
+}
+</style>

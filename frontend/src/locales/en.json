@@ -376,5 +376,10 @@
   "androidShotAlt": "Screenshot for step {n}",
   "androidBetaAsk": "Join the beta to test the app",
   "contact": "Contact",
-  "contactDesc": "Help, suggestions or anything else."
+  "contactDesc": "Help, suggestions or anything else.",
+  "refresh": "Refresh",
+  "moreOptions": "More options",
+  "clearSearch": "Clear search",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out"
 }

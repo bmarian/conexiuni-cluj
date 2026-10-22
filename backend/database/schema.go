@@ -209,6 +209,7 @@ func (s *Store) initSchemas() error {
             walk_at       INTEGER NOT NULL DEFAULT 0,
             last_fired_at INTEGER NOT NULL DEFAULT 0,
             leave_at      INTEGER NOT NULL DEFAULT 0,
+            journey       INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (endpoint, id)
         );
 
@@ -390,6 +391,7 @@ func (s *Store) addMissingColumns() error {
 			"walk INTEGER",
 			"walk_at INTEGER NOT NULL DEFAULT 0",
 			"leave_at INTEGER NOT NULL DEFAULT 0",
+			"journey INTEGER NOT NULL DEFAULT 0",
 		},
 		"stops": {
 			"station_id INTEGER NOT NULL DEFAULT 0",

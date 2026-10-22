@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {nextTick, onMounted, onUnmounted, ref} from 'vue'
 import {useKbdEscape} from '@/composables/useKeyboardNav.ts'
+import {AlarmAddIcon, BedtimeIcon, NotificationsOffIcon} from '@/utils/icons.ts'
 
 export interface BusMenuItem {
   key: string
@@ -10,6 +11,8 @@ export interface BusMenuItem {
 }
 
 const props = defineProps<{ x: number, y: number, items: BusMenuItem[] }>()
+
+const ICONS = {'bell-off': NotificationsOffIcon, alarm: AlarmAddIcon, wake: BedtimeIcon}
 const emit = defineEmits<{ close: [] }>()
 
 const el = ref<HTMLElement | null>(null)
@@ -52,16 +55,8 @@ function run(item: BusMenuItem) {
 <template>
   <Teleport to="body">
     <div ref="el" class="bus-menu" role="menu" :style="{ left: `${pos.left}px`, top: `${pos.top}px` }">
-      <button v-for="item in items" :key="item.key" type="button" role="menuitem" class="bus-menu-item" @click="run(item)">
-        <svg v-if="item.icon === 'bell-off'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13.7 21a2 2 0 0 1-3.4 0M18.6 13A17.9 17.9 0 0 1 18 8M6.3 6.3A5.9 5.9 0 0 0 6 8c0 7-3 9-3 9h14M18 8a6 6 0 0 0-9.3-5M2 2l20 20"/>
-        </svg>
-        <svg v-else-if="item.icon === 'alarm'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3M12 2v1"/>
-        </svg>
-        <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="13" r="8"/><path stroke-linecap="round" d="M12 9v4l2 2M5 3L2 6m17-3l3 3"/>
-        </svg>
+      <button v-for="item in items" :key="item.key" type="button" role="menuitem" class="bus-menu-item state" @click="run(item)">
+        <component :is="ICONS[item.icon]" class="m-icon text-on-surface-variant"/>
         <span>{{ item.label }}</span>
       </button>
     </div>
@@ -72,41 +67,42 @@ function run(item: BusMenuItem) {
 .bus-menu {
   position: fixed;
   z-index: 10001;
-  min-width: 13rem;
-  padding: 0.375rem;
-  border-radius: 0.875rem;
-  background: var(--color-white, #fff);
-  color: var(--color-slate-800, #1e293b);
-  border: 1px solid var(--color-slate-200, #e2e8f0);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  min-width: 200px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  box-shadow: var(--md-elevation-2);
+  animation: menu-in var(--spring-fast-ms) var(--spring-fast);
+  transform-origin: top left;
+}
+
+@keyframes menu-in {
+  from {
+    scale: 0.8;
+    opacity: 0;
+  }
 }
 
 .bus-menu-item {
-  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.6rem;
-  font-size: 0.875rem;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 500;
   text-align: left;
+  cursor: pointer;
 }
 
-.bus-menu-item:hover,
 .bus-menu-item:focus-visible {
-  background: var(--color-slate-100, #f1f5f9);
   outline: none;
-}
-
-:root.dark .bus-menu {
-  background: var(--color-slate-800, #1e293b);
-  color: var(--color-slate-100, #f1f5f9);
-  border-color: var(--color-slate-700, #334155);
-}
-
-:root.dark .bus-menu-item:hover,
-:root.dark .bus-menu-item:focus-visible {
-  background: var(--color-slate-700, #334155);
+  background: color-mix(in srgb, var(--md-on-surface) 10%, transparent);
 }
 </style>

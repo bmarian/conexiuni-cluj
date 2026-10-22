@@ -94,7 +94,8 @@ const {
   highlightedStops,
   directionArrowAtStart,
   drawerBottomPx,
-  drawerRightPx,
+  drawerLeftPx,
+  chromeTopPx,
   rideAs,
   preciseLocation,
 } = storeToRefs(mapStore)
@@ -151,6 +152,8 @@ const STOP_ZOOM_THRESHOLD = 15
 const CLUSTER_ZOOM_STEP = 0.25
 const UNKNOWN_MODE_COLOR = '#64748b'
 const FIT_MAX_ZOOM = 15
+const FIT_PADDING_PX = 24
+const MAP_FABS_PX = 56
 const MIN_ZOOM = 8
 const MAX_ZOOM = 19
 const mapViewKey = (slug = currentCity.value) => cacheKey('map.lastView', slug)
@@ -315,10 +318,10 @@ const linesBounds = (...groups: LineSpec[][]) => {
 }
 
 const fitPadding = () => ({
-  top: 24,
-  left: 24,
-  right: 24 + drawerRightPx.value,
-  bottom: 24 + drawerBottomPx.value,
+  top: FIT_PADDING_PX + chromeTopPx.value,
+  left: FIT_PADDING_PX + drawerLeftPx.value,
+  right: FIT_PADDING_PX + MAP_FABS_PX,
+  bottom: FIT_PADDING_PX + drawerBottomPx.value,
 })
 
 const fitTo = (bounds: LngLatBounds) => {
@@ -737,7 +740,7 @@ const flyToVisible = ({lat, lng}: LatLng, zoom: number) => {
   m.flyTo({
     center: [lng, lat],
     zoom,
-    offset: [-drawerRightPx.value / 2, -drawerBottomPx.value / 2],
+    offset: [drawerLeftPx.value / 2, (chromeTopPx.value - drawerBottomPx.value) / 2],
     duration: flightMs(Math.hypot(to.x - from.x, to.y - from.y), zoom - m.getZoom()),
     essential: true,
   })
@@ -830,75 +833,6 @@ const retryLocationForStandaloneApp = () => {
   requestCurrentLocation(false)
 }
 
-const CENTER_SVG = `
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
-    <circle cx="12" cy="12" r="4"/>
-    <path d="M12 2v2"/>
-    <path d="M12 20v2"/>
-    <path d="M5 12H2"/>
-    <path d="M22 12h-3"/>
-  </svg>
-`
-
-const FIT_SVG = `
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] text-slate-700 dark:text-slate-300">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-    <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-    <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-    <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-  </svg>
-`
-
-const barButton = (bar: HTMLElement, title: string, html: string, className: string, onClick: () => void) => {
-  const button = document.createElement('a')
-  button.className = className
-  button.href = '#'
-  button.title = title
-  button.setAttribute('role', 'button')
-  button.setAttribute('aria-label', title)
-  button.innerHTML = html
-  button.addEventListener('click', (e) => {
-    e.preventDefault()
-    onClick()
-  })
-  bar.append(button)
-  return button
-}
-
-const barControl = (className: string, build: (bar: HTMLElement) => void): IControl => {
-  const bar = document.createElement('div')
-  bar.className = `maplibregl-ctrl map-bar ${className}`
-  build(bar)
-  return {onAdd: () => bar, onRemove: () => bar.remove()}
-}
-
-const createZoomControl = (mapValue: MapLibreMap) => barControl('map-zoom', (bar) => {
-  const inButton = barButton(bar, 'Zoom in', '<span aria-hidden="true">+</span>', 'map-zoom-in', () => mapValue.zoomIn())
-  const outButton = barButton(bar, 'Zoom out', '<span aria-hidden="true">&#x2212;</span>', 'map-zoom-out', () => mapValue.zoomOut())
-  const update = () => {
-    inButton.classList.toggle('is-disabled', mapValue.getZoom() >= mapValue.getMaxZoom())
-    outButton.classList.toggle('is-disabled', mapValue.getZoom() <= mapValue.getMinZoom())
-  }
-  mapValue.on('zoom', update)
-  update()
-})
-
-const createCenterControl = () => barControl('', (bar) => {
-  barButton(bar, t('Center'), CENTER_SVG, 'flex! items-center justify-center', () => {
-    const location = userDot.value ? markerLatLng(userDot.value) : null
-    if (!location) {
-      pendingCenterOnUser = true
-      requestCurrentLocation(true)
-      return
-    }
-    flyToVisible(location, DEFAULT_ZOOM)
-  })
-  barButton(bar, t('fitRoutes'), FIT_SVG, 'flex! items-center justify-center', () => {
-    const bounds = linesBounds(lines.shapes)
-    if (bounds) fitTo(bounds)
-  })
-})
-
 const credits = document.createElement('div')
 credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
 
@@ -955,15 +889,13 @@ const mapInit = (center: LatLng, zoom: number) => {
   tooltip = createTooltip(mapValue, () => {
     const box = mapValue.getContainer().getBoundingClientRect()
     return {
-      top: box.top + safeAreaPx().top,
-      right: box.right - drawerRightPx.value,
+      top: box.top + Math.max(safeAreaPx().top, chromeTopPx.value),
+      right: box.right,
       bottom: box.bottom - drawerBottomPx.value,
-      left: box.left,
+      left: box.left + drawerLeftPx.value,
     }
   })
-  mapValue.addControl(createZoomControl(mapValue), 'top-left')
-  mapValue.addControl(createCenterControl(), 'top-left')
-  mapValue.addControl(createCreditsControl(), 'bottom-right')
+  mapValue.addControl(createCreditsControl(), 'bottom-left')
   beginLocationWatch()
 }
 
@@ -1495,6 +1427,26 @@ watch(centerOnUser, (shouldCenter) => {
 
   flyToVisible(userLocation, DEFAULT_ZOOM)
   centerOnUser.value = false
+})
+
+watch(() => mapStore.centerRequest, () => {
+  const location = userDot.value ? markerLatLng(userDot.value) : null
+  if (!location) {
+    pendingCenterOnUser = true
+    requestCurrentLocation(true)
+    return
+  }
+  flyToVisible(location, DEFAULT_ZOOM)
+})
+
+watch(() => mapStore.fitRequest, () => {
+  const bounds = linesBounds(lines.shapes)
+  if (bounds) fitTo(bounds)
+})
+
+watch(() => mapStore.zoomRequest, (now, before) => {
+  if (now > before) map.value?.zoomIn()
+  else map.value?.zoomOut()
 })
 
 watch(flyToLocation, (loc) => {

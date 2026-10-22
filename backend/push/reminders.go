@@ -59,6 +59,8 @@ type pushReminder struct {
 	Walk *int `json:"walk,omitempty"`
 	// Unix ms when the walk was measured.
 	WalkAt int64 `json:"walk_at,omitempty"`
+	// Set from a planned trip: a tap opens the trip instead of following the bus.
+	Journey bool `json:"journey,omitempty"`
 }
 
 type reminderSyncRequest struct {
@@ -265,10 +267,10 @@ func (s *Service) saveReminders(sub pushSubscriber, reminders []pushReminder, no
 			}
 		}
 		if _, err := tx.Exec(`
-			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, walk_at, last_fired_at, leave_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			INSERT INTO push_reminders (endpoint, id, stop_id, stop_name, route_id, trip_id, line, destination, days, date, slots, walk, walk_at, last_fired_at, leave_at, journey)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.endpoint, r.ID, r.StopID, r.StopName, r.RouteID, r.TripID, r.Line, r.Destination,
-			strings.Join(days, ","), r.Date, string(slots), r.Walk, r.WalkAt, told, leaveAt); err != nil {
+			strings.Join(days, ","), r.Date, string(slots), r.Walk, r.WalkAt, told, leaveAt, r.Journey); err != nil {
 			return err
 		}
 	}
@@ -323,7 +325,7 @@ func (s *Service) nextReminderBus(r pushReminder, after time.Time, loc *time.Loc
 func (s *Service) loadReminders() ([]storedReminder, error) {
 	return database.QueryRows(s.store.DB, `
 		SELECT r.endpoint, r.id, r.stop_id, r.stop_name, r.route_id, r.trip_id, r.line, r.destination, r.days, r.date, r.slots,
-		       r.walk, r.walk_at, r.last_fired_at, r.leave_at, s.p256dh, s.auth, s.locale
+		       r.walk, r.walk_at, r.last_fired_at, r.leave_at, r.journey, s.p256dh, s.auth, s.locale
 		FROM push_reminders r
 		JOIN push_subscriptions s ON s.endpoint = r.endpoint`,
 		nil,
@@ -332,7 +334,7 @@ func (s *Service) loadReminders() ([]storedReminder, error) {
 			var days, slots string
 			var walk sql.NullInt64
 			if err := rows.Scan(&r.sub.endpoint, &r.ID, &r.StopID, &r.StopName, &r.RouteID, &r.TripID, &r.Line, &r.Destination,
-				&days, &r.Date, &slots, &walk, &r.WalkAt, &r.lastFiredAt, &r.leaveAt, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
+				&days, &r.Date, &slots, &walk, &r.WalkAt, &r.lastFiredAt, &r.leaveAt, &r.Journey, &r.sub.p256dh, &r.sub.auth, &r.sub.locale); err != nil {
 				return r, err
 			}
 			if walk.Valid {
@@ -469,10 +471,14 @@ func reminderPushMessage(slug string, r pushReminder, locale string, kind remind
 			title = fmt.Sprintf(text.leaveBy, bus.Add(-reminderLead(walk)).Truncate(time.Minute).In(loc).Format("15:04"))
 		}
 	}
+	url := fmt.Sprintf("/%s/stop/%d?follow=%s&at=%d", slug, r.StopID, r.TripID, slot.UnixMilli())
+	if r.Journey {
+		url = fmt.Sprintf("/%s/nav?reminder=%s", slug, r.ID)
+	}
 	return pushMessage{
 		Title:     title,
 		Body:      body,
-		URL:       fmt.Sprintf("/%s/stop/%d?follow=%s&at=%d", slug, r.StopID, r.TripID, slot.UnixMilli()),
+		URL:       url,
 		Tag:       "reminder-" + r.ID,
 		Timestamp: now.UnixMilli(),
 		Alert:     kind != reminderLeaveBy,

@@ -2,6 +2,7 @@
 import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {CloseIcon} from '@/utils/icons.ts'
 import {useOnline} from '@/composables/useOnline'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 
@@ -83,11 +84,8 @@ const groups = computed(() => [
       <div ref="panelRef" class="kbd-help" role="dialog" :aria-label="t('kbdHelpTitle')">
         <div class="kbd-help-head">
           <h2 class="kbd-help-title">{{ t('kbdHelpTitle') }}</h2>
-          <button type="button" class="kbd-help-close" :aria-label="t('dismiss')" @click="isOpen = false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M6 18L18 6M6 6l12 12"/>
-            </svg>
+          <button type="button" class="icon-btn" :aria-label="t('dismiss')" :title="t('dismiss')" @click="isOpen = false">
+            <CloseIcon class="m-icon"/>
           </button>
         </div>
         <div class="kbd-help-groups">
@@ -114,124 +112,76 @@ const groups = computed(() => [
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
+  padding: 16px;
+  background: var(--md-scrim);
 }
 
 .kbd-help {
-  width: min(40rem, 100%);
-  max-height: calc(100dvh - 2rem);
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
-  padding: 1rem 1.125rem 1.25rem;
-  border-radius: 0.875rem;
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 1px 6px rgba(0, 0, 0, 0.08);
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  padding: 16px 24px 24px;
+  border-radius: 28px;
+  background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
+  box-shadow: var(--md-elevation-3);
   outline: none;
-}
-
-:root.dark .kbd-help {
-  background: #1e293b;
-  color: #f1f5f9;
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.24);
 }
 
 .kbd-help-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin: 0 -12px 12px 0;
 }
 
 .kbd-help-title {
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.kbd-help-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 9999px;
-  color: #94a3b8;
-  cursor: pointer;
-}
-
-.kbd-help-close svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.kbd-help-close:hover {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-:root.dark .kbd-help-close:hover {
-  background: #334155;
-  color: #e2e8f0;
+  font-size: 24px;
+  line-height: 32px;
 }
 
 .kbd-help-groups {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1rem 1.5rem;
+  gap: 16px 24px;
 }
 
 .kbd-help-group-title {
-  margin-bottom: 0.375rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #94a3b8;
-}
-
-:root.dark .kbd-help-group-title {
-  color: #64748b;
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--md-primary);
 }
 
 .kbd-help-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.2rem 0;
-  font-size: 0.8125rem;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .kbd-help-keys {
   display: flex;
-  gap: 0.25rem;
-  min-width: 4.5rem;
+  gap: 4px;
+  min-width: 72px;
 }
 
 .kbd-help-keys kbd {
-  min-width: 1.5rem;
-  padding: 0.05rem 0.375rem;
-  border: 1px solid #e2e8f0;
-  border-bottom-width: 2px;
-  border-radius: 0.375rem;
-  background: #f8fafc;
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--md-surface-container-highest);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 600;
   text-align: center;
-  color: #334155;
-}
-
-:root.dark .kbd-help-keys kbd {
-  border-color: #475569;
-  background: #0f172a;
-  color: #e2e8f0;
+  color: var(--md-on-surface);
 }
 
 .kbd-help-label {
-  color: #475569;
-}
-
-:root.dark .kbd-help-label {
-  color: #cbd5e1;
+  color: var(--md-on-surface-variant);
 }
 </style>

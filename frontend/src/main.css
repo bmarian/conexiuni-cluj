@@ -1,7 +1,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @import "tailwindcss";
+@import "./styles/theme.css";
 @import "./styles/map.css";
-@import "./styles/dark.css";
 
 :root {
   color-scheme: light dark;
@@ -37,13 +37,9 @@ a,
 }
 
 :root {
-  --kbd-ring: #2563eb;
+  --kbd-ring: var(--md-primary);
   --kbd-ring-style: solid;
   --kbd-ring-offset: 2px;
-}
-
-:root.dark {
-  --kbd-ring: #60a5fa;
 }
 
 html[data-kbd] [data-kbd-item] {
