@@ -553,9 +553,6 @@ X-Frame-Options: DENY
     "today": 0
    }
   ],
-  "push_followers": 0,
-  "reminder_users": 0,
-  "reminders": 0,
   "stops": [
    {
     "count": 1,
@@ -566,9 +563,7 @@ X-Frame-Options: DENY
   "today": 1,
   "versions": []
  },
- "problems": [
-  "3 server errors today"
- ],
+ "problems": [],
  "quota": {
   "learning": {
    "budget": 0,
@@ -636,37 +631,13 @@ X-Frame-Options: DENY
     "calls": 2,
     "errors": 0,
     "key": "POST /stats/event"
-   },
-   {
-    "avg_ms": 0,
-    "calls": 1,
-    "errors": 0,
-    "key": "POST /push/unsubscribe"
-   },
-   {
-    "avg_ms": 0,
-    "calls": 0,
-    "errors": 1,
-    "key": "GET /push/key"
-   },
-   {
-    "avg_ms": 0,
-    "calls": 0,
-    "errors": 1,
-    "key": "POST /push/reminders"
-   },
-   {
-    "avg_ms": 0,
-    "calls": 0,
-    "errors": 1,
-    "key": "POST /push/subscribe"
    }
   ],
-  "errors": 3,
+  "errors": 0,
   "heap_bytes": "\u003cvolatile\u003e",
   "modified": false,
   "problems": [],
-  "requests": 27,
+  "requests": 26,
   "revision": "",
   "started_at": "\u003cvolatile\u003e"
  }

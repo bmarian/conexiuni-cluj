@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import {useI18n} from 'vue-i18n'
-import {AlarmIcon, FavoriteIcon, MyLocationIcon, NotificationsActiveIcon, PlaceIcon} from '@/utils/icons.ts'
+import {FavoriteIcon, MyLocationIcon, PlaceIcon} from '@/utils/icons.ts'
 
 export type StopMark = 'from' | 'nearest' | 'favorite' | 'terminal' | 'plain'
 
@@ -13,12 +12,8 @@ defineProps<{
   times?: { label: string, isLive: boolean }[]
   trailing?: string
   trailingHighlight?: boolean
-  alerting?: boolean
-  reminded?: boolean
 }>()
 const emit = defineEmits<{ open: [] }>()
-
-const {t} = useI18n()
 </script>
 
 <template>
@@ -31,8 +26,6 @@ const {t} = useI18n()
       <PlaceIcon v-if="mark === 'from'" class="m-icon size-3.5 mark-tint"/>
       <MyLocationIcon v-else-if="mark === 'nearest'" class="m-icon size-3.5 mark-tint"/>
       <FavoriteIcon v-if="favorite" class="m-icon size-3 text-rose"/>
-      <NotificationsActiveIcon v-if="alerting" class="m-icon size-3.5 text-primary" :aria-label="t('following')"/>
-      <AlarmIcon v-if="reminded" class="m-icon size-3.5 text-primary" :aria-label="t('remindSaved')"/>
     </span>
     <span v-if="trailing" class="trailing" :class="{ 'is-highlight': trailingHighlight }">{{ trailing }}</span>
     <span v-else class="times">

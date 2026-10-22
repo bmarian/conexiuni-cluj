@@ -113,9 +113,6 @@ type adminPeople struct {
 	Plans         int             `json:"plans"`
 	Places        int             `json:"places"`
 	Installs      int             `json:"installs"`
-	PushFollowers int             `json:"push_followers"`
-	Reminders     int             `json:"reminders"`
-	ReminderUsers int             `json:"reminder_users"`
 }
 
 type quotaUse struct {
@@ -460,10 +457,7 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 			p.Places += r.Count
 		}
 	}
-	if p.Installs, err = city.MetricTotal("pwa_install", "appinstalled"); err != nil {
-		return p, err
-	}
-	p.PushFollowers, p.Reminders, p.ReminderUsers, err = city.Push.Counts()
+	p.Installs, err = city.MetricTotal("pwa_install", "appinstalled")
 	return p, err
 }
 

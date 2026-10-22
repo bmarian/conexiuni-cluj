@@ -55,7 +55,7 @@ import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
-import {fadeOutMarker, flightMs, glideMarker, linear, showMarker} from '@/utils/markerMotion.ts'
+import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
@@ -72,7 +72,6 @@ import {
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle} from '@/utils/mapStyles.ts'
-import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
 import {cacheKey, cities, cityBounds, cityCenter, currentCity, inCity, type City} from '@/utils/city.ts'
 
 setWorkerUrl(workerUrl)
@@ -96,8 +95,6 @@ const {
   drawerBottomPx,
   drawerLeftPx,
   chromeTopPx,
-  rideAs,
-  preciseLocation,
 } = storeToRefs(mapStore)
 const {showVehicleExtras} = storeToRefs(settingsStore)
 const route = useRoute()
@@ -285,8 +282,8 @@ const syncAccuracy = () => {
     m.addLayer({id: `${id}-fill`, type: 'fill', source: id, paint: {'fill-color': '#3b82f6'}}, slotId('accuracy'))
     m.addLayer({id: `${id}-line`, type: 'line', source: id, paint: {'line-color': '#3b82f6', 'line-width': 1}}, slotId('accuracy'))
   }
-  m.setPaintProperty(`${id}-fill`, 'fill-opacity', rideAs.value ? 0 : 0.15)
-  m.setPaintProperty(`${id}-line`, 'line-opacity', rideAs.value ? 0 : 1)
+  m.setPaintProperty(`${id}-fill`, 'fill-opacity', 0.15)
+  m.setPaintProperty(`${id}-line`, 'line-opacity', 1)
 }
 
 const syncOverlays = () => {
@@ -795,7 +792,7 @@ const beginLocationWatch = (enableHighAccuracy = false) => {
   geoWatchId = navigator.geolocation.watchPosition(
     (position) => updateLiveLocation(fixOf(position)),
     onLocationError,
-    preciseLocation.value ? NAV_POSITION_OPTIONS : {
+    {
       enableHighAccuracy,
       maximumAge: 30000,
       timeout: enableHighAccuracy ? 15000 : 6000,
@@ -949,30 +946,6 @@ const blueDotIcon: MarkerIcon = {
   anchor: [8, 8]
 }
 
-// On board the traveller is drawn as their bus, gliding between fixes.
-let rideHeading = 0
-let headingFrom: LatLng | null = null
-let lastFixMs = 0
-let settleUserDot = () => {}
-
-const userIcon = (): MarkerIcon => {
-  const ride = rideAs.value
-  if (!ride) return blueDotIcon
-  const bus = {route_short_name: ride.line, heading: rideHeading, speed: 0, label: ''} as DisplayVehicle
-  return {
-    html: getVehicleMarkerHtml(bus, ride.color, false, false),
-    size: [36, 36],
-    anchor: [18, 18],
-  }
-}
-
-const moveUserDot = (to: LatLng, ms: number) => {
-  const dot = userDot.value
-  if (!dot) return
-  settleUserDot()
-  settleUserDot = glideMarker(dot, to, rideAs.value ? ms : 0, linear)
-}
-
 const updateLiveLocation = (fix: Fix) => {
   const m = map.value
   if (!m) return
@@ -1000,28 +973,11 @@ const updateLiveLocation = (fix: Fix) => {
     flyToVisible(fix, DEFAULT_ZOOM)
   }
 
-  const now = Date.now()
-  const sinceLast = lastFixMs ? now - lastFixMs : 0
-  lastFixMs = now
-  // Without a GPS heading, the direction from where the last one was taken, once beyond the fix's accuracy.
-  if (fix.heading !== null && Number.isFinite(fix.heading)) {
-    rideHeading = fix.heading
-  } else if (!headingFrom) {
-    headingFrom = {lat: fix.lat, lng: fix.lng}
-  } else if (haversineMeters(headingFrom.lat, headingFrom.lng, fix.lat, fix.lng) > fix.accuracy) {
-    rideHeading = calculateBearing(headingFrom.lat, headingFrom.lng, fix.lat, fix.lng)
-    headingFrom = {lat: fix.lat, lng: fix.lng}
-  }
-
   accuracy = {lat: fix.lat, lng: fix.lng, radius: fix.accuracy}
   syncAccuracy()
 
-  if (userDot.value) {
-    if (rideAs.value) setMarkerIcon(userDot.value, userIcon())
-    moveUserDot(fix, sinceLast)
-  } else {
-    userDot.value = htmlMarker(fix, userIcon(), {interactive: false, zIndex: 10000}).addTo(m)
-  }
+  if (userDot.value) userDot.value.setLngLat([fix.lng, fix.lat])
+  else userDot.value = htmlMarker(fix, blueDotIcon, {interactive: false, zIndex: 10000}).addTo(m)
 }
 
 const savedView = (slug: string): LatLng & { zoom: number } | null => {
@@ -1412,13 +1368,6 @@ watch(() => route.name, () => {
   selectedVehicleId.value = null
 })
 
-watch(rideAs, () => {
-  if (userDot.value) setMarkerIcon(userDot.value, userIcon())
-  syncAccuracy()
-})
-
-watch(preciseLocation, () => beginLocationWatch(preciseLocation.value))
-
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
 
@@ -1442,11 +1391,6 @@ watch(() => mapStore.centerRequest, () => {
 watch(() => mapStore.fitRequest, () => {
   const bounds = linesBounds(lines.shapes)
   if (bounds) fitTo(bounds)
-})
-
-watch(() => mapStore.zoomRequest, (now, before) => {
-  if (now > before) map.value?.zoomIn()
-  else map.value?.zoomOut()
 })
 
 watch(flyToLocation, (loc) => {
@@ -1501,7 +1445,6 @@ onUnmounted(() => {
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
   if (stopRefreshFrame) cancelAnimationFrame(stopRefreshFrame)
   building?.stop()
-  settleUserDot()
   for (const {settle} of vehicleMarkers.values()) settle()
   if (resizeTimer) clearTimeout(resizeTimer)
   if (locationRetryTimer) clearTimeout(locationRetryTimer)

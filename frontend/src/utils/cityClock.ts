@@ -1,4 +1,4 @@
-// The cities' own time, which timetables, learned offsets and reminders are written in, wherever the phone is.
+// The cities' own time, which timetables and learned offsets are written in, wherever the phone is.
 const CITY_ZONE = 'Europe/Bucharest'
 
 const PARTS = new Intl.DateTimeFormat('en-GB', {

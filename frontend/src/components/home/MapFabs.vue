@@ -2,9 +2,7 @@
 import {computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useMapStore} from '@/stores/map.ts'
-import {AddIcon, CropFreeIcon, MyLocationIcon, RemoveIcon} from '@/utils/icons.ts'
-
-defineProps<{ zoom?: boolean }>()
+import {CropFreeIcon, MyLocationIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 const mapStore = useMapStore()
@@ -19,14 +17,6 @@ function center() {
 
 <template>
   <div class="map-fabs">
-    <template v-if="zoom">
-      <button type="button" class="fab fab-small squish" :aria-label="t('zoomIn')" :title="t('zoomIn')" @click="mapStore.zoomRequest++">
-        <AddIcon class="m-icon"/>
-      </button>
-      <button type="button" class="fab fab-small squish" :aria-label="t('zoomOut')" :title="t('zoomOut')" @click="mapStore.zoomRequest--">
-        <RemoveIcon class="m-icon"/>
-      </button>
-    </template>
     <Transition name="fab">
       <button v-if="hasLines" type="button" class="fab fab-small squish" :aria-label="t('fitRoutes')" :title="t('fitRoutes')" @click="mapStore.fitRequest++">
         <CropFreeIcon class="m-icon"/>

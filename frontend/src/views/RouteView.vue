@@ -10,18 +10,10 @@ import type {DaySchedule, Frequency} from '@/types/ctp.ts'
 import {getTimetableDayKey, plainTimetableDayKey, specialDayOn, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
-import BusMenu, {type BusMenuItem} from '@/components/BusMenu.vue'
-import {useLongPress} from '@/composables/useLongPress.ts'
-import {useFollowsStore} from '@/stores/follows.ts'
-import {useJourneyStore} from '@/stores/journey.ts'
-import {useRemindersStore, type ReminderTarget} from '@/stores/reminders.ts'
-import type {JourneyStop} from '@/utils/journey.ts'
-import {ridePath} from '@/utils/rideLine.ts'
 import {fetchHourlyStopOffsets} from '@/composables/useRouteShapeInfoApi.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
-import {usePushStore} from '@/stores/push.ts'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
@@ -34,19 +26,17 @@ import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
-import {CloseIcon, FavoriteBorderIcon, FavoriteIcon, NotificationsIcon, NotificationsNoneIcon, ShareIcon} from '@/utils/icons.ts'
+import {ArrowBackIcon, ArrowForwardIcon, CloseIcon, FavoriteBorderIcon, FavoriteIcon, NotificationsIcon, NotificationsNoneIcon, ShareIcon} from '@/utils/icons.ts'
 
 const props = defineProps<{ routeId: string; direction: string }>()
 
 const {t} = useI18n()
-const userStore = useUserStore()
 const favoritesStore = useFavoritesStore()
 const settings = useSettingsStore()
 const routeUpdates = useRouteUpdatesStore()
-const push = usePushStore()
 const router = useRouter()
 const currentRoute = useRoute()
-const {userTime} = storeToRefs(userStore)
+const {userTime} = storeToRefs(useUserStore())
 const {
   shapeInfo,
   fromStopId,
@@ -56,7 +46,6 @@ const {
   currentTripId,
   timetable,
   stopsForDirection,
-  currentDirectionShape,
   directionTerminals,
   hasOutgoing,
   hasIncoming,
@@ -68,74 +57,6 @@ const {
 } = useRouteArrivals(toRef(props, 'routeId'), toRef(props, 'direction'))
 
 const routeIdNum = computed(() => Number(props.routeId))
-
-const follows = useFollowsStore()
-const remindersStore = useRemindersStore()
-const journeyStore = useJourneyStore()
-const pointerHint = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
-
-const directionName = computed(() => (isOutgoing.value
-  ? directionTerminals.value.outgoing.last || timetable.value?.out_stop_name
-  : directionTerminals.value.incoming.last || timetable.value?.in_stop_name) ?? '')
-
-function busAtStop(idx: number, stop: IndexedStop): ReminderTarget & {stopLat: number, stopLon: number} {
-  return {
-    stopId: stop.stop_id,
-    stopName: getStopLabel(idx, stop),
-    stopLat: stop.stop_lat,
-    stopLon: stop.stop_lon,
-    routeId: routeIdNum.value,
-    tripId: currentTripId.value,
-    line: shapeInfo.value?.route_short_name ?? props.routeId,
-    color: shapeInfo.value?.route_color ?? '#64748b',
-    destination: directionName.value,
-  }
-}
-
-const isStopFollowed = (stop: IndexedStop) => !!follows.find(stop.stop_id, routeIdNum.value, currentTripId.value)
-const isStopReminded = (stop: IndexedStop) => !!remindersStore.forBus(stop.stop_id, routeIdNum.value, currentTripId.value)
-
-function wakeMeAt(idx: number) {
-  const stops = stopsForDirection.value
-  const from = stops.findIndex((s) => String(s.stop_id) === fromStopId.value)
-  const boarding = from >= 0 && from < idx ? from : nearestStopIdx.value >= 0 && nearestStopIdx.value < idx ? nearestStopIdx.value : 0
-  if (idx <= boarding) return
-  const ride = stops.slice(boarding, idx + 1)
-  const js = (s: IndexedStop, i: number): JourneyStop => ({id: s.stop_id, name: getStopLabel(boarding + i, s), lat: s.stop_lat, lon: s.stop_lon})
-  const legStops = ride.map(js)
-  const shape = (currentDirectionShape.value ?? []).map((p): [number, number] => [p.shape_pt_lat, p.shape_pt_lon])
-  const path = ridePath(shape, stops.map((s) => ({lat: s.stop_lat, lon: s.stop_lon})), boarding, idx)
-  const location = userStore.userLocation
-  void journeyStore.start({
-    id: crypto.randomUUID(),
-    destination: legStops[legStops.length - 1]!,
-    legs: [{
-      routeIds: [routeIdNum.value],
-      tripIds: [currentTripId.value],
-      lines: [shapeInfo.value?.route_short_name ?? props.routeId],
-      colors: [shapeInfo.value?.route_color ?? '#64748b'],
-      stops: legStops,
-      walkMinutes: 0,
-      rideMinutes: (ride[ride.length - 1]!.secondsFromStart - ride[0]!.secondsFromStart) / 60,
-      path,
-    }],
-    walkEndMinutes: 0,
-    walks: [],
-    planPath: cityPath(`/route/${props.routeId}/${currentDirection.value}`),
-    startedAt: Date.now(),
-  }, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
-  void router.push(cityPath('/nav'))
-}
-
-const stopMenu = ref<{ x: number, y: number, items: BusMenuItem[] } | null>(null)
-const stopPress = useLongPress<{ stop: IndexedStop, idx: number }>(({stop, idx}, x, y) => {
-  const followed = follows.find(stop.stop_id, routeIdNum.value, currentTripId.value)
-  const items: BusMenuItem[] = []
-  if (followed) items.push({key: 'notify', label: t('notifyMeOff'), icon: 'bell-off', action: () => follows.remove(followed.id)})
-  items.push({key: 'remind', label: t('remindMenu'), icon: 'alarm', action: () => remindersStore.openSheet(busAtStop(idx, stop))})
-  if (idx > 0) items.push({key: 'wake', label: t('wakeMe'), icon: 'wake', action: () => wakeMeAt(idx)})
-  stopMenu.value = {x, y, items}
-})
 
 const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value, currentDirection.value))
 const isFollowing = computed(() =>
@@ -154,7 +75,6 @@ function toggleFollow() {
     body: t(following ? 'followLineToastBody' : 'unfollowLineToastBody'),
     icon: following ? 'bell' : 'bell-off',
   })
-  if (following) void push.ask()
 }
 
 const activeChange = ref<RouteChange | null>(null)
@@ -489,16 +409,19 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
         class="mx-4"
         data-kbd-entry="3"
         @update:model-value="onDirClick"
-      />
+      >
+        <template #label="{option}">
+          <ArrowForwardIcon v-if="option.value === '0'" class="m-icon size-4 shrink-0"/>
+          <span class="truncate">{{ option.label }}</span>
+          <ArrowBackIcon v-if="option.value === '1'" class="m-icon size-4 shrink-0"/>
+        </template>
+      </ChoiceRow>
 
       <p v-if="!stopsForDirection.length" class="text-body-medium text-on-surface-variant px-4 pt-4">{{ t('noSchedule') }}</p>
 
       <template v-else>
         <div class="stops-head">
-          <span class="flex flex-col">
-            <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>
-            <span v-if="settings.busAlerts" class="text-label-small text-outline">{{ pointerHint ? t('stopsClickHint') : t('stopsHoldHint') }}</span>
-          </span>
+          <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>
           <span class="divider"></span>
           <span class="flex flex-col items-end">
             <span class="next-head">{{ t('nextDepartures') }}</span>
@@ -520,17 +443,11 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
             :first="idx === 0"
             :last="idx === stopsForDirection.length - 1"
             :times="stopTimesByStop[idx]"
-            :alerting="settings.busAlerts && isStopFollowed(stop)"
-            :reminded="settings.busAlerts && isStopReminded(stop)"
             :data-kbd-item="`stop-${stop.stop_id}`"
             :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
-            v-bind="settings.busAlerts ? stopPress.bind({stop, idx}) : {}"
-            @click.capture="stopPress.swallow"
             @open="openStop(stop)"
           />
         </div>
-
-        <BusMenu v-if="stopMenu" :x="stopMenu.x" :y="stopMenu.y" :items="stopMenu.items" @close="stopMenu = null"/>
 
         <template v-if="availableTabs.length">
           <div class="tt-head">
@@ -708,10 +625,15 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
   color: var(--md-outline-variant);
 }
 
+/* Each time keeps Material's 48px touch target around its chip. */
 .minutes {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(auto-fill, 48px);
+  grid-auto-rows: 48px;
+  place-items: center;
   gap: 6px;
+  min-width: 0;
   padding: 4px 0 4px 10px;
 }
 

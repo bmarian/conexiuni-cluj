@@ -15,7 +15,6 @@ import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {usePlannerStore} from '@/stores/planner.ts'
-import {useJourneyStore} from "@/stores/journey.ts"
 import {apiRequest} from "@/utils/api.ts"
 import type {RouteType, Shape} from "@/types/tranzy.ts"
 import {storeToRefs} from "pinia"
@@ -30,7 +29,7 @@ import type {DisplayShape} from "@/stores/map.ts"
 import type {DisplayVehicle} from "@/utils/mapIcons.ts"
 import {formatMinutesFromNow} from "@/utils/time.ts"
 import {decodePolyline} from "@/utils/geo.ts"
-import {journeyFromOption, legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from "@/utils/plan.ts"
+import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from "@/utils/plan.ts"
 import {reversePlace, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
@@ -41,13 +40,7 @@ import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import TimelineRow from '@/components/rows/TimelineRow.vue'
 import type {ChipAction} from '@/components/ui/types.ts'
-import {useRemindersStore} from '@/stores/reminders.ts'
-import {dayTypeOf, MAX_REMINDERS, nextOf, serviceSlot, type Reminder} from '@/utils/reminders.ts'
-import {reminderWhen} from '@/utils/reminderText.ts'
-import {askNotifications} from '@/utils/notify.ts'
-import {pushSupported} from '@/utils/pushSubscription.ts'
 import {
-  AlarmIcon,
   CheckIcon,
   CloseIcon,
   DirectionsBusIcon,
@@ -59,7 +52,6 @@ import {
   KeyboardArrowRightIcon,
   MapIcon,
   MyLocationIcon,
-  NavigationIcon,
   PlaceIcon,
   PushPinIcon,
   RefreshIcon,
@@ -69,7 +61,7 @@ import {
   SwapVertIcon,
 } from '@/utils/icons.ts'
 
-const {t, locale} = useI18n()
+const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -78,7 +70,6 @@ const userStore = useUserStore()
 const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
-const remindersStore = useRemindersStore()
 const {isOnline} = useOnline()
 const {userLocation, hasLocationPermission, isLocating, userTime} = storeToRefs(userStore)
 const {timeMode, timeValue} = storeToRefs(plannerStore)
@@ -150,28 +141,6 @@ const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
   p.lat === destLat.value && p.lon === destLon.value &&
   p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
 )?.label)
-
-const journeyStore = useJourneyStore()
-
-function journeyFor(plan: PlanOption) {
-  const last = rideLegs(plan).at(-1)
-  if (!last || !planData.value || !hasValidCoords.value) return null
-  return journeyFromOption(plan, planData.value, {
-    id: -1,
-    name: destName.value || stopName(last.to),
-    lat: destLat.value,
-    lon: destLon.value,
-  }, route.fullPath)
-}
-
-function startJourney() {
-  const plan = selectedPlan.value
-  const journey = plan && journeyFor(plan)
-  if (!journey) return
-  const location = userLocation.value
-  void journeyStore.start(journey, location ? {lat: location.latitude, lon: location.longitude, accuracy: 50, speed: null} : null)
-  void router.push(cityPath('/nav'))
-}
 
 function toggleFavorite() {
   if (!isOnline.value) return
@@ -857,86 +826,23 @@ watch(timeValue, (val) => {
 
 const {share} = useShare()
 
-// A one-off reminder timed on the plan's first bus; the whole trip is guided from there.
-const tripReminder = computed<Reminder | null>(() => {
-  const plan = selectedPlan.value
-  if (!plan || isCalculating.value || timeMode.value === 'now') return null
-  const journey = journeyFor(plan)
-  const leg = rideLegs(plan)[0]
-  const ride = firstRide(plan)
-  const stop = leg && planData.value?.stops[String(leg.from)]
-  const info = ride && line(ride.route_id)
-  if (!journey || !leg || !ride || !stop || !info) return null
-  const {date, minute} = serviceSlot(ride.depart * 1000)
-  const firstWalk = plan.legs[0]?.kind === 'walk' ? Math.round(plan.legs[0].seconds / 60) : 0
-  const draft: Reminder = {
-    id: crypto.randomUUID(),
-    stopId: leg.from,
-    stopName: stop.name,
-    stopLat: stop.lat,
-    stopLon: stop.lon,
-    routeId: ride.route_id,
-    tripId: ride.trip_id,
-    line: info.short_name,
-    color: info.color,
-    destination: journey.destination.name,
-    time: minute,
-    days: [],
-    date,
-    slots: {[dayTypeOf(date)]: minute},
-    walk: firstWalk,
-    walkAt: Date.now(),
-    journey,
-  }
-  return nextOf(draft, now.value.getTime()) === null ? null : draft
-})
-
-const savedTripReminder = computed(() => tripReminder.value && remindersStore.forTrip(tripReminder.value))
-
-async function toggleTripReminder() {
-  const saved = savedTripReminder.value
-  if (saved) return void remindersStore.remove(saved.id)
-  const draft = tripReminder.value
-  if (!draft) return
-  if (!pushSupported()) return settings.showToast(t('pushUnsupportedToast'), {icon: 'bell-off'})
-  if (remindersStore.full()) return settings.showToast(t('limitReached', {n: MAX_REMINDERS}), {icon: 'bell-off'})
-  if ((await askNotifications()) !== 'granted') return settings.showToast(t('notificationsBlocked'), {icon: 'bell-off'})
-  const next = nextOf(draft, Date.now())
-  if (await remindersStore.save(draft)) {
-    settings.showToast(t('remindSaved'), {body: next === null ? undefined : reminderWhen(next, locale.value), icon: 'bell'})
-  } else {
-    settings.showToast(t('remindFailed'), {icon: 'bell-off'})
-  }
-}
-
-const chips = computed<ChipAction[]>(() => {
-  const plan = selectedPlan.value
-  const startable = plan && !isCalculating.value && timeMode.value === 'now' && rideLegs(plan).length > 0
-  return [
-    ...(startable ? [{label: t('journeyStart'), icon: NavigationIcon, primary: true, kbd: 'start', onClick: startJourney}] : []),
-    ...(settings.busAlerts && tripReminder.value ? [{
-      label: t(savedTripReminder.value ? 'remindSaved' : 'remindSet'),
-      icon: AlarmIcon,
-      selected: !!savedTripReminder.value,
-      kbd: 'remind',
-      onClick: () => void toggleTripReminder(),
-    }] : []),
-    {
-      label: t(isFavorite.value ? 'saved' : 'save'),
-      icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
-      selected: isFavorite.value,
-      tint: isFavorite.value ? 'var(--md-rose)' : undefined,
-      disabled: !isOnline.value,
-      kbd: 'fav',
-      onClick: toggleFavorite,
-    },
-    {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
-    ...(isOnline.value && isFavorite.value ? [{label: t('renameFavorite'), icon: EditIcon, kbd: 'rename', onClick: startRename}] : []),
-  ]
-})
+const chips = computed<ChipAction[]>(() => [
+  {
+    label: t(isFavorite.value ? 'saved' : 'save'),
+    icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
+    selected: isFavorite.value,
+    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    disabled: !isOnline.value,
+    kbd: 'fav',
+    onClick: toggleFavorite,
+  },
+  {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
+  ...(isOnline.value && isFavorite.value ? [{label: t('renameFavorite'), icon: EditIcon, kbd: 'rename', onClick: startRename}] : []),
+])
 </script>
 <template>
-  <div class="plan-view">
+  <div class="plan-view flex flex-col">
+    <!-- Columns, so stacked cards keep both margins like the phone's padding. -->
     <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)"/>
 
     <ViewErrorState v-if="!hasValidCoords"/>
@@ -1212,7 +1118,7 @@ const chips = computed<ChipAction[]>(() => {
       <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')"/>
       <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
 
-      <div v-else-if="options.length" data-kbd-section="results" data-kbd-entry="1">
+      <div v-else-if="options.length" class="flex flex-col" data-kbd-section="results" data-kbd-entry="1">
         <div
           v-for="(plan, index) in options"
           :key="plan.key"
@@ -1565,6 +1471,7 @@ const chips = computed<ChipAction[]>(() => {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
+  margin: 4px;
   border: 0;
   border-radius: 20px;
   background: var(--md-secondary-container);

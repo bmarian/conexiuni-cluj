@@ -5,7 +5,6 @@ import (
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/config"
 	"conexiuni-cluj/pages"
-	"conexiuni-cluj/push"
 	"conexiuni-cluj/transfer"
 	"conexiuni-cluj/web"
 	"flag"
@@ -142,7 +141,7 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 			return c.SendFile("./dist/robots.txt")
 		})
 		app.Get("/sitemap.xml", pages.Sitemap(registry))
-		for _, name := range []string{"sw.js", "push-sw.js", "registerSW.js"} {
+		for _, name := range []string{"sw.js", "registerSW.js"} {
 			app.Get("/"+name, func(c fiber.Ctx) error {
 				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 				c.Set("Service-Worker-Allowed", "/")
@@ -229,9 +228,6 @@ func main() {
 			log.Fatal("ADMIN_TOKEN must be set in production")
 		}
 		log.Printf("Warning: ADMIN_TOKEN not set; admin routes are disabled")
-	}
-	if err := push.Configure(cfg.VapidPublicKey, cfg.VapidPrivateKey, cfg.VapidSubject); err != nil {
-		log.Printf("Warning: push notifications disabled: %v", err)
 	}
 
 	built, err := buildCities(cfg)

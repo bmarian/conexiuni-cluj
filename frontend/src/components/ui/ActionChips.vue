@@ -29,12 +29,15 @@ defineProps<{ actions: ChipAction[] }>()
 </template>
 
 <style scoped>
-.action-chips {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
+/* Layered so a page's padding utilities still apply. */
+@layer components {
+  .action-chips {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
 }
 
 .action-chips::-webkit-scrollbar {
@@ -50,6 +53,7 @@ defineProps<{ actions: ChipAction[] }>()
   gap: 8px;
   flex-shrink: 0;
   height: 36px;
+  margin-block: 6px;
   padding: 0 16px 0 12px;
   border: 0;
   border-radius: 18px;

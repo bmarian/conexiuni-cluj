@@ -17,7 +17,6 @@ import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {isIOS} from '@/utils/ios.ts'
 import {
   AccessibleIcon,
-  AlarmIcon,
   BrightnessMediumIcon,
   CropFreeIcon,
   DarkModeIcon,
@@ -89,7 +88,8 @@ async function choose(slug: string | null) {
 </script>
 
 <template>
-  <div class="settings-view">
+  <div class="settings-view flex flex-col">
+    <!-- Columns, so stacked margins add up like the phone's padding. -->
     <SheetTopBar :title="t('settings')"/>
     <h1 class="text-headline-small font-bold px-4 py-1">{{ t('settings') }}</h1>
 
@@ -198,23 +198,6 @@ async function choose(slug: string | null) {
         :data-kbd-item="setting.key"
         @change="settings.setRegionSetting(currentCity, setting.key, $event)"
       />
-    </div>
-
-    <h2 class="section">{{ t('settingsNotifications') }}</h2>
-    <div data-kbd-section="notifications">
-      <ToggleRow
-        :icon="AlarmIcon"
-        :title="t('busAlerts')"
-        :description="t('busAlertsDesc')"
-        :checked="settings.busAlerts"
-        beta
-        data-kbd-item="bus-alerts"
-        @change="settings.setBusAlerts"
-      />
-      <p class="note">
-        <WarningAmberIcon class="m-icon size-[18px] text-amber"/>
-        <span>{{ t('busAlertsNote') }}</span>
-      </p>
     </div>
 
     <h2 class="section">{{ t('transfer') }}</h2>

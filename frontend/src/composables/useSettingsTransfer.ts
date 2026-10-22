@@ -2,9 +2,8 @@ import {useI18n} from 'vue-i18n'
 import {useSettingsStore} from '@/stores/settings'
 import {FAVORITE_KEYS, parseFavoriteRoutes, parsePlans, parseStopIds, savedFavorites, useFavoritesStore} from '@/stores/favorites'
 import {FOLLOWS_KEY, useRouteUpdatesStore} from '@/stores/routeUpdates'
-import {usePushStore} from '@/stores/push'
 import {REGION_SETTINGS, regionSettingsFor} from '@/utils/regionSettings.ts'
-import {cities, citiesSaving, currentCity, DEFAULT_CITY, knownCity} from '@/utils/city.ts'
+import {cities, citiesSaving, DEFAULT_CITY, knownCity} from '@/utils/city.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -63,7 +62,6 @@ export function useSettingsTransfer() {
         autoCenterOnMe: settings.autoCenterOnMe,
         autoFitMap: settings.autoFitMap,
         regions: regionsExport(),
-        busAlerts: settings.busAlerts,
       },
       // The apps read these and know only Cluj.
       favorites: savedFavorites(DEFAULT_CITY),
@@ -83,8 +81,6 @@ export function useSettingsTransfer() {
       favs.importAll(isRecord(entry.favorites) ? entry.favorites : {}, city)
       if (!withFollowed || (city in byCity && !Array.isArray(entry.followedLines))) continue
       routeUpdates.importFollowed(entry.followedLines, city)
-      // The city on screen syncs itself.
-      if (city !== currentCity.value) void usePushStore().sync(city)
     }
   }
 
@@ -110,7 +106,6 @@ export function useSettingsTransfer() {
         if (typeof values[setting.key] === 'boolean') settings.setRegionSetting(slug, setting.key, values[setting.key] as boolean)
       }
     }
-    if (typeof s.busAlerts === 'boolean') settings.setBusAlerts(s.busAlerts)
     importFavorites(data, true)
   }
 

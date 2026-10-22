@@ -481,10 +481,6 @@ func (r *recorder) walkWrites(built []*cities.City, adminToken string) {
 	api := "/api/" + slug
 	r.do(http.MethodPost, api+"/stats/event", `{"metric":"pwa_install","key":"appinstalled"}`, jsonBody...)
 	r.do(http.MethodPost, api+"/stats/event", `{"metric":"nope","key":"x"}`, jsonBody...)
-	subscription := `{"endpoint":"https://fcm.googleapis.com/fcm/send/parity","keys":{"p256dh":"BPa","auth":"au"},"routes":["1"],"locale":"en"}`
-	r.do(http.MethodPost, api+"/push/subscribe", subscription, jsonBody...)
-	r.do(http.MethodPost, api+"/push/unsubscribe", subscription, jsonBody...)
-	r.do(http.MethodPost, api+"/push/reminders", `{"endpoint":"https://fcm.googleapis.com/fcm/send/parity","keys":{"p256dh":"BPa","auth":"au"},"reminders":[]}`, jsonBody...)
 
 	var link struct {
 		Code   string `json:"code"`
@@ -572,7 +568,6 @@ func (r *recorder) walkCity(slug string) {
 	}
 	r.get(api + "/route-changes")
 	r.get(api + "/updates")
-	r.get(api + "/push/key")
 
 	page := "/" + slug
 	r.get(page + "/")

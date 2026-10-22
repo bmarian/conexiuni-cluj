@@ -9,7 +9,6 @@ import (
 	"conexiuni-cluj/live"
 	"conexiuni-cluj/network"
 	"conexiuni-cluj/planner"
-	"conexiuni-cluj/push"
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
 	"conexiuni-cluj/web"
@@ -40,7 +39,6 @@ type City struct {
 
 	Live    *live.Engine
 	Updates *updates.Service
-	Push    *push.Service
 	Planner *planner.Service
 	Network *network.Service
 	Ingest  *ingest.Importer
@@ -66,10 +64,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c := &City{Slug: slug, Name: name, Location: loc, Store: store, Data: transit.New(store), Static: static, Timetables: timetables, Realtime: realtime, Learning: learning}
 	c.Live = live.New(slug, loc, store, c.Data, &c.offered, realtime, learning, opts)
 	c.Live.Runner = c.running
-	c.Push = push.New(slug, loc, store, c.Live)
 	c.Updates = updates.New(store, c.Data, loc)
-	c.Updates.PushPending = push.Enabled
-	c.Updates.Notify = c.Push.Wake
 	c.Planner = planner.New(loc, store, c.Data, c.Live)
 	c.Network = network.New(loc, store, c.Data, &c.offered, c.Live)
 	c.Network.Runner = c.running
@@ -103,7 +98,6 @@ func (c *City) start(r *jobs.Runner) {
 	c.Live.StartScheduleDelayLearner(r, c.Location)
 	c.Live.StartArchiver(r, c.Location)
 	c.Live.StartLive(r)
-	c.Push.Start(r)
 	c.Ingest.Start(r)
 	c.Updates.StartNews(r, c.News)
 }
@@ -115,7 +109,6 @@ func (c *City) Register(api fiber.Router) {
 	c.Planner.Register(api)
 	c.Network.Register(api)
 	c.Updates.Register(api)
-	c.Push.Register(api)
 }
 
 type statsEventRequest struct {

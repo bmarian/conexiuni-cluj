@@ -94,13 +94,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
   }
 
-  const busAlerts = ref(localStorage.getItem('settings.busAlerts') === 'true')
-
-  function setBusAlerts(val: boolean) {
-    busAlerts.value = val
-    localStorage.setItem('settings.busAlerts', val ? 'true' : 'false')
-  }
-
   const toast = ref<Toast | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let toastSeq = 0
@@ -123,7 +116,6 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
     showGreenFriday, regionSetting, setRegionSetting,
-    busAlerts, setBusAlerts,
     toast, showToast, dismissToast,
   }
 })

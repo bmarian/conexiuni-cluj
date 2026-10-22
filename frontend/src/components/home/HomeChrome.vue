@@ -121,6 +121,7 @@ onMounted(() => void routeUpdates.fetchUpdates())
   flex-shrink: 0;
   max-width: 220px;
   height: 36px;
+  margin-block: 6px;
   padding: 0 14px 0 12px;
   border: 0;
   border-radius: 18px;

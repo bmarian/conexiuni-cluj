@@ -38,9 +38,6 @@ type Config struct {
 	VehicleLearningEnabled  bool
 	VehicleLearningMaxQuota int
 
-	VapidPublicKey    string
-	VapidPrivateKey   string
-	VapidSubject      string
 	AndroidPackage    string
 	AndroidCertSHA256 []string
 }
@@ -141,9 +138,6 @@ func Load() *Config {
 		VehicleLearningEnabled:  Bool("VEHICLE_LEARNING_ENABLED", true),
 		VehicleLearningMaxQuota: getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
 
-		VapidPublicKey:    getEnv("VAPID_PUBLIC_KEY", ""),
-		VapidPrivateKey:   getEnv("VAPID_PRIVATE_KEY", ""),
-		VapidSubject:      getEnv("VAPID_SUBJECT", ""),
 		AndroidPackage:    getEnv("ANDROID_PACKAGE", "online.bmarian.bus"),
 		AndroidCertSHA256: getList("ANDROID_CERT_SHA256"),
 	}
