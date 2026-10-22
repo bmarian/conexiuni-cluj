@@ -50,6 +50,7 @@ export const useMapStore = defineStore('map', () => {
   const zoomOut = ref(false)
   const directionArrowAtStart = ref(false)
   const centerOnUser = ref(false)
+  const revealDrawer = ref(false)
   const flyToLocation = ref<{lat: number; lng: number} | null>(null)
   const pinnedLocation = ref<{lat: number; lng: number; label: string} | null>(null)
   const customOriginLocation = ref<{lat: number; lng: number; label: string} | null>(null)
@@ -146,6 +147,7 @@ export const useMapStore = defineStore('map', () => {
 
   return {
     centerOnUser,
+    revealDrawer,
     flyToLocation,
     pinnedLocation,
     customOriginLocation,

@@ -15,13 +15,17 @@
 .map-tooltip::before {
   content: "";
   position: absolute;
-  left: 50%;
+  left: calc(50% + var(--tip-shift, 0px));
   bottom: 0;
   margin-left: -6px;
   margin-bottom: -12px;
   border: 6px solid transparent;
   border-top-color: #ffffff;
   pointer-events: none;
+}
+
+.map-tooltip-detached::before {
+  display: none;
 }
 
 .map-bar a {
@@ -195,13 +199,6 @@
   .stop-spider-item.marker-clickable:hover {
     transform: scale(1.1);
   }
-}
-
-/* A hold previews the stop, so it must not select text or open the callout. */
-.marker-clickable {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 .stop-group {

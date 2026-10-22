@@ -1,5 +1,6 @@
 import {onMounted, onUnmounted, ref, type Ref} from 'vue'
 import {standaloneBottomCutoffPx} from '@/utils/ios.ts'
+import {safeAreaPx} from '@/utils/safeArea.ts'
 
 export function useSheetMetrics(sheet: Ref<HTMLElement | null>) {
   const height = ref(window.innerHeight)
@@ -9,9 +10,9 @@ export function useSheetMetrics(sheet: Ref<HTMLElement | null>) {
 
   function measure() {
     if (sheet.value) height.value = sheet.value.offsetHeight
-    const root = getComputedStyle(document.documentElement)
-    safeTop.value = parseFloat(root.getPropertyValue('--safe-top')) || 0
-    safeBottom.value = Math.max(0, (parseFloat(root.getPropertyValue('--safe-bottom')) || 0) - standaloneBottomCutoffPx())
+    const safe = safeAreaPx()
+    safeTop.value = safe.top
+    safeBottom.value = Math.max(0, safe.bottom - standaloneBottomCutoffPx())
   }
 
   onMounted(() => {

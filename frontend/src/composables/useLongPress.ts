@@ -14,6 +14,7 @@ export function useLongPress<T>(onHold: (item: T, x: number, y: number) => void)
 
   function bind(item: T) {
     return {
+      class: 'hold-target',
       onPointerdown(e: PointerEvent) {
         held = false
         if (e.pointerType === 'mouse') return

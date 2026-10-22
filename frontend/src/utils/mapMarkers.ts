@@ -48,7 +48,7 @@ const held = new WeakSet<HTMLElement>()
 export function onElementClick(el: HTMLElement, handler: () => void) {
   let down: { x: number, y: number } | null = null
   el.style.cursor = 'pointer'
-  el.classList.add('marker-clickable')
+  el.classList.add('marker-clickable', 'hold-target')
   el.addEventListener('pointerdown', (e) => {
     down = {x: e.clientX, y: e.clientY}
   })
@@ -116,8 +116,18 @@ export function markerLatLng(marker: Marker): LatLng {
   return {lat, lng}
 }
 
-// One hover label at a time.
-export function createTooltip(map: MapLibreMap) {
+export type ScreenArea = { top: number, right: number, bottom: number, left: number }
+
+const TOOLTIP_MARGIN_PX = 8
+
+// How far to move the span [start, end] so it sits inside [min, max]; the start wins when it can't fit.
+export function shiftInto(start: number, end: number, min: number, max: number): number {
+  if (start < min || end - start > max - min) return min - start
+  return Math.min(0, max - end)
+}
+
+// One hover label at a time, kept inside the part of the map that isn't covered.
+export function createTooltip(map: MapLibreMap, visibleArea: () => ScreenArea) {
   const el = document.createElement('div')
   el.style.pointerEvents = 'none'
   el.style.zIndex = '20000'
@@ -131,11 +141,30 @@ export function createTooltip(map: MapLibreMap) {
     marker.remove()
   }
 
+  const fit = (at: LatLng, offset: [number, number], lift: number) => {
+    const area = visibleArea()
+    const box = el.getBoundingClientRect()
+    const pointY = map.getContainer().getBoundingClientRect().top + map.project([at.lng, at.lat]).y + offset[1]
+    const roomAbove = pointY - lift - area.top
+    const roomBelow = area.bottom - pointY - lift
+    const below = roomAbove < box.height + TOOLTIP_MARGIN_PX && roomBelow > roomAbove
+    if (below) marker.setOffset([offset[0], offset[1] + lift + box.height])
+    const top = below ? pointY + lift : box.top
+    const dx = shiftInto(box.left, box.right, area.left + TOOLTIP_MARGIN_PX, area.right - TOOLTIP_MARGIN_PX)
+    const dy = shiftInto(top, top + box.height, area.top + TOOLTIP_MARGIN_PX, area.bottom - TOOLTIP_MARGIN_PX)
+    const maxTipShift = Math.max(0, box.width / 2 - 12)
+    bubble.classList.toggle('map-tooltip-detached', below || dy !== 0)
+    bubble.style.translate = dx || dy ? `${dx}px ${dy}px` : ''
+    bubble.style.setProperty('--tip-shift', `${Math.max(-maxTipShift, Math.min(maxTipShift, -dx))}px`)
+  }
+
   const show = (key: object, at: LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {
     owner = key
     bubble.className = `map-tooltip ${className}`
     bubble.innerHTML = typeof html === 'function' ? html() : html
+    bubble.style.translate = ''
     marker.setOffset([offset[0], offset[1] - lift]).setLngLat([at.lng, at.lat]).addTo(map)
+    fit(at, offset, lift)
   }
 
   const bindAt = (key: object, targetEl: HTMLElement, at: () => LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {

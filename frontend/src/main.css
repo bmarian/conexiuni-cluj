@@ -29,6 +29,13 @@ a,
   touch-action: manipulation;
 }
 
+/* A hold must not select text or open the iOS callout. */
+.hold-target {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 :root {
   --kbd-ring: #2563eb;
   --kbd-ring-style: solid;
