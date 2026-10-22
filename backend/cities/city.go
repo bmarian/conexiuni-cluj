@@ -127,8 +127,6 @@ func validStatsEvent(metric, key string) bool {
 	switch metric {
 	case "pwa_install":
 		return key == "appinstalled"
-	case "host_move":
-		return key == "sent" || key == "empty" || key == "received"
 	}
 	return false
 }

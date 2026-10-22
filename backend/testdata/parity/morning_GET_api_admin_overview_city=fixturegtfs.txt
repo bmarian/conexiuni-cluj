@@ -533,12 +533,6 @@ X-Frame-Options: DENY
     "name": "8B"
    }
   ],
-  "moves": {
-   "empty": 0,
-   "old_push": 0,
-   "received": 0,
-   "sent": 0
-  },
   "new": 1,
   "places": 2,
   "plans": 5,

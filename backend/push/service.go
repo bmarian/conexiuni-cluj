@@ -44,10 +44,3 @@ func (s *Service) Counts() (followers, reminders, reminderUsers int, err error) 
 		       (SELECT COUNT(DISTINCT endpoint) FROM push_reminders)`).Scan(&followers, &reminders, &reminderUsers)
 	return followers, reminders, reminderUsers, err
 }
-
-// SubscribedElsewhere counts the subscriptions made on another host than host.
-func (s *Service) SubscribedElsewhere(host string) (int, error) {
-	var n int
-	err := s.store.DB.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE host <> ?`, host).Scan(&n)
-	return n, err
-}

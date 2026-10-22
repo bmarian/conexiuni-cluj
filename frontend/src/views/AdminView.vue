@@ -60,7 +60,6 @@ type Overview = {
     push_followers: number
     reminders: number
     reminder_users: number
-    moves: {sent: number; empty: number; received: number; old_push: number}
   }
   quota: {
     quotas: {name: string; used: number; limit: number}[]
@@ -318,14 +317,6 @@ const accuracyBars = computed<DayBar[]>(() => (data.value?.accuracy.daily ?? [])
 
 const versionsToday = computed(() => (data.value?.people.versions ?? []).filter(v => v.today > 0))
 
-const moves = computed(() => {
-  const m = data.value?.people.moves
-  if (!m) return ''
-  const visits = m.sent + m.empty
-  if (!visits && !m.old_push) return ''
-  return `${num(visits)} today, ${num(m.old_push)} push left`
-})
-
 const uptime = computed(() => data.value ? dur((clock.value - new Date(data.value.server.started_at).getTime()) / 1000) : '')
 
 const diskUsed = computed(() => {
@@ -464,7 +455,6 @@ const meters = computed(() => {
               <div><dt>Follow line changes</dt><dd>{{ num(data.people.push_followers) }}</dd></div>
               <div><dt>Reminders</dt><dd>{{ num(data.people.reminders) }} from {{ num(data.people.reminder_users) }}</dd></div>
               <div><dt>Web installs</dt><dd>{{ num(data.people.installs) }}</dd></div>
-              <div v-if="moves"><dt>Old address</dt><dd>{{ moves }}</dd></div>
               <div v-for="v in versionsToday" :key="v.platform + v.version">
                 <dt>{{ platformLabels[v.platform] ?? v.platform }} {{ v.version }}</dt><dd>{{ num(v.today) }}</dd>
               </div>

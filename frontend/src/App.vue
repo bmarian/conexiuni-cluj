@@ -9,7 +9,6 @@ import SettingsButton from "@/components/SettingsButton.vue"
 import OfflinePill from "@/components/OfflinePill.vue"
 import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
 import AndroidAppBanner from "@/components/AndroidAppBanner.vue"
-import HostMoveBanner from "@/components/HostMoveBanner.vue"
 import AppToast from "@/components/AppToast.vue"
 import KeyboardHelp from "@/components/KeyboardHelp.vue"
 import BackgroundTracking from "@/components/BackgroundTracking.vue"
@@ -422,7 +421,6 @@ useKbdShortcuts({m: cycleDrawerSize}, {global: true})
       </div>
       <div class="drawer-scroll">
         <GreenFridayBanner v-if="appSettings.showGreenFriday"/>
-        <HostMoveBanner/>
         <AndroidAppBanner/>
         <div class="drawer-view">
           <!-- RouteView only loads on mount, so another line needs a fresh instance. -->

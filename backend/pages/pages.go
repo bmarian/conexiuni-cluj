@@ -16,12 +16,3 @@ func Register(app fiber.Router, city *cities.City) {
 	app.Get("/stop/:stopId", page(stopPage))
 	app.Get("/plan", page(planPage))
 }
-
-// RegisterLegacy sends the paths from before there were cities to the city they meant.
-func RegisterLegacy(app fiber.Router, slug string) {
-	for _, path := range []string{"/stop/*", "/route/*", "/plan", "/settings", "/nav"} {
-		app.Get(path, func(c fiber.Ctx) error {
-			return c.Redirect().Status(fiber.StatusMovedPermanently).To("/" + slug + c.OriginalURL())
-		})
-	}
-}

@@ -26,7 +26,7 @@ export function transferLinkUrl(code: string, key: string | null): string {
 
 type SealedTransfer = { sealed: 1; iv: string; data: string }
 
-export const isSealed = (value: unknown): value is SealedTransfer =>
+const isSealed = (value: unknown): value is SealedTransfer =>
   typeof value === 'object' && value !== null && (value as SealedTransfer).sealed === 1
   && typeof (value as SealedTransfer).iv === 'string' && typeof (value as SealedTransfer).data === 'string'
 

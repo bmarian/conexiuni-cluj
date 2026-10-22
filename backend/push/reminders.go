@@ -207,7 +207,7 @@ func (s *Service) syncReminders(c fiber.Ctx) error {
 	if req.Locale == "en" {
 		locale = "en"
 	}
-	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
+	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale}
 	if err := s.saveReminders(sub, req.Reminders, time.Now()); err != nil {
 		s.store.Logf("push: could not save reminders: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save reminders"})
@@ -224,10 +224,10 @@ func (s *Service) saveReminders(sub pushSubscriber, reminders []pushReminder, no
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(`
-		INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, host, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, updated_at) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(endpoint) DO UPDATE SET
-			p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale, host = excluded.host, updated_at = excluded.updated_at`,
-		sub.endpoint, sub.p256dh, sub.auth, sub.locale, sub.host, time.Now().UnixMilli()); err != nil {
+			p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale, updated_at = excluded.updated_at`,
+		sub.endpoint, sub.p256dh, sub.auth, sub.locale, time.Now().UnixMilli()); err != nil {
 		return err
 	}
 	fired := map[string][2]int64{}
