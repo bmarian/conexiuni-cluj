@@ -24,5 +24,4 @@ func SameOrigin(c fiber.Ctx) bool {
 	return err == nil && strings.EqualFold(u.Host, c.Hostname())
 }
 
-// Canonical even when a page is served from the old host.
 const SiteOrigin = "https://ceautobuziau.ro"

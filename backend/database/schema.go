@@ -182,7 +182,6 @@ func (s *Store) initSchemas() error {
             p256dh     TEXT    NOT NULL,
             auth       TEXT    NOT NULL,
             locale     TEXT    NOT NULL,
-            host       TEXT    NOT NULL DEFAULT '',
             updated_at INTEGER NOT NULL
         );
 
@@ -391,9 +390,6 @@ func (s *Store) addMissingColumns() error {
 			"walk INTEGER",
 			"walk_at INTEGER NOT NULL DEFAULT 0",
 			"leave_at INTEGER NOT NULL DEFAULT 0",
-		},
-		"push_subscriptions": {
-			"host TEXT NOT NULL DEFAULT ''",
 		},
 		"stops": {
 			"station_id INTEGER NOT NULL DEFAULT 0",

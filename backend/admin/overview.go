@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/live"
-	"conexiuni-cluj/web"
 	"fmt"
 	"math"
 	"runtime"
@@ -117,15 +116,6 @@ type adminPeople struct {
 	PushFollowers int             `json:"push_followers"`
 	Reminders     int             `json:"reminders"`
 	ReminderUsers int             `json:"reminder_users"`
-	Moves         hostMoves       `json:"moves"`
-}
-
-// Visits the old host passed on to the canonical one today, and push subscriptions still held there.
-type hostMoves struct {
-	Sent     int `json:"sent"`
-	Empty    int `json:"empty"`
-	Received int `json:"received"`
-	OldPush  int `json:"old_push"`
 }
 
 type quotaUse struct {
@@ -473,32 +463,8 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 	if p.Installs, err = city.MetricTotal("pwa_install", "appinstalled"); err != nil {
 		return p, err
 	}
-	if p.PushFollowers, p.Reminders, p.ReminderUsers, err = city.Push.Counts(); err != nil {
-		return p, err
-	}
-	p.Moves, err = hostMovesToday(city, today)
+	p.PushFollowers, p.Reminders, p.ReminderUsers, err = city.Push.Counts()
 	return p, err
-}
-
-func hostMovesToday(city *cities.City, today string) (hostMoves, error) {
-	var m hostMoves
-	rows, err := city.MetricRows("host_move", today)
-	if err != nil {
-		return m, err
-	}
-	for _, r := range rows {
-		switch r.Key {
-		case "sent":
-			m.Sent += r.Count
-		case "empty":
-			m.Empty += r.Count
-		case "received":
-			m.Received += r.Count
-		}
-	}
-	host := strings.TrimPrefix(web.SiteOrigin, "https://")
-	m.OldPush, err = city.Push.SubscribedElsewhere(host)
-	return m, err
 }
 
 func compareVersions(a, b string) int {

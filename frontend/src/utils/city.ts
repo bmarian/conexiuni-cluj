@@ -37,17 +37,6 @@ function store(key: string, value: string | null) {
   } catch { /* noop */ }
 }
 
-// Saves from before cities are Cluj's; copied, not moved, so an older build still reads them.
-const PRE_CITY_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans', 'follows:routes',
-  'follows.v1', 'reminders.v1', 'reminders.synced', 'route-changes:seen', 'map.lastView', 'settings.showGreenFriday']
-
-export function adoptPreCitySaves() {
-  for (const key of PRE_CITY_KEYS) {
-    const value = stored(key)
-    if (value !== null && stored(`${DEFAULT_CITY}:${key}`) === null) store(`${DEFAULT_CITY}:${key}`, value)
-  }
-}
-
 function readList(): City[] {
   try {
     const list = JSON.parse(stored(LIST_KEY) ?? 'null')
@@ -77,14 +66,9 @@ export const citiesLoaded: Promise<City[]> = typeof window === 'undefined' ? Pro
 
 export const citiesReady: Promise<City[]> = cities.value.length ? Promise.resolve(cities.value) : citiesLoaded
 
-export const LEGACY_SECTIONS = ['stop', 'route', 'plan', 'settings', 'nav']
-
 function cityFromPath(): string | null {
   const first = window.location.pathname.split('/')[1] ?? ''
-  // The router decides where an old /plan goes.
-  if (first === 'plan') return null
-  if (LEGACY_SECTIONS.includes(first)) return DEFAULT_CITY
-  return /^[a-z][a-z0-9-]*$/.test(first) && first !== 'android' && first !== 'admin' && knownCity(first) ? first : null
+  return /^[a-z][a-z0-9-]*$/.test(first) && !['android', 'admin', 'plan'].includes(first) && knownCity(first) ? first : null
 }
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))

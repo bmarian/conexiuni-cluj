@@ -1,7 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
-import {citiesReady, currentCity, DEFAULT_CITY, knownCity, LEGACY_SECTIONS, resolveCity, setCity} from '@/utils/city.ts'
+import {citiesReady, currentCity, knownCity, resolveCity, setCity} from '@/utils/city.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const StopsView = () => import('@/views/StopsView.vue')
@@ -32,12 +32,8 @@ const router = createRouter({
       component: AdminView,
     },
     {
-      path: `/:section(${LEGACY_SECTIONS.join('|')})/:rest(.*)*`,
-      redirect: (to) => ({
-        path: `/${to.params.section === 'plan' && isShare(to.query) ? currentCity.value : DEFAULT_CITY}${to.path}`,
-        query: to.query,
-        hash: to.hash,
-      }),
+      path: '/plan',
+      redirect: (to) => ({path: `/${currentCity.value}/plan`, query: to.query, hash: to.hash}),
     },
     {
       path: '/:city',

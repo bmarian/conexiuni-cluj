@@ -128,8 +128,6 @@ type pushMessage struct {
 
 type pushSubscriber struct {
 	endpoint, p256dh, auth, locale string
-	// The site that subscribed; a worker on the old host keeps its own subscription.
-	host string
 }
 
 type pushSubscriptionRequest struct {
@@ -259,7 +257,7 @@ func (s *Service) subscribe(c fiber.Ctx) error {
 	if req.Locale == "en" {
 		locale = "en"
 	}
-	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale, host: c.Hostname()}
+	sub := pushSubscriber{endpoint: req.Endpoint, p256dh: req.Keys.P256dh, auth: req.Keys.Auth, locale: locale}
 	if err := s.savePushSubscription(sub, cleanPushRouteNames(req.Routes)); err != nil {
 		s.store.Logf("push: could not save subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save subscription"})
@@ -362,10 +360,10 @@ func (s *Service) savePushSubscription(sub pushSubscriber, routes []string) erro
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(`
-		INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, host, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, updated_at) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(endpoint) DO UPDATE SET
-			p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale, host = excluded.host, updated_at = excluded.updated_at`,
-		sub.endpoint, sub.p256dh, sub.auth, sub.locale, sub.host, time.Now().UnixMilli()); err != nil {
+			p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale, updated_at = excluded.updated_at`,
+		sub.endpoint, sub.p256dh, sub.auth, sub.locale, time.Now().UnixMilli()); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM push_subscription_routes WHERE endpoint = ?`, sub.endpoint); err != nil {

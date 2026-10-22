@@ -6,6 +6,7 @@ GET /api/admin/calendar/day
 GET /api/admin/cities
 GET /api/admin/overview
 GET /api/cities
+GET /api/fixture/areas
 GET /api/fixture/live
 GET /api/fixture/network
 GET /api/fixture/network/version
@@ -15,6 +16,7 @@ GET /api/fixture/push/key
 GET /api/fixture/route-changes
 GET /api/fixture/shapes
 GET /api/fixture/updates
+GET /api/fixturegtfs/areas
 GET /api/fixturegtfs/live
 GET /api/fixturegtfs/network
 GET /api/fixturegtfs/network/version

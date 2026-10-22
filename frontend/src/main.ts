@@ -1,5 +1,3 @@
-// First import: it takes its token out of the URL before the router reads it.
-import { arriveFromLegacyHost, leaveLegacyHost } from "./utils/hostMove";
 import { createApp } from "vue";
 import { createHead } from "@unhead/vue/client";
 import { createPinia } from "pinia";
@@ -17,7 +15,7 @@ import { useStopsApi } from "./composables/useStopsApi";
 import { startNetwork } from "./utils/network";
 import "./main.css";
 import { i18n } from "./i18n";
-import { adoptPreCitySaves, apiPath, citiesReady } from "./utils/city";
+import { apiPath, citiesReady } from "./utils/city";
 import { lockIOSPageZoom } from "./utils/ios";
 
 lockIOSPageZoom();
@@ -34,68 +32,56 @@ const sendPWAInstallEvent = () => {
   }).catch(() => {});
 };
 
-function start() {
-  adoptPreCitySaves();
-  registerSW({
-    immediate: true,
-    onRegisteredSW(_url, registration) {
-      if (!registration) return;
-      const checkForUpdate = () => {
-        if (!document.hidden) registration.update().catch(() => {});
-      };
-      checkForUpdate();
-      document.addEventListener("visibilitychange", checkForUpdate);
-    },
-  });
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, registration) {
+    if (!registration) return;
+    const checkForUpdate = () => {
+      if (!document.hidden) registration.update().catch(() => {});
+    };
+    checkForUpdate();
+    document.addEventListener("visibilitychange", checkForUpdate);
+  },
+});
 
-  window.addEventListener("appinstalled", sendPWAInstallEvent);
+window.addEventListener("appinstalled", sendPWAInstallEvent);
 
-  const isAdminPath = window.location.pathname === "/admin";
+const isAdminPath = window.location.pathname === "/admin";
 
-  if (!isAdminPath) {
-    void useRoutesApi().fetchRoutes();
-    void useStopsApi().fetchStops();
-    void startNetwork();
-  }
-
-  const app = createApp(App);
-  const pinia = createPinia();
-
-  app.use(i18n);
-  app.use(pinia);
-  app.use(router);
-  app.use(createHead());
-
-  const settingsStore = useSettingsStore(pinia);
-  i18n.global.locale.value = settingsStore.locale;
-
-  const userStore = useUserStore(pinia);
-  userStore.startTimeTracker();
-
-  const favoritesStore = useFavoritesStore(pinia);
-  void favoritesStore.hydrate().then(() => {
-    if (!isAdminPath) favoritesStore.preloadFavorites();
-  });
-
-  if (!isAdminPath) {
-    void usePushStore(pinia).sync();
-    useRemindersStore(pinia);
-  }
-
-  // Sent by push-sw.js when a notification is tapped while the app is already open.
-  navigator.serviceWorker?.addEventListener("message", (event) => {
-    const url = event.data?.type === "open-url" ? event.data.url : null;
-    if (typeof url === "string" && url.startsWith("/")) void router.push(url);
-  });
-
-  void citiesReady.then(() => router.isReady()).then(() => app.mount("#app"));
+if (!isAdminPath) {
+  void useRoutesApi().fetchRoutes();
+  void useStopsApi().fetchStops();
+  void startNetwork();
 }
 
-// The stores read what the move writes, so they start after it.
-void leaveLegacyHost()
-  .catch(() => false)
-  .then(async (leaving) => {
-    if (leaving) return;
-    await arriveFromLegacyHost();
-    start();
-  });
+const app = createApp(App);
+const pinia = createPinia();
+
+app.use(i18n);
+app.use(pinia);
+app.use(router);
+app.use(createHead());
+
+const settingsStore = useSettingsStore(pinia);
+i18n.global.locale.value = settingsStore.locale;
+
+const userStore = useUserStore(pinia);
+userStore.startTimeTracker();
+
+const favoritesStore = useFavoritesStore(pinia);
+void favoritesStore.hydrate().then(() => {
+  if (!isAdminPath) favoritesStore.preloadFavorites();
+});
+
+if (!isAdminPath) {
+  void usePushStore(pinia).sync();
+  useRemindersStore(pinia);
+}
+
+// Sent by push-sw.js when a notification is tapped while the app is already open.
+navigator.serviceWorker?.addEventListener("message", (event) => {
+  const url = event.data?.type === "open-url" ? event.data.url : null;
+  if (typeof url === "string" && url.startsWith("/")) void router.push(url);
+});
+
+void citiesReady.then(() => router.isReady()).then(() => app.mount("#app"));

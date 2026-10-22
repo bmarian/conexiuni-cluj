@@ -376,9 +376,5 @@
   "androidShotAlt": "Screenshot for step {n}",
   "androidBetaAsk": "Join the beta to test the app",
   "contact": "Contact",
-  "contactDesc": "Help, suggestions or anything else.",
-  "hostMoveTitle": "Conexiuni Cluj is now “Ce autobuz iau?”",
-  "hostMoveSaved": "Your favorites and settings came with you.",
-  "hostMoveHomeScreen": "Add it to your home screen again.",
-  "hostMoveNotifications": "Turn notifications back on"
+  "contactDesc": "Help, suggestions or anything else."
 }

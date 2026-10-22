@@ -156,9 +156,6 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 		})
 
 		app.Get("/android", pages.Android)
-		if _, ok := bySlug["cluj"]; ok {
-			pages.RegisterLegacy(app, "cluj")
-		}
 		for _, city := range built {
 			pages.Register(app.Group("/"+city.Slug, city.OnlyEnabled(sendIndex)), city)
 		}
