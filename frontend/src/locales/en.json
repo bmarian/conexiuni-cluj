@@ -54,6 +54,7 @@
   "allRoutes": "All lines",
   "allStops": "All stops",
   "allRoutesAtStop": "Lines at this stop",
+  "lineEndsHere": "last stop",
   "live": "LIVE",
   "home": "Home",
   "favorites": "Favorites",

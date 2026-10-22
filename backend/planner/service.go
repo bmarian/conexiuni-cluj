@@ -1,4 +1,4 @@
-// Package planner answers /plan and /places: journeys on foot and by line over the city's network, and the places a rider can type.
+// Package planner answers /plan, /places and /areas: journeys on foot and by line over the city's network, the places a rider can type, and the towns and districts they know.
 package planner
 
 import (
@@ -57,6 +57,7 @@ func New(loc *time.Location, store *database.Store, data *transit.Data, timing T
 func (s *Service) Register(api fiber.Router) {
 	api.Get("/plan", s.plan)
 	api.Get("/places", s.searchPlaces)
+	api.Get("/areas", s.listAreas)
 }
 
 // Forget drops the built networks, for a calendar that now reads differently.

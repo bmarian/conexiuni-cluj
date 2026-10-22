@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {spiderLegs, spiderRadius} from '@/utils/spider.ts'
+import {spiderLegs, spiderLegsToward, spiderRadius} from '@/utils/spider.ts'
 
 describe('spider legs', () => {
   it('puts two stations side by side', () => {
@@ -18,6 +18,16 @@ describe('spider legs', () => {
 
   it('labels face away from the centre', () => {
     for (const {x, side} of spiderLegs(8)) expect(side).toBe(x < 0 ? 'left' : 'right')
+  })
+
+  it('points each leg to the side its station is on', () => {
+    const [up] = spiderLegsToward([-Math.PI / 2])
+    expect(up).toMatchObject({x: 0, y: -44})
+    const [west, east] = spiderLegsToward([Math.PI - 0.2, 0.1])
+    expect(west!.side).toBe('left')
+    expect(east!.side).toBe('right')
+    const legs = spiderLegsToward([0.3, 0.2, 0.25])
+    legs.forEach((a, i) => legs.slice(i + 1).forEach((b) => expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(28)))
   })
 
   it('measures the reach of the longest leg', () => {

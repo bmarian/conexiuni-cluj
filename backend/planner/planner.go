@@ -458,7 +458,7 @@ func (s *Service) describePlan(resp *planResponse, options []router.Option) erro
 				if r, ok := routeByID[id]; ok {
 					color := r.RouteColor
 					if color == "" {
-						color = models.ResolveRouteDisplayColor(r.RouteShortName)
+						color = models.FallbackRouteColor
 					}
 					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Type: r.RouteType}
 				}

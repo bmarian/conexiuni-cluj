@@ -11,26 +11,28 @@ export type StopGroup = {
   stations: Set<number>
   modes: number
   favorite: boolean
+  // The towns or districts the group stands for, the one it is named after first.
+  areas?: number[]
 }
 
 export type ClusterBox = Pick<MarkerIcon, 'size' | 'anchor'>
 
-type Rect = {left: number, top: number, right: number, bottom: number}
+export type Rect = {left: number, top: number, right: number, bottom: number}
 
 // MapLibre's world is 512 px wide at zoom 0.
-const TILE_PX = 512
+export const TILE_PX = 512
 
 export const lngPerPixel = (zoom: number) => 360 / (TILE_PX * 2 ** zoom)
 
-const mercX = (lng: number) => (lng + 180) / 360
-const mercY = (lat: number) => {
+export const mercX = (lng: number) => (lng + 180) / 360
+export const mercY = (lat: number) => {
   const sin = Math.sin(lat * Math.PI / 180)
   return 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)
 }
 
 const cellKey = (cx: number, cy: number) => cx * 0x4000000 + cy
 
-const overlaps = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+export const overlaps = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
 export const modeMask = (routeTypes: Iterable<RouteType | number>): number => {
   let mask = 0
@@ -103,6 +105,10 @@ export class StopClusters {
     return this.levels.length > this.levelOf(zoom)
   }
 
+  get depth(): number {
+    return this.levels.length
+  }
+
   // One sweep of the next level and the regrouping it calls for.
   advance() {
     const level = this.levels.length
@@ -143,11 +149,11 @@ export class StopClusters {
     return split === null ? null : {split, apart: this.maxZoom}
   }
 
-  private levelOf(zoom: number): number {
+  levelOf(zoom: number): number {
     return Math.max(0, Math.ceil((this.maxZoom - zoom) / this.step - 1e-9))
   }
 
-  private zoomOf(level: number): number {
+  zoomOf(level: number): number {
     return this.maxZoom - level * this.step
   }
 
@@ -255,14 +261,18 @@ export class StopClusters {
   }
 
   private group(leader: number, points: number[]): StopGroup {
-    const group: StopGroup = {key: '', leader, points, stations: new Set(), modes: 0, favorite: false}
-    for (const i of points) {
-      const p = this.points[i]!
-      group.stations.add(p.station)
-      group.modes |= p.modes
-      group.favorite ||= p.favorite
-    }
-    group.key = `${leader}:${points.length}:${points.reduce((h, i) => (h * 31 + i) | 0, 0)}`
-    return group
+    return groupOf(this.points, leader, points, `${leader}`)
   }
+}
+
+export function groupOf(all: StopPoint[], leader: number, points: number[], key: string): StopGroup {
+  const group: StopGroup = {key: '', leader, points, stations: new Set(), modes: 0, favorite: false}
+  for (const i of points) {
+    const p = all[i]!
+    group.stations.add(p.station)
+    group.modes |= p.modes
+    group.favorite ||= p.favorite
+  }
+  group.key = `${key}:${points.length}:${points.reduce((h, i) => (h * 31 + i) | 0, 0)}`
+  return group
 }

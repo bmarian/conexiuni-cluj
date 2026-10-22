@@ -207,7 +207,10 @@ export function clusterCardHtml(stations: ClusterStation[], opts: IconThemeOptio
   if (stations.length <= CLUSTER_STATIONS_MAX) {
     return `<div class="station-cards">${stations.map((s) => stationCardHtml(s.name, opts, s.mark)).join('')}</div>`
   }
-  const names = [...new Set(stations.map((s) => s.name))].sort((a, b) => a.localeCompare(b))
+  return namesCardHtml([...new Set(stations.map((s) => s.name))].sort((a, b) => a.localeCompare(b)), more)
+}
+
+export function namesCardHtml(names: string[], more: (n: number) => string): string {
   const shown = names.slice(0, CLUSTER_NAMES_MAX)
   const rest = names.length - shown.length
   return `<div class="station-names">
