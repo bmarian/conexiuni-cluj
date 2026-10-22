@@ -245,11 +245,10 @@ async function doImport() {
 </script>
 
 <template>
-  <div ref="rootRef" class="ei-root" :class="{ 'is-dark': settings.isDark, 'is-arcade': settings.arcadeActive, 'is-legacy-blue': settings.legacyBlueActive, 'is-paper': settings.paperActive }">
+  <div ref="rootRef" class="ei-root" :class="{ 'is-dark': settings.isDark }">
     <div class="ei-group" data-kbd-section="ei-transfer" data-kbd-axis="x">
       <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-send" @click="openSend()">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📤</span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
           <path d="M22 2 11 13"/>
@@ -258,8 +257,7 @@ async function doImport() {
         {{ t('transferSend') }}
       </button>
       <button type="button" class="ei-btn ei-btn-primary" data-kbd-item="ei-receive" @click="openReceive">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📥</span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1"/>
@@ -295,15 +293,13 @@ async function doImport() {
           @click="doSend"
         >
           <template v-if="sendState === 'sent'">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
-            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
             {{ t('sendDone') }}
           </template>
           <template v-else-if="sendState === 'unknown' || sendState === 'limited' || sendState === 'failed'">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
-            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
             {{ sendState === 'unknown' ? t('sendUnknownCode') : sendState === 'limited' ? t('sendTooMany') : t('sendFailed') }}
@@ -342,8 +338,7 @@ async function doImport() {
       </div>
       <div class="ei-actions" data-kbd-section="ei-receive-actions" data-kbd-axis="x">
         <button v-if="receiveState === 'done'" type="button" class="ei-btn ei-btn-primary ei-btn-success" disabled>
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
-          <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
           </svg>
           {{ t('receiveDone') }}
@@ -364,8 +359,7 @@ async function doImport() {
 
     <div class="ei-group ei-group-text" data-kbd-section="ei" data-kbd-axis="x">
       <button type="button" class="ei-btn" data-kbd-item="ei-export" @click="openExport">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📋</span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
           <rect x="9" y="9" width="13" height="13" rx="2"/>
@@ -374,8 +368,7 @@ async function doImport() {
         {{ t('exportSettings') }}
       </button>
       <button type="button" class="ei-btn" data-kbd-item="ei-import" @click="openImport">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">📂</span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              width="13" height="13" aria-hidden="true">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -412,8 +405,7 @@ async function doImport() {
           @click="doExportShare"
         >
           <template v-if="exportDone">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
-            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
             {{ t('exportCopied') }}
@@ -432,15 +424,13 @@ async function doImport() {
           @click="doImport"
         >
           <template v-if="importState === 'success'">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">✅</span>
-            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
             {{ t('importSuccess') }}
           </template>
           <template v-else-if="importState === 'error'">
-            <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">❌</span>
-            <svg v-else width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
             {{ t('importError') }}
@@ -518,30 +508,6 @@ async function doImport() {
 .ei-root.is-dark .ei-btn.ei-btn-success { background: #052e16; color: #4ade80; border-color: #14532d; }
 .ei-root.is-dark .ei-btn.ei-btn-error { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
 
-.ei-root.is-arcade .ei-btn { color: #92400e; }
-.ei-root.is-arcade .ei-btn:hover { background: #fef9c3; color: #78350f; }
-.ei-root.is-arcade .ei-btn.ei-btn-primary { background: #fef9c3; color: #92400e; border-color: #fcd34d; }
-.ei-root.is-arcade .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #fef08a; color: #78350f; border-color: #f59e0b; }
-
-.ei-root.is-arcade.is-dark .ei-btn { color: #d97706; }
-.ei-root.is-arcade.is-dark .ei-btn:hover { background: #422006; color: #fde68a; }
-.ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary { background: #422006; color: #fde68a; border-color: #d97706; }
-.ei-root.is-arcade.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #5c2d06; color: #fef08a; border-color: #f59e0b; }
-
-.ei-root.is-legacy-blue .ei-btn { color: #4A6FA5; }
-.ei-root.is-legacy-blue .ei-btn:hover { background: #EEF3FF; color: #1A3A8C; }
-.ei-root.is-legacy-blue .ei-btn.ei-btn-primary { background: #EEF3FF; color: #1A3A8C; border-color: #245EDC; }
-.ei-root.is-legacy-blue .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #D8E4FF; color: #0F2870; border-color: #1A3A8C; }
-.ei-root.is-legacy-blue .ei-btn.ei-btn-success { background: #EEF8EE; color: #1A6A2A; border-color: #4CAF50; }
-.ei-root.is-legacy-blue .ei-btn.ei-btn-error { background: #FEF0EE; color: #8A1A1A; border-color: #DC4444; }
-
-.ei-root.is-legacy-blue.is-dark .ei-btn { color: #90B4E0; }
-.ei-root.is-legacy-blue.is-dark .ei-btn:hover { background: #172040; color: #B8D4F0; }
-.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-primary { background: #10193A; color: #90B4E0; border-color: #2A508C; }
-.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-primary:hover:not(:disabled) { background: #1a2d5a; color: #B8D4F0; border-color: #3d70c0; }
-.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-success { background: #0A2010; color: #4ADE80; border-color: #1A6A2A; }
-.ei-root.is-legacy-blue.is-dark .ei-btn.ei-btn-error { background: #200A0A; color: #F87171; border-color: #6A1A1A; }
-
 .ei-textarea {
   width: 100%;
   padding: 0.5rem 0.625rem;
@@ -563,18 +529,6 @@ async function doImport() {
 
 .ei-root.is-dark .ei-textarea { border-color: #334155; background: #0f172a; color: #cbd5e1; }
 .ei-root.is-dark .ei-textarea:focus { border-color: #3b82f6; background: #0f172a; }
-
-.ei-root.is-arcade .ei-textarea { border-color: #fcd34d; background: #fefce8; color: #78350f; }
-.ei-root.is-arcade .ei-textarea:focus { border-color: #f59e0b; background: #fefce8; }
-
-.ei-root.is-arcade.is-dark .ei-textarea { border-color: #d97706; background: #1c0a00; color: #fde68a; }
-.ei-root.is-arcade.is-dark .ei-textarea:focus { border-color: #f59e0b; background: #1c0a00; }
-
-.ei-root.is-legacy-blue .ei-textarea { border-color: #B8CAEE; background: #F5F8FF; color: #1A3A8C; }
-.ei-root.is-legacy-blue .ei-textarea:focus { border-color: #245EDC; background: #fff; }
-
-.ei-root.is-legacy-blue.is-dark .ei-textarea { border-color: #2A508C; background: #0A1020; color: #90B4E0; }
-.ei-root.is-legacy-blue.is-dark .ei-textarea:focus { border-color: #3d70c0; background: #0A1020; }
 
 .ei-code {
   font-size: 1.125rem;

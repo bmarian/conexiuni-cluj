@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import {ref, watch} from 'vue'
-import {type ToastIcon, useSettingsStore} from '@/stores/settings'
+import {useSettingsStore} from '@/stores/settings'
 import IconBellFilled from '@/components/icons/IconBellFilled.vue'
-import ArcadeGhostIcon from '@/components/icons/ArcadeGhostIcon.vue'
 
 defineProps<{ landscapeOpen?: boolean }>()
 
 const settings = useSettingsStore()
-
-const LEGACY_EMOJI: Record<ToastIcon, string> = {
-  info: 'ℹ️',
-  bell: '🔔',
-  'bell-off': '🔕',
-  joystick: '🕹️',
-  ghost: '👻',
-}
 
 const SWIPE_DISMISS_PX = 40
 
@@ -75,8 +66,7 @@ function onPointerCancel() {
         @pointercancel="onPointerCancel"
       >
         <span class="app-toast-icon" aria-hidden="true">
-          <span v-if="settings.legacyBlueActive" class="app-toast-emoji">{{ LEGACY_EMOJI[settings.toast.icon] }}</span>
-          <IconBellFilled v-else-if="settings.toast.icon === 'bell'"/>
+          <IconBellFilled v-if="settings.toast.icon === 'bell'"/>
           <svg v-else-if="settings.toast.icon === 'bell-off'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -85,14 +75,6 @@ function onPointerCancel() {
             <path d="M18 8a6 6 0 0 0-9.33-5"/>
             <path d="M2 2l20 20"/>
           </svg>
-          <svg v-else-if="settings.toast.icon === 'joystick'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="5.5" r="3"/>
-            <path d="M12 8.5V15"/>
-            <rect x="3" y="15" width="18" height="6" rx="2"/>
-            <path d="M17 18h.01"/>
-          </svg>
-          <ArcadeGhostIcon v-else-if="settings.toast.icon === 'ghost'" color="#ef4444" pupil-color="#1e3a8a"/>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9"/>
@@ -179,25 +161,9 @@ function onPointerCancel() {
   height: 1.25rem;
 }
 
-.is-ghost .app-toast-icon svg {
-  width: 1rem;
-  height: 1.35rem;
-}
-
 .is-bell .app-toast-icon {
   background: #fef9c3;
   color: #eab308;
-}
-
-.is-joystick .app-toast-icon,
-.is-ghost .app-toast-icon {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.app-toast-emoji {
-  font-size: 1.125rem;
-  line-height: 1;
 }
 
 .app-toast-text {

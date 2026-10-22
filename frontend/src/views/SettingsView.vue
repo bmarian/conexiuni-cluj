@@ -54,17 +54,10 @@ function setLocale(newLocale: 'ro' | 'en') {
       <HeaderNavigation/>
     </div>
 
-    <header v-if="settings.paperActive" class="pp-masthead">
-      <p class="pp-kicker">Ce autobuz iau?</p>
-      <h1 class="pp-title pp-title-sm">{{ t('settings') }}</h1>
-      <p class="pp-subtitle">{{ t('paperSettingsSubtitle') }}</p>
-    </header>
-
     <section class="flex flex-col gap-2">
       <h2 class="section-label">{{ t('language') }}</h2>
       <p v-if="settings.locale !== 'ro'" class="setting-note">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">⚠️</span>
-        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/>
           <path d="M12 9v4M12 17h.01"/>
@@ -93,8 +86,7 @@ function setLocale(newLocale: 'ro' | 'en') {
                 :class="{ active: settings.showVehicleExtras }"
                 :aria-pressed="settings.showVehicleExtras" data-kbd-item="vehicle-extras"
                 @click="settings.setShowVehicleExtras(!settings.showVehicleExtras)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">♿</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="3.5" r="2.5" fill="currentColor" stroke="none"/>
             <path d="M10 8v6h5l2 5"/>
@@ -124,8 +116,7 @@ function setLocale(newLocale: 'ro' | 'en') {
                 :class="{ active: settings.autoCenterOnMe }"
                 :aria-pressed="settings.autoCenterOnMe" data-kbd-item="auto-center"
                 @click="settings.setAutoCenterOnMe(!settings.autoCenterOnMe)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
@@ -146,8 +137,7 @@ function setLocale(newLocale: 'ro' | 'en') {
         <button type="button" class="option-btn setting-row" :class="{ active: settings.autoFitMap }"
                 :aria-pressed="settings.autoFitMap" data-kbd-item="auto-fit"
                 @click="settings.setAutoFitMap(!settings.autoFitMap)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🗺️</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path
               d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
@@ -173,8 +163,7 @@ function setLocale(newLocale: 'ro' | 'en') {
                 :class="{ active: settings.busAlerts }"
                 :aria-pressed="settings.busAlerts" data-kbd-item="bus-alerts"
                 @click="settings.setBusAlerts(!settings.busAlerts)">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">⏰</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="13" r="8"/>
             <path d="M12 9v4l2 2M5 3 2 6m17-3 3 3"/>
@@ -195,8 +184,7 @@ function setLocale(newLocale: 'ro' | 'en') {
           </span>
         </button>
         <p class="setting-note">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-sm" aria-hidden="true">⚠️</span>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/>
             <path d="M12 9v4M12 17h.01"/>
@@ -211,8 +199,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <div class="setting-rows" data-kbd-section="region">
         <button type="button" class="option-btn setting-row" :aria-expanded="regionOpen" data-kbd-item="region"
                 @click="regionOpen = !regionOpen">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">📍</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
@@ -242,8 +229,7 @@ function setLocale(newLocale: 'ro' | 'en') {
                 :class="{ active: settings.regionSetting(regionSlug, setting.key) }"
                 :aria-pressed="settings.regionSetting(regionSlug, setting.key)" :data-kbd-item="setting.key"
                 @click="settings.setRegionSetting(regionSlug, setting.key, !settings.regionSetting(regionSlug, setting.key))">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🌿</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path
               d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
@@ -276,8 +262,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <div class="setting-rows" data-kbd-section="admin">
         <button type="button" class="option-btn setting-row" data-kbd-item="admin"
                 @click="router.push('/admin')">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🛡️</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
           </svg>
@@ -293,8 +278,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <h2 class="section-label">{{ t('androidApp') }}</h2>
       <div class="setting-rows" data-kbd-section="android-app">
         <RouterLink :to="{name: 'android'}" class="option-btn setting-row" data-kbd-item="android-app">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">🤖</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85a.64.64 0 0 0-.83.22l-1.88 3.24a11.4 11.4 0 0 0-8.94 0L5.65 5.67a.64.64 0 0 0-.87-.2c-.28.18-.37.54-.22.83L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/>
           </svg>
           <span class="setting-text">
@@ -312,8 +296,7 @@ function setLocale(newLocale: 'ro' | 'en') {
       <h2 class="section-label">{{ t('contact') }}</h2>
       <div class="setting-rows" data-kbd-section="contact">
         <a :href="`mailto:${CONTACT_EMAIL}`" class="option-btn setting-row" data-kbd-item="contact">
-          <span v-if="settings.legacyBlueActive" class="emoji-icon-md" aria-hidden="true">✉️</span>
-          <svg v-else class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg class="setting-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2"/>
             <path d="m3 7 9 6 9-6"/>

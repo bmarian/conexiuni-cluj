@@ -7,7 +7,6 @@ const StopView = () => import('@/views/StopView.vue')
 const StopsView = () => import('@/views/StopsView.vue')
 const RouteView = () => import('@/views/RouteView.vue')
 const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
-const NotFoundView = () => import('@/views/NotFoundView.vue')
 const AdminView = () => import('@/views/AdminView.vue')
 const SettingsView = () => import('@/views/SettingsView.vue')
 const NavigationView = () => import('@/views/NavigationView.vue')
@@ -81,11 +80,6 @@ const router = createRouter({
           path: 'nav',
           name: 'nav',
           component: NavigationView,
-        },
-        {
-          path: 'bsod',
-          name: 'bsod',
-          component: NotFoundView,
         },
       ],
     },

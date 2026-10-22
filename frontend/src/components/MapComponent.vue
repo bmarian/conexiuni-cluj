@@ -27,7 +27,6 @@ import {
   type DisplayVehicle,
   type MarkerIcon,
   getVehicleMarkerHtml,
-  type IconThemeOptions,
   CLUSTER_STATIONS_MAX,
   type ClusterIcon,
   type ClusterStation,
@@ -72,7 +71,7 @@ import {
   onPreview,
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
-import {mapCreditsHTML, mapStyle, type MapTheme} from '@/utils/mapStyles.ts'
+import {mapCreditsHTML, mapStyle} from '@/utils/mapStyles.ts'
 import {NAV_POSITION_OPTIONS} from '@/utils/journey.ts'
 import {cacheKey, cities, cityBounds, cityCenter, currentCity, inCity, type City} from '@/utils/city.ts'
 
@@ -100,9 +99,6 @@ const {
   preciseLocation,
 } = storeToRefs(mapStore)
 const {showVehicleExtras} = storeToRefs(settingsStore)
-const arcadeActive = computed(() => settingsStore.arcadeActive)
-const legacyBlueActive = computed(() => settingsStore.legacyBlueActive)
-const paperActive = computed(() => settingsStore.paperActive)
 const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
 const stopMarkers = new Map<string, Marker>()
@@ -193,7 +189,6 @@ type LineSpec = {
   width: number
   opacity: number
   dash?: number[]
-  square: boolean
 }
 
 type Fix = LatLng & { accuracy: number, heading: number | null }
@@ -202,19 +197,7 @@ const lines: Record<LineGroup, LineSpec[]> = {shapes: [], walks: []}
 const drawnLines: Record<LineGroup, number> = {shapes: 0, walks: 0}
 let accuracy: (LatLng & { radius: number }) | null = null
 
-const themeOpts = (): IconThemeOptions => ({
-  arcadeActive: arcadeActive.value,
-  legacyBlueActive: legacyBlueActive.value,
-  paperActive: paperActive.value,
-  showVehicleExtras: showVehicleExtras.value,
-})
-
-const paperInk = () => isDarkMode.value ? '#efe6cc' : '#1f3a7a'
-
-const mapTheme = (): MapTheme =>
-  paperActive.value ? 'paper' : arcadeActive.value ? 'arcade' : legacyBlueActive.value ? 'legacyBlue' : 'default'
-
-const currentStyle = () => mapStyle(isDarkMode.value, mapTheme())
+const currentStyle = () => mapStyle(isDarkMode.value)
 
 // Under the basemap's labels.
 const labelIndex = (layers: StyleSpecification['layers']) => {
@@ -261,7 +244,7 @@ const syncLines = (group: LineGroup) => {
       id,
       type: 'line',
       source: id,
-      layout: {'line-cap': line.square ? 'butt' : 'round', 'line-join': line.square ? 'miter' : 'round'},
+      layout: {'line-cap': 'round', 'line-join': 'round'},
       paint: {'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity},
     }
     if (line.dash) layer.paint!['line-dasharray'] = line.dash
@@ -360,10 +343,10 @@ const attachPlannerDragLift = (marker: Marker) => {
 }
 
 const stopIconForId = (stopId: string) => favoritesStore.isStopFavorite(Number(stopId))
-  ? makeHighlightIcon('favorite', themeOpts())
-  : makeStopIcon(themeOpts(), network.value?.look(Number(stopId)))
+  ? makeHighlightIcon('favorite')
+  : makeStopIcon(network.value?.look(Number(stopId)))
 
-const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, themeOpts(), network.value?.look(Number(stopId)))
+const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, network.value?.look(Number(stopId)))
 
 const {openStop, openStops} = useMapPicks()
 
@@ -374,10 +357,7 @@ const clusterKey = () => {
   return [selected ? `@${selected}` : '', ...skip].filter(Boolean).join(',')
 }
 
-const coverageColor = () => paperActive.value ? paperInk()
-  : arcadeActive.value ? '#f59e0b'
-    : legacyBlueActive.value ? (isDarkMode.value ? '#4e88d8' : '#245EDC')
-      : isDarkMode.value ? '#f1f5f9' : '#0f172a'
+const coverageColor = () => isDarkMode.value ? '#f1f5f9' : '#0f172a'
 
 const hideCoverage = (key: string) => {
   const m = map.value
@@ -392,7 +372,7 @@ const hideCoverage = (key: string) => {
 const showCoverage = (index: MapClusters, group: StopGroup) => {
   const m = map.value
   if (!m || !styleReady) return
-  const radius = Math.max(...makeStopIcon(themeOpts()).size) / 2 * lngPerPixel(m.getZoom())
+  const radius = Math.max(...makeStopIcon().size) / 2 * lngPerPixel(m.getZoom())
   const ring = roundedHull(group.points.map((i): [number, number] => [index.points[i]!.lng, index.points[i]!.lat]), radius)
   const data: Feature<Polygon> = {type: 'Feature', properties: {}, geometry: {type: 'Polygon', coordinates: [ring]}}
   const id = `${OVERLAY}coverage`
@@ -476,9 +456,8 @@ const stopClusters = (): Clusters => {
       favorite: favoritesStore.isStopFavorite(Number(id)),
     }
   })
-  const opts = themeOpts()
-  const station = makeStopIcon(opts)
-  const heart = makeHighlightIcon('favorite', opts)
+  const station = makeStopIcon()
+  const heart = makeHighlightIcon('favorite')
   if (!labelProbe && mapContainer.value) {
     labelProbe = document.createElement('div')
     labelProbe.className = 'stop-cluster-label'
@@ -486,11 +465,11 @@ const stopClusters = (): Clusters => {
     mapContainer.value.append(labelProbe)
   }
   const labelWidth = labelProbe ? textMeasurer(labelProbe) : () => 0
-  const selected = anchor ? makeSelectedStopIcon(opts, net?.look(Number(anchor))) : null
+  const selected = anchor ? makeSelectedStopIcon(net?.look(Number(anchor))) : null
   const boxOf = (group: StopGroup) => {
     if (selected && points[group.leader]!.id === anchor) return selected
     if (group.stations.size === 1 && group.area === undefined) return group.favorite ? heart : station
-    return clusterIconBox(groupIconCount(group), labelWidth(groupLabel(clusters, group).text), opts)
+    return clusterIconBox(groupIconCount(group), labelWidth(groupLabel(clusters, group).text))
   }
   const stations = new StopClusters(points, boxOf, MAX_ZOOM, CLUSTER_ZOOM_STEP)
   const towns = !key && areaList.length ? new AreaClusters(stations, areaList, boxOf) : null
@@ -537,7 +516,7 @@ const legsToward = (from: LatLng, ids: string[]) => spiderLegsToward(ids.map((id
 
 const spiderMarker = (at: LatLng, ids: string[], legs: SpiderLeg[]): Marker => {
   const stations = ids.map((id, i) => ({id, name: stopData.get(id)?.name ?? '', icon: stopIconForId(id), leg: legs[i]!}))
-  const marker = htmlMarker(at, makeSpiderIcon(stations, themeOpts()), {interactive: false, zIndex: 900})
+  const marker = htmlMarker(at, makeSpiderIcon(stations), {interactive: false, zIndex: 900})
   marker.getElement().querySelectorAll<HTMLElement>('[data-stop]').forEach((el, i) => {
     const {id, name, leg} = stations[i]!
     tooltip?.bindAt(marker, el, () => at, [leg.x, leg.y], stationCard(id, name), 'stop-name-tooltip', 14)
@@ -617,7 +596,7 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
   const at = index.lngLat(group)
   const {name, more, text} = groupLabel(clusters, group)
   if (group.stations.size === 1 && group.area === undefined) {
-    const marker = htmlMarker(at, group.favorite ? makeHighlightIcon('favorite', themeOpts()) : stopIconForId(leaderId))
+    const marker = htmlMarker(at, group.favorite ? makeHighlightIcon('favorite') : stopIconForId(leaderId))
     tooltip?.bind(marker, stationCard(leaderId, name), 'stop-name-tooltip', 14)
     onMarkerClick(marker, () => openStop(leaderId))
     return marker
@@ -629,9 +608,9 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
       ...(group.favorite ? ['heart' as const] : []),
       ...modesIn(group.modes).map((mode) => ({mode, color: network.value?.modeColor(mode) ?? UNKNOWN_MODE_COLOR})),
     ]
-  const marker = htmlMarker(at, makeClusterIcon(icons, name, more, clusters.labelWidth(text), themeOpts()))
+  const marker = htmlMarker(at, makeClusterIcon(icons, name, more, clusters.labelWidth(text)))
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
-  tooltip?.bind(marker, () => clusterCardHtml(card(), themeOpts(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
+  tooltip?.bind(marker, () => clusterCardHtml(card(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
   marker.getElement().classList.add('stop-group')
   onPreview(marker.getElement(), () => showCoverage(index, group), () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
@@ -738,7 +717,7 @@ const highlightSelectedStop = (stopId?: string) => {
   aroundShown = null
   const newMarker = stopId ? stopMarker(stopId) : null
   if (stopId && newMarker) {
-    setMarkerIcon(newMarker, makeSelectedStopIcon(themeOpts(), network.value?.look(Number(stopId))))
+    setMarkerIcon(newMarker, makeSelectedStopIcon(network.value?.look(Number(stopId))))
     newMarker.getElement().style.zIndex = '1000'
     currentlyHighlightedStopId.value = stopId
   }
@@ -973,11 +952,6 @@ const mapInit = (center: LatLng, zoom: number) => {
     selectedVehicleId.value = null
   })
 
-  // Paper's grain sits over the map and under the markers.
-  const grain = document.createElement('div')
-  grain.className = 'map-grain'
-  mapValue.getCanvas().after(grain)
-
   tooltip = createTooltip(mapValue, () => {
     const box = mapValue.getContainer().getBoundingClientRect()
     return {
@@ -991,9 +965,6 @@ const mapInit = (center: LatLng, zoom: number) => {
   mapValue.addControl(createCenterControl(), 'top-left')
   mapValue.addControl(createCreditsControl(), 'bottom-right')
   beginLocationWatch()
-
-  mapContainer.value?.classList.toggle('arcade-theme', arcadeActive.value)
-  mapContainer.value?.classList.toggle('legacy-blue-theme', legacyBlueActive.value)
 }
 
 const stopMarker = (id: string): Marker | undefined => {
@@ -1057,7 +1028,7 @@ const userIcon = (): MarkerIcon => {
   if (!ride) return blueDotIcon
   const bus = {route_short_name: ride.line, heading: rideHeading, speed: 0, label: ''} as DisplayVehicle
   return {
-    html: getVehicleMarkerHtml(bus, ride.color, false, {...themeOpts(), showVehicleExtras: false}, t),
+    html: getVehicleMarkerHtml(bus, ride.color, false, false),
     size: [36, 36],
     anchor: [18, 18],
   }
@@ -1222,22 +1193,10 @@ const refreshStopIcons = () => {
   })
   if (currentlyHighlightedStopId.value && stopMarkers.has(currentlyHighlightedStopId.value)) {
     const marker = stopMarkers.get(currentlyHighlightedStopId.value)!
-    setMarkerIcon(marker, makeSelectedStopIcon(themeOpts(), network.value?.look(Number(currentlyHighlightedStopId.value))))
+    setMarkerIcon(marker, makeSelectedStopIcon(network.value?.look(Number(currentlyHighlightedStopId.value))))
   }
   resetClusters()
 }
-
-watch(arcadeActive, (active) => {
-  mapContainer.value?.classList.toggle('arcade-theme', active)
-  refreshStopIcons()
-})
-
-watch(legacyBlueActive, (active) => {
-  mapContainer.value?.classList.toggle('legacy-blue-theme', active)
-  refreshStopIcons()
-})
-
-watch(paperActive, refreshStopIcons)
 
 watch(network, resetClusters)
 
@@ -1245,7 +1204,7 @@ watch(showsContent, () => refreshStops())
 
 watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
-watch([isDarkMode, paperActive, arcadeActive, legacyBlueActive], applyStyle)
+watch(isDarkMode, applyStyle)
 
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
@@ -1301,47 +1260,15 @@ const addDirectionArrowMarker = (
   startPoint: LatLngTuple,
   bearing: number,
 ) => {
-  const isLegacyBlue = legacyBlueActive.value
-  const isArcade = arcadeActive.value
-  const arrowSvg = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${bearing}deg); display:block;">
-    <path d="M12 3 L20 19 L12 15 L4 19 Z" fill="white" stroke="white" stroke-width="1" stroke-linejoin="round"/>
+  const arrowSvg = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
+    <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
   </svg>`
-
-  let html: string
-  if (paperActive.value) {
-    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-      <div style="width:22px;height:22px;background:var(--pp-ink);color:var(--pp-paper);display:flex;align-items:center;justify-content:center;">
-        <svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
-          <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
-        </svg>
-      </div>
-      <div style="width:2px;height:8px;background:var(--pp-ink);"></div>
-    </div>`
-  } else if (isLegacyBlue) {
-    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-      <div style="width:22px;height:22px;background:#000000;border:2px solid #FFFFFF;box-shadow:1px 1px 0 rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-        ${arrowSvg}
-      </div>
-      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #000000;margin-top:-1px;"></div>
-    </div>`
-  } else if (isArcade) {
-    html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
-      <div style="width:22px;height:22px;border-radius:50%;background:#0f172a;border:2px solid #FACC15;display:flex;align-items:center;justify-content:center;">
-        ${arrowSvg}
-      </div>
-      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #0f172a;margin-top:-1px;"></div>
-    </div>`
-  } else {
-    const arrowSvgThemed = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
-      <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
-    </svg>`
-    html = `<div class="flex flex-col items-center pointer-events-none" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
-      <div class="flex items-center justify-center w-[22px] h-[22px] rounded-full border-2 border-white dark:border-[#0f172a] bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
-        ${arrowSvgThemed}
-      </div>
-      <div class="dir-arrow-tail"></div>
-    </div>`
-  }
+  const html = `<div class="flex flex-col items-center pointer-events-none" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
+    <div class="flex items-center justify-center w-[22px] h-[22px] rounded-full border-2 border-white dark:border-[#0f172a] bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
+      ${arrowSvg}
+    </div>
+    <div class="dir-arrow-tail"></div>
+  </div>`
 
   addShapeMarker(m, startPoint, {
     html,
@@ -1351,17 +1278,8 @@ const addDirectionArrowMarker = (
 }
 
 const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: string) => {
-  const isLegacyBlue = legacyBlueActive.value
   addShapeMarker(m, endPoint, {
-    html: paperActive.value
-      ? `<div style="width:18px;height:18px;background-color:${routeColor};border:1.5px solid var(--pp-ink);display:flex;align-items:center;justify-content:center;">
-           <div style="width:6px;height:6px;background:var(--pp-paper);"></div>
-         </div>`
-      : isLegacyBlue
-      ? `<div style="width:20px;height:20px;background-color:${routeColor};border:2px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
-           <div style="width:6px;height:6px;background:white;border:1px solid rgba(0,0,0,0.4);"></div>
-         </div>`
-      : `<div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
+    html: `<div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
               style="background-color: ${routeColor};">
            <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
          </div>`,
@@ -1370,14 +1288,9 @@ const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: st
 }
 
 const addGroupedStartMarkers = (m: MapLibreMap, groupedStarts: Map<string, GroupedStart>) => {
-  const isLegacyBlue = legacyBlueActive.value
   groupedStarts.forEach((data) => {
     const routesHtml = data.routes.map((r) =>
-      paperActive.value
-        ? `<div class="pp-map-stamp" style="background-color:${r.color};font-size:13px;padding:3px 8px;line-height:1.3;white-space:nowrap;">${r.name}</div>`
-        : isLegacyBlue
-        ? `<div style="background-color:${r.color};color:white;font-size:10px;font-weight:700;padding:2px 6px;border:1px solid black;box-shadow:1px 1px 0 rgba(0,0,0,0.35);line-height:1.4;white-space:nowrap;font-family:'Tahoma','Trebuchet MS',sans-serif;">${r.name}</div>`
-        : `<div style="background-color: ${r.color};"
+      `<div style="background-color: ${r.color};"
                 class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
              ${r.name}
            </div>`
@@ -1419,15 +1332,12 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     if (drawnPaths.has(signature)) continue
     drawnPaths.add(signature)
 
-    const square = legacyBlueActive.value || paperActive.value
-    const width = square ? 4 : 5
     shapeLines.push({
       coords: latLngs,
-      color: legacyBlueActive.value ? (isDarkMode.value ? '#4e88d8' : '#003C9C') : (routeColor || '#94a3b8'),
-      width,
-      opacity: paperActive.value ? 0.9 : 0.85,
-      dash: dashOf(arcadeActive.value ? '0 14' : dashArray, width),
-      square,
+      color: routeColor || '#94a3b8',
+      width: 5,
+      opacity: 0.85,
+      dash: dashOf(dashArray, 5),
     })
 
     if (directionArrowAtStart.value && latLngs.length >= 2) {
@@ -1454,7 +1364,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, arcadeActive, legacyBlueActive, paperActive, directionArrowAtStart, isDarkMode], ([newShapes]) => {
+watch([shapesToDisplay, directionArrowAtStart], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
@@ -1473,11 +1383,10 @@ watch(shapesToDisplay, (newShapes) => {
 const renderWalkingPolylines = (polylines: [number, number][][]) => {
   lines.walks = polylines.filter((points) => points.length).map((points) => ({
     coords: points,
-    color: paperActive.value ? paperInk() : legacyBlueActive.value ? '#245EDC' : '#38bdf8',
+    color: '#38bdf8',
     width: 3,
     opacity: 0.85,
-    dash: dashOf(paperActive.value ? '1 7' : '8 6', 3),
-    square: legacyBlueActive.value,
+    dash: dashOf('8 6', 3),
   }))
   syncLines('walks')
   const bounds = linesBounds(lines.walks, lines.shapes)
@@ -1488,7 +1397,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   }
 }
 
-watch([walkingPolylines, arcadeActive, legacyBlueActive, paperActive, isDarkMode], ([polylines]) => {
+watch(walkingPolylines, (polylines) => {
   renderWalkingPolylines(polylines as [number, number][][])
 }, {deep: true})
 
@@ -1503,7 +1412,7 @@ const renderHighlightedStops = () => {
     if (stopId === selectedId) continue
     const stop = stopData.get(stopId)
     if (!stop) continue
-    const highlight = htmlMarker(stop, makeHighlightIcon(color, themeOpts()), {
+    const highlight = htmlMarker(stop, makeHighlightIcon(color), {
       zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
     tooltip?.bind(highlight, stationCard(stopId, stop.name), 'stop-name-tooltip', 14)
@@ -1513,7 +1422,7 @@ const renderHighlightedStops = () => {
   scheduleStopRefresh()
 }
 
-watch([highlightedStops, currentlyHighlightedStopId, arcadeActive, legacyBlueActive, paperActive], renderHighlightedStops, {deep: true})
+watch([highlightedStops, currentlyHighlightedStopId], renderHighlightedStops, {deep: true})
 
 
 const renderVehicles = (vehicles: DisplayVehicle[]) => {
@@ -1529,7 +1438,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
 
     const showStopInfo = selectedVehicleId.value === vehicle.id
     const faded = vehicle.faded && !showStopInfo
-    const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, themeOpts(), t)
+    const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, showVehicleExtras.value)
     // Scaled around the icon anchor so the bus stays where it is.
     const html = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
     const icon: MarkerIcon = {html, size: [36, 36], anchor: [18, 18]}
@@ -1563,7 +1472,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedVehicleId, arcadeActive, legacyBlueActive, paperActive, showVehicleExtras], ([vehicles]) => {
+watch([vehiclesToDisplay, () => route.name, selectedVehicleId, showVehicleExtras], ([vehicles]) => {
   renderVehicles(vehicles as DisplayVehicle[])
 }, {deep: true})
 
@@ -1571,7 +1480,7 @@ watch(() => route.name, () => {
   selectedVehicleId.value = null
 })
 
-watch([rideAs, arcadeActive, legacyBlueActive, paperActive], () => {
+watch(rideAs, () => {
   if (userDot.value) setMarkerIcon(userDot.value, userIcon())
   syncAccuracy()
 })
@@ -1595,7 +1504,7 @@ watch(flyToLocation, (loc) => {
 })
 
 const placePin = (loc: { lat: number, lng: number, label: string }, color: string | undefined, onDragged: (lat: number, lng: number) => void) => {
-  const marker = htmlMarker(loc, makePinIcon(themeOpts(), color), {zIndex: 9000, draggable: true})
+  const marker = htmlMarker(loc, makePinIcon(color), {zIndex: 9000, draggable: true})
   attachPlannerDragLift(marker)
   tooltip?.bind(marker, placeTooltipHtml(loc.label), 'pin-tooltip', 30)
   marker.on('dragend', () => {
@@ -1605,7 +1514,7 @@ const placePin = (loc: { lat: number, lng: number, label: string }, color: strin
   return marker
 }
 
-watch([pinnedLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
+watch(pinnedLocation, (loc) => {
   if (pinMarker.value) {
     tooltip?.forget(pinMarker.value)
     pinMarker.value.remove()
@@ -1616,7 +1525,7 @@ watch([pinnedLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => 
     (lat, lng) => mapStore.setPinnedLocationDragged(lat, lng)).addTo(map.value)
 })
 
-watch([customOriginLocation, arcadeActive, legacyBlueActive, paperActive], ([loc]) => {
+watch(customOriginLocation, (loc) => {
   if (originMarker.value) {
     tooltip?.forget(originMarker.value)
     originMarker.value.remove()

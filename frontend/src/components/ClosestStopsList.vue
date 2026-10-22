@@ -128,8 +128,4 @@ onUnmounted(() => {
   color: #94a3b8;
 }
 
-.emoji-icon-md {
-  font-size: 1.25rem;
-}
-
 </style>

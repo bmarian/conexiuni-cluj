@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onUnmounted, ref, toRef, watch} from 'vue'
+import {computed, nextTick, ref, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import HeaderNavigation from "@/components/HeaderNavigation.vue"
 import {useI18n} from 'vue-i18n'
@@ -10,7 +10,6 @@ import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DaySchedule, Frequency} from '@/types/ctp.ts'
 import {getTimetableDayKey, plainTimetableDayKey, specialDayOn, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
-import {keepHyphenatedWords} from '@/utils/text.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
 import BusMenu, {type BusMenuItem} from '@/components/BusMenu.vue'
 import {useLongPress} from '@/composables/useLongPress.ts'
@@ -30,9 +29,8 @@ import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stor
 import {usePushStore} from '@/stores/push.ts'
 import ShareButton from '@/components/ShareButton.vue'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
-import RoutePong from '@/components/RoutePong.vue'
 import {useRoute, useRouter} from "vue-router";
-import {useKbdEscape, useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
+import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {siteUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 
@@ -276,40 +274,30 @@ watch([() => shapeInfo.value?.route_short_name, selectedTimetableTab], async ([n
   if (name === shapeInfo.value?.route_short_name && tab === selectedTimetableTab.value) hourlyOffsets.value = data
 }, {immediate: true})
 
-function tripHourlyOffsets(offsets: Record<string, HourlyStopOffsets>): Record<string, number[]> | null {
-  const trip = offsets[currentTripId.value]
+const hourlyTripOffsets = computed((): Record<string, number[]> | null => {
+  const trip = hourlyOffsets.value[currentTripId.value]
   const stops = stopsForDirection.value
   if (!trip || trip.stop_ids.length !== stops.length) return null
   return trip.stop_ids.every((id, i) => id === stops[i]!.stop_id) ? trip.hourly_offset_seconds : null
-}
-
-const hourlyTripOffsets = computed(() => tripHourlyOffsets(hourlyOffsets.value))
-
-// Exact minutes from the terminus to each stop for a run leaving at departureMin.
-function offsetsAt(hourly: Record<string, number[]> | null, departureMin: number): number[] {
-  const seconds = hourly?.[Math.floor(departureMin / 60) % 24]
-  return (seconds ?? stopsForDirection.value.map((stop) => stop.secondsFromStart)).map((s) => s / 60)
-}
+})
 
 // Shared by the chips and the trip view so both show the same minute.
 function tripOffsetsAt(departureMin: number): number[] {
-  return offsetsAt(hourlyTripOffsets.value, departureMin)
+  const seconds = hourlyTripOffsets.value?.[Math.floor(departureMin / 60) % 24]
+  return (seconds ?? stopsForDirection.value.map((stop) => stop.secondsFromStart)).map((s) => s / 60)
 }
 
 // time is CTP's printed departure and identifies the run; startMin adds the first stop's learned delay.
 type TimetableChip = { time: string; startMin: number | null; isPast: boolean }
 type GridChip = TimetableChip & { startMin: number }
 
-function scheduleFor(day: TimetableTab): DaySchedule | undefined {
+const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
-  return day === 'sunday' ? tt?.sunday : day === 'saturday' ? tt?.saturday : tt?.weekdays
-}
-
-function chipsForDay(day: TimetableTab, hourly: Record<string, number[]> | null, strikePastDays: boolean): TimetableChip[] {
-  const sched = scheduleFor(day)
+  const day = selectedTimetableTab.value
+  const sched = day === 'sunday' ? tt?.sunday : day === 'saturday' ? tt?.saturday : tt?.weekdays
   if (!sched?.entries?.length) return []
   const isToday = day === todayTab.value
-  const dayIsPast = strikePastDays && isPastTab(day)
+  const dayIsPast = isPastTab(day)
   const now = currentMinutes.value
   return sched.entries
     .map((entry): TimetableChip | null => {
@@ -317,7 +305,7 @@ function chipsForDay(day: TimetableTab, hourly: Record<string, number[]> | null,
       if (!raw) return null
       const departureMin = timeStringToMinutes(raw)
       if (departureMin === null) return {time: raw, startMin: null, isPast: false}
-      const startMin = Math.round(departureMin + (offsetsAt(hourly, departureMin)[0] ?? 0))
+      const startMin = Math.round(departureMin + (tripOffsetsAt(departureMin)[0] ?? 0))
       return {
         time: raw,
         startMin,
@@ -325,10 +313,7 @@ function chipsForDay(day: TimetableTab, hourly: Record<string, number[]> | null,
       }
     })
     .filter((e): e is TimetableChip => e !== null)
-}
-
-const timetableEntries = computed((): TimetableChip[] =>
-  chipsForDay(selectedTimetableTab.value, hourlyTripOffsets.value, true))
+})
 
 const allEntriesSuspended = computed(
   () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.startMin === null)
@@ -336,9 +321,9 @@ const allEntriesSuspended = computed(
 
 type HourGroup = { hour: string; chips: GridChip[]; isNextDay: boolean }
 
-function chipsByHour(entries: TimetableChip[]): Map<number, GridChip[]> {
+const timetableByHour = computed((): HourGroup[] => {
   const groups = new Map<number, GridChip[]>()
-  const chips = entries
+  const chips = timetableEntries.value
     .filter((chip): chip is GridChip => chip.startMin !== null)
     .sort((a, b) => a.startMin - b.startMin)
   for (const chip of chips) {
@@ -346,61 +331,12 @@ function chipsByHour(entries: TimetableChip[]): Map<number, GridChip[]> {
     if (!groups.has(h)) groups.set(h, [])
     groups.get(h)!.push(chip)
   }
-  return groups
-}
-
-const timetableByHour = computed((): HourGroup[] =>
-  Array.from(chipsByHour(timetableEntries.value).entries()).map(([h, chips]) => ({
+  return Array.from(groups.entries()).map(([h, chips]) => ({
     hour: formatAbsoluteMinutes(h * 60).slice(0, 2),
     chips,
     isNextDay: h >= 24,
-  })))
-
-// Paper prints every day type side by side, so it needs each day's learned offsets.
-const paperDayOffsets = ref<Partial<Record<TimetableTab, Record<string, HourlyStopOffsets>>>>({})
-
-watch([() => shapeInfo.value?.route_short_name, () => settings.paperActive], async ([name, paper]) => {
-  if (!name || !paper) return
-  const days: TimetableTab[] = ['weekdays', 'saturday', 'sunday']
-  const results = await Promise.all(days.map((day) => fetchHourlyStopOffsets(name, day === 'weekdays' ? 'weekday' : day)))
-  if (name === shapeInfo.value?.route_short_name) {
-    paperDayOffsets.value = Object.fromEntries(days.map((day, i) => [day, results[i]]))
-  }
-}, {immediate: true})
-
-type PaperRow = { hour: string; isNextDay: boolean; cells: GridChip[][] }
-
-const paperTimetable = computed(() => {
-  const days = availableTabs.value.map((tab) => tab.key)
-  const byDay = days.map((day) =>
-    chipsByHour(chipsForDay(day, tripHourlyOffsets(paperDayOffsets.value[day] ?? {}), false)))
-  const hours = [...new Set(byDay.flatMap((groups) => [...groups.keys()]))].sort((a, b) => a - b)
-  const rows: PaperRow[] = hours.map((h) => ({
-    hour: formatAbsoluteMinutes(h * 60).slice(0, 2),
-    isNextDay: h >= 24,
-    cells: byDay.map((groups) => groups.get(h) ?? []),
   }))
-  const frequencies = days.map((day) => {
-    const sched = scheduleFor(day)
-    return (isOutgoing.value ? sched?.in_frequency : sched?.out_frequency) ?? null
-  })
-  const todayCol = days.indexOf(todayTab.value)
-  const todayCells = todayCol >= 0 ? rows.flatMap((row) => row.cells[todayCol] ?? []) : []
-  return {
-    days,
-    rows,
-    frequencies,
-    nextTime: todayCells.find((chip) => !chip.isPast)?.time ?? null,
-  }
 })
-
-async function selectPaperDeparture(day: TimetableTab, chip: GridChip) {
-  if (selectedTimetableTab.value !== day) {
-    selectedTimetableTab.value = day
-    await nextTick()
-  }
-  selectDeparture(chip)
-}
 
 const selectedDepartureTime = ref<string | null>(null)
 const tripViewRef = ref<HTMLElement | null>(null)
@@ -436,35 +372,12 @@ const selectedDepartureTimeDisplay = computed(
   () => selectedDepartureStops.value[0]?.arrivalTimeStr ?? null
 )
 
-
-// Pong: tap the direction toggle 5 times within 2 s.
-const pongActive = ref(false)
-const dirTapTimes: number[] = []
-
 function onDirClick(dir: '0' | '1') {
   router.replace({name: 'route', params: {routeId: props.routeId, direction: dir}})
-
   currentDirection.value = dir
-  const now = Date.now()
-  while (dirTapTimes.length && now - dirTapTimes[0]! > 2000) dirTapTimes.shift()
-  dirTapTimes.push(now)
-  if (dirTapTimes.length >= 5) {
-    pongActive.value = true
-    dirTapTimes.length = 0
-  }
 }
 
 const kbd = useKeyboardNav()
-
-useKbdLayer(pongActive, {capture: true, close: () => { pongActive.value = false }})
-
-watch(pongActive, (active) => {
-  if (!kbd.keyboardMode.value) return
-  void nextTick(() => {
-    if (!active) kbd.focusSection('direction')
-    else document.querySelector('.pong-wrap')?.scrollIntoView({block: 'nearest'})
-  })
-})
 
 function switchDirection() {
   const next = currentDirection.value === '0' ? '1' : '0'
@@ -503,41 +416,6 @@ useKbdShortcuts({
   b: toggleFollow,
   d: switchDirection,
   t: () => kbd.focusSection('tt-minutes') || kbd.focusSection('tt-tabs'),
-})
-
-const mouthOpen = ref(true)
-let chompTimer: ReturnType<typeof setInterval> | null = null
-
-function startChomp() {
-  if (chompTimer) return
-  chompTimer = setInterval(() => {
-    mouthOpen.value = !mouthOpen.value
-  }, 320)
-}
-
-function stopChomp() {
-  if (chompTimer) {
-    clearInterval(chompTimer);
-    chompTimer = null
-  }
-  mouthOpen.value = true
-}
-
-watch(() => settings.arcadeActive, (active) => {
-  if (active) startChomp()
-  else stopChomp()
-}, {immediate: true})
-
-function ghostFill(stop: IndexedStop, idx: number): string {
-  if (String(stop.stop_id) === fromStopId.value) return '#10b981'
-  if (idx === nearestStopIdx.value) return '#a855f7'
-  if (favoritesStore.isStopFavorite(stop.stop_id)) return '#f43f5e'
-  if (idx === 0 || idx === stopsForDirection.value.length - 1) return settings.isDark ? '#64748b' : '#94a3b8'
-  return settings.isDark ? '#334155' : '#b0b8c4'
-}
-
-onUnmounted(() => {
-  stopChomp()
 })
 </script>
 
@@ -579,96 +457,60 @@ onUnmounted(() => {
       <HeaderNavigation/>
     </div>
 
-    <header v-if="settings.paperActive" class="pp-masthead pp-masthead-stamped mb-6" data-kbd-section="actions" data-kbd-axis="x">
-      <h1 class="pp-title pp-title-sm">{{ keepHyphenatedWords(timetable?.route_long_name || shapeInfo.route_short_name) }}</h1>
-      <span class="pp-line-stamp" :style="{ '--line': shapeInfo.route_color }"
-            :aria-label="`${t('route')} ${shapeInfo.route_short_name}`">
-        <small aria-hidden="true">{{ t('route') }}</small>{{ shapeInfo.route_short_name }}
-      </span>
-      <p v-if="fromStopName" class="pp-subtitle">{{ t('from', {name: fromStopName}) }}</p>
-      <div class="pp-actions">
-        <button
-          type="button"
-          class="pp-action"
-          :aria-pressed="isFavorite"
-          :aria-label="isFavorite ? t('removeFromFavorites') : t('addToFavorites')"
-          data-kbd-item="fav"
-          @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
-        >{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</button>
-        <button
-          type="button"
-          class="pp-action"
-          :aria-pressed="isFollowing"
-          :aria-label="t(isFollowing ? 'unfollowLine' : 'followLine', {route: shapeInfo.route_short_name})"
-          data-kbd-item="bell"
-          @click="toggleFollow"
-        >{{ t(isFollowing ? 'paperFollowing' : 'paperFollow') }}</button>
-        <ShareButton/>
+    <header class="flex items-start gap-4 pb-3">
+      <div
+        class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
+        :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
+      >
+        <span class="text-2xl font-black text-white leading-none">{{
+            shapeInfo.route_short_name
+          }}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div
+          class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
+          {{ t('route') }}
+        </div>
+        <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
+          {{ timetable?.route_long_name || shapeInfo.route_short_name }}
+        </h1>
+        <p v-if="fromStopName"
+           class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
+          <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
+        </p>
       </div>
     </header>
 
-    <template v-else>
-      <header class="flex items-start gap-4 pb-3">
-        <div
-          class="shrink-0 min-w-[3.5rem] h-14 px-3 rounded-2xl flex items-center justify-center mt-0.5"
-          :style="{ backgroundColor: shapeInfo.route_color, boxShadow: `0 8px 24px -4px ${shapeInfo.route_color}66` }"
-        >
-          <span class="text-2xl font-black text-white leading-none">{{
-              shapeInfo.route_short_name
-            }}</span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div
-            class="route-header-label text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide mb-0.5">
-            {{ t('route') }}
-          </div>
-          <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-snug">
-            {{ timetable?.route_long_name || shapeInfo.route_short_name }}
-          </h1>
-          <p v-if="fromStopName"
-             class="flex items-start gap-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400 font-medium mt-1!">
-            <span class="w-1.5 h-1.5 mt-[5px]! rounded-full bg-emerald-500 shrink-0"></span>
-            <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
-          </p>
-        </div>
-      </header>
+    <div class="header-actions" data-kbd-section="actions" data-kbd-axis="x">
+      <button
+        type="button"
+        class="fav-btn"
+        :class="{ 'is-fav': isFavorite }"
+        :aria-pressed="isFavorite"
+        data-kbd-item="fav"
+        @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
+      >
+        <IconHeartFilled v-if="isFavorite" class="w-[18px] h-[18px]"/>
+        <IconHeartOutline v-else class="w-[18px] h-[18px]"/>
+        {{ t(isFavorite ? 'saved' : 'save') }}
+      </button>
+      <ShareButton labelled/>
+      <button
+        type="button"
+        class="bell-btn"
+        :class="{ 'is-following': isFollowing }"
+        :aria-pressed="isFollowing"
+        data-kbd-item="bell"
+        @click="toggleFollow"
+      >
+        <IconBellFilled v-if="isFollowing" class="w-[18px] h-[18px]"/>
+        <IconBellOutline v-else class="w-[18px] h-[18px]"/>
+        {{ t(isFollowing ? 'followingChanges' : 'followChanges') }}
+      </button>
+    </div>
 
-      <div class="header-actions" data-kbd-section="actions" data-kbd-axis="x">
-        <button
-          type="button"
-          class="fav-btn"
-          :class="{ 'is-fav': isFavorite }"
-          :aria-pressed="isFavorite"
-          data-kbd-item="fav"
-          @click="favoritesStore.toggleRouteFavorite(routeIdNum, currentDirection)"
-        >
-          <IconHeartFilled v-if="isFavorite" class="w-[18px] h-[18px]"/>
-          <IconHeartOutline v-else class="w-[18px] h-[18px]"/>
-          {{ t(isFavorite ? 'saved' : 'save') }}
-        </button>
-        <ShareButton labelled/>
-        <button
-          type="button"
-          class="bell-btn"
-          :class="{ 'is-following': isFollowing }"
-          :aria-pressed="isFollowing"
-          data-kbd-item="bell"
-          @click="toggleFollow"
-        >
-          <IconBellFilled v-if="isFollowing" class="w-[18px] h-[18px]"/>
-          <IconBellOutline v-else class="w-[18px] h-[18px]"/>
-          {{ t(isFollowing ? 'followingChanges' : 'followChanges') }}
-        </button>
-      </div>
-    </template>
-
-    <RoutePong
-      v-if="pongActive"
-      :route-short-name="shapeInfo.route_short_name"
-      :route-color="shapeInfo.route_color"
-      @exit="pongActive = false"
-    />
-    <div v-else class="direction-toggle-wrap" data-kbd-section="direction" data-kbd-axis="x" data-kbd-entry="3">
+    <div class="direction-toggle-wrap" data-kbd-section="direction" data-kbd-axis="x" data-kbd-entry="3">
       <button :disabled="!hasOutgoing" @click="onDirClick('0')"
               data-kbd-item="dir-0" :data-kbd-active="currentDirection === '0'"
               :class="['dir-btn', currentDirection === '0' ? 'dir-btn-active' : 'dir-btn-inactive']">
@@ -717,11 +559,6 @@ onUnmounted(() => {
       <div class="relative" data-kbd-section="stops">
         <div class="absolute left-[10px] top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-700"></div>
 
-        <div v-if="settings.arcadeActive" class="arcade-eater" aria-hidden="true">
-          <div class="arcade-chomp"
-               style="width:16px;height:16px;background:#FACC15;border-radius:50%;border:1.5px solid #D97706;transform:rotate(90deg);"></div>
-        </div>
-
         <div
           v-for="(stop, idx) in stopsForDirection"
           :key="stop.stop_id + '-' + idx"
@@ -736,40 +573,16 @@ onUnmounted(() => {
           @click.capture="stopPress.swallow"
         >
           <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-            <template v-if="settings.arcadeActive">
-              <svg viewBox="0 0 12 16"
-                   :width="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
-                   :height="(idx === 0 || idx === stopsForDirection.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
-                   aria-hidden="true">
-                <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z"
-                      :fill="ghostFill(stop, idx)"/>
-                <circle cx="4" cy="8" r="1.4" fill="white"/>
-                <circle cx="8" cy="8" r="1.4" fill="white"/>
-                <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
-                <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
-              </svg>
-            </template>
-            <template v-else-if="settings.legacyBlueActive">
-              <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
-              <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
-              <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                    class="route-stop-emoji">❤️</span>
-              <span v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
-                    class="route-stop-bullet route-stop-bullet-end"></span>
-              <span v-else class="route-stop-bullet"></span>
-            </template>
-            <template v-else>
-              <div v-if="String(stop.stop_id) === fromStopId"
-                   class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="idx === nearestStopIdx"
-                   class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                   class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-              <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
-                   class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-              <div v-else
-                   class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
-            </template>
+            <div v-if="String(stop.stop_id) === fromStopId"
+                 class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="idx === nearestStopIdx"
+                 class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                 class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            <div v-else-if="idx === 0 || idx === stopsForDirection.length - 1"
+                 class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+            <div v-else
+                 class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
           </div>
 
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
@@ -781,24 +594,22 @@ onUnmounted(() => {
               'font-medium text-slate-500 dark:text-slate-400'
             ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}
             </router-link>
-            <template v-if="!settings.legacyBlueActive">
-              <svg v-if="String(stop.stop_id) === fromStopId"
-                   class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
-                   fill="currentColor">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-              </svg>
-              <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0"
-                   viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
-              <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                   class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
-            </template>
+            <svg v-if="String(stop.stop_id) === fromStopId"
+                 class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
+                 fill="currentColor">
+              <path
+                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            <svg v-else-if="idx === nearestStopIdx" class="w-3.5 h-3.5 text-purple-500 shrink-0"
+                 viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                 class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
             <svg v-if="settings.busAlerts && isStopFollowed(stop)" class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
                  fill="currentColor" :aria-label="t('following')">
               <path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2z"/>
@@ -829,68 +640,11 @@ onUnmounted(() => {
         <div class="flex items-center gap-2 my-3!">
           <span class="section-label-text">{{ t('timetable') }}</span>
           <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
-          <span v-if="!settings.paperActive" class="text-[10px] text-slate-400 dark:text-slate-500">{{
+          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{
               t('timetableClickHint')
             }}</span>
         </div>
 
-        <template v-if="settings.paperActive">
-          <p v-if="todayNotice" class="flex items-center gap-1.5 mb-3! text-xs text-slate-500 dark:text-slate-400">
-            <span class="tt-today-dot"></span>{{ todayNotice }}
-          </p>
-          <div v-if="allEntriesSuspended" class="suspended-banner">{{ t('serviceSuspended') }}</div>
-          <div class="pp-tt" role="table" data-kbd-section="tt-minutes" data-kbd-axis="grid"
-               :style="{ '--pp-tt-cols': paperTimetable.days.length }">
-            <div class="pp-tt-head" role="row">
-              <span class="pp-tt-hour" role="columnheader">{{ t('paperHour') }}</span>
-              <span
-                v-for="day in paperTimetable.days"
-                :key="day"
-                class="pp-tt-day"
-                :class="{ 'is-today': day === todayTab }"
-                role="columnheader"
-              >{{ availableTabs.find((tab) => tab.key === day)?.label }}</span>
-            </div>
-            <div v-if="paperTimetable.frequencies.some(Boolean)" class="pp-tt-row" role="row">
-              <span class="pp-tt-hour">~</span>
-              <span
-                v-for="(freq, i) in paperTimetable.frequencies"
-                :key="i"
-                class="pp-tt-cell pp-tt-freq"
-                :class="{ 'is-today': paperTimetable.days[i] === todayTab }"
-              >
-                <template v-if="freq">
-                  {{ frequencyLabel(freq) }}
-                  <i v-if="freq.start">{{ t('frequencyWindow', {start: freq.start, end: freq.end}) }}</i>
-                </template>
-              </span>
-            </div>
-            <div v-for="row in paperTimetable.rows" :key="row.hour" class="pp-tt-row" role="row">
-              <span class="pp-tt-hour" :class="{ 'is-next-day': row.isNextDay }">{{ row.hour }}</span>
-              <span
-                v-for="(cell, i) in row.cells"
-                :key="i"
-                class="pp-tt-cell"
-                :class="{ 'is-today': paperTimetable.days[i] === todayTab }"
-              >
-                <span
-                  v-for="chip in cell"
-                  :key="chip.time"
-                  class="pp-tt-min"
-                  :class="{
-                    'is-past': chip.isPast,
-                    'is-next': paperTimetable.days[i] === todayTab && chip.time === paperTimetable.nextTime,
-                    'is-selected': paperTimetable.days[i] === selectedTimetableTab && chip.time === selectedDepartureTime,
-                  }"
-                  :data-kbd-item="paperTimetable.days[i] === selectedTimetableTab ? `min-${chip.time}` : `min-${paperTimetable.days[i]}-${chip.time}`"
-                  @click="selectPaperDeparture(paperTimetable.days[i]!, chip)"
-                >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</span>
-              </span>
-            </div>
-          </div>
-        </template>
-
-        <template v-else>
         <div class="flex gap-1.5 mb-4!" data-kbd-section="tt-tabs" data-kbd-axis="x">
           <button
             v-for="tab in availableTabs"
@@ -956,7 +710,6 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        </template>
 
         <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef"
              class="trip-view">
@@ -988,40 +741,16 @@ onUnmounted(() => {
               ]"
             >
               <div class="relative z-10 w-5 shrink-0 flex items-center justify-center">
-                <template v-if="settings.arcadeActive">
-                  <svg viewBox="0 0 12 16"
-                       :width="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 13 : 10"
-                       :height="(idx === 0 || idx === selectedDepartureStops.length - 1 || String(stop.stop_id) === fromStopId || idx === nearestStopIdx || favoritesStore.isStopFavorite(stop.stop_id)) ? 17 : 13"
-                       aria-hidden="true">
-                    <path d="M1,15 L1,5.5 A5,5 0 0,1 11,5.5 L11,15 L9,12.5 L7,15 L5,12.5 L3,15 Z"
-                          :fill="ghostFill(stop, idx)"/>
-                    <circle cx="4" cy="8" r="1.4" fill="white"/>
-                    <circle cx="8" cy="8" r="1.4" fill="white"/>
-                    <circle cx="4.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
-                    <circle cx="8.4" cy="8.5" r="0.75" fill="rgba(0,0,0,0.65)"/>
-                  </svg>
-                </template>
-                <template v-else-if="settings.legacyBlueActive">
-                  <span v-if="String(stop.stop_id) === fromStopId" class="route-stop-emoji">📍</span>
-                  <span v-else-if="idx === nearestStopIdx" class="route-stop-emoji">🙎‍♂️</span>
-                  <span v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                        class="route-stop-emoji">❤️</span>
-                  <span v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
-                        class="route-stop-bullet route-stop-bullet-end"></span>
-                  <span v-else class="route-stop-bullet"></span>
-                </template>
-                <template v-else>
-                  <div v-if="String(stop.stop_id) === fromStopId"
-                       class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="idx === nearestStopIdx"
-                       class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                       class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-                  <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
-                       class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
-                  <div v-else
-                       class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
-                </template>
+                <div v-if="String(stop.stop_id) === fromStopId"
+                     class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="idx === nearestStopIdx"
+                     class="w-3 h-3 rounded-full bg-purple-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                     class="w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+                <div v-else-if="idx === 0 || idx === selectedDepartureStops.length - 1"
+                     class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-500 border-2 border-white dark:border-slate-900"></div>
+                <div v-else
+                     class="w-2 h-2 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600"></div>
               </div>
 
               <div class="flex-1 min-w-0 flex items-center gap-1.5">
@@ -1032,26 +761,24 @@ onUnmounted(() => {
                   idx === 0 || idx === selectedDepartureStops.length - 1 ? 'font-semibold text-slate-700 dark:text-slate-200' :
                   'font-medium text-slate-500 dark:text-slate-400'
                 ]" :to="cityPath(`/stop/${stop.stop_id}`)" data-kbd-click>{{ getStopLabel(idx, stop) }}</router-link>
-                <template v-if="!settings.legacyBlueActive">
-                  <svg v-if="String(stop.stop_id) === fromStopId"
-                       class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
-                       fill="currentColor">
-                    <path
-                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  </svg>
-                  <svg v-else-if="idx === nearestStopIdx"
-                       class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24"
-                       fill="currentColor">
-                    <path
-                      d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                  </svg>
-                  <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
-                       class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24"
-                       fill="currentColor">
-                    <path
-                      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                </template>
+                <svg v-if="String(stop.stop_id) === fromStopId"
+                     class="w-3.5 h-3.5 text-emerald-500 shrink-0" viewBox="0 0 24 24"
+                     fill="currentColor">
+                  <path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <svg v-else-if="idx === nearestStopIdx"
+                     class="w-3.5 h-3.5 text-purple-500 shrink-0" viewBox="0 0 24 24"
+                     fill="currentColor">
+                  <path
+                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <svg v-if="favoritesStore.isStopFavorite(stop.stop_id)"
+                     class="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24"
+                     fill="currentColor">
+                  <path
+                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
               </div>
 
               <span :class="[

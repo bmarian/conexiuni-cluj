@@ -5,12 +5,10 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import HeaderNavigation from '@/components/HeaderNavigation.vue'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
-import {useSettingsStore} from '@/stores/settings'
 import {BETA_GROUP_URL, TESTING_URL} from '@/utils/androidApp.ts'
 
 const {t} = useI18n()
 const router = useRouter()
-const settings = useSettingsStore()
 
 useHead(() => ({
   title: t('headAndroidTitle'),
@@ -66,11 +64,7 @@ const steps = [
       <HeaderNavigation/>
     </div>
 
-    <header v-if="settings.paperActive" class="pp-masthead">
-      <p class="pp-kicker">Ce autobuz iau?</p>
-      <h1 class="pp-title pp-title-sm">{{ t('androidPageTitle') }}</h1>
-    </header>
-    <header v-else class="aa-head">
+    <header class="aa-head">
       <h1 class="aa-title">
         {{ t('androidPageTitle') }}
         <span class="beta-badge">{{ t('beta') }}</span>

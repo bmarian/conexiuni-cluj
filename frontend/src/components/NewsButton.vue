@@ -6,7 +6,6 @@ import {useSettingsStore} from '@/stores/settings'
 import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {changeDirection, changeKindLabels, changeTitle} from '@/utils/routeChanges'
 import {buildNewsFeed, newsSource} from '@/utils/newsFeed'
-import {cityInfo} from '@/utils/city.ts'
 import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 const props = withDefaults(defineProps<{ topOffset?: string }>(), {topOffset: '3.5rem'})
@@ -44,8 +43,6 @@ const feed = computed(() => buildNewsFeed(routeUpdates.updates, new Date(), loca
     }
     : {...entry, title: entry.news.title, meta: `${entry.date} · ${newsSource(entry.news.url)}`, isNew: false},
 ))
-
-const operatorWord = computed(() => cityInfo()?.operator.split(' ')[0] ?? '')
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
@@ -112,9 +109,7 @@ const topValue = computed(() => props.topOffset)
       :aria-expanded="isOpen"
       @click="toggle"
     >
-      <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">📰</span>
-      <span v-else-if="settings.paperActive" class="pp-slip-label">{{ t('paperNews') }}</span>
-      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            width="16" height="16" aria-hidden="true">
         <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
@@ -160,9 +155,7 @@ const topValue = computed(() => props.topOffset)
               :data-kbd-item="entry.key"
             >
               <span class="news-lead" aria-hidden="true">
-                <span v-if="settings.legacyBlueActive" class="emoji-icon">📰</span>
-                <span v-else-if="settings.paperActive" class="news-lead-word">{{ operatorWord }}</span>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                      width="16" height="16">
                   <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
@@ -407,12 +400,6 @@ const topValue = computed(() => props.topOffset)
   color: #ffffff;
   font-size: 0.75rem;
   font-weight: 800;
-}
-
-.news-lead-word {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
 }
 
 .news-body {

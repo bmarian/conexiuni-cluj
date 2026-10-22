@@ -836,8 +836,7 @@ watch(timeValue, (val) => {
     <header class="flex items-center gap-3" data-kbd-section="actions" data-kbd-axis="x">
       <div
         class="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-        <span v-if="settings.legacyBlueActive" class="emoji-icon-xl" aria-hidden="true">🗺️</span>
-        <svg v-else class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
+        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none"
              stroke="currentColor"
              stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -885,9 +884,7 @@ watch(timeValue, (val) => {
         data-kbd-item="start"
         @click="startJourney"
       >
-        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">▶️</span>
-        <template v-else-if="settings.paperActive">{{ t('journeyStart') }}</template>
-        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
       </button>
       <button
         v-if="isOnline && hasValidCoords && isFavorite && !isRenaming"
@@ -898,9 +895,7 @@ watch(timeValue, (val) => {
         data-kbd-item="rename"
         @click="startRename"
       >
-        <span v-if="settings.legacyBlueActive" class="emoji-icon" aria-hidden="true">✏️</span>
-        <template v-else-if="settings.paperActive">{{ t('paperRename') }}</template>
-        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
         </svg>
@@ -918,8 +913,7 @@ watch(timeValue, (val) => {
         data-kbd-item="fav"
         @click="toggleFavorite"
       >
-        <template v-if="settings.paperActive">{{ isFavorite ? '♥' : '♡' }} {{ t('paperFavoriteStamp') }}</template>
-        <IconHeartFilled v-else-if="isFavorite" class="w-5 h-5"/>
+        <IconHeartFilled v-if="isFavorite" class="w-5 h-5"/>
         <IconHeartOutline v-else class="w-5 h-5"/>
       </button>
     </header>
@@ -946,8 +940,7 @@ watch(timeValue, (val) => {
         <div class="leg-row" data-kbd-section="from" data-kbd-entry="2">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-origin">
-              <span v-if="settings.legacyBlueActive" class="text-sm">📍</span>
-              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="6"/>
               </svg>
             </div>
@@ -1103,8 +1096,7 @@ watch(timeValue, (val) => {
         <div class="leg-row" data-kbd-section="to" :data-kbd-entry="hasValidDest ? undefined : 1">
           <div class="leg-icon-col">
             <div class="leg-dot leg-dot-dest">
-              <span v-if="settings.legacyBlueActive" class="text-sm">🏁</span>
-              <svg v-else class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
               </svg>

@@ -6,7 +6,7 @@ import {REGION_SETTINGS, regionSettingStorageKey, type RegionSettingKey} from '@
 type Theme = 'light' | 'dark' | 'system'
 type AppLocale = 'ro' | 'en'
 
-export type ToastIcon = 'info' | 'bell' | 'bell-off' | 'joystick' | 'ghost'
+export type ToastIcon = 'info' | 'bell' | 'bell-off'
 
 export interface Toast {
   id: number
@@ -57,89 +57,6 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.locale', newLocale)
   }
 
-  function persistedBool(key: string) {
-    return localStorage.getItem(key) === 'true'
-  }
-
-  const arcadeUnlocked = ref(persistedBool('settings.arcadeUnlocked'))
-  const arcadeActive = ref(persistedBool('settings.arcadeActive'))
-
-  watch(arcadeActive, (active) => {
-    if (active) {
-      document.documentElement.setAttribute('data-arcade', '')
-    } else {
-      document.documentElement.removeAttribute('data-arcade')
-    }
-  }, {immediate: true})
-
-  function unlockArcade() {
-    arcadeUnlocked.value = true
-    localStorage.setItem('settings.arcadeUnlocked', 'true')
-  }
-
-  function activateArcade() {
-    deactivateLegacyBlue()
-    deactivatePaper()
-    arcadeActive.value = true
-    localStorage.setItem('settings.arcadeActive', 'true')
-  }
-
-  function deactivateArcade() {
-    arcadeActive.value = false
-    localStorage.setItem('settings.arcadeActive', 'false')
-  }
-
-  const legacyBlueUnlocked = ref(persistedBool('settings.legacyBlueUnlocked'))
-  const legacyBlueActive = ref(persistedBool('settings.legacyBlueActive'))
-
-  watch(legacyBlueActive, (active) => {
-    if (active) {
-      document.documentElement.setAttribute('data-legacy-blue', '')
-    } else {
-      document.documentElement.removeAttribute('data-legacy-blue')
-    }
-  }, {immediate: true})
-
-  function unlockLegacyBlue() {
-    if (legacyBlueUnlocked.value) return
-    legacyBlueUnlocked.value = true
-    localStorage.setItem('settings.legacyBlueUnlocked', 'true')
-  }
-
-  function activateLegacyBlue() {
-    deactivateArcade()
-    deactivatePaper()
-    legacyBlueActive.value = true
-    localStorage.setItem('settings.legacyBlueActive', 'true')
-  }
-
-  function deactivateLegacyBlue() {
-    legacyBlueActive.value = false
-    localStorage.setItem('settings.legacyBlueActive', 'false')
-  }
-
-  const paperActive = ref(persistedBool('settings.paperActive'))
-
-  watch(paperActive, (active) => {
-    if (active) {
-      document.documentElement.setAttribute('data-paper', '')
-    } else {
-      document.documentElement.removeAttribute('data-paper')
-    }
-  }, {immediate: true})
-
-  function activatePaper() {
-    deactivateArcade()
-    deactivateLegacyBlue()
-    paperActive.value = true
-    localStorage.setItem('settings.paperActive', 'true')
-  }
-
-  function deactivatePaper() {
-    paperActive.value = false
-    localStorage.setItem('settings.paperActive', 'false')
-  }
-
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
@@ -177,7 +94,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
   }
 
-  const busAlerts = ref(persistedBool('settings.busAlerts'))
+  const busAlerts = ref(localStorage.getItem('settings.busAlerts') === 'true')
 
   function setBusAlerts(val: boolean) {
     busAlerts.value = val
@@ -203,11 +120,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     theme, locale, isDark, setTheme, setLocale,
-    arcadeUnlocked, arcadeActive,
-    unlockArcade, activateArcade, deactivateArcade,
-    legacyBlueUnlocked, legacyBlueActive,
-    unlockLegacyBlue, activateLegacyBlue, deactivateLegacyBlue,
-    paperActive, activatePaper, deactivatePaper,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
     showGreenFriday, regionSetting, setRegionSetting,

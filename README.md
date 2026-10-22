@@ -22,8 +22,6 @@ A live bus and tram tracker for Cluj-Napoca, București, Iași, Oradea and Const
 - Move your favorites and settings to another phone, the Android app or your watch by scanning a code
 - Works from a hardware keyboard too, no arrow keys needed (hjkl and letter shortcuts)
 
-There are a few hidden things scattered around for the curious. 🐣
-
 <p align="center">
   <img src="readme/phone-home.png" width="200" alt="Favorite lines and stations in București, the metro stations marked with an M">
   <img src="readme/phone-route.png" width="200" alt="Line 25's stops with live arrival times, a favorite stop marked with a heart">
@@ -31,18 +29,11 @@ There are a few hidden things scattered around for the curious. 🐣
   <img src="readme/phone-timetable.png" width="200" alt="A line's timetable, with the times already gone faded out">
 </p>
 
-### Themes
+### Light and dark
 
-<table>
-  <tr>
-    <td align="center"><img src="readme/theme-default.png" width="380" alt="The default theme, light on the left and dark on the right"><br><sub>Default</sub></td>
-    <td align="center"><img src="readme/theme-arcade.png" width="380" alt="The Arcade theme, light on the left and dark on the right"><br><sub>Arcade</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="readme/theme-legacy-blue.png" width="380" alt="The Legacy Blue theme, light on the left and dark on the right"><br><sub>Legacy Blue</sub></td>
-    <td align="center"><img src="readme/theme-paper.png" width="380" alt="The Paper theme, light on the left and dark on the right"><br><sub>Paper</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="readme/theme-default.png" width="380" alt="The app in light mode on the left and dark mode on the right">
+</p>
 
 ### Apps
 
