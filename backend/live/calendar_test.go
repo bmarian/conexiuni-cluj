@@ -95,7 +95,7 @@ func TestPruneKeepsTheLastDaysOfEachType(t *testing.T) {
 	eng.insertSample(t, eng.clujAt("2026-09-01", 8), "bogus")
 	eng.insertSample(t, eng.clujAt("2026-10-01", 8), "bogus")
 
-	if _, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, now); err != nil {
+	if _, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", SampleRetention, now); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
 	got := eng.sampleDays(t)

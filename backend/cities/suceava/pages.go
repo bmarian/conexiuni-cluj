@@ -9,16 +9,18 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
 
 // Every line page of tpl-sv.ro in one answer of the site's own WordPress API.
-const linePagesURL = "https://tpl-sv.ro/wp-json/wp/v2/pages?search=linia&per_page=100&_fields=slug,content"
+const linePagesURL = "https://tpl-sv.ro/wp-json/wp/v2/pages?search=linia&per_page=100&_fields=slug,modified_gmt,content"
 
 type page struct {
-	Slug    string `json:"slug"`
-	Content struct {
+	Slug     string `json:"slug"`
+	Modified string `json:"modified_gmt"`
+	Content  struct {
 		Rendered string `json:"rendered"`
 	} `json:"content"`
 }
@@ -30,6 +32,8 @@ type pageLine struct {
 	directions [][]string
 	// First-stop departures in minutes, by kind of day and direction.
 	departures map[string][][]int
+	// When the page last changed, in UTC; zero when it does not say.
+	modified time.Time
 }
 
 func fetchLines(url string) ([]pageLine, error) {
@@ -55,7 +59,8 @@ func parseLines(pages []page) []pageLine {
 		if err != nil {
 			continue
 		}
-		line := pageLine{short: strings.ToUpper(short), directions: directions(doc)}
+		modified, _ := time.Parse("2006-01-02T15:04:05", p.Modified)
+		line := pageLine{short: strings.ToUpper(short), directions: directions(doc), modified: modified}
 		if len(line.directions) == 0 {
 			continue
 		}

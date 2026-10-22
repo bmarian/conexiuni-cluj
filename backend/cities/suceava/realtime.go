@@ -3,11 +3,13 @@ package suceava
 import (
 	"bytes"
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/live"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/predictions"
 	"encoding/json"
 	"fmt"
+	"log"
 	"slices"
 	"sort"
 	"strconv"
@@ -22,6 +24,8 @@ type realtime struct {
 	url   string
 	ids   feeds.IDMap
 	trace feeds.Tracing
+	// Records the buses of the lines the pages add; nil in tests.
+	rec *traces.Recorder
 
 	mu   sync.Mutex
 	last map[string]reading
@@ -58,7 +62,19 @@ func (s *realtime) Vehicles() ([]models.Vehicle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("harta.tpl-sv.ro: %w", err)
 	}
-	return s.vehicles(buses, time.Now())
+	now := time.Now()
+	if s.rec != nil {
+		var seen []traces.Sighting
+		for _, b := range buses {
+			if line := tracedLine(b.label, s.rec.Traced); line != "" {
+				seen = append(seen, traces.Sighting{Line: line, Vehicle: b.plate, Lat: b.lat, Lon: b.lon})
+			}
+		}
+		if err := s.rec.Record(seen, now); err != nil {
+			log.Printf("suceava: line traces: %v", err)
+		}
+	}
+	return s.vehicles(buses, now)
 }
 
 // Two fleets, each a JSON object inside a string, sometimes in parentheses or a one-element array.
@@ -176,18 +192,12 @@ type lineCandidate struct {
 
 // The line a display's number names ("M105." is M105, "  5" is 5), then, when the text fills the display unpadded and may be cut short ("M10" on a bus of M100), the lines it begins.
 func lineCandidates(label string, routes map[string]int) []lineCandidate {
-	name := strings.ToUpper(strings.Map(func(r rune) rune {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			return r
-		}
-		return -1
-	}, label))
-	number := strings.TrimLeftFunc(name, unicode.IsLetter)
-	if n, err := strconv.Atoi(number); err != nil || n <= 0 {
+	number, ok := displayNumber(label)
+	if !ok {
 		return nil
 	}
 	var out []lineCandidate
-	for _, short := range []string{number, "M" + number} {
+	for _, short := range namesOf(number) {
 		if id, ok := routes[short]; ok {
 			out = append(out, lineCandidate{routeID: id})
 		}
@@ -209,14 +219,44 @@ func lineCandidates(label string, routes map[string]int) []lineCandidate {
 	return out
 }
 
+// The number on a display, letters and punctuation dropped.
+func displayNumber(label string) (string, bool) {
+	number := strings.TrimLeftFunc(strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return -1
+	}, label), unicode.IsLetter)
+	n, err := strconv.Atoi(number)
+	return number, err == nil && n > 0
+}
+
+// A number is a line of the city or a metropolitan one.
+func namesOf(number string) []string { return []string{number, "M" + number} }
+
+// The traced line a display names; a cut text names none, as the line it was cut from is not known.
+func tracedLine(label string, traced func(string) bool) string {
+	number, ok := displayNumber(label)
+	if !ok {
+		return ""
+	}
+	for _, name := range namesOf(number) {
+		if traced(name) {
+			return name
+		}
+	}
+	return ""
+}
+
 type fit struct {
 	routeID, direction int
 	cut                bool
-	off, progress      float64
+	along, off         float64
+	progress           float64
 	moving             bool
 }
 
-// follow keeps a bus on its pattern while it fits and does not go back along it, else takes the pattern it moves forward on, or the only one that fits it.
+// follow keeps a bus on its pattern while it fits and does not go back along it, else takes the pattern it moves forward on, the only one that fits it, or the only one starting where it stands.
 func (s *realtime) follow(lines []lineCandidate, prev reading, hasPrev bool, cur reading) (routeID, direction int, placed, moved bool) {
 	moved = hasPrev && predictions.HaversineMeters(prev.fromLat, prev.fromLon, cur.lat, cur.lon) > live.StationaryRadiusMeters
 	var fits []fit
@@ -227,7 +267,7 @@ func (s *realtime) follow(lines []lineCandidate, prev reading, hasPrev bool, cur
 			if !ok || off > predictions.MaxOffRouteMeters {
 				continue
 			}
-			f := fit{routeID: line.routeID, direction: direction, cut: line.cut, off: off}
+			f := fit{routeID: line.routeID, direction: direction, cut: line.cut, along: along, off: off}
 			if moved {
 				if before, prevOff, ok := s.trace.Along(line.routeID, direction, prev.fromLat, prev.fromLon); ok && prevOff <= predictions.MaxOffRouteMeters {
 					f.progress, f.moving = along-before, true
@@ -259,6 +299,11 @@ func (s *realtime) follow(lines []lineCandidate, prev reading, hasPrev bool, cur
 	}
 	if len(fits) == 1 {
 		return fits[0].routeID, fits[0].direction, true, moved
+	}
+	// Standing where one direction starts (and the other ends), a bus is about to leave on it.
+	starting := slices.DeleteFunc(slices.Clone(fits), func(f fit) bool { return f.along > predictions.TerminusRadiusMeters })
+	if len(starting) == 1 {
+		return starting[0].routeID, starting[0].direction, true, moved
 	}
 	return 0, 0, false, moved
 }

@@ -21,7 +21,8 @@ const (
 	allDaySegmentBucket        = -1
 	minSegmentProfileSamples   = 5
 	segmentProfileNeighborMins = 120
-	segmentSampleRetention     = 45 * 24 * time.Hour
+	// How long what vehicles were seen doing is kept to learn from.
+	SampleRetention            = 45 * 24 * time.Hour
 	segmentProfileRetention    = 400 * 24 * time.Hour
 	MaxVehicleAge              = 10 * time.Minute
 	minSegmentDurationSec      = 8
@@ -860,13 +861,13 @@ func (eng *Engine) pruneOldSegmentSamples() {
 	if !eng.samplePrune.due(time.Hour) {
 		return
 	}
-	n, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", segmentSampleRetention, time.Now())
+	n, err := eng.pruneByDayWindow("segment_travel_time_samples", "observed_at", SampleRetention, time.Now())
 	if err != nil {
 		eng.log("segment travel: sample prune failed: %v", err)
 		return
 	}
 	if n > 0 {
-		eng.log("segment travel: pruned %d samples older than %s and outside their day's window", n, segmentSampleRetention)
+		eng.log("segment travel: pruned %d samples older than %s and outside their day's window", n, SampleRetention)
 	}
 }
 

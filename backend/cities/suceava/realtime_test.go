@@ -96,6 +96,13 @@ func TestABusCreepingAFewMetresAPollHasMoved(t *testing.T) {
 	}
 }
 
+func TestABusStandingAtATerminusLeavesOnTheDirectionStartingThere(t *testing.T) {
+	// 47.6 is where direction 0 starts; direction 1 ends 10 km on, which the test road's direction 1 measures from.
+	if got := follow(t, newTestRealtime(), "SV5", "M104", 26.25, 47.6001); got[0] != "1_0" {
+		t.Fatalf("trips %v", got)
+	}
+}
+
 func TestACutLabelFallsBackToTheLineItBegins(t *testing.T) {
 	if got := lineCandidates("  5", testRoutes); len(got) != 1 || got[0].routeID != 4 {
 		t.Fatalf("padded label %v", got)

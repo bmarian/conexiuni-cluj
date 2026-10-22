@@ -2,8 +2,10 @@ package suceava
 
 import (
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/predictions"
 	"conexiuni-cluj/router"
 	"math"
 	"slices"
@@ -24,10 +26,13 @@ const (
 	unplaced source = iota
 	fromZip
 	fromName
+	fromTraces
 	spaced
+	// Placed by name where no recorded bus goes, so spaced along the road instead.
+	disproved
 )
 
-func (s station) placed() bool { return s.from != unplaced }
+func (s station) placed() bool { return s.from != unplaced && s.from != disproved }
 
 // placer puts the stations of the lines the zip lacks on the map.
 type placer struct {
@@ -58,35 +63,127 @@ func newPlacer(snap *feeds.Snapshot, roads *router.WalkGraph, places *router.Pla
 	return p
 }
 
-// Each line's directions with the stations it could place, and how many came from where; a line cut short would end where its buses do not, so one missing an end is left out.
-func (p *placer) place(lines []pageLine) ([][][]station, map[source]int) {
-	out := make([][][]station, len(lines))
+// Each line placed, with the routes its recorded buses drove (nil when it has none), and how many stations came from where; a line cut short would end where its buses do not, so one missing an end is nil.
+func (p *placer) place(lines []pageLine, recorded map[string]*traces.Line) ([]*placedLine, map[source]int) {
+	dirs := make([][][]station, len(lines))
 	legs := make([]float64, len(lines))
 	for i, line := range lines {
-		out[i] = make([][]station, len(line.directions))
+		dirs[i] = make([][]station, len(line.directions))
 		for d, names := range line.directions {
-			out[i][d] = p.matchStops(names)
+			dirs[i][d] = p.matchStops(names)
 		}
-		legs[i] = p.lineLeg(out[i])
+		legs[i] = p.lineLeg(dirs[i])
 	}
-	for p.placeNamed(out, legs) {
+	for p.placeNamed(dirs, legs) {
 	}
+	for i, line := range lines {
+		if traced := recorded[line.short]; traced.Buses() > 0 {
+			for _, dir := range dirs[i] {
+				p.checkAgainstTraces(dir, traced)
+				p.placeEnds(dir, dirs[i], traced, legs[i])
+			}
+		}
+	}
+	for p.placeNamed(dirs, legs) {
+	}
+	out := make([]*placedLine, len(lines))
 	counts := map[source]int{}
-	for i := range out {
+	for i, line := range lines {
+		route := p.route(recorded[line.short])
 		whole := true
-		for d, dir := range out[i] {
-			p.interpolate(dir)
+		for _, dir := range dirs[i] {
+			p.interpolate(dir, route)
 			for _, s := range dir {
 				counts[s.from]++
 			}
 			whole = whole && dir[0].placed() && dir[len(dir)-1].placed()
-			out[i][d] = slices.DeleteFunc(dir, func(s station) bool { return !s.placed() })
 		}
 		if !whole {
-			out[i] = nil
+			continue
+		}
+		out[i] = &placedLine{}
+		for _, dir := range dirs[i] {
+			dir = slices.DeleteFunc(dir, func(s station) bool { return !s.placed() })
+			out[i].dirs = append(out[i].dirs, dir)
+			out[i].shapes = append(out[i].shapes, shape(dir, route))
 		}
 	}
 	return out, counts
+}
+
+// A line as placed: its directions' stations and the road each drives.
+type placedLine struct {
+	dirs   [][]station
+	shapes [][]router.Point
+}
+
+// The road between two placed stations: as the line's recorded buses drove it, else the shortest.
+func (p *placer) route(traced *traces.Line) func(a, b router.Point) []router.Point {
+	return func(a, b router.Point) []router.Point {
+		if path := traced.Path(a, b, p.path); path != nil {
+			return path
+		}
+		return p.path(a, b)
+	}
+}
+
+// checkAgainstTraces drops the stations placed by name that no recorded bus passes between their neighbours, where buses were recorded passing those.
+func (p *placer) checkAgainstTraces(dir []station, traced *traces.Line) {
+	for i := range dir {
+		if dir[i].from != fromName {
+			continue
+		}
+		prev, next := neighbours(dir, i)
+		if prev < 0 || next < 0 {
+			continue
+		}
+		if path := traced.Path(dir[prev].at, dir[next].at, p.path); path != nil && traces.DistanceToPath(dir[i].at, path) > predictions.MaxOffRouteMeters {
+			dir[i].from = disproved
+		}
+	}
+}
+
+// placeEnds puts a direction's first and last station, when nothing named them, where its recorded buses stand longest beyond the nearest placed station, within the line's legs of it.
+func (p *placer) placeEnds(dir []station, line [][]station, traced *traces.Line, leg float64) {
+	var known []router.Point
+	for _, d := range line {
+		for _, s := range d {
+			if s.placed() {
+				known = append(known, s.at)
+			}
+		}
+	}
+	end := func(stations []station, backwards bool) (router.Point, bool) {
+		k := slices.IndexFunc(stations, station.placed)
+		if k < 0 {
+			return router.Point{}, false
+		}
+		var before *router.Point
+		if _, next := neighbours(stations, k); next >= 0 {
+			before = &stations[next].at
+		}
+		at, ok := traced.End(before, stations[k].at, known, leg*float64(k), backwards)
+		if !ok {
+			return at, false
+		}
+		return p.onRoad(at), true
+	}
+	n := len(dir)
+	if n < 2 {
+		return
+	}
+	if !dir[n-1].placed() {
+		reversed := slices.Clone(dir)
+		slices.Reverse(reversed)
+		if at, ok := end(reversed, false); ok {
+			dir[n-1].at, dir[n-1].from = at, fromTraces
+		}
+	}
+	if !dir[0].placed() {
+		if at, ok := end(dir, true); ok {
+			dir[0].at, dir[0].from = at, fromTraces
+		}
+	}
 }
 
 // The line's own longest leg between stations on the zip's stops, the zip's longest when it has none: town lines have short legs, village lines long ones.
@@ -260,7 +357,7 @@ func (p *placer) placeNamed(lines [][][]station, legs []float64) bool {
 	for l, line := range lines {
 		for _, dir := range line {
 			for i := range dir {
-				if dir[i].placed() {
+				if dir[i].from != unplaced {
 					continue
 				}
 				key := feeds.NormalizeStopLabel(dir[i].name)
@@ -346,7 +443,7 @@ func (p *placer) onRoad(at router.Point) router.Point {
 }
 
 // interpolate spaces the stations nothing names evenly along the road between their placed neighbours.
-func (p *placer) interpolate(dir []station) {
+func (p *placer) interpolate(dir []station, route func(a, b router.Point) []router.Point) {
 	for i := 0; i < len(dir); i++ {
 		if dir[i].placed() {
 			continue
@@ -355,8 +452,8 @@ func (p *placer) interpolate(dir []station) {
 		if prev < 0 || next < 0 {
 			continue
 		}
-		path := p.path(dir[prev].at, dir[next].at)
-		total := pathLength(path)
+		path := route(dir[prev].at, dir[next].at)
+		total := traces.Length(path)
 		for j := prev + 1; j < next; j++ {
 			dir[j].at, dir[j].from = pointAlong(path, total*float64(j-prev)/float64(next-prev)), spaced
 		}
@@ -373,14 +470,6 @@ func (p *placer) path(a, b router.Point) []router.Point {
 	return points
 }
 
-func pathLength(path []router.Point) float64 {
-	total := 0.0
-	for i := 1; i < len(path); i++ {
-		total += geo.Haversine(path[i-1].Lat, path[i-1].Lon, path[i].Lat, path[i].Lon)
-	}
-	return total
-}
-
 func pointAlong(path []router.Point, meters float64) router.Point {
 	for i := 1; i < len(path); i++ {
 		leg := geo.Haversine(path[i-1].Lat, path[i-1].Lon, path[i].Lat, path[i].Lon)
@@ -394,10 +483,10 @@ func pointAlong(path []router.Point, meters float64) router.Point {
 }
 
 // The road a bus drives through a direction's stations.
-func (p *placer) shape(dir []station) []router.Point {
+func shape(dir []station, route func(a, b router.Point) []router.Point) []router.Point {
 	var out []router.Point
 	for i := 1; i < len(dir); i++ {
-		leg := p.path(dir[i-1].at, dir[i].at)
+		leg := route(dir[i-1].at, dir[i].at)
 		if len(out) > 0 && len(leg) > 0 {
 			leg = leg[1:]
 		}
