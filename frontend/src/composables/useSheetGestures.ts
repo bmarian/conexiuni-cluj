@@ -4,12 +4,10 @@ import {isTypingTarget} from '@/utils/keyboardFocus.ts'
 export type SheetSnap = 'minimized' | 'half' | 'fullscreen'
 
 const SNAPS: SheetSnap[] = ['fullscreen', 'half', 'minimized']
-// The phone's Sheet.kt: FlingThreshold 400dp/s, ReverseSlop 32dp.
+// Same as Sheet.kt.
 const FLING_PX_PER_MS = 0.4
 const REVERSE_SLOP_PX = 32
-// Android's touch slop.
 const TOUCH_SLOP_PX = 8
-// Velocity is read over the last moves only, like Compose's VelocityTracker horizon.
 const VELOCITY_WINDOW_MS = 100
 
 interface Sample {
@@ -27,7 +25,6 @@ interface Gesture {
   samples: Sample[]
 }
 
-/** Drags and flings the sheet from anywhere on it, handing the rest to its list like the phone's nested scroll. */
 export function useSheetGestures(options: {
   sheet: Ref<HTMLElement | null>
   enabled: Ref<boolean>
@@ -47,7 +44,6 @@ export function useSheetGestures(options: {
   const minTop = () => topFor('minimized')
   const clampTop = (top: number) => Math.min(minTop(), Math.max(fullTop(), top))
 
-  // Where the sheet is drawn right now, mid-animation included.
   function renderedTop(): number {
     const el = sheet.value
     if (!el) return topFor(state.value)
@@ -84,7 +80,7 @@ export function useSheetGestures(options: {
     while (samples.length > 2 && t - samples[0]!.t > VELOCITY_WINDOW_MS) samples.shift()
   }
 
-  // Sheet.kt targetFor: a slow release goes to the closest snap, a fling to the next one past where it started.
+  // Port of SheetState.targetFor.
   function targetFor(top: number, velocity: number): SheetSnap {
     const at = SNAPS.map((snap) => ({snap, top: topFor(snap)}))
     const closest = at.reduce((a, b) => (Math.abs(b.top - top) < Math.abs(a.top - top) ? b : a)).snap
@@ -123,7 +119,6 @@ export function useSheetGestures(options: {
     return durations[i >= 0 ? i % durations.length : 0] ?? 0
   }
 
-  // The sheet moving down puts the keyboard away, as on the phone.
   function releaseField() {
     const active = document.activeElement
     if (isTypingTarget(active) && sheet.value?.contains(active)) (active as HTMLElement).blur()
@@ -140,7 +135,6 @@ export function useSheetGestures(options: {
     return el.querySelector<HTMLElement>('.drawer-view')
   }
 
-  // Moves the sheet first going up and the list first going down; whatever one can't take goes to the other.
   function drag(g: Gesture, delta: number) {
     const scroller = g.scroller
     if (delta < 0) {
@@ -209,7 +203,6 @@ export function useSheetGestures(options: {
     settleTo(targetFor(g.top, velocityOf(g.samples)))
   }
 
-  // A wheel step is a fling to the next snap; the rest of that spin waits for the sheet to land.
   function onWheel(e: WheelEvent) {
     if (!enabled.value || e.ctrlKey || held?.()) return
     const scroller = scrollerOf(e.target)
@@ -232,7 +225,6 @@ export function useSheetGestures(options: {
     settleTo(targetFor(top, -direction * FLING_PX_PER_MS))
   }
 
-  // The handle: a tap toggles between the peek and half, a drag follows the finger, mouse included.
   let handlePointer = -1
   let handleMoved = false
   let handleStartY = 0

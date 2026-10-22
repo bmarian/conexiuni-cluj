@@ -1,4 +1,3 @@
-// Material Icons Round, the set the phone's Icons.Rounded draws from.
 export {default as AccessibleIcon} from '@material-design-icons/svg/round/accessible.svg?component'
 export {default as ArrowBackIcon} from '@material-design-icons/svg/round/arrow_back.svg?component'
 export {default as ArrowForwardIcon} from '@material-design-icons/svg/round/arrow_forward.svg?component'

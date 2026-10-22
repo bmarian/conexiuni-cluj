@@ -188,7 +188,6 @@ const chips = computed<ChipAction[]>(() => [
       </header>
       <ActionChips :actions="chips" class="pb-2"/>
 
-      <!-- A column, so stacked cards keep both margins like the phone's padding. -->
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
         <div class="departures-label">
           <span class="live-dot"></span>

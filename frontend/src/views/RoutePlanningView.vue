@@ -842,7 +842,6 @@ const chips = computed<ChipAction[]>(() => [
 </script>
 <template>
   <div class="plan-view flex flex-col">
-    <!-- Columns, so stacked cards keep both margins like the phone's padding. -->
     <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)"/>
 
     <ViewErrorState v-if="!hasValidCoords"/>
@@ -1605,7 +1604,7 @@ const chips = computed<ChipAction[]>(() => [
 </style>
 
 <style>
-/* The menu is teleported out of the view. */
+/* Teleported out of the view. */
 .plan-time-menu {
   --dp-font-family: var(--font-sans);
   --dp-font-size: 14px;

@@ -625,7 +625,7 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
   color: var(--md-outline-variant);
 }
 
-/* Each time keeps Material's 48px touch target around its chip. */
+/* 48px touch target */
 .minutes {
   display: grid;
   flex: 1;

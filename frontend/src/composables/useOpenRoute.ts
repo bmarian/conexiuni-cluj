@@ -5,7 +5,6 @@ import {useMapStore} from '@/stores/map.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection} from '@/types/tranzy.ts'
 
-// The line's shapes load before the page opens, so it draws at once.
 export function useOpenRoute() {
   const router = useRouter()
   const routeStore = useRouteStore()

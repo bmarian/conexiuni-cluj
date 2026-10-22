@@ -29,7 +29,7 @@ defineProps<{ actions: ChipAction[] }>()
 </template>
 
 <style scoped>
-/* Layered so a page's padding utilities still apply. */
+/* Layered so page utilities can override it. */
 @layer components {
   .action-chips {
     display: flex;

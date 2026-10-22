@@ -404,7 +404,6 @@ func (s *Store) retireLifetimeVisitors() error {
 	return nil
 }
 
-// Web push is gone, so recorded line changes no longer wait for it.
 func (s *Store) dropPushPending() error {
 	cols, err := s.tableColumns("route_changes")
 	if err != nil {
