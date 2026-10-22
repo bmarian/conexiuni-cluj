@@ -15,10 +15,29 @@ export function useSheetKeyboard(sheet: Ref<HTMLElement | null>, options: {
   if (isIOS) return
 
   const typingInSheet = () => isTypingTarget(document.activeElement) && !!sheet.value?.contains(document.activeElement)
+  // A tapped field opens the sheet at once, so it is already up when the keyboard comes; keys and a mouse leave it.
+  let tapped = false
+  const onPointerDown = (e: PointerEvent) => {
+    tapped = e.pointerType === 'touch'
+  }
+  const onKeyDown = () => {
+    tapped = false
+  }
+
+  function onFocusIn() {
+    if (tapped && enabled.value && typingInSheet()) open()
+    if (measure) sync()
+  }
 
   function sync() {
     const vv = window.visualViewport
-    keyboardPx.value = vv && enabled.value && typingInSheet() ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0
+    if (!vv || !enabled.value || !typingInSheet()) {
+      keyboardPx.value = 0
+      return
+    }
+    // A browser may slide the page up to show the field before the sheet opens; the open sheet shows it, so slide back.
+    if (vv.offsetTop > 0) document.documentElement.scrollIntoView({block: 'start'})
+    keyboardPx.value = Math.max(0, Math.round(window.innerHeight - vv.height))
   }
 
   // Scrolls only the sheet's list: scrollIntoView would also scroll the clipped page behind it.
@@ -39,17 +58,21 @@ export function useSheetKeyboard(sheet: Ref<HTMLElement | null>, options: {
   })
 
   onMounted(() => {
+    window.addEventListener('pointerdown', onPointerDown, {capture: true, passive: true})
+    window.addEventListener('keydown', onKeyDown, {capture: true, passive: true})
+    sheet.value?.addEventListener('focusin', onFocusIn)
     if (!measure) return
     window.visualViewport?.addEventListener('resize', sync, {passive: true})
     window.visualViewport?.addEventListener('scroll', sync, {passive: true})
-    sheet.value?.addEventListener('focusin', sync)
     sheet.value?.addEventListener('focusout', sync)
   })
 
   onUnmounted(() => {
+    window.removeEventListener('pointerdown', onPointerDown, {capture: true})
+    window.removeEventListener('keydown', onKeyDown, {capture: true})
+    sheet.value?.removeEventListener('focusin', onFocusIn)
     window.visualViewport?.removeEventListener('resize', sync)
     window.visualViewport?.removeEventListener('scroll', sync)
-    sheet.value?.removeEventListener('focusin', sync)
     sheet.value?.removeEventListener('focusout', sync)
   })
 }
