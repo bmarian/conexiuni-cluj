@@ -59,6 +59,7 @@ import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, linear, showMarker} from '@/utils/markerMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
+import {safeAreaPx} from '@/utils/safeArea.ts'
 import {
   CLICK_TOLERANCE_PX,
   createTooltip,
@@ -977,7 +978,15 @@ const mapInit = (center: LatLng, zoom: number) => {
   grain.className = 'map-grain'
   mapValue.getCanvas().after(grain)
 
-  tooltip = createTooltip(mapValue)
+  tooltip = createTooltip(mapValue, () => {
+    const box = mapValue.getContainer().getBoundingClientRect()
+    return {
+      top: box.top + safeAreaPx().top,
+      right: box.right - drawerRightPx.value,
+      bottom: box.bottom - drawerBottomPx.value,
+      left: box.left,
+    }
+  })
   mapValue.addControl(createZoomControl(mapValue), 'top-left')
   mapValue.addControl(createCenterControl(), 'top-left')
   mapValue.addControl(createCreditsControl(), 'bottom-right')

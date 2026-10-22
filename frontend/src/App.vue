@@ -182,6 +182,15 @@ watch([drawerState, isDragging], async ([, dragging]) => {
 
 watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
 
+// Sync, because the map flies to the pick right after and has to aim above the raised drawer.
+watch(() => mapStore.revealDrawer, (reveal) => {
+  if (!reveal) return
+  mapStore.revealDrawer = false
+  if (!isPortraitMobile.value || drawerState.value !== 'minimized') return
+  drawerState.value = 'half'
+  updateMapInsets()
+}, {flush: 'sync'})
+
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()
   window.dispatchEvent(new Event('resize'))
