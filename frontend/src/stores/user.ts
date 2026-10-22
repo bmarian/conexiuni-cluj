@@ -31,7 +31,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const userTime = ref<Date | null>(null)
-  const timerIntervalId = ref<number | null>(null)
+  const timerIntervalId = ref<ReturnType<typeof setInterval> | null>(null)
   const startTimeTracker = () => {
     userTime.value = new Date()
     timerIntervalId.value = setInterval(() => {
