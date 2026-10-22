@@ -7,7 +7,7 @@ import (
 
 const (
 	TerminusRadiusMeters    = 200.0
-	maxOffRouteMeters       = 150.0
+	MaxOffRouteMeters       = 150.0
 	vehicleGracePeriodMs    = 10 * 60_000
 	layoverHideMs           = 30 * 60_000
 	headingLookahead        = 3
@@ -152,7 +152,7 @@ type Vehicle struct {
 	Heading         float64
 }
 
-func (v *Vehicle) OnRoute() bool { return v.ShapeIdx >= 0 && v.OffRouteMeters <= maxOffRouteMeters }
+func (v *Vehicle) OnRoute() bool { return v.ShapeIdx >= 0 && v.OffRouteMeters <= MaxOffRouteMeters }
 
 func isTracked(v RawVehicle, nowMs int64) bool {
 	if v.Lat <= 0 || v.Lon <= 0 || v.TimestampMs == 0 || nowMs-v.TimestampMs > vehicleGracePeriodMs {

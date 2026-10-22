@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ type feed struct {
 	patterns   map[string]*pattern
 	stopName   map[string]string
 	exceptions map[string][]exception
+	headways   map[string]headway
 	dropped    int
 	inferred   int
 	url        string
@@ -90,7 +92,7 @@ func parse(data []byte) (*feed, error) {
 	for _, file := range archive.File {
 		name := strings.TrimSuffix(file.Name, ".txt")
 		switch name {
-		case "routes", "trips", "stops", "stop_times", "calendar", "calendar_dates", "shapes":
+		case "routes", "trips", "stops", "stop_times", "calendar", "calendar_dates", "shapes", "frequencies":
 		default:
 			continue
 		}
@@ -123,6 +125,7 @@ func parse(data []byte) (*feed, error) {
 		}
 	}
 	out.trips, out.stops, out.exceptions = out.readTrips(), out.readStopTimes(), out.readExceptions()
+	out.headways = out.expandFrequencies()
 	out.inferred = inferDirections(out.trips, out.stops, at)
 	out.patterns, out.dropped = patterns(out.trips, out.stops)
 	return out, nil
@@ -379,6 +382,7 @@ func (f *feed) timetables(snap *feeds.Snapshot, now time.Time) map[string]*model
 		kind string
 	}
 	departures := map[key]map[int]string{}
+	windows := map[key][]headway{}
 	termini := map[lineDir]string{}
 	for _, p := range f.patterns {
 		k := lineDir{routeShort[p.routeID], p.dir}
@@ -400,6 +404,9 @@ func (f *feed) timetables(snap *feeds.Snapshot, now time.Time) map[string]*model
 					departures[dk] = map[int]string{}
 				}
 				departures[dk][minutes] = fmt.Sprintf("%02d:%02d", minutes/60, minutes%60)
+				if w, ok := f.headways[tripID]; ok && !slices.Contains(windows[dk], w) {
+					windows[dk] = append(windows[dk], w)
+				}
 			}
 		}
 	}
@@ -418,7 +425,9 @@ func (f *feed) timetables(snap *feeds.Snapshot, now time.Time) map[string]*model
 			OutStopName:    f.stopName[back],
 		}
 		for kind, schedule := range map[string]*models.DaySchedule{calendar.Weekday: &t.Weekdays, calendar.Saturday: &t.Saturday, calendar.Sunday: &t.Sunday} {
-			*schedule = daySchedule(sortedTimes(departures[key{lineDir{short, 0}, kind}]), sortedTimes(departures[key{lineDir{short, 1}, kind}]))
+			k0, k1 := key{lineDir{short, 0}, kind}, key{lineDir{short, 1}, kind}
+			*schedule = feeds.Columns(sortedTimes(departures[k0]), sortedTimes(departures[k1]))
+			schedule.InFrequency, schedule.OutFrequency = frequencyOf(windows[k0]), frequencyOf(windows[k1])
 		}
 		feeds.AlignDirections(t, feeds.FirstStopNames(snap, route.RouteID), "gtfs "+f.url)
 		out[short] = t
@@ -437,20 +446,6 @@ func sortedTimes(byMinute map[int]string) []string {
 		out[i] = byMinute[m]
 	}
 	return out
-}
-
-func daySchedule(in, out []string) models.DaySchedule {
-	n := max(len(in), len(out))
-	entries := make([]models.TimetableEntry, n)
-	for i := range entries {
-		if i < len(in) {
-			entries[i].DepartureIn = in[i]
-		}
-		if i < len(out) {
-			entries[i].DepartureOut = out[i]
-		}
-	}
-	return models.DaySchedule{Entries: entries}
 }
 
 func (f *Feed) Snapshot() (*feeds.Snapshot, error) {

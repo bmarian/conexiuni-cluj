@@ -48,15 +48,38 @@ func (e *Env) IDs() feeds.IDMap {
 // Placement answers once the city runs; until then no stop is on any pattern.
 func (e *Env) Placement() feeds.Placement { return &e.place }
 
-func (e *Env) Place(city feeds.Placement) { e.place.city = city }
+// Tracing answers once the city runs; until then there are no lines.
+func (e *Env) Tracing() feeds.Tracing { return &e.place }
 
-type placement struct{ city feeds.Placement }
+// What a running city tells its feeds.
+type Located interface {
+	feeds.Placement
+	feeds.Tracing
+}
+
+func (e *Env) Place(city Located) { e.place.city = city }
+
+type placement struct{ city Located }
 
 func (p *placement) StopIndex(routeID, direction, stopID int) int {
 	if p.city == nil {
 		return -1
 	}
 	return p.city.StopIndex(routeID, direction, stopID)
+}
+
+func (p *placement) RouteIDs() map[string]int {
+	if p.city == nil {
+		return nil
+	}
+	return p.city.RouteIDs()
+}
+
+func (p *placement) Along(routeID, direction int, lat, lon float64) (float64, float64, bool) {
+	if p.city == nil {
+		return 0, 0, false
+	}
+	return p.city.Along(routeID, direction, lat, lon)
 }
 
 // GTFS is a whole network from a GTFS zip, its times included.

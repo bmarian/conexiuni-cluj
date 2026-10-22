@@ -8,7 +8,7 @@ import (
 )
 
 // Must match the frontend: "P-ța Alverna" becomes "p ta alverna".
-func normalizeStopLabelForMatch(label string) string {
+func NormalizeStopLabel(label string) string {
 	decomposed := norm.NFD.String(label)
 	var b strings.Builder
 	b.Grow(len(decomposed))
@@ -36,8 +36,8 @@ func normalizeStopLabelForMatch(label string) string {
 
 // 3 exact, 2 substring, 1 within Levenshtein 2, 0 otherwise.
 func stopMatchScore(a, b string) int {
-	na := normalizeStopLabelForMatch(a)
-	nb := normalizeStopLabelForMatch(b)
+	na := NormalizeStopLabel(a)
+	nb := NormalizeStopLabel(b)
 	if na == "" || nb == "" {
 		return 0
 	}

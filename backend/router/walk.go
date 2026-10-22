@@ -58,7 +58,12 @@ type WalkGraph struct {
 func (g *WalkGraph) Nodes() int { return len(g.lat) }
 
 // The walkable ways inside box, largest connected piece only, and the places there.
-func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
+func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) { return load(r, box, walkable) }
+
+// LoadRoads is Load over the ways a bus can drive.
+func LoadRoads(r io.Reader, box BBox) (*WalkGraph, *Places, error) { return load(r, box, drivable) }
+
+func load(r io.Reader, box BBox, usable func(tag func(string) string) bool) (*WalkGraph, *Places, error) {
 	index := make(map[int64]int32)
 	var lat, lon []float64
 	var edges [][2]int32
@@ -68,7 +73,7 @@ func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
 			in := box.contains(lat, lon)
 			return in, in
 		},
-		way:   func(_ int64, tag func(string) string) (string, bool) { return "", walkable(tag) },
+		way:   func(_ int64, tag func(string) string) (string, bool) { return "", usable(tag) },
 		place: placeOf,
 	}
 	err := readPBF(bufio.NewReaderSize(r, 1<<20), keep, func(b pbfBlock) {
@@ -99,7 +104,7 @@ func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) {
 		return nil, nil, err
 	}
 	if len(edges) == 0 {
-		return nil, nil, fmt.Errorf("walk graph: no walkable ways inside %+v", box)
+		return nil, nil, fmt.Errorf("graph: no usable ways inside %+v", box)
 	}
 	g := buildWalkGraph(lat, lon, edges)
 	g.box = box
@@ -116,7 +121,24 @@ var (
 	}
 	footAllowed  = map[string]bool{"yes": true, "designated": true, "permissive": true, "destination": true}
 	accessDenied = map[string]bool{"no": true, "private": true}
+
+	drivableHighways = map[string]bool{
+		"motorway": true, "motorway_link": true, "trunk": true, "trunk_link": true, "primary": true, "primary_link": true,
+		"secondary": true, "secondary_link": true, "tertiary": true, "tertiary_link": true, "unclassified": true,
+		"residential": true, "living_street": true, "service": true, "road": true, "busway": true,
+	}
+	busAllowed = map[string]bool{"yes": true, "designated": true, "permissive": true}
 )
+
+func drivable(tag func(string) string) bool {
+	if !drivableHighways[tag("highway")] {
+		return false
+	}
+	if busAllowed[tag("bus")] || busAllowed[tag("psv")] {
+		return true
+	}
+	return !accessDenied[tag("access")] && !accessDenied[tag("motor_vehicle")]
+}
 
 func walkable(tag func(string) string) bool {
 	foot := tag("foot")

@@ -9,6 +9,7 @@ import (
 	"conexiuni-cluj/cities/iasi"
 	"conexiuni-cluj/cities/oradea"
 	"conexiuni-cluj/cities/sibiu"
+	"conexiuni-cluj/cities/suceava"
 	"conexiuni-cluj/cities/timisoara"
 	"conexiuni-cluj/config"
 	"conexiuni-cluj/database"
@@ -24,7 +25,7 @@ import (
 // Every city the server runs; a new one is a folder under cities/ and a line here.
 var allCities = []cities.Spec{
 	cluj.City, iasi.City, botosani.City, oradea.City, constanta.City,
-	sibiu.City, bucuresti.City, timisoara.City,
+	sibiu.City, bucuresti.City, timisoara.City, suceava.City,
 }
 
 func buildCities(cfg *config.Config) ([]*cities.City, error) {
