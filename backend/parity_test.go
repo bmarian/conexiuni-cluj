@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/config"
+	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/planner"
@@ -329,12 +330,17 @@ func recordParity(t *testing.T, out string, now, later time.Time, cfg *config.Co
 		if err != nil {
 			t.Fatal(err)
 		}
-		app = newApp(cfg, built, registry, io.Discard, "parity")
+		devices, err := devicesync.Open(filepath.Join(cfg.DBDir, "sync.db"), devicesync.Options{Cities: len(built), MaxBytes: int64(cfg.SyncDBMaxMB) << 20})
+		if err != nil {
+			t.Fatal(err)
+		}
+		app = newApp(cfg, built, registry, devices, io.Discard, "parity")
 		for _, path := range []string{"/robots.txt", "/nope.png"} {
 			outside <- httptest.NewRequest(http.MethodGet, path, nil)
 			<-served
 		}
 		registry.Start()
+		devices.Start()
 		synctest.Wait()
 
 		rec := &recorder{t: t, app: app, out: out, names: map[string]int{}}
@@ -349,6 +355,9 @@ func recordParity(t *testing.T, out string, now, later time.Time, cfg *config.Co
 		rec.walkMorning(built, cfg.AdminToken)
 
 		registry.Shutdown()
+		if err := devices.Close(); err != nil {
+			t.Fatal(err)
+		}
 		synctest.Wait()
 		for _, city := range built {
 			city.Close()
@@ -495,6 +504,7 @@ func (r *recorder) walkWrites(built []*cities.City, adminToken string) {
 	r.do(http.MethodDelete, "/api/transfer/"+link.Code, "")
 	r.do(http.MethodDelete, "/api/transfer/"+link.Code, "", "X-Link-Secret", link.Secret)
 	r.get("/api/transfer/" + link.Code)
+	r.walkSync()
 
 	if adminToken == "" {
 		return
@@ -682,6 +692,9 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 			r.masks = append(r.masks, [2]string{link.Code, "<code>"}, [2]string{link.Secret, "<secret>"})
 		}
 	}
+	if strings.HasPrefix(target, "/api/sync") {
+		r.maskSyncValues(plain)
+	}
 	var pretty bytes.Buffer
 	if strings.Contains(resp.Header.Get("Content-Type"), "json") && json.Indent(&pretty, plain, "", " ") == nil {
 		text.Write(pretty.Bytes())
@@ -690,8 +703,8 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 	}
 	text.WriteString("\n")
 	recorded := text.String()
-	// Only transfer answers hold the codes; anywhere else a six-digit code can match part of a coordinate.
-	if strings.HasPrefix(target, "/api/transfer") {
+	// Only transfer and sync answers hold the codes; anywhere else a six-digit code can match part of a coordinate.
+	if strings.HasPrefix(target, "/api/transfer") || strings.HasPrefix(target, "/api/sync") {
 		if masked := r.mask(recorded); masked != recorded {
 			recorded = etagLine.ReplaceAllString(masked, "Etag: <masked>")
 		}
