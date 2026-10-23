@@ -33,7 +33,7 @@ import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type 
 import {reversePlace, type Place} from "@/utils/places.ts"
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
-import {siteUrl} from '@/utils/site.ts'
+import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
@@ -98,11 +98,11 @@ useHead(() => {
         {name: 'description', content: t('headPlanDesc', cityParams())},
         {property: 'og:title', content: t('headPlanTitle')},
         {property: 'og:description', content: t('headPlanDesc', cityParams())},
-        {property: 'og:url', content: siteUrl(cityPath('/plan'))},
+        {property: 'og:url', content: canonicalUrl(cityPath('/plan'))},
         {name: 'twitter:title', content: t('headPlanTitle')},
         {name: 'twitter:description', content: t('headPlanDesc', cityParams())},
       ],
-      link: [{rel: 'canonical', href: siteUrl(cityPath('/plan'))}],
+      link: [{rel: 'canonical', href: canonicalUrl(cityPath('/plan'))}],
     }
   }
 

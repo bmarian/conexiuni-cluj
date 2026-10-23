@@ -184,7 +184,7 @@ func injectMeta(c fiber.Ctx, l ogLocale, m metaInjection) error {
 
 	t := html.EscapeString(m.title)
 	d := html.EscapeString(m.description)
-	canonical := html.EscapeString(m.canonical)
+	canonical := html.EscapeString(selfURL(c, m.canonical))
 
 	body := reTitleEl.ReplaceAllLiteralString(indexHTMLContent, "<title>"+t+"</title>")
 	body = reMetaDesc.ReplaceAllLiteralString(body, `<meta name="description" content="`+d+`"`)
@@ -214,12 +214,7 @@ func buildHeadExtras(canonical, jsonLD string) string {
 	var sb strings.Builder
 	if canonical != "" {
 		canonicalAttr := html.EscapeString(canonical)
-		enHref := canonicalAttr
-		if strings.Contains(canonical, "?") {
-			enHref += "&lang=en"
-		} else {
-			enHref += "?lang=en"
-		}
+		enHref := html.EscapeString(withLang(canonical, "en"))
 		sb.WriteString(`<link rel="alternate" hreflang="ro" href="` + canonicalAttr + `">`)
 		sb.WriteString(`<link rel="alternate" hreflang="en" href="` + enHref + `">`)
 		sb.WriteString(`<link rel="alternate" hreflang="x-default" href="` + canonicalAttr + `">`)
@@ -230,6 +225,21 @@ func buildHeadExtras(canonical, jsonLD string) string {
 		sb.WriteString(`</script>`)
 	}
 	return sb.String()
+}
+
+// selfURL is the page's own canonical: a ?lang=en page is the hreflang="en" alternate, not a copy of the Romanian one.
+func selfURL(c fiber.Ctx, canonical string) string {
+	if c.Query("lang") == "en" {
+		return withLang(canonical, "en")
+	}
+	return canonical
+}
+
+func withLang(u, lang string) string {
+	if strings.Contains(u, "?") {
+		return u + "&lang=" + lang
+	}
+	return u + "?lang=" + lang
 }
 
 func canonicalURL(city *cities.City, path string) string {
@@ -273,7 +283,7 @@ func routePage(city *cities.City, c fiber.Ctx) error {
 		"@type":       "WebPage",
 		"name":        title,
 		"description": desc,
-		"url":         routeURL,
+		"url":         selfURL(c, routeURL),
 		"inLanguage":  l.lang,
 		"publisher":   publisherOrg(),
 		"about": map[string]any{
@@ -333,7 +343,7 @@ func stopPage(city *cities.City, c fiber.Ctx) error {
 		"@type":       "WebPage",
 		"name":        title,
 		"description": desc,
-		"url":         stopURL,
+		"url":         selfURL(c, stopURL),
 		"inLanguage":  l.lang,
 		"publisher":   publisherOrg(),
 		"about": map[string]any{
@@ -387,7 +397,7 @@ func planPage(city *cities.City, c fiber.Ctx) error {
 				"@type":       "WebPage",
 				"name":        l.planTitle,
 				"description": l.planDesc,
-				"url":         canonicalURL(city, "/plan"),
+				"url":         selfURL(c, canonicalURL(city, "/plan")),
 				"inLanguage":  l.lang,
 				"publisher":   publisherOrg(),
 			}),
@@ -431,11 +441,6 @@ func homePage(city *cities.City, c fiber.Ctx) error {
 			"@type":    "WebSite",
 			"name":     "Ce autobuz iau?",
 			"url":      canonicalURL(city, "/"),
-			"potentialAction": map[string]any{
-				"@type":       "SearchAction",
-				"target":      canonicalURL(city, "/?q={search_term_string}"),
-				"query-input": "required name=search_term_string",
-			},
 		}),
 	})
 }
@@ -454,7 +459,7 @@ func Android(c fiber.Ctx) error {
 			"@type":       "WebPage",
 			"name":        l.androidTitle,
 			"description": l.androidDesc,
-			"url":         web.SiteOrigin + "/android",
+			"url":         selfURL(c, web.SiteOrigin+"/android"),
 			"inLanguage":  l.lang,
 			"publisher":   publisherOrg(),
 		}),

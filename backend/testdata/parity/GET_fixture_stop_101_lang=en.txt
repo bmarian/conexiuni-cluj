@@ -1,0 +1,26 @@
+GET /fixture/stop/101?lang=en
+200
+Cache-Control: public, max-age=300
+Content-Length: 2132
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Stația 101 stop, Fixture — Live departures | Ce autobuz iau?</title>
+<meta name="description" content="Live departures from Stația 101 stop in Fixture. Lines stopping here and current schedules.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixture/stop/101?lang=en">
+<meta property="og:title" content="Stația 101 stop, Fixture — Live departures | Ce autobuz iau?">
+<meta property="og:description" content="Live departures from Stația 101 stop in Fixture. Lines stopping here and current schedules.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixture/stop/101?lang=en">
+<meta name="twitter:title" content="Stația 101 stop, Fixture — Live departures | Ce autobuz iau?">
+<meta name="twitter:description" content="Live departures from Stația 101 stop in Fixture. Lines stopping here and current schedules.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/stop/101"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/stop/101?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/stop/101"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"BusStop","address":{"@type":"PostalAddress","addressCountry":"RO","addressLocality":"Fixture"},"geo":{"@type":"GeoCoordinates","latitude":46,"longitude":23.988},"name":"Stația 101"},"description":"Live departures from Stația 101 stop in Fixture. Lines stopping here and current schedules.","inLanguage":"en","name":"Stația 101 stop, Fixture — Live departures | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/stop/101?lang=en"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația 101 stop, Fixture</h1><p>Live departures from Stația 101 in Fixture. See bus, trolleybus and tram lines stopping here, estimated times and vehicle positions on the map.</p></div></div></body>
+</html>
+

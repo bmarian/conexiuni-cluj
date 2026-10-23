@@ -19,7 +19,7 @@ import {useRouter} from "vue-router";
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
 import {useMapStore} from "@/stores/map.ts"
 import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
-import {siteUrl} from "@/utils/site.ts";
+import {canonicalUrl} from "@/utils/site.ts";
 import {cityParams, cityPath} from "@/utils/city.ts";
 import {groupByMode, mainMode} from "@/utils/modes.ts";
 import {useShare} from "@/composables/useShare.ts";
@@ -77,7 +77,7 @@ useHead(() => {
   if (!stopName.value) return {}
   const title = t('headStopTitle', {...cityParams(), stopName: stopName.value})
   const description = t('headStopDesc', {...cityParams(), stopName: stopName.value})
-  const url = siteUrl(cityPath(`/stop/${props.stopId}`))
+  const url = canonicalUrl(cityPath(`/stop/${props.stopId}`))
   return {
     title,
     meta: [

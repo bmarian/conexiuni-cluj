@@ -1,6 +1,7 @@
 import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {currentCity} from '@/utils/city.ts'
+import {urlLocale} from '@/utils/site.ts'
 import {REGION_SETTINGS, regionSettingStorageKey, type RegionSettingKey} from '@/utils/regionSettings.ts'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -25,6 +26,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<Theme>((localStorage.getItem('settings.theme') as Theme) ?? 'system')
 
   function detectInitialLocale(): AppLocale {
+    const asked = urlLocale()
+    if (asked) return asked
     const saved = localStorage.getItem('settings.locale') as AppLocale | null
     if (saved === 'ro' || saved === 'en') return saved
     return navigator.language.toLowerCase().startsWith('en') ? 'en' : 'ro'
