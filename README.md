@@ -26,7 +26,7 @@ A live bus, tram and trolleybus tracker for Romanian cities. I ride CTP every da
   <img src="readme/phone-timetable.png" width="200" alt="Line 35's weekday timetable in light and dark, the times already gone faded out">
 </p>
 
-There's an [Android app](https://github.com/bmarian/conexiuni-cluj-mobile) and a [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos) too.
+There's an [Android app](https://github.com/bmarian/conexiuni-cluj-mobile), a [Wear OS app](https://github.com/bmarian/conexiuni-cluj-wearos) and a [Playdate app](https://github.com/bmarian/conexiuni-cluj-playdate) too.
 
 ## Cities
 
