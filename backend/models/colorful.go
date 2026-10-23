@@ -13,7 +13,41 @@ func ColorfulRouteColor(shortName string) string {
 	if !ok {
 		return FallbackRouteColor
 	}
-	return HSLHex(h, s, l)
+	return HSLHex(h, s, ReadableLightness(h, s, l))
+}
+
+// WCAG AA's contrast for normal text, for the white line numbers.
+const minContrast = 4.5
+
+// ReadableLightness is l, or the lightest below it on which white text reaches minContrast.
+func ReadableLightness(h, s, l float64) float64 {
+	if whiteContrast(h, s, l) >= minContrast {
+		return l
+	}
+	lo, hi := 0.0, l
+	// Until the two are within half a step of an 8-bit channel.
+	for hi-lo > 1.0/510 {
+		mid := (lo + hi) / 2
+		if whiteContrast(h, s, mid) >= minContrast {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	return lo
+}
+
+func whiteContrast(h, s, l float64) float64 {
+	r, g, b := HSLRGB(h, s, l)
+	linear := func(v float64) float64 {
+		v = math.Round(v*255) / 255
+		if v <= 0.04045 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	luminance := 0.2126*linear(r) + 0.7152*linear(g) + 0.0722*linear(b)
+	return 1.05 / (luminance + 0.05)
 }
 
 // ColorfulHSL is ColorfulRouteColor as hue in degrees, saturation and lightness.

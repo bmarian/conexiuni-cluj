@@ -4,7 +4,7 @@ Cache-Control: no-cache
 Content-Length: 7111
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"7111-3885274623"
+Etag: W/"7111-2873940131"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -19,7 +19,7 @@ X-Frame-Options: DENY
    "route_short_name": "2B",
    "route_id": 2,
    "route_color": "#16D057",
-   "route_colorful": "#2FE92F",
+   "route_colorful": "#1616D0",
    "source": "stops",
    "detected_at": 1792461613370,
    "changes": [
@@ -50,7 +50,7 @@ X-Frame-Options: DENY
    "route_short_name": "1",
    "route_id": 1,
    "route_color": "#C62F24",
-   "route_colorful": "#BE2380",
+   "route_colorful": "#D93D32",
    "source": "timetable",
    "detected_at": 1792461613370,
    "changes": [
