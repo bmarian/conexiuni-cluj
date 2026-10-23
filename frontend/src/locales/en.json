@@ -341,5 +341,6 @@
   "destsIn": "Destinations in {city}",
   "destsDistricts": "Districts",
   "destsTowns": "Towns and villages",
-  "destCounts": "{stops} stops · {lines} lines"
+  "destCounts": "{stops} stops · {lines} lines",
+  "destNotFound": "No area called “{name}”"
 }

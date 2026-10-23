@@ -14,7 +14,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// pagePath is a link to another page of the city in the language this one was asked in.
 func pagePath(c fiber.Ctx, city *cities.City, path string) string {
 	return html.EscapeString(selfURL(c, "/"+city.Slug+path))
 }
@@ -111,7 +110,12 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 	}
 	dest := x.Destination(c.Params("slug"))
 	if dest == nil {
-		return c.Next()
+		// The app still loads, to suggest similar names.
+		if indexHTMLContent == "" {
+			return c.Next()
+		}
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.Status(fiber.StatusNotFound).SendString(indexHTMLContent)
 	}
 	l := ogTexts(city, c)
 	pageURL := canonicalURL(city, "/to/"+dest.Slug)

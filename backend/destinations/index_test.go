@@ -14,7 +14,7 @@ func hours(at int, offsets []int) [][]int {
 	return out
 }
 
-// Two districts on line 5, a village one line further, and the city itself, farther from every stop than its districts.
+// Two districts on line 5, a village on M1, and the city node farther from every stop.
 func testIndex() *Index {
 	bundle := &models.NetworkBundle{
 		Stops: []models.Stop{
@@ -75,11 +75,8 @@ func TestRidesByOrigin(t *testing.T) {
 		to, from string
 		want     Ride
 	}{
-		// From the last stop of Așa to the first of Bună, timed from the 08:00 run on.
 		{"buna", "asa", Ride{RouteID: 10, Direction: 0, Board: 2, Alight: 3, Minutes: [2]int{5, 5}, EveryMin: 10, First: "08:03", Last: "08:23", DayType: "weekday"}},
-		// A single run: no gap.
 		{"asa", "buna", Ride{RouteID: 10, Direction: 1, Board: 3, Alight: 2, Minutes: [2]int{5, 5}, First: "08:07", Last: "08:07", DayType: "weekday"}},
-		// No weekday service: the first kind of day it runs on.
 		{"vale", "buna", Ride{RouteID: 11, Direction: 0, Board: 4, Alight: 5, Minutes: [2]int{10, 10}, First: "09:00", Last: "09:00", DayType: "saturday"}},
 	}
 	for _, c := range cases {
@@ -96,7 +93,6 @@ func TestRidesByOrigin(t *testing.T) {
 			t.Errorf("%s from %s = %+v, want %+v", c.to, c.from, got, c.want)
 		}
 	}
-	// The origin with more stops first.
 	if from := x.Destination("buna").From; len(from) != 2 || from[0].Slug != "asa" || from[1].Slug != "vale" {
 		t.Errorf("origins of buna = %+v", from)
 	}
@@ -108,7 +104,6 @@ func TestStationLines(t *testing.T) {
 	if got := x.StationLines(3); !reflect.DeepEqual(got, want) {
 		t.Errorf("lines at 3 = %+v, want %+v", got, want)
 	}
-	// A line ending here that also leaves from here is listed once, by where it leaves for.
 	want = []Departing{{Toward: "Beta", Lines: []Line{{11, 1}}}}
 	if got := x.StationLines(5); !reflect.DeepEqual(got, want) {
 		t.Errorf("lines at 5 = %+v, want %+v", got, want)
@@ -122,7 +117,6 @@ func TestStationLines(t *testing.T) {
 	}
 }
 
-// Where OSM names no district, the stops in town are in the town itself.
 func TestTownWithoutDistricts(t *testing.T) {
 	bundle := &models.NetworkBundle{
 		Stops:  []models.Stop{{StopID: 1, StopLat: 0, StopLon: 0.001}, {StopID: 2, StopLat: 0, StopLon: 0.004}, {StopID: 3, StopLat: 0, StopLon: 0.03}},

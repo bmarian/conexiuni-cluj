@@ -4,10 +4,20 @@ import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {network, type NetworkRoute} from '@/utils/network.ts'
-import {type Destination, fetchDestination, type Ride, rideMinutes} from '@/utils/destinationPages.ts'
+import {
+  type Destination,
+  type DestinationSummary,
+  fetchDestination,
+  fetchDestinations,
+  namedLike,
+  type Ride,
+  rideMinutes,
+} from '@/utils/destinationPages.ts'
+import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {useMapStore} from '@/stores/map.ts'
+import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {DirectionsBusIcon, DirectionsIcon, MapIcon, PlaceIcon} from '@/utils/icons.ts'
 import type {Stop} from '@/types/tranzy.ts'
 import type {ChipAction} from '@/components/ui/types.ts'
@@ -21,7 +31,6 @@ import StationRow from '@/components/rows/StationRow.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 
-// As many rides from one area as fit at a glance; the rest open on a tap.
 const RIDES_SHOWN = 3
 
 const props = defineProps<{ slug: string }>()
@@ -29,9 +38,12 @@ const props = defineProps<{ slug: string }>()
 const {t} = useI18n()
 const router = useRouter()
 const mapStore = useMapStore()
+const {openStop} = useMapPicks()
 
 const destination = ref<Destination | null>(null)
 const loadError = ref(false)
+const notFound = ref(false)
+const areas = ref<DestinationSummary[]>([])
 const opened = ref(new Set<string>())
 
 async function load() {
@@ -39,17 +51,26 @@ async function load() {
   try {
     destination.value = await fetchDestination(props.slug)
     mapStore.setFlyToLocation(destination.value.lat, destination.value.lon)
-  } catch {
+  } catch (err) {
     destination.value = null
-    loadError.value = true
+    if (!(err instanceof ApiError && err.status === 404)) {
+      loadError.value = true
+      return
+    }
+    notFound.value = true
+    areas.value = await fetchDestinations().catch(() => [])
   }
 }
 
 watch(() => props.slug, () => {
   destination.value = null
+  notFound.value = false
   opened.value = new Set()
   void load()
 }, {immediate: true})
+
+const asked = computed(() => props.slug.replace(/-/g, ' '))
+const similar = computed(() => network.value ? namedLike(props.slug, areas.value, network.value) : {areas: [], stops: []})
 
 const area = computed(() => destination.value?.name ?? '')
 
@@ -93,17 +114,17 @@ function showAll(slug: string) {
   opened.value = new Set([...opened.value, slug])
 }
 
-const chips = computed<ChipAction[]>(() => destination.value
-  ? [{
+const chips = computed<ChipAction[]>(() => {
+  const dest = destination.value
+  if (!dest) return []
+  return [{
     label: t('directions'), icon: DirectionsIcon, primary: true, kbd: 'directions',
-    onClick: () => void router.push({
-      name: 'plan',
-      query: {lat: String(destination.value!.lat), lon: String(destination.value!.lon), name: destination.value!.name},
-    }),
+    onClick: () => void router.push({name: 'plan', query: {lat: String(dest.lat), lon: String(dest.lon), name: dest.name}}),
   }]
-  : [])
+})
 
 useHead(() => {
+  if (notFound.value) return {title: t('destNotFound', {name: asked.value}), meta: [{name: 'robots', content: 'noindex'}]}
   // Keep the server-injected meta for crawlers until the destination loads.
   if (!destination.value) return {}
   const params = {...cityParams(), area: area.value}
@@ -127,12 +148,40 @@ useHead(() => {
 
 <template>
   <div class="destination-view">
-    <SheetTopBar :title="area"/>
+    <SheetTopBar :title="area || (notFound ? asked : '')"/>
 
     <div v-if="loadError" class="flex flex-col items-start gap-3 p-4">
       <p class="text-body-medium text-on-surface-variant">{{ t('loadFailed') }}</p>
       <button type="button" class="btn btn-tonal" @click="load">{{ t('retry') }}</button>
     </div>
+
+    <template v-else-if="notFound">
+      <header class="header">
+        <h1 class="text-title-large font-bold">{{ t('destNotFound', {name: asked}) }}</h1>
+      </header>
+      <section v-if="similar.areas.length" class="pt-2" data-kbd-section="dest-like-areas" data-kbd-entry="1">
+        <SectionLabel :text="t('destinations')" :icon="PlaceIcon"/>
+        <ListRow
+          v-for="like in similar.areas"
+          :key="like.slug"
+          :title="like.name"
+          :subtitle="t('destCounts', {stops: like.stops, lines: like.lines})"
+          :data-kbd-item="`dest-${like.slug}`"
+          chevron
+          @open="router.push({name: 'destination', params: {slug: like.slug}})"
+        />
+      </section>
+      <section v-if="similar.stops.length" class="pt-2" data-kbd-section="dest-like-stops" data-kbd-entry="2">
+        <SectionLabel :text="t('stops')" :icon="DirectionsBusIcon"/>
+        <StationRow
+          v-for="stop in similar.stops"
+          :key="stop.stop_id"
+          :stop="stop"
+          :data-kbd-item="`stop-${stop.stop_id}`"
+          @open="openStop(String(stop.stop_id))"
+        />
+      </section>
+    </template>
 
     <LoadingIndicator v-else-if="!destination || !network"/>
 
@@ -186,10 +235,12 @@ useHead(() => {
           :key="stop.stop_id"
           :stop="stop"
           :data-kbd-item="`stop-${stop.stop_id}`"
-          @open="router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})"
+          @open="openStop(String(stop.stop_id))"
         />
       </section>
+    </template>
 
+    <template v-if="notFound || (destination && network)">
       <ListRow
         class="mt-2"
         :title="t('destAll', cityParams())"

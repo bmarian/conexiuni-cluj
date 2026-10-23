@@ -1,4 +1,4 @@
-// Package destinations answers, for the pages search engines list, which lines reach each area of a city and from which other areas, and which stops each line calls at.
+// Package destinations answers which lines reach each area of a city, and from where.
 package destinations
 
 import (
@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// Network is the bundle clients get, which the index is read from.
 type Network interface {
 	Current() (*models.NetworkBundle, string, error)
 	Version() (string, error)
@@ -35,7 +34,6 @@ func (s *Service) Register(api fiber.Router) {
 	api.Get("/destinations/:slug", s.get)
 }
 
-// Index is built again when the bundle or the place index changes.
 func (s *Service) Index() (*Index, error) {
 	version, err := s.network.Version()
 	if err != nil {
@@ -59,7 +57,6 @@ func (s *Service) Index() (*Index, error) {
 	return s.index, nil
 }
 
-// Areas is the index once it has them; ok is false while the place index is read.
 func (s *Service) Areas() (*Index, bool, error) {
 	x, err := s.Index()
 	if err != nil {

@@ -1,10 +1,16 @@
 import {apiPath, cacheKey} from '@/utils/city.ts'
 
+export class ApiError extends Error {
+  constructor(readonly status: number) {
+    super(`API request failed with status ${status}`)
+  }
+}
+
 export async function apiRequest<T>(url: string): Promise<T> {
   const separator = url.includes('?') ? '&' : '?'
   const response = await fetch(`${apiPath(url)}${separator}v=${__APP_VERSION__}`)
   if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`)
+    throw new ApiError(response.status)
   }
   return response.json() as Promise<T>
 }

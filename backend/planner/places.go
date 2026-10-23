@@ -19,7 +19,7 @@ func placesLoading(c fiber.Ctx) error {
 
 // q searches; lat and lon name the place at a position.
 func (s *Service) searchPlaces(c fiber.Ctx) error {
-	places := s.placeIndex()
+	places := s.Places()
 	if places == nil {
 		return placesLoading(c)
 	}
@@ -47,7 +47,7 @@ func (s *Service) searchPlaces(c fiber.Ctx) error {
 }
 
 func (s *Service) listAreas(c fiber.Ctx) error {
-	places := s.placeIndex()
+	places := s.Places()
 	if places == nil {
 		return placesLoading(c)
 	}
