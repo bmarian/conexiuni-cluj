@@ -1,7 +1,7 @@
 GET /fixture/?lang=en
 200
 Cache-Control: public, max-age=300
-Content-Length: 1660
+Content-Length: 1738
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Ce autobuz iau? — Fixture public transport in real time">
 <meta name="twitter:description" content="App for Fixture public transport. Real-time Fixture Transit timetables, live departures, line routes and route planner.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixture/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><p><a href="/fixture/destinations?lang=en">All destinations in Fixture</a></p></div></div></body>
 </html>
 

@@ -1,7 +1,7 @@
 GET /fixture/
 200
 Cache-Control: public, max-age=300
-Content-Length: 1774
+Content-Length: 1848
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Ce autobuz iau? — Transport public Fixture în timp real">
 <meta name="twitter:description" content="Aplicație pentru transportul public din Fixture. Orarele Fixture Transit în timp real, plecările de la stații, traseele și planificator de rute.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixture/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Transport public Fixture în timp real</h1><p>Autobuzele, troleibuzele și tramvaiele Fixture Transit în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.</p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Transport public Fixture în timp real</h1><p>Autobuzele, troleibuzele și tramvaiele Fixture Transit în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.</p><p><a href="/fixture/destinations">Toate destinațiile din Fixture</a></p></div></div></body>
 </html>
 

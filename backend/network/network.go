@@ -281,6 +281,28 @@ func (s *Service) Warm() {
 	}
 }
 
+// Current is the bundle clients get now, read back from its JSON, and its version.
+func (s *Service) Current() (*models.NetworkBundle, string, error) {
+	built, err := s.currentNetwork()
+	if err != nil {
+		return nil, "", err
+	}
+	var bundle models.NetworkBundle
+	if err := json.Unmarshal(built.json, &bundle); err != nil {
+		return nil, "", err
+	}
+	return &bundle, built.version.Version, nil
+}
+
+// Version is the version Current would return, without reading the bundle.
+func (s *Service) Version() (string, error) {
+	built, err := s.currentNetwork()
+	if err != nil {
+		return "", err
+	}
+	return built.version.Version, nil
+}
+
 func (s *Service) serve(c fiber.Ctx) error {
 	built, err := s.currentNetwork()
 	if err != nil {

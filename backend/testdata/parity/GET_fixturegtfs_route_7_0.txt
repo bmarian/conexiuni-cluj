@@ -1,7 +1,7 @@
 GET /fixturegtfs/route/7/0
 200
 Cache-Control: public, max-age=300
-Content-Length: 2292
+Content-Length: 2696
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Orar Linia 7 Fixture GTFS — Capăt 701 - Capăt 705 | Ce autobuz iau?">
 <meta name="twitter:description" content="Orar, traseu, opriri și plecări live pentru linia 7 (Capăt 701 - Capăt 705) din Fixture GTFS.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/route/7/0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/route/7/0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/route/7/0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Service","areaServed":{"@type":"City","name":"Fixture GTFS"},"description":"Capăt 701 - Capăt 705","name":"Linia 7","provider":{"@type":"Organization","name":"Fixture Rail","url":"https://rail.fixture.example/"},"serviceType":"Public transport route"},"description":"Orar, traseu, opriri și plecări live pentru linia 7 (Capăt 701 - Capăt 705) din Fixture GTFS.","inLanguage":"ro","name":"Orar Linia 7 Fixture GTFS — Capăt 701 - Capăt 705 | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/route/7/0"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Orar Linia 7 Fixture GTFS</h1><p>Linia 7 (Capăt 701 - Capăt 705) face parte din transportul public din Fixture GTFS, operat de Fixture Rail. Aici găsești orarul public și pozițiile live ale vehiculelor.</p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Orar Linia 7 Fixture GTFS</h1><p>Linia 7 (Capăt 701 - Capăt 705) face parte din transportul public din Fixture GTFS, operat de Fixture Rail. Aici găsești orarul public și pozițiile live ale vehiculelor.</p><h2>Stațiile liniei 7 spre Capăt 705</h2><ol><li><a href="/fixturegtfs/stop/701">Stația 701</a></li><li><a href="/fixturegtfs/stop/702">Stația 702</a></li><li><a href="/fixturegtfs/stop/703">Stația 703</a></li><li><a href="/fixturegtfs/stop/704">Stația 704</a></li><li><a href="/fixturegtfs/stop/705">Stația 705</a></li></ol><p><a href="/fixturegtfs/route/7/1">Sensul opus: spre Capăt 701</a></p></div></div></body>
 </html>
 

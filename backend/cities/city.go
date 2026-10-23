@@ -2,6 +2,7 @@ package cities
 
 import (
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/destinations"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/ingest"
@@ -38,11 +39,12 @@ type City struct {
 	Learning   feeds.Realtime
 	News       feeds.News
 
-	Live    *live.Engine
-	Updates *updates.Service
-	Planner *planner.Service
-	Network *network.Service
-	Ingest  *ingest.Importer
+	Live         *live.Engine
+	Updates      *updates.Service
+	Planner      *planner.Service
+	Network      *network.Service
+	Destinations *destinations.Service
+	Ingest       *ingest.Importer
 
 	offered transit.Availability
 	run     cityRun
@@ -69,6 +71,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Planner = planner.New(loc, store, c.Data, c.Live)
 	c.Network = network.New(loc, store, c.Data, &c.offered, c.Live)
 	c.Network.Runner = c.running
+	c.Destinations = destinations.New(c.Network, c.Planner.Places)
 	forget := func() {
 		c.Network.Invalidate()
 		c.Planner.Forget()
@@ -113,6 +116,7 @@ func (c *City) Register(api fiber.Router) {
 	api.Get("/live", c.Live.ServeLive)
 	c.Planner.Register(api)
 	c.Network.Register(api)
+	c.Destinations.Register(api)
 	c.Updates.Register(api)
 }
 

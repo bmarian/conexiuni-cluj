@@ -1,0 +1,47 @@
+GET /api/fixturegtfs/destinations/cartier-0
+200
+Cache-Control: no-cache
+Content-Length: 327
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"327-2169861723"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "slug": "cartier-0",
+ "name": "Cartier 0",
+ "district": true,
+ "lat": 44.9994,
+ "lon": 24.988000000000003,
+ "stop_ids": [
+  701
+ ],
+ "route_ids": [
+  7
+ ],
+ "from": [
+  {
+   "slug": "fixturegtfs",
+   "name": "fixturegtfs",
+   "rides": [
+    {
+     "route_id": 7,
+     "direction": 1,
+     "board": 702,
+     "alight": 701,
+     "minutes": [
+      2,
+      2
+     ],
+     "every_min": 12,
+     "first": "05:10",
+     "last": "23:10",
+     "day_type": "weekday"
+    }
+   ]
+  }
+ ]
+}

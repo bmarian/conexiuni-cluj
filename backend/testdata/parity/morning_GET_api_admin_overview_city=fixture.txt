@@ -133,27 +133,27 @@ X-Frame-Options: DENY
     "date": "2026-10-20",
     "label": "2026-10-20",
     "median_abs_sec": 45,
-    "n": 2138,
+    "n": 2165,
     "p90_abs_sec": 285,
-    "within_1": 0.6983161833489242
+    "within_1": 0.6494226327944572
    }
   ],
   "timetable": [
    {
-    "bias_sec": 15,
+    "bias_sec": -15,
     "label": "ours",
-    "median_abs_sec": 195,
-    "n": 79,
+    "median_abs_sec": 165,
+    "n": 89,
     "p90_abs_sec": 345,
-    "within_1": 0.12658227848101267
+    "within_1": 0.21348314606741572
    },
    {
     "bias_sec": 45,
     "label": "ctp",
     "median_abs_sec": 195,
-    "n": 79,
-    "p90_abs_sec": 345,
-    "within_1": 0.16455696202531644
+    "n": 89,
+    "p90_abs_sec": 315,
+    "within_1": 0.14606741573033707
    }
   ],
   "today": [
@@ -161,33 +161,33 @@ X-Frame-Options: DENY
     "bias_sec": 15,
     "label": "1-2",
     "median_abs_sec": 15,
-    "n": 619,
+    "n": 662,
     "p90_abs_sec": 45,
-    "within_1": 0.9870759289176091
+    "within_1": 0.9879154078549849
    },
    {
     "bias_sec": 15,
     "label": "3-5",
-    "median_abs_sec": 15,
-    "n": 583,
+    "median_abs_sec": 45,
+    "n": 592,
     "p90_abs_sec": 75,
-    "within_1": 0.8473413379073756
+    "within_1": 0.8243243243243243
    },
    {
     "bias_sec": 45,
     "label": "6-10",
-    "median_abs_sec": 45,
-    "n": 625,
-    "p90_abs_sec": 255,
-    "within_1": 0.5808
+    "median_abs_sec": 75,
+    "n": 609,
+    "p90_abs_sec": 285,
+    "within_1": 0.41050903119868637
    },
    {
     "bias_sec": -285,
     "label": "11-20",
     "median_abs_sec": 285,
-    "n": 311,
+    "n": 302,
     "p90_abs_sec": 525,
-    "within_1": 0.08038585209003216
+    "within_1": 0.046357615894039736
    },
    {
     "bias_sec": 0,
@@ -201,9 +201,9 @@ X-Frame-Options: DENY
     "bias_sec": 15,
     "label": "all",
     "median_abs_sec": 45,
-    "n": 2138,
+    "n": 2165,
     "p90_abs_sec": 285,
-    "within_1": 0.6983161833489242
+    "within_1": 0.6494226327944572
    }
   ],
   "week": [
@@ -211,33 +211,33 @@ X-Frame-Options: DENY
     "bias_sec": 15,
     "label": "1-2",
     "median_abs_sec": 15,
-    "n": 619,
+    "n": 662,
     "p90_abs_sec": 45,
-    "within_1": 0.9870759289176091
+    "within_1": 0.9879154078549849
    },
    {
     "bias_sec": 15,
     "label": "3-5",
-    "median_abs_sec": 15,
-    "n": 583,
+    "median_abs_sec": 45,
+    "n": 592,
     "p90_abs_sec": 75,
-    "within_1": 0.8473413379073756
+    "within_1": 0.8243243243243243
    },
    {
     "bias_sec": 45,
     "label": "6-10",
-    "median_abs_sec": 45,
-    "n": 625,
-    "p90_abs_sec": 255,
-    "within_1": 0.5808
+    "median_abs_sec": 75,
+    "n": 609,
+    "p90_abs_sec": 285,
+    "within_1": 0.41050903119868637
    },
    {
     "bias_sec": -285,
     "label": "11-20",
     "median_abs_sec": 285,
-    "n": 311,
+    "n": 302,
     "p90_abs_sec": 525,
-    "within_1": 0.08038585209003216
+    "within_1": 0.046357615894039736
    },
    {
     "bias_sec": 0,
@@ -251,9 +251,9 @@ X-Frame-Options: DENY
     "bias_sec": 15,
     "label": "all",
     "median_abs_sec": 45,
-    "n": 2138,
+    "n": 2165,
     "p90_abs_sec": 285,
-    "within_1": 0.6983161833489242
+    "within_1": 0.6494226327944572
    }
   ]
  },
@@ -284,8 +284,8 @@ X-Frame-Options: DENY
     "line": "1"
    }
   ],
-  "samples_hour": 83,
-  "samples_today": 322,
+  "samples_hour": 90,
+  "samples_today": 353,
   "warmup_at": "2026-10-20T05:00:13.37+03:00",
   "warmup_next": "2026-10-20T07:00:26.37+03:00",
   "warmup_running": false
@@ -294,12 +294,12 @@ X-Frame-Options: DENY
  "now": {
   "buses_in_service": 3,
   "buses_tracked": 3,
-  "feed_at": "2026-10-20T06:39:50.4+03:00",
+  "feed_at": "2026-10-20T06:39:44.64+03:00",
   "fix_age_sec": 0,
   "lines": [],
   "lines_live": 2,
   "people": 0,
-  "poll_sec": 28.8,
+  "poll_sec": 17.28,
   "polled_by": "learner",
   "stops": [],
   "streams": 0
@@ -566,10 +566,10 @@ X-Frame-Options: DENY
  "problems": [],
  "quota": {
   "learning": {
-   "budget": 3000,
+   "budget": 5000,
    "dedicated": false,
    "enabled": true,
-   "used": 458
+   "used": 763
   },
   "quotas": []
  },
@@ -606,6 +606,12 @@ X-Frame-Options: DENY
     "avg_ms": 0,
     "calls": 2,
     "errors": 0,
+    "key": "GET /destinations/:slug"
+   },
+   {
+    "avg_ms": 0,
+    "calls": 2,
+    "errors": 0,
     "key": "GET /network/version"
    },
    {
@@ -625,13 +631,19 @@ X-Frame-Options: DENY
     "calls": 2,
     "errors": 0,
     "key": "GET /shapes"
+   },
+   {
+    "avg_ms": 0,
+    "calls": 1,
+    "errors": 0,
+    "key": "GET /destinations"
    }
   ],
   "errors": 0,
   "heap_bytes": "\u003cvolatile\u003e",
   "modified": false,
   "problems": [],
-  "requests": 23,
+  "requests": 26,
   "revision": "",
   "started_at": "\u003cvolatile\u003e",
   "sync": {

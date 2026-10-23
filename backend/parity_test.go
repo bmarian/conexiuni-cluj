@@ -564,8 +564,26 @@ func (r *recorder) walkCity(slug string) {
 	}
 	r.get(api + "/route-changes")
 	r.get(api + "/updates")
+	var areas []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(r.get(api+"/destinations"), &areas); err != nil {
+		r.t.Fatalf("%s destinations: %v", slug, err)
+	}
+	for _, a := range areas {
+		r.get(api + "/destinations/" + a.Slug)
+	}
+	r.get(api + "/destinations/nope")
 
 	page := "/" + slug
+	r.get(page + "/destinations")
+	for _, a := range areas {
+		r.get(page + "/to/" + a.Slug)
+	}
+	if len(areas) > 0 {
+		r.get(page + "/to/" + areas[0].Slug + "?lang=en")
+	}
+	r.get(page + "/to/nope")
 	r.get(page + "/")
 	r.get(page + "/?lang=en")
 	r.get(page + "/plan")
