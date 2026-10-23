@@ -63,3 +63,19 @@ func TestLivePlanDay(t *testing.T) {
 		}
 	}
 }
+
+func TestPlacesWhileTheWalkGraphIsRead(t *testing.T) {
+	s := &Service{}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	read := make(chan struct{})
+	go func() {
+		s.Places()
+		close(read)
+	}()
+	select {
+	case <-read:
+	case <-time.After(time.Second):
+		t.Fatal("Places waits for the walk graph's lock")
+	}
+}

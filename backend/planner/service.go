@@ -7,6 +7,7 @@ import (
 	"conexiuni-cluj/router"
 	"conexiuni-cluj/transit"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -45,9 +46,11 @@ type Service struct {
 	mu       sync.Mutex
 	stopsKey uint64
 	streets  *router.Streets
-	places   *router.Places
 	period   int64
 	networks map[string]*router.Network
+
+	// Read without mu, which the walk graph's read holds for seconds.
+	places atomic.Pointer[router.Places]
 }
 
 func New(loc *time.Location, store *database.Store, data *transit.Data, timing Timing) *Service {

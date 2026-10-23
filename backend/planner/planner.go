@@ -49,11 +49,7 @@ func Locate(points []feeds.Point) ([]string, []string, error) {
 }
 
 // nil until the walk graph is read.
-func (s *Service) Places() *router.Places {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.places
-}
+func (s *Service) Places() *router.Places { return s.places.Load() }
 
 // plannerNetwork is the timetable around at's service day, rebuilt when the learned offsets roll over.
 func (s *Service) plannerNetwork(at time.Time) (*router.Network, error) {
@@ -107,7 +103,8 @@ func (s *Service) readPlannerStreets() error {
 	if err != nil {
 		return err
 	}
-	s.streets, s.places, s.stopsKey, s.networks = streets, places, stopsKey, nil
+	s.streets, s.stopsKey, s.networks = streets, stopsKey, nil
+	s.places.Store(places)
 	return nil
 }
 
