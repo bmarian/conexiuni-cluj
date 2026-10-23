@@ -1,0 +1,17 @@
+POST /api/sync/pair/<code-2>/claim
+> Content-Type: application/json
+200
+Cache-Control: no-store
+Content-Length: 90
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: <masked>
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "commit": "J6TdDUZ1xMnqUQzpdLyw-7Tc4rFUuEdbJXM0fiVWf4g",
+ "secret": "<secret-3>"
+}

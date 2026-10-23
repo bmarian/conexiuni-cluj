@@ -20,6 +20,7 @@ type Config struct {
 	Port             string
 	DBDir            string
 	ArchiveDir       string
+	SyncDBMaxMB      int
 
 	TranzyBaseUrl            string
 	TranzyRateLimit          time.Duration
@@ -120,6 +121,7 @@ func Load() *Config {
 		Port:             getEnv("PORT", "6698"),
 		DBDir:            getEnv("DB_DIR", "../db"),
 		ArchiveDir:       getEnv("ARCHIVE_DIR", "../archive"),
+		SyncDBMaxMB:      getInt("SYNC_DB_MAX_MB", 512),
 
 		TranzyBaseUrl:            getEnv("TRANZY_BASE_URL", "https://api.tranzy.ai/v1/opendata"),
 		TranzyRateLimit:          getDuration("TRANZY_RATE_LIMIT", 200*time.Millisecond),

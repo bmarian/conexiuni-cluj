@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/admin"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/config"
+	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/pages"
 	"conexiuni-cluj/transfer"
 	"conexiuni-cluj/web"
@@ -87,16 +88,21 @@ func runShift(cfg *config.Config, slug, date string) {
 func accessLogger(out io.Writer, logHashSalt string) fiber.Handler {
 	return logger.New(logger.Config{
 		Stream: out,
-		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${url} | ua=${ua} | error=${error}\n",
-		CustomTags: map[string]logger.LogFunc{"clientId": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
-			return output.WriteString(clientIDForLog(c, logHashSalt))
-		}},
+		Format: "${time} | status=${status} | latency=${latency} | user=${clientId} | method=${method} | url=${loggedUrl} | ua=${ua} | error=${error}\n",
+		CustomTags: map[string]logger.LogFunc{
+			"clientId": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
+				return output.WriteString(clientIDForLog(c, logHashSalt))
+			},
+			"loggedUrl": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
+				return output.WriteString(devicesync.LogPath(c.OriginalURL()))
+			},
+		},
 		TimeFormat: StandardLogTimestampLayout,
 		TimeZone:   "Europe/Bucharest",
 	})
 }
 
-func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry, accessLog io.Writer, logHashSalt string) *fiber.App {
+func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry, devices *devicesync.Service, accessLog io.Writer, logHashSalt string) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName: "Ce autobuz iau?",
 	})
@@ -127,6 +133,7 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 	}))
 	api.Get("/cities", cities.Handler(registry))
 	transfer.New().Register(api)
+	devices.Register(api)
 	admin.Register(api, registry, cfg.AdminToken, cfg.Environment == "production")
 	notFound := func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNotFound) }
 	for _, city := range built {
@@ -252,7 +259,17 @@ func main() {
 		}()
 	}
 
-	app := newApp(cfg, built, registry, logs.accessOut, logHashSalt)
+	devices, err := devicesync.Open(filepath.Join(cfg.DBDir, "sync.db"), devicesync.Options{Cities: len(built), MaxBytes: int64(cfg.SyncDBMaxMB) << 20})
+	if err != nil {
+		log.Fatalf("Failed to open the sync database: %v", err)
+	}
+	defer func() {
+		if err := devices.Close(); err != nil {
+			log.Printf("Warning: failed to close the sync database: %v", err)
+		}
+	}()
+
+	app := newApp(cfg, built, registry, devices, logs.accessOut, logHashSalt)
 
 	listenAddr := ":" + cfg.Port
 	if cfg.Environment == "development" && runtime.GOOS == "windows" {
@@ -271,6 +288,7 @@ func main() {
 	err = app.Listen(listenAddr, fiber.ListenConfig{ListenerAddrFunc: func(addr net.Addr) {
 		log.Printf("Server listening on http://%s", addr)
 		registry.Start()
+		devices.Start()
 	}})
 	registry.Shutdown()
 	if err != nil {

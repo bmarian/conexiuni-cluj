@@ -1,0 +1,708 @@
+{
+  "about": "Records every client must accept, refuse, or leave alone as newer, and merges it must reproduce (protocol.md §4 and §6). Records are exact texts.",
+  "records": [
+    {
+      "kind": "city",
+      "about": "empty",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "everything once",
+      "json": "{\"v\":1,\"stops\":[391,12],\"lines\":[[24,\"0\"],[24,\"1\"]],\"places\":[[\"Acasă\",\"\",46.77,23.6],[\"Facultatea de Litere\",\"Facultate\",46.766543,23.587654,\"Cămin Hașdeu\",46.762,23.581]],\"followed\":[\"24\",\"25N\",\"City Tour\"]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "50 stops",
+      "json": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "51 stops",
+      "json": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop as text",
+      "json": "{\"v\":1,\"stops\":[\"391\"],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop 0",
+      "json": "{\"v\":1,\"stops\":[0],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop -1",
+      "json": "{\"v\":1,\"stops\":[-1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "largest stop",
+      "json": "{\"v\":1,\"stops\":[2147483647],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "stop past 2^31-1",
+      "json": "{\"v\":1,\"stops\":[2147483648],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop written 391.0",
+      "json": "{\"v\":1,\"stops\":[391.0],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop written 3.91e2",
+      "json": "{\"v\":1,\"stops\":[3.91e2],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "stop 1.5",
+      "json": "{\"v\":1,\"stops\":[1.5],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "duplicate stop",
+      "json": "{\"v\":1,\"stops\":[391,391],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "direction 2",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"2\"]],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "direction as number",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[[24,0]],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "line as object",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[{\"routeId\":24,\"direction\":\"0\"}],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "line with three fields",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\",\"x\"]],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "duplicate line",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"],[24,\"0\"]],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "same line both ways",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"],[24,\"1\"]],\"places\":[],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "place with 5 fields",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.77,23.6,\"x\"]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "label null",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",null,46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "latitude outside Romania",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",50.1,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "longitude outside Romania",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.77,30.5]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "seven decimals",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.7700001,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "trailing zero",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.770,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "whole-degree coordinate",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",47,23]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "whole degree written 47.0",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",47.0,23]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "coordinate as text",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",\"46.77\",23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "empty name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "name starting with a space",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\" Acasă\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "name ending with a no-break space",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă \",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "space inside a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Str. Memorandumului  28\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "right-to-left override in a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acas‮ă\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "zero-width space in a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Aca​să\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "replacement character in a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Aca�să\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "tab in a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Aca\\tsă\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "escaped letter",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"\\u0041casă\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "escaped lone surrogate",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"\\ud800\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "quotes and backslash",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Bar \\\"La Nea\\\" \\\\ 2\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "slash escaped",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\\/B\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "name of 100",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "name of 101",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "name of 100 four-byte characters",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "emoji joined by U+200D",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"👩‍🎓\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "label of 40",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"șșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșș\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "label of 41",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"șșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșșș\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "two places at the same spot",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.77,23.6],[\"Casa\",\"\",46.77,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "same spot from another origin",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.77,23.6],[\"Acasă\",\"\",46.77,23.6,\"Gară\",46.786,23.589]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "origin without a name",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"Acasă\",\"\",46.77,23.6,\"\",46.786,23.589]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "50 places",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"P1\",\"\",46.001,23.6],[\"P2\",\"\",46.002,23.6],[\"P3\",\"\",46.003,23.6],[\"P4\",\"\",46.004,23.6],[\"P5\",\"\",46.005,23.6],[\"P6\",\"\",46.006,23.6],[\"P7\",\"\",46.007,23.6],[\"P8\",\"\",46.008,23.6],[\"P9\",\"\",46.009,23.6],[\"P10\",\"\",46.01,23.6],[\"P11\",\"\",46.011,23.6],[\"P12\",\"\",46.012,23.6],[\"P13\",\"\",46.013,23.6],[\"P14\",\"\",46.014,23.6],[\"P15\",\"\",46.015,23.6],[\"P16\",\"\",46.016,23.6],[\"P17\",\"\",46.017,23.6],[\"P18\",\"\",46.018,23.6],[\"P19\",\"\",46.019,23.6],[\"P20\",\"\",46.02,23.6],[\"P21\",\"\",46.021,23.6],[\"P22\",\"\",46.022,23.6],[\"P23\",\"\",46.023,23.6],[\"P24\",\"\",46.024,23.6],[\"P25\",\"\",46.025,23.6],[\"P26\",\"\",46.026,23.6],[\"P27\",\"\",46.027,23.6],[\"P28\",\"\",46.028,23.6],[\"P29\",\"\",46.029,23.6],[\"P30\",\"\",46.03,23.6],[\"P31\",\"\",46.031,23.6],[\"P32\",\"\",46.032,23.6],[\"P33\",\"\",46.033,23.6],[\"P34\",\"\",46.034,23.6],[\"P35\",\"\",46.035,23.6],[\"P36\",\"\",46.036,23.6],[\"P37\",\"\",46.037,23.6],[\"P38\",\"\",46.038,23.6],[\"P39\",\"\",46.039,23.6],[\"P40\",\"\",46.04,23.6],[\"P41\",\"\",46.041,23.6],[\"P42\",\"\",46.042,23.6],[\"P43\",\"\",46.043,23.6],[\"P44\",\"\",46.044,23.6],[\"P45\",\"\",46.045,23.6],[\"P46\",\"\",46.046,23.6],[\"P47\",\"\",46.047,23.6],[\"P48\",\"\",46.048,23.6],[\"P49\",\"\",46.049,23.6],[\"P50\",\"\",46.05,23.6]],\"followed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "51 places",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"P1\",\"\",46.001,23.6],[\"P2\",\"\",46.002,23.6],[\"P3\",\"\",46.003,23.6],[\"P4\",\"\",46.004,23.6],[\"P5\",\"\",46.005,23.6],[\"P6\",\"\",46.006,23.6],[\"P7\",\"\",46.007,23.6],[\"P8\",\"\",46.008,23.6],[\"P9\",\"\",46.009,23.6],[\"P10\",\"\",46.01,23.6],[\"P11\",\"\",46.011,23.6],[\"P12\",\"\",46.012,23.6],[\"P13\",\"\",46.013,23.6],[\"P14\",\"\",46.014,23.6],[\"P15\",\"\",46.015,23.6],[\"P16\",\"\",46.016,23.6],[\"P17\",\"\",46.017,23.6],[\"P18\",\"\",46.018,23.6],[\"P19\",\"\",46.019,23.6],[\"P20\",\"\",46.02,23.6],[\"P21\",\"\",46.021,23.6],[\"P22\",\"\",46.022,23.6],[\"P23\",\"\",46.023,23.6],[\"P24\",\"\",46.024,23.6],[\"P25\",\"\",46.025,23.6],[\"P26\",\"\",46.026,23.6],[\"P27\",\"\",46.027,23.6],[\"P28\",\"\",46.028,23.6],[\"P29\",\"\",46.029,23.6],[\"P30\",\"\",46.03,23.6],[\"P31\",\"\",46.031,23.6],[\"P32\",\"\",46.032,23.6],[\"P33\",\"\",46.033,23.6],[\"P34\",\"\",46.034,23.6],[\"P35\",\"\",46.035,23.6],[\"P36\",\"\",46.036,23.6],[\"P37\",\"\",46.037,23.6],[\"P38\",\"\",46.038,23.6],[\"P39\",\"\",46.039,23.6],[\"P40\",\"\",46.04,23.6],[\"P41\",\"\",46.041,23.6],[\"P42\",\"\",46.042,23.6],[\"P43\",\"\",46.043,23.6],[\"P44\",\"\",46.044,23.6],[\"P45\",\"\",46.045,23.6],[\"P46\",\"\",46.046,23.6],[\"P47\",\"\",46.047,23.6],[\"P48\",\"\",46.048,23.6],[\"P49\",\"\",46.049,23.6],[\"P50\",\"\",46.05,23.6],[\"P51\",\"\",46.051,23.6]],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "followed empty",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"\"]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "followed of 16",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"ȘȘȘȘȘȘȘȘȘȘȘȘȘȘȘȘ\"]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "followed of 17",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"ȘȘȘȘȘȘȘȘȘȘȘȘȘȘȘȘȘ\"]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "duplicate followed",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"24\",\"24\"]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "50 followed",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\",\"17\",\"18\",\"19\",\"20\",\"21\",\"22\",\"23\",\"24\",\"25\",\"26\",\"27\",\"28\",\"29\",\"30\",\"31\",\"32\",\"33\",\"34\",\"35\",\"36\",\"37\",\"38\",\"39\",\"40\",\"41\",\"42\",\"43\",\"44\",\"45\",\"46\",\"47\",\"48\",\"49\",\"50\"]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "city",
+      "about": "51 followed",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\",\"17\",\"18\",\"19\",\"20\",\"21\",\"22\",\"23\",\"24\",\"25\",\"26\",\"27\",\"28\",\"29\",\"30\",\"31\",\"32\",\"33\",\"34\",\"35\",\"36\",\"37\",\"38\",\"39\",\"40\",\"41\",\"42\",\"43\",\"44\",\"45\",\"46\",\"47\",\"48\",\"49\",\"50\",\"51\"]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "unknown key",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[],\"x\":1}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "missing key",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "keys in another order",
+      "json": "{\"v\":1,\"lines\":[],\"stops\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "duplicate key",
+      "json": "{\"v\":1,\"stops\":[1],\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "whitespace",
+      "json": "{\"v\":1, \"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "trailing newline",
+      "json": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}\n",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "version 2",
+      "json": "{\"v\":2,\"stops\":\"whatever\"}",
+      "outcome": "newer"
+    },
+    {
+      "kind": "city",
+      "about": "version 0",
+      "json": "{\"v\":0,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "version as text",
+      "json": "{\"v\":\"1\",\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "a list",
+      "json": "[]",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "city",
+      "about": "not JSON",
+      "json": "{",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "one",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "devices",
+      "about": "two",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"kind\":\"web\",\"label\":\"Chrome on Windows\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEQeudncZf8l0MG-DwG2UAQTM4fa02lUMFY0b9_J7aN-7tiBNmbXLBXAOcw3WapO4tXJDUOna9OcP7s8S1D8MmQ\"}]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "devices",
+      "about": "none",
+      "json": "{\"v\":1,\"devices\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "devices",
+      "about": "kind ios",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"ios\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "empty label",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "label of 41",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "short id",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "padded id",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ==\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "key cut short",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilF\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "key that is not on the curve",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3AAAA\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "duplicate id",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 9\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEQeudncZf8l0MG-DwG2UAQTM4fa02lUMFY0b9_J7aN-7tiBNmbXLBXAOcw3WapO4tXJDUOna9OcP7s8S1D8MmQ\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "eleven",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAABA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAACA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAADA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAEA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAFA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAGA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAHA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAIA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAJA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAKA\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "devices",
+      "about": "extra field",
+      "json": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"web\",\"label\":\"x\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\",\"added\":1}]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "defaults",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "settings",
+      "about": "dark English",
+      "json": "{\"v\":1,\"theme\":\"dark\",\"locale\":\"en\",\"autoCenterOnMe\":false,\"autoFitMap\":false,\"showVehicleExtras\":false,\"regions\":{\"cluj\":{\"showGreenFriday\":false}}}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "settings",
+      "about": "theme blue",
+      "json": "{\"v\":1,\"theme\":\"blue\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "locale de",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"de\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "flag as text",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":\"true\",\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "no regions",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{}}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "unknown region",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true},\"iasi\":{\"showGreenFriday\":true}}}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "settings",
+      "about": "unknown region setting",
+      "json": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true,\"x\":true}}}",
+      "outcome": "refuse"
+    }
+  ],
+  "merges": [
+    {
+      "kind": "city",
+      "about": "both add a stop",
+      "base": "{\"v\":1,\"stops\":[1,2],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,2,4],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[1,2,4,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "here removes a stop",
+      "base": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[1,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[1,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "there removes, here reorders",
+      "base": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[3,1,2],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[3,1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "both reorder",
+      "base": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[3,2,1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[2,1,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[2,1,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "here reorders, there adds",
+      "base": "{\"v\":1,\"stops\":[1,2,3],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[3,2,1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,2,3,4],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[3,2,1,4],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "removed here, added back there",
+      "base": "{\"v\":1,\"stops\":[1,2],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,2],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[1],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "renamed here",
+      "base": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"\",46.1,23.1]],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Home\",46.1,23.1]],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"\",46.1,23.1]],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Home\",46.1,23.1]],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "renamed on both",
+      "base": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"\",46.1,23.1]],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Home\",46.1,23.1]],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Casa\",46.1,23.1]],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Casa\",46.1,23.1]],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "new on both",
+      "base": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Home\",46.1,23.1]],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"B\",\"Casa\",46.1,23.1]],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"B\",\"Casa\",46.1,23.1]],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "removed here, renamed there",
+      "base": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"\",46.1,23.1]],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[[\"A\",\"Home\",46.1,23.1]],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "joining device",
+      "base": null,
+      "local": "{\"v\":1,\"stops\":[7,8],\"lines\":[],\"places\":[],\"followed\":[\"24\"]}",
+      "remote": "{\"v\":1,\"stops\":[1,2],\"lines\":[],\"places\":[],\"followed\":[\"25\"]}",
+      "merged": "{\"v\":1,\"stops\":[1,2,7,8],\"lines\":[],\"places\":[],\"followed\":[\"25\",\"24\"]}",
+      "dropped": {}
+    },
+    {
+      "kind": "city",
+      "about": "over the cap",
+      "base": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "local": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,51,52],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "merged": "{\"v\":1,\"stops\":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50],\"lines\":[],\"places\":[],\"followed\":[]}",
+      "dropped": {
+        "stops": [
+          51,
+          52
+        ]
+      }
+    },
+    {
+      "kind": "city",
+      "about": "lines and followed",
+      "base": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"]],\"places\":[],\"followed\":[\"24\"]}",
+      "local": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"],[24,\"1\"]],\"places\":[],\"followed\":[]}",
+      "remote": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"]],\"places\":[],\"followed\":[\"24\",\"35\"]}",
+      "merged": "{\"v\":1,\"stops\":[],\"lines\":[[24,\"0\"],[24,\"1\"]],\"places\":[],\"followed\":[\"35\"]}",
+      "dropped": {}
+    },
+    {
+      "kind": "settings",
+      "about": "different settings changed",
+      "base": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "local": "{\"v\":1,\"theme\":\"dark\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "remote": "{\"v\":1,\"theme\":\"system\",\"locale\":\"en\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "merged": "{\"v\":1,\"theme\":\"dark\",\"locale\":\"en\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "dropped": {}
+    },
+    {
+      "kind": "settings",
+      "about": "same setting changed",
+      "base": "{\"v\":1,\"theme\":\"system\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "local": "{\"v\":1,\"theme\":\"dark\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "remote": "{\"v\":1,\"theme\":\"light\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "merged": "{\"v\":1,\"theme\":\"light\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "dropped": {}
+    },
+    {
+      "kind": "settings",
+      "about": "joining device",
+      "base": null,
+      "local": "{\"v\":1,\"theme\":\"dark\",\"locale\":\"ro\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "remote": "{\"v\":1,\"theme\":\"system\",\"locale\":\"en\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "merged": "{\"v\":1,\"theme\":\"system\",\"locale\":\"en\",\"autoCenterOnMe\":true,\"autoFitMap\":true,\"showVehicleExtras\":true,\"regions\":{\"cluj\":{\"showGreenFriday\":true}}}",
+      "dropped": {}
+    },
+    {
+      "kind": "devices",
+      "about": "one removed there",
+      "base": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"kind\":\"web\",\"label\":\"Chrome on Windows\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEQeudncZf8l0MG-DwG2UAQTM4fa02lUMFY0b9_J7aN-7tiBNmbXLBXAOcw3WapO4tXJDUOna9OcP7s8S1D8MmQ\"}]}",
+      "local": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"},{\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"kind\":\"web\",\"label\":\"Chrome on Windows\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEQeudncZf8l0MG-DwG2UAQTM4fa02lUMFY0b9_J7aN-7tiBNmbXLBXAOcw3WapO4tXJDUOna9OcP7s8S1D8MmQ\"}]}",
+      "remote": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "merged": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "dropped": {}
+    },
+    {
+      "kind": "devices",
+      "about": "relabelled here",
+      "base": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "local": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8 Pro\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "remote": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "merged": "{\"v\":1,\"devices\":[{\"id\":\"OgPGuSJUdE5r7MZKF98CAQ\",\"kind\":\"android\",\"label\":\"Pixel 8 Pro\",\"pub\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAET8eIrCs9JUp_pBLcQWx5IEO_HGigOu0dR7YZoB4st-TxUCGvQXIuoNWI8bNcjKRMD46QcpBXRVSD6wy5M3ilFg\"}]}",
+      "dropped": {}
+    }
+  ]
+}
