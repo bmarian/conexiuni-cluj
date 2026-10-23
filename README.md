@@ -55,14 +55,10 @@ This is an unofficial app, not affiliated with any of these companies or city ha
 
 ## Running it yourself
 
-You'll need Node 20.19+ or 22.12+, Go 1.26+, and a [Tranzy](https://tranzy.ai/) API key for each city that uses it. Put the keys in a `keys.env` next to this README; a city without its key is left out.
+You'll need Node 20.19+ or 22.12+, Go 1.26+, and a [Tranzy](https://tranzy.ai/) API key. Put it in a `keys.env` next to this README; in development every Tranzy city uses it, and without it they are left out.
 
 ```bash
-TRANZY_API_KEY_CLUJ=your_tranzy_key
-TRANZY_API_KEY_IASI=your_tranzy_key
-TRANZY_API_KEY_ORADEA=your_tranzy_key
-TRANZY_API_KEY_CONSTANTA=your_tranzy_key
-TRANZY_API_KEY_BOTOSANI=your_tranzy_key
+TRANZY_API_KEY_DEVELOPMENT=your_tranzy_key
 ```
 
 The route planner, place search and station names read the OpenStreetMap extract for Romania (about 330 MB):
@@ -91,7 +87,7 @@ The backend listens on `:6698` and the dev server proxies `/api` to it. Everythi
 
 <br>
 
-București, Suceava and Sibiu need no key. Every Tranzy city takes an optional second key, `TRANZY_API_KEY_{CITY}_LEARNING`, which the server uses to keep learning travel times while nobody is watching, without eating into the live quota. `VEHICLE_LEARNING_ENABLED_{CITY}` in `.env` turns that learning off for one city.
+București, Suceava and Sibiu need no key. In production each Tranzy city has its own, `TRANZY_API_KEY_{CITY}`. An optional second key, `TRANZY_API_KEY_{CITY}_LEARNING` (`TRANZY_API_KEY_DEVELOPMENT_LEARNING` in development), keeps the server learning travel times while nobody is watching, without eating into the live quota. `VEHICLE_LEARNING_ENABLED_{CITY}` in `.env` turns that learning off for one city.
 
 Each city keeps its own SQLite database in `db/{city}.db` and its history in `archive/{city}.db`. Cities listed in `db/disabled-cities.json` are switched off; the admin page switches them on and off while the server runs.
 
