@@ -437,7 +437,7 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
           <StopLine
             v-for="(stop, idx) in stopsForDirection"
             :key="`${stop.stop_id}-${idx}`"
-            :class="{ cascade: idx < 12 }"
+            class="cascade"
             :style="{ '--i': idx }"
             :name="getStopLabel(idx, stop)"
             :mark="stopMark(idx, stop, stopsForDirection.length)"
