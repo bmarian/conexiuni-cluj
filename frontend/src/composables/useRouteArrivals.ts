@@ -8,7 +8,7 @@ import {type HighlightedStop, useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Shape, type StopTime} from '@/types/tranzy.ts'
 import {formatMinutesFromNow, getMinutesFromDate, getTimetableForDay, timeStringToMinutes} from '@/utils/time.ts'
-import {haversineMeters} from '@/utils/geo.ts'
+import {haversineMeters, routeHeading} from '@/utils/geo.ts'
 import {getShapeStopTimes} from '@/utils/trips.ts'
 import {markRepeatedNow, nextArrivals, scheduledArrivals} from '@/utils/arrivals.ts'
 import {entriesAt, liveRowKey, type ShownEntry, useLive} from '@/composables/useLive.ts'
@@ -112,6 +112,11 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
       incoming: byTrip(`${routeId.value}${INCOMING_SUFFIX}`),
     }
   })
+
+  const directionHeadings = computed(() => ({
+    '0': routeHeading(direction0Shape.value ?? []),
+    '1': routeHeading(direction1Shape.value ?? []),
+  }))
 
   const hasOutgoing = computed(() =>
     rawStops.value.some((st) => st.trip_id === `${routeId.value}${OUTGOING_SUFFIX}`)
@@ -349,6 +354,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     stopsForDirection,
     currentDirectionShape,
     directionTerminals,
+    directionHeadings,
     hasOutgoing,
     hasIncoming,
     nearestStopIdx,

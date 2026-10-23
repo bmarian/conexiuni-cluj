@@ -58,6 +58,18 @@ export const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2:
   return (toDeg(theta) + 360) % 360;
 };
 
+const LOOP_SHARE = 0.25
+
+export const routeHeading = (shape: {shape_pt_lat: number; shape_pt_lon: number}[]): number | null => {
+  if (shape.length < 2) return null
+  const {shape_pt_lat: lat, shape_pt_lon: lon} = shape[0]!
+  const fromStart = (pt: {shape_pt_lat: number; shape_pt_lon: number}) => haversineMeters(lat, lon, pt.shape_pt_lat, pt.shape_pt_lon)
+  const end = shape.at(-1)!
+  const reach = shape.reduce((max, pt) => Math.max(max, fromStart(pt)), 0)
+  const toward = fromStart(end) >= reach * LOOP_SHARE ? end : shape.slice(1, 20).find((pt) => fromStart(pt) >= 30) ?? shape[1]!
+  return calculateBearing(lat, lon, toward.shape_pt_lat, toward.shape_pt_lon)
+}
+
 // Decodes a Google-encoded polyline into [lat, lng] pairs
 export const decodePolyline = (encoded: string): [number, number][] => {
   const coords: [number, number][] = []
