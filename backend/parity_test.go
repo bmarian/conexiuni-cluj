@@ -51,7 +51,7 @@ func TestAPIParity(t *testing.T) {
 	for _, dir := range []string{"db", "archive"} {
 		copyDir(t, filepath.Join(data, dir), filepath.Join(work, dir))
 	}
-	for _, slug := range []string{"cluj", "iasi", "botosani", "oradea", "constanta"} {
+	for _, slug := range []string{"cluj", "iasi", "oradea", "constanta"} {
 		t.Setenv("TRANZY_API_KEY_"+strings.ToUpper(slug), "parity")
 	}
 	parityOSM(t, work, storedOSMStops(t, filepath.Join(work, "db")))
