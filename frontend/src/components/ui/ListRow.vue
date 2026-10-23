@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RowLink from '@/components/ui/RowLink.vue'
 import {CloseIcon, KeyboardArrowRightIcon} from '@/utils/icons.ts'
 
 defineProps<{
@@ -10,19 +11,13 @@ defineProps<{
   removeLabel?: string
   chevron?: boolean
   busy?: boolean
+  href?: string
 }>()
 const emit = defineEmits<{ open: [], remove: [] }>()
 </script>
 
 <template>
-  <div
-    class="list-row state squish"
-    :class="{ 'is-busy': busy }"
-    role="button"
-    tabindex="0"
-    @click="emit('open')"
-    @keydown.enter.prevent="emit('open')"
-  >
+  <RowLink class="list-row state squish" :class="{ 'is-busy': busy }" :href="href" @open="emit('open')">
     <slot name="icon"/>
     <div class="flex-1 min-w-0">
       <p v-if="kicker" class="kicker">{{ kicker }}</p>
@@ -46,7 +41,7 @@ const emit = defineEmits<{ open: [], remove: [] }>()
       <CloseIcon class="m-icon size-[18px]"/>
     </button>
     <KeyboardArrowRightIcon v-else-if="chevron" class="m-icon size-[18px] text-outline mr-3"/>
-  </div>
+  </RowLink>
 </template>
 
 <style scoped>

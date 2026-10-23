@@ -127,9 +127,16 @@ const navigateToRoute = (shape: VehiclesInStop) => {
   })
 }
 
+const tripAtStop = (shape: ShapeInfo) => {
+  const platform = platformOf(shape.route_id) ?? stopInfo.value
+  return getTripIdForRouteAtStop(platform?.outgoing_trip_ids || [], platform?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
+}
+
+const allRouteHref = (shape: ShapeInfo) => cityPath(`/route/${shape.route_id}/${getDirectionFromTripId(tripAtStop(shape))}`)
+
 const navigateToAllRoute = (shape: ShapeInfo) => {
   const platform = platformOf(shape.route_id) ?? stopInfo.value
-  const tripId = getTripIdForRouteAtStop(platform?.outgoing_trip_ids || [], platform?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
+  const tripId = tripAtStop(shape)
   routeStore.setSelectedRoute(shape, tripId, String(platform?.stop_id ?? props.stopId), stopName.value || '')
   router.push({
     name: 'route',
@@ -224,6 +231,7 @@ const chips = computed<ChipAction[]>(() => [
             :title="shape.timetable.route_long_name"
             :favorite="favoritesStore.isRouteFavorite(shape.route_id)"
             :data-kbd-item="`route-${shape.route_short_name}`"
+            :href="allRouteHref(shape)"
             @open="navigateToAllRoute(shape)"
           />
         </template>

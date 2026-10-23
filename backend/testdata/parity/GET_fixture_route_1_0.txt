@@ -1,7 +1,7 @@
 GET /fixture/route/1/0
 200
 Cache-Control: public, max-age=300
-Content-Length: 2594
+Content-Length: 2602
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -12,15 +12,15 @@ X-Frame-Options: DENY
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-<title>Orar Linia 1 Fixture — Capăt 101 - Capăt 105 | Ce autobuz iau?</title>
+<title>Orar Linia 1 Fixture — Capăt 101 → Capăt 105 | Ce autobuz iau?</title>
 <meta name="description" content="Orar, traseu, opriri și plecări live pentru linia 1 (Capăt 101 - Capăt 105) din Fixture.">
 <link rel="canonical" href="https://ceautobuziau.ro/fixture/route/1/0">
-<meta property="og:title" content="Orar Linia 1 Fixture — Capăt 101 - Capăt 105 | Ce autobuz iau?">
+<meta property="og:title" content="Orar Linia 1 Fixture — Capăt 101 → Capăt 105 | Ce autobuz iau?">
 <meta property="og:description" content="Orar, traseu, opriri și plecări live pentru linia 1 (Capăt 101 - Capăt 105) din Fixture.">
 <meta property="og:url" content="https://ceautobuziau.ro/fixture/route/1/0">
-<meta name="twitter:title" content="Orar Linia 1 Fixture — Capăt 101 - Capăt 105 | Ce autobuz iau?">
+<meta name="twitter:title" content="Orar Linia 1 Fixture — Capăt 101 → Capăt 105 | Ce autobuz iau?">
 <meta name="twitter:description" content="Orar, traseu, opriri și plecări live pentru linia 1 (Capăt 101 - Capăt 105) din Fixture.">
-<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/route/1/0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/route/1/0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/route/1/0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Service","areaServed":{"@type":"City","name":"Fixture"},"description":"Capăt 101 - Capăt 105","name":"Linia 1","provider":{"@type":"Organization","name":"Fixture Transit","url":"https://fixture.example/"},"serviceType":"Public transport route"},"description":"Orar, traseu, opriri și plecări live pentru linia 1 (Capăt 101 - Capăt 105) din Fixture.","inLanguage":"ro","name":"Orar Linia 1 Fixture — Capăt 101 - Capăt 105 | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/route/1/0"}</script></head>
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/route/1/0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/route/1/0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/route/1/0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Service","areaServed":{"@type":"City","name":"Fixture"},"description":"Capăt 101 - Capăt 105","name":"Linia 1","provider":{"@type":"Organization","name":"Fixture Transit","url":"https://fixture.example/"},"serviceType":"Public transport route"},"description":"Orar, traseu, opriri și plecări live pentru linia 1 (Capăt 101 - Capăt 105) din Fixture.","inLanguage":"ro","name":"Orar Linia 1 Fixture — Capăt 101 → Capăt 105 | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/route/1/0"}</script></head>
 <body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Orar Linia 1 Fixture</h1><p>Linia 1 (Capăt 101 - Capăt 105) face parte din transportul public din Fixture, operat de Fixture Transit. Aici găsești orarul public și pozițiile live ale vehiculelor.</p><h2>Stațiile liniei 1 spre Capăt 105</h2><ol><li><a href="/fixture/stop/101">Stația 101</a></li><li><a href="/fixture/stop/102">Stația 102</a></li><li><a href="/fixture/stop/103">Stația 103</a></li><li><a href="/fixture/stop/104">Stația 104</a></li><li><a href="/fixture/stop/105">Stația 105</a></li></ol><p><a href="/fixture/route/1/1">Sensul opus: spre Capăt 101</a></p></div></div></body>
 </html>
 

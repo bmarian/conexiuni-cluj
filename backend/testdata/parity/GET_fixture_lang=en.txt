@@ -1,7 +1,7 @@
 GET /fixture/?lang=en
 200
 Cache-Control: public, max-age=300
-Content-Length: 1738
+Content-Length: 2006
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -12,15 +12,15 @@ X-Frame-Options: DENY
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Ce autobuz iau? — Fixture public transport in real time</title>
-<meta name="description" content="App for Fixture public transport. Real-time Fixture Transit timetables, live departures, line routes and route planner.">
+<title>Fixture bus times — live timetables | Ce autobuz iau?</title>
+<meta name="description" content="Fixture bus timetables in real time: live departures from every stop, the timetable and route of every Fixture Transit line, and a trip planner.">
 <link rel="canonical" href="https://ceautobuziau.ro/fixture/?lang=en">
-<meta property="og:title" content="Ce autobuz iau? — Fixture public transport in real time">
-<meta property="og:description" content="App for Fixture public transport. Real-time Fixture Transit timetables, live departures, line routes and route planner.">
+<meta property="og:title" content="Fixture bus times — live timetables | Ce autobuz iau?">
+<meta property="og:description" content="Fixture bus timetables in real time: live departures from every stop, the timetable and route of every Fixture Transit line, and a trip planner.">
 <meta property="og:url" content="https://ceautobuziau.ro/fixture/?lang=en">
-<meta name="twitter:title" content="Ce autobuz iau? — Fixture public transport in real time">
-<meta name="twitter:description" content="App for Fixture public transport. Real-time Fixture Transit timetables, live departures, line routes and route planner.">
+<meta name="twitter:title" content="Fixture bus times — live timetables | Ce autobuz iau?">
+<meta name="twitter:description" content="Fixture bus timetables in real time: live departures from every stop, the timetable and route of every Fixture Transit line, and a trip planner.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixture/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><p><a href="/fixture/destinations?lang=en">All destinations in Fixture</a></p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><h2>Lines in Fixture</h2><ul><li><a href="/fixture/route/1/0?lang=en">Line 1 — Capăt 101 - Capăt 105</a></li><li><a href="/fixture/route/2/0?lang=en">Line 2B — Capăt 111 - Capăt 115</a></li></ul><p><a href="/fixture/destinations?lang=en">Destinations in Fixture</a></p></div></div></body>
 </html>
 

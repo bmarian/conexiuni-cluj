@@ -29,8 +29,8 @@ export const useSettingsStore = defineStore('settings', () => {
     const asked = urlLocale()
     if (asked) return asked
     const saved = localStorage.getItem('settings.locale') as AppLocale | null
-    if (saved === 'ro' || saved === 'en') return saved
-    return navigator.language.toLowerCase().startsWith('en') ? 'en' : 'ro'
+    // Not navigator.language: bare URLs are the Romanian canonical, and Google renders them as en-US.
+    return saved === 'en' ? 'en' : 'ro'
   }
 
   const locale = ref<AppLocale>(detectInitialLocale())

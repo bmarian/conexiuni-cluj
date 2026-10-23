@@ -10,6 +10,7 @@ import (
 	"html"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -85,6 +86,8 @@ type ogLocale struct {
 	destStopsFmt       string // args: area
 	destPlanFmt        string // args: area
 	destAll            string
+	allLines           string
+	lineItemFmt        string // args: shortName, longName
 	destsTitle         string
 	destsDesc          string
 	destsH1            string
@@ -111,8 +114,8 @@ var ogLocales = map[string]ogLocale{
 		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din {city}.",
 		planFromToTitleFmt: "Rută de la %s la %s — {city} | Ce autobuz iau?",
 		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din {city}.",
-		homeTitle:          "Ce autobuz iau? — Transport public {city} în timp real",
-		homeDesc:           "Aplicație pentru transportul public din {city}. Orarele {operator} în timp real, plecările de la stații, traseele și planificator de rute.",
+		homeTitle:          "Mersul autobuzelor {city} — orar în timp real | Ce autobuz iau?",
+		homeDesc:           "Orarul autobuzelor din {city} în timp real: plecări live din stații, orarul și traseul fiecărei linii {operator} și planificator de rute.",
 		homeH1:             "Transport public {city} în timp real",
 		homeBody:           "Autobuzele, troleibuzele și tramvaiele {operator} în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
 		androidTitle:       "Aplicația Android — Ce autobuz iau?",
@@ -137,7 +140,9 @@ var ogLocales = map[string]ogLocale{
 		destNoRides:        "Nicio linie directă din alte zone; planifică drumul cu schimbare.",
 		destStopsFmt:       "Stații în %s",
 		destPlanFmt:        "Planifică drumul până în %s",
-		destAll:            "Toate destinațiile din {city}",
+		destAll:            "Destinațiile din {city}",
+		allLines:           "Liniile din {city}",
+		lineItemFmt:        "Linia %s — %s",
 		destsTitle:         "Destinații în {city} — Ce autobuz iau?",
 		destsDesc:          "Cartierele și localitățile în care ajung liniile {operator}, cu liniile directe până în fiecare.",
 		destsH1:            "Destinații în {city}",
@@ -162,8 +167,8 @@ var ogLocales = map[string]ogLocale{
 		planToDescFmt:      "Plan your trip to %s with public transport in {city}.",
 		planFromToTitleFmt: "Trip from %s to %s — {city} | Ce autobuz iau?",
 		planFromToDescFmt:  "Plan your trip from %s to %s with public transport in {city}.",
-		homeTitle:          "Ce autobuz iau? — {city} public transport in real time",
-		homeDesc:           "App for {city} public transport. Real-time {operator} timetables, live departures, line routes and route planner.",
+		homeTitle:          "{city} bus times — live timetables | Ce autobuz iau?",
+		homeDesc:           "{city} bus timetables in real time: live departures from every stop, the timetable and route of every {operator} line, and a trip planner.",
 		homeH1:             "{city} public transport in real time",
 		homeBody:           "{operator} buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
 		androidTitle:       "Android app — Ce autobuz iau?",
@@ -188,7 +193,9 @@ var ogLocales = map[string]ogLocale{
 		destNoRides:        "No direct line from other areas; plan a trip with a change.",
 		destStopsFmt:       "Stops in %s",
 		destPlanFmt:        "Plan a trip to %s",
-		destAll:            "All destinations in {city}",
+		destAll:            "Destinations in {city}",
+		allLines:           "Lines in {city}",
+		lineItemFmt:        "Line %s — %s",
 		destsTitle:         "Destinations in {city} — Ce autobuz iau?",
 		destsDesc:          "The districts and towns {operator} lines reach, with the direct lines to each.",
 		destsH1:            "Destinations in {city}",
@@ -244,6 +251,7 @@ func ogTexts(city *cities.City, c fiber.Ctx) ogLocale {
 	l.destTitleFmt = fill(l.destTitleFmt)
 	l.destDescFmt = fill(l.destDescFmt)
 	l.destAll = fill(l.destAll)
+	l.allLines = fill(l.allLines)
 	l.destsTitle = fill(l.destsTitle)
 	l.destsDesc = fill(l.destsDesc)
 	l.destsH1 = fill(l.destsH1)
@@ -357,7 +365,7 @@ func routePage(city *cities.City, c fiber.Ctx) error {
 
 	l := ogTexts(city, c)
 	routeURL := canonicalURL(city, "/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(direction))
-	title := fmt.Sprintf(l.routeTitleFmt, shortName, longName)
+	title := fmt.Sprintf(l.routeTitleFmt, shortName, directedName(longName, direction))
 	desc := fmt.Sprintf(l.routeDescFmt, shortName, longName)
 	jsonLD := marshalJSONLD(map[string]any{
 		"@context":    "https://schema.org",
@@ -393,6 +401,15 @@ func routePage(city *cities.City, c fiber.Ctx) error {
 			html.EscapeString(fmt.Sprintf(l.routeBodyFmt, shortName, longName))) + routeStopsHTML(c, l, city, routeID, direction),
 		jsonLD: jsonLD,
 	})
+}
+
+// Same as directedRouteName in frontend/src/utils/time.ts.
+func directedName(longName string, dir int) string {
+	parts := strings.Split(longName, " - ")
+	if dir == 1 {
+		slices.Reverse(parts)
+	}
+	return strings.Join(parts, " → ")
 }
 
 func publisherOrg() map[string]any {
@@ -514,10 +531,10 @@ func homePage(city *cities.City, c fiber.Ctx) error {
 		title:       l.homeTitle,
 		description: l.homeDesc,
 		canonical:   canonicalURL(city, "/"),
-		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p>`,
+		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(l.homeH1),
-			html.EscapeString(l.homeBody),
-			pagePath(c, city, "/destinations"), html.EscapeString(l.destAll)),
+			html.EscapeString(l.homeBody)) + allLinesHTML(c, l, city) +
+			fmt.Sprintf(`<p><a href="%s">%s</a></p>`, pagePath(c, city, "/destinations"), html.EscapeString(l.destAll)),
 		jsonLD: marshalJSONLD(map[string]any{
 			"@context": "https://schema.org",
 			"@type":    "WebSite",

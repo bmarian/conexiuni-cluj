@@ -102,6 +102,9 @@ export const reverseRouteLongName = (routeLongName: string): string => {
   return routeLongName.split(' - ').reverse().join(' - ')
 }
 
+export const directedRouteName = (routeLongName: string, direction: string): string =>
+  (direction === '1' ? reverseRouteLongName(routeLongName) : routeLongName).replaceAll(' - ', ' → ')
+
 export function routeDestination(name: string): string {
   const i = name.lastIndexOf(' - ')
   return i >= 0 ? name.slice(i + 3) : name

@@ -7,7 +7,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {HourlyStopOffsets} from '@/types/tranzy.ts'
 import type {DaySchedule, Frequency} from '@/types/ctp.ts'
-import {getTimetableDayKey, plainTimetableDayKey, specialDayOn, timeStringToMinutes} from '@/utils/time.ts'
+import {directedRouteName, getTimetableDayKey, plainTimetableDayKey, specialDayOn, timeStringToMinutes} from '@/utils/time.ts'
 import {frequencyLabel} from '@/utils/frequencyText.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
 import {fetchHourlyStopOffsets} from '@/composables/useRouteShapeInfoApi.ts'
@@ -102,7 +102,7 @@ useHead(() => {
   // Keep the server-injected meta for crawlers until the route loads.
   if (!shortName) return {}
   const longName = timetable.value?.route_long_name ?? ''
-  const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${longName}` : ''})
+  const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${directedRouteName(longName, currentDirection.value)}` : ''})
   const description = t('headRouteDesc', {...cityParams(), shortName})
   const url = canonicalUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
   return {
@@ -377,7 +377,8 @@ function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
   return 'plain'
 }
 
-const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_id}`))
+const stopHref = (stop: IndexedStop) => cityPath(`/stop/${stop.stop_id}`)
+const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
 </script>
 
 <template>
@@ -392,8 +393,9 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
       <header class="header">
         <LineBadge :name="shapeInfo.route_short_name" :color="shapeInfo.route_color" :height="52" :min-width="52" :corner="16"/>
         <div class="flex-1 min-w-0">
-          <p class="text-label-medium text-on-surface-variant">{{ t('route') }}</p>
-          <h1 class="text-title-large font-bold">{{ timetable?.route_long_name || shapeInfo.route_short_name }}</h1>
+          <h1>
+            <span class="block text-label-medium text-on-surface-variant">{{ t('routeNamed', {name: shapeInfo.route_short_name}) }}</span> <span class="block text-title-large font-bold">{{ timetable?.route_long_name || shapeInfo.route_short_name }}</span>
+          </h1>
           <p v-if="fromStopName" class="flex items-center gap-1.5 pt-1 text-body-small text-on-surface-variant">
             <span class="size-1.5 rounded-full bg-[#10b981] shrink-0"></span>
             <span class="min-w-0">{{ t('from', {name: fromStopName}) }}</span>
@@ -445,6 +447,7 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
             :times="stopTimesByStop[idx]"
             :data-kbd-item="`stop-${stop.stop_id}`"
             :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
+            :href="stopHref(stop)"
             @open="openStop(stop)"
           />
         </div>
@@ -520,6 +523,7 @@ const openStop = (stop: IndexedStop) => router.push(cityPath(`/stop/${stop.stop_
                 :trailing="stop.arrivalTimeStr"
                 :trailing-highlight="idx === 0"
                 :data-kbd-item="`trip-stop-${stop.stop_id}`"
+                :href="stopHref(stop)"
                 @open="openStop(stop)"
               />
             </div>

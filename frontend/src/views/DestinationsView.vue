@@ -74,6 +74,7 @@ useHead(() => {
           :title="area.name"
           :subtitle="t('destCounts', {stops: area.stops, lines: area.lines})"
           :data-kbd-item="`dest-${area.slug}`"
+          :href="cityPath(`/to/${area.slug}`)"
           chevron
           @open="router.push({name: 'destination', params: {slug: area.slug}})"
         />

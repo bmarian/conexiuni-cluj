@@ -1,7 +1,7 @@
 GET /fixturegtfs/route/8/1
 200
 Cache-Control: public, max-age=300
-Content-Length: 2708
+Content-Length: 2716
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -12,15 +12,15 @@ X-Frame-Options: DENY
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-<title>Orar Linia 8B Fixture GTFS — Capăt 711 - Capăt 715 | Ce autobuz iau?</title>
+<title>Orar Linia 8B Fixture GTFS — Capăt 715 → Capăt 711 | Ce autobuz iau?</title>
 <meta name="description" content="Orar, traseu, opriri și plecări live pentru linia 8B (Capăt 711 - Capăt 715) din Fixture GTFS.">
 <link rel="canonical" href="https://ceautobuziau.ro/fixturegtfs/route/8/1">
-<meta property="og:title" content="Orar Linia 8B Fixture GTFS — Capăt 711 - Capăt 715 | Ce autobuz iau?">
+<meta property="og:title" content="Orar Linia 8B Fixture GTFS — Capăt 715 → Capăt 711 | Ce autobuz iau?">
 <meta property="og:description" content="Orar, traseu, opriri și plecări live pentru linia 8B (Capăt 711 - Capăt 715) din Fixture GTFS.">
 <meta property="og:url" content="https://ceautobuziau.ro/fixturegtfs/route/8/1">
-<meta name="twitter:title" content="Orar Linia 8B Fixture GTFS — Capăt 711 - Capăt 715 | Ce autobuz iau?">
+<meta name="twitter:title" content="Orar Linia 8B Fixture GTFS — Capăt 715 → Capăt 711 | Ce autobuz iau?">
 <meta name="twitter:description" content="Orar, traseu, opriri și plecări live pentru linia 8B (Capăt 711 - Capăt 715) din Fixture GTFS.">
-<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/route/8/1"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/route/8/1?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/route/8/1"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Service","areaServed":{"@type":"City","name":"Fixture GTFS"},"description":"Capăt 711 - Capăt 715","name":"Linia 8B","provider":{"@type":"Organization","name":"Fixture Rail","url":"https://rail.fixture.example/"},"serviceType":"Public transport route"},"description":"Orar, traseu, opriri și plecări live pentru linia 8B (Capăt 711 - Capăt 715) din Fixture GTFS.","inLanguage":"ro","name":"Orar Linia 8B Fixture GTFS — Capăt 711 - Capăt 715 | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/route/8/1"}</script></head>
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/route/8/1"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/route/8/1?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/route/8/1"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Service","areaServed":{"@type":"City","name":"Fixture GTFS"},"description":"Capăt 711 - Capăt 715","name":"Linia 8B","provider":{"@type":"Organization","name":"Fixture Rail","url":"https://rail.fixture.example/"},"serviceType":"Public transport route"},"description":"Orar, traseu, opriri și plecări live pentru linia 8B (Capăt 711 - Capăt 715) din Fixture GTFS.","inLanguage":"ro","name":"Orar Linia 8B Fixture GTFS — Capăt 715 → Capăt 711 | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/route/8/1"}</script></head>
 <body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Orar Linia 8B Fixture GTFS</h1><p>Linia 8B (Capăt 711 - Capăt 715) face parte din transportul public din Fixture GTFS, operat de Fixture Rail. Aici găsești orarul public și pozițiile live ale vehiculelor.</p><h2>Stațiile liniei 8B spre Capăt 711</h2><ol><li><a href="/fixturegtfs/stop/715">Stația 715</a></li><li><a href="/fixturegtfs/stop/714">Stația 714</a></li><li><a href="/fixturegtfs/stop/703">Stația 703</a></li><li><a href="/fixturegtfs/stop/712">Stația 712</a></li><li><a href="/fixturegtfs/stop/711">Stația 711</a></li></ol><p><a href="/fixturegtfs/route/8/0">Sensul opus: spre Capăt 715</a></p></div></div></body>
 </html>
 

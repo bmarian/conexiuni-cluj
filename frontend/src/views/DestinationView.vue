@@ -110,6 +110,10 @@ function openRoute(ride: Ride) {
   void router.push({name: 'route', params: {routeId: String(ride.route_id), direction: String(ride.direction)}})
 }
 
+const rideHref = (ride: Ride) => cityPath(`/route/${ride.route_id}/${ride.direction}`)
+const stopHref = (stop: Stop) => cityPath(`/stop/${stop.stop_id}`)
+const areaHref = (slug: string) => cityPath(`/to/${slug}`)
+
 function showAll(slug: string) {
   opened.value = new Set([...opened.value, slug])
 }
@@ -167,6 +171,7 @@ useHead(() => {
           :title="like.name"
           :subtitle="t('destCounts', {stops: like.stops, lines: like.lines})"
           :data-kbd-item="`dest-${like.slug}`"
+          :href="areaHref(like.slug)"
           chevron
           @open="router.push({name: 'destination', params: {slug: like.slug}})"
         />
@@ -178,6 +183,7 @@ useHead(() => {
           :key="stop.stop_id"
           :stop="stop"
           :data-kbd-item="`stop-${stop.stop_id}`"
+          :href="stopHref(stop)"
           @open="openStop(String(stop.stop_id))"
         />
       </section>
@@ -210,6 +216,7 @@ useHead(() => {
             :subtitle="row.detail"
             :trailing="rideMinutes(row.ride.minutes)"
             :data-kbd-item="`ride-${origin.slug}-${row.ride.route_id}`"
+            :href="rideHref(row.ride)"
             chevron
             @open="openRoute(row.ride)"
           >
@@ -235,6 +242,7 @@ useHead(() => {
           :key="stop.stop_id"
           :stop="stop"
           :data-kbd-item="`stop-${stop.stop_id}`"
+          :href="stopHref(stop)"
           @open="openStop(String(stop.stop_id))"
         />
       </section>
@@ -244,6 +252,7 @@ useHead(() => {
       <ListRow
         class="mt-2"
         :title="t('destAll', cityParams())"
+        :href="cityPath('/destinations')"
         chevron
         data-kbd-item="all-destinations"
         @open="router.push({name: 'destinations'})"
