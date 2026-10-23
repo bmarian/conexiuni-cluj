@@ -11,8 +11,8 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "4d1a307142b60ac4",
- "static_version": "805cb7ff86be605b",
+ "version": "b551222157ee7580",
+ "static_version": "dc215f0eb17ec0fd",
  "generated_at": "2026-10-20T00:00:00Z",
  "routes": [
   {
@@ -23,7 +23,7 @@ X-Frame-Options: DENY
    "route_type": 3,
    "route_desc": "",
    "route_color": "#D84B3B",
-   "route_colorful": "#D84B3B",
+   "route_colorful": "#D8A73B",
    "timetable": {
     "route_short_name": "7",
     "route_long_name": "Capăt 701 - Capăt 705",
@@ -1627,7 +1627,7 @@ X-Frame-Options: DENY
    "route_type": 0,
    "route_desc": "",
    "route_color": "#1C38D9",
-   "route_colorful": "#1C38D9",
+   "route_colorful": "#1A1AC7",
    "timetable": {
     "route_short_name": "8B",
     "route_long_name": "Capăt 711 - Capăt 715",

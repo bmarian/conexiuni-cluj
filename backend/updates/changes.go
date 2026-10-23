@@ -530,7 +530,7 @@ func (s *Service) recentRouteChanges(condition string, args ...any) ([]RouteChan
 			if err := rows.Scan(&rc.ID, &rc.RouteShortName, &rc.RouteID, &rc.RouteColor, &rc.Source, &rc.DetectedAt, &payload); err != nil {
 				return rc, err
 			}
-			rc.RouteColorful = models.ColorfulRouteColor(rc.RouteShortName)
+			rc.RouteColorful = s.Colorful(rc.RouteShortName)
 			rc.Changes = []RouteChangeItem{}
 			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
 		})

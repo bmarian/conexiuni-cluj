@@ -4,7 +4,7 @@ Cache-Control: no-cache
 Content-Length: 1002
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"1002-1177950519"
+Etag: W/"1002-3979285636"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -99,7 +99,7 @@ X-Frame-Options: DENY
    "short_name": "7",
    "long_name": "Capăt 701 - Capăt 705",
    "color": "#D84B3B",
-   "colorful": "#D84B3B",
+   "colorful": "#D8A73B",
    "type": 3
   }
  },

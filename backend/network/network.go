@@ -26,10 +26,10 @@ var networkDayTypes = calendar.ScheduleDays
 
 const cityAreaMarginMeters = 10_000
 
-func (s *Service) bundle() (*models.NetworkBundle, *Bounds, error) {
+func (s *Service) bundle() (*models.NetworkBundle, *Bounds, map[string]string, error) {
 	routes, err := s.data.Routes(transit.RouteFilter{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("routes: %w", err)
+		return nil, nil, nil, fmt.Errorf("routes: %w", err)
 	}
 	if s.offered.IsReady() {
 		kept := make([]models.Route, 0, len(routes))
@@ -44,7 +44,7 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, error) {
 
 	allStops, err := s.data.Stops(transit.StopFilter{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("stops: %w", err)
+		return nil, nil, nil, fmt.Errorf("stops: %w", err)
 	}
 
 	out := make([]models.NetworkRoute, len(routes))
@@ -81,18 +81,21 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, error) {
 	sort.Slice(stops, func(i, j int) bool { return stops[i].StopID < stops[j].StopID })
 
 	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: s.timing.GraceSec() / 60}}
+	colors := lineColors(stationsOfLines(bundle))
+	for i := range out {
+		out[i].RouteColorful = colors[out[i].RouteShortName]
+	}
 	bundle.ScheduleDays, bundle.DayNotes = s.timing.ScheduleDays(time.Now())
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)
 	bundle.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
-	return bundle, areaAround(shapes), nil
+	return bundle, areaAround(shapes), colors, nil
 }
 
 func (s *Service) buildNetworkRoute(route models.Route) models.NetworkRoute {
 	out := models.NetworkRoute{
 		RouteID: route.RouteID, AgencyID: route.AgencyID, RouteShortName: route.RouteShortName,
 		RouteLongName: route.RouteLongName, RouteType: route.RouteType, RouteDesc: route.RouteDesc,
-		RouteColor: route.RouteColor, RouteColorful: models.ColorfulRouteColor(route.RouteShortName),
-		Trips: []models.NetworkTrip{}, Offsets: map[string][][]int{},
+		RouteColor: route.RouteColor, Trips: []models.NetworkTrip{}, Offsets: map[string][][]int{},
 	}
 	rsn := route.RouteShortName
 	if timetable, err := s.data.Timetable(rsn); err == nil && timetable != nil {
@@ -207,6 +210,7 @@ type builtNetwork struct {
 	gzipped []byte
 	version models.NetworkVersion
 	bounds  *Bounds
+	colors  map[string]string
 }
 
 func (s *Service) buildNetwork() (*builtNetwork, error) {
@@ -221,7 +225,7 @@ func (s *Service) buildNetwork() (*builtNetwork, error) {
 	}
 
 	started := time.Now()
-	bundle, bounds, err := s.bundle()
+	bundle, bounds, colors, err := s.bundle()
 	if err != nil {
 		return nil, err
 	}
@@ -239,9 +243,10 @@ func (s *Service) buildNetwork() (*builtNetwork, error) {
 		gzipped: gz.Bytes(),
 		version: models.NetworkVersion{Version: bundle.Version, StaticVersion: bundle.StaticVersion, GeneratedAt: bundle.GeneratedAt},
 		bounds:  bounds,
+		colors:  colors,
 	}
 	if current != nil && current.version.Version == built.version.Version {
-		built = &builtNetwork{period: period, json: current.json, gzipped: current.gzipped, version: current.version, bounds: bounds}
+		built = &builtNetwork{period: period, json: current.json, gzipped: current.gzipped, version: current.version, bounds: bounds, colors: colors}
 	}
 	s.mu.Lock()
 	s.current = built
@@ -293,6 +298,16 @@ func (s *Service) Current() (*models.NetworkBundle, string, error) {
 		return nil, "", err
 	}
 	return &bundle, built.version.Version, nil
+}
+
+// Colorful is a line's colour in the served bundle, or its own when the bundle has no such line.
+func (s *Service) Colorful(shortName string) string {
+	if built, err := s.currentNetwork(); err == nil {
+		if color, ok := built.colors[shortName]; ok {
+			return color
+		}
+	}
+	return models.ColorfulRouteColor(shortName)
 }
 
 func (s *Service) Version() (string, error) {

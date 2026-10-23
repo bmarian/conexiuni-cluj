@@ -3,6 +3,7 @@ package updates
 
 import (
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/models"
 	"conexiuni-cluj/transit"
 	"time"
 
@@ -10,13 +11,14 @@ import (
 )
 
 type Service struct {
-	store *database.Store
-	data  *transit.Data
-	loc   *time.Location
+	store    *database.Store
+	data     *transit.Data
+	loc      *time.Location
+	Colorful func(routeShortName string) string
 }
 
 func New(store *database.Store, data *transit.Data, loc *time.Location) *Service {
-	return &Service{store: store, data: data, loc: loc}
+	return &Service{store: store, data: data, loc: loc, Colorful: models.ColorfulRouteColor}
 }
 
 func (s *Service) Register(api fiber.Router) {
