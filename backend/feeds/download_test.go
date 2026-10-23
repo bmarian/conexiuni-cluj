@@ -7,10 +7,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -94,5 +96,40 @@ func TestStillChecksRoot(t *testing.T) {
 	url, _ := leafOnlyServer(t, "localhost")
 	if _, err := fetch(&http.Client{Transport: issuerFetching(x509.NewCertPool())}, url); err == nil {
 		t.Fatal("accepted an untrusted root")
+	}
+}
+
+func TestStopsFetchingIssuersAfterAFew(t *testing.T) {
+	stranger := issue(t, &x509.Certificate{Subject: pkix.Name{CommonName: "stranger"}, IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}, nil)
+	var asked atomic.Int32
+	issuers := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		w.Write(stranger.cert.Raw)
+	}))
+	t.Cleanup(issuers.Close)
+	var urls []string
+	for i := range 3 * maxIssuerFetches {
+		urls = append(urls, fmt.Sprintf("%s/%d.cer", issuers.URL, i))
+	}
+	root := issue(t, &x509.Certificate{Subject: pkix.Name{CommonName: "root"}, IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}, nil)
+	leaf := issue(t, &x509.Certificate{Subject: pkix.Name{CommonName: "localhost"}, DNSNames: []string{"localhost"}, IssuingCertificateURL: urls}, root)
+	if err := verify(tls.ConnectionState{ServerName: "localhost", PeerCertificates: []*x509.Certificate{leaf.cert}}, x509.NewCertPool()); err == nil {
+		t.Fatal("verified a chain to no trusted root")
+	}
+	if n := int(asked.Load()); n > maxIssuerFetches {
+		t.Fatalf("fetched %d issuers, want at most %d", n, maxIssuerFetches)
+	}
+}
+
+func TestRefusesAnOversizedAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(make([]byte, 100))
+	}))
+	t.Cleanup(server.Close)
+	if _, err := fetchAtMost(http.DefaultClient, server.URL, 99); err == nil {
+		t.Fatal("took 100 bytes with a cap of 99")
+	}
+	if data, err := fetchAtMost(http.DefaultClient, server.URL, 100); err != nil || len(data) != 100 {
+		t.Fatalf("a 100-byte cap: %d bytes, %v", len(data), err)
 	}
 }

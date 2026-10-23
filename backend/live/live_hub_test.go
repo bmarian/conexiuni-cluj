@@ -65,3 +65,56 @@ func TestTheFirstViewerCostsOneFetch(t *testing.T) {
 		t.Fatalf("a second viewer a moment later cost %d fetches", n)
 	}
 }
+
+func TestOnDemandAnswersShareAndPaceFetches(t *testing.T) {
+	eng := newTestCity(t)
+	feed := &heldFeed{started: make(chan struct{}, 32), release: make(chan struct{})}
+	eng.Realtime = feed
+	eng.Options.VehicleInterval = VehicleIntervalConfig{MinInterval: time.Hour, MaxInterval: time.Hour}
+	r := jobs.New()
+	eng.Runner = func() *jobs.Runner { return r }
+	t.Cleanup(func() {
+		r.Stop()
+		r.Wait()
+	})
+
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := eng.hub.current(); err != nil {
+				t.Errorf("current: %v", err)
+			}
+		}()
+	}
+	<-feed.started
+	select {
+	case <-feed.started:
+		t.Fatal("20 answers at once fetched more than once")
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(feed.release)
+	wg.Wait()
+
+	stale := &liveTable{AsOf: time.Now().Add(-time.Hour)}
+	eng.liveState.Lock()
+	eng.liveState.table = stale
+	eng.liveState.Unlock()
+	if table, err := eng.hub.current(); err != nil || table != stale {
+		t.Fatalf("within the pace: table %v, err %v; want the last table", table, err)
+	}
+	if n := len(feed.started); n != 0 {
+		t.Fatalf("an answer within the pace cost %d fetches", n)
+	}
+
+	eng.hub.fetches.mu.Lock()
+	eng.hub.fetches.last = time.Now().Add(-2 * time.Hour)
+	eng.hub.fetches.mu.Unlock()
+	if _, err := eng.hub.current(); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(feed.started); n != 1 {
+		t.Fatalf("an answer past the pace cost %d fetches, want 1", n)
+	}
+}

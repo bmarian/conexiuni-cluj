@@ -2,6 +2,8 @@ module conexiuni-cluj
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/joho/godotenv v1.5.1

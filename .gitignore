@@ -16,3 +16,4 @@ backend/services/mobroute/
 backend/services/osm/
 docs/*
 /parity/
+backend/devicesync/protocol.md

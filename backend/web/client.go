@@ -17,12 +17,17 @@ func ClientIP(c fiber.Ctx) string {
 }
 
 // One IPv6 subscriber holds a whole /64, so that is what counts as one client.
-func ClientKey(ip string) string {
+func ClientKey(ip string) string { return ipv6Prefix(ip, 64) }
+
+// One person can hold a whole /48.
+func NetworkKey(ip string) string { return ipv6Prefix(ip, 48) }
+
+func ipv6Prefix(ip string, bits int) string {
 	parsed := net.ParseIP(ip)
 	if parsed == nil || parsed.To4() != nil {
 		return ip
 	}
-	return parsed.Mask(net.CIDRMask(64, 128)).String()
+	return parsed.Mask(net.CIDRMask(bits, 128)).String()
 }
 
 func ClientIPFrom(peer net.IP, forwardedFor string) string {

@@ -150,19 +150,19 @@ Leaving: write the `devices` record without this device, then `DELETE /api/sync/
 | 401 | unknown chain, wrong join key, unknown or removed token, all alike |
 | 403 | asked from another website |
 | 404 | pairing slot unknown, taken, expired or wrong secret; record or wrap missing |
-| 409 | state changed (`stale`, `full`, pairing step out of order) |
+| 409 | state changed (`stale`, `full`, pairing step out of order); `full` also when the server has no room for a record to grow |
 | 429 | a budget below is spent |
 | 503 | the server stores no more chains or slots |
 
 | Budget | Limit |
 |---|---|
 | open pairing slots | 1000 |
-| slots made | 20 per client per 10 minutes |
-| wrong codes | 20 per client per 10 minutes, 300 per minute for everyone |
+| slots made | 20 per client per 10 minutes, 200 per IPv6 /48 |
+| wrong codes | 20 per client per 10 minutes, 200 per IPv6 /48, 300 per minute for everyone |
 | chains made | 5 per client per day |
 | 401 answers | 20 per client per 10 minutes |
 | record writes | 120 per device per hour (a rotation counts each record) |
 | devices | 10 per chain |
 | records | cities + 2 per chain |
-| storage | no new chains above `SYNC_DB_MAX_MB` |
+| storage | above `SYNC_DB_MAX_MB`: no new chains (503), no new or bigger records (409 `full`), no rotation that grows the chain (409 `full`) |
 | unused | a chain no device has called for 365 days is deleted |

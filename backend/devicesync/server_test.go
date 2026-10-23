@@ -158,9 +158,9 @@ func TestPairingBudgets(t *testing.T) {
 	h.want(429, "POST", "/api/sync/pair/999999/claim", claim)
 
 	h.s.mu.Lock()
-	h.s.misses = newBudget(missesPerClient, clientWindow)
+	h.s.misses = newTiered(missesPerClient, clientWindow)
 	h.s.globalMisses.spend("", missesPerMinute, time.Now())
-	h.s.slotsMade = newBudget(slotsPerClient, clientWindow)
+	h.s.slotsMade = newTiered(slotsPerClient, clientWindow)
 	for i := range maxOpenSlots - len(h.s.slots) {
 		h.s.slots[fmt.Sprintf("x%d", i)] = &slot{expires: time.Now().Add(time.Hour)}
 	}
@@ -418,4 +418,55 @@ func TestLogPath(t *testing.T) {
 			t.Errorf("%s: %s, want %s", path, got, want)
 		}
 	}
+}
+
+func TestPairingBudgetsCountTheNetworkToo(t *testing.T) {
+	b := newTiered(2, time.Minute)
+	now := time.Now()
+	for i := range 2 * clientsPerNetwork {
+		who := requester{client: fmt.Sprint("c", i/2), network: "2001:db8::"}
+		if b.spent(who, now) {
+			t.Fatalf("spent after %d", i)
+		}
+		b.spend(who, 1, now)
+	}
+	if !b.spent(requester{client: "fresh", network: "2001:db8::"}, now) {
+		t.Fatal("a new /64 in a spent /48 still got through")
+	}
+	if b.spent(requester{client: "fresh", network: "2001:db9::"}, now) {
+		t.Fatal("another network was refused")
+	}
+}
+
+func TestAFullDatabaseStopsGrowth(t *testing.T) {
+	h := newHarness(t, Options{Cities: 1})
+	a := h.createChain(seed("join"))
+	b := h.joinChain(a.chain, seed("join"))
+	name := enc(seed("name0")[:16])
+	path := a.path("/records/" + name)
+	write := func(base, bucket int) string {
+		return fmt.Sprintf(`{"epoch":1,"base":%d,"body":%q}`, base, body(bucket))
+	}
+	h.want(200, "PUT", path, write(0, 4096), a.auth()...)
+	h.s.maxBytes = 1
+
+	if out := h.want(409, "PUT", a.path("/records/"+enc(seed("name1")[:16])), write(0, 1024), a.auth()...); out["error"] != "full" {
+		t.Fatalf("a new record: %v", out)
+	}
+	if out := h.want(409, "PUT", path, write(1, 16384), a.auth()...); out["error"] != "full" {
+		t.Fatalf("a bigger record: %v", out)
+	}
+	h.want(200, "PUT", path, write(1, 4096), a.auth()...)
+	h.want(200, "PUT", path, write(2, 1024), a.auth()...)
+	h.want(503, "POST", "/api/sync/chains", fmt.Sprintf(`{"join":%q,"kind":"web"}`, enc(seed("other"))))
+
+	rotate := func(bucket int) string {
+		return fmt.Sprintf(`{"epoch":1,"seen":[{"name":%q,"rev":3}],"join":%q,"remove":[%q],"records":[{"name":%q,"body":%q}],"wraps":[]}`,
+			name, enc(seed("join-2")), b.id, name, body(bucket))
+	}
+	if out := h.want(409, "POST", a.path("/rotate"), rotate(4096), a.auth()...); out["error"] != "full" {
+		t.Fatalf("a growing rotation: %v", out)
+	}
+	h.want(200, "POST", a.path("/rotate"), rotate(1024), a.auth()...)
+	h.want(401, "GET", a.path(""), "", b.auth()...)
 }

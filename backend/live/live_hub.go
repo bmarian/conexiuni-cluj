@@ -7,6 +7,7 @@ import (
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/web"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -49,6 +50,7 @@ type liveHub struct {
 	nextID      int64
 	running     bool
 	eng         *Engine
+	fetches     liveFetches
 }
 
 func newLiveHub(eng *Engine) *liveHub {
@@ -258,7 +260,7 @@ func (h *liveHub) run(r *jobs.Runner) {
 	}
 }
 
-func (h *liveHub) poll() (*liveTable, error) {
+func (h *liveHub) fetch() (*liveTable, error) {
 	eng := h.eng
 	if eng.Realtime == nil {
 		return eng.RecomputeLive(nil, time.Now()), nil
@@ -276,19 +278,12 @@ func (h *liveHub) recent() *liveTable {
 	return nil
 }
 
-func (h *liveHub) current() (*liveTable, error) {
-	if table := h.recent(); table != nil {
-		return table, nil
-	}
-	return h.poll()
-}
-
 // A subscriber that started the poll loop gets a fresh table from the loop's first poll.
 func (h *liveHub) sendTo(sub *liveSubscriber, loopStarted bool) {
 	table := h.recent()
 	if table == nil && !loopStarted {
 		var err error
-		if table, err = h.poll(); err != nil {
+		if table, err = h.current(); err != nil {
 			h.eng.log("live hub: initial fetch failed: %v", err)
 			return
 		}
@@ -423,6 +418,10 @@ func (eng *Engine) ServeLive(c fiber.Ctx) error {
 			sub.trips[id] = struct{}{}
 		}
 		table, err := eng.hub.current()
+		if errors.Is(err, errLiveNotReady) {
+			c.Set("Retry-After", strconv.Itoa(int(eng.hub.CurrentInterval().Seconds())))
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": err.Error()})
+		}
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

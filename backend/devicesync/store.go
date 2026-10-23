@@ -66,8 +66,13 @@ func day(now time.Time) int64 {
 
 func (s *Service) size() (int64, error) {
 	var n int64
-	err := s.db.QueryRow(`SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()`).Scan(&n)
+	err := s.db.QueryRow(`SELECT (page_count - freelist_count) * page_size FROM pragma_page_count(), pragma_freelist_count(), pragma_page_size()`).Scan(&n)
 	return n, err
+}
+
+func (s *Service) full() bool {
+	size, err := s.size()
+	return err != nil || size > s.maxBytes
 }
 
 func (s *Service) pruneChains(now time.Time) error {

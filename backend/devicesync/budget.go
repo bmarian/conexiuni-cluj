@@ -1,6 +1,11 @@
 package devicesync
 
-import "time"
+import (
+	"conexiuni-cluj/web"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+)
 
 type tally struct {
 	count int
@@ -38,4 +43,30 @@ func (b *budget) prune(now time.Time) {
 			delete(b.counts, key)
 		}
 	}
+}
+
+type requester struct{ client, network string }
+
+func requesterOf(c fiber.Ctx) requester {
+	return requester{web.ClientHash(c), web.NetworkKey(web.ClientIP(c))}
+}
+
+type tiered struct{ client, network *budget }
+
+func newTiered(limit int, window time.Duration) *tiered {
+	return &tiered{newBudget(limit, window), newBudget(limit*clientsPerNetwork, window)}
+}
+
+func (b *tiered) spent(who requester, now time.Time) bool {
+	return b.client.spent(who.client, now) || b.network.spent(who.network, now)
+}
+
+func (b *tiered) spend(who requester, n int, now time.Time) {
+	b.client.spend(who.client, n, now)
+	b.network.spend(who.network, n, now)
+}
+
+func (b *tiered) prune(now time.Time) {
+	b.client.prune(now)
+	b.network.prune(now)
 }
