@@ -22,6 +22,7 @@ import {useSheetGestures, type SheetSnap} from "@/composables/useSheetGestures.t
 import {useIOSKeyboard} from "@/composables/useIOSKeyboard.ts"
 import {useSheetKeyboard} from "@/composables/useSheetKeyboard.ts"
 import {useStandaloneRootBackground} from "@/composables/useStandaloneRootBackground.ts"
+import {takeUAVisualTransition} from "@/router/index.ts"
 import {KeyboardArrowLeftIcon, KeyboardArrowRightIcon} from "@/utils/icons.ts"
 
 const {t} = useI18n()
@@ -219,12 +220,27 @@ watch([atHome, chromeH], ([home, h]) => {
   mapStore.chromeTopPx = home ? h : safeTop.value
 }, {immediate: true})
 
+// Rows rendered in the next `ms` appear in place instead of cascading in.
+function settleCascades(ms = 1000) {
+  const until = performance.now() + ms
+  const tick = (now: number) => {
+    for (const animation of document.getAnimations()) {
+      if (animation instanceof CSSAnimation && animation.animationName === 'cascade-in') animation.finish()
+    }
+    if (now < until) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
 const navBack = ref(false)
+const navInstant = ref(false)
 let lastPosition = history.state?.position ?? 0
 watch(() => route.fullPath, () => {
   const position = history.state?.position ?? 0
   navBack.value = position < lastPosition
   lastPosition = position
+  navInstant.value = takeUAVisualTransition()
+  if (navInstant.value) settleCascades()
 })
 
 watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
@@ -353,7 +369,7 @@ useKbdShortcuts({
     :style="shellStyle"
   >
     <MapComponent class="app-map"/>
-    <Transition name="chrome">
+    <Transition name="chrome" :css="!navInstant">
       <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place"/>
     </Transition>
     <OfflinePill class="offline-place"/>
@@ -399,8 +415,9 @@ useKbdShortcuts({
         <GreenFridayBanner v-if="appSettings.showGreenFriday"/>
         <div class="drawer-view">
           <!-- RouteView only loads on mount, so another line needs a fresh instance. -->
+          <!-- Without CSS, out-in re-renders mid-patch and crashes, so an instant swap uses the default mode. -->
           <RouterView v-slot="{ Component, route: viewRoute }">
-            <Transition :name="navBack ? 'page-back' : 'page'" mode="out-in">
+            <Transition :name="navBack ? 'page-back' : 'page'" :css="!navInstant" :mode="navInstant ? 'default' : 'out-in'">
               <KeepAlive include="RoutePlanningView">
                 <component :is="Component"
                            :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
