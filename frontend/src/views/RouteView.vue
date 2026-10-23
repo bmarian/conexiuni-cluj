@@ -47,6 +47,7 @@ const {
   timetable,
   stopsForDirection,
   directionTerminals,
+  directionHeadings,
   hasOutgoing,
   hasIncoming,
   nearestStopIdx,
@@ -367,6 +368,11 @@ const directionChoices = computed<Choice<'0' | '1'>[]>(() => [
   {value: '1', label: directionTerminals.value.incoming.last || timetable.value?.in_stop_name || '', disabled: !hasIncoming.value},
 ])
 
+function headingStyle(dir: '0' | '1', rest: number) {
+  const heading = directionHeadings.value[dir]
+  return heading === null ? undefined : {transform: `rotate(${heading - rest}deg)`}
+}
+
 const tabChoices = computed<Choice<TimetableTab>[]>(() => availableTabs.value.map((tab) => ({value: tab.key, label: tab.label})))
 
 function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
@@ -413,9 +419,9 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
         @update:model-value="onDirClick"
       >
         <template #label="{option}">
-          <ArrowForwardIcon v-if="option.value === '0'" class="m-icon size-4 shrink-0"/>
+          <ArrowForwardIcon v-if="option.value === '0'" class="m-icon size-4 shrink-0" :style="headingStyle('0', 90)"/>
           <span class="truncate">{{ option.label }}</span>
-          <ArrowBackIcon v-if="option.value === '1'" class="m-icon size-4 shrink-0"/>
+          <ArrowBackIcon v-if="option.value === '1'" class="m-icon size-4 shrink-0" :style="headingStyle('1', 270)"/>
         </template>
       </ChoiceRow>
 

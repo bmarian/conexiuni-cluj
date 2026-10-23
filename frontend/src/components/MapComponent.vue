@@ -22,7 +22,7 @@ import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map
 import type {ShapePoint} from "@/types/map.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {calculateBearing, haversineMeters, roundedHull} from "@/utils/geo.ts";
+import {calculateBearing, roundedHull, routeHeading} from "@/utils/geo.ts";
 import {
   type DisplayVehicle,
   type MarkerIcon,
@@ -1159,19 +1159,6 @@ const addGroupedStart = (
   }
 }
 
-const computeStartBearing = (latLngs: LatLngTuple[]): number | null => {
-  if (latLngs.length < 2) return null
-  const [startLat, startLng] = latLngs[0]!
-  for (let i = 1; i < Math.min(latLngs.length, 20); i++) {
-    const [lat, lng] = latLngs[i]!
-    if (haversineMeters(startLat, startLng, lat, lng) >= 30) {
-      return calculateBearing(startLat, startLng, lat, lng)
-    }
-  }
-  const [nextLat, nextLng] = latLngs[1]!
-  return calculateBearing(startLat, startLng, nextLat, nextLng)
-}
-
 const addShapeMarker = (m: MapLibreMap, [lat, lng]: LatLngTuple, icon: MarkerIcon, options: HtmlMarkerOptions = {}) => {
   shapeMarkers.push(htmlMarker({lat, lng}, icon, options).addTo(m))
 }
@@ -1262,7 +1249,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     })
 
     if (directionArrowAtStart.value && latLngs.length >= 2) {
-      const bearing = computeStartBearing(latLngs)
+      const bearing = routeHeading(shapeData)
       if (bearing !== null) {
         addDirectionArrowMarker(m, latLngs[0]!, bearing)
       }
