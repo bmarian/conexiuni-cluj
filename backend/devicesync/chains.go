@@ -347,8 +347,14 @@ type sealedWrap struct {
 	Body   string `json:"body"`
 }
 
+type seenRecord struct {
+	Name string `json:"name"`
+	Rev  int64  `json:"rev"`
+}
+
 type rotation struct {
 	Epoch   *int64          `json:"epoch"`
+	Seen    *[]seenRecord   `json:"seen"`
 	Join    *string         `json:"join"`
 	Remove  *[]string       `json:"remove"`
 	Records *[]sealedRecord `json:"records"`
@@ -356,7 +362,7 @@ type rotation struct {
 }
 
 func (s *Service) rotationLimit() int {
-	return s.maxRecords*(b64.EncodedLen(maxRecordBody())+64) + maxDevices*(b64.EncodedLen(wrapSize)+64) + 256
+	return s.maxRecords*(b64.EncodedLen(maxRecordBody())+128) + maxDevices*(b64.EncodedLen(wrapSize)+64) + 256
 }
 
 func distinctIDs(ids []string) bool {
@@ -372,7 +378,7 @@ func distinctIDs(ids []string) bool {
 
 // check decodes what a rotation carries, refusing anything not exactly as protocol.md §7 says.
 func (r rotation) check(maxRecords int) (join []byte, records map[string][]byte, wraps map[string][]byte, ok bool) {
-	if r.Epoch == nil || r.Join == nil || r.Remove == nil || r.Records == nil || r.Wraps == nil || len(*r.Records) > maxRecords {
+	if r.Epoch == nil || r.Seen == nil || r.Join == nil || r.Remove == nil || r.Records == nil || r.Wraps == nil || len(*r.Records) > maxRecords || len(*r.Seen) > maxRecords {
 		return nil, nil, nil, false
 	}
 	if join, ok = fromB64(*r.Join, keySize); !ok || !distinctIDs(*r.Remove) {
@@ -422,6 +428,14 @@ func (s *Service) rotate(c fiber.Ctx) error {
 			return err
 		}
 		if epoch != *req.Epoch {
+			return conflict{"error": "stale", "epoch": epoch}
+		}
+		// The caller re-sealed what it read; a record written since then would be lost.
+		current, err := queryAllTx(tx, `SELECT name, rev FROM records WHERE chain_id = ?`, who.chain)
+		if err != nil {
+			return err
+		}
+		if !sameRecords(current, *req.Seen) {
 			return conflict{"error": "stale", "epoch": epoch}
 		}
 		var devices []string
@@ -483,6 +497,36 @@ func (s *Service) rotate(c fiber.Ctx) error {
 		return answer(c, err)
 	}
 	return c.JSON(fiber.Map{"epoch": next})
+}
+
+func queryAllTx(tx *sql.Tx, query, chain string) (map[string]int64, error) {
+	rows, err := tx.Query(query, chain)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var name string
+		var rev int64
+		if err := rows.Scan(&name, &rev); err != nil {
+			return nil, err
+		}
+		out[name] = rev
+	}
+	return out, rows.Err()
+}
+
+func sameRecords(current map[string]int64, seen []seenRecord) bool {
+	if len(seen) != len(current) {
+		return false
+	}
+	for _, r := range seen {
+		if rev, ok := current[r.Name]; !ok || rev != r.Rev {
+			return false
+		}
+	}
+	return true
 }
 
 func countTrue(m map[string]bool) int {

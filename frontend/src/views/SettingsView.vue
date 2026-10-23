@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import SettingsExportImport from '@/components/SettingsExportImport.vue'
+import SettingsSync from '@/components/SettingsSync.vue'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
@@ -11,7 +11,6 @@ import ListItem from '@/components/ui/ListItem.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import {useSettingsStore} from '@/stores/settings'
-import {TRANSFER_QUERY, transferKeyFromHash} from '@/utils/transferLink.ts'
 import {chooseCity, cities, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {isIOS} from '@/utils/ios.ts'
@@ -47,11 +46,16 @@ useHead(() => ({
 }))
 
 const isAdminAuthed = ref(false)
-const sendCode = computed(() => {
-  const code = route.query[TRANSFER_QUERY]
-  return typeof code === 'string' ? code : undefined
-})
-const sendKey = computed(() => transferKeyFromHash(route.hash))
+
+// A scanned sync QR: the code, and its key after #, which never reaches the server. Both leave the address bar at once.
+const pairCode = ref<string>()
+const pairKey = ref<string>()
+watch(() => route.query.pair, (code) => {
+  if (typeof code !== 'string') return
+  pairKey.value = new URLSearchParams(route.hash.replace(/^#/, '')).get('k') ?? undefined
+  pairCode.value = code
+  void router.replace({query: {}, hash: ''})
+}, {immediate: true})
 
 onMounted(() => {
   try {
@@ -198,9 +202,8 @@ async function choose(slug: string | null) {
       />
     </div>
 
-    <h2 class="section">{{ t('transfer') }}</h2>
-    <p class="text-body-small text-on-surface-variant px-4 py-1">{{ t('transferDesc') }}</p>
-    <SettingsExportImport :send-code="sendCode" :send-key="sendKey"/>
+    <h2 class="section">{{ t('syncTitle') }}</h2>
+    <SettingsSync :pair-code="pairCode" :pair-key="pairKey"/>
 
     <template v-if="isAdminAuthed">
       <h2 class="section">Admin</h2>

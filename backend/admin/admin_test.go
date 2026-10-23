@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/live"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +35,7 @@ func TestAdminSwitchesACity(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := fiber.New()
-	Register(app.Group("/api"), cities, "secret", false)
+	Register(app.Group("/api"), cities, func() (devicesync.Stats, error) { return devicesync.Stats{}, nil }, "secret", false)
 	put := func(slug, body string) int {
 		req := httptest.NewRequest("PUT", "/api/admin/cities/"+slug, bytes.NewBufferString(body))
 		req.Header.Set("Content-Type", "application/json")

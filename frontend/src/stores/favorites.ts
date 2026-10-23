@@ -5,6 +5,9 @@ import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import type {RouteDirection} from '@/types/tranzy.ts'
 import {cacheKey, currentCity} from '@/utils/city.ts'
+import {CITY_CAP, roundCoordinate} from '@/utils/sync/records.ts'
+import {useSettingsStore} from '@/stores/settings'
+import {translate} from '@/i18n'
 
 export const FAVORITE_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans']
 const routesKey = (city?: string) => cacheKey('favorites:routes', city)
@@ -31,6 +34,19 @@ export interface FavoriteRoute {
 
 function sameRoute(a: FavoriteRoute, b: FavoriteRoute): boolean {
   return a.routeId === b.routeId && a.direction === b.direction
+}
+
+const rounded = (x: number | undefined) => x === undefined ? undefined : roundCoordinate(x)
+
+// Saved places keep six decimals, as sync carries them, so a place compares equal on every device.
+function samePlace(p: FavoritePlan, lat: number, lon: number, originLat?: number, originLon?: number): boolean {
+  return p.lat === rounded(lat) && p.lon === rounded(lon) && rounded(p.originLat) === rounded(originLat) && rounded(p.originLon) === rounded(originLon)
+}
+
+function atCap(list: unknown[]): boolean {
+  if (list.length < CITY_CAP) return false
+  useSettingsStore().showToast(translate('limitReached', {n: CITY_CAP}))
+  return true
 }
 
 export function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
@@ -126,17 +142,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function isPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): boolean {
-    return favoritePlans.value.some(p =>
-      p.lat === lat &&
-      p.lon === lon &&
-      p.originLat === originLat &&
-      p.originLon === originLon
-    )
+    return favoritePlans.value.some((p) => samePlace(p, lat, lon, originLat, originLon))
   }
 
   function toggleRouteFavorite(routeId: number, direction: RouteDirection) {
     const fav = {routeId, direction}
     const idx = favoriteRoutes.value.findIndex((r) => sameRoute(r, fav))
+    if (idx === -1 && atCap(favoriteRoutes.value)) return
     if (idx === -1) favoriteRoutes.value.push(fav)
     else favoriteRoutes.value.splice(idx, 1)
     persistRoutes()
@@ -144,27 +156,22 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function toggleStopFavorite(id: number) {
     const idx = favoriteStopIds.value.indexOf(id)
+    if (idx === -1 && atCap(favoriteStopIds.value)) return
     if (idx === -1) favoriteStopIds.value.push(id)
     else favoriteStopIds.value.splice(idx, 1)
     persistStops()
   }
 
   function togglePlanFavorite(plan: FavoritePlan) {
-    const idx = favoritePlans.value.findIndex(p =>
-      p.lat === plan.lat &&
-      p.lon === plan.lon &&
-      p.originLat === plan.originLat &&
-      p.originLon === plan.originLon
-    )
-    if (idx === -1) favoritePlans.value.push(plan)
+    const idx = favoritePlans.value.findIndex((p) => samePlace(p, plan.lat, plan.lon, plan.originLat, plan.originLon))
+    if (idx === -1 && atCap(favoritePlans.value)) return
+    if (idx === -1) favoritePlans.value.push({...plan, lat: roundCoordinate(plan.lat), lon: roundCoordinate(plan.lon), originLat: rounded(plan.originLat), originLon: rounded(plan.originLon)})
     else favoritePlans.value.splice(idx, 1)
     persistPlans()
   }
 
   function renamePlanFavorite(lat: number, lon: number, originLat: number | undefined, originLon: number | undefined, label: string | undefined) {
-    const plan = favoritePlans.value.find(p =>
-      p.lat === lat && p.lon === lon && p.originLat === originLat && p.originLon === originLon
-    )
+    const plan = favoritePlans.value.find((p) => samePlace(p, lat, lon, originLat, originLon))
     if (plan) {
       plan.label = label || undefined
       persistPlans()

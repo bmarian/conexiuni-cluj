@@ -398,8 +398,7 @@ func (r *recorder) walk(built []*cities.City, adminToken string) {
 		r.walkCity(city.Slug)
 	}
 	for _, path := range []string{"/sitemap.xml", "/robots.txt", "/sw.js", "/manifest.webmanifest", "/.well-known/assetlinks.json",
-		"/android", "/stop/1", "/route/1/0", "/plan?lat=46.77&lon=23.6&name=x", "/settings", "/api/nope", "/nope.png", "/nope",
-		"/api/transfer/zzzzzz"} {
+		"/android", "/stop/1", "/route/1/0", "/plan?lat=46.77&lon=23.6&name=x", "/settings", "/api/nope", "/nope.png", "/nope"} {
 		r.get(path)
 	}
 	if adminToken == "" {
@@ -491,19 +490,6 @@ func (r *recorder) walkWrites(built []*cities.City, adminToken string) {
 	r.do(http.MethodPost, api+"/stats/event", `{"metric":"pwa_install","key":"appinstalled"}`, jsonBody...)
 	r.do(http.MethodPost, api+"/stats/event", `{"metric":"nope","key":"x"}`, jsonBody...)
 
-	var link struct {
-		Code   string `json:"code"`
-		Secret string `json:"secret"`
-	}
-	if err := json.Unmarshal(r.do(http.MethodPost, "/api/transfer", ""), &link); err != nil || link.Code == "" {
-		r.t.Fatalf("transfer: %v %+v", err, link)
-	}
-	r.get("/api/transfer/" + link.Code)
-	r.do(http.MethodPut, "/api/transfer/"+link.Code, `{"favorites":[1,2]}`, jsonBody...)
-	r.get("/api/transfer/" + link.Code)
-	r.do(http.MethodDelete, "/api/transfer/"+link.Code, "")
-	r.do(http.MethodDelete, "/api/transfer/"+link.Code, "", "X-Link-Secret", link.Secret)
-	r.get("/api/transfer/" + link.Code)
 	r.walkSync()
 
 	if adminToken == "" {
@@ -686,12 +672,6 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 	if strings.HasPrefix(target, "/api/admin/overview") {
 		plain = maskVolatile(r.t, plain)
 	}
-	if method == http.MethodPost && target == "/api/transfer" {
-		var link struct{ Code, Secret string }
-		if json.Unmarshal(plain, &link) == nil && link.Code != "" {
-			r.masks = append(r.masks, [2]string{link.Code, "<code>"}, [2]string{link.Secret, "<secret>"})
-		}
-	}
 	if strings.HasPrefix(target, "/api/sync") {
 		r.maskSyncValues(plain)
 	}
@@ -703,8 +683,8 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 	}
 	text.WriteString("\n")
 	recorded := text.String()
-	// Only transfer and sync answers hold the codes; anywhere else a six-digit code can match part of a coordinate.
-	if strings.HasPrefix(target, "/api/transfer") || strings.HasPrefix(target, "/api/sync") {
+	// Only sync answers hold the codes; anywhere else a six-digit code can match part of a coordinate.
+	if strings.HasPrefix(target, "/api/sync") {
 		if masked := r.mask(recorded); masked != recorded {
 			recorded = etagLine.ReplaceAllString(masked, "Etag: <masked>")
 		}

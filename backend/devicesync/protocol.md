@@ -137,7 +137,7 @@ Each device keeps, per record, the last version it and the server agreed on (`ba
 3. For each remaining device R other than this one: an ephemeral key pair (`x`, `Px`),
    `W = HKDF(ECDH(x, R.pub), salt = Px, info = "cai-sync/v1/wrap|<chain>|<e+1>|<R.id>", 32)`,
    wrap `= Px ‖ AES-GCM(W, S', aad = the same info string)`, 151 bytes.
-4. `POST /api/sync/chains/<chain>/rotate {"epoch": e, "join": join', "remove": [ids], "records": [{"name", "body"}], "wraps": [{"device", "body"}]}` → `{"epoch": e + 1}`. The server takes it only if `e` is current, `remove` holds other devices of the chain, and `wraps` names exactly the devices that remain apart from the caller.
+4. `POST /api/sync/chains/<chain>/rotate {"epoch": e, "seen": [{"name", "rev"}], "join": join', "remove": [ids], "records": [{"name", "body"}], "wraps": [{"device", "body"}]}` → `{"epoch": e + 1}`. `seen` lists every record of the chain with the revision the caller read and re-sealed (records it could not map to a name, such as a city that no longer exists, are listed and left out of `records`, so they go). The server takes it only if `e` is current, `seen` matches the chain's records exactly (otherwise 409 `stale`: another device wrote meanwhile; read again and repeat), `remove` holds other devices of the chain, and `wraps` names exactly the devices that remain apart from the caller.
 5. Others see the new epoch, read `GET /api/sync/chains/<chain>/wrap` → `{"epoch", "body"}`, open it with their long-term key, and continue with `S'`. A removed device gets 401 everywhere.
 
 Leaving: write the `devices` record without this device, then `DELETE /api/sync/chains/<chain>/devices/self`; the last device to leave deletes the chain. Deleting everything: `DELETE /api/sync/chains/<chain>`.

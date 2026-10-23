@@ -311,19 +311,21 @@ func TestRotation(t *testing.T) {
 	a := h.createChain(seed("join"))
 	b := h.joinChain(a.chain, seed("join"))
 	c := h.joinChain(a.chain, seed("join"))
-	old := a.path("/records/" + enc(seed("old")[:16]))
+	oldName := enc(seed("old")[:16])
+	old := a.path("/records/" + oldName)
 	h.want(200, "PUT", old, fmt.Sprintf(`{"epoch":1,"base":0,"body":%q}`, body(1024)), a.auth()...)
 
 	newName := enc(seed("new")[:16])
 	wrapBody := wrap(fixedKey("ephemeral"), spki(fixedKey("device-key")), randomBytes(12), seed("s2"), wrapInfo(a.chain, 2, b.id))
+	seenRev := 1
 	rotation := func(epoch int, remove []string, wraps map[string][]byte) string {
 		var w []string
 		for id, body := range wraps {
 			w = append(w, fmt.Sprintf(`{"device":%q,"body":%q}`, id, enc(body)))
 		}
 		removed, _ := json.Marshal(remove)
-		return fmt.Sprintf(`{"epoch":%d,"join":%q,"remove":%s,"records":[{"name":%q,"body":%q}],"wraps":[%s]}`,
-			epoch, enc(seed("join-2")), removed, newName, body(4096), strings.Join(w, ","))
+		return fmt.Sprintf(`{"epoch":%d,"seen":[{"name":%q,"rev":%d}],"join":%q,"remove":%s,"records":[{"name":%q,"body":%q}],"wraps":[%s]}`,
+			epoch, oldName, seenRev, enc(seed("join-2")), removed, newName, body(4096), strings.Join(w, ","))
 	}
 	if out := h.want(409, "POST", a.path("/rotate"), rotation(2, []string{c.id}, map[string][]byte{b.id: wrapBody}), a.auth()...); out["error"] != "stale" {
 		t.Fatalf("%v", out)
@@ -340,6 +342,14 @@ func TestRotation(t *testing.T) {
 		}
 	}
 	h.want(400, "POST", a.path("/rotate"), rotation(1, []string{c.id, c.id}, map[string][]byte{b.id: wrapBody}), a.auth()...)
+	h.want(200, "PUT", old, fmt.Sprintf(`{"epoch":1,"base":1,"body":%q}`, body(1024)), b.auth()...)
+	if out := h.want(409, "POST", a.path("/rotate"), rotation(1, []string{c.id}, map[string][]byte{b.id: wrapBody}), a.auth()...); out["error"] != "stale" {
+		t.Fatalf("a record written since the caller read it: %v", out)
+	}
+	h.want(200, "PUT", old, fmt.Sprintf(`{"epoch":1,"base":2,"body":%q}`, body(1024)), b.auth()...)
+	seenRev = 3
+	missing := strings.Replace(rotation(1, []string{c.id}, map[string][]byte{b.id: wrapBody}), fmt.Sprintf(`{"name":%q,"rev":3}`, oldName), "", 1)
+	h.want(409, "POST", a.path("/rotate"), missing, a.auth()...)
 	h.want(400, "POST", a.path("/rotate"), rotation(1, []string{c.id}, map[string][]byte{b.id: wrapBody[1:]}), a.auth()...)
 
 	if out := h.want(200, "POST", a.path("/rotate"), rotation(1, []string{c.id}, map[string][]byte{b.id: wrapBody}), a.auth()...); out["epoch"] != 2.0 {

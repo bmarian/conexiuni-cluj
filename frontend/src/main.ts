@@ -8,6 +8,7 @@ import router from "./router";
 import { useUserStore } from "./stores/user";
 import { useSettingsStore } from "./stores/settings";
 import { useFavoritesStore } from "./stores/favorites";
+import { useSyncStore } from "./stores/sync";
 import { useRoutesApi } from "./composables/useRoutesApi";
 import { useStopsApi } from "./composables/useStopsApi";
 import { startNetwork } from "./utils/network";
@@ -72,3 +73,5 @@ void favoritesStore.hydrate().then(() => {
 });
 
 void citiesReady.then(() => router.isReady()).then(() => app.mount("#app"));
+
+if (!isAdminPath) void citiesReady.then(() => useSyncStore(pinia).start());

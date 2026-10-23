@@ -2,6 +2,7 @@ package admin
 
 import (
 	"conexiuni-cluj/cities"
+	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/live"
 	"crypto/hmac"
 	"crypto/rand"
@@ -121,7 +122,7 @@ func adminCityList(registry *cities.Registry) []adminCity {
 }
 
 // Register serves the admin page's API under /admin, behind a session the token opens.
-func Register(api fiber.Router, registry *cities.Registry, token string, secureCookies bool) {
+func Register(api fiber.Router, registry *cities.Registry, syncStats func() (devicesync.Stats, error), token string, secureCookies bool) {
 	if token == "" || len(registry.All()) == 0 {
 		return
 	}
@@ -158,6 +159,9 @@ func Register(api fiber.Router, registry *cities.Registry, token string, secureC
 		overview, err := buildOverview(cityOf(c), time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		if stats, err := syncStats(); err == nil {
+			overview.Server.Sync = &stats
 		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(overview)

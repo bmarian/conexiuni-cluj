@@ -106,7 +106,7 @@ Each city keeps its own SQLite database in `db/{city}.db` and its history in `ar
 
 **Arrivals** come from `/api/{city}/live`: the server snaps every bus once per poll, predicts its arrival at each downstream stop, follows it onto its next trip at a through-running terminus and merges the result with the timetable into final rows per trip and stop. Subscribe by `stop_ids` and `trip_ids` for an SSE stream (a snapshot, then only the rows and buses that changed, gzipped), or add `once=1` for a single JSON answer.
 
-**Everything else:** `/api/cities` lists the cities that are on, `/api/{city}/plan` plans a trip, `/api/{city}/places` searches addresses and places, `/api/{city}/areas` names the towns and districts the zoomed-out map shows, `/api/{city}/updates` merges operator news with line changes, `/api/{city}/shapes?format=polyline` gives the line shapes, and `/api/transfer` carries favorites between devices.
+**Everything else:** `/api/cities` lists the cities that are on, `/api/{city}/plan` plans a trip, `/api/{city}/places` searches addresses and places, `/api/{city}/areas` names the towns and districts the zoomed-out map shows, `/api/{city}/updates` merges operator news with line changes, `/api/{city}/shapes?format=polyline` gives the line shapes, and `/api/sync` keeps a person's devices in step, end-to-end encrypted (`backend/devicesync/protocol.md`).
 
 </details>
 

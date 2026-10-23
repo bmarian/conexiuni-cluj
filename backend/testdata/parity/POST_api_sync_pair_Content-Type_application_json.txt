@@ -12,7 +12,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "code": "<code-2>",
+ "code": "<code>",
  "expiresIn": 300,
- "secret": "<secret-2>"
+ "secret": "<secret>"
 }

@@ -614,6 +614,11 @@ X-Frame-Options: DENY
   "problems": [],
   "requests": 17,
   "revision": "",
-  "started_at": "\u003cvolatile\u003e"
+  "started_at": "\u003cvolatile\u003e",
+  "sync": {
+   "chains": 0,
+   "db_bytes": "\u003cvolatile\u003e",
+   "devices": {}
+  }
  }
 }
