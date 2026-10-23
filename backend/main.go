@@ -6,7 +6,6 @@ import (
 	"conexiuni-cluj/config"
 	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/pages"
-	"conexiuni-cluj/transfer"
 	"conexiuni-cluj/web"
 	"flag"
 	"io"
@@ -132,9 +131,8 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 		},
 	}))
 	api.Get("/cities", cities.Handler(registry))
-	transfer.New().Register(api)
 	devices.Register(api)
-	admin.Register(api, registry, cfg.AdminToken, cfg.Environment == "production")
+	admin.Register(api, registry, devices.Stats, cfg.AdminToken, cfg.Environment == "production")
 	notFound := func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNotFound) }
 	for _, city := range built {
 		city.Register(api.Group("/"+city.Slug, city.OnlyEnabled(notFound)))

@@ -104,8 +104,8 @@ func (r *recorder) walkSync() {
 	r.do(http.MethodPut, chain+"/records/"+name, fmt.Sprintf(`{"epoch":1,"base":1,"body":%q}`, raw64.EncodeToString(make([]byte, 1000))), bearer(first.Token)...)
 	r.get(chain+"/records/"+name, bearer(second.Token)...)
 	r.get(chain+"/wrap", bearer(first.Token)...)
-	rotation := fmt.Sprintf(`{"epoch":1,"join":%q,"remove":[%q],"records":[{"name":%q,"body":%q}],"wraps":[]}`,
-		raw64.EncodeToString(make([]byte, 32)), second.Device, name, raw64.EncodeToString(make([]byte, 4096+28)))
+	rotation := fmt.Sprintf(`{"epoch":1,"seen":[{"name":%q,"rev":1}],"join":%q,"remove":[%q],"records":[{"name":%q,"body":%q}],"wraps":[]}`,
+		name, raw64.EncodeToString(make([]byte, 32)), second.Device, name, raw64.EncodeToString(make([]byte, 4096+28)))
 	r.do(http.MethodPost, chain+"/rotate", rotation, bearer(first.Token)...)
 	r.get(chain, bearer(second.Token)...)
 	r.get(chain, bearer(first.Token)...)

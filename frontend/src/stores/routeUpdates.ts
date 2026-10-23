@@ -2,6 +2,7 @@ import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
 import {cacheKey, cityInfo, currentCity} from '@/utils/city.ts'
+import {CITY_CAP} from '@/utils/sync/records.ts'
 
 export const FOLLOWS_KEY = 'follows:routes'
 const followedKey = (city?: string) => cacheKey(FOLLOWS_KEY, city)
@@ -58,7 +59,7 @@ function writeList(key: string, value: unknown[]) {
   } catch {}
 }
 
-export const MAX_FOLLOWED_LINES = 10
+export const MAX_FOLLOWED_LINES = CITY_CAP
 
 const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0
 const isNumber = (v: unknown): v is number => typeof v === 'number'
@@ -74,9 +75,14 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
   let lastFetchAt = 0
   let fetchSeq = 0
 
-  watch(currentCity, () => {
+  // Also when another tab changed what is saved.
+  function reload() {
     followed.value = readList(followedKey(), isString).slice(0, MAX_FOLLOWED_LINES)
     seenIds.value = new Set(readList(seenKey(), isNumber))
+  }
+
+  watch(currentCity, () => {
+    reload()
     updates.value = []
     lastFetchAt = 0
   }, {flush: 'sync'})
@@ -170,6 +176,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     toggleFollow,
     followedIn,
     importFollowed,
+    reload,
     fetchUpdates,
     refreshIfStale,
     markSeen,

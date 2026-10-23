@@ -36,6 +36,11 @@ const router = createRouter({
       redirect: (to) => ({path: `/${currentCity.value}/plan`, query: to.query, hash: to.hash}),
     },
     {
+      // Sync QR codes name no city.
+      path: '/settings',
+      redirect: (to) => ({path: `/${currentCity.value}/settings`, query: to.query, hash: to.hash}),
+    },
+    {
       path: '/:city',
       children: [
         {

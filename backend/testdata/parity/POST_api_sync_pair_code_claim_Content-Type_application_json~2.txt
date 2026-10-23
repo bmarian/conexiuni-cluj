@@ -1,4 +1,5 @@
-GET /api/transfer/zzzzzz
+POST /api/sync/pair/<code>/claim
+> Content-Type: application/json
 404
 Cache-Control: no-store
 Content-Length: 9

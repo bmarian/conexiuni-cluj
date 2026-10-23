@@ -84,6 +84,7 @@ type Overview = {
     errors: number
     endpoints: {key: string; calls: number; avg_ms: number; errors: number}[]
     problems: {first: string; last: string; count: number; text: string}[]
+    sync?: {chains: number; devices: Record<string, number>; db_bytes: number}
   }
 }
 
@@ -557,6 +558,14 @@ const meters = computed(() => {
               </div>
               <div><dt>Memory</dt><dd>{{ bytes(data.server.heap_bytes) }}</dd></div>
               <div><dt>Database</dt><dd>{{ bytes(data.server.db_bytes) }}</dd></div>
+              <div v-if="data.server.sync">
+                <dt>Sync</dt>
+                <dd>
+                  {{ num(data.server.sync.chains) }} groups ·
+                  {{ num(data.server.sync.devices.web ?? 0) }} web, {{ num(data.server.sync.devices.android ?? 0) }} phone, {{ num(data.server.sync.devices.wear ?? 0) }} watch ·
+                  {{ bytes(data.server.sync.db_bytes) }}
+                </dd>
+              </div>
               <div v-if="diskUsed != null"><dt>Disk</dt><dd>{{ pct(diskUsed) }} used · {{ bytes(data.server.disk_free) }} free</dd></div>
             </dl>
 

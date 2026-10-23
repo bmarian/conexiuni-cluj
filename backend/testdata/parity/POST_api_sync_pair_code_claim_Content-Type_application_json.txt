@@ -1,4 +1,4 @@
-POST /api/sync/pair/<code-2>/claim
+POST /api/sync/pair/<code>/claim
 > Content-Type: application/json
 200
 Cache-Control: no-store
@@ -13,5 +13,5 @@ X-Frame-Options: DENY
 
 {
  "commit": "J6TdDUZ1xMnqUQzpdLyw-7Tc4rFUuEdbJXM0fiVWf4g",
- "secret": "<secret-3>"
+ "secret": "<secret-2>"
 }

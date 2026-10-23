@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/database"
+	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/live"
 	"fmt"
@@ -102,17 +103,17 @@ type versionCount struct {
 }
 
 type adminPeople struct {
-	Today         int             `json:"today"`
-	New           int             `json:"new"`
-	LastWeek      int             `json:"last_week"`
-	Platforms     []platformCount `json:"platforms"`
-	Daily         []peopleDay     `json:"daily"`
-	Versions      []versionCount  `json:"versions"`
-	Stops         []namedCount    `json:"stops"`
-	Lines         []namedCount    `json:"lines"`
-	Plans         int             `json:"plans"`
-	Places        int             `json:"places"`
-	Installs      int             `json:"installs"`
+	Today     int             `json:"today"`
+	New       int             `json:"new"`
+	LastWeek  int             `json:"last_week"`
+	Platforms []platformCount `json:"platforms"`
+	Daily     []peopleDay     `json:"daily"`
+	Versions  []versionCount  `json:"versions"`
+	Stops     []namedCount    `json:"stops"`
+	Lines     []namedCount    `json:"lines"`
+	Plans     int             `json:"plans"`
+	Places    int             `json:"places"`
+	Installs  int             `json:"installs"`
 }
 
 type quotaUse struct {
@@ -172,17 +173,18 @@ type problemEntry struct {
 }
 
 type adminServer struct {
-	StartedAt time.Time       `json:"started_at"`
-	Revision  string          `json:"revision"`
-	Modified  bool            `json:"modified"`
-	HeapBytes uint64          `json:"heap_bytes"`
-	DBBytes   int64           `json:"db_bytes"`
-	DiskFree  uint64          `json:"disk_free"`
-	DiskTotal uint64          `json:"disk_total"`
-	Requests  int             `json:"requests"`
-	Errors    int             `json:"errors"`
-	Endpoints []endpointToday `json:"endpoints"`
-	Problems  []problemEntry  `json:"problems"`
+	StartedAt time.Time         `json:"started_at"`
+	Revision  string            `json:"revision"`
+	Modified  bool              `json:"modified"`
+	HeapBytes uint64            `json:"heap_bytes"`
+	DBBytes   int64             `json:"db_bytes"`
+	DiskFree  uint64            `json:"disk_free"`
+	DiskTotal uint64            `json:"disk_total"`
+	Requests  int               `json:"requests"`
+	Errors    int               `json:"errors"`
+	Endpoints []endpointToday   `json:"endpoints"`
+	Problems  []problemEntry    `json:"problems"`
+	Sync      *devicesync.Stats `json:"sync,omitempty"`
 }
 
 func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {

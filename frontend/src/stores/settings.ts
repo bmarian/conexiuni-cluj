@@ -94,6 +94,16 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
   }
 
+  // Another tab changed what is saved.
+  function reload() {
+    theme.value = (localStorage.getItem('settings.theme') as Theme) ?? 'system'
+    locale.value = detectInitialLocale()
+    autoCenterOnMe.value = localStorage.getItem('settings.autoCenterOnMe') !== 'false'
+    autoFitMap.value = localStorage.getItem('settings.autoFitMap') !== 'false'
+    showVehicleExtras.value = localStorage.getItem('settings.showVehicleExtras') !== 'false'
+    regionValues.value = {}
+  }
+
   const toast = ref<Toast | null>(null)
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let toastSeq = 0
@@ -116,6 +126,7 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
     showVehicleExtras, setShowVehicleExtras,
     showGreenFriday, regionSetting, setRegionSetting,
+    reload,
     toast, showToast, dismissToast,
   }
 })
