@@ -1,18 +1,18 @@
 GET /api/fixture/network
 200
 Cache-Control: no-cache
-Content-Length: 21550
+Content-Length: 21604
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json
-Etag: "cd6d07b5a606c980"
+Etag: "948a2b82006ace6c"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "cd6d07b5a606c980",
- "static_version": "fdcd87d44b371b5c",
+ "version": "948a2b82006ace6c",
+ "static_version": "7b767d171d377c04",
  "generated_at": "2026-10-20T00:00:00Z",
  "routes": [
   {
@@ -23,6 +23,7 @@ X-Frame-Options: DENY
    "route_type": 3,
    "route_desc": "",
    "route_color": "#C62F24",
+   "route_colorful": "#C62F24",
    "timetable": {
     "route_short_name": "1",
     "route_long_name": "Capăt 101 - Capăt 105",
@@ -1626,6 +1627,7 @@ X-Frame-Options: DENY
    "route_type": 0,
    "route_desc": "",
    "route_color": "#16D057",
+   "route_colorful": "#16D057",
    "timetable": {
     "route_short_name": "2B",
     "route_long_name": "Capăt 111 - Capăt 115",

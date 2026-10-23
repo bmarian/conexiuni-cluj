@@ -1,10 +1,10 @@
 GET /api/fixture/plan?from_lat=46.000000&from_lng=24.006000&to_lat=45.996000&to_lng=24.000000&time=2026-10-20T08:30&arrive_by=1
 200
 Cache-Control: no-cache
-Content-Length: 980
+Content-Length: 1001
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"980-1514598423"
+Etag: W/"1001-4038097314"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -99,6 +99,7 @@ X-Frame-Options: DENY
    "short_name": "1",
    "long_name": "Capăt 101 - Capăt 105",
    "color": "#C62F24",
+   "colorful": "#C62F24",
    "type": 3
   }
  },

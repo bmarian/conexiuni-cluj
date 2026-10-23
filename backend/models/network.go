@@ -30,6 +30,7 @@ type NetworkRoute struct {
 	RouteType      RouteType          `json:"route_type"`
 	RouteDesc      string             `json:"route_desc"`
 	RouteColor     string             `json:"route_color"`
+	RouteColorful  string             `json:"route_colorful"`
 	Timetable      *Timetable         `json:"timetable"`
 	Trips          []NetworkTrip      `json:"trips"`
 	Offsets        map[string][][]int `json:"offsets"`

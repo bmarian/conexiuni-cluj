@@ -15,6 +15,7 @@ export type NetworkTrip = {
 }
 
 export type NetworkRoute = Route & {
+  route_colorful?: string
   timetable: Timetable | null
   trips: NetworkTrip[]
   offsets: Record<string, number[][]>

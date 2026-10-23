@@ -91,7 +91,8 @@ func (s *Service) buildNetworkRoute(route models.Route) models.NetworkRoute {
 	out := models.NetworkRoute{
 		RouteID: route.RouteID, AgencyID: route.AgencyID, RouteShortName: route.RouteShortName,
 		RouteLongName: route.RouteLongName, RouteType: route.RouteType, RouteDesc: route.RouteDesc,
-		RouteColor: route.RouteColor, Trips: []models.NetworkTrip{}, Offsets: map[string][][]int{},
+		RouteColor: route.RouteColor, RouteColorful: models.ColorfulRouteColor(route.RouteShortName),
+		Trips: []models.NetworkTrip{}, Offsets: map[string][][]int{},
 	}
 	rsn := route.RouteShortName
 	if timetable, err := s.data.Timetable(rsn); err == nil && timetable != nil {
