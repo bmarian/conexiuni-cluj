@@ -61,6 +61,7 @@ type RouteChange struct {
 	RouteShortName string            `json:"route_short_name"`
 	RouteID        int               `json:"route_id"`
 	RouteColor     string            `json:"route_color"`
+	RouteColorful  string            `json:"route_colorful"`
 	Source         string            `json:"source"`
 	DetectedAt     int64             `json:"detected_at"`
 	Changes        []RouteChangeItem `json:"changes"`
@@ -529,6 +530,7 @@ func (s *Service) recentRouteChanges(condition string, args ...any) ([]RouteChan
 			if err := rows.Scan(&rc.ID, &rc.RouteShortName, &rc.RouteID, &rc.RouteColor, &rc.Source, &rc.DetectedAt, &payload); err != nil {
 				return rc, err
 			}
+			rc.RouteColorful = models.ColorfulRouteColor(rc.RouteShortName)
 			rc.Changes = []RouteChangeItem{}
 			return rc, json.Unmarshal([]byte(payload), &rc.Changes)
 		})

@@ -269,6 +269,7 @@ type planLine struct {
 	ShortName string           `json:"short_name"`
 	LongName  string           `json:"long_name"`
 	Color     string           `json:"color"`
+	Colorful  string           `json:"colorful"`
 	Type      models.RouteType `json:"type"`
 }
 
@@ -457,7 +458,7 @@ func (s *Service) describePlan(resp *planResponse, options []router.Option) erro
 					if color == "" {
 						color = models.FallbackRouteColor
 					}
-					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Type: r.RouteType}
+					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Colorful: models.ColorfulRouteColor(r.RouteShortName), Type: r.RouteType}
 				}
 			}
 			first := po.Runs[0].Rides[ride]
