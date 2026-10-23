@@ -177,7 +177,7 @@ const chips = computed<ChipAction[]>(() => [
 
     <template v-else>
       <header class="header">
-        <StationIcon :look="look" :corner="16" class="size-[52px]"/>
+        <StationIcon :look="look" :corner="16" :favorite="isFavorite" class="size-[52px]"/>
         <div class="flex-1 min-w-0 pt-0.5">
           <div class="flex gap-2 text-label-medium">
             <span class="text-primary">{{ t(`stopKind_${stationMode}`) }}</span>

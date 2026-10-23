@@ -43,6 +43,7 @@ import {
 } from '@/utils/mapIcons.ts'
 import {network, stationOf} from '@/utils/network.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
+import {stopSweep, sweepLine} from '@/utils/lineSweep.ts'
 import {
   groupName,
   lngPerPixel,
@@ -185,6 +186,7 @@ type SavedMapView = {
 
 type LineGroup = 'shapes' | 'walks'
 type LineSpec = {
+  name?: string
   coords: LatLngTuple[]
   color: string
   width: number
@@ -196,6 +198,7 @@ type Fix = LatLng & { accuracy: number, heading: number | null }
 
 const lines: Record<LineGroup, LineSpec[]> = {shapes: [], walks: []}
 const drawnPaths: Record<LineGroup, string[]> = {shapes: [], walks: []}
+let drawnFavorites = new Set<string>()
 let accuracy: (LatLng & { radius: number }) | null = null
 
 const currentStyle = () => mapStyle(isDarkMode.value)
@@ -229,7 +232,7 @@ const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
 
 const pathKey = (coords: LatLngTuple[]) => `${coords.length}|${coords[0]}|${coords.at(-1)}`
 
-// Layers stay across redraws, so a line that only changes colour fades into it, in step with its badges.
+// Layers are reused so a recoloured line can sweep into its new colour.
 const syncLines = (group: LineGroup) => {
   const m = map.value
   if (!m || !styleReady) return
@@ -239,24 +242,27 @@ const syncLines = (group: LineGroup) => {
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)
   }
-  const recolorMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spring-fast-ms')) || 0
   lines[group].forEach((line, i) => {
     const id = `${OVERLAY}${group}-${i}`
     const path = pathKey(line.coords)
     const data: Feature<LineString> = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}}
     const source = m.getSource<GeoJSONSource>(id)
     if (source && m.getLayer(id)) {
-      const recolor = shown[i] === path && m.getPaintProperty(id, 'line-color') !== line.color
-      if (shown[i] !== path) source.setData(data)
-      m.setPaintProperty(id, 'line-color-transition', {duration: recolor ? recolorMs : 0, delay: 0})
+      const was = m.getPaintProperty(id, 'line-color') as string
+      if (shown[i] !== path) {
+        stopSweep(m, id)
+        source.setData(data)
+      }
       m.setPaintProperty(id, 'line-color', line.color)
       m.setPaintProperty(id, 'line-width', line.width)
       m.setPaintProperty(id, 'line-opacity', line.opacity)
       m.setPaintProperty(id, 'line-dasharray', line.dash)
+      const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
+      if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
       return
     }
     if (source) m.removeSource(id)
-    m.addSource(id, {type: 'geojson', data})
+    m.addSource(id, {type: 'geojson', data, lineMetrics: true})
     const layer: LineLayerSpecification = {
       id,
       type: 'line',
@@ -266,6 +272,7 @@ const syncLines = (group: LineGroup) => {
         'line-color': line.color,
         'line-width': line.width,
         'line-opacity': line.opacity,
+        'line-color-transition': {duration: 0, delay: 0},
         'line-width-transition': {duration: 0, delay: 0},
         'line-opacity-transition': {duration: 0, delay: 0},
       },
@@ -274,6 +281,7 @@ const syncLines = (group: LineGroup) => {
     m.addLayer(layer, slotId(group))
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
+  drawnFavorites = new Set(favoritesStore.favoriteLineNames)
 }
 
 const accuracyRing = ({lat, lng}: LatLng, radius: number): Feature<Polygon> => {
@@ -901,7 +909,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     localStorage.setItem(mapViewKey(), JSON.stringify(view))
   })
   mapValue.on('click', (e) => {
-    // The path, not the target: a marker clicked may have re-rendered and dropped the target already.
+    // A clicked marker may have re-rendered and dropped its target already.
     if (e.originalEvent.composedPath().some((node) => (node as Element).classList?.contains('maplibregl-marker'))) return
     unspiderfy()
     selectedVehicleId.value = null
@@ -1245,6 +1253,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     drawnPaths.add(signature)
 
     shapeLines.push({
+      name: displayShape.route_short_name,
       coords: latLngs,
       color: routeColor || '#94a3b8',
       width: 5,

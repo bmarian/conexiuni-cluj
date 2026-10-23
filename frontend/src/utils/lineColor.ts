@@ -4,20 +4,18 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 
 const utf8 = new TextEncoder()
 
-// FNV-1a of the upper-cased name, as HSL with saturation 66-81% and lightness 44-55%.
 export function hashedLineColor(name: string): string {
   let hash = 0x811c9dc5
   for (const byte of utf8.encode(name.trim().toUpperCase())) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0
   return hslToHex(hash % 360, 66 + ((hash >>> 9) % 16), 44 + ((hash >>> 17) % 12))
 }
 
-// Favorites always, other lines in colorful mode or when shown apart from others.
 export function ownColor(name: string, color: string, apart = false): string {
   const own = apart || useSettingsStore().colorfulLines || useFavoritesStore().favoriteLineNames.has(name)
   return own && name.trim() ? hashedLineColor(name) : color
 }
 
-// A line drawn on the map keeps the map's colour everywhere, so its badges read as the map's legend.
+// Badges of lines drawn on the map take the map's colour, as its legend.
 export function displayColor(name: string, color: string, apart = false): string {
   return useMapStore().lineColors.get(name) ?? ownColor(name, color, apart)
 }
