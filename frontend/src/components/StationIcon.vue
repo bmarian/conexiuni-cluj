@@ -1,27 +1,31 @@
 <script setup lang="ts">
 import type {StationLook} from '@/utils/network.ts'
 import ModeIcon from '@/components/icons/ModeIcon.vue'
+import FavoriteMorph from '@/components/ui/FavoriteMorph.vue'
 
-defineProps<{ look?: StationLook, corner?: number }>()
+defineProps<{ look?: StationLook, corner?: number, favorite?: boolean }>()
 </script>
 
 <template>
-  <span class="station-icon" :class="{ 'is-plain': !look }" :style="{ backgroundColor: look?.color, borderRadius: corner === undefined ? '50%' : `${corner}px` }">
+  <FavoriteMorph
+    :color="look?.color ?? 'var(--md-secondary-container)'"
+    :favorite="favorite"
+    class="station-icon"
+    :class="{ 'is-plain': !look }"
+    :style="{ borderRadius: corner === undefined ? '50%' : `${corner}px` }"
+  >
     <ModeIcon :mode="look?.mode ?? 'bus'" class="station-icon-glyph"/>
-  </span>
+  </FavoriteMorph>
 </template>
 
 <style scoped>
 .station-icon {
   display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   color: white;
 }
 
 .station-icon.is-plain {
-  background: var(--md-secondary-container);
   color: var(--md-on-secondary-container);
 }
 
