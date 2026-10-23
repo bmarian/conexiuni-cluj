@@ -60,7 +60,11 @@ fi
 if [ "$DELETE_DB" = true ]; then
   echo ""
   echo "🗑️ Deleting databases..."
-  rm -f db/*.db db/*.db-wal db/*.db-shm
+  # sync.db holds everyone's device sync, not feed data.
+  for f in db/*.db db/*.db-wal db/*.db-shm; do
+    case "$f" in db/sync.db*) continue ;; esac
+    rm -f "$f"
+  done
 fi
 
 if [ "$DELETE_LOGS" = true ]; then
@@ -74,6 +78,7 @@ if [ "$BUST_CACHE" = true ]; then
   echo "🧹 Busting cache..."
   # The restart below then fetches every source again.
   for db in db/*.db; do
+    [ "$db" = db/sync.db ] && continue
     sqlite3 "$db" "DELETE FROM ingest_state"
   done
 fi
