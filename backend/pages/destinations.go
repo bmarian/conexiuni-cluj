@@ -58,6 +58,26 @@ func routeStopsHTML(c fiber.Ctx, l ogLocale, city *cities.City, routeID, dir int
 	return sb.String()
 }
 
+func allLinesHTML(c fiber.Ctx, l ogLocale, city *cities.City) string {
+	x := cityIndex(city)
+	if x == nil {
+		return ""
+	}
+	offered := city.Availability()
+	var sb strings.Builder
+	for _, r := range x.Lines() {
+		if offered.IsReady() && !offered.RouteHasTimetable(r.RouteShortName) {
+			continue
+		}
+		fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, fmt.Sprintf("/route/%d/0", r.RouteID)),
+			html.EscapeString(fmt.Sprintf(l.lineItemFmt, r.RouteShortName, r.RouteLongName)))
+	}
+	if sb.Len() == 0 {
+		return ""
+	}
+	return fmt.Sprintf(`<h2>%s</h2><ul>%s</ul>`, html.EscapeString(l.allLines), sb.String())
+}
+
 func stationLinesHTML(c fiber.Ctx, l ogLocale, city *cities.City, stopID int) string {
 	x := cityIndex(city)
 	if x == nil {

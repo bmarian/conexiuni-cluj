@@ -43,6 +43,19 @@ func (x *Index) sortRoutes(ids []int) {
 	})
 }
 
+func (x *Index) Lines() []*models.NetworkRoute {
+	ids := make([]int, 0, len(x.routes))
+	for id := range x.routes {
+		ids = append(ids, id)
+	}
+	x.sortRoutes(ids)
+	out := make([]*models.NetworkRoute, len(ids))
+	for i, id := range ids {
+		out[i] = x.routes[id]
+	}
+	return out
+}
+
 func (x *Index) RouteStops(routeID, dir int) []*models.Stop {
 	p := x.byRoute[[2]int{routeID, dir}]
 	if p == nil {

@@ -18,7 +18,7 @@ import { searchPlaces, type Place } from "@/utils/places.ts";
 import { RESULTS_PER_KIND, stopMatchRank } from "@/utils/stopSearch.ts";
 import { fold } from "@/utils/text.ts";
 import { network } from "@/utils/network.ts";
-import { cityCenter } from "@/utils/city.ts";
+import { cityCenter, cityParams } from "@/utils/city.ts";
 import { planQuery } from "@/utils/planQuery.ts";
 import {
   ArrowBackIcon,
@@ -378,7 +378,7 @@ function dropPin() {
               @click="showAllRoutes = !showAllRoutes"
             >
               <RowIcon :icon="MapIcon" :size="32" />
-              <span class="flex-1 text-left text-title-small">{{ t("allRoutes") }}</span>
+              <span class="flex-1 text-left text-title-small">{{ t("linesIn", cityParams()) }}</span>
               <span v-if="sortedRoutes.length" class="count">{{ sortedRoutes.length }}</span>
               <KeyboardArrowRightIcon
                 class="m-icon size-[18px] text-outline chevron"
@@ -413,7 +413,7 @@ function dropPin() {
               @click="showAllStops = !showAllStops"
             >
               <RowIcon :icon="DirectionsBusIcon" :size="32" tone="secondary" />
-              <span class="flex-1 text-left text-title-small">{{ t("allStops") }}</span>
+              <span class="flex-1 text-left text-title-small">{{ t("stopsIn", cityParams()) }}</span>
               <span v-if="sortedStops.length" class="count">{{ sortedStops.length }}</span>
               <KeyboardArrowRightIcon
                 class="m-icon size-[18px] text-outline chevron"

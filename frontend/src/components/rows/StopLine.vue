@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RowLink from '@/components/ui/RowLink.vue'
 import {FavoriteIcon, MyLocationIcon, PlaceIcon} from '@/utils/icons.ts'
 
 export type StopMark = 'from' | 'nearest' | 'favorite' | 'terminal' | 'plain'
@@ -12,12 +13,13 @@ defineProps<{
   times?: { label: string, isLive: boolean }[]
   trailing?: string
   trailingHighlight?: boolean
+  href?: string
 }>()
 const emit = defineEmits<{ open: [] }>()
 </script>
 
 <template>
-  <div class="stop-line state squish" :class="`is-${mark}`" role="button" tabindex="0" @click="emit('open')" @keydown.enter.prevent="emit('open')">
+  <RowLink class="stop-line state squish" :class="`is-${mark}`" :href="href" @open="emit('open')">
     <span class="rail" :class="{ 'is-first': first, 'is-last': last }">
       <span class="dot"></span>
     </span>
@@ -31,7 +33,7 @@ const emit = defineEmits<{ open: [] }>()
     <span v-else class="times">
       <span v-for="(time, i) in times" :key="i" class="time" :class="{ 'is-live': time.isLive }">{{ time.label }}</span>
     </span>
-  </div>
+  </RowLink>
 </template>
 
 <style scoped>

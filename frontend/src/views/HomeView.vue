@@ -19,6 +19,7 @@ import SubLabel from '@/components/ui/SubLabel.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
+import AllLines from '@/components/home/AllLines.vue'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
@@ -308,6 +309,7 @@ const dragOptions = {
       <p v-if="!hasFavorites && !(isOnline && recentNonFavoritePlans.length)" class="empty">
         {{ t('noFavorites') }}
       </p>
+      <AllLines v-if="!hasFavorites"/>
     </template>
     <div class="h-6"></div>
   </div>
