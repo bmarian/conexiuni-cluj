@@ -71,6 +71,8 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Planner = planner.New(loc, store, c.Data, c.Live)
 	c.Network = network.New(loc, store, c.Data, &c.offered, c.Live)
 	c.Network.Runner = c.running
+	c.Planner.Colorful = c.Network.Colorful
+	c.Updates.Colorful = c.Network.Colorful
 	c.Destinations = destinations.New(c.Network, c.Planner.Places)
 	forget := func() {
 		c.Network.Invalidate()

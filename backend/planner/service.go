@@ -42,6 +42,7 @@ type Service struct {
 	timing Timing
 	// Lines the city ticket does not cover.
 	OwnTicket func(routeShortName string) bool
+	Colorful  func(routeShortName string) string
 
 	mu       sync.Mutex
 	stopsKey uint64
@@ -54,7 +55,7 @@ type Service struct {
 }
 
 func New(loc *time.Location, store *database.Store, data *transit.Data, timing Timing) *Service {
-	return &Service{loc: loc, store: store, data: data, timing: timing}
+	return &Service{loc: loc, store: store, data: data, timing: timing, Colorful: models.ColorfulRouteColor}
 }
 
 func (s *Service) Register(api fiber.Router) {

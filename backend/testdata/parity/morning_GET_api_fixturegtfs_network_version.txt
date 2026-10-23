@@ -4,14 +4,14 @@ Cache-Control: no-store
 Content-Length: 104
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"104-1093031858"
+Etag: W/"104-1381654867"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "e479624c982b7d46",
- "static_version": "ecfa435b3e67b8ee",
+ "version": "d38d82ed30d193b7",
+ "static_version": "1cdb17cd2a863cc1",
  "generated_at": "2026-10-20T02:00:13Z"
 }

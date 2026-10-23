@@ -458,7 +458,7 @@ func (s *Service) describePlan(resp *planResponse, options []router.Option) erro
 					if color == "" {
 						color = models.FallbackRouteColor
 					}
-					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Colorful: models.ColorfulRouteColor(r.RouteShortName), Type: r.RouteType}
+					resp.Lines[strconv.Itoa(id)] = planLine{ShortName: r.RouteShortName, LongName: r.RouteLongName, Color: color, Colorful: s.Colorful(r.RouteShortName), Type: r.RouteType}
 				}
 			}
 			first := po.Runs[0].Rides[ride]
