@@ -567,6 +567,7 @@ func (r *recorder) walkCity(slug string) {
 
 	page := "/" + slug
 	r.get(page + "/")
+	r.get(page + "/?lang=en")
 	r.get(page + "/plan")
 	r.get(page + "/plan?name=" + url.QueryEscape("Piața <b>Unirii</b>") + "&lat=46.77&lon=23.59")
 	r.get(page + "/nope")
@@ -579,6 +580,9 @@ func (r *recorder) walkCity(slug string) {
 	}
 	for i := 0; i < min(3, len(stops)); i++ {
 		r.get(fmt.Sprintf("%s/stop/%d", page, stops[i*len(stops)/3].StopID))
+	}
+	if len(stops) > 0 {
+		r.get(fmt.Sprintf("%s/stop/%d?lang=en", page, stops[0].StopID))
 	}
 	r.get(page + "/stop/999999999")
 }

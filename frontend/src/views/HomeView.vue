@@ -22,7 +22,7 @@ import ListRow from '@/components/ui/ListRow.vue'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {siteUrl} from '@/utils/site.ts'
+import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 
 const RECENTS_SHOWN = 5
@@ -37,11 +37,11 @@ useHead(() => ({
     {name: 'description', content: t('headHomeDesc', cityParams())},
     {property: 'og:title', content: t('headHomeTitle', cityParams())},
     {property: 'og:description', content: t('headHomeDesc', cityParams())},
-    {property: 'og:url', content: siteUrl(cityPath('/'))},
+    {property: 'og:url', content: canonicalUrl(cityPath('/'))},
     {name: 'twitter:title', content: t('headHomeTitle', cityParams())},
     {name: 'twitter:description', content: t('headHomeDesc', cityParams())},
   ],
-  link: [{rel: 'canonical', href: siteUrl(cityPath('/'))}],
+  link: [{rel: 'canonical', href: canonicalUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)

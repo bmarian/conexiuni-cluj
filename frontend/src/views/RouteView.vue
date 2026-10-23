@@ -17,7 +17,7 @@ import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stor
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from "vue-router";
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {siteUrl} from '@/utils/site.ts'
+import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
@@ -104,7 +104,7 @@ useHead(() => {
   const longName = timetable.value?.route_long_name ?? ''
   const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${longName}` : ''})
   const description = t('headRouteDesc', {...cityParams(), shortName})
-  const url = siteUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
+  const url = canonicalUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
   return {
     title,
     meta: [
