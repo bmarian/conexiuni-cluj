@@ -3,15 +3,14 @@ package suceava
 import (
 	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/roads"
 	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/live"
 	"conexiuni-cluj/models"
-	"conexiuni-cluj/planner"
 	"conexiuni-cluj/router"
 	"fmt"
 	"log"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -76,29 +75,13 @@ func (s *static) recorded(lines []pageLine, now time.Time) (map[string]*traces.L
 	return s.rec.Trace(since)
 }
 
-// The roads and places around the zip's stops, as far again as half their spread; nil without the extract.
+// The roads and places around the zip's stops; nil without the extract.
 func loadOSM(stops []models.Stop) (*router.WalkGraph, *router.Places) {
-	if len(stops) == 0 {
-		return nil, nil
-	}
-	box := router.BBox{MinLat: stops[0].StopLat, MinLon: stops[0].StopLon, MaxLat: stops[0].StopLat, MaxLon: stops[0].StopLon}
-	for _, s := range stops {
-		box.MinLat, box.MaxLat = min(box.MinLat, s.StopLat), max(box.MaxLat, s.StopLat)
-		box.MinLon, box.MaxLon = min(box.MinLon, s.StopLon), max(box.MaxLon, s.StopLon)
-	}
-	box = box.Grow(geo.Haversine(box.MinLat, box.MinLon, box.MaxLat, box.MaxLon) / 2)
-	f, err := os.Open(planner.OSMPath())
+	g, places, err := roads.Around(stops)
 	if err != nil {
 		log.Printf("suceava: %v; the lines from tpl-sv.ro get straight legs and only the zip's stops", err)
-		return nil, nil
 	}
-	defer f.Close()
-	roads, places, err := router.LoadRoads(f, box)
-	if err != nil {
-		log.Printf("suceava: roads: %v; the lines from tpl-sv.ro get straight legs and only the zip's stops", err)
-		return nil, nil
-	}
-	return roads, places
+	return g, places
 }
 
 var title = cases.Title(language.Romanian)

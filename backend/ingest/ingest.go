@@ -36,7 +36,7 @@ type Importer struct {
 	// Called within a run, in this order: once the network is stored, once the feed's hourly times are, and at the end of every run.
 	NetworkStored func()
 	OffsetsStored func()
-	Imported      func()
+	Imported      func(stored bool)
 
 	mu              sync.RWMutex
 	lastStartedAt   time.Time
@@ -46,7 +46,7 @@ type Importer struct {
 
 func New(store *database.Store, data *transit.Data, offered *transit.Availability, updates *updates.Service) *Importer {
 	nothing := func() {}
-	return &Importer{store: store, data: data, offered: offered, updates: updates, NetworkStored: nothing, OffsetsStored: nothing, Imported: nothing}
+	return &Importer{store: store, data: data, offered: offered, updates: updates, NetworkStored: nothing, OffsetsStored: nothing, Imported: func(bool) {}}
 }
 
 type Status struct {
@@ -139,6 +139,7 @@ func (im *Importer) Run(now time.Time) error {
 
 	var snap *feeds.Snapshot
 	var err error
+	stored := false
 	if staticDue {
 		started := time.Now()
 		if snap, err = im.Static.Snapshot(); err != nil {
@@ -154,6 +155,7 @@ func (im *Importer) Run(now time.Time) error {
 			return fmt.Errorf("store snapshot: %w", err)
 		}
 		im.NetworkStored()
+		stored = true
 		im.store.MarkFetched(ingestStatic, time.Now())
 		im.store.Logf("ingest: snapshot stored in %s (%d routes, %d stops, %d trips, %d shape points)", time.Since(started).Round(time.Millisecond), len(snap.Routes), len(snap.Stops), len(snap.Trips), len(snap.Shapes))
 	} else if snap, err = im.data.Snapshot(); err != nil {
@@ -168,7 +170,7 @@ func (im *Importer) Run(now time.Time) error {
 		if err != nil {
 			timetablesErr = fmt.Errorf("timetables: %w", err)
 		} else {
-			snap.Timetables = timetables
+			snap.Timetables, stored = timetables, true
 			im.store.MarkFetched(ingestTimetables, time.Now())
 			im.store.Logf("ingest: %d timetables in %s", len(timetables), time.Since(started).Round(time.Millisecond))
 		}
@@ -191,7 +193,7 @@ func (im *Importer) Run(now time.Time) error {
 	if err := im.offered.Refresh(im.data); err != nil {
 		im.store.Logf("availability: %v", err)
 	}
-	im.Imported()
+	im.Imported(stored)
 	return timetablesErr
 }
 

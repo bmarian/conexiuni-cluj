@@ -2,6 +2,7 @@ package suceava
 
 import (
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/roads"
 	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/models"
@@ -462,13 +463,7 @@ func (p *placer) interpolate(dir []station, route func(a, b router.Point) []rout
 }
 
 // The road between two points, straight without the OSM extract.
-func (p *placer) path(a, b router.Point) []router.Point {
-	if p.roads == nil {
-		return []router.Point{a, b}
-	}
-	_, points := p.roads.Path(p.roads.Snap(a), p.roads.Snap(b))
-	return points
-}
+func (p *placer) path(a, b router.Point) []router.Point { return roads.Path(p.roads, a, b) }
 
 func pointAlong(path []router.Point, meters float64) router.Point {
 	for i := 1; i < len(path); i++ {
@@ -484,13 +479,9 @@ func pointAlong(path []router.Point, meters float64) router.Point {
 
 // The road a bus drives through a direction's stations.
 func shape(dir []station, route func(a, b router.Point) []router.Point) []router.Point {
-	var out []router.Point
-	for i := 1; i < len(dir); i++ {
-		leg := route(dir[i-1].at, dir[i].at)
-		if len(out) > 0 && len(leg) > 0 {
-			leg = leg[1:]
-		}
-		out = append(out, leg...)
+	points := make([]router.Point, len(dir))
+	for i, s := range dir {
+		points[i] = s.at
 	}
-	return out
+	return roads.Through(points, route)
 }

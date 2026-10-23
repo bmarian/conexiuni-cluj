@@ -3,8 +3,13 @@ package cities
 import (
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/models"
+	"encoding/json"
+	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 type swapStatic struct{ snap *feeds.Snapshot }
@@ -50,5 +55,45 @@ func TestANewNetworkReplacesTheTrackedGeometry(t *testing.T) {
 	}
 	if shape, ok := eng.Live.Ride("1_0", 1, 2); !ok || shape[1].ShapePtLon != 24.02 {
 		t.Fatalf("the shape after the new network still ends at %v", shape[1].ShapePtLon)
+	}
+}
+
+func TestANewNetworkIsServedAsSoonAsItIsStored(t *testing.T) {
+	static := &swapStatic{snap: oneLineSnapshot(24.01)}
+	city := newNamedTestCity(t, "t", static)
+	app := fiber.New()
+	city.Register(app.Group("/api/t"))
+	lines := func() []string {
+		t.Helper()
+		resp, err := app.Test(httptest.NewRequest("GET", "/api/t/network", nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var bundle models.NetworkBundle
+		if err := json.NewDecoder(resp.Body).Decode(&bundle); err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, r := range bundle.Routes {
+			out = append(out, r.RouteShortName)
+		}
+		return out
+	}
+	if err := city.Ingest.Run(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := lines(); !slices.Equal(got, []string{"1"}) {
+		t.Fatalf("first network %v", got)
+	}
+	static.snap = oneLineSnapshot(24.01)
+	static.snap.Routes[0].RouteShortName = "2"
+	if err := city.ForgetFetches(); err != nil {
+		t.Fatal(err)
+	}
+	if err := city.Ingest.Run(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := lines(); !slices.Equal(got, []string{"2"}) {
+		t.Fatalf("after the new network %v", got)
 	}
 }

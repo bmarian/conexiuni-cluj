@@ -2,227 +2,175 @@ package botosani
 
 import (
 	"bytes"
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/feeds"
-	"conexiuni-cluj/models"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ledongthuc/pdf"
 )
 
-// Eltrans publishes no departure times, only the headways in a PDF at the town hall.
-type timetables struct {
-	url     string
-	cadence time.Duration
+type lineProgram struct {
+	// By end departed from, kind of day, bus.
+	from    map[string]map[string][][]departure
+	variant string
 }
 
-func newTimetables(url string, cadence time.Duration) *timetables {
-	return &timetables{url: url, cadence: cadence}
+type departure struct {
+	minute  int
+	variant bool
 }
 
-func (s *timetables) Cadence() time.Duration { return s.cadence }
-
-type window struct {
-	line       string
-	day        string
-	startMin   int
-	endMin     int
-	headwayMin int
-	// The text after the headway, naming the variant that runs.
-	note string
+type cell struct {
+	x    float64
+	text string
 }
 
 var (
-	lineRow   = regexp.MustCompile(`Traseu\s+(\d+)`)
-	windowRow = regexp.MustCompile(`(\d{1,2})[,.](\d{2})\s*[–-]\s*(\d{1,2})[,.](\d{2})\s+[Dd]in\s+(\d+)\s+[iî]n\s+\d+\s+min\w*\s*(.*)$`)
+	programTitle  = regexp.MustCompile(`pe linia\s+(\S+)\s+cu plecare\s+(?:de la|din)\s+(.+?)\s*\(([^)]*)\)`)
+	variantLegend = regexp.MustCompile(`^\*\s*Ruta\s*\(\s*(\w+)\s*\)`)
+	departureCell = regexp.MustCompile(`^(\*?)(\d{1,2})[:.](\d{2})$`)
+	rowNumber     = regexp.MustCompile(`^\d+$`)
 )
 
-// A block names its day once, on any of its rows.
-func dayOf(block []string) string {
-	for _, row := range block {
-		switch text := strings.ToLower(strings.TrimSpace(row)); {
-		case strings.Contains(text, "luni"):
-			return "weekdays"
-		case strings.HasPrefix(text, "sambata") || strings.HasPrefix(text, "sâmbăta"):
-			return "saturday"
-		case strings.HasPrefix(text, "duminica"):
-			return "sunday"
-		}
-	}
-	return ""
-}
-
-// Blank rows separate the blocks.
-func parseWindows(rows []string) []window {
-	var out []window
-	var block []string
+func parseProgram(rows [][]cell) map[string]*lineProgram {
+	out := map[string]*lineProgram{}
+	var line *lineProgram
+	var days []string
+	var from string
+	var columns []float64
+	var buses [][]departure
 	flush := func() {
-		day := dayOf(block)
-		line := ""
-		for _, row := range block {
-			if m := lineRow.FindStringSubmatch(row); m != nil {
-				line = m[1]
+		for _, day := range days {
+			if line.from[from] == nil {
+				line.from[from] = map[string][][]departure{}
 			}
-			m := windowRow.FindStringSubmatch(row)
-			if m == nil || line == "" || day == "" {
-				continue
-			}
-			startH, _ := strconv.Atoi(m[1])
-			startM, _ := strconv.Atoi(m[2])
-			endH, _ := strconv.Atoi(m[3])
-			endM, _ := strconv.Atoi(m[4])
-			headway, _ := strconv.Atoi(m[5])
-			if headway <= 0 {
-				continue
-			}
-			out = append(out, window{line: line, day: day, startMin: startH*60 + startM, endMin: endH*60 + endM, headwayMin: headway, note: strings.TrimSpace(m[6])})
+			line.from[from][day] = buses
 		}
-		block = block[:0]
+		days, columns, buses = nil, nil, nil
 	}
 	for _, row := range rows {
-		if strings.TrimSpace(row) == "" {
-			flush()
+		text := joinCells(row)
+		if m := programTitle.FindStringSubmatch(text); m != nil {
+			if line != nil {
+				flush()
+			}
+			if out[m[1]] == nil {
+				out[m[1]] = &lineProgram{from: map[string]map[string][][]departure{}}
+			}
+			line, from, days = out[m[1]], m[2], kindsOfDay(m[3])
 			continue
 		}
-		block = append(block, row)
+		if line == nil || len(row) == 0 {
+			continue
+		}
+		if m := variantLegend.FindStringSubmatch(text); m != nil {
+			line.variant = m[1]
+			continue
+		}
+		if strings.HasPrefix(text, "Nr") {
+			columns = columns[:0]
+			for _, c := range row {
+				if strings.HasPrefix(c.text, "Nr") || strings.EqualFold(c.text, "BUS") || strings.HasPrefix(strings.ToUpper(c.text), "BUS ") {
+					columns = append(columns, c.x)
+				}
+			}
+			buses = make([][]departure, max(len(columns)-1, 0))
+			continue
+		}
+		if len(columns) < 2 || !rowNumber.MatchString(row[0].text) {
+			continue
+		}
+		for _, c := range row[1:] {
+			m := departureCell.FindStringSubmatch(c.text)
+			bus := nearest(columns, c.x) - 1
+			if m == nil || bus < 0 {
+				continue
+			}
+			h, _ := strconv.Atoi(m[2])
+			minute, _ := strconv.Atoi(m[3])
+			buses[bus] = append(buses[bus], departure{minute: h*60 + minute, variant: m[1] != ""})
+		}
+	}
+	if line != nil {
+		flush()
+	}
+	return out
+}
+
+func kindsOfDay(label string) []string {
+	label = feeds.NormalizeStopLabel(label)
+	var out []string
+	for word, day := range map[string]string{"luni": calendar.Weekday, "sambata": calendar.Saturday, "duminica": calendar.Sunday} {
+		if strings.Contains(label, word) {
+			out = append(out, day)
+		}
+	}
+	return out
+}
+
+func nearest(columns []float64, x float64) int {
+	best := 0
+	for i, c := range columns {
+		if math.Abs(c-x) < math.Abs(columns[best]-x) {
+			best = i
+		}
+	}
+	return best
+}
+
+func readProgram(data []byte) ([][]cell, error) {
+	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	var out [][]cell
+	for i := 1; i <= reader.NumPage(); i++ {
+		rows, err := reader.Page(i).GetTextByRow()
+		if err != nil {
+			return nil, fmt.Errorf("page %d: %w", i, err)
+		}
+		for _, row := range rows {
+			out = append(out, cells(row.Content))
+		}
+	}
+	return out, nil
+}
+
+func cells(words []pdf.Text) []cell {
+	words = append([]pdf.Text(nil), words...)
+	sort.SliceStable(words, func(a, b int) bool { return words[a].X < words[b].X })
+	var out []cell
+	var sb strings.Builder
+	start, endX := 0.0, -1.0
+	flush := func() {
+		if text := strings.Join(strings.Fields(sb.String()), " "); text != "" {
+			out = append(out, cell{x: start, text: text})
+		}
+		sb.Reset()
+	}
+	for _, w := range words {
+		if endX >= 0 && w.X-endX > w.FontSize/4 {
+			flush()
+		}
+		if sb.Len() == 0 {
+			start = w.X
+		}
+		sb.WriteString(w.S)
+		endX = w.X + w.W
 	}
 	flush()
 	return out
 }
 
-// Windows marked "Util" run line 102's short variant, Tranzy's 102S.
-func routeOf(w window) string {
-	if w.line == "102" && strings.Contains(strings.ToLower(w.note), "util") {
-		return "102S"
+func joinCells(row []cell) string {
+	texts := make([]string, len(row))
+	for i, c := range row {
+		texts[i] = c.text
 	}
-	return w.line
-}
-
-// The last window's end is the last bus.
-func departures(windows []window) []string {
-	sort.Slice(windows, func(i, j int) bool { return windows[i].startMin < windows[j].startMin })
-	seen := map[int]bool{}
-	var minutes []int
-	for i, w := range windows {
-		last := i == len(windows)-1
-		for m := w.startMin; m < w.endMin || (last && m == w.endMin); m += w.headwayMin {
-			if !seen[m] {
-				seen[m] = true
-				minutes = append(minutes, m)
-			}
-		}
-	}
-	sort.Ints(minutes)
-	out := make([]string, len(minutes))
-	for i, m := range minutes {
-		out[i] = fmt.Sprintf("%02d:%02d", m/60, m%60)
-	}
-	return out
-}
-
-func frequency(windows []window) *models.Frequency {
-	if len(windows) == 0 {
-		return nil
-	}
-	f := &models.Frequency{MinMinutes: windows[0].headwayMin, MaxMinutes: windows[0].headwayMin}
-	first, last := windows[0], windows[0]
-	for _, w := range windows {
-		f.MinMinutes = min(f.MinMinutes, w.headwayMin)
-		f.MaxMinutes = max(f.MaxMinutes, w.headwayMin)
-		if w.startMin < first.startMin {
-			first = w
-		}
-		if w.endMin > last.endMin {
-			last = w
-		}
-	}
-	f.Start = fmt.Sprintf("%02d:%02d", first.startMin/60, first.startMin%60)
-	f.End = fmt.Sprintf("%02d:%02d", last.endMin/60, last.endMin%60)
-	return f
-}
-
-// The PDF gives one headway per line, so both directions share it.
-func daySchedule(windows []window) models.DaySchedule {
-	times := departures(windows)
-	entries := make([]models.TimetableEntry, len(times))
-	for i, t := range times {
-		entries[i] = models.TimetableEntry{DepartureIn: t, DepartureOut: t}
-	}
-	f := frequency(windows)
-	return models.DaySchedule{Entries: entries, InFrequency: f, OutFrequency: f}
-}
-
-func (s *timetables) Timetables(snap *feeds.Snapshot) (map[string]*models.Timetable, error) {
-	rows, err := s.rows()
-	if err != nil {
-		return nil, err
-	}
-	byRoute := map[string]map[string][]window{}
-	for _, w := range parseWindows(rows) {
-		route := routeOf(w)
-		if byRoute[route] == nil {
-			byRoute[route] = map[string][]window{}
-		}
-		byRoute[route][w.day] = append(byRoute[route][w.day], w)
-	}
-	out := map[string]*models.Timetable{}
-	for _, route := range snap.Routes {
-		days, ok := byRoute[route.RouteShortName]
-		if !ok {
-			continue
-		}
-		first := feeds.FirstStopNames(snap, route.RouteID)
-		out[route.RouteShortName] = &models.Timetable{
-			RouteShortName: route.RouteShortName,
-			RouteLongName:  route.RouteLongName,
-			InStopName:     first[0],
-			OutStopName:    first[1],
-			Weekdays:       daySchedule(days["weekdays"]),
-			Saturday:       daySchedule(days["saturday"]),
-			Sunday:         daySchedule(days["sunday"]),
-		}
-	}
-	return out, nil
-}
-
-func (s *timetables) rows() ([]string, error) {
-	data, err := feeds.Download(s.url)
-	if err != nil {
-		return nil, fmt.Errorf("eltrans: %w", err)
-	}
-	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, fmt.Errorf("eltrans: %s: %w", s.url, err)
-	}
-	var out []string
-	for i := 1; i <= reader.NumPage(); i++ {
-		rows, err := reader.Page(i).GetTextByRow()
-		if err != nil {
-			return nil, fmt.Errorf("eltrans: page %d: %w", i, err)
-		}
-		for _, row := range rows {
-			out = append(out, rowText(row.Content))
-		}
-	}
-	return out, nil
-}
-
-// Joins a row's glyph runs left to right, with a space only across a real gap.
-func rowText(words []pdf.Text) string {
-	words = append([]pdf.Text(nil), words...)
-	sort.Slice(words, func(a, b int) bool { return words[a].X < words[b].X })
-	var sb strings.Builder
-	endX := -1.0
-	for _, w := range words {
-		if endX >= 0 && w.X-endX > w.FontSize/4 {
-			sb.WriteByte(' ')
-		}
-		sb.WriteString(w.S)
-		endX = w.X + w.W
-	}
-	return sb.String()
+	return strings.Join(texts, " ")
 }

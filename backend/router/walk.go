@@ -284,6 +284,10 @@ func (g *segments) Snap(p Point) Snap {
 	}
 }
 
+func (g *segments) Ends(s Snap) (Point, Point) {
+	return Point{g.lat[s.U], g.lon[s.U]}, Point{g.lat[s.V], g.lon[s.V]}
+}
+
 func (g *segments) maxRing(center [2]int32) int32 {
 	lo, hi := cellOf(g.box.MinLat, g.box.MinLon), cellOf(g.box.MaxLat, g.box.MaxLon)
 	return max(abs32(center[0]-lo[0]), abs32(center[0]-hi[0]), abs32(center[1]-lo[1]), abs32(center[1]-hi[1]))

@@ -57,7 +57,7 @@ func (s *Service) Register(api fiber.Router) {
 	api.Get("/network/version", s.serveVersion)
 }
 
-// Invalidate keeps serving the bundle but has it built again, for a calendar that now reads differently.
+// Invalidate keeps serving the bundle but has it built again.
 func (s *Service) Invalidate() {
 	s.mu.Lock()
 	if s.current != nil {
