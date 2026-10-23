@@ -43,6 +43,18 @@ func TestIPv6ClientsCountPerSlash64(t *testing.T) {
 	}
 }
 
+func TestIPv6NetworksArePerSlash48(t *testing.T) {
+	if NetworkKey("2a02:2f0c:8a12:3400::1") != NetworkKey("2a02:2f0c:8a12:ffff::1") {
+		t.Error("one /48 gives two networks")
+	}
+	if NetworkKey("2a02:2f0c:8a13::1") == NetworkKey("2a02:2f0c:8a12::1") {
+		t.Error("two /48s give one network")
+	}
+	if got := NetworkKey("188.24.64.220"); got != "188.24.64.220" {
+		t.Errorf("IPv4 changed to %s", got)
+	}
+}
+
 func TestClientIPTrustsOnlyTheEntryNginxAdded(t *testing.T) {
 	loopback := net.ParseIP("127.0.0.1")
 	cases := []struct {

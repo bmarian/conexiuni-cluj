@@ -21,6 +21,7 @@ const (
 	clientWindow        = 10 * time.Minute
 	slotsPerClient      = 20
 	missesPerClient     = 20
+	clientsPerNetwork   = 10
 	missesPerMinute     = 300
 	chainsPerClient     = 5
 	authMissesPerClient = 20
@@ -45,8 +46,8 @@ type Service struct {
 
 	mu           sync.Mutex
 	slots        map[string]*slot
-	slotsMade    *budget
-	misses       *budget
+	slotsMade    *tiered
+	misses       *tiered
 	globalMisses *budget
 	chainsMade   *budget
 	authMisses   *budget
@@ -64,8 +65,8 @@ func Open(path string, opts Options) (*Service, error) {
 		maxBytes:     opts.MaxBytes,
 		runner:       jobs.New(),
 		slots:        map[string]*slot{},
-		slotsMade:    newBudget(slotsPerClient, clientWindow),
-		misses:       newBudget(missesPerClient, clientWindow),
+		slotsMade:    newTiered(slotsPerClient, clientWindow),
+		misses:       newTiered(missesPerClient, clientWindow),
 		globalMisses: newBudget(missesPerMinute, time.Minute),
 		chainsMade:   newBudget(chainsPerClient, 24*time.Hour),
 		authMisses:   newBudget(authMissesPerClient, clientWindow),
@@ -130,7 +131,7 @@ func (s *Service) pruneMemory(now time.Time) {
 			delete(s.slots, code)
 		}
 	}
-	for _, b := range []*budget{s.slotsMade, s.misses, s.globalMisses, s.chainsMade, s.authMisses, s.writes} {
+	for _, b := range []interface{ prune(time.Time) }{s.slotsMade, s.misses, s.globalMisses, s.chainsMade, s.authMisses, s.writes} {
 		b.prune(now)
 	}
 }

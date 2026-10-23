@@ -93,7 +93,7 @@ func accessLogger(out io.Writer, logHashSalt string) fiber.Handler {
 				return output.WriteString(clientIDForLog(c, logHashSalt))
 			},
 			"loggedUrl": func(output logger.Buffer, c fiber.Ctx, _ *logger.Data, _ string) (int, error) {
-				return output.WriteString(devicesync.LogPath(c.OriginalURL()))
+				return output.WriteString(web.LogURL(devicesync.LogPath(c.OriginalURL())))
 			},
 		},
 		TimeFormat: StandardLogTimestampLayout,

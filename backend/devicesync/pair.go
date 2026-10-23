@@ -1,7 +1,6 @@
 package devicesync
 
 import (
-	"conexiuni-cluj/web"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -81,13 +80,13 @@ func (s *Service) openSlot(c fiber.Ctx) error {
 	if !ok {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
-	client := web.ClientHash(c)
+	who := requesterOf(c)
 	now := time.Now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pruneMemory(now)
-	if s.slotsMade.spent(client, now) {
+	if s.slotsMade.spent(who, now) {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
 	if len(s.slots) >= maxOpenSlots {
@@ -103,7 +102,7 @@ func (s *Service) openSlot(c fiber.Ctx) error {
 			break
 		}
 	}
-	s.slotsMade.spend(client, 1, now)
+	s.slotsMade.spend(who, 1, now)
 	secret := randomID()
 	s.slots[code] = &slot{commit: commit, secrets: [2]string{secret, ""}, expires: now.Add(pairTTL)}
 	return c.JSON(fiber.Map{"code": code, "secret": secret, "expiresIn": int(pairTTL.Seconds())})
@@ -121,19 +120,19 @@ func (s *Service) claim(c fiber.Ctx) error {
 	if !ok {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
-	client := web.ClientHash(c)
+	who := requesterOf(c)
 	now := time.Now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Refused before looking the code up, so a refusal says nothing about whether it exists.
-	if s.globalMisses.spent("", now) || s.misses.spent(client, now) {
+	if s.globalMisses.spent("", now) || s.misses.spent(who, now) {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
 	sl := s.live(c.Params("code"), now)
 	if sl == nil || sl.pubs[enterer] != nil {
 		s.globalMisses.spend("", 1, now)
-		s.misses.spend(client, 1, now)
+		s.misses.spend(who, 1, now)
 		return c.SendStatus(fiber.StatusNotFound)
 	}
 	secret := randomID()

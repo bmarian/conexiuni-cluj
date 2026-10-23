@@ -17,6 +17,11 @@ import (
 
 const StallTimeout = 30 * time.Second
 
+const (
+	maxIssuerFetches = 4
+	maxIssuerBytes   = 64 << 10
+)
+
 var client = &http.Client{Transport: issuerFetching(nil)}
 
 func Download(url string) ([]byte, error) {
@@ -50,7 +55,7 @@ func verify(cs tls.ConnectionState, roots *x509.CertPool) error {
 	for {
 		_, err := cs.PeerCertificates[0].Verify(opts)
 		var unknown x509.UnknownAuthorityError
-		if !errors.As(err, &unknown) || unknown.Cert == nil {
+		if !errors.As(err, &unknown) || unknown.Cert == nil || len(fetched) >= maxIssuerFetches {
 			return err
 		}
 		issuer := fetchIssuer(unknown.Cert, fetched)
@@ -67,7 +72,7 @@ func fetchIssuer(cert *x509.Certificate, fetched map[string]bool) *x509.Certific
 			continue
 		}
 		fetched[url] = true
-		data, err := fetch(http.DefaultClient, url)
+		data, err := fetchAtMost(http.DefaultClient, url, maxIssuerBytes)
 		if err != nil {
 			continue
 		}
@@ -84,7 +89,9 @@ func fetchIssuer(cert *x509.Certificate, fetched map[string]bool) *x509.Certific
 // Some hosts turn away Go's own agent (gtfs.opendev.ro resets it and then the address for a while).
 var userAgent = strings.TrimPrefix(web.SiteOrigin, "https://") + " (+" + web.SiteOrigin + "/)"
 
-func fetch(c *http.Client, url string) ([]byte, error) {
+func fetch(c *http.Client, url string) ([]byte, error) { return fetchAtMost(c, url, 0) }
+
+func fetchAtMost(c *http.Client, url string, limit int64) ([]byte, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stalled := time.AfterFunc(StallTimeout, cancel)
@@ -102,9 +109,16 @@ func fetch(c *http.Client, url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: status %d", url, resp.StatusCode)
 	}
-	data, err := io.ReadAll(progress{resp.Body, func() { stalled.Reset(StallTimeout) }})
+	var body io.Reader = progress{resp.Body, func() { stalled.Reset(StallTimeout) }}
+	if limit > 0 {
+		body = io.LimitReader(body, limit+1)
+	}
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, stallError(ctx, url, err)
+	}
+	if limit > 0 && int64(len(data)) > limit {
+		return nil, fmt.Errorf("%s: over %d bytes", url, limit)
 	}
 	return data, nil
 }

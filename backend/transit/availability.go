@@ -13,6 +13,7 @@ type Availability struct {
 	ready               bool
 	routesWithTimetable map[string]struct{}
 	stopsWithBuses      map[int]struct{}
+	busiestStation      int
 }
 
 func (a *Availability) Refresh(d *Data) error {
@@ -46,6 +47,14 @@ func (a *Availability) Refresh(d *Data) error {
 	if err != nil {
 		return fmt.Errorf("stops: %w", err)
 	}
+	var busiest int
+	err = d.db.QueryRow(`
+		SELECT COALESCE(MAX(n), 0) FROM (
+			SELECT COUNT(DISTINCT ts.trip_id) AS n FROM trip_stops ts JOIN stops s ON s.stop_id = ts.stop_id
+			GROUP BY COALESCE(NULLIF(s.station_id, 0), s.stop_id))`).Scan(&busiest)
+	if err != nil {
+		return fmt.Errorf("busiest station: %w", err)
+	}
 	withTimetable := make(map[string]struct{}, len(routes))
 	for _, r := range routes {
 		withTimetable[r] = struct{}{}
@@ -55,9 +64,15 @@ func (a *Availability) Refresh(d *Data) error {
 		withBuses[id] = struct{}{}
 	}
 	a.mu.Lock()
-	a.routesWithTimetable, a.stopsWithBuses, a.ready = withTimetable, withBuses, true
+	a.routesWithTimetable, a.stopsWithBuses, a.busiestStation, a.ready = withTimetable, withBuses, busiest, true
 	a.mu.Unlock()
 	return nil
+}
+
+func (a *Availability) BusiestStation() int {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.busiestStation
 }
 
 func (a *Availability) IsReady() bool {

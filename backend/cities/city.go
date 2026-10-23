@@ -12,6 +12,7 @@ import (
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
 	"conexiuni-cluj/web"
+	"fmt"
 	"log"
 	"slices"
 	"sort"
@@ -148,6 +149,15 @@ func (city *City) shapesHandler(c fiber.Ctx) error {
 		if id = strings.TrimSpace(id); id != "" {
 			ids = append(ids, id)
 		}
+	}
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
+	if len(ids) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "shape_ids required"})
+	}
+	// No screen shows more shapes than the busiest station has lines.
+	if most := city.offered.BusiestStation(); most > 0 && len(ids) > most {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("at most %d shape_ids", most)})
 	}
 	data, err := city.Shapes(ids)
 	if err != nil {

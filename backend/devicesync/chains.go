@@ -109,7 +109,7 @@ func (s *Service) createChain(c fiber.Ctx) error {
 	if spent {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
-	if size, err := s.size(); err != nil || size > s.maxBytes {
+	if s.full() {
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
 	chain := randomID()
@@ -286,18 +286,22 @@ func (s *Service) writeRecord(c fiber.Ctx) error {
 	if !s.spendWrites(who.device, 1) {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
+	full := s.full()
 	err := s.inTx(func(tx *sql.Tx) error {
 		epoch, err := currentEpoch(tx, who.chain)
 		if err != nil {
 			return err
 		}
-		var rev int64
-		err = tx.QueryRow(`SELECT rev FROM records WHERE chain_id = ? AND name = ?`, who.chain, name).Scan(&rev)
+		var rev, stored int64
+		err = tx.QueryRow(`SELECT rev, length(body) FROM records WHERE chain_id = ? AND name = ?`, who.chain, name).Scan(&rev, &stored)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 		if epoch != *req.Epoch || rev != *req.Base {
 			return conflict{"error": "stale", "epoch": epoch, "rev": rev}
+		}
+		if full && int64(len(body)) > stored {
+			return conflict{"error": "full"}
 		}
 		if rev == 0 {
 			var count int
@@ -422,6 +426,7 @@ func (s *Service) rotate(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusTooManyRequests)
 	}
 	next := *req.Epoch + 1
+	full := s.full()
 	err := s.inTx(func(tx *sql.Tx) error {
 		epoch, err := currentEpoch(tx, who.chain)
 		if err != nil {
@@ -437,6 +442,20 @@ func (s *Service) rotate(c fiber.Ctx) error {
 		}
 		if !sameRecords(current, *req.Seen) {
 			return conflict{"error": "stale", "epoch": epoch}
+		}
+		// Removing a device must still work when full.
+		if full {
+			var stored int
+			if err := tx.QueryRow(`SELECT COALESCE(SUM(length(body)), 0) FROM records WHERE chain_id = ?`, who.chain).Scan(&stored); err != nil {
+				return err
+			}
+			sealed := 0
+			for _, body := range records {
+				sealed += len(body)
+			}
+			if sealed > stored {
+				return conflict{"error": "full"}
+			}
 		}
 		var devices []string
 		rows, err := tx.Query(`SELECT id FROM devices WHERE chain_id = ?`, who.chain)
