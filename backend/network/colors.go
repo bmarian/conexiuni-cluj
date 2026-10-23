@@ -37,7 +37,7 @@ type hueCircle [360]lab
 func circleOf(s, l float64) *hueCircle {
 	var c hueCircle
 	for h := range c {
-		c[h] = oklab(models.HSLRGB(float64(h), s, l))
+		c[h] = oklab(models.HSLRGB(float64(h), s, models.ReadableLightness(float64(h), s, l)))
 	}
 	return &c
 }
@@ -131,13 +131,14 @@ func lineColors(stationsOf map[string]map[int]bool) map[string]string {
 	type line struct {
 		own, hue, shade int
 		s               float64
-		shades          [3]float64
-		circles         [3]*hueCircle
+		shades          [4]float64
+		circles         [4]*hueCircle
 	}
 	lines := map[string]*line{}
 	for _, name := range order {
 		if h, s, l, ok := models.ColorfulHSL(name); ok {
-			ln := &line{own: int(h), hue: -1, s: s, shades: [3]float64{l, lo, hi}}
+			// One step darker too: made readable, light colours crowd together and need the room.
+			ln := &line{own: int(h), hue: -1, s: s, shades: [4]float64{l, lo, hi, lo - (hi - lo)}}
 			for i, shade := range ln.shades {
 				ln.circles[i] = circleOf(s, shade)
 			}
@@ -177,7 +178,8 @@ func lineColors(stationsOf map[string]map[int]bool) map[string]string {
 	out := make(map[string]string, len(order))
 	for _, name := range order {
 		if ln := lines[name]; ln != nil {
-			out[name] = models.HSLHex(float64(ln.hue), ln.s, ln.shades[ln.shade])
+			hue := float64(ln.hue)
+			out[name] = models.HSLHex(hue, ln.s, models.ReadableLightness(hue, ln.s, ln.shades[ln.shade]))
 		} else {
 			out[name] = models.FallbackRouteColor
 		}
@@ -191,7 +193,7 @@ type apart struct {
 }
 
 // The hue and shade nearest own with room from every neighbour, else the roomiest.
-func pickHue(own int, circles [3]*hueCircle, near []apart) (hue, shade int) {
+func pickHue(own int, circles [4]*hueCircle, near []apart) (hue, shade int) {
 	bestHue, bestShade, room := own, 0, math.Inf(-1)
 	for step := 0; step <= 180; step++ {
 		for _, h := range [2]int{(own + step) % 360, (own - step + 360) % 360} {

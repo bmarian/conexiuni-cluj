@@ -2,13 +2,21 @@ package models
 
 import "testing"
 
-func TestColorfulRouteColor(t *testing.T) {
-	for name, want := range map[string]string{
-		"25": "#462EE0", "35": "#DA771B", "24B": "#A119D7", "M26N": "#32C322", "8L": "#2A52CB",
-		"101": "#DD1DBA", " 5n ": "#2552E4", "Ș1": "#1FC16B", "RoHu": "#DE3581", "N104": "#70C328", "": FallbackRouteColor,
-	} {
-		if got := ColorfulRouteColor(name); got != want {
-			t.Errorf("ColorfulRouteColor(%q) = %s, want %s", name, got, want)
+func TestColorfulRouteColorIsReadable(t *testing.T) {
+	for _, name := range []string{"25", "35", "24B", "M26N", "8L", "101", " 5n ", "Ș1", "RoHu", "N104", "8", "24", "7"} {
+		got := ColorfulRouteColor(name)
+		h, s, l, _ := ColorfulHSL(name)
+		if c := whiteContrast(h, s, ReadableLightness(h, s, l)); c < minContrast {
+			t.Errorf("%q: %s has contrast %.2f with white", name, got, c)
 		}
+		if want := HSLHex(h, s, ReadableLightness(h, s, l)); got != want {
+			t.Errorf("%q: %s, want %s", name, got, want)
+		}
+	}
+	if got := ColorfulRouteColor("25"); got != "#462EE0" {
+		t.Errorf("a line already readable keeps its colour: got %s", got)
+	}
+	if got := ColorfulRouteColor(""); got != FallbackRouteColor {
+		t.Errorf("no name: got %s", got)
 	}
 }

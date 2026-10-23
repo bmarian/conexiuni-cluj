@@ -4,15 +4,15 @@ Cache-Control: no-cache
 Content-Length: 20179
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json
-Etag: "d38d82ed30d193b7"
+Etag: "500beafd482a0254"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "d38d82ed30d193b7",
- "static_version": "1cdb17cd2a863cc1",
+ "version": "500beafd482a0254",
+ "static_version": "5bcf7f7d57fc2780",
  "generated_at": "2026-10-20T02:00:13Z",
  "routes": [
   {
@@ -23,7 +23,7 @@ X-Frame-Options: DENY
    "route_type": 3,
    "route_desc": "",
    "route_color": "#D84B3B",
-   "route_colorful": "#D8A73B",
+   "route_colorful": "#D64131",
    "timetable": {
     "route_short_name": "7",
     "route_long_name": "Capăt 701 - Capăt 705",
@@ -1523,7 +1523,7 @@ X-Frame-Options: DENY
    "route_type": 0,
    "route_desc": "",
    "route_color": "#1C38D9",
-   "route_colorful": "#1A1AC7",
+   "route_colorful": "#1C1CD9",
    "timetable": {
     "route_short_name": "8B",
     "route_long_name": "Capăt 711 - Capăt 715",
