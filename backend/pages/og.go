@@ -308,7 +308,7 @@ func buildHeadExtras(canonical, jsonLD string) string {
 	return sb.String()
 }
 
-// selfURL is the page's own canonical: a ?lang=en page is the hreflang="en" alternate, not a copy of the Romanian one.
+// A ?lang=en page is its own canonical.
 func selfURL(c fiber.Ctx, canonical string) string {
 	if c.Query("lang") == "en" {
 		return withLang(canonical, "en")

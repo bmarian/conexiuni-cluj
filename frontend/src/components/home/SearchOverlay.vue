@@ -15,7 +15,8 @@ import { useKbdLayer } from "@/composables/useKeyboardNav.ts";
 import type { Route, Stop } from "@/types/tranzy.ts";
 import { formatMeters, haversineMeters, sortByDistance } from "@/utils/geo.ts";
 import { searchPlaces, type Place } from "@/utils/places.ts";
-import { stopMatchRank } from "@/utils/stopSearch.ts";
+import { RESULTS_PER_KIND, stopMatchRank } from "@/utils/stopSearch.ts";
+import { fold } from "@/utils/text.ts";
 import { network } from "@/utils/network.ts";
 import { cityCenter } from "@/utils/city.ts";
 import { planQuery } from "@/utils/planQuery.ts";
@@ -38,7 +39,6 @@ import LoadMore from "@/components/LoadMore.vue";
 
 const PLACE_DEBOUNCE_MS = 350;
 const PLACE_MIN_CHARS = 3;
-const RESULTS_PER_KIND = 3;
 const RECENTS_SHOWN = 8;
 const PAGE_SIZE = 30;
 
@@ -75,11 +75,6 @@ watch(open, async (isOpen) => {
 
 const searching = computed(() => query.value.trim().length > 0);
 
-const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
 const byName = new Intl.Collator(undefined, { numeric: true });
 const sortedRoutes = computed(() =>
   [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name)),

@@ -1,7 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-# What the pages read while search engines render them.
 Allow: /api/cities
 Allow: /api/*/network
 Allow: /api/*/shapes

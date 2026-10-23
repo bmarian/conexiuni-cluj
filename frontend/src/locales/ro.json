@@ -341,5 +341,6 @@
   "destsIn": "Destinații în {city}",
   "destsDistricts": "Cartiere",
   "destsTowns": "Localități",
-  "destCounts": "{stops} stații · {lines} linii"
+  "destCounts": "{stops} stații · {lines} linii",
+  "destNotFound": "Nicio zonă numită „{name}”"
 }
