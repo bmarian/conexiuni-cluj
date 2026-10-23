@@ -106,7 +106,7 @@ export const useSyncStore = defineStore('sync', () => {
     const routeUpdates = useRouteUpdatesStore()
     const settings = useSettingsStore()
     watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed], schedule, {deep: true})
-    watch(() => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.showVehicleExtras, settings.regionSetting('cluj', 'showGreenFriday')], () => {
+    watch(() => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.regionSetting('cluj', 'showGreenFriday')], () => {
       if (withSettings.value) schedule()
     })
     window.addEventListener('storage', onStorage)

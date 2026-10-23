@@ -101,7 +101,7 @@ export function settingsFromLocal(): SettingsRecord {
     locale: s.locale,
     autoCenterOnMe: s.autoCenterOnMe,
     autoFitMap: s.autoFitMap,
-    showVehicleExtras: s.showVehicleExtras,
+    showVehicleExtras: true,
     greenFriday: s.regionSetting('cluj', 'showGreenFriday'),
   }
 }
@@ -115,7 +115,6 @@ export function applySettings(r: SettingsRecord) {
   }
   if (s.autoCenterOnMe !== r.autoCenterOnMe) s.setAutoCenterOnMe(r.autoCenterOnMe)
   if (s.autoFitMap !== r.autoFitMap) s.setAutoFitMap(r.autoFitMap)
-  if (s.showVehicleExtras !== r.showVehicleExtras) s.setShowVehicleExtras(r.showVehicleExtras)
   if (s.regionSetting('cluj', 'showGreenFriday') !== r.greenFriday) s.setRegionSetting('cluj', 'showGreenFriday', r.greenFriday)
 }
 

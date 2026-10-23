@@ -2,6 +2,7 @@ import type {Vehicle} from '@/types/tranzy.ts'
 import type {Mode} from '@/utils/modes.ts'
 import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
 import {escapeHtml} from '@/utils/text.ts'
+import {displayColor} from '@/utils/lineColor.ts'
 import {type SpiderLeg, spiderRadius} from '@/utils/spider.ts'
 
 export type DisplayVehicle = Vehicle & {
@@ -52,7 +53,7 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
 
 export function stationCardHtml(name: string, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
   if (!mark) return escapeHtml(name)
-  const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${r.route_color}">${escapeHtml(r.route_short_name)}</span>`).join('')
+  const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${displayColor(r.route_short_name, r.route_color)}">${escapeHtml(r.route_short_name)}</span>`).join('')
   return `<div class="station-card">
     <span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>
     <span class="station-card-body"><span class="station-card-name">${escapeHtml(name)}</span><span class="station-card-lines">${lines}</span></span>
@@ -223,7 +224,6 @@ export function getVehicleMarkerHtml(
   vehicle: DisplayVehicle,
   resolvedColor: string,
   showStopInfo: boolean,
-  showVehicleExtras: boolean,
 ): string {
   const routeName = vehicle.route_short_name || ''
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
@@ -231,7 +231,7 @@ export function getVehicleMarkerHtml(
   const label = String(vehicle.label ?? '').replace(/[^\w -]/g, '')
   const speedText = `${label ? `#${label} · ` : ''}${roundedSpeed} km/h`
   const heading = vehicle.heading || 0
-  const extras = showVehicleExtras ? accessibilityIcons(vehicle, '#94a3b8') : ''
+  const extras = accessibilityIcons(vehicle, '#94a3b8')
 
   return `
     <div class="relative flex items-center">

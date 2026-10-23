@@ -1,10 +1,11 @@
 import {defineStore} from 'pinia'
-import {ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import type {RouteDirection} from '@/types/tranzy.ts'
 import {cacheKey, currentCity} from '@/utils/city.ts'
+import {network} from '@/utils/network.ts'
 import {CITY_CAP, roundCoordinate} from '@/utils/sync/records.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
@@ -97,6 +98,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const favoritePlans = ref<FavoritePlan[]>([])
   const recentPlans = ref<FavoritePlan[]>([])
   const isHydrated = ref(false)
+  const favoriteLineNames = computed(() => new Set(favoriteRoutes.value.map((r) => network.value?.routeById.get(r.routeId)?.route_short_name ?? '')))
 
   async function hydrate() {
     try {
@@ -270,6 +272,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   return {
     favoriteRoutes,
+    favoriteLineNames,
     favoriteStopIds,
     favoritePlans,
     recentPlans,

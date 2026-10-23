@@ -62,7 +62,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
-  const showVehicleExtras = ref(localStorage.getItem('settings.showVehicleExtras') !== 'false')
+  const colorfulLines = ref(localStorage.getItem('settings.colorfulLines') === 'true')
 
   const regionValues = ref<Record<string, boolean>>({})
   function regionSetting(slug: string, key: RegionSettingKey): boolean {
@@ -92,9 +92,9 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.autoFitMap', val ? 'true' : 'false')
   }
 
-  function setShowVehicleExtras(val: boolean) {
-    showVehicleExtras.value = val
-    localStorage.setItem('settings.showVehicleExtras', val ? 'true' : 'false')
+  function setColorfulLines(val: boolean) {
+    colorfulLines.value = val
+    localStorage.setItem('settings.colorfulLines', val ? 'true' : 'false')
   }
 
   // Another tab changed what is saved.
@@ -103,7 +103,7 @@ export const useSettingsStore = defineStore('settings', () => {
     locale.value = detectInitialLocale()
     autoCenterOnMe.value = localStorage.getItem('settings.autoCenterOnMe') !== 'false'
     autoFitMap.value = localStorage.getItem('settings.autoFitMap') !== 'false'
-    showVehicleExtras.value = localStorage.getItem('settings.showVehicleExtras') !== 'false'
+    colorfulLines.value = localStorage.getItem('settings.colorfulLines') === 'true'
     regionValues.value = {}
   }
 
@@ -127,7 +127,7 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     theme, locale, isDark, setTheme, setLocale,
     autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
-    showVehicleExtras, setShowVehicleExtras,
+    colorfulLines, setColorfulLines,
     showGreenFriday, regionSetting, setRegionSetting,
     reload,
     toast, showToast, dismissToast,

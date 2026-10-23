@@ -12,7 +12,7 @@ import {
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-import type {Feature, Polygon} from 'geojson'
+import type {Feature, LineString, Polygon} from 'geojson'
 import {useUserStore} from "@/stores/user.ts";
 import {storeToRefs} from "pinia";
 import {useStopsApi} from "@/composables/useStopsApi.ts";
@@ -42,6 +42,7 @@ import {
   placeTooltipHtml,
 } from '@/utils/mapIcons.ts'
 import {network, stationOf} from '@/utils/network.ts'
+import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {
   groupName,
   lngPerPixel,
@@ -83,6 +84,7 @@ const settingsStore = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const {
   shapesToDisplay,
+  lineColors,
   walkingPolylines,
   centerOnUser,
   flyToLocation,
@@ -96,7 +98,7 @@ const {
   drawerLeftPx,
   chromeTopPx,
 } = storeToRefs(mapStore)
-const {showVehicleExtras} = storeToRefs(settingsStore)
+const {colorfulLines} = storeToRefs(settingsStore)
 const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
 const stopMarkers = new Map<string, Marker>()
@@ -132,7 +134,6 @@ let shapeMarkers: Marker[] = []
 const vehicleMarkers = new Map<number, {marker: Marker, html: string, settle: () => void}>()
 let highlightMarkers: Marker[] = []
 let tooltip: ReturnType<typeof createTooltip> | null = null
-const routeColorsCache = new Map<string | number, string>()
 
 let isFirstLocationHandle = true
 let hasFittedForContent = false
@@ -194,7 +195,7 @@ type LineSpec = {
 type Fix = LatLng & { accuracy: number, heading: number | null }
 
 const lines: Record<LineGroup, LineSpec[]> = {shapes: [], walks: []}
-const drawnLines: Record<LineGroup, number> = {shapes: 0, walks: 0}
+const drawnPaths: Record<LineGroup, string[]> = {shapes: [], walks: []}
 let accuracy: (LatLng & { radius: number }) | null = null
 
 const currentStyle = () => mapStyle(isDarkMode.value)
@@ -226,31 +227,53 @@ const dashOf = (pattern: string, width: number) =>
 
 const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
 
+const pathKey = (coords: LatLngTuple[]) => `${coords.length}|${coords[0]}|${coords.at(-1)}`
+
+// Layers stay across redraws, so a line that only changes colour fades into it, in step with its badges.
 const syncLines = (group: LineGroup) => {
   const m = map.value
   if (!m || !styleReady) return
-  for (let i = 0; i < drawnLines[group]; i++) {
+  const shown = drawnPaths[group]
+  for (let i = lines[group].length; i < shown.length; i++) {
     const id = `${OVERLAY}${group}-${i}`
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)
   }
+  const recolorMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spring-fast-ms')) || 0
   lines[group].forEach((line, i) => {
     const id = `${OVERLAY}${group}-${i}`
-    m.addSource(id, {
-      type: 'geojson',
-      data: {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}},
-    })
+    const path = pathKey(line.coords)
+    const data: Feature<LineString> = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}}
+    const source = m.getSource<GeoJSONSource>(id)
+    if (source && m.getLayer(id)) {
+      const recolor = shown[i] === path && m.getPaintProperty(id, 'line-color') !== line.color
+      if (shown[i] !== path) source.setData(data)
+      m.setPaintProperty(id, 'line-color-transition', {duration: recolor ? recolorMs : 0, delay: 0})
+      m.setPaintProperty(id, 'line-color', line.color)
+      m.setPaintProperty(id, 'line-width', line.width)
+      m.setPaintProperty(id, 'line-opacity', line.opacity)
+      m.setPaintProperty(id, 'line-dasharray', line.dash)
+      return
+    }
+    if (source) m.removeSource(id)
+    m.addSource(id, {type: 'geojson', data})
     const layer: LineLayerSpecification = {
       id,
       type: 'line',
       source: id,
       layout: {'line-cap': 'round', 'line-join': 'round'},
-      paint: {'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity},
+      paint: {
+        'line-color': line.color,
+        'line-width': line.width,
+        'line-opacity': line.opacity,
+        'line-width-transition': {duration: 0, delay: 0},
+        'line-opacity-transition': {duration: 0, delay: 0},
+      },
     }
     if (line.dash) layer.paint!['line-dasharray'] = line.dash
     m.addLayer(layer, slotId(group))
   })
-  drawnLines[group] = lines[group].length
+  drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
 }
 
 const accuracyRing = ({lat, lng}: LatLng, radius: number): Feature<Polygon> => {
@@ -878,7 +901,8 @@ const mapInit = (center: LatLng, zoom: number) => {
     localStorage.setItem(mapViewKey(), JSON.stringify(view))
   })
   mapValue.on('click', (e) => {
-    if ((e.originalEvent.target as Element | null)?.closest?.('.maplibregl-marker')) return
+    // The path, not the target: a marker clicked may have re-rendered and dropped the target already.
+    if (e.originalEvent.composedPath().some((node) => (node as Element).classList?.contains('maplibregl-marker'))) return
     unspiderfy()
     selectedVehicleId.value = null
   })
@@ -1016,7 +1040,6 @@ const clearStops = () => {
   stopMarkers.clear()
   stopData.clear()
   areaList = []
-  routeColorsCache.clear()
 }
 
 let cityFlight = 0
@@ -1094,11 +1117,13 @@ watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
 watch(isDarkMode, applyStyle)
 
+const shapeColor = (displayShape: DisplayShape) => lineColors.value.get(displayShape.route_short_name) ?? displayShape.route_color
+
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
   for (const [displayShape, shapeData] of shapes) {
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
-    const routeColor = displayShape.route_color
+    const routeColor = shapeColor(displayShape)
     colorCounts.set(routeColor, (colorCounts.get(routeColor) ?? 0) + 1)
   }
   return colorCounts
@@ -1207,8 +1232,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     if (!Array.isArray(shapeData) || shapeData.length === 0) continue
 
     const latLngs: LatLngTuple[] = shapeData.map((sd) => [sd.shape_pt_lat, sd.shape_pt_lon])
-    const routeColor = displayShape.route_color
-    routeColorsCache.set(displayShape.trip_id, routeColor)
+    const routeColor = shapeColor(displayShape)
 
     const colorVariantIdx = colorSeen.get(routeColor) ?? 0
     colorSeen.set(routeColor, colorVariantIdx + 1)
@@ -1252,7 +1276,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, directionArrowAtStart], ([newShapes]) => {
+watch([shapesToDisplay, directionArrowAtStart, lineColors], ([newShapes]) => {
   renderShapes(newShapes as ShapeLayerEntry[])
 }, {deep: true})
 
@@ -1318,15 +1342,16 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
   if (!m) return
 
   const seen = new Set<number>()
+  const apart = manyLines(vehicles.map((v) => v.route_short_name))
   for (const vehicle of vehicles) {
     if (vehicle.latitude <= 0 || vehicle.longitude <= 0) continue
 
-    const resolvedColor = routeColorsCache.get(vehicle.trip_id) || vehicle.route_color
+    const resolvedColor = displayColor(vehicle.route_short_name, vehicle.route_color ?? '', apart)
     if (!resolvedColor) continue
 
     const showStopInfo = selectedVehicleId.value === vehicle.id
     const faded = vehicle.faded && !showStopInfo
-    const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo, showVehicleExtras.value)
+    const busHtml = getVehicleMarkerHtml(vehicle, resolvedColor, showStopInfo)
     // Scaled around the icon anchor so the bus stays where it is.
     const html = faded ? `<div style="transform:scale(${FADED_VEHICLE_SCALE});transform-origin:18px 18px;">${busHtml}</div>` : busHtml
     const icon: MarkerIcon = {html, size: [36, 36], anchor: [18, 18]}
@@ -1360,7 +1385,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
   }
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedVehicleId, showVehicleExtras], ([vehicles]) => {
+watch([vehiclesToDisplay, () => route.name, selectedVehicleId, colorfulLines, lineColors], ([vehicles]) => {
   renderVehicles(vehicles as DisplayVehicle[])
 }, {deep: true})
 
