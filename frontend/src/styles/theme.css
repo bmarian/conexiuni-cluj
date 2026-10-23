@@ -353,7 +353,7 @@
 
   .cascade {
     animation: cascade-in var(--spring-land-ms) var(--spring-land) both;
-    animation-delay: calc(min(var(--i, 0), 12) * 28ms);
+    animation-delay: calc(var(--i, 0) * 28ms);
   }
 
   @keyframes cascade-in {
