@@ -1,10 +1,11 @@
 import type {Shape, Vehicle} from "@/types/tranzy";
 import type {RouteType} from "@/types/tranzy";
 import {defineStore} from 'pinia'
-import {ref, watch} from "vue";
+import {computed, ref, watch} from "vue";
 import {apiRequest} from "@/utils/api.ts";
 import {decodePolyline, network} from "@/utils/network.ts";
 import {currentCity} from "@/utils/city.ts";
+import {manyLines, ownColor} from "@/utils/lineColor.ts";
 
 const shapeCache = new Map<string, Promise<Shape[]>>()
 watch(currentCity, () => shapeCache.clear(), {flush: 'sync'})
@@ -59,6 +60,12 @@ export const useMapStore = defineStore('map', () => {
   const drawerLeftPx = ref(0)
   const chromeTopPx = ref(0)
   const fitWalkingPolylines = ref(false)
+
+  const lineColors = computed(() => {
+    const drawn = shapesToDisplay.value.filter(([, points]) => points.length).map(([shape]) => shape)
+    const apart = manyLines(drawn.map((shape) => shape.route_short_name))
+    return new Map(drawn.map((shape) => [shape.route_short_name, ownColor(shape.route_short_name, shape.route_color, apart)]))
+  })
 
   const setDrawerBottomPx = (px: number) => {
     drawerBottomPx.value = px
@@ -153,6 +160,7 @@ export const useMapStore = defineStore('map', () => {
     pinnedLocationDragged,
     customOriginLocationDragged,
     shapesToDisplay,
+    lineColors,
     walkingPolylines,
     zoomOut,
     vehiclesToDisplay,

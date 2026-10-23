@@ -60,6 +60,7 @@ import {
   ShareIcon,
   SwapVertIcon,
 } from '@/utils/icons.ts'
+import {displayColor, manyLines} from '@/utils/lineColor.ts'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -214,7 +215,11 @@ function selectPlanAt(idx: number) {
 
 const stopName = (id: number | undefined) => (id ? planData.value?.stops[String(id)]?.name : undefined) ?? ''
 const line = (id: number | undefined) => id === undefined ? undefined : planData.value?.lines[String(id)]
-const lineColor = (id: number | undefined) => line(id)?.color ?? '#64748b'
+const lineColor = (id: number | undefined, apart: boolean) => {
+  const l = line(id)
+  return l ? displayColor(l.short_name, l.color, apart) : '#64748b'
+}
+const linesApart = (plan: PlanOption) => manyLines(rideLegs(plan).map((leg) => line(leg.lines?.[0])?.short_name ?? ''))
 
 const now = computed(() => userTime.value || new Date())
 const minutesFrom = (at: number) => (at * 1000 - now.value.getTime()) / 60_000
@@ -260,6 +265,7 @@ const selectedPlanLegsData = computed(() => {
   const plan = selectedPlan.value
   if (!plan) return []
   const out = []
+  const apart = linesApart(plan)
   let ride = 0
   for (const [i, leg] of plan.legs.entries()) {
     if (leg.kind !== 'ride') continue
@@ -269,7 +275,7 @@ const selectedPlanLegsData = computed(() => {
       leg,
       lines,
       trips: legTrips(plan, ride),
-      color: lineColor(lines[0]),
+      color: lineColor(lines[0], apart),
       intermediates: (leg.passed ?? []).map((id) => ({stop_id: id, stop_name: stopName(id)})),
       transferMeters: walk?.kind === 'walk' && plan.legs[i + 2]?.kind === 'ride' ? walk.meters ?? 0 : 0,
     })
@@ -288,6 +294,7 @@ watch([selectedPlanSignature, planData, mapActivationKey], () => {
     return
   }
   const rides = rideLegs(plan)
+  const apart = linesApart(plan)
   const shapes: Array<[DisplayShape, Shape[]]> = []
   const highlighted: HighlightedStop[] = []
   rides.forEach((leg, i) => {
@@ -295,7 +302,7 @@ watch([selectedPlanSignature, planData, mapActivationKey], () => {
     const tripId = (id !== undefined ? legTrips(plan, i).get(id) : undefined) ?? ''
     const l = line(id)
     shapes.push([
-      {trip_id: tripId, route_short_name: l?.short_name ?? '', route_long_name: l?.long_name ?? '', route_color: lineColor(id), route_type: (l?.type ?? 3) as RouteType},
+      {trip_id: tripId, route_short_name: l?.short_name ?? '', route_long_name: l?.long_name ?? '', route_color: lineColor(id, apart), route_type: (l?.type ?? 3) as RouteType},
       decodePolyline(leg.path).map(([lat, lon], k) => ({shape_id: tripId, shape_pt_lat: lat, shape_pt_lon: lon, shape_pt_sequence: k, shape_dist_traveled: -1})),
     ])
     highlighted.push({stopId: String(leg.from), color: i === 0 ? 'green' : 'purple'})
@@ -1135,7 +1142,7 @@ const chips = computed<ChipAction[]>(() => [
             <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1">
               <span v-if="!rideLegs(plan).length" class="line-chip is-walk">{{ t('planWalk') }}</span>
               <template v-for="(leg, lIdx) in rideLegs(plan)" :key="lIdx">
-                <span class="line-chip" :style="{ backgroundColor: lineColor(leg.lines?.[0]) }" :title="(leg.lines ?? []).map(id => line(id)?.short_name).join(' / ')">
+                <span class="line-chip" :style="{ backgroundColor: lineColor(leg.lines?.[0], linesApart(plan)) }" :title="(leg.lines ?? []).map(id => line(id)?.short_name).join(' / ')">
                   {{ (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.lines ?? [] : (leg.lines ?? []).slice(0, 3)).map(id => line(id)?.short_name).join('/') }}
                 </span>
                 <button

@@ -15,7 +15,6 @@ import {chooseCity, cities, cityChoice, cityInfo, currentCity, locationGranted} 
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {isIOS} from '@/utils/ios.ts'
 import {
-  AccessibleIcon,
   BrightnessMediumIcon,
   CropFreeIcon,
   DarkModeIcon,
@@ -25,6 +24,7 @@ import {
   ExpandMoreIcon,
   LightModeIcon,
   MyLocationIcon,
+  PaletteIcon,
   PlaceIcon,
   TuneIcon,
   WarningAmberIcon,
@@ -121,12 +121,12 @@ async function choose(slug: string | null) {
     />
     <div data-kbd-section="display">
       <ToggleRow
-        :icon="AccessibleIcon"
-        :title="t('vehicleExtras')"
-        :description="t('vehicleExtrasDesc')"
-        :checked="settings.showVehicleExtras"
-        data-kbd-item="vehicle-extras"
-        @change="settings.setShowVehicleExtras"
+        :icon="PaletteIcon"
+        :title="t('colorfulLines')"
+        :description="t('colorfulLinesDesc')"
+        :checked="settings.colorfulLines"
+        data-kbd-item="colorful-lines"
+        @change="settings.setColorfulLines"
       />
     </div>
 

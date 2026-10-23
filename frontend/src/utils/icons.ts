@@ -1,4 +1,3 @@
-export {default as AccessibleIcon} from '@material-design-icons/svg/round/accessible.svg?component'
 export {default as AddIcon} from '@material-design-icons/svg/round/add.svg?component'
 export {default as ArrowBackIcon} from '@material-design-icons/svg/round/arrow_back.svg?component'
 export {default as ArrowForwardIcon} from '@material-design-icons/svg/round/arrow_forward.svg?component'
@@ -28,6 +27,7 @@ export {default as LogoutIcon} from '@material-design-icons/svg/round/logout.svg
 export {default as MapIcon} from '@material-design-icons/svg/round/map.svg?component'
 export {default as MoreVertIcon} from '@material-design-icons/svg/round/more_vert.svg?component'
 export {default as MyLocationIcon} from '@material-design-icons/svg/round/my_location.svg?component'
+export {default as PaletteIcon} from '@material-design-icons/svg/round/palette.svg?component'
 export {default as NewspaperIcon} from '@material-design-icons/svg/round/newspaper.svg?component'
 export {default as NotificationsIcon} from '@material-design-icons/svg/round/notifications.svg?component'
 export {default as NotificationsNoneIcon} from '@material-design-icons/svg/round/notifications_none.svg?component'

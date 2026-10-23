@@ -8,28 +8,23 @@ const accessibilityIcon = /<svg width="12" height="12"/g
 
 describe('vehicle accessibility', () => {
   it('says nothing when the feed does not tell', () => {
-    const html = getVehicleMarkerHtml(bus, '#123456', true, true)
+    const html = getVehicleMarkerHtml(bus, '#123456', true)
     expect(html).not.toContain(struck)
     expect(html.match(accessibilityIcon)).toBeNull()
   })
 
   it('marks what the feed says', () => {
     const told = {...bus, wheelchair_accessible: 'WHEELCHAIR_ACCESSIBLE', bike_accessible: 'BIKE_INACCESSIBLE'}
-    const html = getVehicleMarkerHtml(told, '#123456', true, true)
+    const html = getVehicleMarkerHtml(told, '#123456', true)
     expect(html.split(struck).length - 1).toBe(1)
     expect(html.match(accessibilityIcon)).toHaveLength(2)
   })
 
   it('leaves out the half the feed is silent on', () => {
     const half = {...bus, bike_accessible: 'BIKE_ACCESSIBLE'}
-    const html = getVehicleMarkerHtml(half, '#123456', true, true)
+    const html = getVehicleMarkerHtml(half, '#123456', true)
     expect(html).not.toContain(struck)
     expect(html.match(accessibilityIcon)).toHaveLength(1)
-  })
-
-  it('shows nothing when the extras are off', () => {
-    const told = {...bus, wheelchair_accessible: 'WHEELCHAIR_ACCESSIBLE', bike_accessible: 'BIKE_INACCESSIBLE'}
-    expect(getVehicleMarkerHtml(told, '#123456', true, false).match(accessibilityIcon)).toBeNull()
   })
 })
 

@@ -13,6 +13,7 @@ import {
   groupByDays,
   groupByDirection,
 } from '@/utils/routeChanges.ts'
+import {displayColor} from '@/utils/lineColor.ts'
 
 const ENTRY_LIMIT = 12
 
@@ -63,7 +64,7 @@ function openRow(key: string) {
 <template>
   <section
     class="change-banner"
-    :style="{ '--line': change.route_color || '#64748b' }"
+    :style="{ '--line': displayColor(change.route_short_name, change.route_color) || '#64748b' }"
     data-kbd-section="change-banner"
     data-kbd-axis="x"
     :aria-label="title"
