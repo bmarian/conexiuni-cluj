@@ -138,7 +138,7 @@ func Load() *Config {
 		VehicleMinInterval:      getDuration("VEHICLE_MIN_INTERVAL", 5*time.Second),
 		VehicleMaxInterval:      getDuration("VEHICLE_MAX_INTERVAL", 60*time.Second),
 		VehicleLearningEnabled:  Bool("VEHICLE_LEARNING_ENABLED", true),
-		VehicleLearningMaxQuota: getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 3000),
+		VehicleLearningMaxQuota: getInt("VEHICLE_LEARNING_DAILY_QUOTA_MAX", 5000),
 
 		AndroidPackage:    getEnv("ANDROID_PACKAGE", "online.bmarian.bus"),
 		AndroidCertSHA256: getList("ANDROID_CERT_SHA256"),

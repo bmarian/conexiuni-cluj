@@ -125,6 +125,9 @@ func (e *Env) RSS(url string) feeds.News { return e.News(url, news.RSS) }
 // Tranzy fills Static, Realtime and, with a second key, Learning, from TRANZY_API_KEY_{SLUG} and TRANZY_API_KEY_{SLUG}_LEARNING.
 func (e *Env) Tranzy(agencyID int) (Feeds, error) {
 	name := "TRANZY_API_KEY_" + strings.ToUpper(e.Slug)
+	if e.Config.Environment == "development" {
+		name = "TRANZY_API_KEY_DEVELOPMENT"
+	}
 	key, learningKey := os.Getenv(name), os.Getenv(name+"_LEARNING")
 	if key == "" {
 		return Feeds{}, fmt.Errorf("%w: no %s", ErrNoKey, name)
