@@ -65,6 +65,31 @@ type ogLocale struct {
 	androidTitle       string
 	androidDesc        string
 	androidBody        string
+	routeStopsFmt      string // args: shortName, toward
+	routeOtherFmt      string // args: toward
+	stopLines          string
+	towardFmt          string // args: end
+	lineEnds           string
+	stopAreaFmt        string // args: area
+	destTitleFmt       string // args: area
+	destDescFmt        string // args: area
+	destH1Fmt          string // args: area
+	destLinesFmt       string // args: area, lines
+	destFrom           string
+	destFromFmt        string // args: area
+	rideFmt            string // args: shortName, board, alight, minutes
+	rideEveryFmt       string // args: minutes
+	rideSpanFmt        string // args: first, last
+	rideNoWeekdays     string
+	destNoRides        string
+	destStopsFmt       string // args: area
+	destPlanFmt        string // args: area
+	destAll            string
+	destsTitle         string
+	destsDesc          string
+	destsH1            string
+	destsDistricts     string
+	destsTowns         string
 }
 
 var ogLocales = map[string]ogLocale{
@@ -93,6 +118,31 @@ var ogLocales = map[string]ogLocale{
 		androidTitle:       "Aplicația Android — Ce autobuz iau?",
 		androidDesc:        "Intră în beta și testează aplicația pentru telefon și ceas Wear OS.",
 		androidBody:        "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.",
+		routeStopsFmt:      "Stațiile liniei %s spre %s",
+		routeOtherFmt:      "Sensul opus: spre %s",
+		stopLines:          "Liniile care opresc aici",
+		towardFmt:          "spre %s",
+		lineEnds:           "capăt de linie",
+		stopAreaFmt:        "Cum ajungi în %s",
+		destTitleFmt:       "Ce autobuz iau până în %s? Linii și timpi — {city}",
+		destDescFmt:        "Liniile directe până în %s, {city}, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.",
+		destH1Fmt:          "Ce autobuz iau până în %s?",
+		destLinesFmt:       "Liniile care opresc în %s: %s.",
+		destFrom:           "Din alte zone",
+		destFromFmt:        "Din %s",
+		rideFmt:            "linia %s, de la stația %s până la %s, %s",
+		rideEveryFmt:       "la ~%d min",
+		rideSpanFmt:        "primul %s, ultimul %s",
+		rideNoWeekdays:     "nu circulă în zilele lucrătoare",
+		destNoRides:        "Nicio linie directă din alte zone; planifică drumul cu schimbare.",
+		destStopsFmt:       "Stații în %s",
+		destPlanFmt:        "Planifică drumul până în %s",
+		destAll:            "Toate destinațiile din {city}",
+		destsTitle:         "Destinații în {city} — Ce autobuz iau?",
+		destsDesc:          "Cartierele și localitățile în care ajung liniile {operator}, cu liniile directe până în fiecare.",
+		destsH1:            "Destinații în {city}",
+		destsDistricts:     "Cartiere",
+		destsTowns:         "Localități",
 	},
 	"en": {
 		lang:               "en",
@@ -119,6 +169,31 @@ var ogLocales = map[string]ogLocale{
 		androidTitle:       "Android app — Ce autobuz iau?",
 		androidDesc:        "Join the beta to test the app for your phone and Wear OS watch.",
 		androidBody:        "Join the testers group with your Google account, then get the app from Google Play. Needs Android 8 or newer.",
+		routeStopsFmt:      "Line %s stops toward %s",
+		routeOtherFmt:      "Other direction: toward %s",
+		stopLines:          "Lines stopping here",
+		towardFmt:          "toward %s",
+		lineEnds:           "last stop",
+		stopAreaFmt:        "How to get to %s",
+		destTitleFmt:       "Which bus to %s? Lines and times — {city} | Ce autobuz iau?",
+		destDescFmt:        "Direct lines to %s, {city}, from every area: where to get on and off, how long it takes and how often they run.",
+		destH1Fmt:          "Which bus goes to %s?",
+		destLinesFmt:       "Lines stopping in %s: %s.",
+		destFrom:           "From other areas",
+		destFromFmt:        "From %s",
+		rideFmt:            "line %s, from %s to %s, %s",
+		rideEveryFmt:       "every ~%d min",
+		rideSpanFmt:        "first %s, last %s",
+		rideNoWeekdays:     "no weekday service",
+		destNoRides:        "No direct line from other areas; plan a trip with a change.",
+		destStopsFmt:       "Stops in %s",
+		destPlanFmt:        "Plan a trip to %s",
+		destAll:            "All destinations in {city}",
+		destsTitle:         "Destinations in {city} — Ce autobuz iau?",
+		destsDesc:          "The districts and towns {operator} lines reach, with the direct lines to each.",
+		destsH1:            "Destinations in {city}",
+		destsDistricts:     "Districts",
+		destsTowns:         "Towns and villages",
 	},
 }
 
@@ -166,6 +241,12 @@ func ogTexts(city *cities.City, c fiber.Ctx) ogLocale {
 	l.homeDesc = fill(l.homeDesc)
 	l.homeH1 = fill(l.homeH1)
 	l.homeBody = fill(l.homeBody)
+	l.destTitleFmt = fill(l.destTitleFmt)
+	l.destDescFmt = fill(l.destDescFmt)
+	l.destAll = fill(l.destAll)
+	l.destsTitle = fill(l.destsTitle)
+	l.destsDesc = fill(l.destsDesc)
+	l.destsH1 = fill(l.destsH1)
 	return l
 }
 
@@ -309,7 +390,7 @@ func routePage(city *cities.City, c fiber.Ctx) error {
 		canonical:   routeURL,
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(fmt.Sprintf(l.routeH1Fmt, shortName)),
-			html.EscapeString(fmt.Sprintf(l.routeBodyFmt, shortName, longName))),
+			html.EscapeString(fmt.Sprintf(l.routeBodyFmt, shortName, longName))) + routeStopsHTML(c, l, city, routeID, direction),
 		jsonLD: jsonLD,
 	})
 }
@@ -368,7 +449,7 @@ func stopPage(city *cities.City, c fiber.Ctx) error {
 		canonical:   stopURL,
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(fmt.Sprintf(l.stopH1Fmt, stopName)),
-			html.EscapeString(fmt.Sprintf(l.stopBodyFmt, stopName))),
+			html.EscapeString(fmt.Sprintf(l.stopBodyFmt, stopName))) + stationLinesHTML(c, l, city, stopID),
 		jsonLD: jsonLD,
 	})
 }
@@ -433,9 +514,10 @@ func homePage(city *cities.City, c fiber.Ctx) error {
 		title:       l.homeTitle,
 		description: l.homeDesc,
 		canonical:   canonicalURL(city, "/"),
-		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
+		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p>`,
 			html.EscapeString(l.homeH1),
-			html.EscapeString(l.homeBody)),
+			html.EscapeString(l.homeBody),
+			pagePath(c, city, "/destinations"), html.EscapeString(l.destAll)),
 		jsonLD: marshalJSONLD(map[string]any{
 			"@context": "https://schema.org",
 			"@type":    "WebSite",

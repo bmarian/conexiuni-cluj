@@ -48,6 +48,9 @@ func Locate(points []feeds.Point) ([]string, []string, error) {
 	return towns, streets, err
 }
 
+// Places is the city's place index, nil until the walk graph is read.
+func (s *Service) Places() *router.Places { return s.placeIndex() }
+
 // nil until the walk graph is read.
 func (s *Service) placeIndex() *router.Places {
 	s.mu.Lock()

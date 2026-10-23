@@ -1,0 +1,26 @@
+GET /fixturegtfs/to/fixturegtfs
+200
+Cache-Control: public, max-age=300
+Content-Length: 3196
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>Ce autobuz iau până în fixturegtfs? Linii și timpi — Fixture GTFS</title>
+<meta name="description" content="Liniile directe până în fixturegtfs, Fixture GTFS, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs">
+<meta property="og:title" content="Ce autobuz iau până în fixturegtfs? Linii și timpi — Fixture GTFS">
+<meta property="og:description" content="Liniile directe până în fixturegtfs, Fixture GTFS, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs">
+<meta name="twitter:title" content="Ce autobuz iau până în fixturegtfs? Linii și timpi — Fixture GTFS">
+<meta name="twitter:description" content="Liniile directe până în fixturegtfs, Fixture GTFS, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Place","containedInPlace":{"@type":"City","name":"Fixture GTFS"},"geo":{"@type":"GeoCoordinates","latitude":45,"longitude":25},"name":"fixturegtfs"},"description":"Liniile directe până în fixturegtfs, Fixture GTFS, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.","inLanguage":"ro","name":"Ce autobuz iau până în fixturegtfs? Linii și timpi — Fixture GTFS","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Ce autobuz iau până în fixturegtfs?</h1><p>Liniile care opresc în fixturegtfs: 7, 8B.</p><h2>Din alte zone</h2><h3><a href="/fixturegtfs/to/cartier-0">Din Cartier 0</a></h3><ul><li>linia 7, de la stația Stația 701 până la Stația 702, 2 min, la ~12 min, primul 05:00, ultimul 23:00</li></ul><h2>Stații în fixturegtfs</h2><ul><li><a href="/fixturegtfs/stop/703">Stația 703</a>: 7, 8B</li><li><a href="/fixturegtfs/stop/702">Stația 702</a>: 7</li><li><a href="/fixturegtfs/stop/704">Stația 704</a>: 7</li><li><a href="/fixturegtfs/stop/705">Stația 705</a>: 7</li><li><a href="/fixturegtfs/stop/711">Stația 711</a>: 8B</li><li><a href="/fixturegtfs/stop/712">Stația 712</a>: 8B</li><li><a href="/fixturegtfs/stop/714">Stația 714</a>: 8B</li><li><a href="/fixturegtfs/stop/715">Stația 715</a>: 8B</li></ul><p><a href="/fixturegtfs/plan?lat=45.000000&amp;lon=25.000000&amp;name=fixturegtfs">Planifică drumul până în fixturegtfs</a></p><p><a href="/fixturegtfs/destinations">Toate destinațiile din Fixture GTFS</a></p></div></div></body>
+</html>
+

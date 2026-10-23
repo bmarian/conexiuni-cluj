@@ -1,7 +1,7 @@
 GET /sitemap.xml
 200
 Cache-Control: public, max-age=3600
-Content-Length: 3969
+Content-Length: 4725
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/xml; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -28,6 +28,9 @@ X-Frame-Options: DENY
   <url><loc>https://ceautobuziau.ro/fixture/stop/112</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixture/stop/114</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixture/stop/115</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/destinations</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/to/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/to/fixture</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/plan</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/route/7/0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
@@ -43,5 +46,8 @@ X-Frame-Options: DENY
   <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/712</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/714</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/stop/715</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/destinations</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/to/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>
 

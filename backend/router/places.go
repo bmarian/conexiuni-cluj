@@ -344,6 +344,9 @@ func fold(s string) string {
 	return strings.ToLower(out)
 }
 
+// Slug is a name as a path segment: "Între Lacuri" is "intre-lacuri".
+func Slug(name string) string { return strings.Join(words(name), "-") }
+
 func words(s string) []string {
 	return strings.FieldsFunc(fold(s), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
 }

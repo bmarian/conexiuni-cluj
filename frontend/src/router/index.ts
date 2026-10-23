@@ -11,6 +11,8 @@ const AdminView = () => import('@/views/AdminView.vue')
 const SettingsView = () => import('@/views/SettingsView.vue')
 const AndroidView = () => import('@/views/AndroidView.vue')
 const NewsView = () => import('@/views/NewsView.vue')
+const DestinationsView = () => import('@/views/DestinationsView.vue')
+const DestinationView = () => import('@/views/DestinationView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -81,6 +83,17 @@ const router = createRouter({
           path: 'news',
           name: 'news',
           component: NewsView,
+        },
+        {
+          path: 'destinations',
+          name: 'destinations',
+          component: DestinationsView,
+        },
+        {
+          path: 'to/:slug',
+          name: 'destination',
+          component: DestinationView,
+          props: true,
         },
       ],
     },

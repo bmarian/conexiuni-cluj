@@ -1,0 +1,28 @@
+GET /api/fixturegtfs/destinations
+200
+Cache-Control: no-cache
+Content-Length: 158
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Etag: W/"158-1253726133"
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+[
+ {
+  "slug": "cartier-0",
+  "name": "Cartier 0",
+  "district": true,
+  "stops": 1,
+  "lines": 1
+ },
+ {
+  "slug": "fixturegtfs",
+  "name": "fixturegtfs",
+  "district": false,
+  "stops": 8,
+  "lines": 2
+ }
+]

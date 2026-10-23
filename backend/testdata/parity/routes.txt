@@ -9,6 +9,8 @@ GET /api/admin/cities
 GET /api/admin/overview
 GET /api/cities
 GET /api/fixture/areas
+GET /api/fixture/destinations
+GET /api/fixture/destinations/:slug
 GET /api/fixture/live
 GET /api/fixture/network
 GET /api/fixture/network/version
@@ -18,6 +20,8 @@ GET /api/fixture/route-changes
 GET /api/fixture/shapes
 GET /api/fixture/updates
 GET /api/fixturegtfs/areas
+GET /api/fixturegtfs/destinations
+GET /api/fixturegtfs/destinations/:slug
 GET /api/fixturegtfs/live
 GET /api/fixturegtfs/network
 GET /api/fixturegtfs/network/version
@@ -31,13 +35,17 @@ GET /api/sync/chains/:chain/records/:name
 GET /api/sync/chains/:chain/wrap
 GET /api/sync/pair/:code
 GET /fixture/
+GET /fixture/destinations
 GET /fixture/plan
 GET /fixture/route/:routeId/:direction
 GET /fixture/stop/:stopId
+GET /fixture/to/:slug
 GET /fixturegtfs/
+GET /fixturegtfs/destinations
 GET /fixturegtfs/plan
 GET /fixturegtfs/route/:routeId/:direction
 GET /fixturegtfs/stop/:stopId
+GET /fixturegtfs/to/:slug
 GET /manifest.webmanifest
 GET /registerSW.js
 GET /robots.txt

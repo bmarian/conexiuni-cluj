@@ -67,6 +67,12 @@ func writeCity(sb *strings.Builder, city *cities.City) error {
 		}
 		writeURL(sb, canonicalURL(city, "/stop/"+strconv.Itoa(id)), "weekly", "0.6")
 	}
+	if x, ready, err := city.Destinations.Areas(); err == nil && ready {
+		writeURL(sb, canonicalURL(city, "/destinations"), "weekly", "0.7")
+		for _, d := range x.Destinations() {
+			writeURL(sb, canonicalURL(city, "/to/"+d.Slug), "weekly", "0.8")
+		}
+	}
 	return nil
 }
 

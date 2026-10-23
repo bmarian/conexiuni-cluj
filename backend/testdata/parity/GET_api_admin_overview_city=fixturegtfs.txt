@@ -575,6 +575,12 @@ X-Frame-Options: DENY
     "avg_ms": 0,
     "calls": 2,
     "errors": 0,
+    "key": "GET /destinations/:slug"
+   },
+   {
+    "avg_ms": 0,
+    "calls": 2,
+    "errors": 0,
     "key": "GET /network"
    },
    {
@@ -588,6 +594,12 @@ X-Frame-Options: DENY
     "calls": 2,
     "errors": 0,
     "key": "GET /shapes"
+   },
+   {
+    "avg_ms": 0,
+    "calls": 1,
+    "errors": 0,
+    "key": "GET /destinations"
    },
    {
     "avg_ms": 0,
@@ -612,7 +624,7 @@ X-Frame-Options: DENY
   "heap_bytes": "\u003cvolatile\u003e",
   "modified": false,
   "problems": [],
-  "requests": 17,
+  "requests": 20,
   "revision": "",
   "started_at": "\u003cvolatile\u003e",
   "sync": {
