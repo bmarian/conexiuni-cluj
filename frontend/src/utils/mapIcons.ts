@@ -241,7 +241,7 @@ export function getVehicleMarkerHtml(
               style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
       </div>
       <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-2.5 h-2.5 shrink-0"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="vehicle-heading w-2.5 h-2.5 shrink-0"
              style="transform: rotate(${heading}deg);">
           <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
         </svg>
