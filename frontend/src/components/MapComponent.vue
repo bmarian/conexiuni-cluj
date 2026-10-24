@@ -18,11 +18,11 @@ import {storeToRefs} from "pinia";
 import {useStopsApi} from "@/composables/useStopsApi.ts";
 import {useRoute} from "vue-router";
 import {useI18n} from "vue-i18n";
-import {type DisplayShape, type HighlightedStop, useMapStore} from "@/stores/map.ts";
+import {type DisplayShape, fetchShapes, type HighlightedStop, useMapStore} from "@/stores/map.ts";
 import type {ShapePoint} from "@/types/map.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
 import {useFavoritesStore} from "@/stores/favorites.ts";
-import {calculateBearing, roundedHull, routeHeading} from "@/utils/geo.ts";
+import {calculateBearing, haversineMeters, roundedHull, routeHeading} from "@/utils/geo.ts";
 import {
   type DisplayVehicle,
   type MarkerIcon,
@@ -58,6 +58,7 @@ import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
+import {pathOf, VehicleTrack} from '@/utils/vehicleMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
@@ -132,7 +133,8 @@ const userDot = shallowRef<Marker>()
 const pinMarker = shallowRef<Marker>()
 const originMarker = shallowRef<Marker>()
 let shapeMarkers: Marker[] = []
-const vehicleMarkers = new Map<number, {marker: Marker, html: string, settle: () => void}>()
+type ShownVehicle = {marker: Marker, html: string, settle: () => void, track?: VehicleTrack, untracked?: string, turn?: number}
+const vehicleMarkers = new Map<number, ShownVehicle>()
 let highlightMarkers: Marker[] = []
 let tooltip: ReturnType<typeof createTooltip> | null = null
 
@@ -144,6 +146,7 @@ let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 let geoWatchId: number | null = null
 let stopRefreshFrame = 0
+let vehicleFrame = 0
 let styleReady = false
 
 const DEFAULT_ZOOM = 15
@@ -161,6 +164,7 @@ const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
 const VEHICLE_GLIDE_MS = 900
+const VEHICLE_POP_M = 50
 const SPIDER_CLOSE_MS = 180
 const AROUND = 'around:'
 const CITY_FLIGHT_MS = 2500
@@ -1360,14 +1364,16 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
       if (shown.html !== html) {
         setMarkerIcon(shown.marker, icon)
         shown.html = html
+        shown.turn = undefined
       }
       shown.marker.getElement().style.zIndex = String(zIndex)
       shown.marker.setOpacity(String(opacity))
+      if (shown.track) continue
       shown.settle()
       shown.settle = glideMarker(shown.marker, at, VEHICLE_GLIDE_MS)
       continue
     }
-    const marker = htmlMarker(at, icon, {zIndex, opacity})
+    const marker = htmlMarker(at, icon, {zIndex, opacity}).setSubpixelPositioning(true)
     onMarkerClick(marker, () => {
       selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
     })
@@ -1379,6 +1385,60 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     fadeOutMarker(shown.marker)
     vehicleMarkers.delete(id)
   }
+  void followVehicles(vehicles)
+}
+
+const followVehicles = async (vehicles: DisplayVehicle[]) => {
+  const shapes = await fetchShapes([...new Set(vehicles.map((v) => v.trip_id))]).catch(() => null)
+  const m = map.value
+  if (!shapes || !m) return
+  const now = Date.now()
+  for (const vehicle of vehicles) {
+    const shown = vehicleMarkers.get(vehicle.id)
+    const shape = shapes.get(vehicle.trip_id)
+    const fixMs = Date.parse(vehicle.timestamp)
+    if (!shown || !shape?.length || shown.untracked === vehicle.trip_id || Number.isNaN(fixMs)) continue
+    const at = {lat: vehicle.latitude, lng: vehicle.longitude}
+    const path = pathOf(shape)
+    const fresh = shown.track?.path !== path
+    const track = fresh ? new VehicleTrack(path) : shown.track!
+    if (!track.fix(at, fixMs, vehicle.speed ?? 0, vehicle.heading, now)) {
+      shown.track = undefined
+      shown.untracked = vehicle.trip_id
+      shown.settle()
+      shown.settle = glideMarker(shown.marker, at, VEHICLE_GLIDE_MS)
+      continue
+    }
+    if (fresh) {
+      shown.settle()
+      const from = markerLatLng(shown.marker)
+      const to = track.position
+      if (haversineMeters(from.lat, from.lng, to.lat, to.lng) > VEHICLE_POP_M) showMarker(shown.marker, m, true)
+    }
+    shown.track = track
+  }
+  if (!vehicleFrame) vehicleFrame = requestAnimationFrame(moveVehicles)
+}
+
+const moveVehicles = () => {
+  vehicleFrame = 0
+  const m = map.value
+  if (!m) return
+  const now = Date.now()
+  let moving = false
+  for (const shown of vehicleMarkers.values()) {
+    const track = shown.track
+    if (!track) continue
+    moving = true
+    if (track.step(now)) showMarker(shown.marker, m, true)
+    const {lat, lng} = track.position
+    shown.marker.setLngLat([lng, lat])
+    const turn = Math.round(track.heading)
+    if (turn === shown.turn) continue
+    shown.marker.getElement().querySelector<SVGElement>('.vehicle-heading')?.style.setProperty('transform', `rotate(${turn}deg)`)
+    shown.turn = turn
+  }
+  if (moving) vehicleFrame = requestAnimationFrame(moveVehicles)
 }
 
 watch([vehiclesToDisplay, () => route.name, selectedVehicleId, colorfulLines, lineColors], ([vehicles]) => {
@@ -1465,8 +1525,10 @@ onUnmounted(() => {
 
   if (resizeRaf) cancelAnimationFrame(resizeRaf)
   if (stopRefreshFrame) cancelAnimationFrame(stopRefreshFrame)
+  if (vehicleFrame) cancelAnimationFrame(vehicleFrame)
   building?.stop()
   for (const {settle} of vehicleMarkers.values()) settle()
+  vehicleMarkers.clear()
   if (resizeTimer) clearTimeout(resizeTimer)
   if (locationRetryTimer) clearTimeout(locationRetryTimer)
 

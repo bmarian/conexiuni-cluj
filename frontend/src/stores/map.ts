@@ -11,7 +11,7 @@ const shapeCache = new Map<string, Promise<Shape[]>>()
 watch(currentCity, () => shapeCache.clear(), {flush: 'sync'})
 const shapeKey = (tripId: string) => `${tripId}@${network.value?.shapeHash(tripId) ?? ''}`
 
-async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[]>> {
+export async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[]>> {
   const missing = tripIds.filter((id) => !shapeCache.has(shapeKey(id)))
   if (missing.length) {
     const request = apiRequest(`shapes?format=polyline&shape_ids=${missing.join(',')}`) as Promise<Record<string, string>>
