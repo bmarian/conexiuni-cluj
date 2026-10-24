@@ -1,0 +1,49 @@
+{
+    "journeys": [
+        {
+            "vehicle_id": "MS135",
+            "route": "11",
+            "lat": 46.56488,
+            "lon": 24.5518,
+            "speed": null,
+            "direction": null,
+            "timestamp": "2026-10-24T13:33:32.4103840Z"
+        },
+        {
+            "vehicle_id": "MS137",
+            "route": "0",
+            "lat": 46.53144,
+            "lon": 24.59387,
+            "speed": null,
+            "direction": null,
+            "timestamp": "2026-10-24T13:33:32.4103840Z"
+        },
+        {
+            "vehicle_id": "MS101",
+            "route": "30B",
+            "lat": 46.5388,
+            "lon": 24.56709,
+            "speed": null,
+            "direction": null,
+            "timestamp": "2026-10-24T13:33:32.4103840Z"
+        },
+        {
+            "vehicle_id": "MS320",
+            "route": "7",
+            "lat": 46.52529,
+            "lon": 24.51387,
+            "speed": null,
+            "direction": null,
+            "timestamp": "2026-10-24T13:33:32.4103840Z"
+        },
+        {
+            "vehicle_id": "MS427",
+            "route": "",
+            "lat": 46.52373,
+            "lon": 24.5434,
+            "speed": null,
+            "direction": null,
+            "timestamp": "2026-10-24T13:33:32.4103840Z"
+        }
+    ]
+}

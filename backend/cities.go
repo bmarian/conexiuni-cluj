@@ -6,10 +6,13 @@ import (
 	"conexiuni-cluj/cities/bucuresti"
 	"conexiuni-cluj/cities/cluj"
 	"conexiuni-cluj/cities/constanta"
+	"conexiuni-cluj/cities/craiova"
 	"conexiuni-cluj/cities/iasi"
 	"conexiuni-cluj/cities/oradea"
+	"conexiuni-cluj/cities/ploiesti"
 	"conexiuni-cluj/cities/sibiu"
 	"conexiuni-cluj/cities/suceava"
+	"conexiuni-cluj/cities/targumures"
 	"conexiuni-cluj/cities/timisoara"
 	"conexiuni-cluj/config"
 	"conexiuni-cluj/database"
@@ -26,6 +29,7 @@ import (
 var allCities = []cities.Spec{
 	cluj.City, iasi.City, botosani.City, oradea.City, constanta.City,
 	sibiu.City, bucuresti.City, timisoara.City, suceava.City,
+	ploiesti.City, craiova.City, targumures.City,
 }
 
 func buildCities(cfg *config.Config) ([]*cities.City, error) {

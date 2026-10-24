@@ -46,7 +46,7 @@ func newTestRealtime() *realtime {
 }
 
 // The trip of each step's one bus, "" while it is not placed.
-func follow(t *testing.T, s *realtime, plate, label string, lon float64, lats ...float64) []string {
+func followBus(t *testing.T, s *realtime, plate, label string, lon float64, lats ...float64) []string {
 	t.Helper()
 	at := time.Unix(1_800_000_000, 0)
 	var out []string
@@ -82,7 +82,7 @@ func TestReadsTheLiveMap(t *testing.T) {
 
 func TestABusTakesTheDirectionItMovesAlong(t *testing.T) {
 	// Both directions fit a bus that has not moved; then it heads north, stands, and turns back south.
-	got := follow(t, newTestRealtime(), "SV1", "M104", 26.25, 47.65, 47.652, 47.6521, 47.649)
+	got := followBus(t, newTestRealtime(), "SV1", "M104", 26.25, 47.65, 47.652, 47.6521, 47.649)
 	if want := []string{"", "1_0", "1_0", "1_1"}; !slices.Equal(got, want) {
 		t.Fatalf("trips %v, want %v", got, want)
 	}
@@ -90,7 +90,7 @@ func TestABusTakesTheDirectionItMovesAlong(t *testing.T) {
 
 func TestABusCreepingAFewMetresAPollHasMoved(t *testing.T) {
 	// 0.0001° is 11 m, under GPS jitter, but three of them are not.
-	got := follow(t, newTestRealtime(), "SV4", "M104", 26.25, 47.65, 47.6501, 47.6502, 47.6503)
+	got := followBus(t, newTestRealtime(), "SV4", "M104", 26.25, 47.65, 47.6501, 47.6502, 47.6503)
 	if want := []string{"", "", "", "1_0"}; !slices.Equal(got, want) {
 		t.Fatalf("trips %v, want %v", got, want)
 	}
@@ -98,23 +98,23 @@ func TestABusCreepingAFewMetresAPollHasMoved(t *testing.T) {
 
 func TestABusStandingAtATerminusLeavesOnTheDirectionStartingThere(t *testing.T) {
 	// 47.6 is where direction 0 starts; direction 1 ends 10 km on, which the test road's direction 1 measures from.
-	if got := follow(t, newTestRealtime(), "SV5", "M104", 26.25, 47.6001); got[0] != "1_0" {
+	if got := followBus(t, newTestRealtime(), "SV5", "M104", 26.25, 47.6001); got[0] != "1_0" {
 		t.Fatalf("trips %v", got)
 	}
 }
 
 func TestACutLabelFallsBackToTheLineItBegins(t *testing.T) {
-	if got := lineCandidates("  5", testRoutes); len(got) != 1 || got[0].routeID != 4 {
+	if got := lineCandidates("  5", testRoutes); len(got) != 1 || got[0].RouteID != 4 {
 		t.Fatalf("padded label %v", got)
 	}
 	// M100 and M104 both begin with it.
-	if got := lineCandidates("M10", testRoutes); len(got) != 3 || got[0].routeID != 2 || got[0].cut || got[1].routeID != 3 || !got[1].cut || got[2].routeID != 1 || !got[2].cut {
+	if got := lineCandidates("M10", testRoutes); len(got) != 3 || got[0].RouteID != 2 || got[0].Cut || got[1].RouteID != 3 || !got[1].Cut || got[2].RouteID != 1 || !got[2].Cut {
 		t.Fatalf("label filling the display %v", got)
 	}
-	if got := follow(t, newTestRealtime(), "SV2", "M10", 26.35, 47.65, 47.652); got[1] != "3_0" {
+	if got := followBus(t, newTestRealtime(), "SV2", "M10", 26.35, 47.65, 47.652); got[1] != "3_0" {
 		t.Fatalf("bus showing M10 on the road of M100 is on %v", got)
 	}
-	if got := follow(t, newTestRealtime(), "SV3", "M10", 26.30, 47.65, 47.652); got[1] != "2_0" {
+	if got := followBus(t, newTestRealtime(), "SV3", "M10", 26.30, 47.65, 47.652); got[1] != "2_0" {
 		t.Fatalf("bus showing M10 on its own road is on %v", got)
 	}
 }
