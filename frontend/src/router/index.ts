@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "@/views/HomeView.vue";
 import { isShare, sharedDestination } from "@/utils/share.ts";
-import { citiesReady, currentCity, knownCity, resolveCity, setCity } from "@/utils/city.ts";
+import { citiesReady, currentCity, knownCity, locatedCity, openingCity, setCity } from "@/utils/city.ts";
 
 const StopView = () => import("@/views/StopView.vue");
 const StopsView = () => import("@/views/StopsView.vue");
@@ -32,7 +32,16 @@ const router = createRouter({
       path: "/",
       name: "landing",
       component: HomeView,
-      beforeEnter: async () => `/${await resolveCity()}/`,
+      beforeEnter: async () => {
+        await citiesReady;
+        const slug = openingCity();
+        void Promise.all([locatedCity(), router.isReady()]).then(([nearest]) => {
+          if (nearest && nearest !== slug && currentCity.value === slug && router.currentRoute.value.name === "home") {
+            void router.replace(`/${nearest}/`);
+          }
+        });
+        return `/${slug}/`;
+      },
     },
     {
       path: "/android",
@@ -124,7 +133,7 @@ router.beforeEach(async (to) => {
   const slug = to.params.city;
   if (typeof slug !== "string") return true;
   await citiesReady;
-  if (!knownCity(slug)) return `/${await resolveCity()}/`;
+  if (!knownCity(slug)) return "/";
   setCity(slug);
   return true;
 });

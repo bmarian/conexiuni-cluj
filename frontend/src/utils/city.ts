@@ -159,13 +159,16 @@ function locate(): Promise<GeolocationPosition | null> {
   })
 }
 
-export async function resolveCity(): Promise<string> {
-  const list = await citiesReady
+export function openingCity(): string {
   if (cityChoice.value && knownCity(cityChoice.value)) return cityChoice.value
-  const fallback = [stored(LAST_KEY), DEFAULT_CITY].find((slug) => slug && knownCity(slug)) ?? list[0]?.slug ?? DEFAULT_CITY
-  if (list.length < 2 || !await checkLocationGranted()) return fallback
+  return [stored(LAST_KEY), DEFAULT_CITY].find((slug) => slug && knownCity(slug)) ?? cities.value[0]?.slug ?? DEFAULT_CITY
+}
+
+export async function locatedCity(): Promise<string | null> {
+  const list = await citiesReady
+  if ((cityChoice.value && knownCity(cityChoice.value)) || list.length < 2 || !await checkLocationGranted()) return null
   const position = await locate()
-  if (!position) return fallback
+  if (!position) return null
   const {latitude, longitude} = position.coords
   let nearest = list[0]!
   for (const city of list) {
@@ -177,5 +180,5 @@ export async function resolveCity(): Promise<string> {
 export async function chooseCity(slug: string | null): Promise<string> {
   cityChoice.value = slug
   store(CHOICE_KEY, slug)
-  return slug ?? await resolveCity()
+  return slug ?? await locatedCity() ?? openingCity()
 }
