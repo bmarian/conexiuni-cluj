@@ -62,6 +62,7 @@ func Localities(r io.ReadSeeker, points []Point) (towns, streets []string, err e
 	if len(points) == 0 {
 		return nil, nil, nil
 	}
+	defer holdExtract()()
 	box := BBox{MinLat: math.Inf(1), MinLon: math.Inf(1), MaxLat: math.Inf(-1), MaxLon: math.Inf(-1)}
 	for _, p := range points {
 		box.MinLat, box.MaxLat = math.Min(box.MinLat, p.Lat), math.Max(box.MaxLat, p.Lat)

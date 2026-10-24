@@ -46,6 +46,14 @@ type pbfBlock struct {
 	err       error
 }
 
+// One city reads the country extract at a time: each read already uses every core, and their peaks add up.
+var extractSlot = make(chan struct{}, 1)
+
+func holdExtract() (release func()) {
+	extractSlot <- struct{}{}
+	return func() { <-extractSlot }
+}
+
 // readPBF decodes blocks on every core and hands them back in file order.
 func readPBF(r io.Reader, keep pbfFilter, each func(pbfBlock)) error {
 	workers := runtime.GOMAXPROCS(0)

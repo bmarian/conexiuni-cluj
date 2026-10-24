@@ -244,3 +244,44 @@ func TestALinesTwoDirectionsAreOneStationWhereTheirStopsOverlap(t *testing.T) {
 		t.Errorf("the two villages' Gara are one station")
 	}
 }
+
+func TestAStopNoTripCallsAtNeitherRenamesNorWidensTheLookup(t *testing.T) {
+	snap, locate := placesSnapshot([]testPlace{{"Gara", "Cluj-Napoca", 1, []string{"Strada Gării"}}})
+	snap.Stops = append(snap.Stops, models.Stop{StopID: 99, StopName: "Gara", StopLat: 44.17, StopLon: 28.65})
+	asked := 0
+	n, err := Stations(snap, func(p []Point) ([]string, []string, error) { asked += len(p); return locate(p) })
+	if err != nil || n != 0 || asked != 0 {
+		t.Fatalf("renamed %d, looked up %d points, %v", n, asked, err)
+	}
+	expectNames(t, snap, map[string]int{"Gara": 2})
+	if s := snap.Stops[len(snap.Stops)-1]; s.StationID != s.StopID {
+		t.Errorf("unserved stop is in station %d", s.StationID)
+	}
+}
+
+func TestCachedLocateReadsTheMapOnlyForNewPoints(t *testing.T) {
+	calls := 0
+	cached := CachedLocate(func(p []Point) ([]string, []string, error) {
+		calls++
+		towns, streets := make([]string, len(p)), make([]string, len(p))
+		for i, q := range p {
+			towns[i], streets[i] = strconv.FormatFloat(q.Lat, 'f', -1, 64), strconv.FormatFloat(q.Lon, 'f', -1, 64)
+		}
+		return towns, streets, nil
+	})
+	a, b, c := Point{46.1, 23.1}, Point{46.2, 23.2}, Point{46.3, 23.3}
+	for _, query := range [][]Point{{a, b}, {b, a}, {a}, {a, c}} {
+		towns, streets, err := cached(query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, q := range query {
+			if towns[i] != strconv.FormatFloat(q.Lat, 'f', -1, 64) || streets[i] != strconv.FormatFloat(q.Lon, 'f', -1, 64) {
+				t.Fatalf("%v answered %q %q", q, towns[i], streets[i])
+			}
+		}
+	}
+	if calls != 2 {
+		t.Errorf("read the map %d times, want 2", calls)
+	}
+}

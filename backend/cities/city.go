@@ -80,7 +80,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	}
 	c.Live.ScheduleChanged = forget
 	c.Ingest = ingest.New(store, c.Data, &c.offered, c.Updates)
-	c.Ingest.Static, c.Ingest.Timetables, c.Ingest.Locate, c.Ingest.Refresh = static, timetables, planner.Locate, opts.Refresh
+	c.Ingest.Static, c.Ingest.Timetables, c.Ingest.Locate, c.Ingest.Refresh = static, timetables, feeds.CachedLocate(planner.Locate), opts.Refresh
 	c.Ingest.NetworkStored = c.Live.NetworkStored
 	c.Ingest.OffsetsStored = c.Live.OffsetsStored
 	c.Ingest.Imported = func(stored bool) {
