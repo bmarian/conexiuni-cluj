@@ -145,6 +145,7 @@ let resizeRaf = 0
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let locationRetryTimer: ReturnType<typeof setTimeout> | null = null
 let geoWatchId: number | null = null
+let lastFix: Fix | null = null
 let stopRefreshFrame = 0
 let vehicleFrame = 0
 let styleReady = false
@@ -986,6 +987,7 @@ const updateLiveLocation = (fix: Fix) => {
   const m = map.value
   if (!m) return
 
+  lastFix = fix
   userStore.setIsLocating(false)
   if (!inCity(fix.lat, fix.lng)) {
     pendingCenterOnUser = false
@@ -1077,6 +1079,7 @@ watch(currentCity, (slug) => {
     if (flight !== cityFlight) return
     flyingBetweenCities = false
     clampToCity()
+    if (lastFix) updateLiveLocation(lastFix)
   })
   m.flyTo({center: [view.lng, view.lat], zoom: view.zoom, duration: CITY_FLIGHT_MS})
   void stopsInit()
