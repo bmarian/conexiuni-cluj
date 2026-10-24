@@ -23,6 +23,7 @@ import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import ChoiceRow from '@/components/ui/ChoiceRow.vue'
+import DirectionArrow from '@/components/ui/DirectionArrow.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
@@ -368,11 +369,6 @@ const directionChoices = computed<Choice<'0' | '1'>[]>(() => [
   {value: '1', label: directionTerminals.value.incoming.last || timetable.value?.in_stop_name || '', disabled: !hasIncoming.value},
 ])
 
-function headingStyle(dir: '0' | '1', rest: number) {
-  const heading = directionHeadings.value[dir]
-  return heading === null ? undefined : {transform: `rotate(${heading - rest}deg)`}
-}
-
 const tabChoices = computed<Choice<TimetableTab>[]>(() => availableTabs.value.map((tab) => ({value: tab.key, label: tab.label})))
 
 function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
@@ -418,10 +414,10 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
         data-kbd-entry="3"
         @update:model-value="onDirClick"
       >
-        <template #label="{option}">
-          <ArrowForwardIcon v-if="option.value === '0'" class="m-icon size-4 shrink-0" :style="headingStyle('0', 90)"/>
+        <template #label="{option, checked}">
+          <DirectionArrow v-if="option.value === '0'" :icon="ArrowForwardIcon" :rest="90" :heading="directionHeadings['0']" :on="checked"/>
           <span class="truncate">{{ option.label }}</span>
-          <ArrowBackIcon v-if="option.value === '1'" class="m-icon size-4 shrink-0" :style="headingStyle('1', 270)"/>
+          <DirectionArrow v-if="option.value === '1'" :icon="ArrowBackIcon" :rest="270" :heading="directionHeadings['1']" :on="checked"/>
         </template>
       </ChoiceRow>
 
