@@ -5,11 +5,42 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type Point struct{ Lat, Lon float64 }
 
 type Locate func(points []Point) (towns, streets []string, err error)
+
+// CachedLocate answers from earlier results when it knows every point, so a re-ingest of unchanged stops reads no map.
+func CachedLocate(locate Locate) Locate {
+	var mu sync.Mutex
+	known := map[Point][2]string{}
+	return func(points []Point) ([]string, []string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		towns, streets := make([]string, len(points)), make([]string, len(points))
+		for i, p := range points {
+			v, ok := known[p]
+			if !ok {
+				return locateAndKeep(locate, points, known)
+			}
+			towns[i], streets[i] = v[0], v[1]
+		}
+		return towns, streets, nil
+	}
+}
+
+func locateAndKeep(locate Locate, points []Point, known map[Point][2]string) ([]string, []string, error) {
+	towns, streets, err := locate(points)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i, p := range points {
+		known[p] = [2]string{towns[i], streets[i]}
+	}
+	return towns, streets, nil
+}
 
 func Stations(snap *Snapshot, locate Locate) (int, error) {
 	key := make([]string, len(snap.Stops))
@@ -33,8 +64,19 @@ func Stations(snap *Snapshot, locate Locate) (int, error) {
 		}
 	}
 
+	served := make([]bool, len(snap.Stops))
+	for _, run := range runs {
+		for _, s := range run {
+			served[s] = true
+		}
+	}
+	// Tranzy also lists other cities' stops; letting them in stretches the lookup box over half the country.
 	byName := map[string][]int{}
 	for i, k := range key {
+		if !served[i] {
+			snap.Stops[i].StationID = snap.Stops[i].StopID
+			continue
+		}
 		byName[k] = append(byName[k], i)
 	}
 	calls := directionsAt(snap, runs)

@@ -64,6 +64,7 @@ func Load(r io.Reader, box BBox) (*WalkGraph, *Places, error) { return load(r, b
 func LoadRoads(r io.Reader, box BBox) (*WalkGraph, *Places, error) { return load(r, box, drivable) }
 
 func load(r io.Reader, box BBox, usable func(tag func(string) string) bool) (*WalkGraph, *Places, error) {
+	defer holdExtract()()
 	index := make(map[int64]int32)
 	var lat, lon []float64
 	var edges [][2]int32
