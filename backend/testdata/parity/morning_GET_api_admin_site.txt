@@ -1,0 +1,49 @@
+GET /api/admin/site
+200
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: application/json; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+{
+ "cities": [
+  {
+   "name": "Fixture",
+   "people_today": 1,
+   "problems": [],
+   "realtime": true,
+   "slug": "fixture",
+   "watching": 0
+  },
+  {
+   "name": "Fixture GTFS",
+   "people_today": 1,
+   "problems": [],
+   "realtime": false,
+   "slug": "fixturegtfs",
+   "watching": 0
+  }
+ ],
+ "generated_at": "2026-10-20T06:40:00+03:00",
+ "problems": [],
+ "server": {
+  "db_bytes": "\u003cvolatile\u003e",
+  "disk_free": "\u003cvolatile\u003e",
+  "disk_total": "\u003cvolatile\u003e",
+  "errors": 0,
+  "heap_bytes": "\u003cvolatile\u003e",
+  "modified": false,
+  "problems": [],
+  "requests": 55,
+  "revision": "",
+  "started_at": "\u003cvolatile\u003e",
+  "sync": {
+   "chains": 0,
+   "db_bytes": "\u003cvolatile\u003e",
+   "devices": {}
+  }
+ }
+}

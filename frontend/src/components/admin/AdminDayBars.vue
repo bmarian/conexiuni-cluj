@@ -41,12 +41,16 @@ const caption = computed(() => props.days[selected.value]?.caption ?? '')
 </template>
 
 <style scoped>
+.day-bars {
+  padding: 8px 16px 4px;
+}
+
 .bars {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 3.5rem;
-  border-bottom: 1px solid var(--a-rule);
+  height: 64px;
+  border-bottom: 1px solid var(--md-outline-variant);
 }
 
 .bar {
@@ -64,22 +68,26 @@ const caption = computed(() => props.days[selected.value]?.caption ?? '')
   display: block;
   width: 100%;
   min-height: 1px;
-  border-radius: 2px 2px 0 0;
-  background: var(--a-bar);
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--md-primary) 30%, transparent);
+  transition: background-color 150ms linear;
 }
 
 .bar.is-today span {
-  background: var(--a-bar-strong);
+  background: color-mix(in srgb, var(--md-primary) 60%, transparent);
 }
 
 .bar.is-selected span {
-  background: var(--a-text);
+  background: var(--md-primary);
 }
 
 .caption {
-  margin: 0.375rem 0 0;
-  font-size: 0.75rem;
-  color: var(--a-muted);
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
   font-variant-numeric: tabular-nums;
 }
 </style>

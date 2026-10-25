@@ -2,9 +2,6 @@
 package gtfsrt
 
 import (
-	"fmt"
-	"io"
-	"net/http"
 	"sync"
 	"time"
 
@@ -18,7 +15,6 @@ type Source struct {
 	ids feeds.IDMap
 	// Finds the direction when the feed leaves it out.
 	Placement feeds.Placement
-	client    *http.Client
 
 	mu sync.Mutex
 	// The previous fixes, for feeds without speed.
@@ -31,21 +27,13 @@ type fix struct {
 }
 
 func New(url string, ids feeds.IDMap) *Source {
-	return &Source{url: url, ids: ids, client: &http.Client{Timeout: 30 * time.Second}, last: map[int]fix{}}
+	return &Source{url: url, ids: ids, last: map[int]fix{}}
 }
 
 func (s *Source) Budget() feeds.Budget { return feeds.Budget{} }
 
 func (s *Source) Vehicles() ([]models.Vehicle, error) {
-	resp, err := s.client.Get(s.url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gtfsrt: %s: status %d", s.url, resp.StatusCode)
-	}
-	data, err := io.ReadAll(resp.Body)
+	data, err := feeds.Download(s.url)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -131,5 +132,22 @@ func TestRefusesAnOversizedAnswer(t *testing.T) {
 	}
 	if data, err := fetchAtMost(http.DefaultClient, server.URL, 100); err != nil || len(data) != 100 {
 		t.Fatalf("a 100-byte cap: %d bytes, %v", len(data), err)
+	}
+}
+
+func TestSaysWhoAsksAndWhatCameBack(t *testing.T) {
+	var agent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		agent = r.UserAgent()
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(server.Close)
+	_, err := Download(server.URL)
+	if agent != userAgent {
+		t.Errorf("User-Agent %q, want %q", agent, userAgent)
+	}
+	var status *StatusError
+	if !errors.As(err, &status) || status.Code != http.StatusNotFound {
+		t.Fatalf("got %v, want a 404 StatusError", err)
 	}
 }

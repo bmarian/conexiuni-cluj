@@ -160,11 +160,13 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		if stats, err := syncStats(); err == nil {
-			overview.Server.Sync = &stats
-		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(overview)
+	})
+
+	admin.Get("/site", RequireSession(token), func(c fiber.Ctx) error {
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(buildSite(registry, syncStats, time.Now()))
 	})
 
 	admin.Get("/cities", RequireSession(token), func(c fiber.Ctx) error {

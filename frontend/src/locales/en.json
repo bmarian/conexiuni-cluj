@@ -320,6 +320,8 @@
   "androidBetaAsk": "Join the beta to test the app",
   "contact": "Contact",
   "contactDesc": "Help, suggestions or anything else.",
+  "sourceCodeDesc": "Source code, issues and ideas.",
+  "openSource": "Open source",
   "refresh": "Refresh",
   "moreOptions": "More options",
   "clearSearch": "Clear search",

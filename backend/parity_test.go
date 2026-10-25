@@ -409,6 +409,7 @@ func (r *recorder) walk(built []*cities.City, adminToken string) {
 	r.get("/api/admin/overview?city=" + built[0].Slug)
 	r.do(http.MethodPost, "/api/admin/login", `{"token":"`+adminToken+`"}`, "Content-Type", "application/json")
 	r.get("/api/admin/cities")
+	r.get("/api/admin/site")
 	for _, city := range built {
 		r.get("/api/admin/overview?city=" + city.Slug)
 		r.get("/api/admin/calendar?city=" + city.Slug)
@@ -450,6 +451,7 @@ func (r *recorder) walkMorning(built []*cities.City, adminToken string) {
 	}
 	flushStats(r.t, built)
 	r.do(http.MethodPost, "/api/admin/login", `{"token":"`+adminToken+`"}`, "Content-Type", "application/json")
+	r.get("/api/admin/site")
 	for _, city := range built {
 		r.get("/api/admin/overview?city=" + city.Slug)
 		r.get("/api/admin/calendar?city=" + city.Slug)
@@ -674,7 +676,7 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 		fmt.Fprintf(&text, "> %s: %s\n", header[i], header[i+1])
 	}
 	fmt.Fprintf(&text, "%d\n", resp.StatusCode)
-	volatileBody := strings.HasPrefix(target, "/api/admin/overview")
+	volatileBody := strings.HasPrefix(target, "/api/admin/overview") || strings.HasPrefix(target, "/api/admin/site")
 	keys := make([]string, 0, len(resp.Header))
 	for k := range resp.Header {
 		if !skippedHeads[k] && !((k == "Content-Length" || k == "Etag") && (volatileBody || resp.Header.Get("Content-Encoding") != "")) {
@@ -691,7 +693,7 @@ func (r *recorder) do(method, target, body string, header ...string) []byte {
 		}
 	}
 	text.WriteString("\n")
-	if strings.HasPrefix(target, "/api/admin/overview") {
+	if volatileBody {
 		plain = maskVolatile(r.t, plain)
 	}
 	if strings.HasPrefix(target, "/api/sync") {

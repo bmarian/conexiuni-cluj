@@ -1,15 +1,17 @@
 import { statSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import svgLoader from "vite-svg-loader";
 import { VitePWA } from "vite-plugin-pwa";
+import { releaseVersion } from "./release";
 
-export default defineConfig({
+export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   define: {
     __APP_VERSION__: JSON.stringify(Date.now().toString(36)),
+    __APP_RELEASE__: JSON.stringify(command === "build" ? await releaseVersion() : ""),
   },
   plugins: [
     tailwindcss(),
@@ -139,4 +141,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

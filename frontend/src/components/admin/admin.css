@@ -1,0 +1,275 @@
+/* Shared by the admin page and its parts. */
+.admin-card {
+  break-inside: avoid;
+  margin: 0 0 12px;
+  padding: 4px 0 8px;
+  border-radius: 16px;
+  background: var(--md-surface-container);
+}
+
+.admin-card > header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+
+.admin-card > header h3 {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  letter-spacing: 0.15px;
+}
+
+.admin-card > header > span {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+}
+
+.admin-rows {
+  margin: 0;
+}
+
+.admin-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 10px 16px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+.admin-rows dt {
+  flex-shrink: 0;
+  color: var(--md-on-surface-variant);
+}
+
+.admin-rows dt.name {
+  flex-shrink: 1;
+  min-width: 0;
+  color: var(--md-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-rows dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.admin-rows > div.has-action {
+  align-items: center;
+  min-height: 48px;
+  padding-block: 0;
+  padding-right: 4px;
+}
+
+.admin-table {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-table th {
+  padding: 8px 0 4px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+  text-align: right;
+  vertical-align: bottom;
+}
+
+.admin-table td {
+  padding: 10px 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-table th:first-child,
+.admin-table td:first-child {
+  text-align: left;
+}
+
+.admin-table th + th,
+.admin-table td + td {
+  padding-left: 12px;
+}
+
+.admin-table td:first-child {
+  color: var(--md-on-surface-variant);
+}
+
+.admin-table .total td {
+  font-weight: 600;
+  color: var(--md-on-surface);
+}
+
+.admin-table .group th {
+  padding-top: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.admin-table tbody > .group:first-child th {
+  padding-top: 4px;
+}
+
+.admin-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 4px 16px 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--md-on-surface-variant);
+}
+
+.admin-lines > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Same shape as LineBadge, with the operator's own colour. */
+.admin-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 40px;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--md-outline);
+  color: #fff;
+  font-size: 12.6px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 4px 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  color: var(--md-primary);
+}
+
+.admin-settings .m-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-bad {
+  color: var(--md-error);
+}
+
+.admin-note {
+  padding: 4px 16px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.admin-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin: 0 4px;
+  padding: 0 12px;
+  border-radius: 12px;
+  list-style: none;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+}
+
+.admin-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-fold > summary > span {
+  flex: 1;
+}
+
+.admin-fold > summary > .m-icon {
+  transition: rotate 200ms ease;
+}
+
+.admin-fold[open] > summary > .m-icon {
+  rotate: 180deg;
+}
+
+.admin-card.admin-fold {
+  padding: 4px 0;
+}
+
+.admin-card.admin-fold[open] {
+  padding-bottom: 8px;
+}
+
+.admin-card.admin-fold > summary {
+  min-height: 56px;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  color: var(--md-on-surface);
+}
+
+.admin-card.admin-fold > summary > .m-icon {
+  color: var(--md-on-surface-variant);
+}
+
+.admin-field {
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 24px;
+  outline: 0;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  caret-color: var(--md-primary);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.admin-field:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--md-primary);
+}
+
+.admin-field::placeholder {
+  color: var(--md-on-surface-variant);
+}

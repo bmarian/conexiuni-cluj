@@ -3,8 +3,6 @@ package timisoara
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -14,13 +12,12 @@ import (
 
 // The vehicles of live.stpt.ro, a Timișoara live map; its terms forbid automated use without permission.
 type realtime struct {
-	url    string
-	ids    feeds.IDMap
-	client *http.Client
+	url string
+	ids feeds.IDMap
 }
 
 func newRealtime(url string, ids feeds.IDMap) *realtime {
-	return &realtime{url: url, ids: ids, client: &http.Client{Timeout: 30 * time.Second}}
+	return &realtime{url: url, ids: ids}
 }
 
 func (s *realtime) Budget() feeds.Budget { return feeds.Budget{} }
@@ -44,16 +41,12 @@ type vehicle struct {
 }
 
 func (s *realtime) Vehicles() ([]models.Vehicle, error) {
-	resp, err := s.client.Get(s.url)
+	data, err := feeds.Download(s.url)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("stpt: %s: status %d", s.url, resp.StatusCode)
-	}
 	var a answer
-	if err := json.NewDecoder(resp.Body).Decode(&a); err != nil {
+	if err := json.Unmarshal(data, &a); err != nil {
 		return nil, err
 	}
 	return s.vehicles(a)

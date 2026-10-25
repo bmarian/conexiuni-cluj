@@ -4,23 +4,17 @@ import (
 	"cmp"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/database"
-	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/live"
 	"fmt"
 	"math"
-	"runtime"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var serverStartedAt = time.Now()
-
 const (
-	diskFullWarning = 0.9
 	adminTopLimit   = 5
 	adminPeopleDays = 30
 	adminTrendDays  = 14
@@ -41,7 +35,7 @@ type adminOverview struct {
 	People      adminPeople   `json:"people"`
 	Quota       adminQuota    `json:"quota"`
 	Data        adminData     `json:"data"`
-	Server      adminServer   `json:"server"`
+	Traffic     adminTraffic  `json:"traffic"`
 }
 
 type adminNow struct {
@@ -172,19 +166,11 @@ type problemEntry struct {
 	Text  string    `json:"text"`
 }
 
-type adminServer struct {
-	StartedAt time.Time         `json:"started_at"`
-	Revision  string            `json:"revision"`
-	Modified  bool              `json:"modified"`
-	HeapBytes uint64            `json:"heap_bytes"`
-	DBBytes   int64             `json:"db_bytes"`
-	DiskFree  uint64            `json:"disk_free"`
-	DiskTotal uint64            `json:"disk_total"`
-	Requests  int               `json:"requests"`
-	Errors    int               `json:"errors"`
-	Endpoints []endpointToday   `json:"endpoints"`
-	Problems  []problemEntry    `json:"problems"`
-	Sync      *devicesync.Stats `json:"sync,omitempty"`
+type adminTraffic struct {
+	DBBytes   int64           `json:"db_bytes"`
+	Requests  int             `json:"requests"`
+	Errors    int             `json:"errors"`
+	Endpoints []endpointToday `json:"endpoints"`
 }
 
 func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
@@ -206,14 +192,24 @@ func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
 	if o.Data, err = dataSection(city, st, now); err != nil {
 		return nil, fmt.Errorf("data: %w", err)
 	}
-	if o.Server, err = serverSection(city, now); err != nil {
-		return nil, fmt.Errorf("server: %w", err)
+	if o.Traffic, err = trafficSection(city, now); err != nil {
+		return nil, fmt.Errorf("traffic: %w", err)
 	}
-	o.Problems = problems(city, st, o, now)
+	o.Problems = cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, now)
 	return o, nil
 }
 
 func nowSection(city *cities.City, st live.Status) (adminNow, error) {
+	n := nowCounts(st)
+	var err error
+	if n.Stops, err = topNamed(st.Watching.Stops, func(ids []int) (map[int]namedCount, error) { return stopNames(city, ids) }); err != nil {
+		return n, err
+	}
+	n.Lines, err = topNamed(st.Watching.Routes, func(ids []int) (map[int]namedCount, error) { return routeNames(city, ids) })
+	return n, err
+}
+
+func nowCounts(st live.Status) adminNow {
 	n := adminNow{}
 	w := st.Watching
 	n.Streams, n.People = w.Streams, w.People
@@ -228,12 +224,7 @@ func nowSection(city *cities.City, st live.Status) (adminNow, error) {
 		n.FeedError, n.FeedErrorAt = f.Err, &f.ErrAt
 	}
 	n.PollSec, n.PolledBy = st.PollInterval.Seconds(), st.PolledBy
-	var err error
-	if n.Stops, err = topNamed(w.Stops, func(ids []int) (map[int]namedCount, error) { return stopNames(city, ids) }); err != nil {
-		return n, err
-	}
-	n.Lines, err = topNamed(w.Routes, func(ids []int) (map[int]namedCount, error) { return routeNames(city, ids) })
-	return n, err
+	return n
 }
 
 type errorHistogram map[int]int
@@ -342,9 +333,35 @@ func accuracySection(city *cities.City, now time.Time) (adminAccuracy, error) {
 	return a, nil
 }
 
+var platformNames = []string{"web", "android", "wear"}
+
 func clientPlatform(client string) (platform, version string) {
 	platform, version, _ = strings.Cut(client, "/")
 	return platform, version
+}
+
+// peopleOn counts one day's visitors; scripts counted before robots were left out are taken off.
+func peopleOn(city *cities.City, date string) (int, error) {
+	visitors, err := city.MetricRows("visitors", date)
+	if err != nil {
+		return 0, err
+	}
+	clients, err := city.MetricRows("client_visitors", date)
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	for _, r := range visitors {
+		if r.Date == date {
+			total += r.Count
+		}
+	}
+	for _, r := range clients {
+		if platform, _ := clientPlatform(r.Key); r.Date == date && !slices.Contains(platformNames, platform) {
+			total -= r.Count
+		}
+	}
+	return max(0, total), nil
 }
 
 func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
@@ -382,7 +399,7 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 		return p, err
 	}
 	platforms := map[string]*platformCount{}
-	for _, name := range []string{"web", "android", "wear"} {
+	for _, name := range platformNames {
 		platforms[name] = &platformCount{Platform: name}
 	}
 	versions := map[string]*versionCount{}
@@ -421,7 +438,7 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 		}
 		v.LastSeen = max(v.LastSeen, r.Date)
 	}
-	for _, name := range []string{"web", "android", "wear"} {
+	for _, name := range platformNames {
 		p.Platforms = append(p.Platforms, *platforms[name])
 	}
 	if d := days[today]; d != nil {
@@ -597,27 +614,12 @@ func archiveSection(city *cities.City, run *live.ArchiveRun) adminArchive {
 	return a
 }
 
-func serverSection(city *cities.City, now time.Time) (adminServer, error) {
-	s := adminServer{StartedAt: serverStartedAt, Endpoints: []endpointToday{}, Problems: []problemEntry{}}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, kv := range info.Settings {
-			switch kv.Key {
-			case "vcs.revision":
-				s.Revision = kv.Value[:min(len(kv.Value), 8)]
-			case "vcs.modified":
-				s.Modified = kv.Value == "true"
-			}
-		}
-	}
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
-	s.HeapBytes = mem.HeapAlloc
+func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
+	t := adminTraffic{Endpoints: []endpointToday{}}
 	var err error
-	if s.DBBytes, err = city.Size(); err != nil {
-		return s, err
+	if t.DBBytes, err = city.Size(); err != nil {
+		return t, err
 	}
-	s.DiskFree, s.DiskTotal, _ = diskSpace(".")
-
 	today := database.StatsDate(now)
 	endpoints := map[string]*endpointToday{}
 	get := func(key string) *endpointToday {
@@ -630,18 +632,18 @@ func serverSection(city *cities.City, now time.Time) (adminServer, error) {
 	for _, metric := range []string{"endpoint_call", "endpoint_ms", "endpoint_error"} {
 		rows, err := city.MetricRows(metric, today)
 		if err != nil {
-			return s, err
+			return t, err
 		}
 		for _, r := range rows {
 			switch metric {
 			case "endpoint_call":
 				get(r.Key).Calls += r.Count
-				s.Requests += r.Count
+				t.Requests += r.Count
 			case "endpoint_ms":
 				totalMs[r.Key] += r.Count
 			case "endpoint_error":
 				get(r.Key).Errors += r.Count
-				s.Errors += r.Count
+				t.Errors += r.Count
 			}
 		}
 	}
@@ -649,23 +651,19 @@ func serverSection(city *cities.City, now time.Time) (adminServer, error) {
 		if e.Calls > 0 && totalMs[key] > 0 {
 			e.AvgMs = math.Round(float64(totalMs[key])/float64(e.Calls)*10) / 10
 		}
-		s.Endpoints = append(s.Endpoints, *e)
+		t.Endpoints = append(t.Endpoints, *e)
 	}
-	slices.SortFunc(s.Endpoints, func(a, b endpointToday) int {
+	slices.SortFunc(t.Endpoints, func(a, b endpointToday) int {
 		if c := cmp.Compare(b.Calls, a.Calls); c != 0 {
 			return c
 		}
 		return cmp.Compare(a.Key, b.Key)
 	})
-	for _, l := range ProblemLog.Recent(now.Add(-24 * time.Hour)) {
-		s.Problems = append(s.Problems, problemEntry{First: l.First, Last: l.Last, Count: l.Count, Text: l.Text})
-	}
-	return s, nil
+	return t, nil
 }
 
-func problems(city *cities.City, st live.Status, o *adminOverview, now time.Time) []string {
+func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, now time.Time) []string {
 	out := []string{}
-	n := o.Now
 	if n.FeedError != "" {
 		out = append(out, "Live feed failing: "+truncateText(n.FeedError, 160))
 	}
@@ -684,36 +682,25 @@ func problems(city *cities.City, st live.Status, o *adminOverview, now time.Time
 	if n.BusesInService > 0 && n.BusesTracked == 0 {
 		out = append(out, fmt.Sprintf("%d buses reported, none matched to a trip", n.BusesInService))
 	}
-	for _, q := range o.Quota.Quotas {
+	for _, q := range quotas {
 		if q.Limit > 0 && q.Used >= q.Limit {
 			out = append(out, "The "+q.Name+" quota is used up")
 		}
 	}
-	if o.Server.Errors > 0 {
-		out = append(out, fmt.Sprintf("%d server errors today", o.Server.Errors))
+	if errors > 0 {
+		out = append(out, fmt.Sprintf("%d server errors today", errors))
 	}
 	if p := st.CalendarProblem; p != "" {
 		out = append(out, p)
 	}
-	if a := o.Data.Archive; !a.Enabled {
+	if !archive.Enabled {
 		out = append(out, "Archive off, no history kept")
-	} else if a.Error != "" {
-		out = append(out, "Archive failed: "+truncateText(a.Error, 160))
-	} else if a.RanAt == nil && now.Sub(city.StartedAt()) > live.ArchiveStartDelay+time.Hour {
+	} else if archive.Error != "" {
+		out = append(out, "Archive failed: "+truncateText(archive.Error, 160))
+	} else if archive.RanAt == nil && now.Sub(city.StartedAt()) > live.ArchiveStartDelay+time.Hour {
 		out = append(out, "Archive not run for "+humanDuration(now.Sub(city.StartedAt())))
-	} else if a.RanAt != nil && now.Sub(*a.RanAt) > live.ArchiveOverdue {
-		out = append(out, "Archive not run for "+humanDuration(now.Sub(*a.RanAt)))
-	}
-	if s := o.Server; s.DiskTotal > 0 {
-		if used := 1 - float64(s.DiskFree)/float64(s.DiskTotal); used >= diskFullWarning {
-			out = append(out, fmt.Sprintf("Disk %.0f%% full", used*100))
-		}
-	}
-	for _, p := range o.Server.Problems {
-		if now.Sub(p.Last) < time.Hour {
-			out = append(out, "Failures logged in the last hour")
-			break
-		}
+	} else if archive.RanAt != nil && now.Sub(*archive.RanAt) > live.ArchiveOverdue {
+		out = append(out, "Archive not run for "+humanDuration(now.Sub(*archive.RanAt)))
 	}
 	return out
 }

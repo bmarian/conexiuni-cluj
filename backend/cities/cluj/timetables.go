@@ -7,17 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v3/client"
 	"golang.org/x/time/rate"
 )
 
 // CTP publishes its own timetables, more exact than Tranzy's: one CSV per line and kind of day.
 type timetables struct {
 	baseURL string
-	http    *client.Client
 	limiter *rate.Limiter
 	cadence time.Duration
 }
@@ -25,9 +24,7 @@ type timetables struct {
 var errNoFile = errors.New("timetable not found")
 
 func newTimetables(baseURL string, rateLimit, cadence time.Duration) *timetables {
-	c := client.New()
-	c.SetTimeout(30 * time.Second)
-	return &timetables{baseURL: baseURL, http: c, limiter: rate.NewLimiter(rate.Every(rateLimit), 1), cadence: cadence}
+	return &timetables{baseURL: baseURL, limiter: rate.NewLimiter(rate.Every(rateLimit), 1), cadence: cadence}
 }
 
 func (s *timetables) Cadence() time.Duration { return s.cadence }
@@ -84,18 +81,15 @@ func (s *timetables) timetable(line string) (*models.Timetable, error) {
 }
 
 func (s *timetables) day(line, file string) (*csvDay, error) {
-	resp, err := s.http.Get(fmt.Sprintf("%s/orar_%s_%s.csv", s.baseURL, line, file))
+	data, err := feeds.Download(fmt.Sprintf("%s/orar_%s_%s.csv", s.baseURL, line, file))
+	var status *feeds.StatusError
+	if errors.As(err, &status) && status.Code == http.StatusNotFound {
+		return nil, errNoFile
+	}
 	if err != nil {
 		return nil, err
 	}
-	switch resp.StatusCode() {
-	case 200:
-	case 404:
-		return nil, errNoFile
-	default:
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode())
-	}
-	parsed, err := parseCSV(resp.Body())
+	parsed, err := parseCSV(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
 	}
