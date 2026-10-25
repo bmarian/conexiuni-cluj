@@ -42,6 +42,7 @@ There's an [Android app](https://github.com/bmarian/conexiuni-cluj-mobile), a [W
 | Suceava     | [TPL Suceava](https://tpl-sv.ro/)                                                             | Live       | A [volunteer-made GTFS](https://gtfs.opendev.ro/GTFS-328.zip), TPL's line pages for the lines it lacks, and the buses on TPL's own live map                       |
 | Târgu Mureș | [Transport Local](https://transportlocal.ro/)                                                 | Live       | Transport Local's [GTFS](https://live.transportlocal.ro/gtfs.zip) and the buses on its [live map](https://live.transportlocal.ro/)                                |
 | Botoșani    | [Eltrans](https://eltransbt.ro/)                                                              | Timetables | Eltrans's own [routes page](https://eltransbt.ro/trasee): lines, stations and the timetable PDF it links                                                          |
+| Galați      | [Transurb Galați](https://transurbgalati.ro/)                                                 | Timetables | A [volunteer-made GTFS](https://codeberg.org/rapiteanu/public-transport) under CC BY 4.0                                                                          |
 | Sibiu       | [Tursib](https://tursib.ro/)                                                                  | Timetables | Tursib: lines, timetables and news                                                                                                                                |
 
 This is an unofficial app, not affiliated with any of these companies or city halls.
@@ -90,7 +91,7 @@ The backend listens on `:6698` and the dev server proxies `/api` to it. Everythi
 
 <br>
 
-București, Craiova, Ploiești, Târgu Mureș, Suceava, Botoșani and Sibiu need no key. In production each Tranzy city has its own, `TRANZY_API_KEY_{CITY}`. An optional second key, `TRANZY_API_KEY_{CITY}_LEARNING` (`TRANZY_API_KEY_DEVELOPMENT_LEARNING` in development), keeps the server learning travel times while nobody is watching, without eating into the live quota. `VEHICLE_LEARNING_ENABLED_{CITY}` in `.env` turns that learning off for one city.
+București, Craiova, Ploiești, Târgu Mureș, Suceava, Botoșani, Galați and Sibiu need no key. In production each Tranzy city has its own, `TRANZY_API_KEY_{CITY}`. An optional second key, `TRANZY_API_KEY_{CITY}_LEARNING` (`TRANZY_API_KEY_DEVELOPMENT_LEARNING` in development), keeps the server learning travel times while nobody is watching, without eating into the live quota. `VEHICLE_LEARNING_ENABLED_{CITY}` in `.env` turns that learning off for one city.
 
 Each city keeps its own SQLite database in `db/{city}.db` and its history in `archive/{city}.db`. Cities listed in `db/disabled-cities.json` are switched off; the admin page switches them on and off while the server runs.
 

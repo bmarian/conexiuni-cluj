@@ -80,6 +80,16 @@ type Credited interface {
 	Credit() Credit
 }
 
+// WithCredit names the author of a source whose licence asks for it.
+func WithCredit(source Static, credit Credit) Static { return credited{source, credit} }
+
+type credited struct {
+	Static
+	credit Credit
+}
+
+func (c credited) Credit() Credit { return c.credit }
+
 type Quota struct {
 	Name  string
 	Used  int
