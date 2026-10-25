@@ -4,6 +4,9 @@ import {BUS_PATH as BUS_STOP_PATH, MODE_ICON} from '@/utils/modeIcons.ts'
 import {escapeHtml} from '@/utils/text.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {type SpiderLeg, spiderRadius} from '@/utils/spider.ts'
+import type {ModeLines} from '@/utils/network.ts'
+import accessibleSvg from '@material-design-icons/svg/round/accessible.svg?raw'
+import bikeSvg from '@material-design-icons/svg/round/pedal_bike.svg?raw'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string;
@@ -51,13 +54,15 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
   return icon
 }
 
-export function stationCardHtml(name: string, mark?: StationMark & {routes: Array<{route_short_name: string, route_color: string}>}): string {
-  if (!mark) return escapeHtml(name)
-  const lines = mark.routes.map((r) => `<span class="station-card-line" style="background:${displayColor(r.route_short_name, r.route_color)}">${escapeHtml(r.route_short_name)}</span>`).join('')
-  return `<div class="station-card">
-    <span class="station-card-icon" style="background:${mark.color}"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">${MODE_ICON[mark.mode]}</svg></span>
-    <span class="station-card-body"><span class="station-card-name">${escapeHtml(name)}</span><span class="station-card-lines">${lines}</span></span>
-  </div>`
+export function stationCardHtml(name: string, look?: {groups: ModeLines[]}): string {
+  const groups = (look?.groups ?? []).map(({mode, color, routes}) => {
+    const lines = routes.map((r) => `<span class="station-card-line" style="background:${displayColor(r.route_short_name, r.route_color)}">${escapeHtml(r.route_short_name)}</span>`).join('')
+    return `<div class="station-card-mode">
+      <span class="station-card-icon" style="background:${color}"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">${MODE_ICON[mode]}</svg></span>
+      <span class="station-card-lines">${lines}</span>
+    </div>`
+  }).join('')
+  return `<div class="station-card"><div class="station-card-name">${escapeHtml(name)}</div>${groups}</div>`
 }
 
 export function makeStopIcon(mark?: StationMark): MarkerIcon {
@@ -207,17 +212,10 @@ function accessibility(vehicle: DisplayVehicle): {wheelchair?: boolean, bike?: b
   }
 }
 
-function accessibilityIcons(vehicle: DisplayVehicle, color: string): string {
+function accessibilityIcons(vehicle: DisplayVehicle): string {
   const {wheelchair, bike} = accessibility(vehicle)
-  const sz = 12
-  const strike = `<line x1="2" y1="2" x2="22" y2="22" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>`
-  const icon = (ok: boolean, shape: string) =>
-    `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="${color}" stroke-width="2.5"${!ok ? ' opacity="0.4"' : ''}>${shape}</g>${!ok ? strike : ''}</svg>`
-  const icons = [
-    wheelchair === undefined ? '' : icon(wheelchair, `<circle cx="12" cy="3.5" r="2.5" fill="${color}" stroke="none"/><path d="M10 8v6h5l2 5"/><circle cx="9" cy="19.5" r="3.5"/>`),
-    bike === undefined ? '' : icon(bike, `<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="14" cy="4.5" r="2" fill="${color}" stroke="none"/><path d="M12 17.5V13l-3-3 4-3 2 3h3"/>`),
-  ].join('')
-  return icons && `<span style="display:flex;gap:4px;align-items:center;">${icons}</span>`
+  const icon = (ok: boolean | undefined, svg: string) => ok === undefined ? '' : `<span class="vehicle-tip-icon${ok ? '' : ' is-off'}">${svg}</span>`
+  return icon(wheelchair, accessibleSvg) + icon(bike, bikeSvg)
 }
 
 export function getVehicleMarkerHtml(
@@ -229,9 +227,7 @@ export function getVehicleMarkerHtml(
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
   const roundedSpeed = Math.round(vehicle.speed ?? 0)
   const label = String(vehicle.label ?? '').replace(/[^\w -]/g, '')
-  const speedText = `${label ? `#${label} · ` : ''}${roundedSpeed} km/h`
   const heading = vehicle.heading || 0
-  const extras = accessibilityIcons(vehicle, '#94a3b8')
 
   return `
     <div class="relative flex items-center">
@@ -247,12 +243,12 @@ export function getVehicleMarkerHtml(
         </svg>
       </div>
       ${showStopInfo ? `
-        <div class="absolute left-10 bg-slate-900/90 dark:bg-slate-800/90 text-slate-100 px-2.5! py-1! rounded-md shadow-md whitespace-nowrap z-20 pointer-events-none">
-          <div style="display:flex;align-items:center;gap:4px;">
-            <span class="font-bold text-sm tracking-wide">${routeName}</span>
-            ${extras && `<span style="color:#94a3b8;font-weight:700;">·</span>${extras}`}
+        <div class="vehicle-tip">
+          <div class="vehicle-tip-text">
+            <span class="vehicle-tip-title">${roundedSpeed} km/h</span>
+            ${label ? `<span class="vehicle-tip-sub">#${label}</span>` : ''}
           </div>
-          <span class="text-xs text-slate-400">${speedText}</span>
+          ${accessibilityIcons(vehicle)}
         </div>
       ` : ''}
     </div>

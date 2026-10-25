@@ -3,13 +3,14 @@
 .map-tooltip {
   position: relative;
   margin-bottom: 6px;
-  padding: 6px;
-  background-color: #ffffff;
-  border: 1px solid #ffffff;
-  border-radius: 3px;
-  color: #222222;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  line-height: 20px;
   white-space: nowrap;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--md-elevation-2);
 }
 
 .map-tooltip::before {
@@ -20,7 +21,7 @@
   margin-left: -6px;
   margin-bottom: -12px;
   border: 6px solid transparent;
-  border-top-color: #ffffff;
+  border-top-color: var(--md-surface-container);
   pointer-events: none;
 }
 
@@ -28,25 +29,20 @@
   display: none;
 }
 
-.stop-name-tooltip {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border: none !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.10) !important;
-  padding: 5px 10px !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  white-space: nowrap !important;
-}
-
-.stop-name-tooltip::before {
-  border-top-color: #ffffff !important;
-}
-
 .station-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.station-card-name {
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.station-card-mode {
+  display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -55,31 +51,25 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   color: white;
-}
-
-.station-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
 
 .station-card-lines {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
-  max-width: 14rem;
+  gap: 4px;
+  max-width: 224px;
   white-space: normal;
 }
 
 .station-card-line {
-  min-width: 1.5rem;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-size: 10px;
+  min-width: 28px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 11px;
   line-height: 16px;
   font-weight: 900;
   text-align: center;
@@ -89,18 +79,96 @@
 .station-cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .station-names {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .station-names-more {
-  font-weight: 400;
-  opacity: 0.7;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.vehicle-tip {
+  position: absolute;
+  left: 44px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  white-space: nowrap;
+  box-shadow: var(--md-elevation-2);
+  pointer-events: none;
+}
+
+.vehicle-tip-text {
+  display: flex;
+  flex-direction: column;
+  margin-right: 4px;
+}
+
+.vehicle-tip-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.vehicle-tip-sub {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.vehicle-tip-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+.vehicle-tip-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.vehicle-tip-icon.is-off {
+  background: none;
+  color: var(--md-on-surface);
+  opacity: 0.38;
+}
+
+.vehicle-tip-icon.is-off svg {
+  mask-image: linear-gradient(45deg, #000 calc(50% - 2px), transparent 0 calc(50% + 2px), #000 0);
+}
+
+.vehicle-tip-icon.is-off::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  translate: -50% -50%;
+  rotate: 45deg;
 }
 
 .stop-cluster {
@@ -307,58 +375,24 @@
 }
 
 .pin-tooltip {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border: none !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.10) !important;
-  padding: 6px 10px !important;
-  width: max-content !important;
-  min-width: 170px !important;
-  max-width: min(320px, calc(100vw - 48px)) !important;
-  white-space: normal !important;
-}
-
-.pin-tooltip::before {
-  border-top-color: #ffffff !important;
+  width: max-content;
+  min-width: 170px;
+  max-width: min(320px, calc(100vw - 48px));
+  white-space: normal;
 }
 
 .pin-tip-main {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   overflow-wrap: break-word;
 }
 
 .pin-tip-sub {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 1px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
   overflow-wrap: break-word;
-}
-
-:root.dark .pin-tooltip {
-  background-color: #1e293b !important;
-  color: #f1f5f9 !important;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(0, 0, 0, 0.24) !important;
-}
-
-:root.dark .pin-tooltip::before {
-  border-top-color: #1e293b !important;
-}
-
-:root.dark .pin-tip-sub {
-  color: #94a3b8;
-}
-
-:root.dark .stop-name-tooltip {
-  background-color: #1e293b !important;
-  color: #f1f5f9 !important;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(0, 0, 0, 0.24) !important;
-}
-
-:root.dark .stop-name-tooltip::before {
-  border-top-color: #1e293b !important;
 }
 
 .maplibregl-ctrl-attrib {

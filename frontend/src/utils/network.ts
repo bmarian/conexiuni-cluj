@@ -5,7 +5,7 @@ import {INCOMING_SUFFIX, OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {Timetable} from '@/types/ctp.ts'
 import {type DayNote, hasTimetableEntries, scheduleDayOn, setScheduleDays} from '@/utils/time.ts'
 import {apiPath, cacheKey, currentCity} from '@/utils/city.ts'
-import {byModeThenNumber, mainMode, type Mode, modeOf} from '@/utils/modes.ts'
+import {byModeThenNumber, groupByMode, type Mode, modeOf} from '@/utils/modes.ts'
 
 export type NetworkTrip = {
   trip_id: string
@@ -97,9 +97,11 @@ export class NetworkIndex {
     }
     const looks = new Map<number, StationLook>()
     for (const [id, lines] of routes) {
-      const mode = mainMode(lines.map((l) => l.route_type))
-      const colors = new Set(lines.filter((l) => modeOf(l.route_type) === mode).map((l) => l.route_color))
-      looks.set(id, {mode, color: colors.size === 1 ? [...colors][0]! : this.modeColor(mode)!, routes: lines})
+      const groups = groupByMode(lines).map(({mode, lines: routes}) => {
+        const colors = new Set(routes.map((l) => l.route_color))
+        return {mode, color: colors.size === 1 ? [...colors][0]! : this.modeColor(mode)!, routes}
+      })
+      looks.set(id, {mode: groups[0]!.mode, color: groups[0]!.color, routes: lines, groups})
     }
     return (this.stationIndex = {platforms, looks})
   }
@@ -129,7 +131,9 @@ export class NetworkIndex {
 
 export const stationOf = (stop: Stop): number => stop.station_id || stop.stop_id
 
-export type StationLook = {mode: Mode, color: string, routes: NetworkRoute[]}
+export type ModeLines = {mode: Mode, color: string, routes: NetworkRoute[]}
+
+export type StationLook = ModeLines & {groups: ModeLines[]}
 
 function modeColors(routes: NetworkRoute[]): Map<Mode, string> {
   const counts = new Map<Mode, Map<string, number>>()

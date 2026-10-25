@@ -3,8 +3,8 @@ import {getVehicleMarkerHtml, makeClusterIcon, makeSpiderIcon, makeStopIcon, typ
 import {spiderLegs} from '@/utils/spider.ts'
 
 const bus: DisplayVehicle = {id: 1, trip_id: '25_0', route_id: 25, latitude: 46.77, longitude: 23.6, heading: 90, timestamp: '', route_short_name: '25'}
-const struck = '#ef4444'
-const accessibilityIcon = /<svg width="12" height="12"/g
+const struck = 'is-off'
+const accessibilityIcon = /class="vehicle-tip-icon/g
 
 describe('vehicle accessibility', () => {
   it('says nothing when the feed does not tell', () => {
