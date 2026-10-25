@@ -3,6 +3,7 @@ import {useRouter} from 'vue-router'
 import {useRouteStore} from '@/stores/route.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
+import {linePath} from '@/utils/pagePaths.ts'
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type Route, type RouteDirection} from '@/types/tranzy.ts'
 
 export function useOpenRoute() {
@@ -20,7 +21,7 @@ export function useOpenRoute() {
       const shapeInfo = await fetchShapeInfo(route)
       const tripId = `${route.route_id}${direction === '1' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
       routeStore.setSelectedRoute(shapeInfo, tripId, '', '')
-      await router.push({name: 'route', params: {routeId: String(route.route_id), direction: direction ?? 'auto'}})
+      await router.push(linePath(route.route_id, direction ?? 'auto'))
     } catch (e) {
       console.error('Failed to load route:', e)
     } finally {

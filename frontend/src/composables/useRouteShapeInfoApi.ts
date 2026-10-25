@@ -1,6 +1,6 @@
 import {type HourlyStopOffsets, OUTGOING_SUFFIX, type Route, type ShapeInfo, type StopTime} from '@/types/tranzy.ts'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
-import {buildHourlyOffsets, dayTypeAndHour, network, networkLoaded, refreshNetwork, routeStopTimes} from '@/utils/network.ts'
+import {buildHourlyOffsets, dayTypeAndHour, loadedNetwork, routeStopTimes} from '@/utils/network.ts'
 import {currentCity} from '@/utils/city.ts'
 import {watch} from 'vue'
 
@@ -24,12 +24,6 @@ function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): 
   if (!outbound.length) return ''
   const target = position === 'first' ? outbound[0] : outbound[outbound.length - 1]
   return target?.stop_headsign?.trim() ?? ''
-}
-
-async function loadedNetwork() {
-  await networkLoaded()
-  if (!network.value) await refreshNetwork(true)
-  return network.value
 }
 
 export async function fetchHourlyStopOffsets(routeShortName: string, dayType: 'weekday' | 'saturday' | 'sunday'): Promise<Record<string, HourlyStopOffsets>> {

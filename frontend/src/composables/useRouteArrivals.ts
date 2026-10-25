@@ -15,6 +15,7 @@ import {entriesAt, liveRowKey, type ShownEntry, useLive} from '@/composables/use
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
+import {linePath} from '@/utils/pagePaths.ts'
 
 export type IndexedStop = StopTime & {secondsFromStart: number}
 
@@ -311,7 +312,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
     // Swap the transient 'auto' in the URL for the resolved direction.
     if (direction.value !== currentDirection.value) {
-      void router.replace({name: 'route', params: {routeId: routeId.value, direction: currentDirection.value}})
+      void router.replace(linePath(routeId.value, currentDirection.value))
     }
     updateMap()
     void loadAllDirections().then(() => {

@@ -7,6 +7,7 @@ import (
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/jobs"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
 	"fmt"
@@ -30,6 +31,7 @@ type Importer struct {
 	Static     feeds.Static
 	Timetables feeds.Timetables
 	Locate     feeds.Locate
+	Slugs      *slugs.Service
 	// False reuses whatever the database holds.
 	Refresh bool
 
@@ -190,6 +192,11 @@ func (im *Importer) Run(now time.Time) error {
 		}
 	}
 
+	if im.Slugs != nil {
+		if err := im.Slugs.Refresh(snap, im.Locate); err != nil {
+			im.store.Logf("ingest: slugs: %v", err)
+		}
+	}
 	if err := im.offered.Refresh(im.data); err != nil {
 		im.store.Logf("availability: %v", err)
 	}

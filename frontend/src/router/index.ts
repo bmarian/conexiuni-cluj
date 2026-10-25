@@ -2,6 +2,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
 import {citiesReady, currentCity, knownCity, locatedCity, openingCity, setCity} from '@/utils/city.ts'
+import {lineProps, resolvePagePath, stationProps} from '@/utils/pagePaths.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const StopsView = () => import('@/views/StopsView.vue')
@@ -69,8 +70,14 @@ const router = createRouter({
           component: HomeView,
         },
         {
-          path: 'stop/:stopId',
+          path: 'statia/:station',
           name: 'stop',
+          component: StopView,
+          props: stationProps,
+        },
+        {
+          path: 'stop/:stopId',
+          name: 'stop-id',
           component: StopView,
           props: true,
         },
@@ -81,8 +88,14 @@ const router = createRouter({
           props: true,
         },
         {
-          path: 'route/:routeId/:direction',
+          path: 'linia/:line/:direction(intors|auto)?',
           name: 'route',
+          component: RouteView,
+          props: lineProps,
+        },
+        {
+          path: 'route/:routeId/:direction',
+          name: 'route-id',
           component: RouteView,
           props: true,
         },
@@ -131,5 +144,7 @@ router.beforeEach(async (to) => {
   setCity(slug)
   return true
 })
+
+router.beforeResolve(resolvePagePath)
 
 export default router

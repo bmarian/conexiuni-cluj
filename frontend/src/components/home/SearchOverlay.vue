@@ -20,6 +20,7 @@ import {fold} from '@/utils/text.ts'
 import {network} from '@/utils/network.ts'
 import {cityCenter, cityParams} from '@/utils/city.ts'
 import {planQuery} from '@/utils/planQuery.ts'
+import {stopLocation} from '@/utils/pagePaths.ts'
 import {ArrowBackIcon, CloseIcon, DirectionsBusIcon, KeyboardArrowRightIcon, MapIcon, PlaceIcon, PushPinIcon, ScheduleIcon} from '@/utils/icons.ts'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
@@ -192,7 +193,7 @@ function openStop(stop: Stop) {
   go(() => {
     mapStore.clearPinnedLocation()
     mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
-    void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
+    void router.push(stopLocation(stop.stop_id))
   })
 }
 

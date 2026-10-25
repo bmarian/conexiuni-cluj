@@ -4,14 +4,14 @@ Cache-Control: no-store
 Content-Length: 104
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"104-3635173605"
+Etag: W/"104-1772233620"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "79b51b2721cd2388",
- "static_version": "4111394a49b80865",
+ "version": "2bc0d1e6d5203842",
+ "static_version": "f88f611f728eb0d1",
  "generated_at": "2026-10-20T00:00:00Z"
 }

@@ -21,6 +21,14 @@ type Stop struct {
 	LocationType LocationType `json:"location_type" db:"location_type"`
 	StopCode     string       `json:"stop_code" db:"stop_code"`
 	StationID    int          `json:"station_id" db:"station_id"`
+	Slug         string       `json:"slug,omitempty" db:"-"`
+}
+
+func (s Stop) Station() int {
+	if s.StationID != 0 {
+		return s.StationID
+	}
+	return s.StopID
 }
 
 func (s *Stop) UnmarshalJSON(data []byte) error {
@@ -32,6 +40,8 @@ func (s *Stop) UnmarshalJSON(data []byte) error {
 		StopLon      float64       `json:"stop_lon"`
 		LocationType *LocationType `json:"location_type"`
 		StopCode     *string       `json:"stop_code"`
+		StationID    int           `json:"station_id"`
+		Slug         string        `json:"slug"`
 	}
 
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -47,6 +57,8 @@ func (s *Stop) UnmarshalJSON(data []byte) error {
 	}
 	s.StopLat = raw.StopLat
 	s.StopLon = raw.StopLon
+	s.StationID = raw.StationID
+	s.Slug = raw.Slug
 	if raw.LocationType != nil {
 		s.LocationType = *raw.LocationType
 	} else {

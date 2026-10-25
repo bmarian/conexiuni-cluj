@@ -123,6 +123,16 @@ func (s *Store) initSchemas() error {
             PRIMARY KEY (kind, external)
         );
 
+		CREATE TABLE IF NOT EXISTS slugs
+        (
+            kind    TEXT    NOT NULL,
+            slug    TEXT    NOT NULL,
+            id      INTEGER NOT NULL,
+            base    TEXT    NOT NULL,
+            current INTEGER NOT NULL,
+            PRIMARY KEY (kind, slug)
+        );
+
 		CREATE TABLE IF NOT EXISTS ingest_state
         (
             source    TEXT PRIMARY KEY,

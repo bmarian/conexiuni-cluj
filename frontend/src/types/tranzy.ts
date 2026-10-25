@@ -92,6 +92,7 @@ export type Stop = {
   location_type: LocationType
   stop_code: string
   station_id?: number
+  slug?: string
 }
 
 export type Shape = {

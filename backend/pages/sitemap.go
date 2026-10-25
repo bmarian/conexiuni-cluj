@@ -2,9 +2,9 @@ package pages
 
 import (
 	"conexiuni-cluj/cities"
+	"conexiuni-cluj/transit"
 	"conexiuni-cluj/web"
 	"encoding/xml"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,21 +50,28 @@ func writeCity(sb *strings.Builder, city *cities.City) error {
 	if err != nil {
 		return err
 	}
+	written := map[string]bool{}
+	once := func(path, changeFreq, priority string) {
+		if !written[path] {
+			written[path] = true
+			writeURL(sb, canonicalURL(city, path), changeFreq, priority)
+		}
+	}
 	for _, r := range routes {
 		if offered.IsReady() && !offered.RouteHasTimetable(r.RouteShortName) {
 			continue
 		}
-		writeURL(sb, canonicalURL(city, "/route/"+strconv.Itoa(r.RouteID)+"/"+strconv.Itoa(r.DirectionID)), "weekly", "0.8")
+		once(lineCanonicalPath(city, r.RouteID, r.DirectionID), "weekly", "0.8")
 	}
-	stops, err := city.StopIDs()
+	stops, err := city.Stops(transit.StopFilter{})
 	if err != nil {
 		return err
 	}
-	for _, id := range stops {
-		if offered.IsReady() && !offered.StopHasBuses(id) {
+	for _, s := range stops {
+		if offered.IsReady() && !offered.StopHasBuses(s.StopID) {
 			continue
 		}
-		writeURL(sb, canonicalURL(city, "/stop/"+strconv.Itoa(id)), "weekly", "0.6")
+		once(stationPath(city, s.Station()), "weekly", "0.6")
 	}
 	if x, ready, err := city.Destinations.Areas(); err == nil && ready {
 		writeURL(sb, canonicalURL(city, "/destinations"), "weekly", "0.7")

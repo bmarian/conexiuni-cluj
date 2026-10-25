@@ -8,6 +8,7 @@ import (
 	"conexiuni-cluj/geo"
 	"conexiuni-cluj/models"
 	"conexiuni-cluj/router"
+	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
 	"crypto/sha256"
 	"encoding/hex"
@@ -79,11 +80,16 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, map[string]string, e
 		}
 	}
 	sort.Slice(stops, func(i, j int) bool { return stops[i].StopID < stops[j].StopID })
+	addresses := s.Slugs()
+	for i := range stops {
+		stops[i].Slug = addresses.Of(slugs.Station, stops[i].StationID)
+	}
 
 	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: s.timing.GraceSec() / 60}}
 	colors := lineColors(stationsOfLines(bundle))
 	for i := range out {
 		out[i].RouteColorful = colors[out[i].RouteShortName]
+		out[i].Slug = addresses.Of(slugs.Line, out[i].RouteID)
 	}
 	bundle.ScheduleDays, bundle.DayNotes = s.timing.ScheduleDays(time.Now())
 	bundle.Version, bundle.StaticVersion = networkVersions(bundle)

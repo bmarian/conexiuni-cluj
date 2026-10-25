@@ -41,19 +41,17 @@ func routeStopsHTML(c fiber.Ctx, l ogLocale, city *cities.City, routeID, dir int
 	if x == nil || x.Route(routeID) == nil {
 		return ""
 	}
-	stops := x.RouteStops(routeID, dir)
-	if len(stops) == 0 {
-		return ""
-	}
 	var sb strings.Builder
-	fmt.Fprintf(&sb, `<h2>%s</h2><ol>`, html.EscapeString(fmt.Sprintf(l.routeStopsFmt, x.Route(routeID).RouteShortName, x.Toward(routeID, dir))))
-	for _, s := range stops {
-		fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, "/stop/"+strconv.Itoa(s.StopID)), html.EscapeString(s.StopName))
-	}
-	sb.WriteString(`</ol>`)
-	if other := 1 - dir; len(x.RouteStops(routeID, other)) > 0 {
-		fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, fmt.Sprintf("/route/%d/%d", routeID, other)),
-			html.EscapeString(fmt.Sprintf(l.routeOtherFmt, x.Toward(routeID, other))))
+	for _, d := range []int{dir, 1 - dir} {
+		stops := x.RouteStops(routeID, d)
+		if len(stops) == 0 {
+			continue
+		}
+		fmt.Fprintf(&sb, `<h2>%s</h2><ol>`, html.EscapeString(fmt.Sprintf(l.routeStopsFmt, x.Route(routeID).RouteShortName, x.Toward(routeID, d))))
+		for _, s := range stops {
+			fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, stationPath(city, s.Station())), html.EscapeString(s.StopName))
+		}
+		sb.WriteString(`</ol>`)
 	}
 	return sb.String()
 }
@@ -69,7 +67,7 @@ func allLinesHTML(c fiber.Ctx, l ogLocale, city *cities.City) string {
 		if offered.IsReady() && !offered.RouteHasTimetable(r.RouteShortName) {
 			continue
 		}
-		fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, fmt.Sprintf("/route/%d/0", r.RouteID)),
+		fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, linePath(city, r.RouteID, 0)),
 			html.EscapeString(fmt.Sprintf(l.lineItemFmt, r.RouteShortName, r.RouteLongName)))
 	}
 	if sb.Len() == 0 {
@@ -90,7 +88,7 @@ func stationLinesHTML(c fiber.Ctx, l ogLocale, city *cities.City, stopID int) st
 		for _, g := range groups {
 			links := make([]string, 0, len(g.Lines))
 			for _, line := range g.Lines {
-				links = append(links, fmt.Sprintf(`<a href="%s">%s</a>`, pagePath(c, city, fmt.Sprintf("/route/%d/%d", line.RouteID, line.Direction)),
+				links = append(links, fmt.Sprintf(`<a href="%s">%s</a>`, pagePath(c, city, linePath(city, line.RouteID, line.Direction)),
 					html.EscapeString(x.Route(line.RouteID).RouteShortName)))
 			}
 			end := l.lineEnds
@@ -130,12 +128,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 	}
 	dest := x.Destination(c.Params("slug"))
 	if dest == nil {
-		// The app still loads, to suggest similar names.
-		if indexHTMLContent == "" {
-			return c.Next()
-		}
-		c.Set("Content-Type", "text/html; charset=utf-8")
-		return c.Status(fiber.StatusNotFound).SendString(indexHTMLContent)
+		return missing(c)
 	}
 	l := ogTexts(city, c)
 	pageURL := canonicalURL(city, "/to/"+dest.Slug)
@@ -166,7 +159,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 				}
 			}
 		}
-		fmt.Fprintf(&sb, `<li><a href="%s">%s</a>: %s</li>`, pagePath(c, city, "/stop/"+strconv.Itoa(id)),
+		fmt.Fprintf(&sb, `<li><a href="%s">%s</a>: %s</li>`, pagePath(c, city, stationPath(city, x.Stop(id).Station())),
 			html.EscapeString(x.Stop(id).StopName), html.EscapeString(lineNames(x, lines)))
 	}
 	sb.WriteString(`</ul>`)

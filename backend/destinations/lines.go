@@ -92,7 +92,7 @@ func (x *Index) StationLines(stopID int) []Departing {
 	if stop == nil {
 		return nil
 	}
-	station := stationOf(stop)
+	station := stop.Station()
 	var out []Departing
 	at := map[string]int{}
 	leaving := map[int]bool{}
@@ -100,7 +100,7 @@ func (x *Index) StationLines(stopID int) []Departing {
 	for _, p := range x.patterns {
 		for k, id := range p.stops {
 			s := x.stops[id]
-			if s == nil || stationOf(s) != station {
+			if s == nil || s.Station() != station {
 				continue
 			}
 			line := Line{p.route.RouteID, p.dir}
@@ -145,11 +145,4 @@ func appendLine(lines []Line, line Line) []Line {
 		}
 	}
 	return append(lines, line)
-}
-
-func stationOf(s *models.Stop) int {
-	if s.StationID != 0 {
-		return s.StationID
-	}
-	return s.StopID
 }

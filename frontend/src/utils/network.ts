@@ -16,6 +16,7 @@ export type NetworkTrip = {
 
 export type NetworkRoute = Route & {
   route_colorful?: string
+  slug?: string
   timetable: Timetable | null
   trips: NetworkTrip[]
   offsets: Record<string, number[][]>
@@ -40,13 +41,19 @@ export class NetworkIndex {
   readonly stopById = new Map<number, Stop>()
   readonly routeById = new Map<number, NetworkRoute>()
   readonly routeByShortName = new Map<string, NetworkRoute>()
+  readonly stationBySlug = new Map<string, number>()
+  readonly routeBySlug = new Map<string, number>()
   readonly routes: Route[]
 
   constructor(readonly bundle: NetworkBundle) {
-    for (const s of bundle.stops) this.stopById.set(s.stop_id, s)
+    for (const s of bundle.stops) {
+      this.stopById.set(s.stop_id, s)
+      if (s.slug) this.stationBySlug.set(s.slug, stationOf(s))
+    }
     for (const r of bundle.routes) {
       this.routeById.set(r.route_id, r)
       this.routeByShortName.set(r.route_short_name, r)
+      if (r.slug) this.routeBySlug.set(r.slug, r.route_id)
     }
     this.routes = bundle.routes.map(({route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color}) => ({
       route_id,
@@ -341,6 +348,12 @@ async function loadStored() {
 let loaded: Promise<void> = typeof window === 'undefined' ? Promise.resolve() : loadStored()
 
 export const networkLoaded = () => loaded
+
+export async function loadedNetwork() {
+  await networkLoaded()
+  if (!network.value) await refreshNetwork(true)
+  return network.value
+}
 
 watch(
   currentCity,

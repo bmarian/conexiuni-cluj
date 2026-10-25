@@ -7,6 +7,7 @@ import {type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {changeDirection, changeKindLabels, changeTitle} from '@/utils/routeChanges'
 import {buildNewsFeed, newsSource} from '@/utils/newsFeed'
 import {cityParams} from '@/utils/city.ts'
+import {linePath} from '@/utils/pagePaths.ts'
 import {NewspaperIcon, OpenInNewIcon} from '@/utils/icons.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
@@ -44,11 +45,7 @@ const feed = computed(() =>
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
-  void router.push({
-    name: 'route',
-    params: {routeId: String(change.route_id), direction: changeDirection(change)},
-    query: {change: String(change.id)},
-  })
+  void router.push({path: linePath(change.route_id, changeDirection(change)), query: {change: String(change.id)}})
 }
 
 function onVisibilityChange() {

@@ -11,8 +11,8 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "79b51b2721cd2388",
- "static_version": "4111394a49b80865",
+ "version": "2bc0d1e6d5203842",
+ "static_version": "f88f611f728eb0d1",
  "generated_at": "2026-10-20T00:00:00Z",
  "routes": [
   {
@@ -24,6 +24,7 @@ X-Frame-Options: DENY
    "route_desc": "",
    "route_color": "#D84B3B",
    "route_colorful": "#D64131",
+   "slug": "7",
    "timetable": {
     "route_short_name": "7",
     "route_long_name": "Capăt 701 - Capăt 705",
@@ -1628,6 +1629,7 @@ X-Frame-Options: DENY
    "route_desc": "",
    "route_color": "#1C38D9",
    "route_colorful": "#1C1CD9",
+   "slug": "8b",
    "timetable": {
     "route_short_name": "8B",
     "route_long_name": "Capăt 711 - Capăt 715",
@@ -2908,7 +2910,8 @@ X-Frame-Options: DENY
    "stop_lon": 24.988,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 701
+   "station_id": 701,
+   "slug": "statia-701"
   },
   {
    "stop_id": 702,
@@ -2918,7 +2921,8 @@ X-Frame-Options: DENY
    "stop_lon": 24.994,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 702
+   "station_id": 702,
+   "slug": "statia-702"
   },
   {
    "stop_id": 703,
@@ -2928,7 +2932,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 703
+   "station_id": 703,
+   "slug": "statia-703"
   },
   {
    "stop_id": 704,
@@ -2938,7 +2943,8 @@ X-Frame-Options: DENY
    "stop_lon": 25.006,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 704
+   "station_id": 704,
+   "slug": "statia-704"
   },
   {
    "stop_id": 705,
@@ -2948,7 +2954,8 @@ X-Frame-Options: DENY
    "stop_lon": 25.012,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 705
+   "station_id": 705,
+   "slug": "statia-705"
   },
   {
    "stop_id": 711,
@@ -2958,7 +2965,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 711
+   "station_id": 711,
+   "slug": "statia-711"
   },
   {
    "stop_id": 712,
@@ -2968,7 +2976,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 712
+   "station_id": 712,
+   "slug": "statia-712"
   },
   {
    "stop_id": 714,
@@ -2978,7 +2987,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 714
+   "station_id": 714,
+   "slug": "statia-714"
   },
   {
    "stop_id": 715,
@@ -2988,7 +2998,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 715
+   "station_id": 715,
+   "slug": "statia-715"
   }
  ],
  "rules": {

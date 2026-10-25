@@ -10,6 +10,7 @@ import (
 	"conexiuni-cluj/live"
 	"conexiuni-cluj/network"
 	"conexiuni-cluj/planner"
+	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
 	"conexiuni-cluj/web"
@@ -44,6 +45,7 @@ type City struct {
 	Planner      *planner.Service
 	Network      *network.Service
 	Destinations *destinations.Service
+	Slugs        *slugs.Service
 	Ingest       *ingest.Importer
 
 	offered transit.Availability
@@ -71,6 +73,9 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Planner = planner.New(loc, store, c.Data, c.Live)
 	c.Network = network.New(loc, store, c.Data, &c.offered, c.Live)
 	c.Network.Runner = c.running
+	c.Slugs = slugs.New(store)
+	c.Slugs.Changed = c.Network.Invalidate
+	c.Network.Slugs = c.Slugs.Index
 	c.Planner.Colorful = c.Network.Colorful
 	c.Updates.Colorful = c.Network.Colorful
 	c.Destinations = destinations.New(c.Network, c.Planner.Places)
@@ -81,6 +86,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Live.ScheduleChanged = forget
 	c.Ingest = ingest.New(store, c.Data, &c.offered, c.Updates)
 	c.Ingest.Static, c.Ingest.Timetables, c.Ingest.Locate, c.Ingest.Refresh = static, timetables, feeds.CachedLocate(planner.Locate), opts.Refresh
+	c.Ingest.Slugs = c.Slugs
 	c.Ingest.NetworkStored = c.Live.NetworkStored
 	c.Ingest.OffsetsStored = c.Live.OffsetsStored
 	c.Ingest.Imported = func(stored bool) {

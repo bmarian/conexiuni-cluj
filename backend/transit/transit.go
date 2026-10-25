@@ -132,15 +132,6 @@ func (d *Data) RouteDirections() ([]RouteDirection, error) {
 		})
 }
 
-func (d *Data) StopIDs() ([]int, error) {
-	return database.QueryRows(d.db, `SELECT stop_id FROM stops ORDER BY stop_id`, nil,
-		func(rows *sql.Rows) (int, error) {
-			var id int
-			err := rows.Scan(&id)
-			return id, err
-		})
-}
-
 // A line as a list names it.
 type RouteLabel struct {
 	ShortName string

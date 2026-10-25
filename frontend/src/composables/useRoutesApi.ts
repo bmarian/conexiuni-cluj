@@ -2,7 +2,7 @@ import {ref, watch} from 'vue'
 import type {Route} from '@/types/tranzy.ts'
 import {readCachedList, writeCachedList} from '@/utils/api.ts'
 import {currentCity} from '@/utils/city.ts'
-import {network, networkLoaded, refreshNetwork} from '@/utils/network.ts'
+import {loadedNetwork, network} from '@/utils/network.ts'
 
 const CACHE_KEY = 'cache:routes'
 
@@ -30,9 +30,7 @@ export function useRoutesApi() {
   async function fetchRoutes() {
     isLoading.value = true
     try {
-      await networkLoaded()
-      if (!network.value) await refreshNetwork(true)
-      if (!network.value && !routes.value.length) throw new Error('network bundle unavailable')
+      if (!(await loadedNetwork()) && !routes.value.length) throw new Error('network bundle unavailable')
     } catch (e) {
       error.value = e
       console.error('Failed to fetch routes:', e)

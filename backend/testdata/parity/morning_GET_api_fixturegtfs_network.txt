@@ -1,18 +1,18 @@
 GET /api/fixturegtfs/network
 200
 Cache-Control: no-cache
-Content-Length: 20179
+Content-Length: 20362
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json
-Etag: "500beafd482a0254"
+Etag: "1c87d489dfa77ddd"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "500beafd482a0254",
- "static_version": "5bcf7f7d57fc2780",
+ "version": "1c87d489dfa77ddd",
+ "static_version": "251ce97ab37bd2bd",
  "generated_at": "2026-10-20T02:00:13Z",
  "routes": [
   {
@@ -24,6 +24,7 @@ X-Frame-Options: DENY
    "route_desc": "",
    "route_color": "#D84B3B",
    "route_colorful": "#D64131",
+   "slug": "7",
    "timetable": {
     "route_short_name": "7",
     "route_long_name": "Capăt 701 - Capăt 705",
@@ -1524,6 +1525,7 @@ X-Frame-Options: DENY
    "route_desc": "",
    "route_color": "#1C38D9",
    "route_colorful": "#1C1CD9",
+   "slug": "8b",
    "timetable": {
     "route_short_name": "8B",
     "route_long_name": "Capăt 711 - Capăt 715",
@@ -2656,7 +2658,8 @@ X-Frame-Options: DENY
    "stop_lon": 24.988,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 701
+   "station_id": 701,
+   "slug": "statia-701"
   },
   {
    "stop_id": 702,
@@ -2666,7 +2669,8 @@ X-Frame-Options: DENY
    "stop_lon": 24.994,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 702
+   "station_id": 702,
+   "slug": "statia-702"
   },
   {
    "stop_id": 703,
@@ -2676,7 +2680,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 703
+   "station_id": 703,
+   "slug": "statia-703"
   },
   {
    "stop_id": 704,
@@ -2686,7 +2691,8 @@ X-Frame-Options: DENY
    "stop_lon": 25.006,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 704
+   "station_id": 704,
+   "slug": "statia-704"
   },
   {
    "stop_id": 705,
@@ -2696,7 +2702,8 @@ X-Frame-Options: DENY
    "stop_lon": 25.012,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 705
+   "station_id": 705,
+   "slug": "statia-705"
   },
   {
    "stop_id": 711,
@@ -2706,7 +2713,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 711
+   "station_id": 711,
+   "slug": "statia-711"
   },
   {
    "stop_id": 714,
@@ -2716,7 +2724,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 714
+   "station_id": 714,
+   "slug": "statia-714"
   },
   {
    "stop_id": 715,
@@ -2726,7 +2735,8 @@ X-Frame-Options: DENY
    "stop_lon": 25,
    "location_type": 0,
    "stop_code": "",
-   "station_id": 715
+   "station_id": 715,
+   "slug": "statia-715"
   }
  ],
  "rules": {
