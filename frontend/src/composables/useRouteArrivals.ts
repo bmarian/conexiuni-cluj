@@ -16,6 +16,8 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {linePath} from '@/utils/pagePaths.ts'
+import {stopsAlong} from '@/utils/stopListBuses.ts'
+import {pathOf} from '@/utils/vehicleMotion.ts'
 
 export type IndexedStop = StopTime & {secondsFromStart: number}
 
@@ -91,6 +93,11 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
       cumulativeSec += st.offset_arrival_time
       return {...st, secondsFromStart: cumulativeSec}
     })
+  })
+
+  const stopsByDirection = computed(() => {
+    const of = (suffix: string) => rawStops.value.filter((st) => st.trip_id === `${routeId.value}${suffix}`).sort((a, b) => a.stop_sequence - b.stop_sequence)
+    return {'0': of(OUTGOING_SUFFIX), '1': of(INCOMING_SUFFIX)}
   })
 
   const directionTerminals = computed(() => {
@@ -188,6 +195,11 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     const offline = stops.map((stop) => nextArrivals(nextArrivalsAtStop(stop.secondsFromStart), ENTRIES_SHOWN))
     return markRepeatedNow(offline).map((row) => row.map((a) => toDisplay(a.minutes, false, a.soon)))
   })
+
+  const directionPath = computed(() => (currentDirectionShape.value?.length ? pathOf(currentDirectionShape.value) : null))
+  const stopsOnPath = computed(() => (directionPath.value ? stopsAlong(directionPath.value, stopsForDirection.value) : []))
+
+  const listVehicles = computed(() => vehiclesByTrip.value.get(currentTripId.value) ?? [])
 
   function getHeaderTimes(): string[] {
     const first = stopsForDirection.value[0]
@@ -337,6 +349,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     timetable,
     routeDisplayName,
     stopsForDirection,
+    stopsByDirection,
     currentDirectionShape,
     directionTerminals,
     directionHeadings,
@@ -346,6 +359,9 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     currentMinutes,
     formatMinutes,
     stopTimesByStop,
+    directionPath,
+    stopsOnPath,
+    listVehicles,
     getHeaderTimes,
     isInitialLoading,
   }

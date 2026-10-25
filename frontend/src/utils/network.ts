@@ -120,6 +120,11 @@ export class NetworkIndex {
     return (this.stationIndex = {platforms, looks})
   }
 
+  stationId(stopId: number): number {
+    const stop = this.stopById.get(stopId)
+    return stop ? stationOf(stop) : stopId
+  }
+
   look(stopId: number): StationLook | undefined {
     const stop = this.stopById.get(stopId)
     return stop && this.stations.looks.get(stationOf(stop))

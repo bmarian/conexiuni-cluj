@@ -2,6 +2,7 @@
 import type {VehiclesInStop} from '@/types/tranzy.ts'
 import {routeDestination, routeOrigin} from '@/utils/time.ts'
 import {KeyboardArrowRightIcon} from '@/utils/icons.ts'
+import {modeOf} from '@/utils/modes.ts'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import TimePill from '@/components/ui/TimePill.vue'
@@ -33,6 +34,8 @@ const emit = defineEmits<{open: []}>()
           :text="i === 0 && shape.static_time_approximation ? `~ ${label(time.minutes)}` : label(time.minutes)"
           :live="i === 0 && !shape.static_time_approximation"
           :extra="i > 0"
+          :due="i === 0 && !shape.static_time_approximation && time.minutes === 0"
+          :mode="modeOf(shape.route_type)"
         />
       </div>
     </div>

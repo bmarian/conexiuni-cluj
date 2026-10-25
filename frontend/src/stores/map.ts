@@ -71,6 +71,12 @@ export const useMapStore = defineStore('map', () => {
   const drawerLeftPx = ref(0)
   const chromeTopPx = ref(0)
   const fitWalkingPolylines = ref(false)
+  const growFrom = ref<{lat: number; lng: number} | null>(null)
+  const arrival = ref<{color: string; vehicleId?: number; seq: number} | null>(null)
+
+  const signalArrival = (color: string, vehicleId?: number) => {
+    arrival.value = {color, vehicleId, seq: (arrival.value?.seq ?? 0) + 1}
+  }
 
   const lineColors = computed(() => {
     const drawn = shapesToDisplay.value.filter(([, points]) => points.length).map(([shape]) => shape)
@@ -178,6 +184,9 @@ export const useMapStore = defineStore('map', () => {
     highlightedStops,
     vehicleColor,
     directionArrowAtStart,
+    growFrom,
+    arrival,
+    signalArrival,
 
     setShapesToDisplay,
     setLoadedShapes,

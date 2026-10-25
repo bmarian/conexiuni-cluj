@@ -19,6 +19,8 @@ export const sortByDistance = <T>(
   return mapped.sort((a, b) => a.dist - b.dist).map(({item}) => item)
 }
 
+export const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
+
 export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const dLat = (lat2 - lat1) * (Math.PI / 180)
   const dLon = (lon2 - lon1) * (Math.PI / 180)

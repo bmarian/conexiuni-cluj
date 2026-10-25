@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RowLink from '@/components/ui/RowLink.vue'
+import Ticker from '@/components/ui/Ticker.vue'
 import {FavoriteIcon, MyLocationIcon, PlaceIcon} from '@/utils/icons.ts'
 
 export type StopMark = 'from' | 'nearest' | 'favorite' | 'terminal' | 'plain'
@@ -14,6 +15,7 @@ defineProps<{
   trailing?: string
   trailingHighlight?: boolean
   href?: string
+  paint?: boolean
 }>()
 const emit = defineEmits<{open: []}>()
 </script>
@@ -21,10 +23,14 @@ const emit = defineEmits<{open: []}>()
 <template>
   <RowLink class="stop-line state squish" :class="`is-${mark}`" :href="href" @open="emit('open')">
     <span class="rail" :class="{'is-first': first, 'is-last': last}">
+      <template v-if="paint">
+        <span class="paint is-top"></span>
+        <span class="paint is-bottom"></span>
+      </template>
       <span class="dot"></span>
     </span>
     <span class="flex-1 min-w-0 flex items-center gap-1 pl-2">
-      <span class="name text-body-medium">{{ name }}</span>
+      <span class="name text-body-medium"><Ticker :text="name" /></span>
       <PlaceIcon v-if="mark === 'from'" class="m-icon size-3.5 mark-tint" />
       <MyLocationIcon v-else-if="mark === 'nearest'" class="m-icon size-3.5 mark-tint" />
       <FavoriteIcon v-if="favorite" class="m-icon size-3 text-rose" />
@@ -92,6 +98,24 @@ const emit = defineEmits<{open: []}>()
 
 .rail.is-last::before {
   bottom: 50%;
+}
+
+.paint {
+  position: absolute;
+  left: 8px;
+  width: 4px;
+  background: var(--paint);
+  clip-path: inset(0 0 100% 0);
+}
+
+.paint.is-top {
+  top: 0;
+  bottom: 50%;
+}
+
+.paint.is-bottom {
+  top: 50%;
+  bottom: 0;
 }
 
 .dot {

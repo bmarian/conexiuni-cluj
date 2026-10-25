@@ -25,6 +25,8 @@ import {usePlaceSearch} from '@/composables/usePlaceSearch.ts'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
 import {useLive} from '@/composables/useLive.ts'
+import {useSwapMotion} from '@/composables/useSwapMotion.ts'
+import {drawTimeline} from '@/utils/drawTimeline.ts'
 import type {DisplayShape} from '@/stores/map.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
@@ -746,11 +748,17 @@ function isCurrentLocationName(name: string) {
   return name === t('planOriginCurrentLocation')
 }
 
+const swapButton = ref<HTMLElement>()
+const originLabelEl = ref<HTMLElement>()
+const destLabelEl = ref<HTMLElement>()
+const swapMotion = useSwapMotion(swapButton, originLabelEl, destLabelEl)
+
 async function swapOriginDestination() {
   if (isNaN(destLat.value) || isNaN(destLon.value)) return
   const newDestLat = customOrigin.value?.lat ?? userLocation.value?.latitude
   const newDestLon = customOrigin.value?.lon ?? userLocation.value?.longitude
   if (newDestLat === undefined || newDestLon === undefined) return
+  swapMotion.spin()
 
   const newDestName = customOrigin.value?.name ?? (await reverseGeocode(newDestLat, newDestLon))
   const newOriginName = isCurrentLocationName(destName.value) ? await reverseGeocode(destLat.value, destLon.value) : destName.value
@@ -765,7 +773,7 @@ async function swapOriginDestination() {
     originName: newOriginName,
   }
   delete newQuery.plan
-  void router.replace({query: newQuery})
+  await swapMotion.swap(() => router.replace({query: newQuery}))
 }
 
 watch(
@@ -791,6 +799,18 @@ async function refreshRoutes() {
 
 const kbd = useKeyboardNav()
 let calcNavSeq = 0
+
+const legsCard = ref<HTMLElement>()
+let stopDrawing = () => {}
+watch(
+  [selectedPlanSignature, isCalculating],
+  ([plan, calculating]) => {
+    stopDrawing()
+    if (plan && !calculating && legsCard.value) stopDrawing = drawTimeline(legsCard.value)
+  },
+  {flush: 'post'},
+)
+onUnmounted(() => stopDrawing())
 
 watch(isCalculating, (calculating) => {
   if (calculating) {
@@ -936,7 +956,7 @@ const chips = computed<ChipAction[]>(() => [
         </div>
       </section>
 
-      <section class="legs-card">
+      <section ref="legsCard" class="legs-card">
         <div data-kbd-section="from" data-kbd-entry="2">
           <TimelineRow
             v-if="activeSearchField !== 'origin'"
@@ -951,7 +971,7 @@ const chips = computed<ChipAction[]>(() => [
             @keydown.enter.prevent="openSearchField('origin')"
           >
             <span class="kicker">{{ t('planFrom') }}</span>
-            <span class="text-body-large truncate">{{ originLabel }}</span>
+            <span ref="originLabelEl" class="text-body-large truncate">{{ originLabel }}</span>
             <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2" /></template>
           </TimelineRow>
           <div v-else class="place-search" data-kbd-section="from-results">
@@ -1059,7 +1079,7 @@ const chips = computed<ChipAction[]>(() => [
             @keydown.enter.prevent="openSearchField('destination')"
           >
             <span class="kicker">{{ t('planTo') }}</span>
-            <span class="text-body-large truncate" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
+            <span ref="destLabelEl" class="text-body-large truncate" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
             <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2" /></template>
           </TimelineRow>
           <div v-else class="place-search" data-kbd-section="to-results">
@@ -1144,6 +1164,7 @@ const chips = computed<ChipAction[]>(() => [
           </button>
           <button
             v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
+            ref="swapButton"
             type="button"
             class="tonal-icon squish"
             data-kbd-item="swap"

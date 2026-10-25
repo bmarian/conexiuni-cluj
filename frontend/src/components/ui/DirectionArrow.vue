@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {onMounted, ref, watch, type Component} from 'vue'
 import {ARROW_BACK_MS, ARROW_MS, ARROW_OPEN_DELAY_MS, arrowKeyframes} from '@/utils/directionArrow.ts'
+import {reducedMotion} from '@/utils/motion.ts'
 
 const props = defineProps<{icon: Component; rest: number; heading: number | null; on: boolean}>()
 
@@ -9,7 +10,7 @@ let played = false
 
 function play(delay = 0) {
   const arrow = el.value
-  if (!arrow || props.heading === null || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!arrow || props.heading === null || reducedMotion()) return
   played = true
   const from = getComputedStyle(arrow).transform
   arrow.getAnimations().forEach((a) => a.cancel())
