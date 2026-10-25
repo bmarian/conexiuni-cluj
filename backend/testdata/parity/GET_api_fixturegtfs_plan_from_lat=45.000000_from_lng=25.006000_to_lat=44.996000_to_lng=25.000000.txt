@@ -2,9 +2,9 @@ GET /api/fixturegtfs/plan?from_lat=45.000000&from_lng=25.006000&to_lat=44.996000
 200
 Cache-Control: no-cache
 Content-Length: 288
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"288-3560042187"
+Etag: W/"288-1575289747"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -15,13 +15,13 @@ X-Frame-Options: DENY
   {
    "key": "walk",
    "transfers": 0,
-   "walk_m": 916.5487302880745,
+   "walk_m": 916.5487302880746,
    "legs": [
     {
      "kind": "walk",
      "from": 0,
      "to": 0,
-     "meters": 916.5487302880745,
+     "meters": 916.5487302880746,
      "seconds": 687,
      "path": "_atqGo~rwCbB??jH?zTrN?fE??fE"
     }

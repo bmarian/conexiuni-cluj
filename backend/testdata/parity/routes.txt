@@ -2,7 +2,6 @@ DELETE /api/sync/chains/:chain
 DELETE /api/sync/chains/:chain/devices/self
 DELETE /api/sync/pair/:code
 GET /.well-known/assetlinks.json
-GET /android
 GET /api/admin/calendar
 GET /api/admin/calendar/day
 GET /api/admin/cities

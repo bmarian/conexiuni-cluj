@@ -398,7 +398,7 @@ func (r *recorder) walk(built []*cities.City, adminToken string) {
 		r.walkCity(city.Slug)
 	}
 	for _, path := range []string{"/sitemap.xml", "/robots.txt", "/sw.js", "/manifest.webmanifest", "/.well-known/assetlinks.json",
-		"/android", "/stop/1", "/route/1/0", "/plan?lat=46.77&lon=23.6&name=x", "/settings", "/api/nope", "/nope.png", "/nope"} {
+		"/stop/1", "/route/1/0", "/plan?lat=46.77&lon=23.6&name=x", "/settings", "/api/nope", "/nope.png", "/nope"} {
 		r.get(path)
 	}
 	if adminToken == "" {

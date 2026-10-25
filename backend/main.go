@@ -159,7 +159,6 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 			return c.SendFile("./dist/manifest.webmanifest")
 		})
 
-		app.Get("/android", pages.Android)
 		for _, city := range built {
 			pages.Register(app.Group("/"+city.Slug, city.OnlyEnabled(sendIndex)), city)
 		}

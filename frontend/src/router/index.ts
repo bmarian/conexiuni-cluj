@@ -9,7 +9,6 @@ const RouteView = () => import('@/views/RouteView.vue')
 const RoutePlanningView = () => import('@/views/RoutePlanningView.vue')
 const AdminView = () => import('@/views/AdminView.vue')
 const SettingsView = () => import('@/views/SettingsView.vue')
-const AndroidView = () => import('@/views/AndroidView.vue')
 const NewsView = () => import('@/views/NewsView.vue')
 const DestinationsView = () => import('@/views/DestinationsView.vue')
 const DestinationView = () => import('@/views/DestinationView.vue')
@@ -42,11 +41,6 @@ const router = createRouter({
         })
         return `/${slug}/`
       },
-    },
-    {
-      path: '/android',
-      name: 'android',
-      component: AndroidView,
     },
     {
       path: '/admin',
