@@ -17,12 +17,14 @@ type statsVisit struct {
 type statsBuffer struct {
 	visits   map[statsVisit]struct{}
 	counters map[string]map[string]int
+	errors   map[string]requestError
 }
 
 func newStatsBuffer() *statsBuffer {
 	return &statsBuffer{
 		visits:   make(map[statsVisit]struct{}),
 		counters: make(map[string]map[string]int),
+		errors:   make(map[string]requestError),
 	}
 }
 
@@ -119,6 +121,9 @@ func (s *Store) mergeBuffer(buf *statsBuffer) {
 			s.incrementCounterLocked(metric, key, count)
 		}
 	}
+	for key, e := range buf.errors {
+		s.statsBuf.errors[key] = e.add(s.statsBuf.errors[key])
+	}
 	s.statsMu.Unlock()
 }
 
@@ -201,13 +206,16 @@ func (s *Store) writeStatsBuffer(buf *statsBuffer) error {
 			}
 		}
 	}
+	if err := writeRequestErrors(tx, today, cutoff, buf.errors); err != nil {
+		return err
+	}
 
 	return tx.Commit()
 }
 
 func (s *Store) FlushStats() error {
 	buf := s.swapBuffer()
-	if len(buf.visits) == 0 && len(buf.counters) == 0 {
+	if len(buf.visits) == 0 && len(buf.counters) == 0 && len(buf.errors) == 0 {
 		return nil
 	}
 	if err := s.writeStatsBuffer(buf); err != nil {

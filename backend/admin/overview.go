@@ -167,10 +167,12 @@ type problemEntry struct {
 }
 
 type errorDetail struct {
-	Endpoint string `json:"endpoint"`
-	Status   int    `json:"status"`
-	Text     string `json:"text"`
-	Count    int    `json:"count"`
+	Endpoint string    `json:"endpoint"`
+	Status   int       `json:"status"`
+	Text     string    `json:"text"`
+	Count    int       `json:"count"`
+	LastAt   time.Time `json:"last_at"`
+	Path     string    `json:"path"`
 }
 
 type adminTraffic struct {
@@ -630,7 +632,7 @@ func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
 		return endpoints[key]
 	}
 	totalMs := map[string]int{}
-	for _, metric := range []string{"endpoint_call", "endpoint_ms", "endpoint_error"} {
+	for _, metric := range []string{"endpoint_call", "endpoint_ms"} {
 		rows, err := city.MetricRows(metric, today)
 		if err != nil {
 			return t, err
@@ -642,11 +644,15 @@ func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
 				t.Requests += r.Count
 			case "endpoint_ms":
 				totalMs[r.Key] += r.Count
-			case "endpoint_error":
-				get(r.Key).Errors += r.Count
-				t.Errors += r.Count
 			}
 		}
+	}
+	if t.ErrorDetails, err = errorDetails(city, today); err != nil {
+		return t, err
+	}
+	for _, e := range t.ErrorDetails {
+		get(e.Endpoint).Errors += e.Count
+		t.Errors += e.Count
 	}
 	for key, e := range endpoints {
 		if e.Calls > 0 && totalMs[key] > 0 {
@@ -660,35 +666,37 @@ func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
 		}
 		return cmp.Compare(a.Key, b.Key)
 	})
-	t.ErrorDetails, err = errorDetails(city, today)
-	return t, err
+	return t, nil
 }
 
 // Keys are "METHOD /route|status|text".
 func errorDetails(city *cities.City, today string) ([]errorDetail, error) {
-	rows, err := city.MetricRows("error_detail", today)
+	rows, err := city.RequestErrors(today)
 	if err != nil {
 		return nil, err
 	}
-	counts := map[string]int{}
+	byKey := map[string]*errorDetail{}
 	for _, r := range rows {
-		counts[r.Key] += r.Count
-	}
-	out := make([]errorDetail, 0, len(counts))
-	for key, count := range counts {
-		parts := strings.SplitN(key, "|", 3)
+		parts := strings.SplitN(r.Key, "|", 3)
 		if len(parts) != 3 {
 			continue
 		}
-		status, _ := strconv.Atoi(parts[1])
-		out = append(out, errorDetail{Endpoint: parts[0], Status: status, Text: truncateText(parts[2], 160), Count: count})
-	}
-	slices.SortFunc(out, func(a, b errorDetail) int {
-		if c := cmp.Compare(b.Count, a.Count); c != 0 {
-			return c
+		e := byKey[r.Key]
+		if e == nil {
+			status, _ := strconv.Atoi(parts[1])
+			e = &errorDetail{Endpoint: parts[0], Status: status, Text: truncateText(parts[2], 160)}
+			byKey[r.Key] = e
 		}
-		return cmp.Compare(a.Endpoint+a.Text, b.Endpoint+b.Text)
-	})
+		e.Count += r.Count
+		if at := time.Unix(r.LastAt, 0); at.After(e.LastAt) {
+			e.LastAt, e.Path = at, r.Path
+		}
+	}
+	out := make([]errorDetail, 0, len(byKey))
+	for _, e := range byKey {
+		out = append(out, *e)
+	}
+	slices.SortFunc(out, func(a, b errorDetail) int { return b.LastAt.Compare(a.LastAt) })
 	return out, nil
 }
 

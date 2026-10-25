@@ -11,6 +11,7 @@ X-Frame-Options: DENY
 {
  "cities": [
   {
+   "errors": [],
    "name": "Fixture",
    "people_today": 1,
    "problems": [],
@@ -19,6 +20,7 @@ X-Frame-Options: DENY
    "watching": 0
   },
   {
+   "errors": [],
    "name": "Fixture GTFS",
    "people_today": 1,
    "problems": [],

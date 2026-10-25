@@ -203,6 +203,16 @@ func (s *Store) initSchemas() error {
             PRIMARY KEY (date, metric, key)
         );
 
+		CREATE TABLE IF NOT EXISTS stats_errors
+        (
+            date    TEXT    NOT NULL,
+            key     TEXT    NOT NULL,
+            count   INTEGER NOT NULL,
+            last_at INTEGER NOT NULL,
+            path    TEXT    NOT NULL,
+            PRIMARY KEY (date, key)
+        );
+
 		CREATE TABLE IF NOT EXISTS segment_travel_time_samples
         (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,

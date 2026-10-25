@@ -57,8 +57,7 @@ func StatsMiddleware(cities map[string]*City, salt string) fiber.Handler {
 		status := responseStatus(c, err)
 		warmingUp := status == fiber.StatusServiceUnavailable && len(c.Response().Header.Peek(fiber.HeaderRetryAfter)) > 0
 		if status >= fiber.StatusInternalServerError && !warmingUp {
-			city.RecordEvent("endpoint_error", key)
-			city.RecordEvent("error_detail", key+"|"+strconv.Itoa(status)+"|"+errorText(c, err))
+			city.RecordRequestError(key+"|"+strconv.Itoa(status)+"|"+errorText(c, err), c.Path(), time.Now())
 		}
 		if status >= fiber.StatusBadRequest {
 			return err
