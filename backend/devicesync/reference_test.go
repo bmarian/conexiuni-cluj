@@ -3,6 +3,7 @@ package devicesync
 // The client side of protocol.md in Go: what produced testdata/vectors.json and checks testdata/cases.json.
 
 import (
+	"cmp"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -192,6 +193,8 @@ type cityRecord struct {
 	followed []string
 }
 
+type newsRecord struct{ seen []int64 }
+
 type deviceEntry struct{ id, kind, label, pub string }
 
 type settingsRecord struct {
@@ -202,6 +205,7 @@ type settingsRecord struct {
 
 const (
 	cityCap   = 50
+	newsCap   = 200
 	deviceCap = 10
 	maxInt    = math.MaxInt32
 )
@@ -451,6 +455,36 @@ func parseCity(raw string) (cityRecord, error) {
 	return rec, canonical(raw, rec.write())
 }
 
+func parseNews(raw string) (newsRecord, error) {
+	var rec newsRecord
+	v, err := parseJSON(raw)
+	if err != nil {
+		return rec, err
+	}
+	if err := version(v); err != nil {
+		return rec, err
+	}
+	m, err := object(v, "v", "seen")
+	if err != nil {
+		return rec, err
+	}
+	seen, err := list(m["seen"], newsCap)
+	if err != nil {
+		return rec, err
+	}
+	for _, s := range seen {
+		id, err := integer(s, 1, maxInt)
+		if err != nil {
+			return rec, err
+		}
+		if n := len(rec.seen); n > 0 && id >= rec.seen[n-1] {
+			return rec, refuse("seen not strictly descending at %d", id)
+		}
+		rec.seen = append(rec.seen, id)
+	}
+	return rec, canonical(raw, rec.write())
+}
+
 func parseDevices(raw string) ([]deviceEntry, error) {
 	v, err := parseJSON(raw)
 	if err != nil {
@@ -579,6 +613,10 @@ func (r cityRecord) write() string {
 		`,"lines":` + joined(r.lines, func(l line) string { return "[" + stopID(l.route) + "," + quote(l.dir) + "]" }) +
 		`,"places":` + joined(r.places, writePlace) +
 		`,"followed":` + joined(r.followed, quote) + "}"
+}
+
+func (r newsRecord) write() string {
+	return `{"v":1,"seen":` + joined(r.seen, stopID) + "}"
 }
 
 func writePlace(p place) string {
@@ -722,6 +760,12 @@ func mergeCity(base, local, remote cityRecord) (cityRecord, cityDropped) {
 	out.places, dropped.places = mergeList(base.places, local.places, remote.places, placeID, mergePlace, cityCap)
 	out.followed, dropped.followed = mergeList(base.followed, local.followed, remote.followed, followedID, same, cityCap)
 	return out, dropped
+}
+
+func mergeNews(base, local, remote newsRecord) newsRecord {
+	seen, _ := mergeList(base.seen, local.seen, remote.seen, stopID, same, math.MaxInt)
+	slices.SortFunc(seen, func(a, b int64) int { return cmp.Compare(b, a) })
+	return newsRecord{seen: seen[:min(len(seen), newsCap)]}
 }
 
 func mergeSettings(base *settingsRecord, local, remote settingsRecord) settingsRecord {

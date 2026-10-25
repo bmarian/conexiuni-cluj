@@ -3,12 +3,14 @@
 import {fromB64, SPKI_SIZE, validPublicKey} from '@/utils/sync/crypto.ts'
 
 export const CITY_CAP = 50
+export const NEWS_CAP = 200
 export const DEVICE_CAP = 10
 const MAX_INT = 2 ** 31 - 1
 
 export type Place = {name: string; label: string; lat: number; lon: number; origin?: {name: string; lat: number; lon: number}}
 export type Line = {route: number; dir: '0' | '1'}
 export type CityRecord = {stops: number[]; lines: Line[]; places: Place[]; followed: string[]}
+export type NewsRecord = {seen: number[]}
 export type DeviceKind = 'web' | 'android' | 'wear'
 export type DeviceEntry = {id: string; kind: DeviceKind; label: string; pub: string}
 export type DevicesRecord = {devices: DeviceEntry[]}
@@ -32,6 +34,7 @@ const refuse = (why: string): never => {
 }
 
 export const emptyCity = (): CityRecord => ({stops: [], lines: [], places: [], followed: []})
+export const emptyNews = (): NewsRecord => ({seen: []})
 
 export function forbidden(cp: number): boolean {
   return cp <= 0x1f || (cp >= 0x7f && cp <= 0x9f) || cp === 0x061c || cp === 0x200b || cp === 0x200e || cp === 0x200f
@@ -137,6 +140,16 @@ export function writeCity(r: CityRecord): string {
 }
 
 export const readCity = (raw: string) => read(raw, parseCity, writeCity)
+
+function parseNews(record: unknown): NewsRecord {
+  const seen = list(object(record, 'v', 'seen').seen, NEWS_CAP).map((s) => integer(s, 1, MAX_INT))
+  if (seen.some((id, i) => i > 0 && id >= seen[i - 1]!)) refuse('order')
+  return {seen}
+}
+
+export const writeNews = (r: NewsRecord) => JSON.stringify({v: 1, seen: r.seen})
+
+export const readNews = (raw: string) => read(raw, parseNews, writeNews)
 
 const KINDS: DeviceKind[] = ['web', 'android', 'wear']
 

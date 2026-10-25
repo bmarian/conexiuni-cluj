@@ -32,7 +32,7 @@ const (
 )
 
 type Options struct {
-	// Cities is how many cities the server has: each may have a record, plus settings and devices.
+	// Cities is how many cities the server has: each may have a city and a news record, plus settings and devices.
 	Cities int
 	// MaxBytes stops new chains once the database is this large.
 	MaxBytes int64
@@ -61,7 +61,7 @@ func Open(path string, opts Options) (*Service, error) {
 	}
 	return &Service{
 		db:           db,
-		maxRecords:   opts.Cities + 2,
+		maxRecords:   2*opts.Cities + 2,
 		maxBytes:     opts.MaxBytes,
 		runner:       jobs.New(),
 		slots:        map[string]*slot{},
