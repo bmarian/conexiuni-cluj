@@ -9,6 +9,8 @@ export type Accuracy = {
   bias_sec: number
 }
 
+export type ErrorDetail = {endpoint: string; status: number; text: string; count: number; last_at: string; path: string}
+
 export type CitySummary = {
   slug: string
   name: string
@@ -16,6 +18,7 @@ export type CitySummary = {
   watching: number
   people_today: number
   problems: string[]
+  errors: ErrorDetail[]
 }
 
 export type LoggedProblem = {first: string; last: string; count: number; text: string}
@@ -94,7 +97,7 @@ export type Overview = {
     requests: number
     errors: number
     endpoints: {key: string; calls: number; avg_ms: number; errors: number}[]
-    error_details: {endpoint: string; status: number; text: string; count: number}[]
+    error_details: ErrorDetail[]
   }
 }
 

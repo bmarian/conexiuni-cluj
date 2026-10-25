@@ -17,12 +17,13 @@ var serverStartedAt = time.Now()
 const diskFullWarning = 0.9
 
 type citySummary struct {
-	Slug        string   `json:"slug"`
-	Name        string   `json:"name"`
-	Realtime    bool     `json:"realtime"`
-	Watching    int      `json:"watching"`
-	PeopleToday int      `json:"people_today"`
-	Problems    []string `json:"problems"`
+	Slug        string        `json:"slug"`
+	Name        string        `json:"name"`
+	Realtime    bool          `json:"realtime"`
+	Watching    int           `json:"watching"`
+	PeopleToday int           `json:"people_today"`
+	Problems    []string      `json:"problems"`
+	Errors      []errorDetail `json:"errors"`
 }
 
 type siteServer struct {
@@ -66,7 +67,7 @@ func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, er
 func summarize(city *cities.City, now time.Time) (citySummary, adminTraffic) {
 	st := city.Live.Status(now)
 	n := nowCounts(st)
-	s := citySummary{Slug: city.Slug, Name: city.Name, Realtime: city.Realtime != nil, Watching: n.People}
+	s := citySummary{Slug: city.Slug, Name: city.Name, Realtime: city.Realtime != nil, Watching: n.People, Errors: []errorDetail{}}
 	today := database.StatsDate(now)
 	traffic, err := trafficSection(city, now)
 	people, peopleErr := peopleByDay(city, today)
@@ -74,7 +75,7 @@ func summarize(city *cities.City, now time.Time) (citySummary, adminTraffic) {
 		s.Problems = []string{fmt.Sprintf("Could not read: %v", err)}
 		return s, traffic
 	}
-	s.PeopleToday = people[today]
+	s.PeopleToday, s.Errors = people[today], traffic.ErrorDetails
 	quota, _ := quotaSection(city, st)
 	s.Problems = cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), now)
 	return s, traffic

@@ -25,11 +25,11 @@ func TestWarmUpAnswersAreNotServerErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	rows, err := city.MetricRows("error_detail", database.StatsDate(time.Now()))
+	rows, err := city.RequestErrors(database.StatsDate(time.Now()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || rows[0].Key != "GET /down|503|database gone" || rows[0].Count != 1 {
-		t.Fatalf("error details %+v", rows)
+	if len(rows) != 1 || rows[0].Key != "GET /down|503|database gone" || rows[0].Count != 1 || rows[0].Path != "/api/a/down" {
+		t.Fatalf("errors %+v", rows)
 	}
 }

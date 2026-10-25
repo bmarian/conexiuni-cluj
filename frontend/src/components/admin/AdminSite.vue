@@ -2,6 +2,7 @@
 import {computed, ref} from 'vue'
 import AdminCard from '@/components/admin/AdminCard.vue'
 import AdminCities from '@/components/admin/AdminCities.vue'
+import AdminErrors from '@/components/admin/AdminErrors.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import type {Site} from '@/components/admin/types.ts'
@@ -24,6 +25,8 @@ const stats = computed(() => [
   {value: num(props.site.cities.reduce((n, c) => n + c.people_today, 0)), label: 'people today'},
   {value: num(server.value.requests), label: 'requests'},
 ])
+
+const errors = computed(() => props.site.cities.flatMap((c) => c.errors.map((e) => ({...e, city: c.name}))).sort((a, b) => b.last_at.localeCompare(a.last_at)))
 
 const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk_free / server.value.disk_total : null))
 </script>
@@ -55,6 +58,10 @@ const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk
           <span class="count">{{ num(c.people_today) }}</span>
         </button>
       </div>
+    </AdminCard>
+
+    <AdminCard title="Errors" hint="today">
+      <AdminErrors :errors="errors" :clock="clock" />
     </AdminCard>
 
     <AdminCard title="Server">

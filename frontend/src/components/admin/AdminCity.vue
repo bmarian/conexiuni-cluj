@@ -4,6 +4,7 @@ import AdminCalendar from '@/components/admin/AdminCalendar.vue'
 import AdminCard from '@/components/admin/AdminCard.vue'
 import AdminCityMenu from '@/components/admin/AdminCityMenu.vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
+import AdminErrors from '@/components/admin/AdminErrors.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import type {CitySummary, LearningWindow, Overview} from '@/components/admin/types.ts'
@@ -125,6 +126,10 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
       <AdminStats :stats="stats" :problems="overview.problems" />
 
       <div class="admin-cards">
+        <AdminCard title="Errors" hint="today">
+          <AdminErrors :errors="overview.traffic.error_details" :clock="clock" />
+        </AdminCard>
+
         <AdminCard v-if="realtime || overview.now.lines.length || overview.now.stops.length" title="Now">
           <dl v-if="realtime" class="admin-rows">
             <div>
@@ -338,17 +343,6 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
               <dd>{{ bytes(overview.traffic.db_bytes) }}</dd>
             </div>
           </dl>
-          <template v-if="overview.traffic.error_details.length">
-            <SubLabel text="Errors" />
-            <ul class="admin-log">
-              <li v-for="e in overview.traffic.error_details" :key="`${e.endpoint}|${e.status}|${e.text}`">
-                <span class="admin-log-head"
-                  >{{ e.endpoint }} · {{ e.status }}<template v-if="e.count > 1"> · {{ num(e.count) }}×</template></span
-                >
-                <code class="admin-bad">{{ e.text || '–' }}</code>
-              </li>
-            </ul>
-          </template>
           <details v-if="overview.traffic.endpoints.length" class="admin-fold">
             <summary class="state"><span>Endpoints</span><ExpandMoreIcon class="m-icon" /></summary>
             <table class="admin-table endpoints">
