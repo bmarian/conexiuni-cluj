@@ -8,7 +8,7 @@ export default {
 import {cityDateTime} from '@/utils/cityClock.ts'
 import {computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
-import {RouterLink, useRoute, useRouter, type LocationQueryRaw} from 'vue-router'
+import {RouterLink, useRouter, type LocationQueryRaw} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
@@ -38,6 +38,7 @@ import '@vuepic/vue-datepicker/dist/main.css'
 import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
+import {useOwnRoute} from '@/composables/useOwnRoute.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import TimelineRow from '@/components/rows/TimelineRow.vue'
@@ -66,7 +67,7 @@ import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {linePath, stopLocation} from '@/utils/pagePaths.ts'
 
 const {t} = useI18n()
-const route = useRoute()
+const route = useOwnRoute('plan')
 const router = useRouter()
 
 const mapStore = useMapStore()
@@ -85,9 +86,9 @@ const vFocus = {
   mounted: (el: HTMLElement) => el.focus(),
 }
 
-const destName = computed(() => (route.query.name as string | undefined) ?? '')
-const destLat = computed(() => parseFloat((route.query.lat as string) ?? 'NaN'))
-const destLon = computed(() => parseFloat((route.query.lon as string) ?? 'NaN'))
+const destName = computed(() => (route.value.query.name as string | undefined) ?? '')
+const destLat = computed(() => parseFloat((route.value.query.lat as string) ?? 'NaN'))
+const destLon = computed(() => parseFloat((route.value.query.lon as string) ?? 'NaN'))
 
 function shortPlaceName(name: string): string {
   const i = name.indexOf(',')
@@ -118,7 +119,7 @@ useHead(() => {
   const descKey = originName ? 'headPlanFromToDesc' : 'headPlanToDesc'
   const title = t(titleKey, params)
   const desc = t(descKey, params)
-  const url = siteUrl(route.fullPath)
+  const url = siteUrl(route.value.fullPath)
 
   return {
     title,
@@ -188,6 +189,7 @@ function toggleLegExpansion(id: string) {
 
 const mapActivationKey = ref(0)
 const isActive = ref(false)
+const view = ref<HTMLElement>()
 
 const options = computed(() => planData.value?.options ?? [])
 const selectedPlan = computed(() => options.value[selectedPlanIndex.value])
@@ -198,7 +200,7 @@ function selectPlanAt(idx: number) {
   const p = options.value[idx]
   selectedPlanKey.value = p ? p.key : null
   mapStore.fitWalkingPolylines = true
-  const newQuery = {...route.query}
+  const newQuery = {...route.value.query}
   if (idx === 0) {
     delete newQuery.plan
   } else {
@@ -387,8 +389,8 @@ function getQueryKey() {
 }
 
 function clearPlanSelection() {
-  if (route.query.plan === undefined) return
-  const newQuery = {...route.query}
+  if (route.value.query.plan === undefined) return
+  const newQuery = {...route.value.query}
   delete newQuery.plan
   void router.replace({query: newQuery})
 }
@@ -429,7 +431,7 @@ watch(pinnedLocationDragged, async (dragged) => {
   if (gen !== destDragGen) return
 
   const newQuery: LocationQueryRaw = {
-    ...route.query,
+    ...route.value.query,
     lat: coordQueryString(lat),
     lon: coordQueryString(lng),
     name,
@@ -468,7 +470,7 @@ function selectOrigin(res: Place) {
 function selectDestination(res: Place) {
   if (!isOnline.value) return
   const newQuery = {
-    ...route.query,
+    ...route.value.query,
     lat: res.lat,
     lon: res.lon,
     name: res.label,
@@ -493,7 +495,7 @@ function closeActiveSearch() {
 function dropPinAsDestination() {
   if (!isOnline.value) return
   const label = t('droppedPin')
-  const newQuery = {...route.query, lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: label}
+  const newQuery = {...route.value.query, lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: label}
   closeSearchField()
   void router.replace({query: newQuery})
   void calculateRoutes()
@@ -503,7 +505,7 @@ function useCurrentLocationAsDestination() {
   if (!isOnline.value) return
   if (!userLocation.value) return
   const newQuery = {
-    ...route.query,
+    ...route.value.query,
     lat: userLocation.value.latitude.toString(),
     lon: userLocation.value.longitude.toString(),
     name: t('planOriginCurrentLocation'),
@@ -513,7 +515,7 @@ function useCurrentLocationAsDestination() {
 }
 
 watch(customOrigin, (val) => {
-  const newQuery = {...route.query}
+  const newQuery = {...route.value.query}
   let changed = false
   if (val) {
     const originLat = coordQueryString(val.lat)
@@ -538,7 +540,7 @@ watch(customOrigin, (val) => {
 })
 
 watch(
-  () => route.query,
+  () => route.value.query,
   (newQuery) => {
     const oLat = parseFloat(newQuery.originLat as string)
     const oLon = parseFloat(newQuery.originLon as string)
@@ -574,7 +576,7 @@ watch(
 )
 
 watch([timeMode, timeValue], ([mode, value]) => {
-  const newQuery = {...route.query}
+  const newQuery = {...route.value.query}
   let changed = false
 
   if (mode === 'now') {
@@ -628,6 +630,9 @@ onMounted(async () => {
 
 onActivated(() => {
   isActive.value = true
+  // It comes back as tall as it left, so the shared scroller would keep the previous page's offset.
+  const scroller = view.value?.closest('.drawer-view')
+  if (scroller) scroller.scrollTop = 0
   if (hasValidCoords.value) {
     mapStore.setPinnedLocation(destLat.value, destLon.value, destName.value)
   }
@@ -635,6 +640,7 @@ onActivated(() => {
     mapStore.setCustomOriginLocation(customOrigin.value.lat, customOrigin.value.lon, customOrigin.value.name)
   }
   mapActivationKey.value++
+  if (currentQueryKey.value === null) void calculateRoutes()
 })
 
 watch([destLat, destLon, destName], ([lat, lon, name]) => {
@@ -665,7 +671,11 @@ const navigateAwayFunctions = () => {
   mapStore.clearWalkingPolylines()
 }
 
-onDeactivated(navigateAwayFunctions)
+onDeactivated(() => {
+  navigateAwayFunctions()
+  // Kept for the leave animation, then fetched again on the next visit.
+  currentQueryKey.value = null
+})
 onUnmounted(navigateAwayFunctions)
 
 watch(options, (opts) => {
@@ -675,7 +685,7 @@ watch(options, (opts) => {
     return
   }
   const kept = selectedPlanKey.value ? opts.findIndex((o) => o.key === selectedPlanKey.value) : -1
-  const urlPlan = parseInt(route.query.plan as string)
+  const urlPlan = parseInt(route.value.query.plan as string)
   const targetIdx = kept >= 0 ? kept : !isNaN(urlPlan) && urlPlan >= 0 && urlPlan < opts.length ? urlPlan : 0
   selectedPlanIndex.value = targetIdx
   selectedPlanKey.value = opts[targetIdx]?.key ?? null
@@ -764,7 +774,7 @@ async function swapOriginDestination() {
   const newOriginName = isCurrentLocationName(destName.value) ? await reverseGeocode(destLat.value, destLon.value) : destName.value
 
   const newQuery: LocationQueryRaw = {
-    ...route.query,
+    ...route.value.query,
     lat: String(newDestLat),
     lon: String(newDestLon),
     name: newDestName,
@@ -777,7 +787,7 @@ async function swapOriginDestination() {
 }
 
 watch(
-  () => route.query.q,
+  () => route.value.query.q,
   (q) => {
     if (typeof q !== 'string' || !q.trim() || !isOnline.value) return
     activeSearchField.value = 'destination'
@@ -802,11 +812,12 @@ let calcNavSeq = 0
 
 const legsCard = ref<HTMLElement>()
 let stopDrawing = () => {}
+// Kept alive, so a plan can arrive while the view is still detached and the draw would finish unseen.
 watch(
-  [selectedPlanSignature, isCalculating],
-  ([plan, calculating]) => {
+  [selectedPlanSignature, isCalculating, isActive],
+  ([plan, calculating, active]) => {
     stopDrawing()
-    if (plan && !calculating && legsCard.value) stopDrawing = drawTimeline(legsCard.value)
+    if (plan && !calculating && active && legsCard.value) stopDrawing = drawTimeline(legsCard.value)
   },
   {flush: 'post'},
 )
@@ -898,7 +909,7 @@ const chips = computed<ChipAction[]>(() => [
 ])
 </script>
 <template>
-  <div class="plan-view flex flex-col">
+  <div ref="view" class="plan-view flex flex-col">
     <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)" />
 
     <ViewErrorState v-if="!hasValidCoords" />
