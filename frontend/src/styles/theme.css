@@ -421,7 +421,7 @@
   }
 
   .cascade {
-    animation: cascade-in var(--spring-land-ms) var(--spring-land) both;
+    animation: cascade-in var(--spring-land-ms) var(--spring-land) backwards;
     animation-delay: calc(var(--i, 0) * 28ms);
   }
 

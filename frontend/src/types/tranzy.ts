@@ -140,6 +140,7 @@ export type LiveRow = {
 export type TimeEntry = {
   minutes: number
   is_live: boolean
+  vehicle_id?: number
 }
 
 export type VehiclesInStop = {

@@ -129,7 +129,7 @@ export function useStopDepartures(stopId: Ref<string>) {
       return {
         ...shape,
         minutes_left: entries[0]!.minutes,
-        next_times: entries.map((e) => ({minutes: e.minutes, is_live: e.live})),
+        next_times: entries.map((e) => ({minutes: e.minutes, is_live: e.live, vehicle_id: e.vehicle_id})),
         static_time_approximation: !entries.some((e) => e.live),
       }
     }
@@ -228,6 +228,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     loadError,
     isComputingDepartures,
     departures,
+    asOfMs,
     busesWithAvailableTimetables,
     isDepartureFavorite,
     reload: () => load(stopId.value),

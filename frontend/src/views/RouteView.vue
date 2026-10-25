@@ -27,6 +27,12 @@ import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import DirectionArrow from '@/components/ui/DirectionArrow.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
+import StopListBuses from '@/components/rows/StopListBuses.vue'
+import {useListFlip} from '@/composables/useListFlip.ts'
+import {directionKeys} from '@/utils/stopPairs.ts'
+import {network} from '@/utils/network.ts'
+import {displayColor} from '@/utils/lineColor.ts'
+import {modeOf} from '@/utils/modes.ts'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
 import {
   ArrowBackIcon,
@@ -57,6 +63,7 @@ const {
   currentTripId,
   timetable,
   stopsForDirection,
+  stopsByDirection,
   directionTerminals,
   directionHeadings,
   hasOutgoing,
@@ -64,6 +71,9 @@ const {
   nearestStopIdx,
   currentMinutes,
   stopTimesByStop,
+  directionPath,
+  stopsOnPath,
+  listVehicles,
   getHeaderTimes,
   isInitialLoading,
 } = useRouteArrivals(toRef(props, 'routeId'), toRef(props, 'direction'))
@@ -392,6 +402,21 @@ function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
   return 'plain'
 }
 
+const keysByDirection = computed(() =>
+  directionKeys(stopsByDirection.value['0'], stopsByDirection.value['1'], (stop) => network.value?.stationId(stop.stop_id) ?? stop.stop_id),
+)
+const stopKeys = computed(() => keysByDirection.value[currentDirection.value === '0' ? 0 : 1])
+
+const stopsList = ref<HTMLElement>()
+const flip = useListFlip(stopsList, stopsForDirection)
+
+const busTarget = computed(() => {
+  const from = stopsForDirection.value.findIndex((stop) => String(stop.stop_id) === fromStopId.value)
+  return from === -1 ? nearestStopIdx.value : from
+})
+
+const lineColor = computed(() => (shapeInfo.value ? displayColor(shapeInfo.value.route_short_name, shapeInfo.value.route_color) : ''))
+
 const stopHref = (stop: IndexedStop) => stopPath(stop.stop_id)
 const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
 </script>
@@ -442,22 +467,32 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
           </span>
         </div>
 
-        <div data-kbd-section="stops">
-          <StopLine
-            v-for="(stop, idx) in stopsForDirection"
-            :key="`${stop.stop_id}-${idx}`"
-            class="cascade"
-            :style="{'--i': idx}"
-            :name="getStopLabel(idx, stop)"
-            :mark="stopMark(idx, stop, stopsForDirection.length)"
-            :favorite="favoritesStore.isStopFavorite(stop.stop_id)"
-            :first="idx === 0"
-            :last="idx === stopsForDirection.length - 1"
-            :times="stopTimesByStop[idx]"
-            :data-kbd-item="`stop-${stop.stop_id}`"
-            :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
-            :href="stopHref(stop)"
-            @open="openStop(stop)"
+        <div ref="stopsList" class="stops" :style="{'--paint': lineColor}" data-kbd-section="stops">
+          <TransitionGroup name="flip" enter-active-class="cascade" appear @before-leave="flip.pin">
+            <StopLine
+              v-for="(stop, idx) in stopsForDirection"
+              :key="stopKeys[idx]"
+              :style="{'--i': idx}"
+              :name="getStopLabel(idx, stop)"
+              :mark="stopMark(idx, stop, stopsForDirection.length)"
+              :favorite="favoritesStore.isStopFavorite(stop.stop_id)"
+              :first="idx === 0"
+              :last="idx === stopsForDirection.length - 1"
+              :times="stopTimesByStop[idx]"
+              :data-kbd-item="`stop-${stop.stop_id}`"
+              :data-kbd-entry="String(stop.stop_id) === fromStopId ? 1 : idx === nearestStopIdx ? 2 : undefined"
+              :href="stopHref(stop)"
+              paint
+              @open="openStop(stop)"
+            />
+          </TransitionGroup>
+          <StopListBuses
+            :path="directionPath"
+            :stops-at="stopsOnPath"
+            :vehicles="listVehicles"
+            :target="busTarget"
+            :color="lineColor"
+            :mode="modeOf(shapeInfo.route_type)"
           />
         </div>
 
@@ -565,6 +600,32 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   display: flex;
   align-items: flex-end;
   padding: 20px 16px 6px;
+}
+
+.stops {
+  position: relative;
+}
+
+.flip-move {
+  transition: transform var(--spring-slide-ms) var(--spring-slide);
+}
+
+.flip-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transition: opacity 160ms linear;
+}
+
+.flip-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-move,
+  .flip-leave-active {
+    transition: none;
+  }
 }
 
 .divider {

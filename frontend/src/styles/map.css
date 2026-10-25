@@ -213,8 +213,18 @@
 }
 
 .marker-body {
+  position: relative;
   width: 100%;
   height: 100%;
+}
+
+.arrival-ring {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 3px solid;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 /* Animating the element MapLibre moves makes every frame's move a full style recalc. */

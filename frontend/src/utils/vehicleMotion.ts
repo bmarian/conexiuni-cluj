@@ -1,5 +1,5 @@
 import type {Shape} from '@/types/tranzy.ts'
-import {calculateBearing, haversineMeters} from '@/utils/geo.ts'
+import {calculateBearing, clamp, haversineMeters} from '@/utils/geo.ts'
 import type {LatLng} from '@/utils/mapMarkers.ts'
 
 const MAX_OFF_ROUTE_M = 150
@@ -15,20 +15,23 @@ const BACKTRACK_M = 60
 const TREND_WEIGHT = 0.3
 const LATE_SHARE = 0.75
 
-const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
-
 export type Path = {lat: number[]; lng: number[]; at: number[]; length: number}
 
 const paths = new WeakMap<Shape[], Path>()
 
+export function pathThrough(lat: number[], lng: number[]): Path {
+  const at = [0]
+  for (let i = 1; i < lat.length; i++) at.push(at[i - 1]! + haversineMeters(lat[i - 1]!, lng[i - 1]!, lat[i]!, lng[i]!))
+  return {lat, lng, at, length: at.at(-1)!}
+}
+
 export function pathOf(shape: Shape[]): Path {
   let path = paths.get(shape)
   if (path) return path
-  const lat = shape.map((pt) => pt.shape_pt_lat)
-  const lng = shape.map((pt) => pt.shape_pt_lon)
-  const at = [0]
-  for (let i = 1; i < shape.length; i++) at.push(at[i - 1]! + haversineMeters(lat[i - 1]!, lng[i - 1]!, lat[i]!, lng[i]!))
-  path = {lat, lng, at, length: at.at(-1)!}
+  path = pathThrough(
+    shape.map((pt) => pt.shape_pt_lat),
+    shape.map((pt) => pt.shape_pt_lon),
+  )
   paths.set(shape, path)
   return path
 }
@@ -74,6 +77,12 @@ export function locate(path: Path, {lat, lng}: LatLng, from = 0, to = Infinity, 
   const i = best.i
   const off = haversineMeters(lat, lng, path.lat[i]! + (path.lat[i + 1]! - path.lat[i]!) * best.t, path.lng[i]! + (path.lng[i + 1]! - path.lng[i]!) * best.t)
   return off <= MAX_OFF_ROUTE_M ? {s: best.s, off} : null
+}
+
+// 0 for a point off the path.
+export function shareAlong(path: Path, point: LatLng): number {
+  const at = path.length ? locate(path, point) : null
+  return at ? at.s / path.length : 0
 }
 
 export class VehicleTrack {

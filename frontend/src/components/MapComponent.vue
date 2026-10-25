@@ -41,16 +41,19 @@ import {
   stationCardHtml,
   placeTooltipHtml,
 } from '@/utils/mapIcons.ts'
-import {network, stationOf} from '@/utils/network.ts'
+import {network} from '@/utils/network.ts'
+import {stationProps} from '@/utils/pagePaths.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
-import {stopSweep, sweepLine} from '@/utils/lineSweep.ts'
+import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
+import {rippleFrom} from '@/utils/arrivalCue.ts'
+import {squash} from '@/utils/motion.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
-import {pathOf, VehicleTrack} from '@/utils/vehicleMotion.ts'
+import {pathOf, pathThrough, shareAlong, VehicleTrack} from '@/utils/vehicleMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
@@ -93,6 +96,8 @@ const {
   drawerBottomPx,
   drawerLeftPx,
   chromeTopPx,
+  growFrom,
+  arrival,
 } = storeToRefs(mapStore)
 const {colorfulLines} = storeToRefs(settingsStore)
 const route = useRoute()
@@ -230,6 +235,15 @@ const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
 
 const pathKey = (coords: LatLngTuple[]) => `${coords.length}|${coords[0]}|${coords.at(-1)}`
 
+const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
+  const origin = growFrom.value
+  const path = pathThrough(
+    line.coords.map(([lat]) => lat),
+    line.coords.map(([, lng]) => lng),
+  )
+  growLine(m, id, line.color, origin ? shareAlong(path, origin) : 0)
+}
+
 // Layers are reused so a recoloured line can sweep into its new colour.
 const syncLines = (group: LineGroup) => {
   const m = map.value
@@ -257,6 +271,7 @@ const syncLines = (group: LineGroup) => {
       m.setPaintProperty(id, 'line-dasharray', line.dash)
       const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
       if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
+      if (!shown.includes(path) && !line.dash) grow(m, id, line)
       return
     }
     if (source) m.removeSource(id)
@@ -277,6 +292,7 @@ const syncLines = (group: LineGroup) => {
     }
     if (line.dash) layer.paint!['line-dasharray'] = line.dash
     m.addLayer(layer, slotId(group))
+    if (!shown.includes(path) && !line.dash) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
   drawnFavorites = new Set(favoritesStore.favoriteLineNames)
@@ -474,13 +490,12 @@ const stopClusters = (): Clusters => {
   const points = [...stopData]
     .filter(([id]) => !skip.has(id) && (!net || net.look(Number(id))))
     .map(([id, {lat, lng}]) => {
-      const stop = net?.stopById.get(Number(id))
       const types = net?.look(Number(id))?.routes.map((r) => r.route_type) ?? []
       return {
         id,
         lat,
         lng,
-        station: stop ? stationOf(stop) : Number(id),
+        station: net ? net.stationId(Number(id)) : Number(id),
         modes: modeMask(types) || modeMask([3]),
         rank: id === anchor ? Number.MAX_SAFE_INTEGER : stationRank(types),
         favorite: favoritesStore.isStopFavorite(Number(id)),
@@ -942,6 +957,8 @@ const mapInit = (center: LatLng, zoom: number) => {
   beginLocationWatch()
 }
 
+const openStopId = () => (route.name === 'stop' ? stationProps(route).stopId : (route.params.stopId as string | undefined)) || undefined
+
 const stopMarker = (id: string): Marker | undefined => {
   const existing = stopMarkers.get(id)
   if (existing) return existing
@@ -965,7 +982,7 @@ const stopsInit = async () => {
   for (const {stop_lat, stop_lon, stop_name, stop_id} of stops) {
     stopData.set(stop_id.toString(), {lat: stop_lat, lng: stop_lon, name: stop_name})
   }
-  highlightSelectedStop(route.params.stopId as string)
+  highlightSelectedStop(openStopId())
   // Highlights set before the markers existed were skipped.
   renderHighlightedStops()
   void loadAreas()
@@ -1114,12 +1131,9 @@ onMounted(() => {
   locationRetryTimer = setTimeout(retryLocationForStandaloneApp, LOCATION_RETRY_DELAY_MS)
 })
 
-watch(
-  () => route.params.stopId,
-  (newId) => {
-    highlightSelectedStop(newId as string)
-  },
-)
+watch(openStopId, (newId) => {
+  highlightSelectedStop(newId)
+})
 
 const refreshStopIcons = () => {
   stopMarkers.forEach((marker, id) => {
@@ -1140,6 +1154,15 @@ watch(showsContent, () => refreshStops())
 watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
 watch(isDarkMode, applyStyle)
+
+watch(arrival, (cue) => {
+  if (!cue) return
+  const stopId = currentlyHighlightedStopId.value
+  const stop = stopId ? stopMarkers.get(stopId)?.getElement().querySelector<HTMLElement>('.marker-body') : null
+  if (stop) rippleFrom(stop, cue.color)
+  const bus = cue.vehicleId === undefined ? null : vehicleMarkers.get(cue.vehicleId)?.marker.getElement().querySelector<HTMLElement>('.marker-body')
+  squash(bus)
+})
 
 const shapeColor = (displayShape: DisplayShape) => lineColors.value.get(displayShape.route_short_name) ?? displayShape.route_color
 

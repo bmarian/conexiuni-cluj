@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useUserStore} from '@/stores/user.ts'
 import {storeToRefs} from 'pinia'
-import {computed, toRef, watch} from 'vue'
+import {computed, onUnmounted, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import StationIcon from '@/components/StationIcon.vue'
@@ -25,6 +25,10 @@ import ActionChips from '@/components/ui/ActionChips.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import DepartureCard from '@/components/rows/DepartureCard.vue'
+import LiveDot from '@/components/ui/LiveDot.vue'
+import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
+import {useDueArrivals} from '@/composables/useDueArrivals.ts'
+import {displayColor} from '@/utils/lineColor.ts'
 import RouteRow from '@/components/rows/RouteRow.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from '@/utils/icons.ts'
@@ -35,6 +39,7 @@ const {t} = useI18n()
 const userStore = useUserStore()
 const routeStore = useRouteStore()
 const favoritesStore = useFavoritesStore()
+const mapStore = useMapStore()
 const router = useRouter()
 const stopIdNum = computed(() => Number(props.stopId))
 const {userTime} = storeToRefs(userStore)
@@ -48,10 +53,17 @@ const {
   loadError,
   isComputingDepartures,
   departures: shapesComingToTheStopBasedOnVehiclePositions,
+  asOfMs,
   busesWithAvailableTimetables,
   isDepartureFavorite,
   reload,
 } = useStopDepartures(toRef(props, 'stopId'))
+
+provideLiveBeat(asOfMs)
+
+useDueArrivals(shapesComingToTheStopBasedOnVehiclePositions, (shape) => {
+  if (isDepartureFavorite(shape)) mapStore.signalArrival(displayColor(shape.route_short_name, shape.route_color), shape.next_times[0]?.vehicle_id)
+})
 
 useKbdShortcuts({f: toggleFavorite})
 
@@ -63,15 +75,17 @@ function planHere() {
   void router.push({name: 'plan', query: {lat: String(info.stop_lat), lon: String(info.stop_lon), name: info.stop_name}})
 }
 
-const mapStore = useMapStore()
 watch(
   () => stopInfo.value?.stop_id,
   () => {
     const info = stopInfo.value
-    if (info) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
+    if (!info) return
+    mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
+    mapStore.growFrom = {lat: info.stop_lat, lng: info.stop_lon}
   },
   {immediate: true},
 )
+onUnmounted(() => (mapStore.growFrom = null))
 
 useHead(() => {
   // Keep the server-injected meta for crawlers until the stop loads.
@@ -192,7 +206,7 @@ const chips = computed<ChipAction[]>(() => [
 
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
         <div class="departures-label">
-          <span class="live-dot"></span>
+          <LiveDot />
           <h2 class="text-title-small text-on-surface-variant">{{ t('nextDepartures') }}</h2>
         </div>
         <template v-if="isComputingDepartures">
@@ -249,20 +263,6 @@ const chips = computed<ChipAction[]>(() => [
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--md-live);
-  animation: live-pulse 1s ease-in-out infinite alternate;
-}
-
-@keyframes live-pulse {
-  to {
-    opacity: 0.35;
-  }
 }
 
 .skeleton {
