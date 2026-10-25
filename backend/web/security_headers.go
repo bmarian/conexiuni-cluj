@@ -5,7 +5,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 )
 
-// Other sites' pages can't read API answers in their visitors' browsers; apps and devices don't use CORS.
 var CORS = cors.New(cors.Config{
 	AllowOrigins: []string{SiteOrigin, "https://bus.bmarian.online"},
 	AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
