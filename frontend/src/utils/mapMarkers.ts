@@ -126,6 +126,13 @@ export function shiftInto(start: number, end: number, min: number, max: number):
   return Math.min(0, max - end)
 }
 
+export function keepSideTipInside(markerEl: HTMLElement, area: ScreenArea) {
+  const tip = markerEl.querySelector<HTMLElement>('.vehicle-tip')
+  if (!tip) return
+  tip.classList.remove('is-left')
+  tip.classList.toggle('is-left', tip.getBoundingClientRect().right > area.right - TOOLTIP_MARGIN_PX)
+}
+
 // One hover label at a time, kept inside the part of the map that isn't covered.
 export function createTooltip(map: MapLibreMap, visibleArea: () => ScreenArea) {
   const el = document.createElement('div')

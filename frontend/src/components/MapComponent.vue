@@ -67,11 +67,13 @@ import {
   createTooltip,
   htmlMarker,
   type HtmlMarkerOptions,
+  keepSideTipInside,
   type LatLng,
   markerLatLng,
   onElementClick,
   onMarkerClick,
   onPreview,
+  type ScreenArea,
   setMarkerIcon,
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle} from '@/utils/mapStyles.ts'
@@ -901,6 +903,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     syncOverlays()
   })
   mapValue.on('move', scheduleStopRefresh)
+  mapValue.on('move', placeSelectedTip)
   mapValue.on('moveend', () => {
     refreshStops()
     const mapCenter = mapValue.getCenter()
@@ -920,15 +923,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     selectedVehicleId.value = null
   })
 
-  tooltip = createTooltip(mapValue, () => {
-    const box = mapValue.getContainer().getBoundingClientRect()
-    return {
-      top: box.top + Math.max(safeAreaPx().top, chromeTopPx.value),
-      right: box.right,
-      bottom: box.bottom - drawerBottomPx.value,
-      left: box.left + drawerLeftPx.value,
-    }
-  })
+  tooltip = createTooltip(mapValue, visibleArea)
   mapValue.addControl(createCreditsControl(), 'bottom-left')
   beginLocationWatch()
 }
@@ -1340,6 +1335,21 @@ const renderHighlightedStops = () => {
 watch([highlightedStops, currentlyHighlightedStopId], renderHighlightedStops, {deep: true})
 
 
+const visibleArea = (): ScreenArea => {
+  const box = map.value!.getContainer().getBoundingClientRect()
+  return {
+    top: box.top + Math.max(safeAreaPx().top, chromeTopPx.value),
+    right: box.right,
+    bottom: box.bottom - drawerBottomPx.value,
+    left: box.left + drawerLeftPx.value,
+  }
+}
+
+const placeSelectedTip = () => {
+  const el = selectedVehicleId.value === null ? undefined : vehicleMarkers.get(selectedVehicleId.value)?.marker.getElement()
+  if (el) keepSideTipInside(el, visibleArea())
+}
+
 const renderVehicles = (vehicles: DisplayVehicle[]) => {
   const m = map.value
   if (!m) return
@@ -1388,6 +1398,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     fadeOutMarker(shown.marker)
     vehicleMarkers.delete(id)
   }
+  placeSelectedTip()
   void followVehicles(vehicles)
 }
 
@@ -1441,6 +1452,7 @@ const moveVehicles = () => {
     shown.marker.getElement().querySelector<SVGElement>('.vehicle-heading')?.style.setProperty('transform', `rotate(${turn}deg)`)
     shown.turn = turn
   }
+  placeSelectedTip()
   if (moving) vehicleFrame = requestAnimationFrame(moveVehicles)
 }
 

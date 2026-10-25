@@ -110,6 +110,11 @@
   pointer-events: none;
 }
 
+.vehicle-tip.is-left {
+  left: auto;
+  right: 44px;
+}
+
 .vehicle-tip-text {
   display: flex;
   flex-direction: column;
