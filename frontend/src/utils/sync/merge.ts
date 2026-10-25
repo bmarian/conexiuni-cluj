@@ -7,6 +7,8 @@ import {
   deviceId,
   followedId,
   lineId,
+  NEWS_CAP,
+  type NewsRecord,
   type Place,
   placeId,
   type SettingsRecord,
@@ -72,6 +74,11 @@ export function mergeCity(base: CityRecord, local: CityRecord, remote: CityRecor
     merged: {stops: stops.merged, lines: lines.merged, places: places.merged, followed: followed.merged},
     dropped: {stops: stops.dropped, lines: lines.dropped, places: places.dropped, followed: followed.dropped},
   }
+}
+
+export function mergeNews(base: NewsRecord, local: NewsRecord, remote: NewsRecord): NewsRecord {
+  const {merged} = mergeList(base.seen, local.seen, remote.seen, String, sameItem, Infinity)
+  return {seen: merged.sort((a, b) => b - a).slice(0, NEWS_CAP)}
 }
 
 export function mergeSettings(base: SettingsRecord | null, local: SettingsRecord, remote: SettingsRecord): SettingsRecord {

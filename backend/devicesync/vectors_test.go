@@ -324,6 +324,8 @@ func parseAny(kind, raw string) error {
 	switch kind {
 	case "city":
 		_, err = parseCity(raw)
+	case "news":
+		_, err = parseNews(raw)
 	case "devices":
 		_, err = parseDevices(raw)
 	case "settings":
@@ -417,6 +419,14 @@ func TestMergeCases(t *testing.T) {
 			remote, _ := parseCity(c.Remote)
 			merged, d := mergeCity(base, local, remote)
 			got, dropped = merged.write(), droppedJSON(t, d)
+		case "news":
+			var base newsRecord
+			if c.Base != nil {
+				base, _ = parseNews(*c.Base)
+			}
+			local, _ := parseNews(c.Local)
+			remote, _ := parseNews(c.Remote)
+			got = mergeNews(base, local, remote).write()
 		case "settings":
 			var base *settingsRecord
 			if c.Base != nil {

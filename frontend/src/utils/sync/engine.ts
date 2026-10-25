@@ -28,17 +28,31 @@ import {
   type DeviceEntry,
   type DevicesRecord,
   emptyCity,
+  emptyNews,
+  type NewsRecord,
   type Read,
   readCity,
   readDevices,
+  readNews,
   readSettings,
   type SettingsRecord,
   writeCity,
   writeDevices,
+  writeNews,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeSettings} from '@/utils/sync/merge.ts'
-import {applyCity, applySettings, cityFromLocal, isEmptyCity, settingsFromLocal, syncedCities} from '@/utils/sync/local.ts'
+import {mergeCity, mergeDevices, mergeNews, mergeSettings} from '@/utils/sync/merge.ts'
+import {
+  applyCity,
+  applyNews,
+  applySettings,
+  cityFromLocal,
+  isEmptyCity,
+  isEmptyNews,
+  newsFromLocal,
+  settingsFromLocal,
+  syncedCities,
+} from '@/utils/sync/local.ts'
 import {type Base, forget, getBases, getMembership, type Membership, setBases, setMembership} from '@/utils/sync/vault.ts'
 
 // removed: this device is out of its chain (removed, or sync was deleted); broken: something did not open or follow the rules.
@@ -68,6 +82,7 @@ type Run = {m: Membership; keys: ChainKeys; bases: Record<string, Base>; report:
 const SETTINGS = 'settings'
 const DEVICES = 'devices'
 const cityName = (slug: string) => `city:${slug}`
+const newsName = (slug: string) => `news:${slug}`
 
 function cityKind(slug: string, run: Run): Kind<CityRecord> {
   return {
@@ -88,6 +103,17 @@ function cityKind(slug: string, run: Run): Kind<CityRecord> {
     },
     apply: (value) => applyCity(slug, value),
     empty: isEmptyCity,
+  }
+}
+
+function newsKind(slug: string): Kind<NewsRecord> {
+  return {
+    read: readNews,
+    write: writeNews,
+    local: () => newsFromLocal(slug),
+    merge: (base, local, remote) => mergeNews(base ?? emptyNews(), local, remote),
+    apply: (value) => applyNews(slug, value),
+    empty: isEmptyNews,
   }
 }
 
@@ -251,7 +277,7 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
   const steps = [
     step(DEVICES, devicesKind(run, label)),
     ...(withSettings ? [step(SETTINGS, settingsKind)] : []),
-    ...syncedCities().map((slug) => step(cityName(slug), cityKind(slug, run))),
+    ...syncedCities().flatMap((slug) => [step(cityName(slug), cityKind(slug, run)), step(newsName(slug), newsKind(slug))]),
   ]
   try {
     for (const sync of steps) await sync()
@@ -299,7 +325,7 @@ export async function removeDevice(id: string, withSettings: boolean, label: str
   const m = (await getMembership())!
   const st = await state(m)
   const keys = await chainKeys(m.s)
-  const logicals = [DEVICES, SETTINGS, ...syncedCities().map(cityName)]
+  const logicals = [DEVICES, SETTINGS, ...syncedCities().flatMap((slug) => [cityName(slug), newsName(slug)])]
   const byName = new Map(await Promise.all(logicals.map(async (l): Promise<[string, string]> => [await recordName(keys.names, l), l])))
   const run: Run = {m, keys, bases: {}, report: {devices: [], dropped: 0, problems: []}, devices: []}
 

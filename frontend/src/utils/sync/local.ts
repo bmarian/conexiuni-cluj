@@ -11,6 +11,8 @@ import {
   forbidden,
   LAT,
   LON,
+  NEWS_CAP,
+  type NewsRecord,
   type Place,
   placeId,
   roundCoordinate,
@@ -77,6 +79,15 @@ export function applyCity(slug: string, r: CityRecord) {
   }, slug)
   useRouteUpdatesStore().importFollowed(r.followed, slug)
 }
+
+export function newsFromLocal(slug: string): NewsRecord {
+  const seen = useRouteUpdatesStore().seenIn(slug).filter((id) => Number.isInteger(id) && id >= 1 && id <= 2 ** 31 - 1)
+  return {seen: distinct(seen, String).sort((a, b) => b - a).slice(0, NEWS_CAP)}
+}
+
+export const isEmptyNews = (r: NewsRecord) => !r.seen.length
+
+export const applyNews = (slug: string, r: NewsRecord) => useRouteUpdatesStore().importSeen(r.seen, slug)
 
 export const syncedCities = () => cities.value.map((c) => c.slug)
 

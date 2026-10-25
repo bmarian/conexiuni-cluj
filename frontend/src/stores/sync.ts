@@ -87,7 +87,7 @@ export const useSyncStore = defineStore('sync', () => {
   function onStorage(e: StorageEvent) {
     if (!e.key) return
     if (e.key.startsWith(`${currentCity.value}:favorites:`) || e.key.startsWith(`${currentCity.value}:recents:`)) void useFavoritesStore().hydrate()
-    else if (e.key === `${currentCity.value}:follows:routes`) useRouteUpdatesStore().reload()
+    else if (e.key === `${currentCity.value}:follows:routes` || e.key === `${currentCity.value}:route-changes:seen`) useRouteUpdatesStore().reload()
     else if (e.key.startsWith('settings.') || e.key.includes(':settings.')) {
       const settings = useSettingsStore()
       settings.reload()
@@ -105,7 +105,7 @@ export const useSyncStore = defineStore('sync', () => {
     const favorites = useFavoritesStore()
     const routeUpdates = useRouteUpdatesStore()
     const settings = useSettingsStore()
-    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed], schedule, {deep: true})
+    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed, routeUpdates.seenIds], schedule, {deep: true})
     watch(() => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.regionSetting('cluj', 'showGreenFriday')], () => {
       if (withSettings.value) schedule()
     })
