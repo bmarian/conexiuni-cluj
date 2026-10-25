@@ -18,6 +18,7 @@ import {isIOS} from '@/utils/ios.ts'
 import {
   BrightnessMediumIcon,
   CloseIcon,
+  CodeIcon,
   CropFreeIcon,
   DarkModeIcon,
   DownloadIcon,
@@ -37,6 +38,8 @@ type Theme = 'light' | 'dark' | 'system'
 type Locale = 'ro' | 'en'
 
 const CONTACT_EMAIL = 'ceautobuziau@gmail.com'
+const SOURCE_URL = 'https://github.com/bmarian/conexiuni-cluj'
+const release = __APP_RELEASE__
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -248,7 +251,11 @@ async function choose(slug: string | null) {
     <h2 class="section">{{ t('contact') }}</h2>
     <div data-kbd-section="contact">
       <ListItem as="a" :href="`mailto:${CONTACT_EMAIL}`" :icon="EmailIcon" :title="CONTACT_EMAIL" :description="t('contactDesc')" data-kbd-item="contact"/>
+      <ListItem as="a" :href="SOURCE_URL" target="_blank" rel="noopener" :icon="CodeIcon" title="GitHub" :description="t('sourceCodeDesc')" data-kbd-item="source"/>
     </div>
+    <p class="version text-body-small text-on-surface-variant">
+      {{ t('openSource') }}<template v-if="release"> · v{{ release }}</template>
+    </p>
     <div class="h-8"></div>
   </div>
 </template>
@@ -261,6 +268,11 @@ async function choose(slug: string | null) {
   font-weight: 500;
   letter-spacing: 0.1px;
   color: var(--md-primary);
+}
+
+.version {
+  padding: 24px 16px 0;
+  text-align: center;
 }
 
 .note {

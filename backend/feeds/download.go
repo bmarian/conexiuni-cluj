@@ -28,6 +28,13 @@ func Download(url string) ([]byte, error) {
 	return fetch(client, url)
 }
 
+type StatusError struct {
+	URL  string
+	Code int
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("%s: status %d", e.URL, e.Code) }
+
 // Some servers send only their own certificate. Like browsers, fetch the
 // missing issuers from the address each certificate names.
 func issuerFetching(roots *x509.CertPool) *http.Transport {
@@ -107,7 +114,7 @@ func fetchAtMost(c *http.Client, url string, limit int64) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s: status %d", url, resp.StatusCode)
+		return nil, &StatusError{URL: url, Code: resp.StatusCode}
 	}
 	var body io.Reader = progress{resp.Body, func() { stalled.Reset(StallTimeout) }}
 	if limit > 0 {

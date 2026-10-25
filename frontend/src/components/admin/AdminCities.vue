@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {onMounted, ref} from 'vue'
+import SwitchToggle from '@/components/ui/SwitchToggle.vue'
 
 type AdminCity = {slug: string; name: string; enabled: boolean}
 
@@ -48,107 +49,34 @@ onMounted(load)
 </script>
 
 <template>
-  <p v-if="loadError" class="bad">Could not load ({{ loadError }})</p>
-  <dl v-else class="kv">
-    <div v-for="city in list" :key="city.slug">
-      <dt class="name" :class="{ off: !city.enabled }">{{ city.name }}</dt>
-      <dd>
-        <div class="segmented" role="radiogroup" :aria-label="city.name">
-          <button
-            v-for="on in [true, false]"
-            :key="String(on)"
-            type="button"
-            role="radio"
-            :class="{ 'is-selected': city.enabled === on }"
-            :aria-checked="city.enabled === on"
-            :disabled="!!busy"
-            @click="setEnabled(city, on)"
-          >
-            {{ on ? 'On' : 'Off' }}
-          </button>
-        </div>
-      </dd>
-    </div>
-  </dl>
-  <p v-if="switchError" class="bad hint">{{ switchError }}</p>
+  <p v-if="loadError" class="admin-note admin-bad">Could not load ({{ loadError }})</p>
+  <ul v-else class="cities">
+    <li v-for="city in list" :key="city.slug">
+      <span class="text-body-large truncate" :class="{ 'text-on-surface-variant': !city.enabled }">{{ city.name }}</span>
+      <SwitchToggle
+        :checked="city.enabled"
+        :disabled="!!busy"
+        :aria-label="city.name"
+        @change="setEnabled(city, $event)"
+      />
+    </li>
+  </ul>
+  <p v-if="switchError" class="admin-note admin-bad">{{ switchError }}</p>
 </template>
 
 <style scoped>
-.bad {
-  color: var(--a-bad);
-}
-
-.hint {
-  margin: 0.375rem 0 0;
-  font-size: 0.8125rem;
-}
-
-.kv {
+.cities {
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.kv > div {
+.cities li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  min-height: 2.25rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--a-hair);
-}
-
-.kv > div:last-child {
-  border-bottom: 0;
-}
-
-.kv dt.name {
-  flex-shrink: 1;
-  min-width: 0;
-  color: var(--a-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.kv dt.off {
-  color: var(--a-faint);
-}
-
-.kv dd {
-  margin: 0;
-}
-
-.segmented {
-  display: flex;
-  gap: 2px;
-  width: 7rem;
-  padding: 2px;
-  border-radius: 0.75rem;
-  background: var(--a-hair);
-}
-
-.segmented button {
-  flex: 1;
-  min-width: 0;
-  min-height: 2rem;
-  padding: 0.25rem 0.375rem;
-  border: 0;
-  border-radius: 0.625rem;
-  background: none;
-  color: var(--a-muted);
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.segmented button.is-selected {
-  background: var(--a-bg);
-  color: var(--a-text);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
-}
-
-.segmented button:disabled {
-  cursor: default;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 16px;
 }
 </style>

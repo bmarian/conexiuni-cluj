@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
+import ChoiceRow from '@/components/ui/ChoiceRow.vue'
+import SubLabel from '@/components/ui/SubLabel.vue'
+import type {Choice} from '@/components/ui/types.ts'
+import type {LearningWindow} from '@/components/admin/types.ts'
+import {dayName, timetableLabels} from '@/utils/adminFormat.ts'
+import {AddIcon, CloseIcon, ExpandMoreIcon} from '@/utils/icons.ts'
 
 type Range = {name: string; start: string; end: string}
 
@@ -21,13 +27,6 @@ type CalendarDay = {
   override?: DayOverride
 }
 
-type LearningWindow = {
-  day_type: string
-  days: number
-  from?: string
-  last_year_days: number
-}
-
 type CalendarView = {
   today: {date: string; schedule_day: string; holiday?: string}
   editable: boolean
@@ -39,7 +38,7 @@ type CalendarView = {
 }
 
 const props = defineProps<{city: string}>()
-const emit = defineEmits<{saved: []}>()
+const emit = defineEmits<{saved: [], learning: [windows: LearningWindow[]]}>()
 
 const view = ref<CalendarView | null>(null)
 const loadError = ref('')
@@ -55,34 +54,10 @@ const dayBusy = ref(false)
 const dayError = ref('')
 const dayPicker = ref<HTMLInputElement | null>(null)
 
-const dayChoices = [
-  {value: '', label: 'Auto'},
-  {value: 'weekday', label: 'Weekday'},
-  {value: 'saturday', label: 'Saturday'},
-  {value: 'sunday', label: 'Sunday'},
-]
-
-const timetableLabels: Record<string, string> = {
-  weekday: 'Weekday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
-}
-
-const windowLabels: Record<string, string> = {
-  weekday: 'School days',
-  weekday_vacation: 'School holidays',
-  saturday: 'Saturdays',
-  sunday: 'Sundays',
-}
-
 const statusLabels: Record<SchoolYear['status'], string> = {
   saved: 'saved',
   built_in: 'built in',
   estimate: 'estimate',
-}
-
-function dayName(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})
 }
 
 const yearLabel = (year: number) => `${year}–${String(year + 1).slice(2)}`
@@ -112,6 +87,7 @@ async function load() {
 
 function show(next: CalendarView) {
   view.value = next
+  emit('learning', next.learning.windows)
   const keep = next.years.find((y) => y.year === selectedYear.value)
   const preferred = next.years.find((y) => y.year === next.needed) ?? next.years.find((y) => y.status !== 'estimate') ?? next.years[0]
   const target = keep ?? preferred
@@ -204,6 +180,22 @@ const todayText = computed(() => {
 
 const dayChoice = computed(() => day.value?.override?.source === 'admin' ? day.value.override.schedule : '')
 
+const dayChoices = computed<Choice<string>[]>(() => {
+  const disabled = dayBusy.value || !view.value?.editable || !day.value
+  return [{value: '', label: 'Auto', disabled}, ...Object.entries(timetableLabels).map(([value, label]) => ({value, label, disabled}))]
+})
+
+function chooseDay(schedule: string) {
+  if (schedule !== dayChoice.value) void setDay(schedule)
+}
+
+const yearChoices = computed<Choice<string>[]>(() => (view.value?.years ?? []).map((y) => ({value: String(y.year), label: yearLabel(y.year)})))
+
+function yearStatus(value: string) {
+  const y = view.value?.years.find((y) => String(y.year) === value)
+  return y ? statusLabels[y.status] : ''
+}
+
 const dayText = computed(() => {
   const d = day.value
   if (!d) return ''
@@ -224,99 +216,77 @@ onMounted(load)
 
 <template>
   <div class="calendar">
-    <p v-if="loadError" class="bad">Could not load ({{ loadError }})</p>
+    <p v-if="loadError" class="admin-note admin-bad">Could not load ({{ loadError }})</p>
     <template v-else-if="view">
-      <dl class="kv">
+      <dl class="admin-rows">
         <div><dt>Today</dt><dd>{{ todayText }}</dd></div>
-        <div v-if="!view.editable"><dt>Saving</dt><dd class="bad">off, no archive</dd></div>
+        <div v-if="!view.editable"><dt>Saving</dt><dd class="admin-bad">off, no archive</dd></div>
       </dl>
 
-      <h3>Timetable for a day</h3>
-      <input ref="dayPicker" v-model="dayDate" class="date" type="date" aria-label="Day" @change="loadDay">
-      <div class="segmented" role="radiogroup" aria-label="Timetable to run">
-        <button
-          v-for="c in dayChoices"
-          :key="c.value"
-          type="button"
-          role="radio"
-          :class="{ 'is-selected': !!day && dayChoice === c.value }"
-          :aria-checked="!!day && dayChoice === c.value"
-          :disabled="dayBusy || !view.editable || !day"
-          @click="setDay(c.value)"
-        >
-          {{ c.label }}
-        </button>
+      <SubLabel text="Timetable for a day"/>
+      <div class="day">
+        <input ref="dayPicker" v-model="dayDate" class="admin-field" type="date" aria-label="Day" @change="loadDay">
+        <ChoiceRow :options="dayChoices" :model-value="dayChoice" aria-label="Timetable to run" @update:model-value="chooseDay"/>
+        <p v-if="dayError" class="admin-note admin-bad">{{ dayError }}</p>
+        <p v-else-if="day" class="admin-note">{{ dayText }}</p>
       </div>
-      <p v-if="dayError" class="hint bad">{{ dayError }}</p>
-      <p v-else-if="day" class="hint">{{ dayText }}</p>
 
-      <details class="school" :open="!!view.needed">
-        <summary>School years</summary>
-        <div class="segmented years" role="tablist">
-          <button
-            v-for="y in view.years"
-            :key="y.year"
-            type="button"
-            role="tab"
-            :class="{ 'is-selected': y.year === selectedYear }"
-            :aria-selected="y.year === selectedYear"
-            @click="pick(y.year)"
-          >
-            {{ yearLabel(y.year) }}<small>{{ statusLabels[y.status] }}</small>
-          </button>
+      <details class="admin-fold" :open="!!view.needed">
+        <summary class="state"><span>School years</span><ExpandMoreIcon class="m-icon"/></summary>
+        <div class="school">
+          <ChoiceRow :options="yearChoices" :model-value="String(selectedYear)" class="years" @update:model-value="pick(Number($event))">
+            <template #label="{ option }">
+              <span class="year">
+                <span>{{ option.label }}</span>
+                <small>{{ yearStatus(option.value) }}</small>
+              </span>
+            </template>
+          </ChoiceRow>
+
+          <form v-if="draft" class="year-form" @submit.prevent="save">
+            <div class="range">
+              <span class="range-name text-label-large">Term</span>
+              <input v-model="draft.start" class="admin-field" type="date" aria-label="First day of classes" required>
+              <input v-model="draft.end" class="admin-field" type="date" aria-label="Last day of classes" required>
+            </div>
+            <div v-for="(b, i) in draft.breaks" :key="i" class="range">
+              <span class="range-name">
+                <input v-model="b.name" class="admin-field" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required>
+                <button type="button" class="icon-btn" :aria-label="`Remove ${b.name || 'break'}`" :title="`Remove ${b.name || 'break'}`" @click="removeBreak(i)">
+                  <CloseIcon class="m-icon"/>
+                </button>
+              </span>
+              <input v-model="b.start" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} starts`" required>
+              <input v-model="b.end" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} ends`" required>
+            </div>
+            <div class="actions">
+              <button type="button" class="btn btn-text" @click="addBreak"><AddIcon class="m-icon"/>Add break</button>
+              <span class="text-body-small" :class="{ 'admin-bad': saveFailed }">{{ saveMessage }}</span>
+              <button type="submit" class="btn btn-filled" :disabled="saving || !view.editable">
+                {{ saving ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form v-if="draft" class="year-form" @submit.prevent="save">
-          <div class="range">
-            <span class="range-name">Term</span>
-            <input v-model="draft.start" type="date" aria-label="First day of classes" required>
-            <input v-model="draft.end" type="date" aria-label="Last day of classes" required>
-          </div>
-          <div v-for="(b, i) in draft.breaks" :key="i" class="range">
-            <span class="range-name">
-              <input v-model="b.name" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required>
-              <button type="button" class="link" :aria-label="`Remove ${b.name || 'break'}`" @click="removeBreak(i)">Remove</button>
-            </span>
-            <input v-model="b.start" type="date" :aria-label="`${b.name || 'Break'} starts`" required>
-            <input v-model="b.end" type="date" :aria-label="`${b.name || 'Break'} ends`" required>
-          </div>
-          <div class="actions">
-            <button type="button" class="link" @click="addBreak">Add break</button>
-            <span v-if="saveMessage" :class="{bad: saveFailed}">{{ saveMessage }}</span>
-            <button type="submit" class="save" :disabled="saving || !view.editable">
-              {{ saving ? 'Saving…' : 'Save' }}
-            </button>
-          </div>
-        </form>
       </details>
 
-      <h3>Learns from</h3>
-      <dl class="kv">
-        <div v-for="w in view.learning.windows" :key="w.day_type">
-          <dt>{{ windowLabels[w.day_type] ?? w.day_type }}</dt>
-          <dd>
-            {{ w.days }} days<template v-if="w.from"> since {{ dayName(w.from) }}</template><template v-if="w.last_year_days"> + {{ w.last_year_days }} last year</template>
-          </dd>
-        </div>
-      </dl>
-
-      <h3>Public holidays</h3>
-      <dl class="kv">
-        <div v-for="h in holidays" :key="h.date">
+      <SubLabel text="Public holidays"/>
+      <dl class="admin-rows">
+        <div v-for="h in holidays" :key="h.date" class="has-action">
           <dt class="name">{{ dayName(h.date) }} · {{ h.name }}</dt>
-          <dd><button type="button" class="link" @click="changeDay(h.date)">{{ timetableLabels[h.schedule] ?? h.schedule }}</button></dd>
+          <dd><button type="button" class="btn btn-text" @click="changeDay(h.date)">{{ timetableLabels[h.schedule] ?? h.schedule }}</button></dd>
         </div>
       </dl>
-      <button v-if="view.holidays.length > 5" type="button" class="link" @click="showAllHolidays = !showAllHolidays">
+      <button v-if="view.holidays.length > 5" type="button" class="btn btn-text more" @click="showAllHolidays = !showAllHolidays">
         {{ showAllHolidays ? 'Fewer' : `All ${view.holidays.length}` }}
       </button>
 
       <template v-if="view.overrides.length">
-        <h3>Changed days</h3>
-        <dl class="kv">
-          <div v-for="o in view.overrides" :key="o.date">
+        <SubLabel text="Changed days"/>
+        <dl class="admin-rows">
+          <div v-for="o in view.overrides" :key="o.date" class="has-action">
             <dt class="name">{{ dayName(o.date) }} · {{ timetableLabels[o.schedule] ?? o.schedule }}, {{ o.source === 'admin' ? 'by you' : 'seen' }}</dt>
-            <dd><button type="button" class="link" :disabled="dayBusy || !view.editable" @click="setDay('', o.date)">Undo</button></dd>
+            <dd><button type="button" class="btn btn-text" :disabled="dayBusy || !view.editable" @click="setDay('', o.date)">Undo</button></dd>
           </div>
         </dl>
       </template>
@@ -325,225 +295,90 @@ onMounted(load)
 </template>
 
 <style scoped>
-.bad {
-  color: var(--a-bad);
-}
-
-h3 {
-  margin: 1rem 0 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--a-muted);
-}
-
-.kv {
-  margin: 0;
-}
-
-.kv > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 2.25rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--a-hair);
-}
-
-.kv > div:last-child {
-  border-bottom: 0;
-}
-
-.kv dt {
-  flex-shrink: 0;
-  color: var(--a-muted);
-}
-
-.kv dt.name {
-  flex-shrink: 1;
-  min-width: 0;
-  color: var(--a-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.kv dd {
-  margin: 0;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.hint {
-  margin: 0.375rem 0 0;
-  font-size: 0.8125rem;
-  color: var(--a-muted);
-}
-
-input {
-  font: inherit;
-  font-size: 1rem;
-  min-width: 0;
-  min-height: 2.5rem;
-  padding: 0.375rem 0.625rem;
-  border: 1px solid var(--a-rule);
-  border-radius: 0.75rem;
-  background: transparent;
-  color: inherit;
-}
-
-input:focus {
-  outline: 2px solid var(--a-bar-strong);
-  outline-offset: 1px;
-}
-
-.date {
-  width: 100%;
-  margin-bottom: 0.5rem;
-}
-
-.segmented {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 0.75rem;
-  background: var(--a-hair);
-}
-
-.segmented button {
-  flex: 1;
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.375rem;
-  border: 0;
-  border-radius: 0.625rem;
-  background: none;
-  color: var(--a-muted);
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-}
-
-.segmented button.is-selected {
-  background: var(--a-bg);
-  color: var(--a-text);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
-}
-
-.segmented button:disabled {
-  cursor: default;
-}
-
-.segmented button:disabled:not(.is-selected) {
-  opacity: 0.6;
-}
-
-.years button {
+.day {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
+  gap: 8px;
+  padding: 4px 16px 8px;
 }
 
-.years small {
-  font-size: 0.6875rem;
-  font-weight: 400;
+.day .admin-note {
+  padding: 0 4px;
+}
+
+/* Four choices on a phone: room for "Saturday" over the usual padding. */
+.day :deep(.choice) {
+  padding: 0 4px;
 }
 
 .school {
-  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 16px 12px;
 }
 
-.school summary {
-  padding: 0.4375rem 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--a-muted);
-  cursor: pointer;
+.years {
+  height: 56px;
 }
 
-.school[open] summary {
-  margin-bottom: 0.375rem;
+.year {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.year small {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
 }
 
 .year-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  gap: 16px;
 }
 
 .range {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.375rem;
+  gap: 8px;
 }
 
 .range-name {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  gap: 4px;
+  padding-left: 4px;
+  color: var(--md-on-surface-variant);
 }
 
-.range-name input {
+.range-name .admin-field {
   flex: 1;
+  margin-left: -4px;
+}
+
+.range-name .icon-btn {
+  margin-right: -4px;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.8125rem;
+  gap: 8px;
+  margin-left: -12px;
 }
 
-.link {
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  min-height: 2.25rem;
-  padding: 0 0.5rem;
-  border: 0;
-  border-radius: 0.75rem;
-  background: none;
-  color: var(--a-muted);
-  cursor: pointer;
+.actions > span {
+  flex: 1;
+  min-width: 0;
 }
 
-.link:hover:not(:disabled) {
-  background: var(--a-hover);
-  color: var(--a-text);
-}
-
-.link:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.kv .link {
-  margin-right: -0.5rem;
-}
-
-.save {
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  min-height: 2.5rem;
-  padding: 0 1.25rem;
-  border: 0;
-  border-radius: 0.75rem;
-  background: var(--a-text);
-  color: var(--a-bg);
-  cursor: pointer;
-}
-
-.save:disabled {
-  opacity: 0.5;
-  cursor: default;
+.more {
+  margin-left: 4px;
 }
 </style>

@@ -6,6 +6,7 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/live"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -61,5 +62,22 @@ func TestAdminSwitchesACity(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || string(data) != `["b"]` {
 		t.Fatalf("saved %q, %v", data, err)
+	}
+}
+
+func TestSiteListsEnabledCitiesByName(t *testing.T) {
+	registry, err := cities.NewRegistry([]*cities.City{testCity(t, "b"), testCity(t, "a"), testCity(t, "c")}, filepath.Join(t.TempDir(), "disabled-cities.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.SetEnabled("c", false); err != nil {
+		t.Fatal(err)
+	}
+	site := buildSite(registry, func() (devicesync.Stats, error) { return devicesync.Stats{}, errors.New("no sync") }, time.Now())
+	if len(site.Cities) != 2 || site.Cities[0].Slug != "a" || site.Cities[1].Slug != "b" {
+		t.Fatalf("cities %+v", site.Cities)
+	}
+	if site.Server.Sync != nil {
+		t.Errorf("sync stats from a failing source: %+v", site.Server.Sync)
 	}
 }
