@@ -1,0 +1,26 @@
+GET /fixture/spre/cartier-0
+200
+Cache-Control: public, max-age=300
+Content-Length: 2673
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>Ce autobuz iau până în Cartier 0? Linii și timpi — Fixture</title>
+<meta name="description" content="Liniile directe până în Cartier 0, Fixture, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixture/spre/cartier-0">
+<meta property="og:title" content="Ce autobuz iau până în Cartier 0? Linii și timpi — Fixture">
+<meta property="og:description" content="Liniile directe până în Cartier 0, Fixture, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixture/spre/cartier-0">
+<meta name="twitter:title" content="Ce autobuz iau până în Cartier 0? Linii și timpi — Fixture">
+<meta name="twitter:description" content="Liniile directe până în Cartier 0, Fixture, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/spre/cartier-0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/spre/cartier-0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/spre/cartier-0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Place","containedInPlace":{"@type":"City","name":"Fixture"},"geo":{"@type":"GeoCoordinates","latitude":45.9994,"longitude":23.988000000000003},"name":"Cartier 0"},"description":"Liniile directe până în Cartier 0, Fixture, din fiecare zonă: unde urci, unde cobori, cât durează și cât de des circulă.","inLanguage":"ro","name":"Ce autobuz iau până în Cartier 0? Linii și timpi — Fixture","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/spre/cartier-0"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Ce autobuz iau până în Cartier 0?</h1><p>Liniile care opresc în Cartier 0: 1.</p><h2>Din alte zone</h2><h3><a href="/fixture/spre/fixture">Din fixture</a></h3><ul><li>linia 1, de la stația Stația 102 până la Stația 101, 1 min, la ~12 min, primul 05:08, ultimul 23:08</li></ul><h2>Stații în Cartier 0</h2><ul><li><a href="/fixture/statia/statia-101">Stația 101</a>: 1</li></ul><p><a href="/fixture/plan?lat=45.999400&amp;lon=23.988000&amp;name=Cartier+0">Planifică drumul până în Cartier 0</a></p><p><a href="/fixture/destinatii">Destinațiile din Fixture</a></p></div></div></body>
+</html>
+

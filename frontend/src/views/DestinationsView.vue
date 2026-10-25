@@ -5,6 +5,7 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {type DestinationSummary, fetchDestinations} from '@/utils/destinationPages.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
+import {areaPath} from '@/utils/pagePaths.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
@@ -39,7 +40,7 @@ useHead(() => {
   if (!list.value) return {}
   const title = t('headDestsTitle', cityParams())
   const description = t('headDestsDesc', cityParams())
-  const url = canonicalUrl(cityPath('/destinations'))
+  const url = canonicalUrl(cityPath('/destinatii'))
   return {
     title,
     meta: [
@@ -76,7 +77,7 @@ useHead(() => {
           :title="area.name"
           :subtitle="t('destCounts', {stops: area.stops, lines: area.lines})"
           :data-kbd-item="`dest-${area.slug}`"
-          :href="cityPath(`/to/${area.slug}`)"
+          :href="areaPath(area.slug)"
           chevron
           @open="router.push({name: 'destination', params: {slug: area.slug}})"
         />

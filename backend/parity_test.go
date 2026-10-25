@@ -580,14 +580,16 @@ func (r *recorder) walkCity(slug string) {
 	r.get(api + "/destinations/nope")
 
 	page := "/" + slug
+	r.get(page + "/destinatii")
 	r.get(page + "/destinations")
 	for _, a := range areas {
-		r.get(page + "/to/" + a.Slug)
+		r.get(page + "/spre/" + a.Slug)
 	}
 	if len(areas) > 0 {
+		r.get(page + "/spre/" + areas[0].Slug + "?lang=en")
 		r.get(page + "/to/" + areas[0].Slug + "?lang=en")
 	}
-	r.get(page + "/to/nope")
+	r.get(page + "/spre/nope")
 	r.get(page + "/")
 	r.get(page + "/?lang=en")
 	r.get(page + "/plan")

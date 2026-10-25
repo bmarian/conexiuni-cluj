@@ -1,7 +1,7 @@
 GET /fixturegtfs/?lang=en
 200
 Cache-Control: public, max-age=300
-Content-Length: 2072
+Content-Length: 2070
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Fixture GTFS bus times — live timetables | Ce autobuz iau?">
 <meta name="twitter:description" content="Fixture GTFS bus timetables in real time: live departures from every stop, the timetable and route of every Fixture Rail line, and a trip planner.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixturegtfs/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture GTFS public transport in real time</h1><p>Fixture Rail buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><h2>Lines in Fixture GTFS</h2><ul><li><a href="/fixturegtfs/linia/7?lang=en">Line 7 — Capăt 701 - Capăt 705</a></li><li><a href="/fixturegtfs/linia/8b?lang=en">Line 8B — Capăt 711 - Capăt 715</a></li></ul><p><a href="/fixturegtfs/destinations?lang=en">Destinations in Fixture GTFS</a></p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture GTFS public transport in real time</h1><p>Fixture Rail buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><h2>Lines in Fixture GTFS</h2><ul><li><a href="/fixturegtfs/linia/7?lang=en">Line 7 — Capăt 701 - Capăt 705</a></li><li><a href="/fixturegtfs/linia/8b?lang=en">Line 8B — Capăt 711 - Capăt 715</a></li></ul><p><a href="/fixturegtfs/destinatii?lang=en">Destinations in Fixture GTFS</a></p></div></div></body>
 </html>
 

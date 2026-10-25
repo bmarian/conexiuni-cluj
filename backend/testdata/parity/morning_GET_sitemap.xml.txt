@@ -1,7 +1,7 @@
 GET /sitemap.xml
 200
 Cache-Control: public, max-age=3600
-Content-Length: 4015
+Content-Length: 4019
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/xml; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -24,9 +24,9 @@ X-Frame-Options: DENY
   <url><loc>https://ceautobuziau.ro/fixture/statia/statia-111</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixture/statia/statia-114</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixture/statia/statia-115</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixture/destinations</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixture/to/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixture/to/fixture</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/destinatii</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/spre/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixture/spre/fixture</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/plan</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/linia/7</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
@@ -39,8 +39,8 @@ X-Frame-Options: DENY
   <url><loc>https://ceautobuziau.ro/fixturegtfs/statia/statia-711</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/statia/statia-714</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://ceautobuziau.ro/fixturegtfs/statia/statia-715</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixturegtfs/destinations</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixturegtfs/to/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://ceautobuziau.ro/fixturegtfs/to/fixturegtfs</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/destinatii</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/spre/cartier-0</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ceautobuziau.ro/fixturegtfs/spre/fixturegtfs</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>
 

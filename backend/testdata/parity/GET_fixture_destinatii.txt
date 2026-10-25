@@ -1,0 +1,26 @@
+GET /fixture/destinatii
+200
+Cache-Control: public, max-age=300
+Content-Length: 2090
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<title>Destinații în Fixture — Ce autobuz iau?</title>
+<meta name="description" content="Cartierele și localitățile în care ajung liniile Fixture Transit, cu liniile directe până în fiecare.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixture/destinatii">
+<meta property="og:title" content="Destinații în Fixture — Ce autobuz iau?">
+<meta property="og:description" content="Cartierele și localitățile în care ajung liniile Fixture Transit, cu liniile directe până în fiecare.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixture/destinatii">
+<meta name="twitter:title" content="Destinații în Fixture — Ce autobuz iau?">
+<meta name="twitter:description" content="Cartierele și localitățile în care ajung liniile Fixture Transit, cu liniile directe până în fiecare.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/destinatii"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/destinatii?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/destinatii"><script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","description":"Cartierele și localitățile în care ajung liniile Fixture Transit, cu liniile directe până în fiecare.","inLanguage":"ro","name":"Destinații în Fixture — Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/destinatii"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Destinații în Fixture</h1><p>Cartierele și localitățile în care ajung liniile Fixture Transit, cu liniile directe până în fiecare.</p><h2>Cartiere</h2><ul><li><a href="/fixture/spre/cartier-0">Ce autobuz iau până în Cartier 0?</a></li></ul><h2>Localități</h2><ul><li><a href="/fixture/spre/fixture">Ce autobuz iau până în fixture?</a></li></ul></div></div></body>
+</html>
+

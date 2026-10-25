@@ -507,7 +507,7 @@ func homePage(city *cities.City, c fiber.Ctx) error {
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(l.homeH1),
 			html.EscapeString(l.homeBody)) + allLinesHTML(c, l, city) +
-			fmt.Sprintf(`<p><a href="%s">%s</a></p>`, pagePath(c, city, "/destinations"), html.EscapeString(l.destAll)),
+			fmt.Sprintf(`<p><a href="%s">%s</a></p>`, pagePath(c, city, destinationsPath), html.EscapeString(l.destAll)),
 		jsonLD: marshalJSONLD(map[string]any{
 			"@context": "https://schema.org",
 			"@type":    "WebSite",

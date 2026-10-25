@@ -365,12 +365,12 @@ function onDrawerFocusIn(e: FocusEvent) {
 useKbdShortcuts(
   {
     m: cycleDrawerSize,
-    o: () => void router.push(cityPath('/settings')),
+    o: () => void router.push(cityPath('/setari')),
     n: () => {
-      if (routeUpdates.hasFeed) void router.push(cityPath('/news'))
+      if (routeUpdates.hasFeed) void router.push(cityPath('/anunturi'))
     },
     c: () => {
-      void router.push(cityPath('/settings'))
+      void router.push(cityPath('/setari'))
       focusSectionSoon('city')
     },
   },

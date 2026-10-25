@@ -8,7 +8,7 @@ import {type Destination, type DestinationSummary, fetchDestination, fetchDestin
 import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {canonicalUrl} from '@/utils/site.ts'
-import {linePath, stopPath} from '@/utils/pagePaths.ts'
+import {areaPath, linePath, stopPath} from '@/utils/pagePaths.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {DirectionsBusIcon, DirectionsIcon, MapIcon, PlaceIcon} from '@/utils/icons.ts'
@@ -111,7 +111,6 @@ function openRoute(ride: Ride) {
 
 const rideHref = (ride: Ride) => linePath(ride.route_id, ride.direction === 1 ? '1' : '0')
 const stopHref = (stop: Stop) => stopPath(stop.stop_id)
-const areaHref = (slug: string) => cityPath(`/to/${slug}`)
 
 function showAll(slug: string) {
   opened.value = new Set([...opened.value, slug])
@@ -138,7 +137,7 @@ useHead(() => {
   const params = {...cityParams(), area: area.value}
   const title = t('headDestTitle', params)
   const description = t('headDestDesc', params)
-  const url = canonicalUrl(cityPath(`/to/${props.slug}`))
+  const url = canonicalUrl(areaPath(props.slug))
   return {
     title,
     meta: [
@@ -175,7 +174,7 @@ useHead(() => {
           :title="like.name"
           :subtitle="t('destCounts', {stops: like.stops, lines: like.lines})"
           :data-kbd-item="`dest-${like.slug}`"
-          :href="areaHref(like.slug)"
+          :href="areaPath(like.slug)"
           chevron
           @open="router.push({name: 'destination', params: {slug: like.slug}})"
         />
@@ -251,7 +250,7 @@ useHead(() => {
       <ListRow
         class="mt-2"
         :title="t('destAll', cityParams())"
-        :href="cityPath('/destinations')"
+        :href="cityPath('/destinatii')"
         chevron
         data-kbd-item="all-destinations"
         @open="router.push({name: 'destinations'})"

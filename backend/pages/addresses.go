@@ -10,6 +10,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+const destinationsPath = "/destinatii"
+
+func areaPath(slug string) string { return "/spre/" + slug }
+
 func linePath(city *cities.City, routeID, dir int) string {
 	slug := city.Slugs.Index().Of(slugs.Line, routeID)
 	switch {
