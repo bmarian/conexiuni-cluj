@@ -13,16 +13,15 @@ import (
 
 type Line struct {
 	RouteID int
-	// A longer line number the bus's label may have been cut from; the line it names wins wherever it fits.
+	// A longer number the label may have been cut from.
 	Cut bool
 }
 
 type Bus struct {
-	// Plate or fleet number, the same at every poll.
 	ID       string
 	Label    string
 	Lat, Lon float64
-	// When the feed says it was there; zero for the time of the poll.
+	// Zero for the time of the poll.
 	At    time.Time
 	Lines []Line
 }
@@ -49,7 +48,6 @@ type reading struct {
 	placed             bool
 }
 
-// Vehicles are the buses of one poll that a pattern fits; the others wait until they move.
 func (f *Follower) Vehicles(buses []Bus, now time.Time) ([]models.Vehicle, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

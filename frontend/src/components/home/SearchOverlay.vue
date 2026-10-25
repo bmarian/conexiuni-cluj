@@ -465,26 +465,6 @@ function dropPin() {
   border-bottom: 1px solid var(--md-outline-variant);
 }
 
-.search-input {
-  flex: 1;
-  min-width: 0;
-  height: 56px;
-  padding: 0 12px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--md-on-surface);
-  caret-color: var(--md-primary);
-}
-
-.search-input::placeholder {
-  color: var(--md-on-surface-variant);
-}
-
-.search-input::-webkit-search-cancel-button {
-  appearance: none;
-}
-
 .search-scroll {
   flex: 1;
   min-height: 0;

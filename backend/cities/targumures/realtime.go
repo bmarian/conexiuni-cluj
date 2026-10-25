@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// The buses on live.transportlocal.ro, Transport Local's own map: fleet number, line and position, rebuilt every few seconds; no direction or speed.
 type realtime struct {
 	url      string
 	trace    feeds.Tracing
@@ -35,7 +34,6 @@ func (s *realtime) Vehicles() ([]models.Vehicle, error) {
 	return s.follower.Vehicles(buses, time.Now())
 }
 
-// A bus on no line of the network ("0" or empty out of service) is left out.
 func parseJourneys(data []byte, routes map[string]int) ([]follow.Bus, error) {
 	var feed struct {
 		Journeys []struct {

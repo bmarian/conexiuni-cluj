@@ -3,7 +3,6 @@ package craiova
 
 import "conexiuni-cluj/cities"
 
-// Modeshift's API for RAT Craiova; public, not published as open data.
 const modeshift = "https://app.craiova-transport.com/api/v1/ba79f1ee-c6f7-48ad-8a42-d23417a3ab53"
 
 var City = cities.Spec{
