@@ -43,7 +43,10 @@ export function useStopDepartures(stopId: Ref<string>) {
   }
 
   const setFavoriteRouteShapes = (entries: Array<[DisplayShape, Shape[]]>) => {
-    const key = entries.map(([displayShape]) => displayShape.trip_id).sort().join(',')
+    const key = entries
+      .map(([displayShape]) => displayShape.trip_id)
+      .sort()
+      .join(',')
     if (key === displayedFavoriteShapeKey.value) return
     displayedFavoriteShapeKey.value = key
     mapStore.setLoadedShapes(entries)
@@ -54,7 +57,9 @@ export function useStopDepartures(stopId: Ref<string>) {
     const index = network.value
     if (!info) return []
     if (!index) return [info]
-    const others = index.platforms(info.stop_id).slice(1)
+    const others = index
+      .platforms(info.stop_id)
+      .slice(1)
       .map((s) => buildStopInfo(index, s.stop_id))
       .filter((other): other is StopInfo => other !== null)
     return [info, ...others]
@@ -69,12 +74,12 @@ export function useStopDepartures(stopId: Ref<string>) {
   })
 
   const favoritePlatform = computed(() =>
-    (stopInfos.value.length ? stopInfos.value.map((info) => info.stop_id) : [stopIdNum.value]).find((id) => favoritesStore.isStopFavorite(id)))
+    (stopInfos.value.length ? stopInfos.value.map((info) => info.stop_id) : [stopIdNum.value]).find((id) => favoritesStore.isStopFavorite(id)),
+  )
   const isFavorite = computed(() => favoritePlatform.value !== undefined)
   const toggleFavorite = () => favoritesStore.toggleStopFavorite(favoritePlatform.value ?? stopIdNum.value)
 
-  const busesWithAvailableTimetables = computed(() =>
-    [...shapeInfoByRouteId.value.values()].filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable)))
+  const busesWithAvailableTimetables = computed(() => [...shapeInfoByRouteId.value.values()].filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable)))
 
   function platformOf(routeId: number): StopInfo | undefined {
     return stopInfos.value.find((info) => info.shapes_info.some((s: ShapeInfo) => s.route_id === routeId))
@@ -82,11 +87,10 @@ export function useStopDepartures(stopId: Ref<string>) {
 
   const tripsHere = computed<string[]>(() => {
     const routeIds = new Set(busesWithAvailableTimetables.value.map((s: ShapeInfo) => s.route_id))
-    return [...new Set(stopInfos.value.flatMap((info) => [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]))]
-      .filter((tid) => {
-        const tripRouteId = getRouteIdFromTripId(tid)
-        return tripRouteId !== null && routeIds.has(tripRouteId)
-      })
+    return [...new Set(stopInfos.value.flatMap((info) => [...(info.outgoing_trip_ids || []), ...(info.incoming_trip_ids || [])]))].filter((tid) => {
+      const tripRouteId = getRouteIdFromTripId(tid)
+      return tripRouteId !== null && routeIds.has(tripRouteId)
+    })
   })
 
   function isDepartureFavorite(shape: VehiclesInStop): boolean {
@@ -94,10 +98,12 @@ export function useStopDepartures(stopId: Ref<string>) {
   }
 
   // Favourite routes' buses are drawn on the map, so their trips stream too.
-  const favoriteTripIds = computed<string[]>(() => tripsHere.value.filter((tid) => {
-    const routeId = getRouteIdFromTripId(tid)
-    return routeId !== null && favoritesStore.isRouteFavorite(routeId)
-  }))
+  const favoriteTripIds = computed<string[]>(() =>
+    tripsHere.value.filter((tid) => {
+      const routeId = getRouteIdFromTripId(tid)
+      return routeId !== null && favoritesStore.isRouteFavorite(routeId)
+    }),
+  )
   const streamStopIds = computed<number[]>(() => stopInfos.value.map((info) => info.stop_id))
   const {rows, vehiclesByTrip, asOfMs} = useLive(streamStopIds, favoriteTripIds)
 
@@ -142,7 +148,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     shapesComingToTheStopBasedOnTimetable.value
       .map((shape) => withArrivals(shape))
       .filter((shape): shape is VehiclesInStop => shape !== null)
-      .sort((a, b) => a.minutes_left - b.minutes_left)
+      .sort((a, b) => a.minutes_left - b.minutes_left),
   )
 
   const isComputingDepartures = computed(() => !stopInfo.value)
@@ -161,38 +167,46 @@ export function useStopDepartures(stopId: Ref<string>) {
   watch(stopId, (id) => void load(id), {immediate: true})
 
   // Favourite routes: their shapes and buses on the map.
-  watch([favoriteTripIds, vehiclesByTrip, shapeInfoByRouteId], async ([tripIds, byTrip, byRoute]) => {
-    const displayShapes = tripIds.reduce((acc: DisplayShape[], trip_id) => {
-      const routeId = getRouteIdFromTripId(trip_id)
-      const shape = routeId === null ? undefined : byRoute.get(routeId)
-      if (shape) acc.push({
-        trip_id,
-        route_short_name: shape.route_short_name,
-        route_long_name: shape.timetable?.route_long_name || '',
-        route_color: shape.route_color,
-        route_type: shape.route_type,
-      })
-      return acc
-    }, [])
-    const shapeKey = displayShapes.map((d) => d.trip_id).sort().join(',')
-    if (shapeKey !== cachedShapeKey.value) {
-      cachedShapesWithTrip.value = shapeKey ? await mapStore.requestShapes(displayShapes) : []
-      cachedShapeKey.value = shapeKey
-    }
-    const vehicles: DisplayVehicle[] = []
-    const liveTripIds = new Set<string>()
-    for (const d of displayShapes) {
-      const list = byTrip.get(d.trip_id) ?? []
-      if (list.length) liveTripIds.add(d.trip_id)
-      for (const v of list) vehicles.push({...v, route_short_name: d.route_short_name, route_color: d.route_color})
-    }
-    const highlighted = cachedShapesWithTrip.value.filter(([displayShape, points]) =>
-      liveTripIds.has(displayShape.trip_id) && Array.isArray(points) && points.length > 0,
-    )
-    setFavoriteRouteShapes(highlighted)
-    applyInitialZoomOutForCurrentStop(highlighted.length > 0)
-    mapStore.setVehiclesToDisplay(vehicles)
-  }, {immediate: true})
+  watch(
+    [favoriteTripIds, vehiclesByTrip, shapeInfoByRouteId],
+    async ([tripIds, byTrip, byRoute]) => {
+      const displayShapes = tripIds.reduce((acc: DisplayShape[], trip_id) => {
+        const routeId = getRouteIdFromTripId(trip_id)
+        const shape = routeId === null ? undefined : byRoute.get(routeId)
+        if (shape)
+          acc.push({
+            trip_id,
+            route_short_name: shape.route_short_name,
+            route_long_name: shape.timetable?.route_long_name || '',
+            route_color: shape.route_color,
+            route_type: shape.route_type,
+          })
+        return acc
+      }, [])
+      const shapeKey = displayShapes
+        .map((d) => d.trip_id)
+        .sort()
+        .join(',')
+      if (shapeKey !== cachedShapeKey.value) {
+        cachedShapesWithTrip.value = shapeKey ? await mapStore.requestShapes(displayShapes) : []
+        cachedShapeKey.value = shapeKey
+      }
+      const vehicles: DisplayVehicle[] = []
+      const liveTripIds = new Set<string>()
+      for (const d of displayShapes) {
+        const list = byTrip.get(d.trip_id) ?? []
+        if (list.length) liveTripIds.add(d.trip_id)
+        for (const v of list) vehicles.push({...v, route_short_name: d.route_short_name, route_color: d.route_color})
+      }
+      const highlighted = cachedShapesWithTrip.value.filter(
+        ([displayShape, points]) => liveTripIds.has(displayShape.trip_id) && Array.isArray(points) && points.length > 0,
+      )
+      setFavoriteRouteShapes(highlighted)
+      applyInitialZoomOutForCurrentStop(highlighted.length > 0)
+      mapStore.setVehiclesToDisplay(vehicles)
+    },
+    {immediate: true},
+  )
 
   onMounted(() => {
     mapStore.setHighlightedStops([])

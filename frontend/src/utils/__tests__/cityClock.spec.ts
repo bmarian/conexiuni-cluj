@@ -20,7 +20,7 @@ describe('the city clock on a phone abroad', () => {
     expect(getTimetableDayKey(saturdayNightInNewYork)).toBe('sunday')
   })
 
-  it('counts minutes from the city\'s midnight', () => {
+  it("counts minutes from the city's midnight", () => {
     expect(getMinutesFromDate(saturdayNightInNewYork)).toBe(6 * 60 + 30)
     expect(formatMinutesFromNow(90, saturdayNightInNewYork, 'now')).toBe('08:00')
   })

@@ -5,7 +5,13 @@ const turned = (a: number) => ((a % 360) + 360) % 360
 
 describe('direction arrow', () => {
   it('starts on its spot facing the name and lands there facing the heading', () => {
-    for (const [rest, heading] of [[90, 292], [270, 112], [90, 90], [270, 271], [90, 0]] as const) {
+    for (const [rest, heading] of [
+      [90, 292],
+      [270, 112],
+      [90, 90],
+      [270, 271],
+      [90, 0],
+    ] as const) {
       const [x0, y0, a0] = arrowPose(rest, heading, 0)
       expect(Math.hypot(x0, y0)).toBe(0)
       expect(a0).toBe(rest)
@@ -24,7 +30,11 @@ describe('direction arrow', () => {
 
   it('circles round its spot without spinning between frames', () => {
     for (const rest of [90, 270]) {
-      const frames = arrowKeyframes(rest, 112).map((f) => String(f.transform).match(/-?\d[\d.e-]*/g)!.map(Number))
+      const frames = arrowKeyframes(rest, 112).map((f) =>
+        String(f.transform)
+          .match(/-?\d[\d.e-]*/g)!
+          .map(Number),
+      )
       for (const axis of [0, 1]) {
         expect(Math.min(...frames.map((f) => f[axis]!))).toBeLessThan(-3)
         expect(Math.max(...frames.map((f) => f[axis]!))).toBeGreaterThan(3)

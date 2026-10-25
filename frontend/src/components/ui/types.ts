@@ -1,6 +1,6 @@
 import type {Component} from 'vue'
 
-export type MenuAction = { label: string, icon: Component, onClick: () => void }
+export type MenuAction = {label: string; icon: Component; onClick: () => void}
 
 export type ChipAction = {
   label: string
@@ -13,4 +13,4 @@ export type ChipAction = {
   onClick: () => void
 }
 
-export type Choice<T extends string> = { value: T, label: string, icon?: Component, disabled?: boolean }
+export type Choice<T extends string> = {value: T; label: string; icon?: Component; disabled?: boolean}

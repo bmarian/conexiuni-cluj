@@ -101,19 +101,13 @@ const favoriteRouteChips = computed(() => {
   return chips
 })
 
-const favoriteStops = computed<Stop[]>(() => favoriteStopIds.value
-  .map((id) => stopsById.value.get(id))
-  .filter((s): s is Stop => !!s))
+const favoriteStops = computed<Stop[]>(() => favoriteStopIds.value.map((id) => stopsById.value.get(id)).filter((s): s is Stop => !!s))
 
-const hasFavorites = computed(() =>
-  favoriteRoutes.value.length > 0 ||
-  favoriteStopIds.value.length > 0 ||
-  (isOnline.value && favoritePlans.value.length > 0)
+const hasFavorites = computed(() => favoriteRoutes.value.length > 0 || favoriteStopIds.value.length > 0 || (isOnline.value && favoritePlans.value.length > 0))
+
+const recentNonFavoritePlans = computed<FavoritePlan[]>(() =>
+  recentPlans.value.filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon)).slice(0, RECENTS_SHOWN),
 )
-
-const recentNonFavoritePlans = computed<FavoritePlan[]>(() => recentPlans.value
-  .filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon))
-  .slice(0, RECENTS_SHOWN))
 
 const lookOf = (stopId: number) => network.value?.look(stopId)
 
@@ -156,10 +150,10 @@ function removeFocused(): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
   const neighbor = kbd.neighborKey()
-  const group = favoriteRouteGroups.value.find(g => favRouteItemKey(g) === key)
-  const stopId = favoriteStopIds.value.find(id => favStopItemKey(id) === key)
-  const plan = favoritePlans.value.find(p => favPlanItemKey(p) === key)
-  const recent = recentNonFavoritePlans.value.find(p => recentItemKey(p) === key)
+  const group = favoriteRouteGroups.value.find((g) => favRouteItemKey(g) === key)
+  const stopId = favoriteStopIds.value.find((id) => favStopItemKey(id) === key)
+  const plan = favoritePlans.value.find((p) => favPlanItemKey(p) === key)
+  const recent = recentNonFavoritePlans.value.find((p) => recentItemKey(p) === key)
   if (group) removeRouteGroup(group)
   else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
   else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
@@ -172,7 +166,7 @@ function removeFocused(): boolean {
 }
 
 function swapInList<T>(list: T[], keyOf: (item: T) => string, key: string, delta: number, apply: (next: T[]) => void): boolean {
-  const i = list.findIndex(item => keyOf(item) === key)
+  const i = list.findIndex((item) => keyOf(item) === key)
   if (i < 0) return false
   const j = i + delta
   if (j < 0 || j >= list.length) return true
@@ -185,9 +179,10 @@ function swapInList<T>(list: T[], keyOf: (item: T) => string, key: string, delta
 function moveFocused(delta: 1 | -1): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
-  const moved = swapInList(favoriteRouteGroups.value, favRouteItemKey, key, delta, l => favoritesStore.reorderRoutes(l.flatMap((g) => g.favorites)))
-    || swapInList(favoriteStopIds.value, favStopItemKey, key, delta, l => favoritesStore.reorderStopIds(l))
-    || swapInList(favoritePlans.value, favPlanItemKey, key, delta, l => favoritesStore.reorderPlans(l))
+  const moved =
+    swapInList(favoriteRouteGroups.value, favRouteItemKey, key, delta, (l) => favoritesStore.reorderRoutes(l.flatMap((g) => g.favorites))) ||
+    swapInList(favoriteStopIds.value, favStopItemKey, key, delta, (l) => favoritesStore.reorderStopIds(l)) ||
+    swapInList(favoritePlans.value, favPlanItemKey, key, delta, (l) => favoritesStore.reorderPlans(l))
   if (moved) void nextTick(() => kbd.focusKey(key))
   return moved
 }
@@ -212,13 +207,13 @@ const dragOptions = {
   <div class="home-view">
     <template v-if="isHydrated">
       <section v-if="favoriteRouteChips.size" class="pt-3" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
-        <SubLabel :text="t('favoriteRoutes')"/>
+        <SubLabel :text="t('favoriteRoutes')" />
         <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
           <template #item="{element: group}">
             <div v-if="favoriteRouteChips.get(group.routeId)" class="chip-cell">
               <div
                 class="route-chip state squish"
-                :class="{ 'is-busy': openingRouteId === group.routeId }"
+                :class="{'is-busy': openingRouteId === group.routeId}"
                 role="button"
                 tabindex="0"
                 :title="favoriteRouteChips.get(group.routeId)!.name"
@@ -229,7 +224,9 @@ const dragOptions = {
                 <LineBadge
                   :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
                   :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
-                  :height="28" :min-width="36" :corner="8"
+                  :height="28"
+                  :min-width="36"
+                  :corner="8"
                 />
                 <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
                 <button
@@ -239,7 +236,7 @@ const dragOptions = {
                   :aria-label="t('removeFromFavorites')"
                   @click.stop="removeRouteGroup(group)"
                 >
-                  <CloseIcon class="m-icon size-4"/>
+                  <CloseIcon class="m-icon size-4" />
                 </button>
               </div>
             </div>
@@ -248,7 +245,7 @@ const dragOptions = {
       </section>
 
       <section v-if="favoriteStops.length" :class="favoriteRouteChips.size ? 'pt-2' : 'pt-3'" data-kbd-section="fav-stops" data-kbd-entry="1">
-        <SubLabel :text="t('favoriteStops')"/>
+        <SubLabel :text="t('favoriteStops')" />
         <Draggable v-model="stopFavoritesModel" :item-key="(id: number) => id" tag="div" v-bind="dragOptions">
           <template #item="{element: stopId}">
             <ListRow
@@ -260,10 +257,10 @@ const dragOptions = {
               @remove="favoritesStore.toggleStopFavorite(stopId)"
             >
               <template #icon>
-                <StationIcon :look="lookOf(stopId)" class="size-[30px]"/>
+                <StationIcon :look="lookOf(stopId)" class="size-[30px]" />
               </template>
               <template #lines>
-                <StationLines :routes="lookOf(stopId)?.routes ?? []"/>
+                <StationLines :routes="lookOf(stopId)?.routes ?? []" />
               </template>
             </ListRow>
           </template>
@@ -271,7 +268,7 @@ const dragOptions = {
       </section>
 
       <section v-if="isOnline && favoritePlans.length" class="pt-2" data-kbd-section="fav-plans" data-kbd-entry="1">
-        <SubLabel :text="t('favoritePlans')"/>
+        <SubLabel :text="t('favoritePlans')" />
         <Draggable v-model="planFavoritesModel" :item-key="planKey" tag="div" v-bind="dragOptions">
           <template #item="{element: plan}">
             <ListRow
@@ -283,14 +280,14 @@ const dragOptions = {
               @open="openPlan(plan)"
               @remove="favoritesStore.togglePlanFavorite(plan)"
             >
-              <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30"/></template>
+              <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30" /></template>
             </ListRow>
           </template>
         </Draggable>
       </section>
 
       <section v-if="isOnline && recentNonFavoritePlans.length" :class="hasFavorites ? 'pt-2' : 'pt-3'" data-kbd-section="recent-plans" data-kbd-entry="1">
-        <SubLabel :text="t('recentDestinations')"/>
+        <SubLabel :text="t('recentDestinations')" />
         <ListRow
           v-for="plan in recentNonFavoritePlans"
           :key="planKey(plan)"
@@ -302,14 +299,14 @@ const dragOptions = {
           @open="openPlan(plan)"
           @remove="favoritesStore.removeRecentPlan(plan)"
         >
-          <template #icon><RowIcon :icon="ScheduleIcon" :size="30"/></template>
+          <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
         </ListRow>
       </section>
 
       <p v-if="!hasFavorites && !(isOnline && recentNonFavoritePlans.length)" class="empty">
         {{ t('noFavorites') }}
       </p>
-      <AllLines v-if="!hasFavorites"/>
+      <AllLines v-if="!hasFavorites" />
     </template>
     <div class="h-6"></div>
   </div>

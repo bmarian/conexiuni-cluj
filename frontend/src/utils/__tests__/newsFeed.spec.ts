@@ -24,11 +24,7 @@ describe('news feed', () => {
   it('labels each update by day and keeps the server order', () => {
     const now = new Date(2026, 9, 10, 18, 0)
     const feed = buildNewsFeed(
-      [
-        change(1, new Date(2026, 9, 10, 9, 0)),
-        news('https://www.ctpcj.ro/stiri/1880', new Date(2026, 9, 9, 0, 0)),
-        change(2, new Date(2026, 9, 3, 12, 0)),
-      ],
+      [change(1, new Date(2026, 9, 10, 9, 0)), news('https://www.ctpcj.ro/stiri/1880', new Date(2026, 9, 9, 0, 0)), change(2, new Date(2026, 9, 3, 12, 0))],
       now,
       'ro',
       t,

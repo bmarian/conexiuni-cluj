@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import {ref, watch, type Component} from 'vue'
 
-const props = defineProps<{ icon: Component, on: boolean }>()
+const props = defineProps<{icon: Component; on: boolean}>()
 
 const played = ref<'on' | 'off' | null>(null)
 const run = ref(0)
-watch(() => props.on, (on) => {
-  played.value = on ? 'on' : 'off'
-  run.value++
-})
+watch(
+  () => props.on,
+  (on) => {
+    played.value = on ? 'on' : 'off'
+    run.value++
+  },
+)
 </script>
 
 <template>
   <span class="pop-icon" :key="run" :class="played && `is-${played}`">
-    <component :is="icon" class="m-icon size-full"/>
+    <component :is="icon" class="m-icon size-full" />
     <template v-if="played === 'on'">
-      <span v-for="k in 8" :key="k" class="spark" :style="{ '--k': k }"></span>
+      <span v-for="k in 8" :key="k" class="spark" :style="{'--k': k}"></span>
     </template>
   </span>
 </template>

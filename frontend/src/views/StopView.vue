@@ -1,38 +1,34 @@
 <script setup lang="ts">
-import {useUserStore} from "@/stores/user.ts"
-import {storeToRefs} from "pinia"
-import {computed, toRef, watch} from "vue"
+import {useUserStore} from '@/stores/user.ts'
+import {storeToRefs} from 'pinia'
+import {computed, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
-import {useI18n} from "vue-i18n"
-import StationIcon from "@/components/StationIcon.vue"
-import {network} from "@/utils/network.ts";
-import {
-  OUTGOING_SUFFIX,
-  type ShapeInfo,
-  type VehiclesInStop
-} from "@/types/tranzy.ts";
-import {formatMinutesFromNow} from "@/utils/time.ts";
-import {useStopDepartures} from "@/composables/useStopDepartures.ts";
-import {useRouteStore} from "@/stores/route.ts";
-import {useFavoritesStore} from "@/stores/favorites.ts";
-import {useRouter} from "vue-router";
-import {getDirectionFromTripId, getTripIdForRouteAtStop} from "@/utils/trips.ts";
-import {useMapStore} from "@/stores/map.ts"
-import {useKbdShortcuts} from "@/composables/useKeyboardNav.ts";
-import {canonicalUrl} from "@/utils/site.ts";
-import {cityParams, cityPath} from "@/utils/city.ts";
-import {groupByMode, mainMode} from "@/utils/modes.ts";
-import {useShare} from "@/composables/useShare.ts";
-import SheetTopBar from "@/components/ui/SheetTopBar.vue";
-import ActionChips from "@/components/ui/ActionChips.vue";
-import SectionLabel from "@/components/ui/SectionLabel.vue";
-import SubLabel from "@/components/ui/SubLabel.vue";
-import DepartureCard from "@/components/rows/DepartureCard.vue";
-import RouteRow from "@/components/rows/RouteRow.vue";
-import type {ChipAction, MenuAction} from "@/components/ui/types.ts";
-import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from "@/utils/icons.ts";
+import {useI18n} from 'vue-i18n'
+import StationIcon from '@/components/StationIcon.vue'
+import {network} from '@/utils/network.ts'
+import {OUTGOING_SUFFIX, type ShapeInfo, type VehiclesInStop} from '@/types/tranzy.ts'
+import {formatMinutesFromNow} from '@/utils/time.ts'
+import {useStopDepartures} from '@/composables/useStopDepartures.ts'
+import {useRouteStore} from '@/stores/route.ts'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import {useRouter} from 'vue-router'
+import {getDirectionFromTripId, getTripIdForRouteAtStop} from '@/utils/trips.ts'
+import {useMapStore} from '@/stores/map.ts'
+import {useKbdShortcuts} from '@/composables/useKeyboardNav.ts'
+import {canonicalUrl} from '@/utils/site.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
+import {groupByMode, mainMode} from '@/utils/modes.ts'
+import {useShare} from '@/composables/useShare.ts'
+import SheetTopBar from '@/components/ui/SheetTopBar.vue'
+import ActionChips from '@/components/ui/ActionChips.vue'
+import SectionLabel from '@/components/ui/SectionLabel.vue'
+import SubLabel from '@/components/ui/SubLabel.vue'
+import DepartureCard from '@/components/rows/DepartureCard.vue'
+import RouteRow from '@/components/rows/RouteRow.vue'
+import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
+import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from '@/utils/icons.ts'
 
-const props = defineProps<{ stopId: string }>()
+const props = defineProps<{stopId: string}>()
 
 const {t} = useI18n()
 const userStore = useUserStore()
@@ -67,10 +63,14 @@ function planHere() {
 }
 
 const mapStore = useMapStore()
-watch(() => stopInfo.value?.stop_id, () => {
-  const info = stopInfo.value
-  if (info) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
-}, {immediate: true})
+watch(
+  () => stopInfo.value?.stop_id,
+  () => {
+    const info = stopInfo.value
+    if (info) mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
+  },
+  {immediate: true},
+)
 
 useHead(() => {
   // Keep the server-injected meta for crawlers until the stop loads.
@@ -96,11 +96,14 @@ function formatMinutes(minutes: number): string {
   return formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 }
 
-const lineGroups = computed(() => groupByMode(busesWithAvailableTimetables.value || []).map((group) => ({
-  ...group,
-  lines: [...group.lines].sort((a: ShapeInfo, b: ShapeInfo) =>
-    (favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1) - (favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1)),
-})))
+const lineGroups = computed(() =>
+  groupByMode(busesWithAvailableTimetables.value || []).map((group) => ({
+    ...group,
+    lines: [...group.lines].sort(
+      (a: ShapeInfo, b: ShapeInfo) => (favoritesStore.isRouteFavorite(a.route_id) ? 0 : 1) - (favoritesStore.isRouteFavorite(b.route_id) ? 0 : 1),
+    ),
+  })),
+)
 
 const look = computed(() => network.value?.look(stopIdNum.value))
 const stationMode = computed(() => look.value?.mode ?? mainMode((busesWithAvailableTimetables.value || []).map((s: ShapeInfo) => s.route_type)))
@@ -122,8 +125,8 @@ const navigateToRoute = (shape: VehiclesInStop) => {
     name: 'route',
     params: {
       routeId: shape.route_id,
-      direction: getDirectionFromTripId(shape.trip_id)
-    }
+      direction: getDirectionFromTripId(shape.trip_id),
+    },
   })
 }
 
@@ -140,7 +143,7 @@ const navigateToAllRoute = (shape: ShapeInfo) => {
   routeStore.setSelectedRoute(shape, tripId, String(platform?.stop_id ?? props.stopId), stopName.value || '')
   router.push({
     name: 'route',
-    params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)}
+    params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)},
   })
 }
 
@@ -164,7 +167,7 @@ const chips = computed<ChipAction[]>(() => [
 
 <template>
   <div class="stop-view">
-    <SheetTopBar :title="stopName" :menu="topMenu"/>
+    <SheetTopBar :title="stopName" :menu="topMenu" />
 
     <template v-if="isLoading">
       <div class="header">
@@ -184,7 +187,7 @@ const chips = computed<ChipAction[]>(() => [
 
     <template v-else>
       <header class="header">
-        <StationIcon :look="look" :corner="16" :favorite="isFavorite" class="size-[52px]"/>
+        <StationIcon :look="look" :corner="16" :favorite="isFavorite" class="size-[52px]" />
         <div class="flex-1 min-w-0 pt-0.5">
           <div class="flex gap-2 text-label-medium">
             <span class="text-primary">{{ t(`stopKind_${stationMode}`) }}</span>
@@ -193,7 +196,7 @@ const chips = computed<ChipAction[]>(() => [
           <h1 class="text-title-large font-bold">{{ stopName }}</h1>
         </div>
       </header>
-      <ActionChips :actions="chips" class="pb-2"/>
+      <ActionChips :actions="chips" class="pb-2" />
 
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
         <div class="departures-label">
@@ -205,24 +208,24 @@ const chips = computed<ChipAction[]>(() => [
         </template>
         <p v-else-if="!departuresSorted.length" class="text-body-medium text-on-surface-variant px-4 py-3">{{ t('noSchedule') }}</p>
         <template v-else>
-        <DepartureCard
-          v-for="(shape, i) in departuresSorted"
-          :key="shape.trip_id"
-          :class="{ cascade: i < 12 }"
-          :style="{ '--i': i }"
-          :shape="shape"
-          :label="formatMinutes"
-          :favorite="isDepartureFavorite(shape)"
-          :data-kbd-item="`dep-${shape.trip_id}`"
-          @open="navigateToRoute(shape)"
-        />
+          <DepartureCard
+            v-for="(shape, i) in departuresSorted"
+            :key="shape.trip_id"
+            :class="{cascade: i < 12}"
+            :style="{'--i': i}"
+            :shape="shape"
+            :label="formatMinutes"
+            :favorite="isDepartureFavorite(shape)"
+            :data-kbd-item="`dep-${shape.trip_id}`"
+            @open="navigateToRoute(shape)"
+          />
         </template>
       </section>
 
       <section v-if="lineGroups.length" class="pt-4" data-kbd-section="stop-routes" data-kbd-entry="2">
-        <SectionLabel :text="t('allRoutesAtStop')" :icon="MapIcon"/>
+        <SectionLabel :text="t('allRoutesAtStop')" :icon="MapIcon" />
         <template v-for="group in lineGroups" :key="group.mode">
-          <SubLabel v-if="lineGroups.length > 1" :text="t(`modeLines_${group.mode}`)" class="pt-2"/>
+          <SubLabel v-if="lineGroups.length > 1" :text="t(`modeLines_${group.mode}`)" class="pt-2" />
           <RouteRow
             v-for="shape in group.lines"
             :key="shape.route_short_name"

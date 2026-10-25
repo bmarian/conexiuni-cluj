@@ -55,12 +55,16 @@ export async function sha256(data: Bytes): Promise<Bytes> {
 // An empty salt is 32 zero bytes, as protocol.md §1 says.
 export async function hkdf(ikm: Bytes, salt: Bytes, info: string | Bytes, n: number): Promise<Bytes> {
   const key = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveBits'])
-  const bits = await subtle().deriveBits({
-    name: 'HKDF',
-    hash: 'SHA-256',
-    salt: salt.length ? salt : new Uint8Array(32),
-    info: typeof info === 'string' ? utf8(info) : info,
-  }, key, n * 8)
+  const bits = await subtle().deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt.length ? salt : new Uint8Array(32),
+      info: typeof info === 'string' ? utf8(info) : info,
+    },
+    key,
+    n * 8,
+  )
   return new Uint8Array(bits)
 }
 
@@ -151,7 +155,7 @@ export const recordAAD = (chain: string, epoch: number, name: string, rev: numbe
 export const wrapInfo = (chain: string, epoch: number, device: string) => `cai-sync/v1/wrap|${chain}|${epoch}|${device}`
 
 export async function wrapSecret(deviceSpki: Bytes, s: Bytes, info: string, ephemeral?: KeyPair, nonce?: Bytes): Promise<Bytes> {
-  const eph = ephemeral ?? await newKeyPair()
+  const eph = ephemeral ?? (await newKeyPair())
   const w = await hkdf(await ecdh(eph.privateKey, deviceSpki), eph.spki, info, 32)
   return concat(eph.spki, await seal(w, s, info, nonce))
 }

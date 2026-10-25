@@ -15,7 +15,10 @@ function comparable(info: StopInfo): StopInfo {
     ...rest,
     outgoing_trip_ids: onLines(info.outgoing_trip_ids ?? []),
     incoming_trip_ids: onLines(info.incoming_trip_ids ?? []),
-    shapes_info: info.shapes_info.map(({late_grace_min: _grace, ...s}) => ({...s, stop_time: s.stop_time?.map((st) => Object.fromEntries(Object.entries(st).filter(([key]) => key !== 'offset_confidence')) as typeof st)})),
+    shapes_info: info.shapes_info.map(({late_grace_min: _grace, ...s}) => ({
+      ...s,
+      stop_time: s.stop_time?.map((st) => Object.fromEntries(Object.entries(st).filter(([key]) => key !== 'offset_confidence')) as typeof st),
+    })),
   } as StopInfo
 }
 

@@ -10,7 +10,7 @@ import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import StationRow from '@/components/rows/StationRow.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 
-const props = defineProps<{ stopIds: string }>()
+const props = defineProps<{stopIds: string}>()
 
 const {t} = useI18n()
 const {openStop} = useMapPicks()
@@ -18,7 +18,9 @@ const {openStop} = useMapPicks()
 const stations = computed(() => {
   const index = network.value
   if (!index) return []
-  return props.stopIds.split(',').map((id) => index.stopById.get(Number(id)))
+  return props.stopIds
+    .split(',')
+    .map((id) => index.stopById.get(Number(id)))
     .filter((stop): stop is Stop => !!stop)
     .map((stop) => ({stop, destinations: stationDestinations(index, stop.stop_id)}))
 })
@@ -31,7 +33,7 @@ useHead(() => ({
 
 <template>
   <div class="stops-view">
-    <SheetTopBar/>
+    <SheetTopBar />
     <section data-kbd-section="stations" data-kbd-entry="1">
       <StationRow
         v-for="{stop, destinations} in stations"
@@ -44,7 +46,7 @@ useHead(() => ({
         <template #lines>
           <div class="flex flex-col gap-1">
             <div v-for="to in destinations" :key="to.name ?? ''" class="flex items-start gap-2 min-w-0">
-              <StationLines :routes="to.routes" class="shrink-0 max-w-[60%]"/>
+              <StationLines :routes="to.routes" class="shrink-0 max-w-[60%]" />
               <span class="text-label-medium text-on-surface-variant truncate">{{ to.name ? `→ ${to.name}` : t('lineEndsHere') }}</span>
             </div>
           </div>

@@ -4,8 +4,8 @@ import {apiPath} from '@/utils/city.ts'
 
 export const liveRowKey = (tripId: string, stopId: number) => `${tripId}@${stopId}`
 
-type Snapshot = { as_of: number; rows: LiveRow[]; vehicles: LiveVehicle[] }
-type Delta = { as_of: number; rows: LiveRow[]; vehicles: { upsert: LiveVehicle[]; remove: number[] } }
+type Snapshot = {as_of: number; rows: LiveRow[]; vehicles: LiveVehicle[]}
+type Delta = {as_of: number; rows: LiveRow[]; vehicles: {upsert: LiveVehicle[]; remove: number[]}}
 
 export type ShownEntry = LiveEntry & {minutes: number}
 
@@ -24,8 +24,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
   let es: EventSource | null = null
   let activeKey = ''
 
-  const buildKey = (stops: number[], trips: string[]) =>
-    `${[...new Set(stops)].sort((a, b) => a - b).join(',')}|${[...new Set(trips)].sort().join(',')}`
+  const buildKey = (stops: number[], trips: string[]) => `${[...new Set(stops)].sort((a, b) => a - b).join(',')}|${[...new Set(trips)].sort().join(',')}`
 
   function stop() {
     if (es) {
@@ -95,10 +94,14 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
     }
   }
 
-  watch([stopIds, tripIds], ([stops, trips]) => {
-    const key = buildKey(stops, trips)
-    if (key !== activeKey) start(stops, trips)
-  }, {immediate: true, deep: true})
+  watch(
+    [stopIds, tripIds],
+    ([stops, trips]) => {
+      const key = buildKey(stops, trips)
+      if (key !== activeKey) start(stops, trips)
+    },
+    {immediate: true, deep: true},
+  )
 
   const onOnline = () => {
     const key = activeKey

@@ -36,7 +36,7 @@ async function run<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => I
   const tx = (await db()).transaction(STORE, mode)
   const request = fn(tx.objectStore(STORE))
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve(request ? request.result as T : undefined as T)
+    tx.oncomplete = () => resolve(request ? (request.result as T) : (undefined as T))
     tx.onerror = tx.onabort = () => reject(tx.error)
   })
 }
@@ -47,7 +47,8 @@ export const setMembership = (m: Membership) => run<void>('readwrite', (s) => vo
 export const getBases = async () => (await run<Record<string, Base> | undefined>('readonly', (s) => s.get('bases'))) ?? {}
 export const setBases = (bases: Record<string, Base>) => run<void>('readwrite', (s) => void s.put(bases, 'bases'))
 
-export const forget = () => run<void>('readwrite', (s) => {
-  s.delete('membership')
-  s.delete('bases')
-})
+export const forget = () =>
+  run<void>('readwrite', (s) => {
+    s.delete('membership')
+    s.delete('bases')
+  })

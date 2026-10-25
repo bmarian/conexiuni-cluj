@@ -42,8 +42,7 @@ export function joinList(items: string[], and: string): string {
 
 export function changeSummary(change: RouteChange, t: Translate): string {
   if (change.source === 'stops') {
-    const stopsOf = (kind: RouteChangeKind) =>
-      new Set(change.changes.filter((c) => c.kind === kind).flatMap((c) => c.stops ?? []))
+    const stopsOf = (kind: RouteChangeKind) => new Set(change.changes.filter((c) => c.kind === kind).flatMap((c) => c.stops ?? []))
     const added = stopsOf('stops_added')
     const removed = stopsOf('stops_removed')
     if (added.size && removed.size) return t('routeChangeSummaryStopsBoth')
@@ -110,9 +109,7 @@ export function itemLabel(item: RouteChangeItem, t: Translate): string {
     case 'earlier':
       return t('routeChangeRetimed', {n: item.shifts?.length ?? 0})
     case 'trips_added':
-      return item.all
-        ? t('routeChangeNowRuns', {first: times[0] ?? '', last: times[times.length - 1] ?? ''})
-        : t('routeChangeTripsAdded', {n: times.length})
+      return item.all ? t('routeChangeNowRuns', {first: times[0] ?? '', last: times[times.length - 1] ?? ''}) : t('routeChangeTripsAdded', {n: times.length})
     case 'trips_removed':
       return item.all ? t('routeChangeNoLongerRuns') : t('routeChangeTripsRemoved', {n: times.length})
     case 'stops_added':

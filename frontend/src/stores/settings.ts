@@ -41,19 +41,27 @@ export const useSettingsStore = defineStore('settings', () => {
     return systemDark.value
   })
 
-  watch(isDark, (dark) => {
-    document.documentElement.classList.toggle('dark', dark)
-    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-  }, {immediate: true})
+  watch(
+    isDark,
+    (dark) => {
+      document.documentElement.classList.toggle('dark', dark)
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+    },
+    {immediate: true},
+  )
 
   function setTheme(newTheme: Theme) {
     theme.value = newTheme
     localStorage.setItem('settings.theme', newTheme)
   }
 
-  watch(locale, (lang) => {
-    document.documentElement.lang = lang
-  }, {immediate: true})
+  watch(
+    locale,
+    (lang) => {
+      document.documentElement.lang = lang
+    },
+    {immediate: true},
+  )
 
   function setLocale(newLocale: AppLocale) {
     locale.value = newLocale
@@ -111,7 +119,7 @@ export const useSettingsStore = defineStore('settings', () => {
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let toastSeq = 0
 
-  function showToast(title: string, options: { body?: string; icon?: ToastIcon } = {}) {
+  function showToast(title: string, options: {body?: string; icon?: ToastIcon} = {}) {
     const duration = options.body ? 4500 : 3000
     toast.value = {id: ++toastSeq, title, body: options.body, icon: options.icon ?? 'info', duration}
     if (toastTimer) clearTimeout(toastTimer)
@@ -125,11 +133,23 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
-    theme, locale, isDark, setTheme, setLocale,
-    autoCenterOnMe, autoFitMap, setAutoCenterOnMe, setAutoFitMap,
-    colorfulLines, setColorfulLines,
-    showGreenFriday, regionSetting, setRegionSetting,
+    theme,
+    locale,
+    isDark,
+    setTheme,
+    setLocale,
+    autoCenterOnMe,
+    autoFitMap,
+    setAutoCenterOnMe,
+    setAutoFitMap,
+    colorfulLines,
+    setColorfulLines,
+    showGreenFriday,
+    regionSetting,
+    setRegionSetting,
     reload,
-    toast, showToast, dismissToast,
+    toast,
+    showToast,
+    dismissToast,
   }
 })

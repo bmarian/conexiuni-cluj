@@ -1,4 +1,4 @@
-import type {Timetable} from "@/types/ctp.ts";
+import type {Timetable} from '@/types/ctp.ts'
 
 export type UserLocation = {
   latitude: number
@@ -23,14 +23,14 @@ export type HourlyStopOffsets = {
 }
 
 export type RouteType =
-  | 0  // Tram
-  | 1  // Subway
-  | 2  // Rail
-  | 3  // Bus
-  | 4  // Ferry
-  | 5  // CableTram
-  | 6  // AerialLift
-  | 7  // Funicular
+  | 0 // Tram
+  | 1 // Subway
+  | 2 // Rail
+  | 3 // Bus
+  | 4 // Ferry
+  | 5 // CableTram
+  | 6 // AerialLift
+  | 7 // Funicular
   | 11 // Trolleybus
   | 12 // Monorail
 
@@ -44,8 +44,8 @@ export type Route = {
   route_color: string
 }
 
-export const OUTGOING_SUFFIX = "_0"
-export const INCOMING_SUFFIX = "_1"
+export const OUTGOING_SUFFIX = '_0'
+export const INCOMING_SUFFIX = '_1'
 
 export type RouteDirection = '0' | '1'
 

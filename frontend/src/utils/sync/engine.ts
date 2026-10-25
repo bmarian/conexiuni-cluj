@@ -147,7 +147,7 @@ function devicesKind(run: Run, label: string): Kind<DevicesRecord> {
 async function fetchRecord(run: Run, name: string): Promise<{rev: number; text: string} | null> {
   const {rev, body} = await api.readRecord(run.m, name)
   const sealed = fromB64(body)
-  const plain = sealed && await open(run.keys.data, sealed, recordAAD(run.m.chain, run.m.epoch, name, rev))
+  const plain = sealed && (await open(run.keys.data, sealed, recordAAD(run.m.chain, run.m.epoch, name, rev)))
   const padded = plain && unpad(plain)
   return padded ? {rev, text: decoder.decode(padded)} : null
 }
@@ -270,10 +270,12 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
   }
   const run: Run = {m, keys: await chainKeys(m.s), bases: await getBases(), report: {devices: [], dropped: 0, problems: []}, devices: []}
   const revs = new Map(st.records.map((r) => [r.name, r.rev]))
-  const step = <T>(logical: string, kind: Kind<T>) => async () => {
-    const name = await recordName(run.keys.names, logical)
-    await syncRecord(run, kind, logical, name, revs.get(name) ?? 0)
-  }
+  const step =
+    <T>(logical: string, kind: Kind<T>) =>
+    async () => {
+      const name = await recordName(run.keys.names, logical)
+      await syncRecord(run, kind, logical, name, revs.get(name) ?? 0)
+    }
   const steps = [
     step(DEVICES, devicesKind(run, label)),
     ...(withSettings ? [step(SETTINGS, settingsKind)] : []),
@@ -349,18 +351,22 @@ export async function removeDevice(id: string, withSettings: boolean, label: str
   const next = await chainKeys(s)
   const epoch = st.epoch + 1
   const bases: Record<string, Base> = {}
-  const records = await Promise.all([...texts].map(async ([logical, text]) => {
-    const name = await recordName(next.names, logical)
-    bases[logical] = {text, rev: 1, epoch}
-    return {name, body: await sealRecord(next, m.chain, epoch, name, 1, text)}
-  }))
-  const wraps = await Promise.all(remaining.map(async (d, i) => ({
-    device: d.id,
-    body: toB64(await wrapSecret(fromB64(pubs[i]!)!, s, wrapInfo(m.chain, epoch, d.id))),
-  })))
+  const records = await Promise.all(
+    [...texts].map(async ([logical, text]) => {
+      const name = await recordName(next.names, logical)
+      bases[logical] = {text, rev: 1, epoch}
+      return {name, body: await sealRecord(next, m.chain, epoch, name, 1, text)}
+    }),
+  )
+  const wraps = await Promise.all(
+    remaining.map(async (d, i) => ({
+      device: d.id,
+      body: toB64(await wrapSecret(fromB64(pubs[i]!)!, s, wrapInfo(m.chain, epoch, d.id))),
+    })),
+  )
   await api.rotateChain(m, {epoch: st.epoch, seen: st.records, join: toB64(next.join), remove: [id], records, wraps})
   await setMembership({...m, s, epoch})
-  await setBases({...await getBases(), ...bases})
+  await setBases({...(await getBases()), ...bases})
 }
 
 // Leaves the chain; the data on this device stays as it is.
@@ -372,7 +378,7 @@ export async function leave() {
     const name = await recordName(keys.names, DEVICES)
     const run: Run = {m, keys, bases: {}, report: {devices: [], dropped: 0, problems: []}, devices: []}
     const fetched = await fetchRecord(run, name)
-    const read = fetched && await readDevices(fetched.text)
+    const read = fetched && (await readDevices(fetched.text))
     if (fetched && read?.ok) {
       const text = writeDevices({devices: read.value.devices.filter((d) => d.id !== m.device)})
       await api.writeRecord(m, name, m.epoch, fetched.rev, await sealRecord(keys, m.chain, m.epoch, name, fetched.rev + 1, text))

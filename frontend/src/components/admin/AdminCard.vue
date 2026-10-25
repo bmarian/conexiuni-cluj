@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ title: string, hint?: string }>()
+defineProps<{title: string; hint?: string}>()
 </script>
 
 <template>
@@ -8,6 +8,6 @@ defineProps<{ title: string, hint?: string }>()
       <h3>{{ title }}</h3>
       <span v-if="hint">{{ hint }}</span>
     </header>
-    <slot/>
+    <slot />
   </section>
 </template>

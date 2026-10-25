@@ -11,12 +11,17 @@ export function mapStyle(isDark: boolean): StyleSpecification {
   return isDark ? DARK : LIGHT
 }
 
-const cityCredits = () => [...cityInfo()?.credits ?? [], {name: cityParams().operator, url: cityInfo()?.operatorUrl ?? ''}].filter((credit) => credit.name)
+const cityCredits = () => [...(cityInfo()?.credits ?? []), {name: cityParams().operator, url: cityInfo()?.operatorUrl ?? ''}].filter((credit) => credit.name)
 
-const creditLink = (name: string, url: string) => url
-  ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>`
-  : escapeHtml(name)
+const creditLink = (name: string, url: string) =>
+  url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>` : escapeHtml(name)
 
-export const mapCreditsHTML = () => `&copy; ${creditLink('OpenMapTiles', 'https://openmaptiles.org/')} &copy; ${creditLink('OpenStreetMap', 'https://www.openstreetmap.org/copyright')} | `
-  + cityCredits().map((credit) => '&copy; ' + creditLink(credit.name, credit.url)).join(', ')
-export const mapCreditsText = () => `© OpenMapTiles © OpenStreetMap | ${cityCredits().map((credit) => '© ' + credit.name).join(', ')}`
+export const mapCreditsHTML = () =>
+  `&copy; ${creditLink('OpenMapTiles', 'https://openmaptiles.org/')} &copy; ${creditLink('OpenStreetMap', 'https://www.openstreetmap.org/copyright')} | ` +
+  cityCredits()
+    .map((credit) => '&copy; ' + creditLink(credit.name, credit.url))
+    .join(', ')
+export const mapCreditsText = () =>
+  `© OpenMapTiles © OpenStreetMap | ${cityCredits()
+    .map((credit) => '© ' + credit.name)
+    .join(', ')}`

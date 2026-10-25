@@ -94,7 +94,7 @@ function focusEntryIn(scope: HTMLElement): boolean {
 
 function focusedKey(): string | null {
   const root = rootEl()
-  return root ? itemOf(document.activeElement, root)?.getAttribute('data-kbd-item') ?? null : null
+  return root ? (itemOf(document.activeElement, root)?.getAttribute('data-kbd-item') ?? null) : null
 }
 
 function focusKey(key: string): boolean {
@@ -136,7 +136,7 @@ function focusNext(): boolean {
 function neighborKey(): string | null {
   const root = rootEl()
   const cur = root ? itemOf(document.activeElement, root) : null
-  return cur && root ? neighborOf(root, cur)?.getAttribute('data-kbd-item') ?? null : null
+  return cur && root ? (neighborOf(root, cur)?.getAttribute('data-kbd-item') ?? null) : null
 }
 
 function closeTop(): boolean {
@@ -350,20 +350,23 @@ export function useKeyboardNavRoot(appRouter: Router) {
   useKbdShortcuts({g: goHome, s: focusSearch, '/': focusSearch}, {global: true})
 }
 
-export function useKbdShortcuts(keys: ShortcutMap, options: { global?: boolean } = {}) {
+export function useKbdShortcuts(keys: ShortcutMap, options: {global?: boolean} = {}) {
   const entry: ShortcutEntry = {keys, global: !!options.global}
-  whileActive(() => addOnce(shortcuts, entry), () => remove(shortcuts, entry))
+  whileActive(
+    () => addOnce(shortcuts, entry),
+    () => remove(shortcuts, entry),
+  )
 }
 
 export function useKbdEscape(active: () => boolean, close: () => void) {
   const closer: Closer = {active, close}
-  whileActive(() => addOnce(closers, closer), () => remove(closers, closer))
+  whileActive(
+    () => addOnce(closers, closer),
+    () => remove(closers, closer),
+  )
 }
 
-export function useKbdLayer(
-  open: WatchSource<boolean>,
-  options: { el?: () => HTMLElement | null, close: () => void, capture?: boolean },
-) {
+export function useKbdLayer(open: WatchSource<boolean>, options: {el?: () => HTMLElement | null; close: () => void; capture?: boolean}) {
   const layer: Layer = {
     active: () => true,
     close: options.close,
@@ -399,8 +402,8 @@ export function useKbdLayer(
     }
   }
 
-  watch(open, isOpen => isOpen ? push() : pop(), {flush: 'sync', immediate: true})
-  watch(open, isOpen => isOpen && focusInside(), {flush: 'post'})
+  watch(open, (isOpen) => (isOpen ? push() : pop()), {flush: 'sync', immediate: true})
+  watch(open, (isOpen) => isOpen && focusInside(), {flush: 'post'})
   onDeactivated(pop)
   onUnmounted(pop)
 }

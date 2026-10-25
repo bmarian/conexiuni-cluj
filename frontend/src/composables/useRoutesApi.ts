@@ -9,9 +9,13 @@ const CACHE_KEY = 'cache:routes'
 // Starts from the last session's list so favorites render before the network answers.
 const routes = ref<Route[]>(readCachedList(CACHE_KEY))
 
-watch(currentCity, () => {
-  routes.value = readCachedList(CACHE_KEY)
-}, {flush: 'sync'})
+watch(
+  currentCity,
+  () => {
+    routes.value = readCachedList(CACHE_KEY)
+  },
+  {flush: 'sync'},
+)
 
 watch(network, (index) => {
   if (!index?.routes.length) return

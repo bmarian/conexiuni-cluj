@@ -41,9 +41,22 @@ export const validId = (id: number) => Number.isInteger(id) && id >= 1 && id <= 
 export const newestSeen = (ids: number[]) => [...ids].sort((a, b) => b - a).slice(0, NEWS_CAP)
 
 export function forbidden(cp: number): boolean {
-  return cp <= 0x1f || (cp >= 0x7f && cp <= 0x9f) || cp === 0x061c || cp === 0x200b || cp === 0x200e || cp === 0x200f
-    || (cp >= 0x2028 && cp <= 0x202e) || cp === 0x2060 || (cp >= 0x2066 && cp <= 0x2069) || cp === 0xfeff
-    || cp === 0xfffd || cp === 0xfffe || cp === 0xffff || (cp >= 0xd800 && cp <= 0xdfff)
+  return (
+    cp <= 0x1f ||
+    (cp >= 0x7f && cp <= 0x9f) ||
+    cp === 0x061c ||
+    cp === 0x200b ||
+    cp === 0x200e ||
+    cp === 0x200f ||
+    (cp >= 0x2028 && cp <= 0x202e) ||
+    cp === 0x2060 ||
+    (cp >= 0x2066 && cp <= 0x2069) ||
+    cp === 0xfeff ||
+    cp === 0xfffd ||
+    cp === 0xfffe ||
+    cp === 0xffff ||
+    (cp >= 0xd800 && cp <= 0xdfff)
+  )
 }
 
 export function blankEnd(cp: number): boolean {
@@ -57,7 +70,7 @@ export function validText(value: unknown, min: number, max: number): value is st
   return !points.length || (!blankEnd(points[0]!) && !blankEnd(points.at(-1)!))
 }
 
-const text = (value: unknown, min: number, max: number): string => validText(value, min, max) ? value : refuse('text')
+const text = (value: unknown, min: number, max: number): string => (validText(value, min, max) ? value : refuse('text'))
 
 function integer(value: unknown, lo: number, hi: number): number {
   return typeof value === 'number' && Number.isInteger(value) && value >= lo && value <= hi ? value : refuse('integer')
@@ -72,7 +85,7 @@ function coordinate(value: unknown, [lo, hi]: readonly [number, number]): number
   return typeof value === 'number' && Number.isFinite(value) && value >= lo && value <= hi && roundCoordinate(value) === value ? value : refuse('coordinate')
 }
 
-const bool = (value: unknown): boolean => typeof value === 'boolean' ? value : refuse('boolean')
+const bool = (value: unknown): boolean => (typeof value === 'boolean' ? value : refuse('boolean'))
 
 function list(value: unknown, cap: number): unknown[] {
   return Array.isArray(value) && value.length <= cap ? value : refuse('list')
@@ -99,7 +112,7 @@ export const deviceId = (d: DeviceEntry) => d.id
 function read<T>(raw: string, parse: (record: unknown) => T, write: (value: T) => string): Read<T> {
   try {
     const record: unknown = JSON.parse(raw)
-    const v = (typeof record === 'object' && record !== null ? (record as {v?: unknown}).v : undefined)
+    const v = typeof record === 'object' && record !== null ? (record as {v?: unknown}).v : undefined
     if (integer(v, 1, MAX_INT) > 1) return {ok: false, newer: true}
     const value = parse(record)
     return write(value) === raw ? {ok: true, value} : {ok: false, newer: false}
@@ -136,9 +149,7 @@ export function writeCity(r: CityRecord): string {
     v: 1,
     stops: r.stops,
     lines: r.lines.map((l) => [l.route, l.dir]),
-    places: r.places.map((p) => p.origin
-      ? [p.name, p.label, p.lat, p.lon, p.origin.name, p.origin.lat, p.origin.lon]
-      : [p.name, p.label, p.lat, p.lon]),
+    places: r.places.map((p) => (p.origin ? [p.name, p.label, p.lat, p.lon, p.origin.name, p.origin.lat, p.origin.lon] : [p.name, p.label, p.lat, p.lon])),
     followed: r.followed,
   })
 }
@@ -183,7 +194,7 @@ export async function readDevices(raw: string): Promise<Read<DevicesRecord>> {
   if (!result.ok) return result
   for (const d of result.value.devices) {
     const key = fromB64(d.pub, SPKI_SIZE)
-    if (!key || !await validPublicKey(key)) return {ok: false, newer: false}
+    if (!key || !(await validPublicKey(key))) return {ok: false, newer: false}
   }
   return result
 }

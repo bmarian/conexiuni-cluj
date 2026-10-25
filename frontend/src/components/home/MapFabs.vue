@@ -19,11 +19,11 @@ function center() {
   <div class="map-fabs">
     <Transition name="fab">
       <button v-if="hasLines" type="button" class="fab fab-small squish" :aria-label="t('fitRoutes')" :title="t('fitRoutes')" @click="mapStore.fitRequest++">
-        <CropFreeIcon class="m-icon"/>
+        <CropFreeIcon class="m-icon" />
       </button>
     </Transition>
     <button type="button" class="fab squish text-primary" :aria-label="t('Center')" :title="t('Center')" @click="center">
-      <MyLocationIcon class="m-icon spin" :style="{ rotate: `${spins * 90}deg` }"/>
+      <MyLocationIcon class="m-icon spin" :style="{rotate: `${spins * 90}deg`}" />
     </button>
   </div>
 </template>
@@ -51,11 +51,15 @@ function center() {
 }
 
 .fab-enter-active {
-  transition: scale var(--spring-pop-ms) var(--spring-pop), opacity 150ms linear;
+  transition:
+    scale var(--spring-pop-ms) var(--spring-pop),
+    opacity 150ms linear;
 }
 
 .fab-leave-active {
-  transition: scale 150ms ease-in, opacity 150ms linear;
+  transition:
+    scale 150ms ease-in,
+    opacity 150ms linear;
 }
 
 .fab-enter-from,

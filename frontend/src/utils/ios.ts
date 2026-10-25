@@ -1,6 +1,5 @@
 // iPadOS reports a Mac user agent.
-export const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent)
-  || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+export const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 
 export const isIOSStandalone = isIOS && (navigator as Navigator & {standalone?: boolean}).standalone === true
 

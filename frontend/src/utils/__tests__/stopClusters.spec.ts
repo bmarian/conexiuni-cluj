@@ -3,11 +3,18 @@ import {groupName, modeMask, modesIn, type StopGroup, StopClusters, type StopPoi
 
 const icon = {size: [24, 24] as [number, number], anchor: [12, 12] as [number, number]}
 const pill = {size: [100, 40] as [number, number], anchor: [50, 15] as [number, number]}
-const box = (group: StopGroup) => group.stations.size === 1 ? icon : pill
+const box = (group: StopGroup) => (group.stations.size === 1 ? icon : pill)
 
 // 0.0001° of longitude is ~37 px at zoom 18 and ~5 px at zoom 15.
-const point = (id: string, lng: number, station = Number(id), rank = 1): StopPoint =>
-  ({id, lat: 44.43, lng: 26.1 + lng, station, modes: modeMask([3]), rank, favorite: false})
+const point = (id: string, lng: number, station = Number(id), rank = 1): StopPoint => ({
+  id,
+  lat: 44.43,
+  lng: 26.1 + lng,
+  station,
+  modes: modeMask([3]),
+  rank,
+  favorite: false,
+})
 
 describe('stop clusters', () => {
   it('keeps stations apart while their icons do not touch', () => {
@@ -31,7 +38,12 @@ describe('stop clusters', () => {
 
   it('absorbs what its own pill and label cover', () => {
     const clusters = new StopClusters([point('1', 0), point('2', 0.00005), point('3', 0.0004)], box, 19, 0.25)
-    expect(clusters.at(17).map((g) => g.points.length).sort()).toEqual([1, 2])
+    expect(
+      clusters
+        .at(17)
+        .map((g) => g.points.length)
+        .sort(),
+    ).toEqual([1, 2])
     expect(clusters.at(16).map((g) => g.points.length)).toEqual([3])
   })
 
@@ -63,7 +75,7 @@ describe('stop clusters', () => {
     }))
     const clusters = new StopClusters(points, box, 19, 0.25)
     const mx = (lng: number) => lng / 360
-    const my = (lat: number) => -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / (2 * Math.PI)
+    const my = (lat: number) => -Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / (2 * Math.PI)
     for (const zoom of [12, 13.5, 15, 16.75, 18]) {
       const groups = clusters.at(zoom)
       const at = (i: number) => [mx(points[i]!.lng), my(points[i]!.lat)] as const
@@ -81,8 +93,9 @@ describe('stop clusters', () => {
         const [x, y] = at(g.leader)
         return {left: x * px - anchor[0], top: y * px - anchor[1], right: x * px - anchor[0] + size[0], bottom: y * px - anchor[1] + size[1]}
       })
-      rects.forEach((a, i) => rects.slice(i + 1).forEach((b) =>
-        expect(a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom).toBe(false)))
+      rects.forEach((a, i) =>
+        rects.slice(i + 1).forEach((b) => expect(a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom).toBe(false)),
+      )
     }
   })
 
@@ -94,7 +107,18 @@ describe('stop clusters', () => {
     while (!stepped.ready(12)) stepped.advance()
     expect(stepped.ready(11.75)).toBe(false)
     const direct = new StopClusters(points, box, 19, 0.25)
-    for (const zoom of [18, 15, 12]) expect(stepped.at(zoom).map((g) => g.key).sort()).toEqual(direct.at(zoom).map((g) => g.key).sort())
+    for (const zoom of [18, 15, 12])
+      expect(
+        stepped
+          .at(zoom)
+          .map((g) => g.key)
+          .sort(),
+      ).toEqual(
+        direct
+          .at(zoom)
+          .map((g) => g.key)
+          .sort(),
+      )
   })
 
   it('finds the markers whose boxes reach into the view', () => {

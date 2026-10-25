@@ -1,11 +1,11 @@
-import type {Shape, Vehicle} from "@/types/tranzy";
-import type {RouteType} from "@/types/tranzy";
+import type {Shape, Vehicle} from '@/types/tranzy'
+import type {RouteType} from '@/types/tranzy'
 import {defineStore} from 'pinia'
-import {computed, ref, watch} from "vue";
-import {apiRequest} from "@/utils/api.ts";
-import {decodePolyline, network} from "@/utils/network.ts";
-import {currentCity} from "@/utils/city.ts";
-import {manyLines, ownColor} from "@/utils/lineColor.ts";
+import {computed, ref, watch} from 'vue'
+import {apiRequest} from '@/utils/api.ts'
+import {decodePolyline, network} from '@/utils/network.ts'
+import {currentCity} from '@/utils/city.ts'
+import {manyLines, ownColor} from '@/utils/lineColor.ts'
 
 const shapeCache = new Map<string, Promise<Shape[]>>()
 watch(currentCity, () => shapeCache.clear(), {flush: 'sync'})
@@ -17,11 +17,22 @@ export async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[
     const request = apiRequest(`shapes?format=polyline&shape_ids=${missing.join(',')}`) as Promise<Record<string, string>>
     for (const id of missing) {
       const key = shapeKey(id)
-      const points = request.then((encoded) => decodePolyline(encoded?.[id] ?? '').map(([lat, lon], i): Shape => ({
-        shape_id: id, shape_pt_lat: lat, shape_pt_lon: lon, shape_pt_sequence: i, shape_dist_traveled: -1,
-      })))
+      const points = request.then((encoded) =>
+        decodePolyline(encoded?.[id] ?? '').map(([lat, lon], i): Shape => ({
+          shape_id: id,
+          shape_pt_lat: lat,
+          shape_pt_lon: lon,
+          shape_pt_sequence: i,
+          shape_dist_traveled: -1,
+        })),
+      )
       shapeCache.set(key, points)
-      points.then((p) => { if (!p.length) shapeCache.delete(key) }, () => shapeCache.delete(key))
+      points.then(
+        (p) => {
+          if (!p.length) shapeCache.delete(key)
+        },
+        () => shapeCache.delete(key),
+      )
     }
   }
   const out = new Map<string, Shape[]>()
@@ -30,14 +41,14 @@ export async function fetchShapes(tripIds: string[]): Promise<Map<string, Shape[
 }
 
 export type DisplayShape = {
-  trip_id: string,
-  route_short_name: string,
-  route_long_name: string,
-  route_color: string,
-  route_type: RouteType,
+  trip_id: string
+  route_short_name: string
+  route_long_name: string
+  route_color: string
+  route_type: RouteType
 }
 
-export type HighlightedStop = { stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite' }
+export type HighlightedStop = {stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite'}
 
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])
@@ -87,7 +98,7 @@ export const useMapStore = defineStore('map', () => {
   const requestShapes = async (displayShapes: DisplayShape[]): Promise<Array<[DisplayShape, Shape[]]>> => {
     if (!displayShapes?.length) return []
 
-    const shapeIds = [...new Set(displayShapes.map(d => d.trip_id))].sort()
+    const shapeIds = [...new Set(displayShapes.map((d) => d.trip_id))].sort()
     const grouped = await fetchShapes(shapeIds)
     return displayShapes.map((d): [DisplayShape, Shape[]] => [d, grouped.get(d.trip_id) ?? []])
   }

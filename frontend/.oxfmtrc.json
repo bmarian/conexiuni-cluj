@@ -1,5 +1,9 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "semi": false,
-  "singleQuote": true
+  "singleQuote": true,
+  "bracketSpacing": false,
+  "printWidth": 160,
+  "ignorePatterns": ["**/__tests__/fixtures/**", "**/map-styles/**", "**/styles/theme.css"],
+  "overrides": [{"files": ["*.css"], "options": {"singleQuote": false}}]
 }

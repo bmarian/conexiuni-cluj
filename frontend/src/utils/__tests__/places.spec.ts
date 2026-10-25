@@ -9,8 +9,12 @@ function respond(places: unknown) {
 
 describe('placeFromApi', () => {
   it('keeps the label and coordinates as the app shows them', () => {
-    expect(placeFromApi(apiPlace('Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni')))
-      .toEqual({id: '7', lat: '46.77', lon: '23.6', label: 'Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni'})
+    expect(placeFromApi(apiPlace('Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni'))).toEqual({
+      id: '7',
+      lat: '46.77',
+      lon: '23.6',
+      label: 'Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni',
+    })
   })
 
   it('falls back to coordinates for a label, and to them for an id', () => {

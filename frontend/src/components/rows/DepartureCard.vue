@@ -11,16 +11,16 @@ defineProps<{
   label: (minutes: number) => string
   favorite?: boolean
 }>()
-const emit = defineEmits<{ open: [] }>()
+const emit = defineEmits<{open: []}>()
 </script>
 
 <template>
-  <div class="departure-card squish" :class="{ 'is-favorite': favorite }" role="button" tabindex="0" @click="emit('open')" @keydown.enter.prevent="emit('open')">
-    <span class="live-bar" :class="{ 'is-live': !shape.static_time_approximation }"></span>
-    <LineBadge :name="shape.route_short_name" :color="shape.route_color" :height="36" :min-width="44" :corner="12"/>
+  <div class="departure-card squish" :class="{'is-favorite': favorite}" role="button" tabindex="0" @click="emit('open')" @keydown.enter.prevent="emit('open')">
+    <span class="live-bar" :class="{'is-live': !shape.static_time_approximation}"></span>
+    <LineBadge :name="shape.route_short_name" :color="shape.route_color" :height="36" :min-width="44" :corner="12" />
     <div class="flex-1 min-w-0 flex flex-col gap-0.5 py-2.5">
       <div class="flex items-center gap-1.5 min-w-0">
-        <LiveBadge v-if="!shape.static_time_approximation"/>
+        <LiveBadge v-if="!shape.static_time_approximation" />
         <span class="destination text-title-small">→ {{ routeDestination(shape.route_long_name) }}</span>
       </div>
       <span v-if="routeOrigin(shape.route_long_name)" class="text-body-small text-on-surface-variant truncate">
@@ -36,7 +36,7 @@ const emit = defineEmits<{ open: [] }>()
         />
       </div>
     </div>
-    <KeyboardArrowRightIcon class="m-icon size-5 text-outline"/>
+    <KeyboardArrowRightIcon class="m-icon size-5 text-outline" />
   </div>
 </template>
 
@@ -56,7 +56,7 @@ const emit = defineEmits<{ open: [] }>()
 }
 
 .departure-card::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;

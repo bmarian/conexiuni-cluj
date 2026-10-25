@@ -2,7 +2,9 @@ package cities
 
 import (
 	"conexiuni-cluj/web"
+	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +20,23 @@ func responseStatus(c fiber.Ctx, err error) int {
 		return fe.Code
 	}
 	return fiber.StatusInternalServerError
+}
+
+func errorText(c fiber.Ctx, err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	body, err := c.Response().BodyUncompressed()
+	if err != nil {
+		return ""
+	}
+	var reply struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(body, &reply) == nil && reply.Error != "" {
+		return reply.Error
+	}
+	return string(body)
 }
 
 // Must run before the access logger.
@@ -36,8 +55,10 @@ func StatsMiddleware(cities map[string]*City, salt string) fiber.Handler {
 		route = "/" + rest
 		key := c.Method() + " " + route
 		status := responseStatus(c, err)
-		if status >= fiber.StatusInternalServerError {
+		warmingUp := status == fiber.StatusServiceUnavailable && len(c.Response().Header.Peek(fiber.HeaderRetryAfter)) > 0
+		if status >= fiber.StatusInternalServerError && !warmingUp {
 			city.RecordEvent("endpoint_error", key)
+			city.RecordEvent("error_detail", key+"|"+strconv.Itoa(status)+"|"+errorText(c, err))
 		}
 		if status >= fiber.StatusBadRequest {
 			return err

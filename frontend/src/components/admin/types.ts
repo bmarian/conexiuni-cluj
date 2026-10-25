@@ -94,6 +94,7 @@ export type Overview = {
     requests: number
     errors: number
     endpoints: {key: string; calls: number; avg_ms: number; errors: number}[]
+    error_details: {endpoint: string; status: number; text: string; count: number}[]
   }
 }
 

@@ -643,6 +643,7 @@ X-Frame-Options: DENY
     "key": "GET /destinations"
    }
   ],
+  "error_details": [],
   "errors": 0,
   "requests": 29
  }

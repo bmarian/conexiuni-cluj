@@ -3,7 +3,7 @@ import type {StationLook} from '@/utils/network.ts'
 import ModeIcon from '@/components/icons/ModeIcon.vue'
 import FavoriteMorph from '@/components/ui/FavoriteMorph.vue'
 
-defineProps<{ look?: StationLook, corner?: number, favorite?: boolean }>()
+defineProps<{look?: StationLook; corner?: number; favorite?: boolean}>()
 </script>
 
 <template>
@@ -11,10 +11,10 @@ defineProps<{ look?: StationLook, corner?: number, favorite?: boolean }>()
     :color="look?.color ?? 'var(--md-secondary-container)'"
     :favorite="favorite"
     class="station-icon"
-    :class="{ 'is-plain': !look }"
-    :style="{ borderRadius: corner === undefined ? '50%' : `${corner}px` }"
+    :class="{'is-plain': !look}"
+    :style="{borderRadius: corner === undefined ? '50%' : `${corner}px`}"
   >
-    <ModeIcon :mode="look?.mode ?? 'bus'" class="station-icon-glyph"/>
+    <ModeIcon :mode="look?.mode ?? 'bus'" class="station-icon-glyph" />
   </FavoriteMorph>
 </template>
 

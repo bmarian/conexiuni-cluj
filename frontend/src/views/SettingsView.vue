@@ -58,18 +58,25 @@ const isAdminAuthed = ref(false)
 // A scanned sync QR: the code, and its key after #, which never reaches the server. Both leave the address bar at once.
 const pairCode = ref<string>()
 const pairKey = ref<string>()
-watch(() => route.query.pair, (code) => {
-  if (typeof code !== 'string') return
-  pairKey.value = new URLSearchParams(route.hash.replace(/^#/, '')).get('k') ?? undefined
-  pairCode.value = code
-  void router.replace({query: {}, hash: ''})
-}, {immediate: true})
+watch(
+  () => route.query.pair,
+  (code) => {
+    if (typeof code !== 'string') return
+    pairKey.value = new URLSearchParams(route.hash.replace(/^#/, '')).get('k') ?? undefined
+    pairCode.value = code
+    void router.replace({query: {}, hash: ''})
+  },
+  {immediate: true},
+)
 
 onMounted(() => {
   isAdminAuthed.value = adminAuthed()
 })
 
-const languages: Choice<Locale>[] = [{value: 'ro', label: 'Română'}, {value: 'en', label: 'English'}]
+const languages: Choice<Locale>[] = [
+  {value: 'ro', label: 'Română'},
+  {value: 'en', label: 'English'},
+]
 
 function setLocale(newLocale: Locale) {
   settings.setLocale(newLocale)
@@ -97,12 +104,12 @@ async function choose(slug: string | null) {
 
 <template>
   <div class="settings-view flex flex-col">
-    <SheetTopBar :title="t('settings')"/>
+    <SheetTopBar :title="t('settings')" />
     <h1 class="text-headline-small font-bold px-4 py-1">{{ t('settings') }}</h1>
 
     <h2 class="section">{{ t('language') }}</h2>
     <p v-if="settings.locale !== 'ro'" class="note">
-      <WarningAmberIcon class="m-icon size-[18px] text-amber"/>
+      <WarningAmberIcon class="m-icon size-[18px] text-amber" />
       <span>{{ t('languageDesc') }}</span>
     </p>
     <ChoiceRow
@@ -159,20 +166,20 @@ async function choose(slug: string | null) {
     <div data-kbd-section="city">
       <ListItem
         :icon="PlaceIcon"
-        :title="automatic ? t('cityAuto') : info?.name ?? currentCity"
+        :title="automatic ? t('cityAuto') : (info?.name ?? currentCity)"
         :description="automatic ? info?.name : info?.operator"
         :aria-expanded="cityOpen"
         data-kbd-item="city"
         @click="cityOpen = !cityOpen"
       >
         <template #trailing>
-          <ExpandMoreIcon class="m-icon text-on-surface-variant chevron" :class="{ 'is-open': cityOpen }"/>
+          <ExpandMoreIcon class="m-icon text-on-surface-variant chevron" :class="{'is-open': cityOpen}" />
         </template>
       </ListItem>
       <Transition name="expand">
         <div v-if="cityOpen" class="expand-body">
           <label class="search-pill city-search">
-            <SearchIcon class="m-icon text-on-surface-variant"/>
+            <SearchIcon class="m-icon text-on-surface-variant" />
             <input
               v-model="cityQuery"
               type="search"
@@ -185,18 +192,13 @@ async function choose(slug: string | null) {
               @keydown.enter="($event.target as HTMLInputElement).blur()"
             />
             <button v-if="cityQuery" type="button" class="icon-btn" :aria-label="t('clearSearch')" @click="cityQuery = ''">
-              <CloseIcon class="m-icon"/>
+              <CloseIcon class="m-icon" />
             </button>
           </label>
-          <ListItem
-            v-if="locationGranted && !cityQuery.trim()"
-            :title="t('cityAuto')"
-            data-kbd-item="city-auto"
-            @click="choose(null)"
-          >
-            <template #leading><span class="radio" :class="{ 'is-on': automatic }"></span></template>
+          <ListItem v-if="locationGranted && !cityQuery.trim()" :title="t('cityAuto')" data-kbd-item="city-auto" @click="choose(null)">
+            <template #leading><span class="radio" :class="{'is-on': automatic}"></span></template>
           </ListItem>
-          <div ref="cityList" class="city-list" :style="{ maxHeight: cityListHeight }">
+          <div ref="cityList" class="city-list" :style="{maxHeight: cityListHeight}">
             <ListItem
               v-for="city in shownCities"
               :key="city.slug"
@@ -205,10 +207,10 @@ async function choose(slug: string | null) {
               :data-kbd-item="`city-${city.slug}`"
               @click="choose(city.slug)"
             >
-              <template #leading><span class="radio" :class="{ 'is-on': !automatic && city.slug === currentCity }"></span></template>
+              <template #leading><span class="radio" :class="{'is-on': !automatic && city.slug === currentCity}"></span></template>
               <template #trailing>
-                <LiveBadge v-if="city.realtime"/>
-                <TimetableBadge v-else/>
+                <LiveBadge v-if="city.realtime" />
+                <TimetableBadge v-else />
               </template>
             </ListItem>
             <p v-if="!shownCities.length" class="city-none text-body-medium text-on-surface-variant">{{ t('noResults') }}</p>
@@ -228,28 +230,45 @@ async function choose(slug: string | null) {
     </div>
 
     <h2 class="section">{{ t('syncTitle') }}</h2>
-    <SettingsSync :pair-code="pairCode" :pair-key="pairKey"/>
+    <SettingsSync :pair-code="pairCode" :pair-key="pairKey" />
 
     <template v-if="isAdminAuthed">
       <h2 class="section">Admin</h2>
       <div data-kbd-section="admin">
-        <ListItem :icon="TuneIcon" :title="t('adminDashboard')" :description="t('settingsAdminDesc')" data-kbd-item="admin" @click="router.push('/admin')"/>
+        <ListItem :icon="TuneIcon" :title="t('adminDashboard')" :description="t('settingsAdminDesc')" data-kbd-item="admin" @click="router.push('/admin')" />
       </div>
     </template>
 
     <template v-if="!isIOS">
       <h2 class="section">{{ t('androidApp') }}</h2>
       <div data-kbd-section="android-app">
-        <ListItem :icon="DownloadIcon" :title="t('androidBetaAsk')" :description="t('androidAppDesc')" data-kbd-item="android-app" @click="router.push({name: 'android'})">
-          <template #badge><span class="beta">{{ t('beta') }}</span></template>
+        <ListItem
+          :icon="DownloadIcon"
+          :title="t('androidBetaAsk')"
+          :description="t('androidAppDesc')"
+          data-kbd-item="android-app"
+          @click="router.push({name: 'android'})"
+        >
+          <template #badge
+            ><span class="beta">{{ t('beta') }}</span></template
+          >
         </ListItem>
       </div>
     </template>
 
     <h2 class="section">{{ t('contact') }}</h2>
     <div data-kbd-section="contact">
-      <ListItem as="a" :href="`mailto:${CONTACT_EMAIL}`" :icon="EmailIcon" :title="CONTACT_EMAIL" :description="t('contactDesc')" data-kbd-item="contact"/>
-      <ListItem as="a" :href="SOURCE_URL" target="_blank" rel="noopener" :icon="CodeIcon" title="GitHub" :description="t('sourceCodeDesc')" data-kbd-item="source"/>
+      <ListItem as="a" :href="`mailto:${CONTACT_EMAIL}`" :icon="EmailIcon" :title="CONTACT_EMAIL" :description="t('contactDesc')" data-kbd-item="contact" />
+      <ListItem
+        as="a"
+        :href="SOURCE_URL"
+        target="_blank"
+        rel="noopener"
+        :icon="CodeIcon"
+        title="GitHub"
+        :description="t('sourceCodeDesc')"
+        data-kbd-item="source"
+      />
     </div>
     <p class="version text-body-small text-on-surface-variant">
       {{ t('openSource') }}<template v-if="release"> · v{{ release }}</template>
@@ -319,7 +338,9 @@ async function choose(slug: string | null) {
 
 .expand-enter-active,
 .expand-leave-active {
-  transition: opacity 200ms linear, translate var(--spring-fast-ms) var(--spring-fast);
+  transition:
+    opacity 200ms linear,
+    translate var(--spring-fast-ms) var(--spring-fast);
 }
 
 .expand-enter-from,
@@ -343,7 +364,7 @@ async function choose(slug: string | null) {
 }
 
 .radio.is-on::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 5px;
   border-radius: 50%;

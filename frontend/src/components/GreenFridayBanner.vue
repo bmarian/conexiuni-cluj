@@ -26,13 +26,13 @@ function dismiss() {
 
 <template>
   <div v-if="isFriday && !dismissed" class="green-friday" data-kbd-section="banner" data-kbd-axis="x">
-    <span class="tile"><EcoIcon class="m-icon"/></span>
+    <span class="tile"><EcoIcon class="m-icon" /></span>
     <div class="flex-1 min-w-0">
       <p class="title">{{ t('greenFridayTitle') }}</p>
       <p class="desc">{{ t('greenFridayDesc') }}</p>
     </div>
     <button type="button" class="icon-btn close" :aria-label="t('dismiss')" :title="t('dismiss')" data-kbd-item="banner-dismiss" @click="dismiss">
-      <CloseIcon class="m-icon"/>
+      <CloseIcon class="m-icon" />
     </button>
   </div>
 </template>

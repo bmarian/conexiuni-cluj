@@ -23,7 +23,7 @@ export function arrowPose(rest: number, heading: number, ms: number): [number, n
   }
   const turn = Math.sin(rest * rad) > 0 ? -1 : 1
   // Leaving radially along rest and arriving radially from the far side ends on heading.
-  const base = ((turn * (heading + 180 - rest)) % 360 + 360) % 360
+  const base = (((turn * (heading + 180 - rest)) % 360) + 360) % 360
   const sweep = turn * (base < 270 ? base + 360 : base) * rad
   const v = smooth(Math.min(1, (ms - TAPS * TAP_MS) / ORBIT_MS))
   const phi = rest * rad + sweep * v

@@ -16,10 +16,10 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 
-export type IndexedStop = StopTime & { secondsFromStart: number }
+export type IndexedStop = StopTime & {secondsFromStart: number}
 
 export interface StopTimeDisplay {
-  label: string;
+  label: string
   isLive: boolean
   minutes: number
 }
@@ -67,9 +67,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
 
   const currentDirection = ref<'0' | '1'>(resolveDirection())
   const isOutgoing = computed(() => currentDirection.value === '0')
-  const currentTripId = computed(() =>
-    `${routeId.value}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
-  )
+  const currentTripId = computed(() => `${routeId.value}${currentDirection.value === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`)
 
   const timetable = computed(() => shapeInfo.value?.timetable)
   const routeDisplayName = computed(() => {
@@ -80,16 +78,12 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
 
   const direction0Shape = ref<Shape[] | null>(null)
   const direction1Shape = ref<Shape[] | null>(null)
-  const currentDirectionShape = computed(() =>
-    currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value
-  )
+  const currentDirectionShape = computed(() => (currentDirection.value === '0' ? direction0Shape.value : direction1Shape.value))
 
   const rawStops = computed((): StopTime[] => getShapeStopTimes(shapeInfo.value))
 
   const stopsForDirection = computed((): IndexedStop[] => {
-    const filtered = rawStops.value
-      .filter((st) => st.trip_id === currentTripId.value)
-      .sort((a, b) => a.stop_sequence - b.stop_sequence)
+    const filtered = rawStops.value.filter((st) => st.trip_id === currentTripId.value).sort((a, b) => a.stop_sequence - b.stop_sequence)
     // offset_arrival_time is the ride into each stop, so add it before reading.
     let cumulativeSec = 0
     return filtered.map((st) => {
@@ -99,10 +93,8 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   })
 
   const directionTerminals = computed(() => {
-    const byTrip = (tripId: string): { first: string; last: string } => {
-      const tripStops = rawStops.value
-        .filter((st) => st.trip_id === tripId)
-        .sort((a, b) => a.stop_sequence - b.stop_sequence)
+    const byTrip = (tripId: string): {first: string; last: string} => {
+      const tripStops = rawStops.value.filter((st) => st.trip_id === tripId).sort((a, b) => a.stop_sequence - b.stop_sequence)
       const first = tripStops[0]?.stop_headsign?.trim() ?? ''
       const last = tripStops[tripStops.length - 1]?.stop_headsign?.trim() ?? ''
       return {first, last}
@@ -118,22 +110,19 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     '1': routeHeading(direction1Shape.value ?? []),
   }))
 
-  const hasOutgoing = computed(() =>
-    rawStops.value.some((st) => st.trip_id === `${routeId.value}${OUTGOING_SUFFIX}`)
-  )
-  const hasIncoming = computed(() =>
-    rawStops.value.some((st) => st.trip_id === `${routeId.value}${INCOMING_SUFFIX}`)
-  )
+  const hasOutgoing = computed(() => rawStops.value.some((st) => st.trip_id === `${routeId.value}${OUTGOING_SUFFIX}`))
+  const hasIncoming = computed(() => rawStops.value.some((st) => st.trip_id === `${routeId.value}${INCOMING_SUFFIX}`))
 
   const nearestStopIdx = computed(() => {
     const loc = userLocation.value
     if (!loc || !stopsForDirection.value.length) return -1
-    let best = -1, bestDist = Infinity
+    let best = -1,
+      bestDist = Infinity
     stopsForDirection.value.forEach((stop, idx) => {
       if (!stop.stop_lat || !stop.stop_lon) return
       const d = haversineMeters(loc.latitude, loc.longitude, stop.stop_lat, stop.stop_lon)
       if (d < bestDist) {
-        bestDist = d;
+        bestDist = d
         best = idx
       }
     })
@@ -151,9 +140,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     if (!tt) return []
     const sched = getTimetableForDay(tt, userTime.value || new Date())
     if (!sched?.entries?.length) return []
-    return sched.entries
-      .map((e) => timeStringToMinutes(isOutgoing.value ? e.departure_in : e.departure_out))
-      .filter((v): v is number => v !== null)
+    return sched.entries.map((e) => timeStringToMinutes(isOutgoing.value ? e.departure_in : e.departure_out)).filter((v): v is number => v !== null)
   })
 
   // Offset first, then sort, so runs already under way still count for later stops.
@@ -169,9 +156,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
 
   // Both directions stream: the server chains the other direction's buses onto this one.
   const streamTripIds = computed<string[]>(() =>
-    shapeInfo.value?.route_id === Number(routeId.value)
-      ? [`${routeId.value}${OUTGOING_SUFFIX}`, `${routeId.value}${INCOMING_SUFFIX}`]
-      : []
+    shapeInfo.value?.route_id === Number(routeId.value) ? [`${routeId.value}${OUTGOING_SUFFIX}`, `${routeId.value}${INCOMING_SUFFIX}`] : [],
   )
   const {rows, vehiclesByTrip, asOfMs} = useLive(ref<number[]>([]), streamTripIds)
   const liveNowMs = computed(() => (userTime.value || new Date()).getTime())
@@ -233,10 +218,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
     const roundTrip = (vehiclesByTrip.value.get(otherTripId) ?? []).filter((v) => counted.has(v.id))
     const style = {route_short_name: info.route_short_name, route_color: info.route_color}
-    return [
-      ...roundTrip.map((v) => ({...v, ...style, faded: true})),
-      ...(vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style})),
-    ]
+    return [...roundTrip.map((v) => ({...v, ...style, faded: true})), ...(vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style}))]
   })
 
   function updateMap() {
@@ -268,13 +250,15 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     if (!shapeInfo.value) return null
     const tripId = `${routeId.value}${dir === '0' ? OUTGOING_SUFFIX : INCOMING_SUFFIX}`
     try {
-      const shapeData = await mapStore.requestShapes([{
-        trip_id: tripId,
-        route_short_name: shapeInfo.value.route_short_name,
-        route_long_name: routeDisplayName.value,
-        route_color: shapeInfo.value.route_color,
-        route_type: shapeInfo.value.route_type,
-      }])
+      const shapeData = await mapStore.requestShapes([
+        {
+          trip_id: tripId,
+          route_short_name: shapeInfo.value.route_short_name,
+          route_long_name: routeDisplayName.value,
+          route_color: shapeInfo.value.route_color,
+          route_type: shapeInfo.value.route_type,
+        },
+      ])
       const shape = shapeData[0]?.[1] ?? []
       return shape.length ? shape : null
     } catch (e) {

@@ -15,7 +15,7 @@ const names = (clusters: AreaClusters, zoom: number) => clusters.at(zoom).map((g
 
 describe('area clusters', () => {
   const areas: Area[] = [
-    {name: 'Cluj-Napoca', lat: 46.770, lon: 23.590, place: 'city'},
+    {name: 'Cluj-Napoca', lat: 46.77, lon: 23.59, place: 'city'},
     {name: 'Mănăștur', lat: 46.755, lon: 23.557, place: 'suburb'},
     {name: 'Florești', lat: 46.744, lon: 23.485, place: 'village'},
   ]
@@ -37,7 +37,10 @@ describe('area clusters', () => {
     ]
     // The suburb's stops lie nearer the neighbourhood than the city.
     const lngs = [23.59, 23.59 - 1.6 * KM, 23.59 - 2.4 * KM]
-    const clusters = clustersOf(line, lngs.flatMap((lng, i) => [0, 1, 2].map((k) => stop(i * 3 + k, 46.77, lng))))
+    const clusters = clustersOf(
+      line,
+      lngs.flatMap((lng, i) => [0, 1, 2].map((k) => stop(i * 3 + k, 46.77, lng))),
+    )
     const zoom = [...Array(45).keys()].map((l) => 19 - l * 0.25).find((z) => !names(clusters, z).includes('Suburb'))!
     expect(names(clusters, zoom)).toContain('Neighbourhood')
     const city = clusters.at(zoom).find((g) => clusters.name(g) === 'City')!

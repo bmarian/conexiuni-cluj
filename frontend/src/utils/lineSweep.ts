@@ -5,7 +5,7 @@ export const SWEEP_MS = 1300
 
 const sweeps = new Map<string, number>()
 
-const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
 
 export function stopSweep(m: MapLibreMap, id: string) {
   const frame = sweeps.get(id)
@@ -15,9 +15,8 @@ export function stopSweep(m: MapLibreMap, id: string) {
   if (m.getLayer(id)) m.setPaintProperty(id, 'line-gradient', undefined)
 }
 
-const gradient = (from: string, to: string, done: number, backwards: boolean): ExpressionSpecification => backwards
-  ? ['step', ['line-progress'], from, 1 - done, to]
-  : ['step', ['line-progress'], to, done, from]
+const gradient = (from: string, to: string, done: number, backwards: boolean): ExpressionSpecification =>
+  backwards ? ['step', ['line-progress'], from, 1 - done, to] : ['step', ['line-progress'], to, done, from]
 
 // Paints [to] over [from] along the line, from its first point or, backwards, from its last.
 export function sweepLine(m: MapLibreMap, id: string, from: string, to: string, backwards = false) {

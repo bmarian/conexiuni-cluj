@@ -39,6 +39,6 @@ export const usePlannerStore = defineStore('planner', () => {
     setSelectedRouteKey,
     getSelectedRouteKey,
     setTimeMode,
-    setTimeValue
+    setTimeValue,
   }
 })

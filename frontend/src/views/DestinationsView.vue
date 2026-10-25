@@ -28,10 +28,12 @@ async function load() {
 
 onMounted(load)
 
-const groups = computed(() => [
-  {label: t('destsDistricts'), areas: (list.value ?? []).filter((d) => d.district)},
-  {label: t('destsTowns'), areas: (list.value ?? []).filter((d) => !d.district)},
-].filter((g) => g.areas.length))
+const groups = computed(() =>
+  [
+    {label: t('destsDistricts'), areas: (list.value ?? []).filter((d) => d.district)},
+    {label: t('destsTowns'), areas: (list.value ?? []).filter((d) => !d.district)},
+  ].filter((g) => g.areas.length),
+)
 
 useHead(() => {
   if (!list.value) return {}
@@ -55,19 +57,19 @@ useHead(() => {
 
 <template>
   <div class="destinations-view">
-    <SheetTopBar :title="t('destinations')"/>
+    <SheetTopBar :title="t('destinations')" />
 
     <div v-if="loadError" class="flex flex-col items-start gap-3 p-4">
       <p class="text-body-medium text-on-surface-variant">{{ t('loadFailed') }}</p>
       <button type="button" class="btn btn-tonal" @click="load">{{ t('retry') }}</button>
     </div>
 
-    <LoadingIndicator v-else-if="!list"/>
+    <LoadingIndicator v-else-if="!list" />
 
     <template v-else>
       <h1 class="text-title-large font-bold px-4 pt-1 pb-2">{{ t('destsIn', cityParams()) }}</h1>
       <section v-for="(group, g) in groups" :key="group.label" :data-kbd-section="`dests-${g}`" :data-kbd-entry="g + 1">
-        <SectionLabel :text="group.label"/>
+        <SectionLabel :text="group.label" />
         <ListRow
           v-for="area in group.areas"
           :key="area.slug"

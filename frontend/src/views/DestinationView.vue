@@ -4,15 +4,7 @@ import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {network, type NetworkRoute} from '@/utils/network.ts'
-import {
-  type Destination,
-  type DestinationSummary,
-  fetchDestination,
-  fetchDestinations,
-  namedLike,
-  type Ride,
-  rideMinutes,
-} from '@/utils/destinationPages.ts'
+import {type Destination, type DestinationSummary, fetchDestination, fetchDestinations, namedLike, type Ride, rideMinutes} from '@/utils/destinationPages.ts'
 import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {canonicalUrl} from '@/utils/site.ts'
@@ -33,7 +25,7 @@ import LoadingIndicator from '@/components/LoadingIndicator.vue'
 
 const RIDES_SHOWN = 3
 
-const props = defineProps<{ slug: string }>()
+const props = defineProps<{slug: string}>()
 
 const {t} = useI18n()
 const router = useRouter()
@@ -62,15 +54,19 @@ async function load() {
   }
 }
 
-watch(() => props.slug, () => {
-  destination.value = null
-  notFound.value = false
-  opened.value = new Set()
-  void load()
-}, {immediate: true})
+watch(
+  () => props.slug,
+  () => {
+    destination.value = null
+    notFound.value = false
+    opened.value = new Set()
+    void load()
+  },
+  {immediate: true},
+)
 
 const asked = computed(() => props.slug.replace(/-/g, ' '))
-const similar = computed(() => network.value ? namedLike(props.slug, areas.value, network.value) : {areas: [], stops: []})
+const similar = computed(() => (network.value ? namedLike(props.slug, areas.value, network.value) : {areas: [], stops: []}))
 
 const area = computed(() => destination.value?.name ?? '')
 
@@ -98,7 +94,9 @@ const origins = computed(() => {
         ride.every_min ? t('destEvery', {minutes: ride.every_min}) : '',
         `${ride.first}–${ride.last}`,
         ride.day_type === 'weekday' ? '' : t('destNoWeekdays'),
-      ].filter(Boolean).join(' · ')
+      ]
+        .filter(Boolean)
+        .join(' · ')
       const board = index.stopById.get(ride.board)?.stop_name ?? ''
       const alight = index.stopById.get(ride.alight)?.stop_name ?? ''
       return [{ride, route, title: `${board} → ${alight}`, detail}]
@@ -121,10 +119,15 @@ function showAll(slug: string) {
 const chips = computed<ChipAction[]>(() => {
   const dest = destination.value
   if (!dest) return []
-  return [{
-    label: t('directions'), icon: DirectionsIcon, primary: true, kbd: 'directions',
-    onClick: () => void router.push({name: 'plan', query: {lat: String(dest.lat), lon: String(dest.lon), name: dest.name}}),
-  }]
+  return [
+    {
+      label: t('directions'),
+      icon: DirectionsIcon,
+      primary: true,
+      kbd: 'directions',
+      onClick: () => void router.push({name: 'plan', query: {lat: String(dest.lat), lon: String(dest.lon), name: dest.name}}),
+    },
+  ]
 })
 
 useHead(() => {
@@ -152,7 +155,7 @@ useHead(() => {
 
 <template>
   <div class="destination-view">
-    <SheetTopBar :title="area || (notFound ? asked : '')"/>
+    <SheetTopBar :title="area || (notFound ? asked : '')" />
 
     <div v-if="loadError" class="flex flex-col items-start gap-3 p-4">
       <p class="text-body-medium text-on-surface-variant">{{ t('loadFailed') }}</p>
@@ -164,7 +167,7 @@ useHead(() => {
         <h1 class="text-title-large font-bold">{{ t('destNotFound', {name: asked}) }}</h1>
       </header>
       <section v-if="similar.areas.length" class="pt-2" data-kbd-section="dest-like-areas" data-kbd-entry="1">
-        <SectionLabel :text="t('destinations')" :icon="PlaceIcon"/>
+        <SectionLabel :text="t('destinations')" :icon="PlaceIcon" />
         <ListRow
           v-for="like in similar.areas"
           :key="like.slug"
@@ -177,7 +180,7 @@ useHead(() => {
         />
       </section>
       <section v-if="similar.stops.length" class="pt-2" data-kbd-section="dest-like-stops" data-kbd-entry="2">
-        <SectionLabel :text="t('stops')" :icon="DirectionsBusIcon"/>
+        <SectionLabel :text="t('stops')" :icon="DirectionsBusIcon" />
         <StationRow
           v-for="stop in similar.stops"
           :key="stop.stop_id"
@@ -189,25 +192,25 @@ useHead(() => {
       </section>
     </template>
 
-    <LoadingIndicator v-else-if="!destination || !network"/>
+    <LoadingIndicator v-else-if="!destination || !network" />
 
     <template v-else>
       <header class="header">
         <p class="text-label-medium text-primary">{{ t(destination.district ? 'destKind_district' : 'destKind_town') }}</p>
         <h1 class="text-title-large font-bold">{{ t('destQuestion', {area}) }}</h1>
       </header>
-      <ActionChips :actions="chips" class="pb-2"/>
+      <ActionChips :actions="chips" class="pb-2" />
 
       <section v-if="lines.length" class="pb-2">
-        <SectionLabel :text="t('destLinesIn', {area})" :icon="MapIcon"/>
-        <StationLines :routes="lines" class="px-4"/>
+        <SectionLabel :text="t('destLinesIn', {area})" :icon="MapIcon" />
+        <StationLines :routes="lines" class="px-4" />
       </section>
 
       <section class="pt-2" data-kbd-section="dest-from" data-kbd-entry="1">
-        <SectionLabel :text="t('destFrom')" :icon="DirectionsBusIcon"/>
+        <SectionLabel :text="t('destFrom')" :icon="DirectionsBusIcon" />
         <p v-if="!origins.length" class="text-body-medium text-on-surface-variant px-4 py-2">{{ t('destNoRides') }}</p>
         <template v-for="origin in origins" :key="origin.slug">
-          <SubLabel :text="t('destFromArea', {area: origin.name})" class="pt-2"/>
+          <SubLabel :text="t('destFromArea', {area: origin.name})" class="pt-2" />
           <ListRow
             v-for="(row, i) in origin.rides"
             v-show="i < RIDES_SHOWN || opened.has(origin.slug)"
@@ -221,22 +224,17 @@ useHead(() => {
             @open="openRoute(row.ride)"
           >
             <template #icon>
-              <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="28" :min-width="36" :corner="6"/>
+              <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="28" :min-width="36" :corner="6" />
             </template>
           </ListRow>
-          <button
-            v-if="origin.rides.length > RIDES_SHOWN && !opened.has(origin.slug)"
-            type="button"
-            class="btn btn-text ml-2"
-            @click="showAll(origin.slug)"
-          >
+          <button v-if="origin.rides.length > RIDES_SHOWN && !opened.has(origin.slug)" type="button" class="btn btn-text ml-2" @click="showAll(origin.slug)">
             {{ t('destMoreRides', {count: origin.rides.length - RIDES_SHOWN}) }}
           </button>
         </template>
       </section>
 
       <section v-if="stops.length" class="pt-4" data-kbd-section="dest-stops" data-kbd-entry="2">
-        <SectionLabel :text="t('destStopsIn', {area})" :icon="PlaceIcon"/>
+        <SectionLabel :text="t('destStopsIn', {area})" :icon="PlaceIcon" />
         <StationRow
           v-for="stop in stops"
           :key="stop.stop_id"

@@ -2,12 +2,15 @@ import {nextTick, onMounted, onUnmounted, watch, type Ref} from 'vue'
 import {isTypingTarget} from '@/utils/keyboardFocus.ts'
 import {isIOS} from '@/utils/ios.ts'
 
-export function useSheetKeyboard(sheet: Ref<HTMLElement | null>, options: {
-  enabled: Ref<boolean>
-  keyboardPx: Ref<number>
-  measureViewport: boolean
-  open: () => void
-}) {
+export function useSheetKeyboard(
+  sheet: Ref<HTMLElement | null>,
+  options: {
+    enabled: Ref<boolean>
+    keyboardPx: Ref<number>
+    measureViewport: boolean
+    open: () => void
+  },
+) {
   const {enabled, keyboardPx, measureViewport, open} = options
   if (isIOS) return
 

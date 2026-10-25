@@ -1,6 +1,6 @@
 <script lang="ts">
 export default {
-  name: 'RoutePlanningView'
+  name: 'RoutePlanningView',
 }
 </script>
 
@@ -15,23 +15,23 @@ import {useUserStore} from '@/stores/user.ts'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {usePlannerStore} from '@/stores/planner.ts'
-import {apiRequest} from "@/utils/api.ts"
-import type {RouteType, Shape} from "@/types/tranzy.ts"
-import {storeToRefs} from "pinia"
-import ViewErrorState from "@/components/ViewErrorState.vue"
-import LoadingIndicator from "@/components/LoadingIndicator.vue"
-import {useOnline} from "@/composables/useOnline.ts"
-import {usePlaceSearch} from "@/composables/usePlaceSearch.ts"
-import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from "@/composables/useKeyboardNav.ts"
+import {apiRequest} from '@/utils/api.ts'
+import type {RouteType, Shape} from '@/types/tranzy.ts'
+import {storeToRefs} from 'pinia'
+import ViewErrorState from '@/components/ViewErrorState.vue'
+import LoadingIndicator from '@/components/LoadingIndicator.vue'
+import {useOnline} from '@/composables/useOnline.ts'
+import {usePlaceSearch} from '@/composables/usePlaceSearch.ts'
+import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 
-import {useLive} from "@/composables/useLive.ts"
-import type {DisplayShape} from "@/stores/map.ts"
-import type {DisplayVehicle} from "@/utils/mapIcons.ts"
-import {formatMinutesFromNow} from "@/utils/time.ts"
-import {decodePolyline} from "@/utils/geo.ts"
-import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from "@/utils/plan.ts"
-import {reversePlace, type Place} from "@/utils/places.ts"
-import { VueDatePicker } from '@vuepic/vue-datepicker'
+import {useLive} from '@/composables/useLive.ts'
+import type {DisplayShape} from '@/stores/map.ts'
+import type {DisplayVehicle} from '@/utils/mapIcons.ts'
+import {formatMinutesFromNow} from '@/utils/time.ts'
+import {decodePolyline} from '@/utils/geo.ts'
+import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from '@/utils/plan.ts'
+import {reversePlace, type Place} from '@/utils/places.ts'
+import {VueDatePicker} from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
@@ -75,11 +75,11 @@ const {isOnline} = useOnline()
 const {userLocation, hasLocationPermission, isLocating, userTime} = storeToRefs(userStore)
 const {timeMode, timeValue} = storeToRefs(plannerStore)
 
-const customOrigin = ref<{ name: string, lat: number, lon: number } | null>(null)
+const customOrigin = ref<{name: string; lat: number; lon: number} | null>(null)
 const {activeSearchField, searchQuery, searchResults, isSearching, searchNow, openSearchField, closeSearchField} = usePlaceSearch(isOnline)
 
 const vFocus = {
-  mounted: (el: HTMLElement) => el.focus()
+  mounted: (el: HTMLElement) => el.focus(),
 }
 
 const destName = computed(() => (route.query.name as string | undefined) ?? '')
@@ -131,17 +131,14 @@ useHead(() => {
   }
 })
 
-const isFavorite = computed(() => favoritesStore.isPlanFavorite(
-  destLat.value,
-  destLon.value,
-  customOrigin.value?.lat,
-  customOrigin.value?.lon
-))
+const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon))
 
-const favoriteLabel = computed(() => favoritesStore.favoritePlans.find(p =>
-  p.lat === destLat.value && p.lon === destLon.value &&
-  p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon
-)?.label)
+const favoriteLabel = computed(
+  () =>
+    favoritesStore.favoritePlans.find(
+      (p) => p.lat === destLat.value && p.lon === destLon.value && p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon,
+    )?.label,
+)
 
 function toggleFavorite() {
   if (!isOnline.value) return
@@ -152,7 +149,7 @@ function toggleFavorite() {
     lon: destLon.value,
     originName: customOrigin.value?.name,
     originLat: customOrigin.value?.lat,
-    originLon: customOrigin.value?.lon
+    originLon: customOrigin.value?.lon,
   })
 }
 
@@ -167,13 +164,7 @@ function startRename() {
 
 function confirmRename() {
   if (!isOnline.value) return
-  favoritesStore.renamePlanFavorite(
-    destLat.value,
-    destLon.value,
-    customOrigin.value?.lat,
-    customOrigin.value?.lon,
-    renameValue.value.trim() || undefined
-  )
+  favoritesStore.renamePlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon, renameValue.value.trim() || undefined)
   isRenaming.value = false
 }
 
@@ -214,7 +205,7 @@ function selectPlanAt(idx: number) {
 }
 
 const stopName = (id: number | undefined) => (id ? planData.value?.stops[String(id)]?.name : undefined) ?? ''
-const line = (id: number | undefined) => id === undefined ? undefined : planData.value?.lines[String(id)]
+const line = (id: number | undefined) => (id === undefined ? undefined : planData.value?.lines[String(id)])
 const lineColor = (id: number | undefined, apart: boolean) => {
   const l = line(id)
   return l ? displayColor(l.short_name, l.color, apart) : '#64748b'
@@ -225,12 +216,17 @@ const now = computed(() => userTime.value || new Date())
 const minutesFrom = (at: number) => (at * 1000 - now.value.getTime()) / 60_000
 const clock = (at: number) => new Date(at * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})
 const firstRide = (plan: PlanOption): PlanRide | undefined => plan.runs[0]?.rides[0]
-const laterRides = (plan: PlanOption) => plan.runs.slice(1).map((r) => r.rides[0]).filter((r): r is PlanRide => !!r)
+const laterRides = (plan: PlanOption) =>
+  plan.runs
+    .slice(1)
+    .map((r) => r.rides[0])
+    .filter((r): r is PlanRide => !!r)
 const journeyMinutes = (plan: PlanOption) => {
   const run = plan.runs[0]
   return run ? (run.arrive - run.depart) / 60 : 0
 }
-const fromNow = (ride: PlanRide) => (ride.live ? '' : '~ ') + (timeMode.value === 'now' ? formatMinutesFromNow(minutesFrom(ride.depart), now.value, t('now')) : clock(ride.depart))
+const fromNow = (ride: PlanRide) =>
+  (ride.live ? '' : '~ ') + (timeMode.value === 'now' ? formatMinutesFromNow(minutesFrom(ride.depart), now.value, t('now')) : clock(ride.depart))
 
 function departureLabel(ride: PlanRide) {
   const approx = ride.live ? '' : '~'
@@ -277,7 +273,7 @@ const selectedPlanLegsData = computed(() => {
       trips: legTrips(plan, ride),
       color: lineColor(lines[0], apart),
       intermediates: (leg.passed ?? []).map((id) => ({stop_id: id, stop_name: stopName(id)})),
-      transferMeters: walk?.kind === 'walk' && plan.legs[i + 2]?.kind === 'ride' ? walk.meters ?? 0 : 0,
+      transferMeters: walk?.kind === 'walk' && plan.legs[i + 2]?.kind === 'ride' ? (walk.meters ?? 0) : 0,
     })
     ride++
   }
@@ -285,37 +281,53 @@ const selectedPlanLegsData = computed(() => {
 })
 
 // The selected option on the map: its rides along the line's own shape, its walks, its stops.
-watch([selectedPlanSignature, planData, mapActivationKey], () => {
-  const plan = selectedPlan.value
-  if (!plan || !isActive.value) {
-    mapStore.setLoadedShapes([])
-    mapStore.setHighlightedStops([])
-    mapStore.clearWalkingPolylines()
-    return
-  }
-  const rides = rideLegs(plan)
-  const apart = linesApart(plan)
-  const shapes: Array<[DisplayShape, Shape[]]> = []
-  const highlighted: HighlightedStop[] = []
-  rides.forEach((leg, i) => {
-    const id = leg.lines?.[0]
-    const tripId = (id !== undefined ? legTrips(plan, i).get(id) : undefined) ?? ''
-    const l = line(id)
-    shapes.push([
-      {trip_id: tripId, route_short_name: l?.short_name ?? '', route_long_name: l?.long_name ?? '', route_color: lineColor(id, apart), route_type: (l?.type ?? 3) as RouteType},
-      decodePolyline(leg.path).map(([lat, lon], k) => ({shape_id: tripId, shape_pt_lat: lat, shape_pt_lon: lon, shape_pt_sequence: k, shape_dist_traveled: -1})),
-    ])
-    highlighted.push({stopId: String(leg.from), color: i === 0 ? 'green' : 'purple'})
-    for (const stopId of leg.passed ?? []) highlighted.push({stopId: String(stopId), color: 'gray'})
-    if (i === rides.length - 1) highlighted.push({stopId: String(leg.to), color: 'red'})
-    else if (leg.to !== rides[i + 1]!.from) highlighted.push({stopId: String(leg.to), color: 'amber'})
-  })
-  mapStore.setLoadedShapes(shapes)
-  mapStore.setHighlightedStops(highlighted)
-  const walks = plan.legs.filter((l) => l.kind === 'walk').map((l) => decodePolyline(l.path))
-  if (walks.length) mapStore.setWalkingPolylines(walks)
-  else mapStore.clearWalkingPolylines()
-}, {immediate: true})
+watch(
+  [selectedPlanSignature, planData, mapActivationKey],
+  () => {
+    const plan = selectedPlan.value
+    if (!plan || !isActive.value) {
+      mapStore.setLoadedShapes([])
+      mapStore.setHighlightedStops([])
+      mapStore.clearWalkingPolylines()
+      return
+    }
+    const rides = rideLegs(plan)
+    const apart = linesApart(plan)
+    const shapes: Array<[DisplayShape, Shape[]]> = []
+    const highlighted: HighlightedStop[] = []
+    rides.forEach((leg, i) => {
+      const id = leg.lines?.[0]
+      const tripId = (id !== undefined ? legTrips(plan, i).get(id) : undefined) ?? ''
+      const l = line(id)
+      shapes.push([
+        {
+          trip_id: tripId,
+          route_short_name: l?.short_name ?? '',
+          route_long_name: l?.long_name ?? '',
+          route_color: lineColor(id, apart),
+          route_type: (l?.type ?? 3) as RouteType,
+        },
+        decodePolyline(leg.path).map(([lat, lon], k) => ({
+          shape_id: tripId,
+          shape_pt_lat: lat,
+          shape_pt_lon: lon,
+          shape_pt_sequence: k,
+          shape_dist_traveled: -1,
+        })),
+      ])
+      highlighted.push({stopId: String(leg.from), color: i === 0 ? 'green' : 'purple'})
+      for (const stopId of leg.passed ?? []) highlighted.push({stopId: String(stopId), color: 'gray'})
+      if (i === rides.length - 1) highlighted.push({stopId: String(leg.to), color: 'red'})
+      else if (leg.to !== rides[i + 1]!.from) highlighted.push({stopId: String(leg.to), color: 'amber'})
+    })
+    mapStore.setLoadedShapes(shapes)
+    mapStore.setHighlightedStops(highlighted)
+    const walks = plan.legs.filter((l) => l.kind === 'walk').map((l) => decodePolyline(l.path))
+    if (walks.length) mapStore.setWalkingPolylines(walks)
+    else mapStore.clearWalkingPolylines()
+  },
+  {immediate: true},
+)
 
 // Only the buses the selected option catches, nothing else on the map.
 const caughtTrips = computed(() => {
@@ -324,15 +336,19 @@ const caughtTrips = computed(() => {
 })
 const {vehiclesByTrip} = useLive(ref<number[]>([]), caughtTrips)
 
-watch([vehiclesByTrip, selectedPlanSignature, isActive], () => {
-  const vehicles: DisplayVehicle[] = []
-  for (const ride of (isActive.value ? selectedPlan.value?.runs[0]?.rides : undefined) ?? []) {
-    const vehicle = ride.vehicle_id ? vehiclesByTrip.value.get(ride.trip_id)?.find((v) => v.id === ride.vehicle_id) : undefined
-    const l = line(ride.route_id)
-    if (vehicle && l) vehicles.push({...vehicle, route_short_name: l.short_name, route_color: l.color})
-  }
-  mapStore.setVehiclesToDisplay(vehicles)
-}, {deep: true})
+watch(
+  [vehiclesByTrip, selectedPlanSignature, isActive],
+  () => {
+    const vehicles: DisplayVehicle[] = []
+    for (const ride of (isActive.value ? selectedPlan.value?.runs[0]?.rides : undefined) ?? []) {
+      const vehicle = ride.vehicle_id ? vehiclesByTrip.value.get(ride.trip_id)?.find((v) => v.id === ride.vehicle_id) : undefined
+      const l = line(ride.route_id)
+      if (vehicle && l) vehicles.push({...vehicle, route_short_name: l.short_name, route_color: l.color})
+    }
+    mapStore.setVehiclesToDisplay(vehicles)
+  },
+  {deep: true},
+)
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 watch([planData, isActive], ([data, active]) => {
@@ -355,7 +371,7 @@ const originLabel = computed(() => {
   return t('planOriginUnknown')
 })
 
-function planOrigin(): {lat: number, lon: number} | null {
+function planOrigin(): {lat: number; lon: number} | null {
   if (customOrigin.value) return {lat: customOrigin.value.lat, lon: customOrigin.value.lon}
   const location = hasLocationPermission.value ? userLocation.value : null
   return location ? {lat: location.latitude, lon: location.longitude} : null
@@ -380,7 +396,9 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
     const result = await reversePlace(lat, lon)
     return result?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 }
 
@@ -411,7 +429,7 @@ watch(pinnedLocationDragged, async (dragged) => {
     ...route.query,
     lat: coordQueryString(lat),
     lon: coordQueryString(lng),
-    name
+    name,
   }
   delete newQuery.plan
   await router.replace({query: newQuery})
@@ -437,7 +455,7 @@ function selectOrigin(res: Place) {
   customOrigin.value = {
     name: res.label,
     lat: parseFloat(res.lat),
-    lon: parseFloat(res.lon)
+    lon: parseFloat(res.lon),
   }
   clearPlanSelection()
   closeSearchField()
@@ -450,7 +468,7 @@ function selectDestination(res: Place) {
     ...route.query,
     lat: res.lat,
     lon: res.lon,
-    name: res.label
+    name: res.label,
   }
   closeSearchField()
   void router.replace({query: newQuery})
@@ -472,9 +490,9 @@ function closeActiveSearch() {
 function dropPinAsDestination() {
   if (!isOnline.value) return
   const label = t('droppedPin')
-  const newQuery = { ...route.query, lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: label }
+  const newQuery = {...route.query, lat: String(cityCenter().lat), lon: String(cityCenter().lon), name: label}
   closeSearchField()
-  void router.replace({ query: newQuery })
+  void router.replace({query: newQuery})
   void calculateRoutes()
 }
 
@@ -485,7 +503,7 @@ function useCurrentLocationAsDestination() {
     ...route.query,
     lat: userLocation.value.latitude.toString(),
     lon: userLocation.value.longitude.toString(),
-    name: t('planOriginCurrentLocation')
+    name: t('planOriginCurrentLocation'),
   }
   closeSearchField()
   void router.replace({query: newQuery})
@@ -516,37 +534,41 @@ watch(customOrigin, (val) => {
   }
 })
 
-watch(() => route.query, (newQuery) => {
-  const oLat = parseFloat(newQuery.originLat as string)
-  const oLon = parseFloat(newQuery.originLon as string)
-  const oName = newQuery.originName as string
-  if (!isNaN(oLat) && !isNaN(oLon) && oName) {
-    if (!customOrigin.value || customOrigin.value.lat !== oLat || customOrigin.value.lon !== oLon || customOrigin.value.name !== oName) {
-      customOrigin.value = {name: oName, lat: oLat, lon: oLon}
+watch(
+  () => route.query,
+  (newQuery) => {
+    const oLat = parseFloat(newQuery.originLat as string)
+    const oLon = parseFloat(newQuery.originLon as string)
+    const oName = newQuery.originName as string
+    if (!isNaN(oLat) && !isNaN(oLon) && oName) {
+      if (!customOrigin.value || customOrigin.value.lat !== oLat || customOrigin.value.lon !== oLon || customOrigin.value.name !== oName) {
+        customOrigin.value = {name: oName, lat: oLat, lon: oLon}
+      }
+    } else {
+      if (customOrigin.value) {
+        customOrigin.value = null
+      }
     }
-  } else {
-    if (customOrigin.value) {
-      customOrigin.value = null
-    }
-  }
 
-  const queryTime = singleQueryString(newQuery.time)
-  const queryArriveBy = singleQueryString(newQuery.arrive_by) === 'true'
-  const queryLast = singleQueryString(newQuery.last) === 'true'
-  if (queryLast) {
-    if (timeMode.value !== 'last') timeMode.value = 'last'
-  } else if (queryTime) {
-    const nextMode = queryArriveBy ? 'arrive' : 'leave'
-    if (timeValue.value !== queryTime) {
-      timeValue.value = queryTime
+    const queryTime = singleQueryString(newQuery.time)
+    const queryArriveBy = singleQueryString(newQuery.arrive_by) === 'true'
+    const queryLast = singleQueryString(newQuery.last) === 'true'
+    if (queryLast) {
+      if (timeMode.value !== 'last') timeMode.value = 'last'
+    } else if (queryTime) {
+      const nextMode = queryArriveBy ? 'arrive' : 'leave'
+      if (timeValue.value !== queryTime) {
+        timeValue.value = queryTime
+      }
+      if (timeMode.value !== nextMode) {
+        timeMode.value = nextMode
+      }
+    } else if (timeMode.value !== 'now') {
+      timeMode.value = 'now'
     }
-    if (timeMode.value !== nextMode) {
-      timeMode.value = nextMode
-    }
-  } else if (timeMode.value !== 'now') {
-    timeMode.value = 'now'
-  }
-}, {immediate: true})
+  },
+  {immediate: true},
+)
 
 watch([timeMode, timeValue], ([mode, value]) => {
   const newQuery = {...route.query}
@@ -618,13 +640,17 @@ watch([destLat, destLon, destName], ([lat, lon, name]) => {
   }
 })
 
-watch(customOrigin, (co) => {
-  if (co) {
-    mapStore.setCustomOriginLocation(co.lat, co.lon, co.name)
-  } else {
-    mapStore.clearCustomOriginLocation()
-  }
-}, {immediate: true})
+watch(
+  customOrigin,
+  (co) => {
+    if (co) {
+      mapStore.setCustomOriginLocation(co.lat, co.lon, co.name)
+    } else {
+      mapStore.clearCustomOriginLocation()
+    }
+  },
+  {immediate: true},
+)
 
 const navigateAwayFunctions = () => {
   isActive.value = false
@@ -680,7 +706,7 @@ async function calculateRoutes(silent = false) {
           lon: destLon.value,
           originName: customOrigin.value?.name,
           originLat: customOrigin.value?.lat,
-          originLon: customOrigin.value?.lon
+          originLon: customOrigin.value?.lon,
         })
       }
     }
@@ -689,14 +715,18 @@ async function calculateRoutes(silent = false) {
   }
 }
 
-watch([destLat, destLon], async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
-  if (newLat === oldLat && newLon === oldLon) return
-  if (!isNaN(oldLat!)) clearPlanSelection()
-  planData.value = null
-  currentQueryKey.value = null
-  mapStore.clearWalkingPolylines()
-  await calculateRoutes()
-}, {immediate: true})
+watch(
+  [destLat, destLon],
+  async ([newLat, newLon], [oldLat, oldLon] = [NaN, NaN]) => {
+    if (newLat === oldLat && newLon === oldLon) return
+    if (!isNaN(oldLat!)) clearPlanSelection()
+    planData.value = null
+    currentQueryKey.value = null
+    mapStore.clearWalkingPolylines()
+    await calculateRoutes()
+  },
+  {immediate: true},
+)
 
 watch(customOrigin, async (newCO, oldCO) => {
   if (newCO?.lat !== oldCO?.lat || newCO?.lon !== oldCO?.lon) {
@@ -721,10 +751,8 @@ async function swapOriginDestination() {
   const newDestLon = customOrigin.value?.lon ?? userLocation.value?.longitude
   if (newDestLat === undefined || newDestLon === undefined) return
 
-  const newDestName = customOrigin.value?.name ?? await reverseGeocode(newDestLat, newDestLon)
-  const newOriginName = isCurrentLocationName(destName.value)
-    ? await reverseGeocode(destLat.value, destLon.value)
-    : destName.value
+  const newDestName = customOrigin.value?.name ?? (await reverseGeocode(newDestLat, newDestLon))
+  const newOriginName = isCurrentLocationName(destName.value) ? await reverseGeocode(destLat.value, destLon.value) : destName.value
 
   const newQuery: LocationQueryRaw = {
     ...route.query,
@@ -739,11 +767,15 @@ async function swapOriginDestination() {
   void router.replace({query: newQuery})
 }
 
-watch(() => route.query.q, (q) => {
-  if (typeof q !== 'string' || !q.trim() || !isOnline.value) return
-  activeSearchField.value = 'destination'
-  searchQuery.value = q
-}, {immediate: true})
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q !== 'string' || !q.trim() || !isOnline.value) return
+    activeSearchField.value = 'destination'
+    searchQuery.value = q
+  },
+  {immediate: true},
+)
 
 async function refreshRoutes() {
   if (isCalculating.value) return
@@ -792,9 +824,7 @@ function onResultEnter(e: KeyboardEvent, index: number) {
   else selectPlanAt(index)
 }
 
-const canRecalculate = computed(() =>
-  hasValidCoords.value && !isCalculating.value && (hasLocationPermission.value || !!customOrigin.value)
-)
+const canRecalculate = computed(() => hasValidCoords.value && !isCalculating.value && (hasLocationPermission.value || !!customOrigin.value))
 
 useKbdEscape(() => isRenaming.value, cancelRename)
 useKbdEscape(() => activeSearchField.value !== null, closeSearchField)
@@ -830,7 +860,6 @@ watch(timeValue, (val) => {
   }
 })
 
-
 const {share} = useShare()
 
 const chips = computed<ChipAction[]>(() => [
@@ -849,13 +878,13 @@ const chips = computed<ChipAction[]>(() => [
 </script>
 <template>
   <div class="plan-view flex flex-col">
-    <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)"/>
+    <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)" />
 
-    <ViewErrorState v-if="!hasValidCoords"/>
+    <ViewErrorState v-if="!hasValidCoords" />
 
     <template v-else>
       <header class="header" data-kbd-section="rename" data-kbd-axis="x">
-        <span class="tile"><MapIcon class="m-icon"/></span>
+        <span class="tile"><MapIcon class="m-icon" /></span>
         <div class="flex-1 min-w-0">
           <p class="text-label-medium text-tertiary">{{ t('planTitle') }}</p>
           <input
@@ -872,15 +901,22 @@ const chips = computed<ChipAction[]>(() => [
           </h1>
         </div>
         <template v-if="isRenaming">
-          <button type="button" class="icon-btn" data-kbd-item="rename-confirm" :aria-label="t('renameFavorite')" :title="t('renameFavorite')" @click="confirmRename">
-            <CheckIcon class="m-icon"/>
+          <button
+            type="button"
+            class="icon-btn"
+            data-kbd-item="rename-confirm"
+            :aria-label="t('renameFavorite')"
+            :title="t('renameFavorite')"
+            @click="confirmRename"
+          >
+            <CheckIcon class="m-icon" />
           </button>
           <button type="button" class="icon-btn" data-kbd-item="rename-cancel" :aria-label="t('cancel')" :title="t('cancel')" @click="cancelRename">
-            <CloseIcon class="m-icon"/>
+            <CloseIcon class="m-icon" />
           </button>
         </template>
       </header>
-      <ActionChips v-if="!isRenaming" :actions="chips" class="pb-2"/>
+      <ActionChips v-if="!isRenaming" :actions="chips" class="pb-2" />
 
       <section v-if="selectedPlan && !isCalculating" class="summary">
         <div v-if="timeMode === 'now'" class="stat">
@@ -888,7 +924,7 @@ const chips = computed<ChipAction[]>(() => [
           <span class="stat-label">{{ t('planTripTotal') }}</span>
         </div>
         <div v-if="firstRide(selectedPlan)" class="stat">
-          <span class="stat-value" :class="{ 'is-live': firstRide(selectedPlan)!.live }">
+          <span class="stat-value" :class="{'is-live': firstRide(selectedPlan)!.live}">
             <span v-if="firstRide(selectedPlan)!.live" class="live-dot"></span>{{ fromNow(firstRide(selectedPlan)!) }}
           </span>
           <span class="stat-label">{{ t(timeMode === 'last' ? 'planLastDeparture' : 'planNextDepartures') }}</span>
@@ -903,7 +939,9 @@ const chips = computed<ChipAction[]>(() => [
         <div data-kbd-section="from" data-kbd-entry="2">
           <TimelineRow
             v-if="activeSearchField !== 'origin'"
-            :bottom="selectedPlan ? 'walk' : null" dot="station" color="var(--md-tertiary)"
+            :bottom="selectedPlan ? 'walk' : null"
+            dot="station"
+            color="var(--md-tertiary)"
             class="endpoint state squish"
             role="button"
             tabindex="0"
@@ -913,11 +951,11 @@ const chips = computed<ChipAction[]>(() => [
           >
             <span class="kicker">{{ t('planFrom') }}</span>
             <span class="text-body-large truncate">{{ originLabel }}</span>
-            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2"/></template>
+            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2" /></template>
           </TimelineRow>
           <div v-else class="place-search" data-kbd-section="from-results">
             <label class="search-field">
-              <SearchIcon class="m-icon text-on-surface-variant"/>
+              <SearchIcon class="m-icon text-on-surface-variant" />
               <input
                 v-model="searchQuery"
                 v-focus
@@ -926,15 +964,22 @@ const chips = computed<ChipAction[]>(() => [
                 data-kbd-item="from-input"
                 @keydown.enter="onSearchEnter"
               />
-              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon"/></button>
+              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon" /></button>
             </label>
             <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
             <template v-else>
               <button v-if="hasLocationPermission" type="button" class="result squish" data-kbd-item="from-current" @click="useCurrentLocation">
-                <MyLocationIcon class="m-icon size-5 text-primary"/>{{ t('planOriginCurrentLocation') }}
+                <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
               </button>
-              <button v-for="res in searchResults" :key="res.id" type="button" class="result squish" :data-kbd-item="`from-res-${res.id}`" @click="selectOrigin(res)">
-                <PlaceIcon class="m-icon size-5 text-tertiary"/>{{ res.label }}
+              <button
+                v-for="res in searchResults"
+                :key="res.id"
+                type="button"
+                class="result squish"
+                :data-kbd-item="`from-res-${res.id}`"
+                @click="selectOrigin(res)"
+              >
+                <PlaceIcon class="m-icon size-5 text-tertiary" />{{ res.label }}
               </button>
             </template>
           </div>
@@ -947,15 +992,18 @@ const chips = computed<ChipAction[]>(() => [
           </TimelineRow>
           <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx" data-kbd-section="legs">
             <TimelineRow top="walk" :bottom="ld.color" dot="station" :color="ld.color">
-              <span class="kicker leg-lines" :style="{ color: ld.color }">
+              <span class="kicker leg-lines" :style="{color: ld.color}">
                 <span class="font-bold">{{ t('planBoarding') }}&nbsp;</span>
-                <template v-for="(routeId, rIdx) in (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines : ld.lines.slice(0, 4))" :key="routeId">
+                <template v-for="(routeId, rIdx) in expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines : ld.lines.slice(0, 4)" :key="routeId">
                   <RouterLink
                     class="font-black"
                     :data-kbd-item="`leg-${legIdx}-route-${routeId}`"
-                    :to="{ name: 'route', params: { routeId: routeId, direction: ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0' } }"
+                    :to="{name: 'route', params: {routeId: routeId, direction: ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0'}}"
                     @click.stop
-                  >{{ line(routeId)?.short_name }}</RouterLink><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines.length : Math.min(ld.lines.length, 4)) - 1">&nbsp;/&nbsp;</span>
+                    >{{ line(routeId)?.short_name }}</RouterLink
+                  ><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines.length : Math.min(ld.lines.length, 4)) - 1"
+                    >&nbsp;/&nbsp;</span
+                  >
                 </template>
                 <button
                   v-if="ld.lines.length > 4"
@@ -963,23 +1011,31 @@ const chips = computed<ChipAction[]>(() => [
                   class="more"
                   :data-kbd-item="`leg-${legIdx}-more`"
                   @click.stop="toggleLegExpansion('detail-' + selectedPlan.key + '-' + legIdx)"
-                >{{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.lines.length - 4) }}</button>
+                >
+                  {{ expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? '«' : '+' + (ld.lines.length - 4) }}
+                </button>
                 <span v-if="Math.max(0, Math.round(ld.leg.seconds / 60)) > 0" class="text-on-surface-variant">
                   &nbsp;· {{ Math.max(0, Math.round(ld.leg.seconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                 </span>
               </span>
-              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-start`" :to="{ name: 'stop', params: { stopId: ld.leg.from } }">{{ stopName(ld.leg.from) }}</RouterLink>
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-start`" :to="{name: 'stop', params: {stopId: ld.leg.from}}">{{
+                stopName(ld.leg.from)
+              }}</RouterLink>
             </TimelineRow>
             <TimelineRow v-for="stop in ld.intermediates" :key="stop.stop_id" :top="ld.color" :bottom="ld.color" dot="stop" :color="ld.color" compact>
-              <RouterLink class="stop-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{ name: 'stop', params: { stopId: stop.stop_id } }">{{ stop.stop_name }}</RouterLink>
+              <RouterLink class="stop-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{name: 'stop', params: {stopId: stop.stop_id}}">{{
+                stop.stop_name
+              }}</RouterLink>
             </TimelineRow>
             <TimelineRow :top="ld.color" bottom="walk" dot="station" :color="ld.color">
-              <span class="kicker font-bold" :style="{ color: ld.color }">{{ t('planAlighting') }}</span>
-              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="{ name: 'stop', params: { stopId: ld.leg.to } }">{{ stopName(ld.leg.to) }}</RouterLink>
+              <span class="kicker font-bold" :style="{color: ld.color}">{{ t('planAlighting') }}</span>
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="{name: 'stop', params: {stopId: ld.leg.to}}">{{
+                stopName(ld.leg.to)
+              }}</RouterLink>
             </TimelineRow>
             <TimelineRow v-if="legIdx < selectedPlanLegsData.length - 1" top="walk" bottom="walk" dot="none" :color="ld.color" compact>
               <div class="transfer">
-                <DirectionsWalkIcon class="m-icon size-[18px] text-amber"/>
+                <DirectionsWalkIcon class="m-icon size-[18px] text-amber" />
                 <span class="text-label-large font-bold">{{ t('planTransfer') }}</span>
                 <span class="text-body-small text-on-surface-variant">
                   {{ ld.transferMeters > 0 ? `${Math.round(ld.transferMeters)} m ${t('planTransferWalk')}` : t('planTransferSameStop') }}
@@ -992,9 +1048,11 @@ const chips = computed<ChipAction[]>(() => [
         <div data-kbd-section="to" :data-kbd-entry="hasValidDest ? undefined : 1">
           <TimelineRow
             v-if="activeSearchField !== 'destination'"
-            :top="selectedPlan ? 'walk' : null" dot="station" color="var(--md-primary)"
+            :top="selectedPlan ? 'walk' : null"
+            dot="station"
+            color="var(--md-primary)"
             class="endpoint state squish"
-            :class="{ 'is-disabled': !isOnline }"
+            :class="{'is-disabled': !isOnline}"
             role="button"
             tabindex="0"
             data-kbd-item="to"
@@ -1003,11 +1061,11 @@ const chips = computed<ChipAction[]>(() => [
           >
             <span class="kicker">{{ t('planTo') }}</span>
             <span class="text-body-large truncate" :title="hasValidDest ? destName : '—'">{{ hasValidDest ? destName : '—' }}</span>
-            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2"/></template>
+            <template #trailing><EditIcon class="m-icon size-4 text-outline self-center m-2" /></template>
           </TimelineRow>
           <div v-else class="place-search" data-kbd-section="to-results">
             <label class="search-field">
-              <SearchIcon class="m-icon text-on-surface-variant"/>
+              <SearchIcon class="m-icon text-on-surface-variant" />
               <input
                 v-model="searchQuery"
                 v-focus
@@ -1017,16 +1075,29 @@ const chips = computed<ChipAction[]>(() => [
                 data-kbd-item="to-input"
                 @keydown.enter="onSearchEnter"
               />
-              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon"/></button>
+              <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon" /></button>
             </label>
             <template v-if="isOnline">
               <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
               <template v-else>
-                <button v-if="hasLocationPermission && userLocation" type="button" class="result squish" data-kbd-item="to-current" @click="useCurrentLocationAsDestination">
-                  <MyLocationIcon class="m-icon size-5 text-primary"/>{{ t('planOriginCurrentLocation') }}
+                <button
+                  v-if="hasLocationPermission && userLocation"
+                  type="button"
+                  class="result squish"
+                  data-kbd-item="to-current"
+                  @click="useCurrentLocationAsDestination"
+                >
+                  <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
                 </button>
-                <button v-for="res in searchResults" :key="res.id" type="button" class="result squish" :data-kbd-item="`to-res-${res.id}`" @click="selectDestination(res)">
-                  <PlaceIcon class="m-icon size-5 text-tertiary"/>{{ res.label }}
+                <button
+                  v-for="res in searchResults"
+                  :key="res.id"
+                  type="button"
+                  class="result squish"
+                  :data-kbd-item="`to-res-${res.id}`"
+                  @click="selectDestination(res)"
+                >
+                  <PlaceIcon class="m-icon size-5 text-tertiary" />{{ res.label }}
                 </button>
                 <button
                   v-if="!searchResults.length && searchQuery.trim().length >= 3"
@@ -1035,7 +1106,7 @@ const chips = computed<ChipAction[]>(() => [
                   data-kbd-item="to-drop-pin"
                   @click="dropPinAsDestination"
                 >
-                  <PushPinIcon class="m-icon size-5 text-on-surface-variant"/>{{ t('dropPin') }}
+                  <PushPinIcon class="m-icon size-5 text-on-surface-variant" />{{ t('dropPin') }}
                 </button>
               </template>
             </template>
@@ -1058,7 +1129,7 @@ const chips = computed<ChipAction[]>(() => [
               <option value="arrive">{{ t('planTimeArriveBy') }}</option>
               <option value="last">{{ t('planTimeLast') }}</option>
             </select>
-            <ExpandMoreIcon class="m-icon text-on-surface-variant pointer-events-none"/>
+            <ExpandMoreIcon class="m-icon text-on-surface-variant pointer-events-none" />
           </label>
           <button
             v-if="timeMode === 'leave' || timeMode === 'arrive'"
@@ -1070,7 +1141,7 @@ const chips = computed<ChipAction[]>(() => [
             :disabled="isCalculating || !timeValue || (!hasLocationPermission && !customOrigin)"
             @click="refreshRoutes"
           >
-            <SearchIcon class="m-icon"/>{{ t('planTimeSearch') }}
+            <SearchIcon class="m-icon" />{{ t('planTimeSearch') }}
           </button>
           <button
             v-if="hasValidCoords && (hasLocationPermission || customOrigin)"
@@ -1082,7 +1153,7 @@ const chips = computed<ChipAction[]>(() => [
             :disabled="isCalculating"
             @click="swapOriginDestination"
           >
-            <SwapVertIcon class="m-icon"/>
+            <SwapVertIcon class="m-icon" />
           </button>
           <button
             type="button"
@@ -1094,7 +1165,7 @@ const chips = computed<ChipAction[]>(() => [
             @click="refreshRoutes"
           >
             <span v-if="isCalculating" class="spinner"></span>
-            <RefreshIcon v-else class="m-icon"/>
+            <RefreshIcon v-else class="m-icon" />
           </button>
         </div>
         <VueDatePicker
@@ -1109,9 +1180,9 @@ const chips = computed<ChipAction[]>(() => [
           :week-start="1"
           :auto-apply="false"
           :teleport="true"
-          :floating="{ arrow: false, strategy: 'fixed', offset: 4, placement: 'bottom-start' }"
-          :ui="{ menu: 'plan-time-menu' }"
-          :input-attrs="{ clearable: true, alwaysClearable: true, inputmode: 'none' }"
+          :floating="{arrow: false, strategy: 'fixed', offset: 4, placement: 'bottom-start'}"
+          :ui="{menu: 'plan-time-menu'}"
+          :input-attrs="{clearable: true, alwaysClearable: true, inputmode: 'none'}"
           :dark="isDarkTheme"
           text-input
           class="plan-time-datetime"
@@ -1121,16 +1192,16 @@ const chips = computed<ChipAction[]>(() => [
         />
       </div>
 
-      <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')"/>
-      <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')"/>
+      <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')" />
+      <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')" />
 
       <div v-else-if="options.length" class="flex flex-col" data-kbd-section="results" data-kbd-entry="1">
         <div
           v-for="(plan, index) in options"
           :key="plan.key"
           class="plan-card squish"
-          :class="{ 'is-selected': selectedPlanIndex === index, cascade: index < 12 }"
-          :style="{ '--i': index }"
+          :class="{'is-selected': selectedPlanIndex === index, cascade: index < 12}"
+          :style="{'--i': index}"
           role="button"
           tabindex="0"
           :data-kbd-item="`plan-${plan.key}`"
@@ -1142,33 +1213,36 @@ const chips = computed<ChipAction[]>(() => [
             <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1">
               <span v-if="!rideLegs(plan).length" class="line-chip is-walk">{{ t('planWalk') }}</span>
               <template v-for="(leg, lIdx) in rideLegs(plan)" :key="lIdx">
-                <span class="line-chip" :style="{ backgroundColor: lineColor(leg.lines?.[0], linesApart(plan)) }" :title="(leg.lines ?? []).map(id => line(id)?.short_name).join(' / ')">
-                  {{ (expandedLegs['list-' + plan.key + '-' + lIdx] ? leg.lines ?? [] : (leg.lines ?? []).slice(0, 3)).map(id => line(id)?.short_name).join('/') }}
+                <span
+                  class="line-chip"
+                  :style="{backgroundColor: lineColor(leg.lines?.[0], linesApart(plan))}"
+                  :title="(leg.lines ?? []).map((id) => line(id)?.short_name).join(' / ')"
+                >
+                  {{
+                    (expandedLegs['list-' + plan.key + '-' + lIdx] ? (leg.lines ?? []) : (leg.lines ?? []).slice(0, 3))
+                      .map((id) => line(id)?.short_name)
+                      .join('/')
+                  }}
                 </span>
-                <button
-                  v-if="(leg.lines ?? []).length > 3"
-                  type="button"
-                  class="more"
-                  @click.stop="toggleLegExpansion('list-' + plan.key + '-' + lIdx)"
-                >{{ expandedLegs['list-' + plan.key + '-' + lIdx] ? '«' : '+' + ((leg.lines ?? []).length - 3) }}</button>
-                <KeyboardArrowRightIcon v-if="lIdx < rideLegs(plan).length - 1" class="m-icon size-4 text-outline"/>
+                <button v-if="(leg.lines ?? []).length > 3" type="button" class="more" @click.stop="toggleLegExpansion('list-' + plan.key + '-' + lIdx)">
+                  {{ expandedLegs['list-' + plan.key + '-' + lIdx] ? '«' : '+' + ((leg.lines ?? []).length - 3) }}
+                </button>
+                <KeyboardArrowRightIcon v-if="lIdx < rideLegs(plan).length - 1" class="m-icon size-4 text-outline" />
               </template>
             </div>
             <div v-if="plan.runs[0]" class="flex flex-col items-end">
-              <span v-if="firstRide(plan)" class="departure" :class="{ 'is-live': firstRide(plan)!.live }">
+              <span v-if="firstRide(plan)" class="departure" :class="{'is-live': firstRide(plan)!.live}">
                 <span v-if="firstRide(plan)!.live" class="live-dot"></span>{{ departureLabel(firstRide(plan)!) }}
               </span>
               <span class="text-body-small text-on-surface-variant">{{ arrivalLabel(plan) }}</span>
             </div>
-            <KeyboardArrowRightIcon class="m-icon size-5 text-outline"/>
+            <KeyboardArrowRightIcon class="m-icon size-5 text-outline" />
           </div>
-          <p class="text-body-medium text-on-surface-variant truncate">
-            → {{ rideLegs(plan).length ? stopName(rideLegs(plan).at(-1)?.to) : destName }}
-          </p>
+          <p class="text-body-medium text-on-surface-variant truncate">→ {{ rideLegs(plan).length ? stopName(rideLegs(plan).at(-1)?.to) : destName }}</p>
           <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <span class="stat-chip"><ScheduleIcon class="m-icon size-3"/>{{ formatMinutes(Math.round(journeyMinutes(plan))) }}</span>
+            <span class="stat-chip"><ScheduleIcon class="m-icon size-3" />{{ formatMinutes(Math.round(journeyMinutes(plan))) }}</span>
             <span v-if="plan.transfers > 0" class="stat-chip">
-              <SwapVertIcon class="m-icon size-3"/>{{ plan.transfers }} {{ plan.transfers === 1 ? t('planChange') : t('planChanges') }}
+              <SwapVertIcon class="m-icon size-3" />{{ plan.transfers }} {{ plan.transfers === 1 ? t('planChange') : t('planChanges') }}
             </span>
             <span v-if="firstRide(plan)?.live" class="stat-chip is-live"><span class="live-dot"></span>{{ t('live') }}</span>
             <span v-if="laterRides(plan).length" class="text-label-medium text-on-surface-variant">
@@ -1179,7 +1253,7 @@ const chips = computed<ChipAction[]>(() => [
       </div>
 
       <div v-else class="empty">
-        <DirectionsBusIcon class="m-icon size-10 text-outline-variant"/>
+        <DirectionsBusIcon class="m-icon size-10 text-outline-variant" />
         <p class="text-body-medium text-on-surface-variant text-center">{{ t('planNoResults') }}</p>
       </div>
       <div class="h-8"></div>

@@ -9,8 +9,8 @@ const {size = 36, tone = 'neutral'} = defineProps<{
 </script>
 
 <template>
-  <span class="row-icon" :class="`is-${tone}`" :style="{ width: `${size}px`, height: `${size}px` }">
-    <component :is="icon" class="m-icon" :style="{ width: `${size / 2}px`, height: `${size / 2}px` }"/>
+  <span class="row-icon" :class="`is-${tone}`" :style="{width: `${size}px`, height: `${size}px`}">
+    <component :is="icon" class="m-icon" :style="{width: `${size / 2}px`, height: `${size / 2}px`}" />
   </span>
 </template>
 

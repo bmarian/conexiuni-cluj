@@ -2,13 +2,13 @@
 import RealtimeIcon from '@/components/ui/RealtimeIcon.vue'
 import Ticker from '@/components/ui/Ticker.vue'
 
-defineProps<{ text: string, live?: boolean, extra?: boolean }>()
+defineProps<{text: string; live?: boolean; extra?: boolean}>()
 </script>
 
 <template>
-  <span class="time-pill" :class="{ 'is-live': live, 'is-extra': extra && !live }">
-    <RealtimeIcon v-if="live" class="size-2.5"/>
-    <Ticker :text="text"/>
+  <span class="time-pill" :class="{'is-live': live, 'is-extra': extra && !live}">
+    <RealtimeIcon v-if="live" class="size-2.5" />
+    <Ticker :text="text" />
   </span>
 </template>
 

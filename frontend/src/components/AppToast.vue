@@ -12,10 +12,13 @@ let pointerId = -1
 let startY = 0
 let moved = false
 
-watch(() => settings.toast?.id, () => {
-  dragY.value = 0
-  dragging.value = false
-})
+watch(
+  () => settings.toast?.id,
+  () => {
+    dragY.value = 0
+    dragging.value = false
+  },
+)
 
 function onPointerDown(e: PointerEvent) {
   pointerId = e.pointerId
@@ -55,8 +58,8 @@ function onPointerCancel() {
         v-if="settings.toast"
         :key="settings.toast.id"
         class="snackbar"
-        :class="{ 'is-dragging': dragging }"
-        :style="{ '--drag': `${dragY}px` }"
+        :class="{'is-dragging': dragging}"
+        :style="{'--drag': `${dragY}px`}"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
@@ -113,11 +116,15 @@ function onPointerCancel() {
 }
 
 .snackbar-enter-active {
-  transition: translate var(--spring-fast-ms) var(--spring-fast), opacity 150ms linear;
+  transition:
+    translate var(--spring-fast-ms) var(--spring-fast),
+    opacity 150ms linear;
 }
 
 .snackbar-leave-active {
-  transition: translate 200ms cubic-bezier(0.3, 0, 1, 1), opacity 150ms linear;
+  transition:
+    translate 200ms cubic-bezier(0.3, 0, 1, 1),
+    opacity 150ms linear;
 }
 
 .snackbar-enter-from,

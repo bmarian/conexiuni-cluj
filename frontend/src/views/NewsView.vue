@@ -19,22 +19,28 @@ useHead(() => ({title: `${t('news')} · ${t('headHomeTitle', cityParams())}`}))
 
 const freshIds = ref(new Set<number>())
 
-watch(() => routeUpdates.changes, () => {
-  if (!routeUpdates.hasUnseen) return
-  freshIds.value = new Set([...freshIds.value, ...routeUpdates.unseenIds])
-  routeUpdates.markAllSeen()
-}, {immediate: true})
+watch(
+  () => routeUpdates.changes,
+  () => {
+    if (!routeUpdates.hasUnseen) return
+    freshIds.value = new Set([...freshIds.value, ...routeUpdates.unseenIds])
+    routeUpdates.markAllSeen()
+  },
+  {immediate: true},
+)
 
-const feed = computed(() => buildNewsFeed(routeUpdates.updates, new Date(), locale.value, t).map((entry) =>
-  entry.kind === 'change'
-    ? {
-      ...entry,
-      title: changeTitle(entry.change, t),
-      meta: [entry.date, ...changeKindLabels(entry.change, t)].join(' · '),
-      isNew: freshIds.value.has(entry.change.id),
-    }
-    : {...entry, title: entry.news.title, meta: `${entry.date} · ${newsSource(entry.news.url)}`, isNew: false},
-))
+const feed = computed(() =>
+  buildNewsFeed(routeUpdates.updates, new Date(), locale.value, t).map((entry) =>
+    entry.kind === 'change'
+      ? {
+          ...entry,
+          title: changeTitle(entry.change, t),
+          meta: [entry.date, ...changeKindLabels(entry.change, t)].join(' · '),
+          isNew: freshIds.value.has(entry.change.id),
+        }
+      : {...entry, title: entry.news.title, meta: `${entry.date} · ${newsSource(entry.news.url)}`, isNew: false},
+  ),
+)
 
 function openChange(change: RouteChange) {
   if (!change.route_id) return
@@ -59,26 +65,28 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisibilityC
 
 <template>
   <div class="news-view">
-    <SheetTopBar :title="t('news')"/>
+    <SheetTopBar :title="t('news')" />
     <div v-if="feed.length" data-kbd-section="news" data-kbd-entry="1">
       <template v-for="(entry, i) in feed" :key="entry.key">
         <button
           v-if="entry.kind === 'change'"
           type="button"
           class="feed-row state squish"
-          :class="{ cascade: i < 12 }"
-          :style="{ '--i': i }"
+          :class="{cascade: i < 12}"
+          :style="{'--i': i}"
           :disabled="!entry.change.route_id"
           :data-kbd-item="entry.key"
           @click="openChange(entry.change)"
         >
           <span class="lead">
-            <LineBadge :name="entry.change.route_short_name" :color="entry.change.route_color || '#64748b'" :height="28" :min-width="36" :corner="6"/>
+            <LineBadge :name="entry.change.route_short_name" :color="entry.change.route_color || '#64748b'" :height="28" :min-width="36" :corner="6" />
           </span>
           <span class="body">
             <span class="title-line">
-              <span class="text-body-large" :class="{ 'font-bold': entry.isNew }">{{ entry.title }}</span>
-              <span v-if="entry.isNew" class="new-dot"><span class="sr-only">{{ t('newsNew') }}</span></span>
+              <span class="text-body-large" :class="{'font-bold': entry.isNew}">{{ entry.title }}</span>
+              <span v-if="entry.isNew" class="new-dot"
+                ><span class="sr-only">{{ t('newsNew') }}</span></span
+              >
             </span>
             <span class="text-body-small text-on-surface-variant">{{ entry.meta }}</span>
           </span>
@@ -89,16 +97,16 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisibilityC
           target="_blank"
           rel="noopener noreferrer"
           class="feed-row state squish"
-          :class="{ cascade: i < 12 }"
-          :style="{ '--i': i }"
+          :class="{cascade: i < 12}"
+          :style="{'--i': i}"
           :data-kbd-item="entry.key"
         >
-          <span class="lead"><NewspaperIcon class="m-icon size-[22px] text-on-surface-variant"/></span>
+          <span class="lead"><NewspaperIcon class="m-icon size-[22px] text-on-surface-variant" /></span>
           <span class="body">
             <span class="text-body-large">{{ entry.title }}</span>
             <span class="flex items-center gap-1 text-body-small text-on-surface-variant">
               {{ entry.meta }}
-              <OpenInNewIcon class="m-icon size-3"/>
+              <OpenInNewIcon class="m-icon size-3" />
             </span>
           </span>
         </a>

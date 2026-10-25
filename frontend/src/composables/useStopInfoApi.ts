@@ -1,5 +1,5 @@
-import {ref} from "vue";
-import {buildStopInfo, network, networkLoaded, refreshNetwork} from "@/utils/network.ts";
+import {ref} from 'vue'
+import {buildStopInfo, network, networkLoaded, refreshNetwork} from '@/utils/network.ts'
 
 export function useStopInfoApi() {
   const stopInfo = ref()

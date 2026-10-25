@@ -10,7 +10,7 @@ const {isOnline} = useOnline()
 <template>
   <Transition name="offline">
     <div v-if="!isOnline" class="offline-pill" role="status" aria-live="polite" :title="t('offlineBanner')">
-      <WifiOffIcon class="m-icon size-3.5"/>
+      <WifiOffIcon class="m-icon size-3.5" />
       <span>{{ t('offlineShort') }}</span>
     </div>
   </Transition>

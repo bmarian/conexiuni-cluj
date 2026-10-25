@@ -2,11 +2,10 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {effectScope, nextTick, ref} from 'vue'
 import type {Place} from '@/utils/places.ts'
 
-const calls: {query: string, signal?: AbortSignal, resolve: (places: Place[]) => void}[] = []
+const calls: {query: string; signal?: AbortSignal; resolve: (places: Place[]) => void}[] = []
 
 vi.mock('@/utils/places.ts', () => ({
-  searchPlaces: (query: string, _limit: number, signal?: AbortSignal) =>
-    new Promise<Place[]>((resolve) => calls.push({query, signal, resolve})),
+  searchPlaces: (query: string, _limit: number, signal?: AbortSignal) => new Promise<Place[]>((resolve) => calls.push({query, signal, resolve})),
 }))
 
 const {usePlaceSearch} = await import('@/composables/usePlaceSearch.ts')

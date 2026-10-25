@@ -127,7 +127,18 @@ export function useSyncPairing() {
       const claimed = await api.claimSlot(entered, toB64(keys.spki), !!k)
       const commit = fromB64(claimed.commit, 32)
       if (!commit) return fail('broken')
-      pairing = {role: 'E', slot: {code: entered, secret: claimed.secret}, keys, k, commit, read: 0, giving: false, confirmed: false, peerReady: false, sentSecret: false}
+      pairing = {
+        role: 'E',
+        slot: {code: entered, secret: claimed.secret},
+        keys,
+        k,
+        commit,
+        read: 0,
+        giving: false,
+        confirmed: false,
+        peerReady: false,
+        sentSecret: false,
+      }
       code.value = entered
       schedulePoll(0)
     } catch (err) {
@@ -171,14 +182,14 @@ export function useSyncPairing() {
       }
       if (!p.t && read.pub) {
         const other = fromB64(read.pub, SPKI_SIZE)
-        if (!other || !await validPublicKey(other)) return fail('broken')
+        if (!other || !(await validPublicKey(other))) return fail('broken')
         if (p.role === 'D') await api.revealKey(p.slot, toB64(p.keys.spki))
         else if (!sameBytes(await sha256(other), p.commit!)) return fail('broken')
         await openChannel(p, other, p.role === 'D' ? read.scanned : !!p.k)
       }
       for (; p.t && p.read < read.messages.length; p.read++) {
         const sealed = fromB64(read.messages[p.read]!)
-        const plain = sealed && await open(p.t, sealed, pairAAD(p.slot.code, p.role === 'D' ? 'E' : 'D'))
+        const plain = sealed && (await open(p.t, sealed, pairAAD(p.slot.code, p.role === 'D' ? 'E' : 'D')))
         const padded = plain && unpad(plain)
         const message = padded && readMessage(new TextDecoder().decode(padded))
         if (!message) return fail('broken')

@@ -1,69 +1,55 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import AdminCard from "@/components/admin/AdminCard.vue";
-import AdminCities from "@/components/admin/AdminCities.vue";
-import AdminScope from "@/components/admin/AdminScope.vue";
-import AdminStats from "@/components/admin/AdminStats.vue";
-import type { Site } from "@/components/admin/types.ts";
-import { ago, bytes, dur, num, pct } from "@/utils/adminFormat.ts";
-import { ExpandMoreIcon, PublicIcon, SettingsIcon, WarningAmberIcon } from "@/utils/icons.ts";
+import {computed, ref} from 'vue'
+import AdminCard from '@/components/admin/AdminCard.vue'
+import AdminCities from '@/components/admin/AdminCities.vue'
+import AdminScope from '@/components/admin/AdminScope.vue'
+import AdminStats from '@/components/admin/AdminStats.vue'
+import type {Site} from '@/components/admin/types.ts'
+import {ago, bytes, dur, num, pct, plural} from '@/utils/adminFormat.ts'
+import {ExpandMoreIcon, PublicIcon, SettingsIcon, WarningAmberIcon} from '@/utils/icons.ts'
 
-const FAILURES_SHOWN = 5;
+const FAILURES_SHOWN = 5
 
-const props = defineProps<{ site: Site; city: string; clock: number }>();
-const emit = defineEmits<{ pick: [slug: string]; changed: [] }>();
+const props = defineProps<{site: Site; city: string; clock: number}>()
+const emit = defineEmits<{pick: [slug: string]; changed: []}>()
 
-const allFailures = ref(false);
-const failures = computed(() =>
-  allFailures.value
-    ? props.site.server.problems
-    : props.site.server.problems.slice(0, FAILURES_SHOWN),
-);
+const allFailures = ref(false)
+const failures = computed(() => (allFailures.value ? props.site.server.problems : props.site.server.problems.slice(0, FAILURES_SHOWN)))
 
-const server = computed(() => props.site.server);
-const uptime = computed(() =>
-  dur((props.clock - new Date(server.value.started_at).getTime()) / 1000),
-);
+const server = computed(() => props.site.server)
+const uptime = computed(() => dur((props.clock - new Date(server.value.started_at).getTime()) / 1000))
 
 const stats = computed(() => [
-  { value: num(props.site.cities.reduce((n, c) => n + c.watching, 0)), label: "watching" },
-  { value: num(props.site.cities.reduce((n, c) => n + c.people_today, 0)), label: "people today" },
-  { value: num(server.value.requests), label: "requests" },
-]);
+  {value: num(props.site.cities.reduce((n, c) => n + c.watching, 0)), label: 'watching'},
+  {value: num(props.site.cities.reduce((n, c) => n + c.people_today, 0)), label: 'people today'},
+  {value: num(server.value.requests), label: 'requests'},
+])
 
-const diskUsed = computed(() =>
-  server.value.disk_total ? 1 - server.value.disk_free / server.value.disk_total : null,
-);
+const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk_free / server.value.disk_total : null))
 </script>
 
 <template>
   <section class="admin-part">
-    <AdminScope :icon="PublicIcon" tone="primary" title="App">
-      {{ site.cities.length }} cities · up {{ uptime }}
-    </AdminScope>
+    <AdminScope :icon="PublicIcon" tone="primary" title="App"> {{ site.cities.length }} cities · up {{ uptime }} </AdminScope>
 
     <AdminStats :stats="stats" :problems="site.problems" />
 
     <AdminCard title="Cities">
       <div class="cities" role="list">
-        <div class="head" aria-hidden="true">
-          <span></span><span>Watching</span><span>Today</span>
-        </div>
+        <div class="head" aria-hidden="true"><span></span><span>Watching</span><span>Today</span></div>
         <button
           v-for="c in site.cities"
           :key="c.slug"
           type="button"
           role="listitem"
           class="city state"
-          :class="{ 'is-current': c.slug === city }"
+          :class="{'is-current': c.slug === city}"
           :aria-current="c.slug === city"
           @click="emit('pick', c.slug)"
         >
           <span class="name">
             <span class="truncate">{{ c.name }}</span>
-            <span v-if="c.problems.length" class="problems" :title="c.problems.join('\n')">
-              <WarningAmberIcon class="m-icon" />{{ c.problems.length }}
-            </span>
+            <span v-if="c.problems.length" class="problems" :title="c.problems.join('\n')"> <WarningAmberIcon class="m-icon" />{{ c.problems.length }} </span>
           </span>
           <span class="count">{{ num(c.watching) }}</span>
           <span class="count">{{ num(c.people_today) }}</span>
@@ -76,17 +62,14 @@ const diskUsed = computed(() =>
         <div>
           <dt>Up</dt>
           <dd>
-            {{ uptime
-            }}<template v-if="server.revision">
-              · {{ server.revision }}{{ server.modified ? "+" : "" }}</template
-            >
+            {{ uptime }}<template v-if="server.revision"> · {{ server.revision }}{{ server.modified ? '+' : '' }}</template>
           </dd>
         </div>
         <div>
           <dt>Requests today</dt>
           <dd>
             {{ num(server.requests) }} ·
-            <span :class="{ 'admin-bad': server.errors > 0 }">{{ num(server.errors) }} errors</span>
+            <span :class="{'admin-bad': server.errors > 0}">{{ plural(server.errors, 'error') }}</span>
           </dd>
         </div>
         <div>
@@ -100,8 +83,7 @@ const diskUsed = computed(() =>
         <div v-if="server.sync">
           <dt>Sync</dt>
           <dd>
-            {{ num(server.sync.chains) }} groups · {{ num(server.sync.devices.web ?? 0) }} web,
-            {{ num(server.sync.devices.android ?? 0) }} phone,
+            {{ num(server.sync.chains) }} groups · {{ num(server.sync.devices.web ?? 0) }} web, {{ num(server.sync.devices.android ?? 0) }} phone,
             {{ num(server.sync.devices.wear ?? 0) }} watch ·
             {{ bytes(server.sync.db_bytes) }}
           </dd>
@@ -114,31 +96,23 @@ const diskUsed = computed(() =>
     </AdminCard>
 
     <AdminCard title="Failures" hint="24 h">
-      <ul v-if="server.problems.length" class="log">
+      <ul v-if="server.problems.length" class="admin-log">
         <li v-for="p in failures" :key="p.text">
-          <span class="when"
-            >{{ ago(p.last, clock)
-            }}<template v-if="p.count > 1"> · {{ num(p.count) }}×</template></span
+          <span class="admin-log-head"
+            >{{ ago(p.last, clock) }}<template v-if="p.count > 1"> · {{ num(p.count) }}×</template></span
           >
           <code>{{ p.text }}</code>
         </li>
       </ul>
       <p v-else class="admin-note">None</p>
-      <button
-        v-if="server.problems.length > FAILURES_SHOWN"
-        type="button"
-        class="btn btn-text more"
-        @click="allFailures = !allFailures"
-      >
-        {{ allFailures ? "Fewer" : `All ${server.problems.length}` }}
+      <button v-if="server.problems.length > FAILURES_SHOWN" type="button" class="btn btn-text admin-more" @click="allFailures = !allFailures">
+        {{ allFailures ? 'Fewer' : `All ${server.problems.length}` }}
       </button>
     </AdminCard>
 
     <h3 class="admin-settings"><SettingsIcon class="m-icon" />App settings</h3>
     <details class="admin-card admin-fold">
-      <summary class="state">
-        <span>Cities in the app</span><ExpandMoreIcon class="m-icon" />
-      </summary>
+      <summary class="state"><span>Cities in the app</span><ExpandMoreIcon class="m-icon" /></summary>
       <AdminCities @changed="emit('changed')" />
     </details>
   </section>
@@ -218,36 +192,5 @@ const diskUsed = computed(() =>
   text-align: right;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.log {
-  margin: 0;
-  padding: 0 0 4px;
-  list-style: none;
-}
-
-.log li {
-  padding: 8px 16px;
-}
-
-.when {
-  display: block;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  color: var(--md-on-surface-variant);
-}
-
-.more {
-  margin-left: 4px;
-}
-
-.log code {
-  display: block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 16px;
-  overflow-wrap: anywhere;
 }
 </style>

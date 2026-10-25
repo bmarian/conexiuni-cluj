@@ -26,9 +26,15 @@ const sameItem = <T>(_base: T | undefined, _local: T, remote: T) => remote
 
 export function mergeList<T>(base: T[], local: T[], remote: T[], id: (item: T) => string, fields: Fields<T>, cap: number): {merged: T[]; dropped: T[]} {
   const index = (items: T[]) => new Map(items.map((item, i) => [id(item), i]))
-  const b = index(base), l = index(local), r = index(remote)
+  const b = index(base),
+    l = index(local),
+    r = index(remote)
   const kept = (key: string) => (l.has(key) && r.has(key)) || (l.has(key) && !b.has(key)) || (r.has(key) && !b.has(key))
-  const orderOf = (items: T[], other: Map<string, number>) => items.map(id).filter((key) => other.has(key)).join('\n')
+  const orderOf = (items: T[], other: Map<string, number>) =>
+    items
+      .map(id)
+      .filter((key) => other.has(key))
+      .join('\n')
   const localMoved = orderOf(local, b) !== orderOf(base, l)
   const remoteMoved = orderOf(remote, b) !== orderOf(base, r)
   const [win, other] = localMoved && !remoteMoved ? [local, remote] : [remote, local]
@@ -38,7 +44,9 @@ export function mergeList<T>(base: T[], local: T[], remote: T[], id: (item: T) =
     if (kept(key) && !placed.has(key)) keys.push(key)
   }
   const merged = keys.map((key) => {
-    const li = l.get(key), ri = r.get(key), bi = b.get(key)
+    const li = l.get(key),
+      ri = r.get(key),
+      bi = b.get(key)
     if (li !== undefined && ri !== undefined) return fields(bi === undefined ? undefined : base[bi], local[li], remote[ri])
     return li !== undefined ? local[li]! : remote[ri!]!
   })

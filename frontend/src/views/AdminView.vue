@@ -23,8 +23,8 @@ const loginError = ref('')
 const scrolled = ref(false)
 const cityPart = ref<HTMLElement | null>(null)
 
-const updatedAt = computed(() => site.value ? clockTime(site.value.generated_at) : '')
-const refreshLabel = computed(() => loadError.value ? `Refresh failed (${loadError.value})` : 'Refresh')
+const updatedAt = computed(() => (site.value ? clockTime(site.value.generated_at) : ''))
+const refreshLabel = computed(() => (loadError.value ? `Refresh failed (${loadError.value})` : 'Refresh'))
 
 async function submit() {
   const t = token.value.trim()
@@ -51,16 +51,7 @@ async function onCitiesChanged() {
     <div class="admin" @scroll.passive="scrolled = ($event.target as HTMLElement).scrollTop > 0">
       <form v-if="state === 'login'" class="login" @submit.prevent="submit">
         <h1 class="text-headline-small font-bold">Admin</h1>
-        <input
-          type="text"
-          name="username"
-          value="admin"
-          autocomplete="username"
-          readonly
-          tabindex="-1"
-          aria-hidden="true"
-          class="hidden-username"
-        />
+        <input type="text" name="username" value="admin" autocomplete="username" readonly tabindex="-1" aria-hidden="true" class="hidden-username" />
         <input
           v-model="token"
           class="admin-field"
@@ -77,23 +68,23 @@ async function onCitiesChanged() {
       </form>
 
       <template v-else>
-        <header class="bar" :class="{ 'is-scrolled': scrolled }">
+        <header class="bar" :class="{'is-scrolled': scrolled}">
           <h1 class="text-title-large flex-1">Admin</h1>
           <button type="button" class="btn btn-text" :disabled="loading" :aria-label="refreshLabel" :title="refreshLabel" @click="load">
-            <WarningAmberIcon v-if="loadError && !loading" class="m-icon text-error"/>
-            <RefreshIcon v-else class="m-icon" :class="{ 'animate-spin motion-reduce:animate-none': loading }"/>{{ updatedAt }}
+            <WarningAmberIcon v-if="loadError && !loading" class="m-icon text-error" />
+            <RefreshIcon v-else class="m-icon" :class="{'animate-spin motion-reduce:animate-none': loading}" />{{ updatedAt }}
           </button>
           <button type="button" class="icon-btn" aria-label="Log out" title="Log out" @click="logout">
-            <LogoutIcon class="m-icon"/>
+            <LogoutIcon class="m-icon" />
           </button>
           <button type="button" class="icon-btn" aria-label="Close" title="Close" @click="router.push(cityPath('/'))">
-            <CloseIcon class="m-icon"/>
+            <CloseIcon class="m-icon" />
           </button>
         </header>
         <main v-if="site" class="page">
-          <AdminSite :site="site" :city="city" :clock="clock" @pick="pickFromList" @changed="onCitiesChanged"/>
+          <AdminSite :site="site" :city="city" :clock="clock" @pick="pickFromList" @changed="onCitiesChanged" />
           <div ref="cityPart" class="city-part">
-            <AdminCity :overview="overview" :cities="site.cities" :city="city" :clock="clock" @pick="pick" @saved="load"/>
+            <AdminCity :overview="overview" :cities="site.cities" :city="city" :clock="clock" @pick="pick" @saved="load" />
           </div>
         </main>
         <p v-else-if="!loadError" class="admin-note page">Loading…</p>

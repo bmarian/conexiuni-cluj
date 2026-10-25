@@ -8,8 +8,8 @@ export const i18n = createI18n({
   fallbackLocale: 'en',
   messages: {
     ro,
-    en
-  }
+    en,
+  },
 })
 
 export const translate = (key: string, values: Record<string, unknown> = {}) => i18n.global.t(key, values)

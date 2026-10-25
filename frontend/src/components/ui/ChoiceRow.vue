@@ -3,16 +3,21 @@ import {computed, ref, watch} from 'vue'
 import PopIcon from '@/components/ui/PopIcon.vue'
 import type {Choice} from '@/components/ui/types.ts'
 
-const props = defineProps<{ options: Choice<T>[], modelValue: T, kbd?: string }>()
-const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
+const props = defineProps<{options: Choice<T>[]; modelValue: T; kbd?: string}>()
+const emit = defineEmits<{'update:modelValue': [value: T]}>()
 
-const index = computed(() => Math.max(0, props.options.findIndex((o) => o.value === props.modelValue)))
+const index = computed(() =>
+  Math.max(
+    0,
+    props.options.findIndex((o) => o.value === props.modelValue),
+  ),
+)
 const moving = ref(0)
 watch(index, () => moving.value++)
 </script>
 
 <template>
-  <div class="choice-row" role="radiogroup" :style="{ '--n': options.length, '--i': index }" :data-kbd-section="kbd" data-kbd-axis="x">
+  <div class="choice-row" role="radiogroup" :style="{'--n': options.length, '--i': index}" :data-kbd-section="kbd" data-kbd-axis="x">
     <span class="pill" :class="moving ? (moving % 2 ? 'stretch-a' : 'stretch-b') : undefined"></span>
     <button
       v-for="option in options"
@@ -20,14 +25,14 @@ watch(index, () => moving.value++)
       type="button"
       role="radio"
       class="choice squish"
-      :class="{ 'is-checked': option.value === modelValue }"
+      :class="{'is-checked': option.value === modelValue}"
       :aria-checked="option.value === modelValue"
       :data-kbd-item="kbd ? `${kbd}-${option.value}` : undefined"
       :data-kbd-active="option.value === modelValue"
       :disabled="option.disabled"
       @click="emit('update:modelValue', option.value)"
     >
-      <PopIcon v-if="option.icon" :icon="option.icon" :on="option.value === modelValue" class="size-[18px]"/>
+      <PopIcon v-if="option.icon" :icon="option.icon" :on="option.value === modelValue" class="size-[18px]" />
       <slot name="label" :option="option" :checked="option.value === modelValue">
         <span class="truncate">{{ option.label }}</span>
       </slot>
@@ -96,7 +101,9 @@ watch(index, () => moving.value++)
   font-weight: 500;
   letter-spacing: 0.1px;
   cursor: pointer;
-  transition: color 200ms linear, scale var(--spring-press-ms) var(--spring-press);
+  transition:
+    color 200ms linear,
+    scale var(--spring-press-ms) var(--spring-press);
 }
 
 .choice.is-checked {

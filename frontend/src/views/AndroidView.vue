@@ -18,10 +18,13 @@ const shotFiles = import.meta.glob<string>('/src/assets/android-guide/*.jpg', {e
 
 function shots(step: string): string[] {
   const prefix = `/src/assets/android-guide/${step}-`
-  return Object.keys(shotFiles).filter((path) => path.startsWith(prefix)).sort().map((path) => shotFiles[path]!)
+  return Object.keys(shotFiles)
+    .filter((path) => path.startsWith(prefix))
+    .sort()
+    .map((path) => shotFiles[path]!)
 }
 
-const openShot = ref<{ src: string, step: string } | null>(null)
+const openShot = ref<{src: string; step: string} | null>(null)
 const viewerRef = ref<HTMLElement | null>(null)
 
 function openViewer(src: string, step: string) {
@@ -60,7 +63,7 @@ const steps = [
 
 <template>
   <div class="android-view">
-    <SheetTopBar :title="t('androidPageTitle')"/>
+    <SheetTopBar :title="t('androidPageTitle')" />
 
     <header class="aa-head">
       <h1 class="aa-title">
@@ -78,14 +81,12 @@ const steps = [
           <div class="aa-step-body">
             <h3 class="aa-step-title">{{ t(step.title) }}</h3>
             <p>{{ t(step.text) }}</p>
-            <a v-if="step.link" :href="step.link" class="btn btn-filled" target="_blank" rel="noopener"
-               :data-kbd-item="`android-step-${step.id}`">
+            <a v-if="step.link" :href="step.link" class="btn btn-filled" target="_blank" rel="noopener" :data-kbd-item="`android-step-${step.id}`">
               {{ t(step.button) }}
             </a>
             <div v-if="shots(step.id).length" class="aa-shots">
-              <button v-for="src in shots(step.id)" :key="src" type="button" class="aa-shot"
-                      @click="openViewer(src, step.id)">
-                <img :src="src" :alt="t('androidShotAlt', {n: step.id})" loading="lazy">
+              <button v-for="src in shots(step.id)" :key="src" type="button" class="aa-shot" @click="openViewer(src, step.id)">
+                <img :src="src" :alt="t('androidShotAlt', {n: step.id})" loading="lazy" />
               </button>
             </div>
           </div>
@@ -100,9 +101,16 @@ const steps = [
 
     <Teleport to="body">
       <Transition name="aa-viewer">
-        <div v-if="openShot" ref="viewerRef" class="aa-viewer" role="dialog" aria-modal="true"
-             :aria-label="t('androidShotAlt', {n: openShot.step})" @click="closeViewer">
-          <img :src="openShot.src" alt="" class="aa-viewer-img">
+        <div
+          v-if="openShot"
+          ref="viewerRef"
+          class="aa-viewer"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('androidShotAlt', {n: openShot.step})"
+          @click="closeViewer"
+        >
+          <img :src="openShot.src" alt="" class="aa-viewer-img" />
           <button type="button" class="aa-viewer-close" :aria-label="t('close')">×</button>
         </div>
       </Transition>

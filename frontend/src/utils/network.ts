@@ -48,8 +48,15 @@ export class NetworkIndex {
       this.routeById.set(r.route_id, r)
       this.routeByShortName.set(r.route_short_name, r)
     }
-    this.routes = bundle.routes.map(({route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color}) =>
-      ({route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color}))
+    this.routes = bundle.routes.map(({route_id, agency_id, route_short_name, route_long_name, route_type, route_desc, route_color}) => ({
+      route_id,
+      agency_id,
+      route_short_name,
+      route_long_name,
+      route_type,
+      route_desc,
+      route_color,
+    }))
   }
 
   // A timetable run this many minutes late is still coming; shown to the minute, so one at least.
@@ -62,7 +69,7 @@ export class NetworkIndex {
     return route?.trips.find((t) => t.trip_id === tripId)?.shape_hash
   }
 
-  private stationIndex?: {platforms: Map<number, Stop[]>, looks: Map<number, StationLook>}
+  private stationIndex?: {platforms: Map<number, Stop[]>; looks: Map<number, StationLook>}
   private modeColorIndex?: Map<Mode, string>
 
   modeColor(mode: Mode): string | undefined {
@@ -131,7 +138,7 @@ export class NetworkIndex {
 
 export const stationOf = (stop: Stop): number => stop.station_id || stop.stop_id
 
-export type ModeLines = {mode: Mode, color: string, routes: NetworkRoute[]}
+export type ModeLines = {mode: Mode; color: string; routes: NetworkRoute[]}
 
 export type StationLook = ModeLines & {groups: ModeLines[]}
 
@@ -153,7 +160,7 @@ function modeColors(routes: NetworkRoute[]): Map<Mode, string> {
 }
 
 // The kind of day and the hour in the city, which pick the learned offsets.
-export function dayTypeAndHour(at: Date = new Date()): {dayType: DayType, hour: number} {
+export function dayTypeAndHour(at: Date = new Date()): {dayType: DayType; hour: number} {
   const {date, weekday, hour} = cityTime(at)
   const special = scheduleDayOn(date)
   if (special) return {dayType: special, hour}
@@ -248,7 +255,7 @@ const metaKey = () => cacheKey('network:meta')
 const MAX_AGE_MS = 12 * 60 * 60_000
 const CHECK_EVERY_MS = 15 * 60_000
 
-type Meta = {version: string, static_version: string, fetchedAt: number}
+type Meta = {version: string; static_version: string; fetchedAt: number}
 
 function readMeta(): Meta | null {
   try {
@@ -261,7 +268,9 @@ function readMeta(): Meta | null {
 function writeMeta(meta: Meta) {
   try {
     localStorage.setItem(metaKey(), JSON.stringify(meta))
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 async function openCache(): Promise<Cache | null> {
@@ -287,7 +296,7 @@ async function fetchBundle(city: string) {
     const meta = readMeta()
     const response = await fetch(`${url}/version`, {cache: 'no-store'})
     if (!response.ok) return
-    const latest = await response.json() as NetworkVersion
+    const latest = (await response.json()) as NetworkVersion
     if (city !== currentCity.value) return
     const fresh = meta && network.value && meta.static_version === latest.static_version && Date.now() - meta.fetchedAt < MAX_AGE_MS
     if (fresh) return
@@ -299,7 +308,7 @@ async function fetchBundle(city: string) {
     if (!bundleResponse.ok) return
     const cache = await openCache()
     await cache?.put(url, bundleResponse.clone())
-    const bundle = await bundleResponse.json() as NetworkBundle
+    const bundle = (await bundleResponse.json()) as NetworkBundle
     if (city !== currentCity.value) return
     use(bundle, city)
     writeMeta({version: bundle.version, static_version: bundle.static_version, fetchedAt: Date.now()})
@@ -323,21 +332,27 @@ async function loadStored() {
   const city = currentCity.value
   try {
     const cached = await (await openCache())?.match(bundleUrl())
-    if (cached) use(await cached.json() as NetworkBundle, city)
-  } catch { /* noop */ }
+    if (cached) use((await cached.json()) as NetworkBundle, city)
+  } catch {
+    /* noop */
+  }
 }
 
 let loaded: Promise<void> = typeof window === 'undefined' ? Promise.resolve() : loadStored()
 
 export const networkLoaded = () => loaded
 
-watch(currentCity, () => {
-  network.value = null
-  lastCheck = 0
-  checking = null
-  loaded = loadStored()
-  void loaded.then(() => refreshNetwork(true))
-}, {flush: 'sync'})
+watch(
+  currentCity,
+  () => {
+    network.value = null
+    lastCheck = 0
+    checking = null
+    loaded = loadStored()
+    void loaded.then(() => refreshNetwork(true))
+  },
+  {flush: 'sync'},
+)
 
 export async function startNetwork() {
   await networkLoaded()
@@ -353,10 +368,14 @@ export async function startNetwork() {
 export function decodePolyline(encoded: string, precision = 6): [number, number][] {
   const factor = 10 ** precision
   const points: [number, number][] = []
-  let index = 0, lat = 0, lon = 0
+  let index = 0,
+    lat = 0,
+    lon = 0
   while (index < encoded.length) {
     for (let coordinate = 0; coordinate < 2; coordinate++) {
-      let shift = 0, result = 0, byte: number
+      let shift = 0,
+        result = 0,
+        byte: number
       do {
         byte = encoded.charCodeAt(index++) - 63
         result |= (byte & 0x1f) << shift

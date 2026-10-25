@@ -7,7 +7,7 @@ const {t} = useI18n()
 
 <template>
   <span class="live-badge">
-    <RealtimeIcon class="size-[9px]"/>
+    <RealtimeIcon class="size-[9px]" />
     <span>{{ t('live') }}</span>
   </span>
 </template>

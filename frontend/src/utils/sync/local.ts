@@ -35,11 +35,13 @@ const inside = (x: number, [lo, hi]: readonly [number, number]) => x >= lo && x 
 const coordsText = (lat: number, lon: number) => `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 
 function toPlace(p: FavoritePlan): Place | null {
-  const lat = roundCoordinate(p.lat), lon = roundCoordinate(p.lon)
+  const lat = roundCoordinate(p.lat),
+    lon = roundCoordinate(p.lon)
   if (!inside(lat, LAT) || !inside(lon, LON)) return null
   const place: Place = {name: cleanText(p.name, 100) || coordsText(lat, lon), label: cleanText(p.label, 40), lat, lon}
   if (Number.isFinite(p.originLat) && Number.isFinite(p.originLon)) {
-    const oLat = roundCoordinate(p.originLat!), oLon = roundCoordinate(p.originLon!)
+    const oLat = roundCoordinate(p.originLat!),
+      oLon = roundCoordinate(p.originLon!)
     if (!inside(oLat, LAT) || !inside(oLon, LON)) return null
     place.origin = {name: cleanText(p.originName, 100) || coordsText(oLat, oLon), lat: oLat, lon: oLon}
   }
@@ -62,22 +64,36 @@ export function cityFromLocal(slug: string): CityRecord {
   const saved = savedFavorites(slug)
   return {
     stops: distinct(saved.stops.filter(validId), String),
-    lines: distinct(saved.routes.filter((r) => validId(r.routeId))
-      .map((r) => ({route: r.routeId, dir: r.direction})), (l) => `${l.route}/${l.dir}`),
-    places: distinct(saved.plans.map(toPlace).filter((p): p is Place => p !== null), placeId),
-    followed: distinct(useRouteUpdatesStore().followedIn(slug).map((name) => cleanText(name, 16)).filter(Boolean), String),
+    lines: distinct(
+      saved.routes.filter((r) => validId(r.routeId)).map((r) => ({route: r.routeId, dir: r.direction})),
+      (l) => `${l.route}/${l.dir}`,
+    ),
+    places: distinct(
+      saved.plans.map(toPlace).filter((p): p is Place => p !== null),
+      placeId,
+    ),
+    followed: distinct(
+      useRouteUpdatesStore()
+        .followedIn(slug)
+        .map((name) => cleanText(name, 16))
+        .filter(Boolean),
+      String,
+    ),
   }
 }
 
 export const isEmptyCity = (r: CityRecord) => !r.stops.length && !r.lines.length && !r.places.length && !r.followed.length
 
 export function applyCity(slug: string, r: CityRecord) {
-  useFavoritesStore().importAll({
-    routes: r.lines.map((l) => ({routeId: l.route, direction: l.dir})),
-    stops: r.stops,
-    plans: r.places.map(toPlan),
-    recentPlans: savedFavorites(slug).recentPlans,
-  }, slug)
+  useFavoritesStore().importAll(
+    {
+      routes: r.lines.map((l) => ({routeId: l.route, direction: l.dir})),
+      stops: r.stops,
+      plans: r.places.map(toPlan),
+      recentPlans: savedFavorites(slug).recentPlans,
+    },
+    slug,
+  )
   useRouteUpdatesStore().importFollowed(r.followed, slug)
 }
 
@@ -131,19 +147,35 @@ export function applySettings(r: SettingsRecord) {
 
 export function deviceLabel(): string {
   const ua = navigator.userAgent
-  const browser = 'brave' in navigator ? 'Brave'
-    : /Edg\//.test(ua) ? 'Edge'
-      : /OPR\//.test(ua) ? 'Opera'
-        : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
-          : /Firefox\//.test(ua) ? 'Firefox'
-            : /Chrome\//.test(ua) ? 'Chrome'
-              : /Safari\//.test(ua) ? 'Safari' : ''
-  const os = /Android/.test(ua) ? 'Android'
-    : /iPhone|iPad|iPod/.test(ua) ? 'iOS'
-      : /Windows/.test(ua) ? 'Windows'
-        : /Macintosh|Mac OS X/.test(ua) ? 'macOS'
-          : /CrOS/.test(ua) ? 'ChromeOS'
-            : /Linux/.test(ua) ? 'Linux' : ''
+  const browser =
+    'brave' in navigator
+      ? 'Brave'
+      : /Edg\//.test(ua)
+        ? 'Edge'
+        : /OPR\//.test(ua)
+          ? 'Opera'
+          : /SamsungBrowser/.test(ua)
+            ? 'Samsung Internet'
+            : /Firefox\//.test(ua)
+              ? 'Firefox'
+              : /Chrome\//.test(ua)
+                ? 'Chrome'
+                : /Safari\//.test(ua)
+                  ? 'Safari'
+                  : ''
+  const os = /Android/.test(ua)
+    ? 'Android'
+    : /iPhone|iPad|iPod/.test(ua)
+      ? 'iOS'
+      : /Windows/.test(ua)
+        ? 'Windows'
+        : /Macintosh|Mac OS X/.test(ua)
+          ? 'macOS'
+          : /CrOS/.test(ua)
+            ? 'ChromeOS'
+            : /Linux/.test(ua)
+              ? 'Linux'
+              : ''
   const label = browser && os ? translate('syncDeviceLabel', {browser, os}) : browser || os
   return cleanText(label, 40) || translate('syncWebDevice')
 }
