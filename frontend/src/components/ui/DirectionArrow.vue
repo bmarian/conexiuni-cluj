@@ -17,7 +17,6 @@ function play(delay = 0) {
   else arrow.animate([{transform: from}, {transform: 'none'}], {duration: ARROW_BACK_MS, easing: 'ease-in-out'})
 }
 
-// The direction the page opens on plays once, as soon as its heading is known.
 const open = () => {
   if (props.on && !played) play(ARROW_OPEN_DELAY_MS)
 }

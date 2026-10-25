@@ -36,6 +36,10 @@ const refuse = (why: string): never => {
 export const emptyCity = (): CityRecord => ({stops: [], lines: [], places: [], followed: []})
 export const emptyNews = (): NewsRecord => ({seen: []})
 
+export const validId = (id: number) => Number.isInteger(id) && id >= 1 && id <= MAX_INT
+
+export const newestSeen = (ids: number[]) => [...ids].sort((a, b) => b - a).slice(0, NEWS_CAP)
+
 export function forbidden(cp: number): boolean {
   return cp <= 0x1f || (cp >= 0x7f && cp <= 0x9f) || cp === 0x061c || cp === 0x200b || cp === 0x200e || cp === 0x200f
     || (cp >= 0x2028 && cp <= 0x202e) || cp === 0x2060 || (cp >= 0x2066 && cp <= 0x2069) || cp === 0xfeff

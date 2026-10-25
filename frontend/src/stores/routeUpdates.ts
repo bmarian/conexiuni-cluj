@@ -2,7 +2,7 @@ import {computed, ref, watch} from 'vue'
 import {defineStore} from 'pinia'
 import {apiRequest} from '@/utils/api'
 import {cacheKey, cityInfo, currentCity} from '@/utils/city.ts'
-import {CITY_CAP, NEWS_CAP} from '@/utils/sync/records.ts'
+import {CITY_CAP, newestSeen} from '@/utils/sync/records.ts'
 
 export const FOLLOWS_KEY = 'follows:routes'
 const followedKey = (city?: string) => cacheKey(FOLLOWS_KEY, city)
@@ -141,7 +141,7 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     const next = new Set(seenIds.value)
     ids.forEach((id) => next.add(id))
     if (next.size === seenIds.value.size) return
-    seenIds.value = new Set([...next].sort((a, b) => b - a).slice(0, NEWS_CAP))
+    seenIds.value = new Set(newestSeen([...next]))
     writeList(seenKey(), [...seenIds.value])
   }
 

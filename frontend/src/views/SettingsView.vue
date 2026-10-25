@@ -9,12 +9,14 @@ import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import ListItem from '@/components/ui/ListItem.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
+import TimetableBadge from '@/components/ui/TimetableBadge.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {useCityPicker} from '@/composables/useCityPicker.ts'
 import {chooseCity, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {isIOS} from '@/utils/ios.ts'
+import {adminAuthed} from '@/composables/useAdmin.ts'
 import {
   BrightnessMediumIcon,
   CloseIcon,
@@ -64,11 +66,7 @@ watch(() => route.query.pair, (code) => {
 }, {immediate: true})
 
 onMounted(() => {
-  try {
-    isAdminAuthed.value = localStorage.getItem('admin:authed') === '1'
-  } catch {
-    isAdminAuthed.value = false
-  }
+  isAdminAuthed.value = adminAuthed()
 })
 
 const languages: Choice<Locale>[] = [{value: 'ro', label: 'Română'}, {value: 'en', label: 'English'}]
@@ -210,7 +208,7 @@ async function choose(slug: string | null) {
               <template #leading><span class="radio" :class="{ 'is-on': !automatic && city.slug === currentCity }"></span></template>
               <template #trailing>
                 <LiveBadge v-if="city.realtime"/>
-                <span v-else class="timetable-badge">{{ t('timetable') }}</span>
+                <TimetableBadge v-else/>
               </template>
             </ListItem>
             <p v-if="!shownCities.length" class="city-none text-body-medium text-on-surface-variant">{{ t('noResults') }}</p>
@@ -350,18 +348,6 @@ async function choose(slug: string | null) {
   inset: 5px;
   border-radius: 50%;
   background: var(--md-primary);
-}
-
-.timetable-badge {
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--md-surface-container-highest);
-  color: var(--md-on-surface-variant);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .beta {

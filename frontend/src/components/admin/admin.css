@@ -1,4 +1,3 @@
-/* Shared by the admin page and its parts. */
 .admin-card {
   break-inside: avoid;
   margin: 0 0 12px;
@@ -149,24 +148,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-/* Same shape as LineBadge, with the operator's own colour. */
-.admin-line {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 40px;
-  min-height: 28px;
-  padding: 0 6px;
-  border-radius: 8px;
-  background: var(--md-outline);
-  color: #fff;
-  font-size: 12.6px;
-  font-weight: 900;
-  line-height: 1;
-  white-space: nowrap;
 }
 
 .admin-settings {

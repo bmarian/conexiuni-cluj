@@ -11,12 +11,13 @@ import {
   forbidden,
   LAT,
   LON,
-  NEWS_CAP,
+  newestSeen,
   type NewsRecord,
   type Place,
   placeId,
   roundCoordinate,
   type SettingsRecord,
+  validId,
 } from '@/utils/sync/records.ts'
 
 // Drops what the text rule refuses, trims the ends, cuts to max code points.
@@ -60,8 +61,8 @@ function distinct<T>(items: T[], id: (item: T) => string): T[] {
 export function cityFromLocal(slug: string): CityRecord {
   const saved = savedFavorites(slug)
   return {
-    stops: distinct(saved.stops.filter((id) => Number.isInteger(id) && id >= 1 && id <= 2 ** 31 - 1), String),
-    lines: distinct(saved.routes.filter((r) => Number.isInteger(r.routeId) && r.routeId >= 1 && r.routeId <= 2 ** 31 - 1)
+    stops: distinct(saved.stops.filter(validId), String),
+    lines: distinct(saved.routes.filter((r) => validId(r.routeId))
       .map((r) => ({route: r.routeId, dir: r.direction})), (l) => `${l.route}/${l.dir}`),
     places: distinct(saved.plans.map(toPlace).filter((p): p is Place => p !== null), placeId),
     followed: distinct(useRouteUpdatesStore().followedIn(slug).map((name) => cleanText(name, 16)).filter(Boolean), String),
@@ -81,8 +82,7 @@ export function applyCity(slug: string, r: CityRecord) {
 }
 
 export function newsFromLocal(slug: string): NewsRecord {
-  const seen = useRouteUpdatesStore().seenIn(slug).filter((id) => Number.isInteger(id) && id >= 1 && id <= 2 ** 31 - 1)
-  return {seen: distinct(seen, String).sort((a, b) => b - a).slice(0, NEWS_CAP)}
+  return {seen: newestSeen(distinct(useRouteUpdatesStore().seenIn(slug).filter(validId), String))}
 }
 
 export const isEmptyNews = (r: NewsRecord) => !r.seen.length
