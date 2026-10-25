@@ -74,15 +74,8 @@ onMounted(() => void routeUpdates.fetchUpdates())
 }
 
 .search-pill {
-  display: flex;
-  align-items: center;
-  height: 56px;
   margin: 0 16px;
-  padding: 0 4px 0 16px;
-  border-radius: 28px;
-  background: var(--md-surface-container-high);
   box-shadow: var(--md-elevation-2);
-  cursor: text;
 }
 
 .search-text {

@@ -12,7 +12,6 @@ type Point struct{ Lat, Lon float64 }
 
 type Locate func(points []Point) (towns, streets []string, err error)
 
-// CachedLocate answers from earlier results when it knows every point, so a re-ingest of unchanged stops reads no map.
 func CachedLocate(locate Locate) Locate {
 	var mu sync.Mutex
 	known := map[Point][2]string{}
@@ -70,7 +69,7 @@ func Stations(snap *Snapshot, locate Locate) (int, error) {
 			served[s] = true
 		}
 	}
-	// Tranzy also lists other cities' stops; letting them in stretches the lookup box over half the country.
+	// Tranzy lists other cities' stops too.
 	byName := map[string][]int{}
 	for i, k := range key {
 		if !served[i] {

@@ -11,11 +11,13 @@ import ListItem from '@/components/ui/ListItem.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import {useSettingsStore} from '@/stores/settings'
-import {chooseCity, cities, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
+import {useCityPicker} from '@/composables/useCityPicker.ts'
+import {chooseCity, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {isIOS} from '@/utils/ios.ts'
 import {
   BrightnessMediumIcon,
+  CloseIcon,
   CropFreeIcon,
   DarkModeIcon,
   DownloadIcon,
@@ -26,6 +28,7 @@ import {
   MyLocationIcon,
   PaletteIcon,
   PlaceIcon,
+  SearchIcon,
   TuneIcon,
   WarningAmberIcon,
 } from '@/utils/icons.ts'
@@ -80,6 +83,7 @@ const themes = computed<Choice<Theme>[]>(() => [
 
 const automatic = computed(() => locationGranted.value && !cityChoice.value)
 const cityOpen = ref(false)
+const {query: cityQuery, matches: shownCities, list: cityList, listHeight: cityListHeight} = useCityPicker(cityOpen)
 const info = computed(() => cityInfo())
 const regionSettings = computed(() => regionSettingsFor(currentCity.value))
 
@@ -166,28 +170,48 @@ async function choose(slug: string | null) {
       </ListItem>
       <Transition name="expand">
         <div v-if="cityOpen" class="expand-body">
+          <label class="search-pill city-search">
+            <SearchIcon class="m-icon text-on-surface-variant"/>
+            <input
+              v-model="cityQuery"
+              type="search"
+              class="search-input text-body-large"
+              data-kbd-item="city-search"
+              :placeholder="t('citySearch')"
+              :aria-label="t('citySearch')"
+              autocomplete="off"
+              enterkeyhint="search"
+              @keydown.enter="($event.target as HTMLInputElement).blur()"
+            />
+            <button v-if="cityQuery" type="button" class="icon-btn" :aria-label="t('clearSearch')" @click="cityQuery = ''">
+              <CloseIcon class="m-icon"/>
+            </button>
+          </label>
           <ListItem
-            v-if="locationGranted"
+            v-if="locationGranted && !cityQuery.trim()"
             :title="t('cityAuto')"
             data-kbd-item="city-auto"
             @click="choose(null)"
           >
             <template #leading><span class="radio" :class="{ 'is-on': automatic }"></span></template>
           </ListItem>
-          <ListItem
-            v-for="city in cities"
-            :key="city.slug"
-            :title="city.name"
-            :description="city.operator || undefined"
-            :data-kbd-item="`city-${city.slug}`"
-            @click="choose(city.slug)"
-          >
-            <template #leading><span class="radio" :class="{ 'is-on': !automatic && city.slug === currentCity }"></span></template>
-            <template #trailing>
-              <LiveBadge v-if="city.realtime"/>
-              <span v-else class="timetable-badge">{{ t('timetable') }}</span>
-            </template>
-          </ListItem>
+          <div ref="cityList" class="city-list" :style="{ maxHeight: cityListHeight }">
+            <ListItem
+              v-for="city in shownCities"
+              :key="city.slug"
+              :title="city.name"
+              :description="city.operator || undefined"
+              :data-kbd-item="`city-${city.slug}`"
+              @click="choose(city.slug)"
+            >
+              <template #leading><span class="radio" :class="{ 'is-on': !automatic && city.slug === currentCity }"></span></template>
+              <template #trailing>
+                <LiveBadge v-if="city.realtime"/>
+                <span v-else class="timetable-badge">{{ t('timetable') }}</span>
+              </template>
+            </ListItem>
+            <p v-if="!shownCities.length" class="city-none text-body-medium text-on-surface-variant">{{ t('noResults') }}</p>
+          </div>
         </div>
       </Transition>
       <ToggleRow
@@ -262,6 +286,25 @@ async function choose(slug: string | null) {
 
 .expand-body {
   display: grid;
+  margin: 0 16px 8px;
+  padding: 8px 0;
+  border-radius: 16px;
+  background: var(--md-surface-container);
+}
+
+.city-search {
+  margin: 0 8px 4px;
+}
+
+.city-list {
+  display: grid;
+  grid-auto-rows: max-content;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.city-none {
+  padding: 12px 16px;
 }
 
 .expand-enter-active,

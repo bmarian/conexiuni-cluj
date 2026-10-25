@@ -46,7 +46,7 @@ type pbfBlock struct {
 	err       error
 }
 
-// One city reads the country extract at a time: each read already uses every core, and their peaks add up.
+// One read at a time: each already uses every core.
 var extractSlot = make(chan struct{}, 1)
 
 func holdExtract() (release func()) {
