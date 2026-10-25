@@ -1030,9 +1030,7 @@ const chips = computed<ChipAction[]>(() => [
             </TimelineRow>
             <TimelineRow :top="ld.color" bottom="walk" dot="station" :color="ld.color">
               <span class="kicker font-bold" :style="{color: ld.color}">{{ t('planAlighting') }}</span>
-              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="stopLocation(ld.leg.to)">{{
-                stopName(ld.leg.to)
-              }}</RouterLink>
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="stopLocation(ld.leg.to)">{{ stopName(ld.leg.to) }}</RouterLink>
             </TimelineRow>
             <TimelineRow v-if="legIdx < selectedPlanLegsData.length - 1" top="walk" bottom="walk" dot="none" :color="ld.color" compact>
               <div class="transfer">

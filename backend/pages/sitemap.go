@@ -74,9 +74,9 @@ func writeCity(sb *strings.Builder, city *cities.City) error {
 		once(stationPath(city, s.Station()), "weekly", "0.6")
 	}
 	if x, ready, err := city.Destinations.Areas(); err == nil && ready {
-		writeURL(sb, canonicalURL(city, "/destinations"), "weekly", "0.7")
+		writeURL(sb, canonicalURL(city, destinationsPath), "weekly", "0.7")
 		for _, d := range x.Destinations() {
-			writeURL(sb, canonicalURL(city, "/to/"+d.Slug), "weekly", "0.8")
+			writeURL(sb, canonicalURL(city, areaPath(d.Slug)), "weekly", "0.8")
 		}
 	}
 	return nil

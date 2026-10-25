@@ -1,0 +1,26 @@
+GET /fixture/spre/cartier-0?lang=en
+200
+Cache-Control: public, max-age=300
+Content-Length: 2666
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Which bus to Cartier 0? Lines and times — Fixture | Ce autobuz iau?</title>
+<meta name="description" content="Direct lines to Cartier 0, Fixture, from every area: where to get on and off, how long it takes and how often they run.">
+<link rel="canonical" href="https://ceautobuziau.ro/fixture/spre/cartier-0?lang=en">
+<meta property="og:title" content="Which bus to Cartier 0? Lines and times — Fixture | Ce autobuz iau?">
+<meta property="og:description" content="Direct lines to Cartier 0, Fixture, from every area: where to get on and off, how long it takes and how often they run.">
+<meta property="og:url" content="https://ceautobuziau.ro/fixture/spre/cartier-0?lang=en">
+<meta name="twitter:title" content="Which bus to Cartier 0? Lines and times — Fixture | Ce autobuz iau?">
+<meta name="twitter:description" content="Direct lines to Cartier 0, Fixture, from every area: where to get on and off, how long it takes and how often they run.">
+<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/spre/cartier-0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/spre/cartier-0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/spre/cartier-0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Place","containedInPlace":{"@type":"City","name":"Fixture"},"geo":{"@type":"GeoCoordinates","latitude":45.9994,"longitude":23.988000000000003},"name":"Cartier 0"},"description":"Direct lines to Cartier 0, Fixture, from every area: where to get on and off, how long it takes and how often they run.","inLanguage":"en","name":"Which bus to Cartier 0? Lines and times — Fixture | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/spre/cartier-0?lang=en"}</script></head>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Which bus goes to Cartier 0?</h1><p>Lines stopping in Cartier 0: 1.</p><h2>From other areas</h2><h3><a href="/fixture/spre/fixture?lang=en">From fixture</a></h3><ul><li>line 1, from Stația 102 to Stația 101, 1 min, every ~12 min, first 05:08, last 23:08</li></ul><h2>Stops in Cartier 0</h2><ul><li><a href="/fixture/statia/statia-101?lang=en">Stația 101</a>: 1</li></ul><p><a href="/fixture/plan?lat=45.999400&amp;lon=23.988000&amp;name=Cartier+0&amp;lang=en">Plan a trip to Cartier 0</a></p><p><a href="/fixture/destinatii?lang=en">Destinations in Fixture</a></p></div></div></body>
+</html>
+

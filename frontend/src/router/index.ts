@@ -2,7 +2,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
 import {citiesReady, currentCity, knownCity, locatedCity, openingCity, setCity} from '@/utils/city.ts'
-import {lineProps, resolvePagePath, stationProps} from '@/utils/pagePaths.ts'
+import {lineProps, resolvePagePath, stationProps, stationsProps} from '@/utils/pagePaths.ts'
 
 const StopView = () => import('@/views/StopView.vue')
 const StopsView = () => import('@/views/StopsView.vue')
@@ -56,7 +56,7 @@ const router = createRouter({
       // Sync QR codes name no city.
       path: '/settings',
       redirect: (to) => ({
-        path: `/${currentCity.value}/settings`,
+        path: `/${currentCity.value}/setari`,
         query: to.query,
         hash: to.hash,
       }),
@@ -82,8 +82,14 @@ const router = createRouter({
           props: true,
         },
         {
-          path: 'stops/:stopIds',
+          path: 'statii/:stations',
           name: 'stops',
+          component: StopsView,
+          props: stationsProps,
+        },
+        {
+          path: 'stops/:stopIds',
+          name: 'stops-id',
           component: StopsView,
           props: true,
         },
@@ -106,26 +112,30 @@ const router = createRouter({
           beforeEnter: (to) => (isShare(to.query) ? sharedDestination(to.query) : true),
         },
         {
-          path: 'settings',
+          path: 'setari',
           name: 'settings',
           component: SettingsView,
         },
         {
-          path: 'news',
+          path: 'anunturi',
           name: 'news',
           component: NewsView,
         },
         {
-          path: 'destinations',
+          path: 'destinatii',
           name: 'destinations',
           component: DestinationsView,
         },
         {
-          path: 'to/:slug',
+          path: 'spre/:slug',
           name: 'destination',
           component: DestinationView,
           props: true,
         },
+        ...Object.entries({settings: 'settings', news: 'news', destinations: 'destinations', 'to/:slug': 'destination'}).map(([path, name]) => ({
+          path,
+          redirect: {name},
+        })),
       ],
     },
     {

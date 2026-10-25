@@ -30,12 +30,12 @@ onMounted(() => void routeUpdates.fetchUpdates())
       <span class="search-text text-body-large" :class="{'is-kept': search.query.value}">
         {{ search.query.value || t('searchPlaceholder') }}
       </span>
-      <button type="button" class="icon-btn" :aria-label="t('settings')" :title="t('settings')" @click.stop="router.push(cityPath('/settings'))">
+      <button type="button" class="icon-btn" :aria-label="t('settings')" :title="t('settings')" @click.stop="router.push(cityPath('/setari'))">
         <SettingsIcon class="m-icon" />
       </button>
     </div>
     <div v-if="showNews || places.length" class="chips">
-      <button v-if="showNews" type="button" class="map-chip squish" @click="router.push(cityPath('/news'))">
+      <button v-if="showNews" type="button" class="map-chip squish" @click="router.push(cityPath('/anunturi'))">
         <span class="relative inline-flex">
           <NewspaperIcon class="m-icon size-[18px] text-on-surface-variant" />
           <span v-if="routeUpdates.hasUnseen" class="news-dot"></span>

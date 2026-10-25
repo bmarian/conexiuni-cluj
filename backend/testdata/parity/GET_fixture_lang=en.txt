@@ -1,7 +1,7 @@
 GET /fixture/?lang=en
 200
 Cache-Control: public, max-age=300
-Content-Length: 2003
+Content-Length: 2001
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Fixture bus times — live timetables | Ce autobuz iau?">
 <meta name="twitter:description" content="Fixture bus timetables in real time: live departures from every stop, the timetable and route of every Fixture Transit line, and a trip planner.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixture/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><h2>Lines in Fixture</h2><ul><li><a href="/fixture/linia/1?lang=en">Line 1 — Capăt 101 - Capăt 105</a></li><li><a href="/fixture/linia/2b?lang=en">Line 2B — Capăt 111 - Capăt 115</a></li></ul><p><a href="/fixture/destinations?lang=en">Destinations in Fixture</a></p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Fixture public transport in real time</h1><p>Fixture Transit buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.</p><h2>Lines in Fixture</h2><ul><li><a href="/fixture/linia/1?lang=en">Line 1 — Capăt 101 - Capăt 105</a></li><li><a href="/fixture/linia/2b?lang=en">Line 2B — Capăt 111 - Capăt 115</a></li></ul><p><a href="/fixture/destinatii?lang=en">Destinations in Fixture</a></p></div></div></body>
 </html>
 

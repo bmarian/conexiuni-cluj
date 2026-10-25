@@ -100,7 +100,7 @@ func stationLinesHTML(c fiber.Ctx, l ogLocale, city *cities.City, stopID int) st
 		sb.WriteString(`</ul>`)
 	}
 	if area := x.AreaOf(stopID); area != nil {
-		fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, "/to/"+area.Slug), html.EscapeString(fmt.Sprintf(l.stopAreaFmt, area.Name)))
+		fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, areaPath(area.Slug)), html.EscapeString(fmt.Sprintf(l.stopAreaFmt, area.Name)))
 	}
 	return sb.String()
 }
@@ -131,7 +131,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 		return missing(c)
 	}
 	l := ogTexts(city, c)
-	pageURL := canonicalURL(city, "/to/"+dest.Slug)
+	pageURL := canonicalURL(city, areaPath(dest.Slug))
 	title := fmt.Sprintf(l.destTitleFmt, dest.Name)
 	desc := fmt.Sprintf(l.destDescFmt, dest.Name)
 
@@ -143,7 +143,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 		fmt.Fprintf(&sb, `<p>%s</p>`, html.EscapeString(l.destNoRides))
 	}
 	for _, o := range dest.From {
-		fmt.Fprintf(&sb, `<h3><a href="%s">%s</a></h3><ul>`, pagePath(c, city, "/to/"+o.Slug), html.EscapeString(fmt.Sprintf(l.destFromFmt, o.Name)))
+		fmt.Fprintf(&sb, `<h3><a href="%s">%s</a></h3><ul>`, pagePath(c, city, areaPath(o.Slug)), html.EscapeString(fmt.Sprintf(l.destFromFmt, o.Name)))
 		for _, r := range o.Rides {
 			fmt.Fprintf(&sb, `<li>%s</li>`, html.EscapeString(rideText(l, x, r)))
 		}
@@ -165,7 +165,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 	sb.WriteString(`</ul>`)
 	plan := url.Values{"name": {dest.Name}, "lat": {strconv.FormatFloat(dest.Lat, 'f', 6, 64)}, "lon": {strconv.FormatFloat(dest.Lon, 'f', 6, 64)}}
 	fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, "/plan?"+plan.Encode()), html.EscapeString(fmt.Sprintf(l.destPlanFmt, dest.Name)))
-	fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, "/destinations"), html.EscapeString(l.destAll))
+	fmt.Fprintf(&sb, `<p><a href="%s">%s</a></p>`, pagePath(c, city, destinationsPath), html.EscapeString(l.destAll))
 
 	return injectMeta(c, l, metaInjection{
 		title:       title,
@@ -200,7 +200,7 @@ func destinationsPage(city *cities.City, c fiber.Ctx) error {
 		return c.Next()
 	}
 	l := ogTexts(city, c)
-	pageURL := canonicalURL(city, "/destinations")
+	pageURL := canonicalURL(city, destinationsPath)
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `<h1>%s</h1><p>%s</p>`, html.EscapeString(l.destsH1), html.EscapeString(l.destsDesc))
 	for _, districts := range []bool{true, false} {
@@ -211,7 +211,7 @@ func destinationsPage(city *cities.City, c fiber.Ctx) error {
 		fmt.Fprintf(&sb, `<h2>%s</h2><ul>`, html.EscapeString(heading))
 		for _, d := range x.Destinations() {
 			if d.District == districts {
-				fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, "/to/"+d.Slug), html.EscapeString(fmt.Sprintf(l.destH1Fmt, d.Name)))
+				fmt.Fprintf(&sb, `<li><a href="%s">%s</a></li>`, pagePath(c, city, areaPath(d.Slug)), html.EscapeString(fmt.Sprintf(l.destH1Fmt, d.Name)))
 			}
 		}
 		sb.WriteString(`</ul>`)

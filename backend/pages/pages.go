@@ -18,6 +18,8 @@ func Register(app fiber.Router, city *cities.City) {
 	app.Get("/route/:routeId/:direction", page(idRoutePage))
 	app.Get("/stop/:stopId", page(idStopPage))
 	app.Get("/plan", page(planPage))
-	app.Get("/destinations", page(destinationsPage))
-	app.Get("/to/:slug", page(destinationPage))
+	app.Get(destinationsPath, page(destinationsPage))
+	app.Get(areaPath(":slug"), page(destinationPage))
+	app.Get("/destinations", page(func(city *cities.City, c fiber.Ctx) error { return moved(c, city, destinationsPath) }))
+	app.Get("/to/:slug", page(func(city *cities.City, c fiber.Ctx) error { return moved(c, city, areaPath(c.Params("slug"))) }))
 }

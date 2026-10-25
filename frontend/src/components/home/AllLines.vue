@@ -39,7 +39,7 @@ const groups = computed(() => groupByMode((network.value?.bundle.routes ?? []).f
     <ListRow
       class="mt-2"
       :title="t('destAll', cityParams())"
-      :href="cityPath('/destinations')"
+      :href="cityPath('/destinatii')"
       chevron
       data-kbd-item="all-destinations"
       @open="router.push({name: 'destinations'})"
