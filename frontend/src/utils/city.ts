@@ -72,7 +72,7 @@ export const citiesReady: Promise<City[]> = cities.value.length ? Promise.resolv
 
 function cityFromPath(): string | null {
   const first = window.location.pathname.split('/')[1] ?? ''
-  return /^[a-z][a-z0-9-]*$/.test(first) && !['android', 'admin', 'plan'].includes(first) && knownCity(first) ? first : null
+  return /^[a-z][a-z0-9-]*$/.test(first) && !['admin', 'plan'].includes(first) && knownCity(first) ? first : null
 }
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))

@@ -28,7 +28,6 @@ func Sitemap(registry *cities.Registry) fiber.Handler {
 			sb.WriteString(xml.Header)
 			sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 			writeURL(&sb, web.SiteOrigin+"/", "daily", "1.0")
-			writeURL(&sb, web.SiteOrigin+"/android", "monthly", "0.5")
 			for _, city := range registry.Enabled() {
 				if err := writeCity(&sb, city); err != nil {
 					return c.Status(fiber.StatusInternalServerError).SendString(err.Error())

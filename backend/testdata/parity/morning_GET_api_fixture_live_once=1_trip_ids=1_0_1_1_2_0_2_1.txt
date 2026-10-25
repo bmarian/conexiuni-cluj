@@ -2,16 +2,16 @@ GET /api/fixture/live?once=1&trip_ids=1_0,1_1,2_0,2_1
 200
 Cache-Control: no-store
 Content-Length: 3355
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"3355-3770006581"
+Etag: W/"3355-923625927"
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "as_of": 1792467590,
+ "as_of": 1792467584,
  "rows": [
   {
    "trip_id": "1_0",
@@ -23,11 +23,11 @@ X-Frame-Options: DENY
      "vehicle_id": 11
     },
     {
-     "at": 1792468783,
+     "at": 1792468670,
      "live": false
     },
     {
-     "at": 1792469683,
+     "at": 1792469570,
      "live": false
     }
    ]
@@ -37,16 +37,16 @@ X-Frame-Options: DENY
    "stop_id": 102,
    "entries": [
     {
-     "at": 1792467986,
+     "at": 1792467969,
      "live": true,
      "vehicle_id": 11
     },
     {
-     "at": 1792468869,
+     "at": 1792468739,
      "live": false
     },
     {
-     "at": 1792469769,
+     "at": 1792469639,
      "live": false
     }
    ]
@@ -56,16 +56,16 @@ X-Frame-Options: DENY
    "stop_id": 103,
    "entries": [
     {
-     "at": 1792468072,
+     "at": 1792468056,
      "live": true,
      "vehicle_id": 11
     },
     {
-     "at": 1792468955,
+     "at": 1792468826,
      "live": false
     },
     {
-     "at": 1792469855,
+     "at": 1792469726,
      "live": false
     }
    ]
@@ -75,16 +75,16 @@ X-Frame-Options: DENY
    "stop_id": 104,
    "entries": [
     {
-     "at": 1792468158,
+     "at": 1792468142,
      "live": true,
      "vehicle_id": 11
     },
     {
-     "at": 1792469041,
+     "at": 1792468912,
      "live": false
     },
     {
-     "at": 1792469941,
+     "at": 1792469812,
      "live": false
     }
    ]
@@ -94,17 +94,17 @@ X-Frame-Options: DENY
    "stop_id": 105,
    "entries": [
     {
-     "at": 1792467590,
+     "at": 1792467584,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468245,
+     "at": 1792468229,
      "live": true,
      "vehicle_id": 11
     },
     {
-     "at": 1792469128,
+     "at": 1792468999,
      "live": false
     }
    ]
@@ -114,16 +114,16 @@ X-Frame-Options: DENY
    "stop_id": 105,
    "entries": [
     {
-     "at": 1792467613,
+     "at": 1792467607,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468267,
+     "at": 1792468162,
      "live": false
     },
     {
-     "at": 1792469167,
+     "at": 1792469062,
      "live": false
     }
    ]
@@ -133,16 +133,16 @@ X-Frame-Options: DENY
    "stop_id": 104,
    "entries": [
     {
-     "at": 1792467699,
+     "at": 1792467676,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468353,
+     "at": 1792468231,
      "live": false
     },
     {
-     "at": 1792469253,
+     "at": 1792469131,
      "live": false
     }
    ]
@@ -152,16 +152,16 @@ X-Frame-Options: DENY
    "stop_id": 103,
    "entries": [
     {
-     "at": 1792467785,
+     "at": 1792467763,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468439,
+     "at": 1792468318,
      "live": false
     },
     {
-     "at": 1792469339,
+     "at": 1792469218,
      "live": false
     }
    ]
@@ -171,16 +171,16 @@ X-Frame-Options: DENY
    "stop_id": 102,
    "entries": [
     {
-     "at": 1792467871,
+     "at": 1792467849,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468525,
+     "at": 1792468404,
      "live": false
     },
     {
-     "at": 1792469425,
+     "at": 1792469304,
      "live": false
     }
    ]
@@ -190,17 +190,17 @@ X-Frame-Options: DENY
    "stop_id": 101,
    "entries": [
     {
-     "at": 1792467590,
+     "at": 1792467584,
      "live": true,
      "vehicle_id": 11
     },
     {
-     "at": 1792467958,
+     "at": 1792467936,
      "live": true,
      "vehicle_id": 12
     },
     {
-     "at": 1792468612,
+     "at": 1792468491,
      "live": false
     }
    ]
@@ -210,15 +210,15 @@ X-Frame-Options: DENY
    "stop_id": 111,
    "entries": [
     {
-     "at": 1792468719,
+     "at": 1792468704,
      "live": false
     },
     {
-     "at": 1792469919,
+     "at": 1792469904,
      "live": false
     },
     {
-     "at": 1792471119,
+     "at": 1792471104,
      "live": false
     }
    ]
@@ -228,16 +228,16 @@ X-Frame-Options: DENY
    "stop_id": 103,
    "entries": [
     {
-     "at": 1792467590,
+     "at": 1792467603,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792468847,
+     "at": 1792468860,
      "live": false
     },
     {
-     "at": 1792470047,
+     "at": 1792470060,
      "live": false
     }
    ]
@@ -247,16 +247,16 @@ X-Frame-Options: DENY
    "stop_id": 114,
    "entries": [
     {
-     "at": 1792467677,
+     "at": 1792467689,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792468934,
+     "at": 1792468946,
      "live": false
     },
     {
-     "at": 1792470134,
+     "at": 1792470146,
      "live": false
     }
    ]
@@ -266,16 +266,16 @@ X-Frame-Options: DENY
    "stop_id": 115,
    "entries": [
     {
-     "at": 1792467763,
+     "at": 1792467776,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792469020,
+     "at": 1792469033,
      "live": false
     },
     {
-     "at": 1792470220,
+     "at": 1792470233,
      "live": false
     }
    ]
@@ -304,16 +304,16 @@ X-Frame-Options: DENY
    "stop_id": 114,
    "entries": [
     {
-     "at": 1792467986,
+     "at": 1792467969,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792469186,
+     "at": 1792469169,
      "live": false
     },
     {
-     "at": 1792470386,
+     "at": 1792470369,
      "live": false
     }
    ]
@@ -323,16 +323,16 @@ X-Frame-Options: DENY
    "stop_id": 103,
    "entries": [
     {
-     "at": 1792468073,
+     "at": 1792468056,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792469273,
+     "at": 1792469256,
      "live": false
     },
     {
-     "at": 1792470473,
+     "at": 1792470456,
      "live": false
     }
    ]
@@ -342,16 +342,16 @@ X-Frame-Options: DENY
    "stop_id": 111,
    "entries": [
     {
-     "at": 1792468246,
+     "at": 1792468229,
      "live": true,
      "vehicle_id": 21
     },
     {
-     "at": 1792469446,
+     "at": 1792469429,
      "live": false
     },
     {
-     "at": 1792470646,
+     "at": 1792470629,
      "live": false
     }
    ]
@@ -366,7 +366,7 @@ X-Frame-Options: DENY
    "longitude": 24.012,
    "heading": 90,
    "speed": 0,
-   "timestamp": "2026-10-20T03:39:50Z",
+   "timestamp": "2026-10-20T03:39:44Z",
    "label": "B12",
    "vehicle_type": 3
   },
@@ -378,7 +378,7 @@ X-Frame-Options: DENY
    "longitude": 23.988,
    "heading": 270,
    "speed": 0,
-   "timestamp": "2026-10-20T03:39:50Z",
+   "timestamp": "2026-10-20T03:39:44Z",
    "label": "B11",
    "vehicle_type": 3,
    "bike_accessible": "BIKE_ACCESSIBLE",
@@ -388,11 +388,11 @@ X-Frame-Options: DENY
    "id": 21,
    "trip_id": "2_0",
    "route_id": 2,
-   "latitude": 45.99957333333333,
+   "latitude": 45.99931733333333,
    "longitude": 24,
    "heading": 0,
    "speed": 20,
-   "timestamp": "2026-10-20T03:39:50Z",
+   "timestamp": "2026-10-20T03:39:44Z",
    "label": "T21"
   }
  ]

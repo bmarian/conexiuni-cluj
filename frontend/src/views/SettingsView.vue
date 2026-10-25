@@ -15,15 +15,12 @@ import {useSettingsStore} from '@/stores/settings'
 import {useCityPicker} from '@/composables/useCityPicker.ts'
 import {chooseCity, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
-import {isIOS} from '@/utils/ios.ts'
 import {adminAuthed} from '@/composables/useAdmin.ts'
 import {
   BrightnessMediumIcon,
   CloseIcon,
-  CodeIcon,
   CropFreeIcon,
   DarkModeIcon,
-  DownloadIcon,
   EcoIcon,
   EmailIcon,
   ExpandMoreIcon,
@@ -40,7 +37,6 @@ type Theme = 'light' | 'dark' | 'system'
 type Locale = 'ro' | 'en'
 
 const CONTACT_EMAIL = 'ceautobuziau@gmail.com'
-const SOURCE_URL = 'https://github.com/bmarian/conexiuni-cluj'
 const release = __APP_RELEASE__
 
 const {t, locale} = useI18n()
@@ -239,40 +235,11 @@ async function choose(slug: string | null) {
       </div>
     </template>
 
-    <template v-if="!isIOS">
-      <h2 class="section">{{ t('androidApp') }}</h2>
-      <div data-kbd-section="android-app">
-        <ListItem
-          :icon="DownloadIcon"
-          :title="t('androidBetaAsk')"
-          :description="t('androidAppDesc')"
-          data-kbd-item="android-app"
-          @click="router.push({name: 'android'})"
-        >
-          <template #badge
-            ><span class="beta">{{ t('beta') }}</span></template
-          >
-        </ListItem>
-      </div>
-    </template>
-
     <h2 class="section">{{ t('contact') }}</h2>
     <div data-kbd-section="contact">
       <ListItem as="a" :href="`mailto:${CONTACT_EMAIL}`" :icon="EmailIcon" :title="CONTACT_EMAIL" :description="t('contactDesc')" data-kbd-item="contact" />
-      <ListItem
-        as="a"
-        :href="SOURCE_URL"
-        target="_blank"
-        rel="noopener"
-        :icon="CodeIcon"
-        title="GitHub"
-        :description="t('sourceCodeDesc')"
-        data-kbd-item="source"
-      />
     </div>
-    <p class="version text-body-small text-on-surface-variant">
-      {{ t('openSource') }}<template v-if="release"> · v{{ release }}</template>
-    </p>
+    <p v-if="release" class="version text-body-small text-on-surface-variant">v{{ release }}</p>
     <div class="h-8"></div>
   </div>
 </template>
@@ -369,17 +336,5 @@ async function choose(slug: string | null) {
   inset: 5px;
   border-radius: 50%;
   background: var(--md-primary);
-}
-
-.beta {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--md-amber) 18%, transparent);
-  color: #b45309;
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 </style>

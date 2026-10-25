@@ -184,7 +184,7 @@ async function confirmAsk() {
 
 <template>
   <div ref="rootRef" class="sync">
-    <p class="text-body-small text-on-surface-variant py-1">{{ t('syncDesc') }}</p>
+    <p v-if="store.status !== 'on'" class="text-body-small text-on-surface-variant py-1">{{ t('syncDesc') }}</p>
 
     <p v-if="!supported" class="text-body-medium">{{ t('syncNeedsHttps') }}</p>
     <template v-else>

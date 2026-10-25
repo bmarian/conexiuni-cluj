@@ -2,12 +2,12 @@ package web
 
 import "github.com/gofiber/fiber/v3"
 
-// Every origin the web app talks to: map tiles, place search, weather, the Android release check.
+// Every origin the web app talks to: map tiles.
 const contentSecurityPolicy = "default-src 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' data: blob:; " +
-	"connect-src 'self' https://tiles.openfreemap.org https://api.open-meteo.com https://api.github.com; " +
+	"connect-src 'self' https://tiles.openfreemap.org; " +
 	"font-src 'self'; " +
 	"object-src 'none'; " +
 	"base-uri 'self'; " +

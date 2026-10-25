@@ -63,9 +63,6 @@ type ogLocale struct {
 	homeDesc           string
 	homeH1             string
 	homeBody           string
-	androidTitle       string
-	androidDesc        string
-	androidBody        string
 	routeStopsFmt      string // args: shortName, toward
 	routeOtherFmt      string // args: toward
 	stopLines          string
@@ -118,9 +115,6 @@ var ogLocales = map[string]ogLocale{
 		homeDesc:           "Orarul autobuzelor din {city} în timp real: plecări live din stații, orarul și traseul fiecărei linii {operator} și planificator de rute.",
 		homeH1:             "Transport public {city} în timp real",
 		homeBody:           "Autobuzele, troleibuzele și tramvaiele {operator} în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
-		androidTitle:       "Aplicația Android — Ce autobuz iau?",
-		androidDesc:        "Intră în beta și testează aplicația pentru telefon și ceas Wear OS.",
-		androidBody:        "Intră în grupul de testeri cu contul Google, apoi ia aplicația din Google Play. Necesită Android 8 sau mai nou.",
 		routeStopsFmt:      "Stațiile liniei %s spre %s",
 		routeOtherFmt:      "Sensul opus: spre %s",
 		stopLines:          "Liniile care opresc aici",
@@ -171,9 +165,6 @@ var ogLocales = map[string]ogLocale{
 		homeDesc:           "{city} bus timetables in real time: live departures from every stop, the timetable and route of every {operator} line, and a trip planner.",
 		homeH1:             "{city} public transport in real time",
 		homeBody:           "{operator} buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
-		androidTitle:       "Android app — Ce autobuz iau?",
-		androidDesc:        "Join the beta to test the app for your phone and Wear OS watch.",
-		androidBody:        "Join the testers group with your Google account, then get the app from Google Play. Needs Android 8 or newer.",
 		routeStopsFmt:      "Line %s stops toward %s",
 		routeOtherFmt:      "Other direction: toward %s",
 		stopLines:          "Lines stopping here",
@@ -540,27 +531,6 @@ func homePage(city *cities.City, c fiber.Ctx) error {
 			"@type":    "WebSite",
 			"name":     "Ce autobuz iau?",
 			"url":      canonicalURL(city, "/"),
-		}),
-	})
-}
-
-func Android(c fiber.Ctx) error {
-	l := detectLocale(c)
-	return injectMeta(c, l, metaInjection{
-		title:       l.androidTitle,
-		description: l.androidDesc,
-		canonical:   web.SiteOrigin + "/android",
-		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
-			html.EscapeString(l.androidTitle),
-			html.EscapeString(l.androidBody)),
-		jsonLD: marshalJSONLD(map[string]any{
-			"@context":    "https://schema.org",
-			"@type":       "WebPage",
-			"name":        l.androidTitle,
-			"description": l.androidDesc,
-			"url":         selfURL(c, web.SiteOrigin+"/android"),
-			"inLanguage":  l.lang,
-			"publisher":   publisherOrg(),
 		}),
 	})
 }
