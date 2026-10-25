@@ -380,6 +380,7 @@ type bundleShape struct {
 	Routes []struct {
 		RouteID        int    `json:"route_id"`
 		RouteShortName string `json:"route_short_name"`
+		Slug           string `json:"slug"`
 		Trips          []struct {
 			TripID string `json:"trip_id"`
 		} `json:"trips"`
@@ -389,6 +390,7 @@ type bundleShape struct {
 		StopName string  `json:"stop_name"`
 		Lat      float64 `json:"stop_lat"`
 		Lon      float64 `json:"stop_lon"`
+		Slug     string  `json:"slug"`
 	} `json:"stops"`
 }
 
@@ -597,14 +599,20 @@ func (r *recorder) walkCity(slug string) {
 		}
 		r.get(fmt.Sprintf("%s/route/%d/0", page, route.RouteID))
 		r.get(fmt.Sprintf("%s/route/%d/1", page, route.RouteID))
+		r.get(page + "/linia/" + route.Slug)
+		r.get(page + "/linia/" + route.Slug + "/intors")
 	}
 	for i := 0; i < min(3, len(stops)); i++ {
 		r.get(fmt.Sprintf("%s/stop/%d", page, stops[i*len(stops)/3].StopID))
+		r.get(page + "/statia/" + stops[i*len(stops)/3].Slug)
 	}
 	if len(stops) > 0 {
 		r.get(fmt.Sprintf("%s/stop/%d?lang=en", page, stops[0].StopID))
+		r.get(page + "/statia/" + stops[0].Slug + "?lang=en")
 	}
 	r.get(page + "/stop/999999999")
+	r.get(page + "/statia/nope")
+	r.get(page + "/linia/nope")
 }
 
 func slicesChunk(s []string, n int) func(func([]string) bool) {

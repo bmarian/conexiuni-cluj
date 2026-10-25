@@ -1,26 +1,11 @@
 GET /fixturegtfs/stop/701
-200
-Cache-Control: public, max-age=300
-Content-Length: 2463
+301
+Content-Length: 0
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-Content-Type: text/html; charset=utf-8
+Location: /fixturegtfs/statia/statia-701
 Strict-Transport-Security: max-age=31536000
 Vary: Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
-<!DOCTYPE html>
-<html lang="ro">
-<head>
-<title>Stația Stația 701, Fixture GTFS — Plecări live | Ce autobuz iau?</title>
-<meta name="description" content="Plecări în timp real de la stația Stația 701 din Fixture GTFS. Liniile care opresc aici și orarele actuale.">
-<link rel="canonical" href="https://ceautobuziau.ro/fixturegtfs/stop/701">
-<meta property="og:title" content="Stația Stația 701, Fixture GTFS — Plecări live | Ce autobuz iau?">
-<meta property="og:description" content="Plecări în timp real de la stația Stația 701 din Fixture GTFS. Liniile care opresc aici și orarele actuale.">
-<meta property="og:url" content="https://ceautobuziau.ro/fixturegtfs/stop/701">
-<meta name="twitter:title" content="Stația Stația 701, Fixture GTFS — Plecări live | Ce autobuz iau?">
-<meta name="twitter:description" content="Plecări în timp real de la stația Stația 701 din Fixture GTFS. Liniile care opresc aici și orarele actuale.">
-<link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/stop/701"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/stop/701?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/stop/701"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"BusStop","address":{"@type":"PostalAddress","addressCountry":"RO","addressLocality":"Fixture GTFS"},"geo":{"@type":"GeoCoordinates","latitude":45,"longitude":24.988},"name":"Stația 701"},"description":"Plecări în timp real de la stația Stația 701 din Fixture GTFS. Liniile care opresc aici și orarele actuale.","inLanguage":"ro","name":"Stația Stația 701, Fixture GTFS — Plecări live | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/stop/701"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 701, Fixture GTFS</h1><p>Plecări în timp real de la stația Stația 701 din Fixture GTFS. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixturegtfs/route/7/0">7</a> spre Capăt 705</li></ul><p><a href="/fixturegtfs/to/cartier-0">Cum ajungi în Cartier 0</a></p></div></div></body>
-</html>
 

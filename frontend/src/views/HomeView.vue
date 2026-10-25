@@ -22,6 +22,7 @@ import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
+import {stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
@@ -112,7 +113,7 @@ const recentNonFavoritePlans = computed<FavoritePlan[]>(() =>
 const lookOf = (stopId: number) => network.value?.look(stopId)
 
 function openStop(stop: Stop) {
-  void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
+  void router.push(stopLocation(stop.stop_id))
 }
 
 function openPlan(plan: FavoritePlan) {

@@ -12,8 +12,11 @@ func Register(app fiber.Router, city *cities.City) {
 		return func(c fiber.Ctx) error { return serve(city, c) }
 	}
 	app.Get("/", page(homePage))
-	app.Get("/route/:routeId/:direction", page(routePage))
-	app.Get("/stop/:stopId", page(stopPage))
+	app.Get("/linia/:line", page(linePage))
+	app.Get("/linia/:line/:direction", page(linePage))
+	app.Get("/statia/:station", page(stationPage))
+	app.Get("/route/:routeId/:direction", page(idRoutePage))
+	app.Get("/stop/:stopId", page(idStopPage))
 	app.Get("/plan", page(planPage))
 	app.Get("/destinations", page(destinationsPage))
 	app.Get("/to/:slug", page(destinationPage))

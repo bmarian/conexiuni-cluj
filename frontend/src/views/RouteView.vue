@@ -18,7 +18,8 @@ import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
-import {cityParams, cityPath} from '@/utils/city.ts'
+import {cityParams} from '@/utils/city.ts'
+import {lineCanonicalPath, linePath, stopLocation, stopPath, type Direction} from '@/utils/pagePaths.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
@@ -106,7 +107,7 @@ watch(
 function dismissChange() {
   activeChange.value = null
   if (currentRoute.query.change) {
-    void router.replace({name: 'route', params: {routeId: props.routeId, direction: currentDirection.value}})
+    void router.replace(linePath(props.routeId, currentDirection.value))
   }
 }
 
@@ -117,7 +118,7 @@ useHead(() => {
   const longName = timetable.value?.route_long_name ?? ''
   const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${directedRouteName(longName, currentDirection.value)}` : ''})
   const description = t('headRouteDesc', {...cityParams(), shortName})
-  const url = canonicalUrl(cityPath(`/route/${props.routeId}/${props.direction}`))
+  const url = canonicalUrl(lineCanonicalPath(props.routeId, props.direction as Direction))
   return {
     title,
     meta: [
@@ -296,7 +297,7 @@ const selectedDepartureStops = computed((): TripStop[] => {
 const selectedDepartureTimeDisplay = computed(() => selectedDepartureStops.value[0]?.arrivalTimeStr ?? null)
 
 function onDirClick(dir: '0' | '1') {
-  router.replace({name: 'route', params: {routeId: props.routeId, direction: dir}})
+  router.replace(linePath(props.routeId, dir))
   currentDirection.value = dir
 }
 
@@ -391,8 +392,8 @@ function stopMark(idx: number, stop: IndexedStop, count: number): StopMark {
   return 'plain'
 }
 
-const stopHref = (stop: IndexedStop) => cityPath(`/stop/${stop.stop_id}`)
-const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
+const stopHref = (stop: IndexedStop) => stopPath(stop.stop_id)
+const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
 </script>
 
 <template>

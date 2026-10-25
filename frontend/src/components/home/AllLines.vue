@@ -6,6 +6,7 @@ import {network} from '@/utils/network.ts'
 import {hasTimetableEntries} from '@/utils/time.ts'
 import {groupByMode} from '@/utils/modes.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
+import {linePath} from '@/utils/pagePaths.ts'
 import {useOpenRoute} from '@/composables/useOpenRoute.ts'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import ListRow from '@/components/ui/ListRow.vue'
@@ -30,7 +31,7 @@ const groups = computed(() => groupByMode((network.value?.bundle.routes ?? []).f
         :color="route.route_color"
         :title="route.route_long_name"
         :busy="openingRouteId === route.route_id"
-        :href="cityPath(`/route/${route.route_id}/0`)"
+        :href="linePath(route.route_id, '0')"
         :data-kbd-item="`line-${route.route_id}`"
         @open="openRoute(route)"
       />

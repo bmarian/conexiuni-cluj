@@ -8,6 +8,7 @@ import {type Destination, type DestinationSummary, fetchDestination, fetchDestin
 import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {canonicalUrl} from '@/utils/site.ts'
+import {linePath, stopPath} from '@/utils/pagePaths.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {DirectionsBusIcon, DirectionsIcon, MapIcon, PlaceIcon} from '@/utils/icons.ts'
@@ -105,11 +106,11 @@ const origins = computed(() => {
 })
 
 function openRoute(ride: Ride) {
-  void router.push({name: 'route', params: {routeId: String(ride.route_id), direction: String(ride.direction)}})
+  void router.push(rideHref(ride))
 }
 
-const rideHref = (ride: Ride) => cityPath(`/route/${ride.route_id}/${ride.direction}`)
-const stopHref = (stop: Stop) => cityPath(`/stop/${stop.stop_id}`)
+const rideHref = (ride: Ride) => linePath(ride.route_id, ride.direction === 1 ? '1' : '0')
+const stopHref = (stop: Stop) => stopPath(stop.stop_id)
 const areaHref = (slug: string) => cityPath(`/to/${slug}`)
 
 function showAll(slug: string) {

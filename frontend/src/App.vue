@@ -434,7 +434,7 @@ useKbdShortcuts(
               <KeepAlive include="RoutePlanningView">
                 <component
                   :is="Component"
-                  :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"
+                  :key="`${viewRoute.params.city}/${viewRoute.name === 'route' || viewRoute.name === 'route-id' ? `route-${viewRoute.params.line ?? viewRoute.params.routeId}` : String(viewRoute.name)}`"
                 />
               </KeepAlive>
             </Transition>

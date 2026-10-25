@@ -61,6 +61,7 @@ import {
   SwapVertIcon,
 } from '@/utils/icons.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
+import {linePath, stopLocation} from '@/utils/pagePaths.ts'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -998,7 +999,7 @@ const chips = computed<ChipAction[]>(() => [
                   <RouterLink
                     class="font-black"
                     :data-kbd-item="`leg-${legIdx}-route-${routeId}`"
-                    :to="{name: 'route', params: {routeId: routeId, direction: ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0'}}"
+                    :to="linePath(routeId, ld.trips.get(routeId)?.endsWith('_1') ? '1' : '0')"
                     @click.stop
                     >{{ line(routeId)?.short_name }}</RouterLink
                   ><span v-if="rIdx < (expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines.length : Math.min(ld.lines.length, 4)) - 1"
@@ -1018,18 +1019,18 @@ const chips = computed<ChipAction[]>(() => [
                   &nbsp;· {{ Math.max(0, Math.round(ld.leg.seconds / 60)) }}&nbsp;min&nbsp;{{ t('planRideTime') }}
                 </span>
               </span>
-              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-start`" :to="{name: 'stop', params: {stopId: ld.leg.from}}">{{
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-start`" :to="stopLocation(ld.leg.from)">{{
                 stopName(ld.leg.from)
               }}</RouterLink>
             </TimelineRow>
             <TimelineRow v-for="stop in ld.intermediates" :key="stop.stop_id" :top="ld.color" :bottom="ld.color" dot="stop" :color="ld.color" compact>
-              <RouterLink class="stop-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="{name: 'stop', params: {stopId: stop.stop_id}}">{{
+              <RouterLink class="stop-link" :data-kbd-item="`leg-${legIdx}-mid-${stop.stop_id}`" :to="stopLocation(stop.stop_id)">{{
                 stop.stop_name
               }}</RouterLink>
             </TimelineRow>
             <TimelineRow :top="ld.color" bottom="walk" dot="station" :color="ld.color">
               <span class="kicker font-bold" :style="{color: ld.color}">{{ t('planAlighting') }}</span>
-              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="{name: 'stop', params: {stopId: ld.leg.to}}">{{
+              <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="stopLocation(ld.leg.to)">{{
                 stopName(ld.leg.to)
               }}</RouterLink>
             </TimelineRow>

@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/jobs"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
 	"sync"
 	"time"
@@ -41,6 +42,7 @@ type Service struct {
 	timing  Timing
 	// Runner is the city's background work, which rebuilds a stale bundle.
 	Runner func() *jobs.Runner
+	Slugs  func() *slugs.Index
 
 	buildMu  sync.Mutex
 	mu       sync.Mutex
@@ -49,7 +51,8 @@ type Service struct {
 }
 
 func New(loc *time.Location, store *database.Store, data *transit.Data, offered *transit.Availability, timing Timing) *Service {
-	return &Service{loc: loc, store: store, data: data, offered: offered, timing: timing, Runner: jobs.None}
+	none := slugs.Empty()
+	return &Service{loc: loc, store: store, data: data, offered: offered, timing: timing, Runner: jobs.None, Slugs: func() *slugs.Index { return none }}
 }
 
 func (s *Service) Register(api fiber.Router) {

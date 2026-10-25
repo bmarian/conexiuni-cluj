@@ -1,5 +1,5 @@
 import {ref} from 'vue'
-import {buildStopInfo, network, networkLoaded, refreshNetwork} from '@/utils/network.ts'
+import {buildStopInfo, loadedNetwork} from '@/utils/network.ts'
 
 export function useStopInfoApi() {
   const stopInfo = ref()
@@ -8,9 +8,8 @@ export function useStopInfoApi() {
   async function fetchStopData(stopId: string) {
     stopInfo.value = undefined
     error.value = undefined
-    await networkLoaded()
-    if (!network.value) await refreshNetwork(true)
-    const local = network.value && buildStopInfo(network.value, Number(stopId))
+    const index = await loadedNetwork()
+    const local = index && buildStopInfo(index, Number(stopId))
     if (local) {
       stopInfo.value = local
       return

@@ -55,10 +55,7 @@ func (c *hueCircle) spread(n int) float64 {
 func stationsOfLines(bundle *models.NetworkBundle) map[string]map[int]bool {
 	stationOf := make(map[int]int, len(bundle.Stops))
 	for _, stop := range bundle.Stops {
-		stationOf[stop.StopID] = stop.StopID
-		if stop.StationID != 0 {
-			stationOf[stop.StopID] = stop.StationID
-		}
+		stationOf[stop.StopID] = stop.Station()
 	}
 	out := map[string]map[int]bool{}
 	for _, route := range bundle.Routes {

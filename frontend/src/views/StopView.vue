@@ -16,7 +16,8 @@ import {getDirectionFromTripId, getTripIdForRouteAtStop} from '@/utils/trips.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useKbdShortcuts} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
-import {cityParams, cityPath} from '@/utils/city.ts'
+import {cityParams} from '@/utils/city.ts'
+import {linePath, stopPath} from '@/utils/pagePaths.ts'
 import {groupByMode, mainMode} from '@/utils/modes.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
@@ -77,7 +78,7 @@ useHead(() => {
   if (!stopName.value) return {}
   const title = t('headStopTitle', {...cityParams(), stopName: stopName.value})
   const description = t('headStopDesc', {...cityParams(), stopName: stopName.value})
-  const url = canonicalUrl(cityPath(`/stop/${props.stopId}`))
+  const url = canonicalUrl(stopPath(props.stopId))
   return {
     title,
     meta: [
@@ -121,13 +122,7 @@ const navigateToRoute = (shape: VehiclesInStop) => {
   const si = platformOf(shape.route_id)?.shapes_info.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
   routeStore.setSelectedRoute(si, shape.trip_id, String(platformAt(shape)), stopName.value || '')
-  router.push({
-    name: 'route',
-    params: {
-      routeId: shape.route_id,
-      direction: getDirectionFromTripId(shape.trip_id),
-    },
-  })
+  router.push(linePath(shape.route_id, getDirectionFromTripId(shape.trip_id)))
 }
 
 const tripAtStop = (shape: ShapeInfo) => {
@@ -135,16 +130,13 @@ const tripAtStop = (shape: ShapeInfo) => {
   return getTripIdForRouteAtStop(platform?.outgoing_trip_ids || [], platform?.incoming_trip_ids || [], shape.route_id) || `${shape.route_id}${OUTGOING_SUFFIX}`
 }
 
-const allRouteHref = (shape: ShapeInfo) => cityPath(`/route/${shape.route_id}/${getDirectionFromTripId(tripAtStop(shape))}`)
+const allRouteHref = (shape: ShapeInfo) => linePath(shape.route_id, getDirectionFromTripId(tripAtStop(shape)))
 
 const navigateToAllRoute = (shape: ShapeInfo) => {
   const platform = platformOf(shape.route_id) ?? stopInfo.value
   const tripId = tripAtStop(shape)
   routeStore.setSelectedRoute(shape, tripId, String(platform?.stop_id ?? props.stopId), stopName.value || '')
-  router.push({
-    name: 'route',
-    params: {routeId: shape.route_id, direction: getDirectionFromTripId(tripId)},
-  })
+  router.push(linePath(shape.route_id, getDirectionFromTripId(tripId)))
 }
 
 const {share} = useShare()

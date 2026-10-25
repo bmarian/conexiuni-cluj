@@ -1,7 +1,7 @@
 GET /fixturegtfs/
 200
 Cache-Control: public, max-age=300
-Content-Length: 2130
+Content-Length: 2127
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Mersul autobuzelor Fixture GTFS — orar în timp real | Ce autobuz iau?">
 <meta name="twitter:description" content="Orarul autobuzelor din Fixture GTFS în timp real: plecări live din stații, orarul și traseul fiecărei linii Fixture Rail și planificator de rute.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/fixturegtfs/"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Transport public Fixture GTFS în timp real</h1><p>Autobuzele, troleibuzele și tramvaiele Fixture Rail în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.</p><h2>Liniile din Fixture GTFS</h2><ul><li><a href="/fixturegtfs/route/7/0">Linia 7 — Capăt 701 - Capăt 705</a></li><li><a href="/fixturegtfs/route/8/0">Linia 8B — Capăt 711 - Capăt 715</a></li></ul><p><a href="/fixturegtfs/destinations">Destinațiile din Fixture GTFS</a></p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Transport public Fixture GTFS în timp real</h1><p>Autobuzele, troleibuzele și tramvaiele Fixture Rail în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.</p><h2>Liniile din Fixture GTFS</h2><ul><li><a href="/fixturegtfs/linia/7">Linia 7 — Capăt 701 - Capăt 705</a></li><li><a href="/fixturegtfs/linia/8b">Linia 8B — Capăt 711 - Capăt 715</a></li></ul><p><a href="/fixturegtfs/destinations">Destinațiile din Fixture GTFS</a></p></div></div></body>
 </html>
 

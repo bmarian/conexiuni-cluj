@@ -164,7 +164,7 @@ func Stations(snap *Snapshot, locate Locate) (int, error) {
 }
 
 // Same order as utils/modes.ts.
-func modeRank(t models.RouteType) int {
+func ModeRank(t models.RouteType) int {
 	switch t {
 	case models.Subway, 12:
 		return 0
@@ -185,12 +185,12 @@ func stationModes(snap *Snapshot, runs map[string][]int) []int {
 	}
 	out := make([]int, len(snap.Stops))
 	for i := range out {
-		out[i] = modeRank(models.Bus)
+		out[i] = ModeRank(models.Bus)
 	}
 	for _, t := range snap.Trips {
-		rank := modeRank(models.Bus)
+		rank := ModeRank(models.Bus)
 		if rt, ok := typeOf[t.RouteID]; ok {
-			rank = modeRank(rt)
+			rank = ModeRank(rt)
 		}
 		for _, s := range runs[t.TripID] {
 			out[s] = min(out[s], rank)

@@ -11,7 +11,6 @@ import (
 	"os"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -64,7 +63,6 @@ type ogLocale struct {
 	homeH1             string
 	homeBody           string
 	routeStopsFmt      string // args: shortName, toward
-	routeOtherFmt      string // args: toward
 	stopLines          string
 	towardFmt          string // args: end
 	lineEnds           string
@@ -116,7 +114,6 @@ var ogLocales = map[string]ogLocale{
 		homeH1:             "Transport public {city} în timp real",
 		homeBody:           "Autobuzele, troleibuzele și tramvaiele {operator} în timp real. Vezi orarele, plecările de la stații, traseele liniilor și planifică-ți călătoria.",
 		routeStopsFmt:      "Stațiile liniei %s spre %s",
-		routeOtherFmt:      "Sensul opus: spre %s",
 		stopLines:          "Liniile care opresc aici",
 		towardFmt:          "spre %s",
 		lineEnds:           "capăt de linie",
@@ -166,7 +163,6 @@ var ogLocales = map[string]ogLocale{
 		homeH1:             "{city} public transport in real time",
 		homeBody:           "{operator} buses, trolleybuses and trams in real time. See timetables, stop departures, line routes and plan your trip.",
 		routeStopsFmt:      "Line %s stops toward %s",
-		routeOtherFmt:      "Other direction: toward %s",
 		stopLines:          "Lines stopping here",
 		towardFmt:          "toward %s",
 		lineEnds:           "last stop",
@@ -338,16 +334,7 @@ func marshalJSONLD(data map[string]any) string {
 	return strings.ReplaceAll(string(b), "</", `<\/`)
 }
 
-func routePage(city *cities.City, c fiber.Ctx) error {
-	routeID, err := strconv.Atoi(c.Params("routeId"))
-	if err != nil {
-		return c.Next()
-	}
-	direction, err := strconv.Atoi(c.Params("direction"))
-	if err != nil {
-		return c.Next()
-	}
-
+func routePage(city *cities.City, c fiber.Ctx, routeID, direction int) error {
 	routes, err := city.Routes(transit.RouteFilter{RouteID: &routeID})
 	if err != nil || len(routes) == 0 {
 		return c.Next()
@@ -355,7 +342,7 @@ func routePage(city *cities.City, c fiber.Ctx) error {
 	shortName, longName := routes[0].RouteShortName, routes[0].RouteLongName
 
 	l := ogTexts(city, c)
-	routeURL := canonicalURL(city, "/route/"+strconv.Itoa(routeID)+"/"+strconv.Itoa(direction))
+	routeURL := canonicalURL(city, lineCanonicalPath(city, routeID, direction))
 	title := fmt.Sprintf(l.routeTitleFmt, shortName, directedName(longName, direction))
 	desc := fmt.Sprintf(l.routeDescFmt, shortName, longName)
 	jsonLD := marshalJSONLD(map[string]any{
@@ -411,12 +398,7 @@ func publisherOrg() map[string]any {
 	}
 }
 
-func stopPage(city *cities.City, c fiber.Ctx) error {
-	stopID, err := strconv.Atoi(c.Params("stopId"))
-	if err != nil {
-		return c.Next()
-	}
-
+func stopPage(city *cities.City, c fiber.Ctx, stopID int) error {
 	stops, err := city.Stops(transit.StopFilter{StopID: &stopID})
 	if err != nil || len(stops) == 0 {
 		return c.Next()
@@ -424,7 +406,7 @@ func stopPage(city *cities.City, c fiber.Ctx) error {
 	stopName, stopLat, stopLon := stops[0].StopName, stops[0].StopLat, stops[0].StopLon
 
 	l := ogTexts(city, c)
-	stopURL := canonicalURL(city, "/stop/"+strconv.Itoa(stopID))
+	stopURL := canonicalURL(city, stationPath(city, stops[0].Station()))
 	title := fmt.Sprintf(l.stopTitleFmt, stopName)
 	desc := fmt.Sprintf(l.stopDescFmt, stopName)
 	jsonLD := marshalJSONLD(map[string]any{
