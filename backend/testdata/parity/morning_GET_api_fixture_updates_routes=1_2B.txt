@@ -6,7 +6,7 @@ Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'
 Content-Type: application/json; charset=utf-8
 Etag: W/"7111-2873940131"
 Strict-Transport-Security: max-age=31536000
-Vary: Accept-Encoding
+Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 

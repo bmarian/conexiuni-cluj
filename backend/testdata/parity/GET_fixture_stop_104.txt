@@ -4,7 +4,7 @@ Content-Length: 0
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Location: /fixture/statia/statia-104
 Strict-Transport-Security: max-age=31536000
-Vary: Accept-Encoding
+Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 

@@ -21,7 +21,6 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
-	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/etag"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/static"
@@ -111,9 +110,7 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 	}
 	app.Use(cities.StatsMiddleware(bySlug, logHashSalt))
 	app.Use(accessLogger(accessLog, logHashSalt))
-	app.Use(cors.New(cors.Config{
-		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
-	}))
+	app.Use(web.CORS)
 	app.Use(web.SecurityHeaders)
 	app.Use(compress.New(compress.Config{
 		Next: func(c fiber.Ctx) bool {

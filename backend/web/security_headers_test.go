@@ -8,6 +8,33 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+func TestCORSAllowsOnlyOurSites(t *testing.T) {
+	app := fiber.New()
+	app.Use(CORS)
+	app.Get("/", func(c fiber.Ctx) error { return c.SendString("ok") })
+	for origin, want := range map[string]string{
+		"https://ceautobuziau.ro":    "https://ceautobuziau.ro",
+		"https://bus.bmarian.online": "https://bus.bmarian.online",
+		"https://example.com":        "",
+		"":                           "",
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if origin != "" {
+			req.Header.Set(fiber.HeaderOrigin, origin)
+		}
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := resp.Header.Get(fiber.HeaderAccessControlAllowOrigin); got != want {
+			t.Errorf("origin %q: allowed %q, want %q", origin, got, want)
+		}
+		if resp.StatusCode != fiber.StatusOK {
+			t.Errorf("origin %q: status %d", origin, resp.StatusCode)
+		}
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	app := fiber.New()
 	app.Use(SecurityHeaders)
