@@ -16,7 +16,6 @@ var serverStartedAt = time.Now()
 
 const diskFullWarning = 0.9
 
-// citySummary is one city's row on the whole-app part of the page.
 type citySummary struct {
 	Slug        string   `json:"slug"`
 	Name        string   `json:"name"`
@@ -64,19 +63,18 @@ func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, er
 	return s
 }
 
-// A city that cannot be read shows that as its problem instead of hiding every other city.
 func summarize(city *cities.City, now time.Time) (citySummary, adminTraffic) {
 	st := city.Live.Status(now)
 	n := nowCounts(st)
 	s := citySummary{Slug: city.Slug, Name: city.Name, Realtime: city.Realtime != nil, Watching: n.People}
+	today := database.StatsDate(now)
 	traffic, err := trafficSection(city, now)
-	if err == nil {
-		s.PeopleToday, err = peopleOn(city, database.StatsDate(now))
-	}
-	if err != nil {
+	people, peopleErr := peopleByDay(city, today)
+	if err = cmp.Or(err, peopleErr); err != nil {
 		s.Problems = []string{fmt.Sprintf("Could not read: %v", err)}
 		return s, traffic
 	}
+	s.PeopleToday = people[today]
 	quota, _ := quotaSection(city, st)
 	s.Problems = cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), now)
 	return s, traffic

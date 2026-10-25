@@ -306,7 +306,6 @@ onMounted(load)
   padding: 0 4px;
 }
 
-/* Four choices on a phone: room for "Saturday" over the usual padding. */
 .day :deep(.choice) {
   padding: 0 4px;
 }

@@ -7,8 +7,10 @@ import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import type {CitySummary, LearningWindow, Overview} from '@/components/admin/types.ts'
+import LineBadge from '@/components/ui/LineBadge.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
+import TimetableBadge from '@/components/ui/TimetableBadge.vue'
 import {ago, bytes, came, clockTime, dayName, dur, minSec, num, pct, platformLabels} from '@/utils/adminFormat.ts'
 import {ExpandMoreIcon, LocationCityIcon, SettingsIcon} from '@/utils/icons.ts'
 
@@ -64,7 +66,6 @@ const stats = computed(() => {
   ]
 })
 
-// "All" first, then by how far ahead the time was.
 const liveRows = computed(() => {
   const week = props.overview?.accuracy.week ?? []
   return [...week.filter((a) => a.label === 'all'), ...week.filter((a) => a.label !== 'all')]
@@ -115,7 +116,7 @@ const share = (used: number, limit: number) => limit > 0 ? Math.min(1, used / li
         <AdminCityMenu :cities="cities" :city="city" @pick="emit('pick', $event)"/>
       </template>
       <LiveBadge v-if="realtime"/>
-      <span v-else class="timetable-badge">Timetable</span>
+      <TimetableBadge v-else/>
     </AdminScope>
 
     <template v-if="overview">
@@ -133,7 +134,7 @@ const share = (used: number, limit: number) => limit > 0 ? Math.min(1, used / li
             <SubLabel text="Lines on screens"/>
             <p class="admin-lines">
               <span v-for="l in overview.now.lines" :key="l.id">
-                <span class="admin-line" :style="{ backgroundColor: l.color || undefined }">{{ l.name }}</span>{{ num(l.count) }}
+                <LineBadge plain :name="l.name" :color="l.color"/>{{ num(l.count) }}
               </span>
             </p>
           </template>
@@ -173,7 +174,7 @@ const share = (used: number, limit: number) => limit > 0 ? Math.min(1, used / li
             <SubLabel text="Lines today"/>
             <p class="admin-lines">
               <span v-for="l in overview.people.lines" :key="l.id">
-                <span class="admin-line" :style="{ backgroundColor: l.color || undefined }">{{ l.name }}</span>{{ num(l.count) }}
+                <LineBadge plain :name="l.name" :color="l.color"/>{{ num(l.count) }}
               </span>
             </p>
           </template>
@@ -242,7 +243,7 @@ const share = (used: number, limit: number) => limit > 0 ? Math.min(1, used / li
             <dl class="admin-rows">
               <div v-for="c in overview.data.route_changes" :key="`${c.line}-${c.detected_at}`" class="change">
                 <dt class="name">
-                  <span class="admin-line" :style="{ backgroundColor: c.color || undefined }">{{ c.line }}</span>
+                  <LineBadge plain :name="c.line" :color="c.color"/>
                   <span class="truncate">{{ c.kinds.map((k) => changeLabels[k] ?? k).join(', ') }}</span>
                 </dt>
                 <dd>{{ ago(c.detected_at, clock) }}</dd>
@@ -308,18 +309,6 @@ const share = (used: number, limit: number) => limit > 0 ? Math.min(1, used / li
     columns: 2;
     column-gap: 12px;
   }
-}
-
-.timetable-badge {
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--md-surface-container-highest);
-  color: var(--md-on-surface-variant);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .meter {

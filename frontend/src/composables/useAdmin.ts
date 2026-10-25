@@ -5,7 +5,7 @@ import {currentCity} from '@/utils/city.ts'
 const REFRESH_MS = 30_000
 const AUTH_FLAG_KEY = 'admin:authed'
 
-const readAuthFlag = () => {
+export const adminAuthed = () => {
   try { return localStorage.getItem(AUTH_FLAG_KEY) === '1' } catch { return false }
 }
 const writeAuthFlag = (on: boolean) => {
@@ -24,9 +24,8 @@ async function getJSON<T>(url: string): Promise<T> {
   return await res.json() as T
 }
 
-// The whole-app part and the chosen city's part, refreshed together while the page is visible.
 export function useAdmin() {
-  const state = ref<'login' | 'loading' | 'ready'>(readAuthFlag() ? 'loading' : 'login')
+  const state = ref<'login' | 'loading' | 'ready'>(adminAuthed() ? 'loading' : 'login')
   const site = ref<Site | null>(null)
   const overview = ref<Overview | null>(null)
   const city = ref(currentCity.value)
@@ -49,7 +48,6 @@ export function useAdmin() {
     if (state.value === 'loading') state.value = 'ready'
   }
 
-  // An answer for a city picked away from meanwhile is dropped.
   async function loadCity() {
     const slug = city.value
     const next = await getJSON<Overview>(`/api/admin/overview?city=${slug}`)

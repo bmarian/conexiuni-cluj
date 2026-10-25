@@ -80,7 +80,6 @@ type Credited interface {
 	Credit() Credit
 }
 
-// WithCredit names the author of a source whose licence asks for it.
 func WithCredit(source Static, credit Credit) Static { return credited{source, credit} }
 
 type credited struct {

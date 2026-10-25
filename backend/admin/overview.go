@@ -340,28 +340,26 @@ func clientPlatform(client string) (platform, version string) {
 	return platform, version
 }
 
-// peopleOn counts one day's visitors; scripts counted before robots were left out are taken off.
-func peopleOn(city *cities.City, date string) (int, error) {
-	visitors, err := city.MetricRows("visitors", date)
+func peopleByDay(city *cities.City, since string) (map[string]int, error) {
+	visitors, err := city.MetricRows("visitors", since)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	clients, err := city.MetricRows("client_visitors", date)
+	clients, err := city.MetricRows("client_visitors", since)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	total := 0
+	days := map[string]int{}
 	for _, r := range visitors {
-		if r.Date == date {
-			total += r.Count
-		}
+		days[r.Date] += r.Count
 	}
+	// Scripts counted before robots were left out.
 	for _, r := range clients {
-		if platform, _ := clientPlatform(r.Key); r.Date == date && !slices.Contains(platformNames, platform) {
-			total -= r.Count
+		if platform, _ := clientPlatform(r.Key); !slices.Contains(platformNames, platform) {
+			days[r.Date] = max(0, days[r.Date]-r.Count)
 		}
 	}
-	return max(0, total), nil
+	return days, nil
 }
 
 func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
@@ -377,14 +375,12 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 		days[p.Daily[i].Date] = &p.Daily[i]
 	}
 
-	visitors, err := city.MetricRows("visitors", since)
+	people, err := peopleByDay(city, since)
 	if err != nil {
 		return p, err
 	}
-	for _, r := range visitors {
-		if d := days[r.Date]; d != nil {
-			d.Total += r.Count
-		}
+	for _, d := range days {
+		d.Total = people[d.Date]
 	}
 	newVisitors, err := city.MetricRows("new_visitors", today)
 	if err != nil {
@@ -413,9 +409,6 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 				d.Android += r.Count
 			case "wear":
 				d.Wear += r.Count
-			default:
-				// Scripts counted before robots were left out.
-				d.Total = max(0, d.Total-r.Count)
 			}
 		}
 		if pc := platforms[platform]; pc != nil {

@@ -8,7 +8,7 @@ import '@/components/admin/admin.css'
 import {useAdmin} from '@/composables/useAdmin.ts'
 import {cityPath, reloadCities} from '@/utils/city.ts'
 import {clockTime} from '@/utils/adminFormat.ts'
-import {CloseIcon, LogoutIcon, RefreshIcon} from '@/utils/icons.ts'
+import {CloseIcon, LogoutIcon, RefreshIcon, WarningAmberIcon} from '@/utils/icons.ts'
 
 useHead(() => ({
   title: 'Admin',
@@ -24,6 +24,7 @@ const scrolled = ref(false)
 const cityPart = ref<HTMLElement | null>(null)
 
 const updatedAt = computed(() => site.value ? clockTime(site.value.generated_at) : '')
+const refreshLabel = computed(() => loadError.value ? `Refresh failed (${loadError.value})` : 'Refresh')
 
 async function submit() {
   const t = token.value.trim()
@@ -32,7 +33,6 @@ async function submit() {
   if (!loginError.value) token.value = ''
 }
 
-// On one column the city part sits below; bring it up when a city is picked from the list.
 async function pickFromList(slug: string) {
   await pick(slug)
   await nextTick()
@@ -79,8 +79,9 @@ async function onCitiesChanged() {
       <template v-else>
         <header class="bar" :class="{ 'is-scrolled': scrolled }">
           <h1 class="text-title-large flex-1">Admin</h1>
-          <button v-if="site" type="button" class="btn btn-text" :disabled="loading" aria-label="Refresh" @click="load">
-            <RefreshIcon class="m-icon" :class="{ 'animate-spin motion-reduce:animate-none': loading }"/>{{ updatedAt }}
+          <button type="button" class="btn btn-text" :disabled="loading" :aria-label="refreshLabel" :title="refreshLabel" @click="load">
+            <WarningAmberIcon v-if="loadError && !loading" class="m-icon text-error"/>
+            <RefreshIcon v-else class="m-icon" :class="{ 'animate-spin motion-reduce:animate-none': loading }"/>{{ updatedAt }}
           </button>
           <button type="button" class="icon-btn" aria-label="Log out" title="Log out" @click="logout">
             <LogoutIcon class="m-icon"/>
@@ -89,11 +90,6 @@ async function onCitiesChanged() {
             <CloseIcon class="m-icon"/>
           </button>
         </header>
-        <p v-if="loadError" class="refresh-failed">
-          {{ site ? `Refresh failed (${loadError})` : `Could not load (${loadError})` }}
-          <button v-if="!site" type="button" class="btn btn-text" @click="load">Try again</button>
-        </p>
-
         <main v-if="site" class="page">
           <AdminSite :site="site" :city="city" :clock="clock" @pick="pickFromList" @changed="onCitiesChanged"/>
           <div ref="cityPart" class="city-part">
@@ -155,16 +151,6 @@ async function onCitiesChanged() {
 .bar .btn-text {
   padding: 0 12px;
   font-variant-numeric: tabular-nums;
-}
-
-.refresh-failed {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px;
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--md-error);
 }
 
 .page {
