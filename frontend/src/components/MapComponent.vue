@@ -555,7 +555,7 @@ const spiderMarker = (at: LatLng, ids: string[], legs: SpiderLeg[]): Marker => {
   const marker = htmlMarker(at, makeSpiderIcon(stations), {interactive: false, zIndex: 900})
   marker.getElement().querySelectorAll<HTMLElement>('[data-stop]').forEach((el, i) => {
     const {id, name, leg} = stations[i]!
-    tooltip?.bindAt(marker, el, () => at, [leg.x, leg.y], stationCard(id, name), 'stop-name-tooltip', 14)
+    tooltip?.bindAt(marker, el, () => at, [leg.x, leg.y], stationCard(id, name), '', 14)
     onElementClick(el, () => {
       unspiderfy()
       void openStop(id)
@@ -633,7 +633,7 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
   const {name, more, text} = groupLabel(clusters, group)
   if (group.stations.size === 1 && group.area === undefined) {
     const marker = htmlMarker(at, group.favorite ? makeHighlightIcon('favorite') : stopIconForId(leaderId))
-    tooltip?.bind(marker, stationCard(leaderId, name), 'stop-name-tooltip', 14)
+    tooltip?.bind(marker, stationCard(leaderId, name), '', 14)
     onMarkerClick(marker, () => openStop(leaderId))
     return marker
   }
@@ -646,7 +646,7 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
     ]
   const marker = htmlMarker(at, makeClusterIcon(icons, name, more, clusters.labelWidth(text)))
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
-  tooltip?.bind(marker, () => clusterCardHtml(card(), (n) => t('mapMoreStations', {n})), 'stop-name-tooltip', 14)
+  tooltip?.bind(marker, () => clusterCardHtml(card(), (n) => t('mapMoreStations', {n})), '', 14)
   marker.getElement().classList.add('stop-group')
   onPreview(marker.getElement(), () => showCoverage(index, group), () => hideCoverage(group.key))
   onMarkerClick(marker, () => expandGroup(index, group))
@@ -939,7 +939,7 @@ const stopMarker = (id: string): Marker | undefined => {
   const stop = stopData.get(id)
   if (!stop) return undefined
   const marker = htmlMarker(stop, stopIconForId(id))
-  tooltip?.bind(marker, stationCard(id, stop.name), 'stop-name-tooltip', 14)
+  tooltip?.bind(marker, stationCard(id, stop.name), '', 14)
   onMarkerClick(marker, () => {
     void openStop(id)
   })
@@ -1330,7 +1330,7 @@ const renderHighlightedStops = () => {
     const highlight = htmlMarker(stop, makeHighlightIcon(color), {
       zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
-    tooltip?.bind(highlight, stationCard(stopId, stop.name), 'stop-name-tooltip', 14)
+    tooltip?.bind(highlight, stationCard(stopId, stop.name), '', 14)
     onMarkerClick(highlight, () => openStop(stopId))
     highlightMarkers.push(highlight.addTo(m))
   }
