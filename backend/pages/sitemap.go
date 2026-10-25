@@ -22,33 +22,51 @@ func Sitemap(registry *cities.Registry) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		mu.Lock()
 		defer mu.Unlock()
+		body, complete := cached, true
 		if version := registry.Version(); cached == nil || time.Since(cachedAt) >= sitemapTTL || version != cachedVersion {
-			var sb strings.Builder
-			sb.Grow(64 * 1024)
-			sb.WriteString(xml.Header)
-			sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
-			writeURL(&sb, web.SiteOrigin+"/", "daily", "1.0")
-			for _, city := range registry.Enabled() {
-				if err := writeCity(&sb, city); err != nil {
-					return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-				}
+			var err error
+			if body, complete, err = buildSitemap(registry); err != nil {
+				return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 			}
-			sb.WriteString("</urlset>\n")
-			cached, cachedAt, cachedVersion = []byte(sb.String()), time.Now(), version
+			if complete {
+				cached, cachedAt, cachedVersion = body, time.Now(), version
+			}
 		}
 		c.Set("Content-Type", "application/xml; charset=utf-8")
-		c.Set("Cache-Control", "public, max-age=3600")
-		return c.Send(cached)
+		if complete {
+			c.Set("Cache-Control", "public, max-age=3600")
+		} else {
+			c.Set("Cache-Control", "no-cache")
+		}
+		return c.Send(body)
 	}
 }
 
-func writeCity(sb *strings.Builder, city *cities.City) error {
+func buildSitemap(registry *cities.Registry) (body []byte, complete bool, err error) {
+	var sb strings.Builder
+	sb.Grow(64 * 1024)
+	sb.WriteString(xml.Header)
+	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	writeURL(&sb, web.SiteOrigin+"/", "daily", "1.0")
+	complete = true
+	for _, city := range registry.Enabled() {
+		ready, err := writeCity(&sb, city)
+		if err != nil {
+			return nil, false, err
+		}
+		complete = complete && ready
+	}
+	sb.WriteString("</urlset>\n")
+	return []byte(sb.String()), complete, nil
+}
+
+func writeCity(sb *strings.Builder, city *cities.City) (bool, error) {
 	writeURL(sb, canonicalURL(city, "/"), "daily", "1.0")
 	writeURL(sb, canonicalURL(city, "/plan"), "monthly", "0.5")
 	offered := city.Availability()
 	routes, err := city.RouteDirections()
 	if err != nil {
-		return err
+		return false, err
 	}
 	written := map[string]bool{}
 	once := func(path, changeFreq, priority string) {
@@ -65,7 +83,7 @@ func writeCity(sb *strings.Builder, city *cities.City) error {
 	}
 	stops, err := city.Stops(transit.StopFilter{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, s := range stops {
 		if offered.IsReady() && !offered.StopHasBuses(s.StopID) {
@@ -73,13 +91,15 @@ func writeCity(sb *strings.Builder, city *cities.City) error {
 		}
 		once(stationPath(city, s.Station()), "weekly", "0.6")
 	}
-	if x, ready, err := city.Destinations.Areas(); err == nil && ready {
-		writeURL(sb, canonicalURL(city, destinationsPath), "weekly", "0.7")
-		for _, d := range x.Destinations() {
-			writeURL(sb, canonicalURL(city, areaPath(d.Slug)), "weekly", "0.8")
-		}
+	x, ready, err := city.Destinations.Areas()
+	if err != nil || !ready {
+		return false, nil
 	}
-	return nil
+	writeURL(sb, canonicalURL(city, destinationsPath), "weekly", "0.7")
+	for _, d := range x.Destinations() {
+		writeURL(sb, canonicalURL(city, areaPath(d.Slug)), "weekly", "0.8")
+	}
+	return offered.IsReady(), nil
 }
 
 func writeURL(sb *strings.Builder, loc, changeFreq, priority string) {
