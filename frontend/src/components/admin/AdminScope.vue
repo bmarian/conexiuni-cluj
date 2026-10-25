@@ -2,18 +2,18 @@
 import type {Component} from 'vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 
-defineProps<{ icon: Component, tone: 'primary' | 'tertiary', title?: string }>()
+defineProps<{icon: Component; tone: 'primary' | 'tertiary'; title?: string}>()
 </script>
 
 <template>
   <div class="admin-scope">
-    <RowIcon :icon="icon" :tone="tone" :size="40"/>
+    <RowIcon :icon="icon" :tone="tone" :size="40" />
     <div class="min-w-0 flex-1">
       <slot name="title">
         <h2 class="text-title-large truncate">{{ title }}</h2>
       </slot>
       <div class="text-body-small text-on-surface-variant flex items-center gap-1.5">
-        <slot/>
+        <slot />
       </div>
     </div>
   </div>

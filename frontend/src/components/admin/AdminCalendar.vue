@@ -38,7 +38,7 @@ type CalendarView = {
 }
 
 const props = defineProps<{city: string}>()
-const emit = defineEmits<{saved: [], learning: [windows: LearningWindow[]]}>()
+const emit = defineEmits<{saved: []; learning: [windows: LearningWindow[]]}>()
 
 const view = ref<CalendarView | null>(null)
 const loadError = ref('')
@@ -74,7 +74,7 @@ async function load() {
   try {
     const res = await fetch(`/api/admin/calendar?city=${props.city}`, {credentials: 'same-origin'})
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    show(await res.json() as CalendarView)
+    show((await res.json()) as CalendarView)
     loadError.value = ''
     if (!dayDate.value) {
       dayDate.value = view.value?.today.date ?? ''
@@ -178,7 +178,7 @@ const todayText = computed(() => {
   return t.holiday ? `${runs}, ${t.holiday}` : runs
 })
 
-const dayChoice = computed(() => day.value?.override?.source === 'admin' ? day.value.override.schedule : '')
+const dayChoice = computed(() => (day.value?.override?.source === 'admin' ? day.value.override.schedule : ''))
 
 const dayChoices = computed<Choice<string>[]>(() => {
   const disabled = dayBusy.value || !view.value?.editable || !day.value
@@ -219,23 +219,29 @@ onMounted(load)
     <p v-if="loadError" class="admin-note admin-bad">Could not load ({{ loadError }})</p>
     <template v-else-if="view">
       <dl class="admin-rows">
-        <div><dt>Today</dt><dd>{{ todayText }}</dd></div>
-        <div v-if="!view.editable"><dt>Saving</dt><dd class="admin-bad">off, no archive</dd></div>
+        <div>
+          <dt>Today</dt>
+          <dd>{{ todayText }}</dd>
+        </div>
+        <div v-if="!view.editable">
+          <dt>Saving</dt>
+          <dd class="admin-bad">off, no archive</dd>
+        </div>
       </dl>
 
-      <SubLabel text="Timetable for a day"/>
+      <SubLabel text="Timetable for a day" />
       <div class="day">
-        <input ref="dayPicker" v-model="dayDate" class="admin-field" type="date" aria-label="Day" @change="loadDay">
-        <ChoiceRow :options="dayChoices" :model-value="dayChoice" aria-label="Timetable to run" @update:model-value="chooseDay"/>
+        <input ref="dayPicker" v-model="dayDate" class="admin-field" type="date" aria-label="Day" @change="loadDay" />
+        <ChoiceRow :options="dayChoices" :model-value="dayChoice" aria-label="Timetable to run" @update:model-value="chooseDay" />
         <p v-if="dayError" class="admin-note admin-bad">{{ dayError }}</p>
         <p v-else-if="day" class="admin-note">{{ dayText }}</p>
       </div>
 
       <details class="admin-fold" :open="!!view.needed">
-        <summary class="state"><span>School years</span><ExpandMoreIcon class="m-icon"/></summary>
+        <summary class="state"><span>School years</span><ExpandMoreIcon class="m-icon" /></summary>
         <div class="school">
           <ChoiceRow :options="yearChoices" :model-value="String(selectedYear)" class="years" @update:model-value="pick(Number($event))">
-            <template #label="{ option }">
+            <template #label="{option}">
               <span class="year">
                 <span>{{ option.label }}</span>
                 <small>{{ yearStatus(option.value) }}</small>
@@ -246,22 +252,28 @@ onMounted(load)
           <form v-if="draft" class="year-form" @submit.prevent="save">
             <div class="range">
               <span class="range-name text-label-large">Term</span>
-              <input v-model="draft.start" class="admin-field" type="date" aria-label="First day of classes" required>
-              <input v-model="draft.end" class="admin-field" type="date" aria-label="Last day of classes" required>
+              <input v-model="draft.start" class="admin-field" type="date" aria-label="First day of classes" required />
+              <input v-model="draft.end" class="admin-field" type="date" aria-label="Last day of classes" required />
             </div>
             <div v-for="(b, i) in draft.breaks" :key="i" class="range">
               <span class="range-name">
-                <input v-model="b.name" class="admin-field" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required>
-                <button type="button" class="icon-btn" :aria-label="`Remove ${b.name || 'break'}`" :title="`Remove ${b.name || 'break'}`" @click="removeBreak(i)">
-                  <CloseIcon class="m-icon"/>
+                <input v-model="b.name" class="admin-field" type="text" maxlength="40" placeholder="Break" aria-label="Break name" required />
+                <button
+                  type="button"
+                  class="icon-btn"
+                  :aria-label="`Remove ${b.name || 'break'}`"
+                  :title="`Remove ${b.name || 'break'}`"
+                  @click="removeBreak(i)"
+                >
+                  <CloseIcon class="m-icon" />
                 </button>
               </span>
-              <input v-model="b.start" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} starts`" required>
-              <input v-model="b.end" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} ends`" required>
+              <input v-model="b.start" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} starts`" required />
+              <input v-model="b.end" class="admin-field" type="date" :aria-label="`${b.name || 'Break'} ends`" required />
             </div>
             <div class="actions">
-              <button type="button" class="btn btn-text" @click="addBreak"><AddIcon class="m-icon"/>Add break</button>
-              <span class="text-body-small" :class="{ 'admin-bad': saveFailed }">{{ saveMessage }}</span>
+              <button type="button" class="btn btn-text" @click="addBreak"><AddIcon class="m-icon" />Add break</button>
+              <span class="text-body-small" :class="{'admin-bad': saveFailed}">{{ saveMessage }}</span>
               <button type="submit" class="btn btn-filled" :disabled="saving || !view.editable">
                 {{ saving ? 'Saving…' : 'Save' }}
               </button>
@@ -270,19 +282,21 @@ onMounted(load)
         </div>
       </details>
 
-      <SubLabel text="Public holidays"/>
+      <SubLabel text="Public holidays" />
       <dl class="admin-rows">
         <div v-for="h in holidays" :key="h.date" class="has-action">
           <dt class="name">{{ dayName(h.date) }} · {{ h.name }}</dt>
-          <dd><button type="button" class="btn btn-text" @click="changeDay(h.date)">{{ timetableLabels[h.schedule] ?? h.schedule }}</button></dd>
+          <dd>
+            <button type="button" class="btn btn-text" @click="changeDay(h.date)">{{ timetableLabels[h.schedule] ?? h.schedule }}</button>
+          </dd>
         </div>
       </dl>
-      <button v-if="view.holidays.length > 5" type="button" class="btn btn-text more" @click="showAllHolidays = !showAllHolidays">
+      <button v-if="view.holidays.length > 5" type="button" class="btn btn-text admin-more" @click="showAllHolidays = !showAllHolidays">
         {{ showAllHolidays ? 'Fewer' : `All ${view.holidays.length}` }}
       </button>
 
       <template v-if="view.overrides.length">
-        <SubLabel text="Changed days"/>
+        <SubLabel text="Changed days" />
         <dl class="admin-rows">
           <div v-for="o in view.overrides" :key="o.date" class="has-action">
             <dt class="name">{{ dayName(o.date) }} · {{ timetableLabels[o.schedule] ?? o.schedule }}, {{ o.source === 'admin' ? 'by you' : 'seen' }}</dt>
@@ -375,9 +389,5 @@ onMounted(load)
 .actions > span {
   flex: 1;
   min-width: 0;
-}
-
-.more {
-  margin-left: 4px;
 }
 </style>

@@ -26,24 +26,18 @@ onMounted(() => void routeUpdates.fetchUpdates())
 <template>
   <div class="home-chrome">
     <div class="search-pill" role="button" tabindex="-1" @click="search.open.value = true">
-      <SearchIcon class="m-icon text-on-surface-variant"/>
-      <span class="search-text text-body-large" :class="{ 'is-kept': search.query.value }">
+      <SearchIcon class="m-icon text-on-surface-variant" />
+      <span class="search-text text-body-large" :class="{'is-kept': search.query.value}">
         {{ search.query.value || t('searchPlaceholder') }}
       </span>
-      <button
-        type="button"
-        class="icon-btn"
-        :aria-label="t('settings')"
-        :title="t('settings')"
-        @click.stop="router.push(cityPath('/settings'))"
-      >
-        <SettingsIcon class="m-icon"/>
+      <button type="button" class="icon-btn" :aria-label="t('settings')" :title="t('settings')" @click.stop="router.push(cityPath('/settings'))">
+        <SettingsIcon class="m-icon" />
       </button>
     </div>
     <div v-if="showNews || places.length" class="chips">
       <button v-if="showNews" type="button" class="map-chip squish" @click="router.push(cityPath('/news'))">
         <span class="relative inline-flex">
-          <NewspaperIcon class="m-icon size-[18px] text-on-surface-variant"/>
+          <NewspaperIcon class="m-icon size-[18px] text-on-surface-variant" />
           <span v-if="routeUpdates.hasUnseen" class="news-dot"></span>
         </span>
         <span>{{ t('news') }}</span>
@@ -55,7 +49,7 @@ onMounted(() => void routeUpdates.fetchUpdates())
         class="map-chip squish"
         @click="router.push({name: 'plan', query: planQuery(place)})"
       >
-        <PlaceIcon class="m-icon size-[18px] text-tertiary"/>
+        <PlaceIcon class="m-icon size-[18px] text-tertiary" />
         <span class="truncate">{{ place.label ?? place.name }}</span>
       </button>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ text: string }>()
+defineProps<{text: string}>()
 </script>
 
 <template>
@@ -21,11 +21,15 @@ defineProps<{ text: string }>()
 }
 
 .tick-enter-active {
-  transition: translate var(--spring-slide-ms) var(--spring-slide), opacity 200ms linear;
+  transition:
+    translate var(--spring-slide-ms) var(--spring-slide),
+    opacity 200ms linear;
 }
 
 .tick-leave-active {
-  transition: translate 300ms ease-in, opacity 150ms linear;
+  transition:
+    translate 300ms ease-in,
+    opacity 150ms linear;
 }
 
 .tick-enter-from {

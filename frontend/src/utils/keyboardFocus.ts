@@ -22,10 +22,12 @@ export function isEmptyField(el: Element | null): boolean {
 }
 
 export function isNativeActivatable(el: Element | null): boolean {
-  return el instanceof HTMLButtonElement
-    || el instanceof HTMLInputElement
-    || el instanceof HTMLSelectElement
-    || (el instanceof HTMLAnchorElement && el.hasAttribute('href'))
+  return (
+    el instanceof HTMLButtonElement ||
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLSelectElement ||
+    (el instanceof HTMLAnchorElement && el.hasAttribute('href'))
+  )
 }
 
 function isNavigable(el: HTMLElement): boolean {
@@ -88,7 +90,7 @@ function nearestX(items: HTMLElement[], x: number): HTMLElement | undefined {
 }
 
 function rowAt(items: HTMLElement[], edge: Edge): HTMLElement[] {
-  const tops = items.map(el => el.getBoundingClientRect().top)
+  const tops = items.map((el) => el.getBoundingClientRect().top)
   const target = edge === 'start' ? Math.min(...tops) : Math.max(...tops)
   return items.filter((_, i) => Math.abs(tops[i]! - target) < 4)
 }
@@ -96,7 +98,7 @@ function rowAt(items: HTMLElement[], edge: Edge): HTMLElement[] {
 function gridStep(items: HTMLElement[], cur: HTMLElement, dir: 1 | -1): HTMLElement | undefined {
   const r = cur.getBoundingClientRect()
   const half = r.height / 2
-  const candidates = items.filter(el => {
+  const candidates = items.filter((el) => {
     const top = el.getBoundingClientRect().top
     return dir > 0 ? top > r.top + half : top < r.top - half
   })
@@ -105,7 +107,7 @@ function gridStep(items: HTMLElement[], cur: HTMLElement, dir: 1 | -1): HTMLElem
 }
 
 function activeIn(items: HTMLElement[]): HTMLElement | undefined {
-  return items.find(el => isOn(el, 'data-kbd-active'))
+  return items.find((el) => isOn(el, 'data-kbd-active'))
 }
 
 function enterRun(run: Run, edge: Edge, x: number | null, preferActive: boolean): HTMLElement | undefined {
@@ -117,7 +119,7 @@ function enterRun(run: Run, edge: Edge, x: number | null, preferActive: boolean)
   return edge === 'start' ? run.items[0] : run.items[run.items.length - 1]
 }
 
-function locate(items: HTMLElement[], el: Element): { run: number, index: number } | null {
+function locate(items: HTMLElement[], el: Element): {run: number; index: number} | null {
   const runs = toRuns(items)
   for (let r = 0; r < runs.length; r++) {
     const index = runs[r]!.items.indexOf(el as HTMLElement)
@@ -128,7 +130,7 @@ function locate(items: HTMLElement[], el: Element): { run: number, index: number
 
 function itemNear(items: HTMLElement[], el: Element, dir: 1 | -1): HTMLElement | undefined {
   const following = (item: HTMLElement) => !!(el.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING)
-  return dir > 0 ? items.find(following) : [...items].reverse().find(item => !following(item))
+  return dir > 0 ? items.find(following) : [...items].reverse().find((item) => !following(item))
 }
 
 export function stepVertical(scope: Element, from: Element | null, dir: 1 | -1): HTMLElement | undefined {
@@ -174,7 +176,7 @@ export function stepSection(scope: Element, from: Element | null, dir: 1 | -1): 
 }
 
 function entryOfSection(section: HTMLElement): HTMLElement | undefined {
-  const items = getItems(section).filter(el => el.closest(SECTION) === section)
+  const items = getItems(section).filter((el) => el.closest(SECTION) === section)
   return items.length ? enterRun({section, items}, 'start', null, true) : undefined
 }
 
@@ -233,9 +235,7 @@ export function focusElement(el: HTMLElement) {
 }
 
 export function focusItem(item: HTMLElement) {
-  const inner = item.hasAttribute('data-kbd-inner')
-    ? item.querySelector<HTMLElement>('input, select, textarea, button, [tabindex]')
-    : null
+  const inner = item.hasAttribute('data-kbd-inner') ? item.querySelector<HTMLElement>('input, select, textarea, button, [tabindex]') : null
   focusElement(inner ?? item)
   item.scrollIntoView({block: 'nearest', inline: 'nearest'})
 }

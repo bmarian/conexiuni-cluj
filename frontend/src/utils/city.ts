@@ -34,7 +34,9 @@ function store(key: string, value: string | null) {
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 function readList(): City[] {
@@ -52,13 +54,15 @@ export async function reloadCities(): Promise<City[]> {
   try {
     const response = await fetch('/api/cities')
     if (response.ok) {
-      const list = await response.json() as City[]
+      const list = (await response.json()) as City[]
       if (Array.isArray(list) && list.length) {
         cities.value = list
         store(LIST_KEY, JSON.stringify(list))
       }
     }
-  } catch { /* offline: the stored list stands */ }
+  } catch {
+    /* offline: the stored list stands */
+  }
   return cities.value
 }
 
@@ -73,8 +77,7 @@ function cityFromPath(): string | null {
 
 export const cityChoice = ref<string | null>(stored(CHOICE_KEY))
 
-export const currentCity = ref(typeof window === 'undefined' ? DEFAULT_CITY
-  : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY))
+export const currentCity = ref(typeof window === 'undefined' ? DEFAULT_CITY : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY))
 
 export function setCity(slug: string) {
   store(LAST_KEY, slug)
@@ -124,12 +127,14 @@ export function citiesSaving(key: string): string[] {
       const list = JSON.parse(localStorage.getItem(name!) ?? 'null')
       if (Array.isArray(list) && list.length) out.push(slug)
     }
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   return out
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  const toRad = (d: number) => d * Math.PI / 180
+  const toRad = (d: number) => (d * Math.PI) / 180
   const dLat = toRad(bLat - aLat)
   const dLon = toRad(bLon - aLon)
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2
@@ -143,7 +148,9 @@ async function checkLocationGranted(): Promise<boolean> {
   try {
     const status = await navigator.permissions.query({name: 'geolocation'})
     locationGranted.value = status.state === 'granted'
-    status.onchange = () => { locationGranted.value = status.state === 'granted' }
+    status.onchange = () => {
+      locationGranted.value = status.state === 'granted'
+    }
   } catch {
     locationGranted.value = false
   }
@@ -166,7 +173,7 @@ export function openingCity(): string {
 
 export async function locatedCity(): Promise<string | null> {
   const list = await citiesReady
-  if ((cityChoice.value && knownCity(cityChoice.value)) || list.length < 2 || !await checkLocationGranted()) return null
+  if ((cityChoice.value && knownCity(cityChoice.value)) || list.length < 2 || !(await checkLocationGranted())) return null
   const position = await locate()
   if (!position) return null
   const {latitude, longitude} = position.coords
@@ -180,5 +187,5 @@ export async function locatedCity(): Promise<string | null> {
 export async function chooseCity(slug: string | null): Promise<string> {
   cityChoice.value = slug
   store(CHOICE_KEY, slug)
-  return slug ?? await locatedCity() ?? openingCity()
+  return slug ?? (await locatedCity()) ?? openingCity()
 }

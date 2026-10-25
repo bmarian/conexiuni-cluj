@@ -3,7 +3,7 @@ import {formatChangeDate} from '@/utils/routeChanges'
 
 type Translate = (key: string) => string
 
-export type NewsEntry = Update & { key: string; date: string }
+export type NewsEntry = Update & {key: string; date: string}
 
 function startOfDay(ms: number): Date {
   const d = new Date(ms)

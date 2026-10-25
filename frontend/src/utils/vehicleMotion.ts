@@ -17,7 +17,7 @@ const LATE_SHARE = 0.75
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
 
-export type Path = {lat: number[], lng: number[], at: number[], length: number}
+export type Path = {lat: number[]; lng: number[]; at: number[]; length: number}
 
 const paths = new WeakMap<Shape[], Path>()
 
@@ -53,15 +53,17 @@ export function headingAt(path: Path, s: number): number {
   return calculateBearing(from.lat, from.lng, to.lat, to.lng)
 }
 
-export function locate(path: Path, {lat, lng}: LatLng, from = 0, to = Infinity, heading?: number): {s: number, off: number} | null {
-  const k = Math.cos(lat * Math.PI / 180)
-  const hx = heading === undefined ? 0 : Math.sin(heading * Math.PI / 180)
-  const hy = heading === undefined ? 0 : Math.cos(heading * Math.PI / 180)
-  let best: {s: number, d: number, i: number, t: number} | null = null
+export function locate(path: Path, {lat, lng}: LatLng, from = 0, to = Infinity, heading?: number): {s: number; off: number} | null {
+  const k = Math.cos((lat * Math.PI) / 180)
+  const hx = heading === undefined ? 0 : Math.sin((heading * Math.PI) / 180)
+  const hy = heading === undefined ? 0 : Math.cos((heading * Math.PI) / 180)
+  let best: {s: number; d: number; i: number; t: number} | null = null
   for (let i = 0; i < path.at.length - 1; i++) {
     if (path.at[i + 1]! < from || path.at[i]! > to) continue
-    const ax = path.lng[i]! * k, ay = path.lat[i]!
-    const dx = path.lng[i + 1]! * k - ax, dy = path.lat[i + 1]! - ay
+    const ax = path.lng[i]! * k,
+      ay = path.lat[i]!
+    const dx = path.lng[i + 1]! * k - ax,
+      dy = path.lat[i + 1]! - ay
     if (heading !== undefined && dx * hx + dy * hy < 0) continue
     const len = dx * dx + dy * dy
     const t = len ? clamp(((lng * k - ax) * dx + (lat - ay) * dy) / len, 0, 1) : 0
@@ -77,7 +79,7 @@ export function locate(path: Path, {lat, lng}: LatLng, from = 0, to = Infinity, 
 export class VehicleTrack {
   s = 0
   v = 0
-  private fixes: {s: number, ms: number}[] = []
+  private fixes: {s: number; ms: number}[] = []
   private pace = 0
   private gapMs = 30_000
   private lateMs = 30_000
@@ -89,11 +91,11 @@ export class VehicleTrack {
     const last = this.fixes.at(-1)
     if (last && fixMs <= last.ms) return true
     const spot = last
-      ? locate(this.path, at, last.s - MAX_OFF_ROUTE_M, last.s + MAX_MPS * (fixMs - last.ms) / 1000 + MAX_OFF_ROUTE_M) ?? locate(this.path, at)
-      : locate(this.path, at, 0, Infinity, heading) ?? locate(this.path, at)
+      ? (locate(this.path, at, last.s - MAX_OFF_ROUTE_M, last.s + (MAX_MPS * (fixMs - last.ms)) / 1000 + MAX_OFF_ROUTE_M) ?? locate(this.path, at))
+      : (locate(this.path, at, 0, Infinity, heading) ?? locate(this.path, at))
     if (!spot || (last && spot.s < last.s - BACKTRACK_M)) return false
     if (last) {
-      this.pace += (clamp((spot.s - last.s) * 1000 / (fixMs - last.ms), 0, MAX_MPS) - this.pace) * TREND_WEIGHT
+      this.pace += (clamp(((spot.s - last.s) * 1000) / (fixMs - last.ms), 0, MAX_MPS) - this.pace) * TREND_WEIGHT
       this.gapMs = this.gapMs * 0.7 + (fixMs - last.ms) * 0.3
       this.lateMs = this.lateMs * 0.7 + (nowMs - fixMs) * 0.3
     } else {
@@ -105,16 +107,17 @@ export class VehicleTrack {
     return true
   }
 
-  target(nowMs: number): {s: number, v: number} {
+  target(nowMs: number): {s: number; v: number} {
     const t = nowMs - this.lateMs * LATE_SHARE
     const last = this.fixes.at(-1)!
     if (t < last.ms) {
       let i = this.fixes.length - 1
       while (i >= 0 && this.fixes[i]!.ms > t) i--
       if (i < 0) return {s: this.fixes[0]!.s, v: 0}
-      const a = this.fixes[i]!, b = this.fixes[i + 1]!
-      const v = (b.s - a.s) * 1000 / (b.ms - a.ms)
-      return {s: a.s + v * (t - a.ms) / 1000, v: Math.max(0, v)}
+      const a = this.fixes[i]!,
+        b = this.fixes[i + 1]!
+      const v = ((b.s - a.s) * 1000) / (b.ms - a.ms)
+      return {s: a.s + (v * (t - a.ms)) / 1000, v: Math.max(0, v)}
     }
     const age = (t - last.ms) / 1000
     const horizon = clamp(this.lateMs + this.gapMs, 10_000, 120_000) / 1000
@@ -129,7 +132,7 @@ export class VehicleTrack {
     const target = this.target(nowMs)
     const err = target.s - this.s
     if (Math.abs(err) > JUMP_M) {
-      ({s: this.s, v: this.v} = target)
+      ;({s: this.s, v: this.v} = target)
       return true
     }
     if (dt > 1 || dt < 0) {

@@ -1,5 +1,6 @@
 export const num = (n: number) => n.toLocaleString('en-GB')
 export const pct = (share: number) => `${Math.round(share * 100)}%`
+export const plural = (n: number, word: string) => `${num(n)} ${word}${n === 1 ? '' : 's'}`
 
 export function dur(sec: number) {
   sec = Math.round(Math.abs(sec))

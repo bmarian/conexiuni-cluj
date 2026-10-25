@@ -16,8 +16,26 @@ const line1: RouteChange = {
   source: 'timetable',
   detected_at: 0,
   changes: [
-    {kind: 'earlier', direction: '1', toward: 'Disp. Clabucet', days: ['weekdays'], shifts: [{from: '15:35', to: '15:30'}, {from: '15:52', to: '15:51'}]},
-    {kind: 'later', direction: '0', toward: 'P-ta 1 Mai', days: ['weekdays'], shifts: [{from: '07:00', to: '07:01'}, {from: '07:35', to: '07:37'}]},
+    {
+      kind: 'earlier',
+      direction: '1',
+      toward: 'Disp. Clabucet',
+      days: ['weekdays'],
+      shifts: [
+        {from: '15:35', to: '15:30'},
+        {from: '15:52', to: '15:51'},
+      ],
+    },
+    {
+      kind: 'later',
+      direction: '0',
+      toward: 'P-ta 1 Mai',
+      days: ['weekdays'],
+      shifts: [
+        {from: '07:00', to: '07:01'},
+        {from: '07:35', to: '07:37'},
+      ],
+    },
     {kind: 'trips_added', direction: '0', toward: 'P-ta 1 Mai', days: ['saturday', 'sunday'], all: true, times: ['05:50', '22:40']},
   ],
 }
@@ -32,12 +50,29 @@ describe('route change text', () => {
   })
 
   it('merges earlier and later departures into one row in timetable order', () => {
-    const rows = changeRows([
-      {kind: 'later', direction: '0', shifts: [{from: '07:00', to: '07:01'}, {from: '23:58', to: '00:03'}]},
-      {kind: 'trips_removed', direction: '0', times: ['09:30']},
-      {kind: 'earlier', direction: '0', shifts: [{from: '00:20', to: '00:15'}, {from: '07:35', to: '07:30'}]},
-      {kind: 'trips_added', direction: '0', times: ['10:00']},
-    ], t)
+    const rows = changeRows(
+      [
+        {
+          kind: 'later',
+          direction: '0',
+          shifts: [
+            {from: '07:00', to: '07:01'},
+            {from: '23:58', to: '00:03'},
+          ],
+        },
+        {kind: 'trips_removed', direction: '0', times: ['09:30']},
+        {
+          kind: 'earlier',
+          direction: '0',
+          shifts: [
+            {from: '00:20', to: '00:15'},
+            {from: '07:35', to: '07:30'},
+          ],
+        },
+        {kind: 'trips_added', direction: '0', times: ['10:00']},
+      ],
+      t,
+    )
     expect(rows.map((r) => r.kind)).toEqual(['retimed', 'trips_added', 'trips_removed'])
     expect(rows[0]!.label).toBe('routeChangeRetimed {"n":4}')
     expect(rows[0]!.entries.map((e) => `${e.old}>${e.text}`)).toEqual(['07:00>07:01', '07:35>07:30', '23:58>00:03', '00:20>00:15'])
@@ -83,9 +118,11 @@ describe('route change summary', () => {
     [[['weekdays']], 'The weekday timetable changed.', 'Orarul din timpul săptămânii s-a schimbat.'],
     [[['saturday', 'sunday']], 'The Saturday and Sunday timetables changed.', 'Orarele de sâmbătă și de duminică s-au schimbat.'],
     [[['sunday'], ['weekdays']], 'The weekday and Sunday timetables changed.', 'Orarele din timpul săptămânii și de duminică s-au schimbat.'],
-    [[['weekdays'], ['saturday', 'sunday'], ['weekdays']],
+    [
+      [['weekdays'], ['saturday', 'sunday'], ['weekdays']],
       'The weekday, Saturday and Sunday timetables changed.',
-      'Orarele din timpul săptămânii, de sâmbătă și de duminică s-au schimbat.'],
+      'Orarele din timpul săptămânii, de sâmbătă și de duminică s-au schimbat.',
+    ],
   ] as [RouteChangeDay[][], string, string][])('names the changed days %j', (days, enText, roText) => {
     expect(say('en', timetable(...days))).toBe(enText)
     expect(say('ro', timetable(...days))).toBe(roText)

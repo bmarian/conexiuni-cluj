@@ -13,9 +13,14 @@ const props = defineProps<{
 }>()
 
 const selected = ref(props.days.length - 1)
-watch(() => props.days.length, (n) => { selected.value = n - 1 })
+watch(
+  () => props.days.length,
+  (n) => {
+    selected.value = n - 1
+  },
+)
 
-const top = computed(() => props.max ?? Math.max(1, ...props.days.map(d => d.value)))
+const top = computed(() => props.max ?? Math.max(1, ...props.days.map((d) => d.value)))
 const caption = computed(() => props.days[selected.value]?.caption ?? '')
 </script>
 
@@ -28,12 +33,12 @@ const caption = computed(() => props.days[selected.value]?.caption ?? '')
         type="button"
         role="listitem"
         class="bar"
-        :class="{ 'is-today': i === days.length - 1, 'is-selected': i === selected }"
+        :class="{'is-today': i === days.length - 1, 'is-selected': i === selected}"
         :aria-label="day.caption"
         @click="selected = i"
         @pointerenter="selected = i"
       >
-        <span :style="{ height: `${Math.max(0, Math.min(1, day.value / top)) * 100}%` }"></span>
+        <span :style="{height: `${Math.max(0, Math.min(1, day.value / top)) * 100}%`}"></span>
       </button>
     </div>
     <p class="caption">{{ caption }}</p>

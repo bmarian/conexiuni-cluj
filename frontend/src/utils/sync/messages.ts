@@ -21,14 +21,27 @@ export function writeMessage(m: Message): string {
 function check(m: Record<string, unknown>): Message | null {
   const keys = Object.keys(m)
   if (m.t === 'ready' && keys.length === 1) return {t: 'ready'}
-  if (m.t === 'hello' && keys.length === 5
-    && (m.kind === 'web' || m.kind === 'android' || m.kind === 'wear')
-    && validText(m.label, 1, 40) && typeof m.syncs === 'boolean'
-    && Number.isInteger(m.devices) && (m.syncs ? (m.devices as number) >= 1 && (m.devices as number) <= DEVICE_CAP : m.devices === 0)) {
+  if (
+    m.t === 'hello' &&
+    keys.length === 5 &&
+    (m.kind === 'web' || m.kind === 'android' || m.kind === 'wear') &&
+    validText(m.label, 1, 40) &&
+    typeof m.syncs === 'boolean' &&
+    Number.isInteger(m.devices) &&
+    (m.syncs ? (m.devices as number) >= 1 && (m.devices as number) <= DEVICE_CAP : m.devices === 0)
+  ) {
     return m as Hello
   }
-  if (m.t === 'secret' && keys.length === 4 && typeof m.chain === 'string' && fromB64(m.chain, ID_SIZE)
-    && Number.isInteger(m.epoch) && (m.epoch as number) >= 1 && typeof m.s === 'string' && fromB64(m.s, KEY_SIZE)) {
+  if (
+    m.t === 'secret' &&
+    keys.length === 4 &&
+    typeof m.chain === 'string' &&
+    fromB64(m.chain, ID_SIZE) &&
+    Number.isInteger(m.epoch) &&
+    (m.epoch as number) >= 1 &&
+    typeof m.s === 'string' &&
+    fromB64(m.s, KEY_SIZE)
+  ) {
     return m as Secret
   }
   return null

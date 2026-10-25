@@ -618,6 +618,7 @@ X-Frame-Options: DENY
     "key": "GET /updates"
    }
   ],
+  "error_details": [],
   "errors": 0,
   "requests": 20
  }

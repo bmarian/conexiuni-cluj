@@ -18,7 +18,7 @@ export function useStandaloneRootBackground(surface: () => Element | null | unde
   }
 
   const themeObserver = new MutationObserver((records) => {
-    if (records.some(r => r.attributeName !== 'style')) sync()
+    if (records.some((r) => r.attributeName !== 'style')) sync()
   })
 
   onMounted(() => {

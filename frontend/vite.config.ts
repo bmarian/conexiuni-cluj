@@ -6,7 +6,7 @@ import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import svgLoader from "vite-svg-loader";
 import { VitePWA } from "vite-plugin-pwa";
-import { releaseVersion } from "./release";
+import { releaseVersion } from "./release.ts";
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   define: {
@@ -18,7 +18,9 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     vue(),
     svgLoader({
       // Icons are scaled, which needs the viewBox.
-      svgoConfig: {plugins: [{name: "preset-default", params: {overrides: {removeViewBox: false}}}]},
+      svgoConfig: {
+        plugins: [{ name: "preset-default", params: { overrides: { removeViewBox: false } } }],
+      },
     }),
     VitePWA({
       registerType: "autoUpdate",
@@ -41,7 +43,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
         share_target: {
           action: "/plan",
           method: "GET",
-          params: {title: "shared_title", text: "shared_text", url: "shared_url"},
+          params: { title: "shared_title", text: "shared_text", url: "shared_url" },
         },
         icons: [
           { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
@@ -93,7 +95,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     emptyOutDir: true,
     modulePreload: false,
     // MapLibre ships as one minified file; no chunk of ours should outgrow it.
-    chunkSizeWarningLimit: Math.ceil(statSync(fileURLToPath(new URL("./node_modules/maplibre-gl/dist/maplibre-gl.mjs", import.meta.url))).size / 1000),
+    chunkSizeWarningLimit: Math.ceil(
+      statSync(
+        fileURLToPath(new URL("./node_modules/maplibre-gl/dist/maplibre-gl.mjs", import.meta.url)),
+      ).size / 1000,
+    ),
     rollupOptions: {
       onwarn(warning, warn) {
         if (

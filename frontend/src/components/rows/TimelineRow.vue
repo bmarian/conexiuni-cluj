@@ -10,16 +10,16 @@ defineProps<{
 </script>
 
 <template>
-  <div class="timeline-row" :class="{ 'is-compact': compact, 'is-dimmed': dimmed }" :style="{ '--line': color }">
+  <div class="timeline-row" :class="{'is-compact': compact, 'is-dimmed': dimmed}" :style="{'--line': color}">
     <span class="rail">
-      <span v-if="top" class="half is-top" :class="{ 'is-walk': top === 'walk' }" :style="top !== 'walk' ? { background: top } : undefined"></span>
-      <span v-if="bottom" class="half is-bottom" :class="{ 'is-walk': bottom === 'walk' }" :style="bottom !== 'walk' ? { background: bottom } : undefined"></span>
+      <span v-if="top" class="half is-top" :class="{'is-walk': top === 'walk'}" :style="top !== 'walk' ? {background: top} : undefined"></span>
+      <span v-if="bottom" class="half is-bottom" :class="{'is-walk': bottom === 'walk'}" :style="bottom !== 'walk' ? {background: bottom} : undefined"></span>
       <span v-if="dot !== 'none'" class="dot" :class="`is-${dot}`"></span>
     </span>
     <div class="body">
-      <slot/>
+      <slot />
     </div>
-    <slot name="trailing"/>
+    <slot name="trailing" />
   </div>
 </template>
 
@@ -74,7 +74,10 @@ defineProps<{
 .dot.is-station {
   width: 14px;
   height: 14px;
-  box-shadow: inset 0 0 0 2.5px var(--line), inset 0 0 0 4px var(--md-surface-container), inset 0 0 0 7px var(--line);
+  box-shadow:
+    inset 0 0 0 2.5px var(--line),
+    inset 0 0 0 4px var(--md-surface-container),
+    inset 0 0 0 7px var(--line);
 }
 
 .dot.is-stop {

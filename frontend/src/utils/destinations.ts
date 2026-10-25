@@ -2,7 +2,7 @@ import {OUTGOING_SUFFIX} from '@/types/tranzy.ts'
 import type {NetworkIndex, NetworkRoute} from '@/utils/network.ts'
 import {reverseRouteLongName, routeDestination} from '@/utils/time.ts'
 
-export type Destination = {name: string | null, routes: NetworkRoute[]}
+export type Destination = {name: string | null; routes: NetworkRoute[]}
 
 export function stationDestinations(index: NetworkIndex, stopId: number): Destination[] {
   const platforms = new Set(index.platforms(stopId).map((s) => s.stop_id))

@@ -2,7 +2,7 @@
 import type {Mode} from '@/utils/modes.ts'
 import {MODE_ICON} from '@/utils/modeIcons.ts'
 
-defineProps<{ mode: Mode }>()
+defineProps<{mode: Mode}>()
 </script>
 
 <template>

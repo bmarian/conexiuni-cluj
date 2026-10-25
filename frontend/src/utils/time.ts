@@ -1,39 +1,34 @@
 import {cityClock, cityDate, cityMinutes, cityTime} from '@/utils/cityClock.ts'
 import {shallowRef} from 'vue'
 import type {DaySchedule, Timetable} from '@/types/ctp.ts'
-import {
-  OUTGOING_SUFFIX,
-  type StopInfo,
-  type TimeEntry,
-  type VehiclesInStop
-} from '@/types/tranzy.ts'
-import {getRouteIdFromTripId, getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from "@/utils/trips.ts";
-import {scheduledArrivals} from "@/utils/arrivals.ts";
+import {OUTGOING_SUFFIX, type StopInfo, type TimeEntry, type VehiclesInStop} from '@/types/tranzy.ts'
+import {getRouteIdFromTripId, getShapeStopTimes, getTimeOffsetToStop, getTripIdForRouteAtStop} from '@/utils/trips.ts'
+import {scheduledArrivals} from '@/utils/arrivals.ts'
 
 export const timeStringToMinutes = (timeString: string): number | null => {
   if (!timeString || !timeString.includes(':')) {
-    return null;
+    return null
   }
 
-  const parts = timeString.trim().split(':');
+  const parts = timeString.trim().split(':')
 
-  const hours = parseInt(parts[0]!, 10);
-  const minutes = parseInt(parts[1]!, 10);
+  const hours = parseInt(parts[0]!, 10)
+  const minutes = parseInt(parts[1]!, 10)
 
   if (isNaN(hours) || isNaN(minutes)) {
-    return null;
+    return null
   }
 
-  return (hours * 60) + minutes;
+  return hours * 60 + minutes
 }
 
 export const getMinutesFromDate = (dateObject: Date): number => cityMinutes(dateObject)
 
 export const formatMinutesFromNow = (rawMinutes: number, referenceDate: Date, nowLabel: string): string => {
-  const minutes = Math.round(rawMinutes);
-  if (minutes === 0) return nowLabel;
-  if (minutes > 0 && minutes < 60) return `${minutes}m`;
-  return cityClock(referenceDate.getTime() + minutes * 60_000);
+  const minutes = Math.round(rawMinutes)
+  if (minutes === 0) return nowLabel
+  if (minutes > 0 && minutes < 60) return `${minutes}m`
+  return cityClock(referenceDate.getTime() + minutes * 60_000)
 }
 
 export type TimetableDayKey = 'weekdays' | 'saturday' | 'sunday'
@@ -87,11 +82,7 @@ export const tripDepartureMinutes = (timetable: Timetable | null | undefined, tr
 }
 
 export const hasTimetableEntries = (timetable?: Timetable | null): boolean => {
-  return !!(
-    timetable?.weekdays?.entries?.length
-    || timetable?.saturday?.entries?.length
-    || timetable?.sunday?.entries?.length
-  )
+  return !!(timetable?.weekdays?.entries?.length || timetable?.saturday?.entries?.length || timetable?.sunday?.entries?.length)
 }
 
 export const isTimetableAvailableOnDay = (referenceDate: Date, timetable: Timetable): boolean => {
@@ -118,7 +109,7 @@ export function routeOrigin(name: string): string {
 export const getAvailableBusesForStop = (
   stopInfo: StopInfo,
   referenceDate: Date,
-  options: { maxMinutes?: number; limit?: number; tripId?: string } = {}
+  options: {maxMinutes?: number; limit?: number; tripId?: string} = {},
 ): VehiclesInStop[] => {
   const referenceMinutes = getMinutesFromDate(referenceDate)
   const {outgoing_trip_ids, incoming_trip_ids, shapes_info, stop_id} = stopInfo
@@ -139,7 +130,7 @@ export const getAvailableBusesForStop = (
     const daySchedule = getTimetableForDay(timetable, referenceDate)
 
     const departureMinutes = daySchedule.entries
-      .map(entry => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
+      .map((entry) => timeStringToMinutes(isOutgoing ? entry.departure_in : entry.departure_out))
       .filter((m): m is number => m !== null)
 
     // Signed, so a run a few minutes late is still listed instead of wrapping to tomorrow.
@@ -149,7 +140,7 @@ export const getAvailableBusesForStop = (
       nowMinutes: referenceMinutes,
       horizonMinutes: options.maxMinutes,
       graceMinutes: shape.late_grace_min ?? 1,
-    }).map(minutes => ({minutes: Math.max(Math.round(minutes), 0), is_live: false}))
+    }).map((minutes) => ({minutes: Math.max(Math.round(minutes), 0), is_live: false}))
 
     if (options.limit !== undefined) {
       upcomingEntries = upcomingEntries.slice(0, options.limit)

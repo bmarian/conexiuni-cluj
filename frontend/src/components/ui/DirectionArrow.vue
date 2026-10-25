@@ -2,7 +2,7 @@
 import {onMounted, ref, watch, type Component} from 'vue'
 import {ARROW_BACK_MS, ARROW_MS, ARROW_OPEN_DELAY_MS, arrowKeyframes} from '@/utils/directionArrow.ts'
 
-const props = defineProps<{ icon: Component, rest: number, heading: number | null, on: boolean }>()
+const props = defineProps<{icon: Component; rest: number; heading: number | null; on: boolean}>()
 
 const el = ref<HTMLElement>()
 let played = false
@@ -22,11 +22,14 @@ const open = () => {
 }
 onMounted(open)
 watch(() => props.heading !== null, open)
-watch(() => props.on, () => play())
+watch(
+  () => props.on,
+  () => play(),
+)
 </script>
 
 <template>
   <span ref="el" class="inline-flex shrink-0" :style="on && heading !== null ? {transform: `rotate(${heading - rest}deg)`} : undefined">
-    <component :is="icon" class="m-icon size-4"/>
+    <component :is="icon" class="m-icon size-4" />
   </span>
 </template>

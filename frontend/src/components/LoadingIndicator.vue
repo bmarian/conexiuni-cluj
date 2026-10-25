@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ text?: string }>()
+defineProps<{text?: string}>()
 </script>
 
 <template>
@@ -30,11 +30,14 @@ defineProps<{ text?: string }>()
   width: 38px;
   height: 38px;
   background: var(--md-primary);
-  animation: morph 2.6s cubic-bezier(0.42, 0, 0.2, 1) infinite, turn 1.3s linear infinite;
+  animation:
+    morph 2.6s cubic-bezier(0.42, 0, 0.2, 1) infinite,
+    turn 1.3s linear infinite;
 }
 
 @keyframes morph {
-  0%, 100% {
+  0%,
+  100% {
     border-radius: 50%;
     scale: 0.9;
   }

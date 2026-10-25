@@ -37,7 +37,7 @@ function sameRoute(a: FavoriteRoute, b: FavoriteRoute): boolean {
   return a.routeId === b.routeId && a.direction === b.direction
 }
 
-const rounded = (x: number | undefined) => x === undefined ? undefined : roundCoordinate(x)
+const rounded = (x: number | undefined) => (x === undefined ? undefined : roundCoordinate(x))
 
 // Saved places keep six decimals, as sync carries them, so a place compares equal on every device.
 function samePlace(p: FavoritePlan, lat: number, lon: number, originLat?: number, originLon?: number): boolean {
@@ -71,8 +71,7 @@ export function parseStopIds(raw: unknown): number[] {
 
 export function parsePlans(raw: unknown): FavoritePlan[] {
   if (!Array.isArray(raw)) return []
-  return raw.filter((p): p is FavoritePlan =>
-    typeof p?.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lon))
+  return raw.filter((p): p is FavoritePlan => typeof p?.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lon))
 }
 
 function readSaved(key: string): unknown {
@@ -134,9 +133,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function isRouteFavorite(routeId: number, direction?: RouteDirection): boolean {
-    return favoriteRoutes.value.some((r) =>
-      r.routeId === routeId && (direction === undefined || r.direction === direction)
-    )
+    return favoriteRoutes.value.some((r) => r.routeId === routeId && (direction === undefined || r.direction === direction))
   }
 
   function isStopFavorite(id: number): boolean {
@@ -167,7 +164,14 @@ export const useFavoritesStore = defineStore('favorites', () => {
   function togglePlanFavorite(plan: FavoritePlan) {
     const idx = favoritePlans.value.findIndex((p) => samePlace(p, plan.lat, plan.lon, plan.originLat, plan.originLon))
     if (idx === -1 && atCap(favoritePlans.value)) return
-    if (idx === -1) favoritePlans.value.push({...plan, lat: roundCoordinate(plan.lat), lon: roundCoordinate(plan.lon), originLat: rounded(plan.originLat), originLon: rounded(plan.originLon)})
+    if (idx === -1)
+      favoritePlans.value.push({
+        ...plan,
+        lat: roundCoordinate(plan.lat),
+        lon: roundCoordinate(plan.lon),
+        originLat: rounded(plan.originLat),
+        originLon: rounded(plan.originLon),
+      })
     else favoritePlans.value.splice(idx, 1)
     persistPlans()
   }
@@ -196,12 +200,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function addRecentPlan(plan: FavoritePlan) {
-    const idx = recentPlans.value.findIndex(p =>
-      p.lat === plan.lat &&
-      p.lon === plan.lon &&
-      p.originLat === plan.originLat &&
-      p.originLon === plan.originLon
-    )
+    const idx = recentPlans.value.findIndex((p) => p.lat === plan.lat && p.lon === plan.lon && p.originLat === plan.originLat && p.originLon === plan.originLon)
     if (idx !== -1) recentPlans.value.splice(idx, 1)
     recentPlans.value.unshift(plan)
     if (recentPlans.value.length > MAX_RECENT_PLANS) {
@@ -211,18 +210,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function removeRecentPlan(plan: FavoritePlan) {
-    const idx = recentPlans.value.findIndex(p =>
-      p.lat === plan.lat &&
-      p.lon === plan.lon &&
-      p.originLat === plan.originLat &&
-      p.originLon === plan.originLon
-    )
+    const idx = recentPlans.value.findIndex((p) => p.lat === plan.lat && p.lon === plan.lon && p.originLat === plan.originLat && p.originLon === plan.originLon)
     if (idx === -1) return
     recentPlans.value.splice(idx, 1)
     persistRecentPlans()
   }
 
-  function importAll(data: { routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown }, city = currentCity.value) {
+  function importAll(data: {routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown}, city = currentCity.value) {
     const routes = parseFavoriteRoutes(data.routes)
     const stops = parseStopIds(data.stops)
     const plans = parsePlans(data.plans)
@@ -246,9 +240,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     }
     if (favoriteStopIds.value.length) {
       const {fetchStopData} = useStopInfoApi()
-      jobs.push(
-        Promise.allSettled(favoriteStopIds.value.map((id) => fetchStopData(String(id)))),
-      )
+      jobs.push(Promise.allSettled(favoriteStopIds.value.map((id) => fetchStopData(String(id)))))
     }
 
     await Promise.all(jobs)

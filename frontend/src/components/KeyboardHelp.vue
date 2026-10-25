@@ -13,15 +13,23 @@ const {closeLayers} = useKeyboardNav()
 const isOpen = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
 
-useKbdLayer(isOpen, {el: () => panelRef.value, close: () => { isOpen.value = false }})
-
-useKbdShortcuts({
-  '?': () => {
-    const open = !isOpen.value
-    closeLayers()
-    isOpen.value = open
+useKbdLayer(isOpen, {
+  el: () => panelRef.value,
+  close: () => {
+    isOpen.value = false
   },
-}, {global: true})
+})
+
+useKbdShortcuts(
+  {
+    '?': () => {
+      const open = !isOpen.value
+      closeLayers()
+      isOpen.value = open
+    },
+  },
+  {global: true},
+)
 
 const groups = computed(() => [
   {
@@ -85,7 +93,7 @@ const groups = computed(() => [
         <div class="kbd-help-head">
           <h2 class="kbd-help-title">{{ t('kbdHelpTitle') }}</h2>
           <button type="button" class="icon-btn" :aria-label="t('dismiss')" :title="t('dismiss')" @click="isOpen = false">
-            <CloseIcon class="m-icon"/>
+            <CloseIcon class="m-icon" />
           </button>
         </div>
         <div class="kbd-help-groups">

@@ -4,8 +4,8 @@ import type {CitySummary} from '@/components/admin/types.ts'
 import {usePopup} from '@/composables/usePopup.ts'
 import {CheckIcon, ExpandMoreIcon} from '@/utils/icons.ts'
 
-const props = defineProps<{ cities: CitySummary[], city: string }>()
-const emit = defineEmits<{ pick: [slug: string] }>()
+const props = defineProps<{cities: CitySummary[]; city: string}>()
+const emit = defineEmits<{pick: [slug: string]}>()
 
 const root = ref<HTMLElement | null>(null)
 const {open, show, close} = usePopup(() => [root.value])
@@ -21,7 +21,7 @@ function pick(slug: string) {
   <div ref="root" class="city-menu">
     <button type="button" class="trigger state" aria-haspopup="menu" :aria-expanded="open" @click="open ? close() : show()">
       <h2 class="text-title-large truncate">{{ name }}</h2>
-      <ExpandMoreIcon class="m-icon chevron" :class="{ 'is-open': open }"/>
+      <ExpandMoreIcon class="m-icon chevron" :class="{'is-open': open}" />
     </button>
     <Transition name="menu">
       <div v-if="open" class="menu popup-menu" role="menu">
@@ -35,7 +35,7 @@ function pick(slug: string) {
           @click="pick(c.slug)"
         >
           <span class="flex-1 truncate">{{ c.name }}</span>
-          <CheckIcon v-if="c.slug === city" class="m-icon text-primary"/>
+          <CheckIcon v-if="c.slug === city" class="m-icon text-primary" />
         </button>
       </div>
     </Transition>

@@ -2,7 +2,7 @@
 import PopIcon from '@/components/ui/PopIcon.vue'
 import type {ChipAction} from '@/components/ui/types.ts'
 
-defineProps<{ actions: ChipAction[] }>()
+defineProps<{actions: ChipAction[]}>()
 </script>
 
 <template>
@@ -12,17 +12,12 @@ defineProps<{ actions: ChipAction[] }>()
       :key="i"
       type="button"
       class="chip squish"
-      :class="{ 'is-primary': action.primary, 'is-selected': action.selected }"
+      :class="{'is-primary': action.primary, 'is-selected': action.selected}"
       :disabled="action.disabled"
       :data-kbd-item="action.kbd ?? `action-${i}`"
       @click="action.onClick()"
     >
-      <PopIcon
-        :icon="action.icon"
-        :on="!!action.selected"
-        class="size-[18px]"
-        :style="action.tint ? { color: action.tint } : undefined"
-      />
+      <PopIcon :icon="action.icon" :on="!!action.selected" class="size-[18px]" :style="action.tint ? {color: action.tint} : undefined" />
       <span>{{ action.label }}</span>
     </button>
   </div>
@@ -66,11 +61,15 @@ defineProps<{ actions: ChipAction[] }>()
   letter-spacing: 0.1px;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-radius var(--spring-fast-ms) var(--spring-fast), scale var(--spring-press-ms) var(--spring-press), background-color 200ms linear, color 200ms linear;
+  transition:
+    border-radius var(--spring-fast-ms) var(--spring-fast),
+    scale var(--spring-press-ms) var(--spring-press),
+    background-color 200ms linear,
+    color 200ms linear;
 }
 
 .chip::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;

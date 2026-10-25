@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {WarningAmberIcon} from '@/utils/icons.ts'
 
-defineProps<{ stats: {value: string, label: string}[], problems: string[] }>()
+defineProps<{stats: {value: string; label: string}[]; problems: string[]}>()
 </script>
 
 <template>
@@ -13,7 +13,7 @@ defineProps<{ stats: {value: string, label: string}[], problems: string[] }>()
   </div>
   <ul v-if="problems.length" class="admin-problems">
     <li v-for="p in problems" :key="p">
-      <WarningAmberIcon class="m-icon"/>
+      <WarningAmberIcon class="m-icon" />
       <span>{{ p }}</span>
     </li>
   </ul>

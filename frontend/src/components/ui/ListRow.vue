@@ -13,34 +13,28 @@ defineProps<{
   busy?: boolean
   href?: string
 }>()
-const emit = defineEmits<{ open: [], remove: [] }>()
+const emit = defineEmits<{open: []; remove: []}>()
 </script>
 
 <template>
-  <RowLink class="list-row state squish" :class="{ 'is-busy': busy }" :href="href" @open="emit('open')">
-    <slot name="icon"/>
+  <RowLink class="list-row state squish" :class="{'is-busy': busy}" :href="href" @open="emit('open')">
+    <slot name="icon" />
     <div class="flex-1 min-w-0">
       <p v-if="kicker" class="kicker">{{ kicker }}</p>
       <p class="text-body-large truncate">
-        <span v-if="titlePrefix" class="text-on-surface-variant">{{ titlePrefix }}</span>{{ title }}
+        <span v-if="titlePrefix" class="text-on-surface-variant">{{ titlePrefix }}</span
+        >{{ title }}
       </p>
       <p v-if="subtitle" class="text-body-small text-on-surface-variant truncate">{{ subtitle }}</p>
       <div v-if="$slots.lines" class="pt-1">
-        <slot name="lines"/>
+        <slot name="lines" />
       </div>
     </div>
     <span v-if="trailing" class="text-label-medium text-on-surface-variant shrink-0">{{ trailing }}</span>
-    <button
-      v-if="removeLabel"
-      type="button"
-      class="icon-btn text-outline"
-      :aria-label="removeLabel"
-      :title="removeLabel"
-      @click.stop="emit('remove')"
-    >
-      <CloseIcon class="m-icon size-[18px]"/>
+    <button v-if="removeLabel" type="button" class="icon-btn text-outline" :aria-label="removeLabel" :title="removeLabel" @click.stop="emit('remove')">
+      <CloseIcon class="m-icon size-[18px]" />
     </button>
-    <KeyboardArrowRightIcon v-else-if="chevron" class="m-icon size-[18px] text-outline mr-3"/>
+    <KeyboardArrowRightIcon v-else-if="chevron" class="m-icon size-[18px] text-outline mr-3" />
   </RowLink>
 </template>
 

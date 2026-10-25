@@ -9,9 +9,13 @@ const CACHE_KEY = 'cache:stops'
 // Starts from the last session's list so favorites render before the network answers.
 const stops = ref<Stop[]>(readCachedList(CACHE_KEY))
 
-watch(currentCity, () => {
-  stops.value = readCachedList(CACHE_KEY)
-}, {flush: 'sync'})
+watch(
+  currentCity,
+  () => {
+    stops.value = readCachedList(CACHE_KEY)
+  },
+  {flush: 'sync'},
+)
 
 watch(network, (index) => {
   if (!index?.bundle.stops.length) return

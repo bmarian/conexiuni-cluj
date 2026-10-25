@@ -1,104 +1,89 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
-import { useI18n } from "vue-i18n";
-import { storeToRefs } from "pinia";
-import { useMapStore } from "@/stores/map.ts";
-import { useUserStore } from "@/stores/user.ts";
-import { useFavoritesStore, type FavoritePlan } from "@/stores/favorites.ts";
-import { useRoutesApi } from "@/composables/useRoutesApi.ts";
-import { useStopsApi } from "@/composables/useStopsApi.ts";
-import { useOnline } from "@/composables/useOnline.ts";
-import { useSearch } from "@/composables/useSearch.ts";
-import { useOpenRoute } from "@/composables/useOpenRoute.ts";
-import { useKbdLayer } from "@/composables/useKeyboardNav.ts";
-import type { Route, Stop } from "@/types/tranzy.ts";
-import { formatMeters, haversineMeters, sortByDistance } from "@/utils/geo.ts";
-import { searchPlaces, type Place } from "@/utils/places.ts";
-import { RESULTS_PER_KIND, stopMatchRank } from "@/utils/stopSearch.ts";
-import { fold } from "@/utils/text.ts";
-import { network } from "@/utils/network.ts";
-import { cityCenter, cityParams } from "@/utils/city.ts";
-import { planQuery } from "@/utils/planQuery.ts";
-import {
-  ArrowBackIcon,
-  CloseIcon,
-  DirectionsBusIcon,
-  KeyboardArrowRightIcon,
-  MapIcon,
-  PlaceIcon,
-  PushPinIcon,
-  ScheduleIcon,
-} from "@/utils/icons.ts";
-import SubLabel from "@/components/ui/SubLabel.vue";
-import RowIcon from "@/components/ui/RowIcon.vue";
-import ListRow from "@/components/ui/ListRow.vue";
-import RouteRow from "@/components/rows/RouteRow.vue";
-import StationRow from "@/components/rows/StationRow.vue";
-import LoadMore from "@/components/LoadMore.vue";
+import {computed, nextTick, onUnmounted, ref, watch} from 'vue'
+import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
+import {storeToRefs} from 'pinia'
+import {useMapStore} from '@/stores/map.ts'
+import {useUserStore} from '@/stores/user.ts'
+import {useFavoritesStore, type FavoritePlan} from '@/stores/favorites.ts'
+import {useRoutesApi} from '@/composables/useRoutesApi.ts'
+import {useStopsApi} from '@/composables/useStopsApi.ts'
+import {useOnline} from '@/composables/useOnline.ts'
+import {useSearch} from '@/composables/useSearch.ts'
+import {useOpenRoute} from '@/composables/useOpenRoute.ts'
+import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
+import type {Route, Stop} from '@/types/tranzy.ts'
+import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
+import {searchPlaces, type Place} from '@/utils/places.ts'
+import {RESULTS_PER_KIND, stopMatchRank} from '@/utils/stopSearch.ts'
+import {fold} from '@/utils/text.ts'
+import {network} from '@/utils/network.ts'
+import {cityCenter, cityParams} from '@/utils/city.ts'
+import {planQuery} from '@/utils/planQuery.ts'
+import {ArrowBackIcon, CloseIcon, DirectionsBusIcon, KeyboardArrowRightIcon, MapIcon, PlaceIcon, PushPinIcon, ScheduleIcon} from '@/utils/icons.ts'
+import SubLabel from '@/components/ui/SubLabel.vue'
+import RowIcon from '@/components/ui/RowIcon.vue'
+import ListRow from '@/components/ui/ListRow.vue'
+import RouteRow from '@/components/rows/RouteRow.vue'
+import StationRow from '@/components/rows/StationRow.vue'
+import LoadMore from '@/components/LoadMore.vue'
 
-const PLACE_DEBOUNCE_MS = 350;
-const PLACE_MIN_CHARS = 3;
-const RECENTS_SHOWN = 8;
-const PAGE_SIZE = 30;
+const PLACE_DEBOUNCE_MS = 350
+const PLACE_MIN_CHARS = 3
+const RECENTS_SHOWN = 8
+const PAGE_SIZE = 30
 
-const { t } = useI18n();
-const router = useRouter();
-const mapStore = useMapStore();
-const userStore = useUserStore();
-const favorites = useFavoritesStore();
-const { favoritePlans, recentPlans } = storeToRefs(favorites);
-const { routes, fetchRoutes } = useRoutesApi();
-const { stops, fetchStops } = useStopsApi();
-const { isOnline } = useOnline();
-const { open, query } = useSearch();
-const { openingRouteId, openRoute } = useOpenRoute();
+const {t} = useI18n()
+const router = useRouter()
+const mapStore = useMapStore()
+const userStore = useUserStore()
+const favorites = useFavoritesStore()
+const {favoritePlans, recentPlans} = storeToRefs(favorites)
+const {routes, fetchRoutes} = useRoutesApi()
+const {stops, fetchStops} = useStopsApi()
+const {isOnline} = useOnline()
+const {open, query} = useSearch()
+const {openingRouteId, openRoute} = useOpenRoute()
 
-const panel = ref<HTMLElement | null>(null);
-const scroller = ref<HTMLElement | null>(null);
-const input = ref<HTMLInputElement | null>(null);
+const panel = ref<HTMLElement | null>(null)
+const scroller = ref<HTMLElement | null>(null)
+const input = ref<HTMLInputElement | null>(null)
 
 function close(clear: boolean) {
-  open.value = false;
-  if (clear) query.value = "";
+  open.value = false
+  if (clear) query.value = ''
 }
 
-useKbdLayer(open, { el: () => panel.value, close: () => close(true) });
+useKbdLayer(open, {el: () => panel.value, close: () => close(true)})
 
 watch(open, async (isOpen) => {
-  if (!isOpen) return;
-  void fetchRoutes();
-  void fetchStops();
-  await nextTick();
-  input.value?.focus({ preventScroll: true });
-});
+  if (!isOpen) return
+  void fetchRoutes()
+  void fetchStops()
+  await nextTick()
+  input.value?.focus({preventScroll: true})
+})
 
-const searching = computed(() => query.value.trim().length > 0);
+const searching = computed(() => query.value.trim().length > 0)
 
-const byName = new Intl.Collator(undefined, { numeric: true });
-const sortedRoutes = computed(() =>
-  [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name)),
-);
+const byName = new Intl.Collator(undefined, {numeric: true})
+const sortedRoutes = computed(() => [...routes.value].sort((a, b) => byName.compare(a.route_short_name, b.route_short_name)))
 const sortedStops = computed(() => {
-  const sorted = [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name));
-  return network.value?.oneStopPerStation(sorted) ?? sorted;
-});
+  const sorted = [...stops.value].sort((a, b) => byName.compare(a.stop_name, b.stop_name))
+  return network.value?.oneStopPerStation(sorted) ?? sorted
+})
 
 const routeResults = computed<Route[]>(() => {
-  const q = fold(query.value.trim());
-  if (!q) return [];
-  return sortedRoutes.value
-    .filter((r) => fold(r.route_short_name).includes(q) || fold(r.route_long_name).includes(q))
-    .slice(0, RESULTS_PER_KIND);
-});
+  const q = fold(query.value.trim())
+  if (!q) return []
+  return sortedRoutes.value.filter((r) => fold(r.route_short_name).includes(q) || fold(r.route_long_name).includes(q)).slice(0, RESULTS_PER_KIND)
+})
 
 const stopResults = computed<Stop[]>(() => {
-  const q = fold(query.value.trim());
-  if (!q) return [];
-  const matches = stops.value
-    .map((stop) => ({ stop, rank: stopMatchRank(fold(stop.stop_name), q) }))
-    .filter((m) => m.rank >= 0);
-  const loc = userStore.userLocation;
+  const q = fold(query.value.trim())
+  if (!q) return []
+  const matches = stops.value.map((stop) => ({stop, rank: stopMatchRank(fold(stop.stop_name), q)})).filter((m) => m.rank >= 0)
+  const loc = userStore.userLocation
   const sorted = loc
     ? sortByDistance(
         matches,
@@ -107,23 +92,23 @@ const stopResults = computed<Stop[]>(() => {
         (m) => m.stop.stop_lat,
         (m) => m.stop.stop_lon,
       )
-    : matches;
-  const ranked = sorted.sort((a, b) => a.rank - b.rank).map((m) => m.stop);
-  return (network.value?.oneStopPerStation(ranked) ?? ranked).slice(0, RESULTS_PER_KIND);
-});
+    : matches
+  const ranked = sorted.sort((a, b) => a.rank - b.rank).map((m) => m.stop)
+  return (network.value?.oneStopPerStation(ranked) ?? ranked).slice(0, RESULTS_PER_KIND)
+})
 
-const places = ref<Place[]>([]);
-const placesLoading = ref(false);
-let placeTimer: ReturnType<typeof setTimeout> | null = null;
-let placeRequest: AbortController | null = null;
+const places = ref<Place[]>([])
+const placesLoading = ref(false)
+let placeTimer: ReturnType<typeof setTimeout> | null = null
+let placeRequest: AbortController | null = null
 
 async function fetchPlaces(q: string) {
-  const request = new AbortController();
-  placeRequest = request;
+  const request = new AbortController()
+  placeRequest = request
   try {
-    const found = await searchPlaces(q, RESULTS_PER_KIND, request.signal);
-    if (request.signal.aborted) return;
-    const loc = userStore.userLocation;
+    const found = await searchPlaces(q, RESULTS_PER_KIND, request.signal)
+    if (request.signal.aborted) return
+    const loc = userStore.userLocation
     places.value =
       loc && found.length > 1
         ? sortByDistance(
@@ -133,133 +118,110 @@ async function fetchPlaces(q: string) {
             (r) => parseFloat(r.lat),
             (r) => parseFloat(r.lon),
           )
-        : found;
+        : found
   } catch {
-    if (!request.signal.aborted) places.value = [];
+    if (!request.signal.aborted) places.value = []
   } finally {
     if (placeRequest === request) {
-      placeRequest = null;
-      placesLoading.value = false;
+      placeRequest = null
+      placesLoading.value = false
     }
   }
 }
 
 watch(query, (q) => {
-  if (placeTimer) clearTimeout(placeTimer);
-  placeRequest?.abort();
-  placeRequest = null;
-  places.value = [];
-  const trimmed = q.trim();
-  placesLoading.value = isOnline.value && trimmed.length >= PLACE_MIN_CHARS;
-  if (placesLoading.value) placeTimer = setTimeout(() => fetchPlaces(trimmed), PLACE_DEBOUNCE_MS);
-});
+  if (placeTimer) clearTimeout(placeTimer)
+  placeRequest?.abort()
+  placeRequest = null
+  places.value = []
+  const trimmed = q.trim()
+  placesLoading.value = isOnline.value && trimmed.length >= PLACE_MIN_CHARS
+  if (placesLoading.value) placeTimer = setTimeout(() => fetchPlaces(trimmed), PLACE_DEBOUNCE_MS)
+})
 
 onUnmounted(() => {
-  if (placeTimer) clearTimeout(placeTimer);
-  placeRequest?.abort();
-});
+  if (placeTimer) clearTimeout(placeTimer)
+  placeRequest?.abort()
+})
 
 function distanceTo(lat: number, lon: number): string | null {
-  const loc = userStore.userLocation;
-  return loc ? formatMeters(haversineMeters(loc.latitude, loc.longitude, lat, lon)) : null;
+  const loc = userStore.userLocation
+  return loc ? formatMeters(haversineMeters(loc.latitude, loc.longitude, lat, lon)) : null
 }
 
-const noResults = computed(
-  () =>
-    !placesLoading.value &&
-    !places.value.length &&
-    !routeResults.value.length &&
-    !stopResults.value.length,
-);
+const noResults = computed(() => !placesLoading.value && !places.value.length && !routeResults.value.length && !stopResults.value.length)
 
-const recents = computed(() =>
-  recentPlans.value
-    .filter((p) => !favorites.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon))
-    .slice(0, RECENTS_SHOWN),
-);
+const recents = computed(() => recentPlans.value.filter((p) => !favorites.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon)).slice(0, RECENTS_SHOWN))
 
 function persistedToggle(key: string) {
-  const on = ref(localStorage.getItem(key) === "true");
-  watch(on, (v) => localStorage.setItem(key, String(v)));
-  return on;
+  const on = ref(localStorage.getItem(key) === 'true')
+  watch(on, (v) => localStorage.setItem(key, String(v)))
+  return on
 }
 
-const showAllRoutes = persistedToggle("home.showAllRoutes");
-const showAllStops = persistedToggle("home.showAllStops");
-const routesShown = ref(PAGE_SIZE);
-const stopsShown = ref(PAGE_SIZE);
-watch(showAllRoutes, () => (routesShown.value = PAGE_SIZE));
-watch(showAllStops, () => (stopsShown.value = PAGE_SIZE));
+const showAllRoutes = persistedToggle('home.showAllRoutes')
+const showAllStops = persistedToggle('home.showAllStops')
+const routesShown = ref(PAGE_SIZE)
+const stopsShown = ref(PAGE_SIZE)
+watch(showAllRoutes, () => (routesShown.value = PAGE_SIZE))
+watch(showAllStops, () => (stopsShown.value = PAGE_SIZE))
 
 function go(action: () => void) {
-  input.value?.blur();
-  close(false);
-  action();
+  input.value?.blur()
+  close(false)
+  action()
 }
 
 function openPlace(place: Place) {
-  const lat = parseFloat(place.lat);
-  const lon = parseFloat(place.lon);
+  const lat = parseFloat(place.lat)
+  const lon = parseFloat(place.lon)
   go(() => {
-    if (!isNaN(lat) && !isNaN(lon)) favorites.addRecentPlan({ name: place.label, lat, lon });
+    if (!isNaN(lat) && !isNaN(lon)) favorites.addRecentPlan({name: place.label, lat, lon})
     void router.push({
-      name: "plan",
-      query: { lat: place.lat, lon: place.lon, name: place.label },
-    });
-  });
+      name: 'plan',
+      query: {lat: place.lat, lon: place.lon, name: place.label},
+    })
+  })
 }
 
 function openPlan(plan: FavoritePlan) {
-  go(() => void router.push({ name: "plan", query: planQuery(plan) }));
+  go(() => void router.push({name: 'plan', query: planQuery(plan)}))
 }
 
 function openStop(stop: Stop) {
   go(() => {
-    mapStore.clearPinnedLocation();
-    mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon);
-    void router.push({ name: "stop", params: { stopId: String(stop.stop_id) } });
-  });
+    mapStore.clearPinnedLocation()
+    mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
+    void router.push({name: 'stop', params: {stopId: String(stop.stop_id)}})
+  })
 }
 
 function pickRoute(route: Route) {
-  input.value?.blur();
-  void openRoute(route).then(() => close(false));
+  input.value?.blur()
+  void openRoute(route).then(() => close(false))
 }
 
 function dropPin() {
   go(
     () =>
       void router.push({
-        name: "plan",
+        name: 'plan',
         query: {
           lat: String(cityCenter().lat),
           lon: String(cityCenter().lon),
-          name: t("droppedPin"),
+          name: t('droppedPin'),
         },
       }),
-  );
+  )
 }
 </script>
 
 <template>
   <div v-if="open" class="search-backdrop" @pointerdown="close(false)"></div>
   <Transition name="search">
-    <div
-      v-if="open"
-      ref="panel"
-      class="search-overlay"
-      role="dialog"
-      :aria-label="t('searchPlaceholder')"
-    >
+    <div v-if="open" ref="panel" class="search-overlay" role="dialog" :aria-label="t('searchPlaceholder')">
       <div class="search-bar" data-kbd-section="search" data-kbd-axis="x">
-        <button
-          type="button"
-          class="icon-btn"
-          data-kbd-item="search-back"
-          :aria-label="t('back')"
-          :title="t('back')"
-          @click="close(true)"
-        >
+        <button type="button" class="icon-btn" data-kbd-item="search-back" :aria-label="t('back')" :title="t('back')" @click="close(true)">
           <ArrowBackIcon class="m-icon" />
         </button>
         <input
@@ -273,14 +235,7 @@ function dropPin() {
           enterkeyhint="search"
           @keydown.enter="input?.blur()"
         />
-        <button
-          v-if="query"
-          type="button"
-          class="icon-btn"
-          :aria-label="t('clearSearch')"
-          :title="t('clearSearch')"
-          @click="query = ''"
-        >
+        <button v-if="query" type="button" class="icon-btn" :aria-label="t('clearSearch')" :title="t('clearSearch')" @click="query = ''">
           <CloseIcon class="m-icon" />
         </button>
       </div>
@@ -336,7 +291,7 @@ function dropPin() {
             >
               <template #icon><RowIcon :icon="PushPinIcon" /></template>
             </ListRow>
-            <p v-else class="text-body-medium text-on-surface-variant p-4">{{ t("noResults") }}</p>
+            <p v-else class="text-body-medium text-on-surface-variant p-4">{{ t('noResults') }}</p>
           </template>
         </template>
 
@@ -378,12 +333,9 @@ function dropPin() {
               @click="showAllRoutes = !showAllRoutes"
             >
               <RowIcon :icon="MapIcon" :size="32" />
-              <span class="flex-1 text-left text-title-small">{{ t("linesIn", cityParams()) }}</span>
+              <span class="flex-1 text-left text-title-small">{{ t('linesIn', cityParams()) }}</span>
               <span v-if="sortedRoutes.length" class="count">{{ sortedRoutes.length }}</span>
-              <KeyboardArrowRightIcon
-                class="m-icon size-[18px] text-outline chevron"
-                :class="{ 'is-open': showAllRoutes }"
-              />
+              <KeyboardArrowRightIcon class="m-icon size-[18px] text-outline chevron" :class="{'is-open': showAllRoutes}" />
             </button>
             <template v-if="showAllRoutes">
               <div v-if="!routes.length" class="progress" aria-hidden="true"><span></span></div>
@@ -397,11 +349,7 @@ function dropPin() {
                 :data-kbd-item="`route-${route.route_id}`"
                 @open="pickRoute(route)"
               />
-              <LoadMore
-                v-if="routesShown < sortedRoutes.length"
-                :root="scroller"
-                @more="routesShown += PAGE_SIZE"
-              />
+              <LoadMore v-if="routesShown < sortedRoutes.length" :root="scroller" @more="routesShown += PAGE_SIZE" />
             </template>
           </section>
           <section data-kbd-section="all-stops">
@@ -413,12 +361,9 @@ function dropPin() {
               @click="showAllStops = !showAllStops"
             >
               <RowIcon :icon="DirectionsBusIcon" :size="32" tone="secondary" />
-              <span class="flex-1 text-left text-title-small">{{ t("stopsIn", cityParams()) }}</span>
+              <span class="flex-1 text-left text-title-small">{{ t('stopsIn', cityParams()) }}</span>
               <span v-if="sortedStops.length" class="count">{{ sortedStops.length }}</span>
-              <KeyboardArrowRightIcon
-                class="m-icon size-[18px] text-outline chevron"
-                :class="{ 'is-open': showAllStops }"
-              />
+              <KeyboardArrowRightIcon class="m-icon size-[18px] text-outline chevron" :class="{'is-open': showAllStops}" />
             </button>
             <template v-if="showAllStops">
               <div v-if="!stops.length" class="progress" aria-hidden="true"><span></span></div>
@@ -430,11 +375,7 @@ function dropPin() {
                 :data-kbd-item="`stop-${stop.stop_id}`"
                 @open="openStop(stop)"
               />
-              <LoadMore
-                v-if="stopsShown < sortedStops.length"
-                :root="scroller"
-                @more="stopsShown += PAGE_SIZE"
-              />
+              <LoadMore v-if="stopsShown < sortedStops.length" :root="scroller" @more="stopsShown += PAGE_SIZE" />
             </template>
           </section>
         </template>

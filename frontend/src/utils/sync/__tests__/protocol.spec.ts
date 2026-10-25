@@ -28,8 +28,7 @@ const cases = testdata('cases.json')
 
 const b = (text: string): Bytes => fromB64(text)!
 
-const privateKey = (pkcs8: string) =>
-  crypto.subtle.importKey('pkcs8', b(pkcs8), {name: 'ECDH', namedCurve: 'P-256'}, false, ['deriveBits'])
+const privateKey = (pkcs8: string) => crypto.subtle.importKey('pkcs8', b(pkcs8), {name: 'ECDH', namedCurve: 'P-256'}, false, ['deriveBits'])
 
 describe('sync vectors', () => {
   it('derives the pairing channel', async () => {
@@ -38,7 +37,10 @@ describe('sync vectors', () => {
     expect(toB64(await ecdh(d, b(p.e.spki)))).toBe(p.shared)
     expect(toB64(await ecdh(e, b(p.d.spki)))).toBe(p.shared)
     expect(toB64(await sha256(b(p.d.spki)))).toBe(p.commit)
-    for (const [mode, k] of [[p.scanned, b(p.k)], [p.typed, null]] as const) {
+    for (const [mode, k] of [
+      [p.scanned, b(p.k)],
+      [p.typed, null],
+    ] as const) {
       const t = await pairKey(b(p.shared), k, p.code, b(p.e.spki), b(p.d.spki))
       expect(toB64(t)).toBe(mode.t)
       expect(await checkNumber(t)).toBe(mode.check)
@@ -88,7 +90,7 @@ describe('sync cases', () => {
   it.each(cases.merges as MergeCase[])('merge $kind: $about', async (c) => {
     const value = async <T>(raw: string | null, read: (raw: string) => {ok: boolean} | Promise<{ok: boolean}>) => {
       if (raw === null) return null
-      const r = await read(raw) as {ok: true; value: T}
+      const r = (await read(raw)) as {ok: true; value: T}
       expect(r.ok).toBe(true)
       return r.value
     }
@@ -96,12 +98,14 @@ describe('sync cases', () => {
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyCity>>(raw, readCity)))
       const {merged, dropped} = mergeCity(base ?? emptyCity(), local!, remote!)
       expect(writeCity(merged)).toBe(c.merged)
-      const nonEmpty = Object.fromEntries(Object.entries({
-        stops: dropped.stops,
-        lines: dropped.lines.map((l) => [l.route, l.dir]),
-        places: dropped.places.map((p) => [p.name, p.label, p.lat, p.lon]),
-        followed: dropped.followed,
-      }).filter(([, items]) => items.length))
+      const nonEmpty = Object.fromEntries(
+        Object.entries({
+          stops: dropped.stops,
+          lines: dropped.lines.map((l) => [l.route, l.dir]),
+          places: dropped.places.map((p) => [p.name, p.label, p.lat, p.lon]),
+          followed: dropped.followed,
+        }).filter(([, items]) => items.length),
+      )
       expect(nonEmpty).toEqual(c.dropped)
     } else if (c.kind === 'news') {
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyNews>>(raw, readNews)))

@@ -150,6 +150,37 @@
   gap: 6px;
 }
 
+.admin-log {
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+}
+
+.admin-log li {
+  padding: 8px 16px;
+}
+
+.admin-log-head {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+}
+
+.admin-log code {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.admin-more {
+  margin-left: 4px;
+}
+
 .admin-settings {
   display: flex;
   align-items: center;

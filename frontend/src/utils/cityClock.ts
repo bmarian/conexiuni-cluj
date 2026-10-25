@@ -2,8 +2,15 @@
 const CITY_ZONE = 'Europe/Bucharest'
 
 const PARTS = new Intl.DateTimeFormat('en-GB', {
-  timeZone: CITY_ZONE, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
+  timeZone: CITY_ZONE,
+  weekday: 'short',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric',
+  hourCycle: 'h23',
 })
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

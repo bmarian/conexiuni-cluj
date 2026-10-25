@@ -2,7 +2,7 @@ import {Marker, type Map as MapLibreMap} from 'maplibre-gl'
 import type {MarkerIcon} from '@/utils/mapIcons.ts'
 import {HOLD_MS} from '@/composables/useLongPress.ts'
 
-export type LatLng = { lat: number, lng: number }
+export type LatLng = {lat: number; lng: number}
 
 // Also the map's clickTolerance, so a marker and the map agree on what a drag is.
 export const CLICK_TOLERANCE_PX = 3
@@ -46,7 +46,7 @@ const held = new WeakSet<HTMLElement>()
 
 // The marker moves with the map while it's dragged, so a pan that starts on it still ends in a click.
 export function onElementClick(el: HTMLElement, handler: () => void) {
-  let down: { x: number, y: number } | null = null
+  let down: {x: number; y: number} | null = null
   el.style.cursor = 'pointer'
   el.classList.add('marker-clickable', 'hold-target')
   el.addEventListener('pointerdown', (e) => {
@@ -116,7 +116,7 @@ export function markerLatLng(marker: Marker): LatLng {
   return {lat, lng}
 }
 
-export type ScreenArea = { top: number, right: number, bottom: number, left: number }
+export type ScreenArea = {top: number; right: number; bottom: number; left: number}
 
 const TOOLTIP_MARGIN_PX = 8
 
@@ -170,14 +170,29 @@ export function createTooltip(map: MapLibreMap, visibleArea: () => ScreenArea) {
     bubble.className = `map-tooltip ${className}`
     bubble.innerHTML = typeof html === 'function' ? html() : html
     bubble.style.translate = ''
-    marker.setOffset([offset[0], offset[1] - lift]).setLngLat([at.lng, at.lat]).addTo(map)
+    marker
+      .setOffset([offset[0], offset[1] - lift])
+      .setLngLat([at.lng, at.lat])
+      .addTo(map)
     fit(at, offset, lift)
   }
 
-  const bindAt = (key: object, targetEl: HTMLElement, at: () => LatLng, offset: [number, number], html: string | (() => string), className: string, lift: number) => {
-    onPreview(targetEl, () => show(key, at(), offset, html, className, lift), () => {
-      if (owner === key) hide()
-    })
+  const bindAt = (
+    key: object,
+    targetEl: HTMLElement,
+    at: () => LatLng,
+    offset: [number, number],
+    html: string | (() => string),
+    className: string,
+    lift: number,
+  ) => {
+    onPreview(
+      targetEl,
+      () => show(key, at(), offset, html, className, lift),
+      () => {
+        if (owner === key) hide()
+      },
+    )
   }
 
   const bind = (target: Marker, html: string | (() => string), className: string, lift: number) => {

@@ -6,7 +6,7 @@ describe('stopMatchRank', () => {
     expect(stopMatchRank('1 decembrie (tunari)', '1 decembrie')).toBe(0)
   })
 
-  it('then the stop\'s own name, then only the part telling namesakes apart', () => {
+  it("then the stop's own name, then only the part telling namesakes apart", () => {
     expect(stopMatchRank('bd. 1 decembrie 1918 (strada liviu rebreanu)', '1 decembrie')).toBe(1)
     expect(stopMatchRank('liviu rebreanu (bulevardul 1 decembrie 1918, bucuresti)', '1 decembrie')).toBe(2)
   })

@@ -3,21 +3,16 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import RowLink from '@/components/ui/RowLink.vue'
 import {KeyboardArrowRightIcon} from '@/utils/icons.ts'
 
-defineProps<{ name: string, color?: string, title: string, favorite?: boolean, busy?: boolean, href?: string }>()
-defineEmits<{ open: [] }>()
+defineProps<{name: string; color?: string; title: string; favorite?: boolean; busy?: boolean; href?: string}>()
+defineEmits<{open: []}>()
 </script>
 
 <template>
-  <RowLink
-    class="route-row state squish"
-    :class="{ 'is-favorite': favorite, 'is-busy': busy }"
-    :href="href"
-    @open="$emit('open')"
-  >
-    <LineBadge :name="name" :color="color" :height="28" :min-width="40" :corner="6"/>
+  <RowLink class="route-row state squish" :class="{'is-favorite': favorite, 'is-busy': busy}" :href="href" @open="$emit('open')">
+    <LineBadge :name="name" :color="color" :height="28" :min-width="40" :corner="6" />
     <span class="flex-1 min-w-0 truncate text-body-medium">{{ title }}</span>
     <span v-if="busy" class="spinner"></span>
-    <KeyboardArrowRightIcon v-else class="m-icon size-[18px] text-outline"/>
+    <KeyboardArrowRightIcon v-else class="m-icon size-[18px] text-outline" />
   </RowLink>
 </template>
 

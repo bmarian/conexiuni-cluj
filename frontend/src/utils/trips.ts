@@ -8,21 +8,17 @@ export const getRouteIdFromTripId = (tripId: string): number | null => {
   return Number.isFinite(routeId) ? routeId : null
 }
 
-export const getDirectionFromTripId = (tripId: string): RouteDirection =>
-  tripId.endsWith(INCOMING_SUFFIX) ? '1' : '0'
+export const getDirectionFromTripId = (tripId: string): RouteDirection => (tripId.endsWith(INCOMING_SUFFIX) ? '1' : '0')
 
-export const getTripIdForRouteAtStop =(outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string): string | undefined => {
+export const getTripIdForRouteAtStop = (outgoingTripIds: string[], incomingTripIds: string[], routeId: number | string): string | undefined => {
   const wantedRouteId = Number(routeId)
   if (!Number.isFinite(wantedRouteId)) return undefined
-  return [...(outgoingTripIds || []), ...(incomingTripIds || [])]
-    .find((id) => getRouteIdFromTripId(id) === wantedRouteId)
+  return [...(outgoingTripIds || []), ...(incomingTripIds || [])].find((id) => getRouteIdFromTripId(id) === wantedRouteId)
 }
 
 // offset_arrival_time is the ride into each stop, so the target's own one counts.
 export const getTimeOffsetToStop = (stopTimes: StopTime[], tripId: string, stopId: number): number => {
-  const ordered = stopTimes
-    .filter((st) => st.trip_id === tripId)
-    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  const ordered = stopTimes.filter((st) => st.trip_id === tripId).sort((a, b) => a.stop_sequence - b.stop_sequence)
   let timeOffsetSec = 0
   for (const st of ordered) {
     timeOffsetSec += st.offset_arrival_time

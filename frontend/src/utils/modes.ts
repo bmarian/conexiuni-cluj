@@ -28,15 +28,17 @@ export function mainMode(routeTypes: Iterable<RouteType | number>): Mode {
   return MODES[best]!
 }
 
-type Line = {route_type: RouteType | number, route_short_name: string}
+type Line = {route_type: RouteType | number; route_short_name: string}
 
 export function byModeThenNumber(a: Line, b: Line): number {
-  return MODES.indexOf(modeOf(a.route_type)) - MODES.indexOf(modeOf(b.route_type))
-    || a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
+  return (
+    MODES.indexOf(modeOf(a.route_type)) - MODES.indexOf(modeOf(b.route_type)) ||
+    a.route_short_name.localeCompare(b.route_short_name, undefined, {numeric: true})
+  )
 }
 
-export function groupByMode<T extends Line>(lines: T[]): Array<{mode: Mode, lines: T[]}> {
-  const out: Array<{mode: Mode, lines: T[]}> = []
+export function groupByMode<T extends Line>(lines: T[]): Array<{mode: Mode; lines: T[]}> {
+  const out: Array<{mode: Mode; lines: T[]}> = []
   for (const line of [...lines].sort(byModeThenNumber)) {
     const mode = modeOf(line.route_type)
     if (out.at(-1)?.mode !== mode) out.push({mode, lines: []})

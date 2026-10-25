@@ -5,7 +5,7 @@ import {usePopup} from '@/composables/usePopup.ts'
 import {MoreVertIcon} from '@/utils/icons.ts'
 import type {MenuAction} from '@/components/ui/types.ts'
 
-defineProps<{ actions: MenuAction[] }>()
+defineProps<{actions: MenuAction[]}>()
 
 const {t} = useI18n()
 const button = ref<HTMLElement | null>(null)
@@ -39,13 +39,13 @@ function pick(action: MenuAction) {
     :aria-expanded="open"
     @click="toggle"
   >
-    <MoreVertIcon class="m-icon"/>
+    <MoreVertIcon class="m-icon" />
   </button>
   <Teleport to="body">
     <Transition name="menu">
-      <div v-if="open" ref="menu" class="menu popup-menu" role="menu" :style="{ top: `${at.top}px`, right: `${at.right}px` }">
+      <div v-if="open" ref="menu" class="menu popup-menu" role="menu" :style="{top: `${at.top}px`, right: `${at.right}px`}">
         <button v-for="action in actions" :key="action.label" type="button" class="popup-item state" role="menuitem" @click="pick(action)">
-          <component :is="action.icon" class="m-icon text-on-surface-variant"/>
+          <component :is="action.icon" class="m-icon text-on-surface-variant" />
           <span>{{ action.label }}</span>
         </button>
       </div>

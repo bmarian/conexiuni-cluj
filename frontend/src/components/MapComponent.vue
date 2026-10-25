@@ -13,16 +13,16 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import type {Feature, LineString, Polygon} from 'geojson'
-import {useUserStore} from "@/stores/user.ts";
-import {storeToRefs} from "pinia";
-import {useStopsApi} from "@/composables/useStopsApi.ts";
-import {useRoute} from "vue-router";
-import {useI18n} from "vue-i18n";
-import {type DisplayShape, fetchShapes, type HighlightedStop, useMapStore} from "@/stores/map.ts";
-import type {ShapePoint} from "@/types/map.ts";
-import {useSettingsStore} from "@/stores/settings.ts";
-import {useFavoritesStore} from "@/stores/favorites.ts";
-import {calculateBearing, haversineMeters, roundedHull, routeHeading} from "@/utils/geo.ts";
+import {useUserStore} from '@/stores/user.ts'
+import {storeToRefs} from 'pinia'
+import {useStopsApi} from '@/composables/useStopsApi.ts'
+import {useRoute} from 'vue-router'
+import {useI18n} from 'vue-i18n'
+import {type DisplayShape, fetchShapes, type HighlightedStop, useMapStore} from '@/stores/map.ts'
+import type {ShapePoint} from '@/types/map.ts'
+import {useSettingsStore} from '@/stores/settings.ts'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import {calculateBearing, haversineMeters, roundedHull, routeHeading} from '@/utils/geo.ts'
 import {
   type DisplayVehicle,
   type MarkerIcon,
@@ -44,15 +44,7 @@ import {
 import {network, stationOf} from '@/utils/network.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {stopSweep, sweepLine} from '@/utils/lineSweep.ts'
-import {
-  groupName,
-  lngPerPixel,
-  modeMask,
-  modesIn,
-  StopClusters,
-  type StopGroup,
-  stationRank,
-} from '@/utils/stopClusters.ts'
+import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
@@ -107,7 +99,7 @@ const route = useRoute()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
 const stopMarkers = new Map<string, Marker>()
 const shownStops = new Map<string, Marker>()
-type GroupLabel = {name: string, more: number, text: string}
+type GroupLabel = {name: string; more: number; text: string}
 type Clusters = {
   index: MapClusters
   labelWidth: (text: string) => number
@@ -117,12 +109,12 @@ type Clusters = {
 // By the stops left out of them; the plain map's stays for coming back to it.
 const clusterCache = new Map<string, Clusters>()
 let drawn: Clusters | null = null
-let building: {clusters: Clusters, stop: () => void} | null = null
-let shownLevel: {groups: StopGroup[], keys: Set<string>} | null = null
+let building: {clusters: Clusters; stop: () => void} | null = null
+let shownLevel: {groups: StopGroup[]; keys: Set<string>} | null = null
 let labelProbe: HTMLElement | null = null
 let coverageOwner: string | null = null
-let spider: {key: string, marker: Marker} | null = null
-let aroundCache: {groups: StopGroup[], group: StopGroup, legs: SpiderLeg[]} | null = null
+let spider: {key: string; marker: Marker} | null = null
+let aroundCache: {groups: StopGroup[]; group: StopGroup; legs: SpiderLeg[]} | null = null
 let aroundShown: string | null = null
 let areaList: Area[] = []
 const currentlyHighlightedStopId = ref<string | null>(null)
@@ -135,7 +127,7 @@ const userDot = shallowRef<Marker>()
 const pinMarker = shallowRef<Marker>()
 const originMarker = shallowRef<Marker>()
 let shapeMarkers: Marker[] = []
-type ShownVehicle = {marker: Marker, html: string, settle: () => void, track?: VehicleTrack, untracked?: string, turn?: number}
+type ShownVehicle = {marker: Marker; html: string; settle: () => void; track?: VehicleTrack; untracked?: string; turn?: number}
 const vehicleMarkers = new Map<number, ShownVehicle>()
 let highlightMarkers: Marker[] = []
 let tooltip: ReturnType<typeof createTooltip> | null = null
@@ -181,7 +173,7 @@ type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
 type GroupedStart = {
   lat: number
   lng: number
-  routes: { name: string, color: string }[]
+  routes: {name: string; color: string}[]
 }
 
 type SavedMapView = {
@@ -201,12 +193,12 @@ type LineSpec = {
   dash?: number[]
 }
 
-type Fix = LatLng & { accuracy: number, heading: number | null }
+type Fix = LatLng & {accuracy: number; heading: number | null}
 
 const lines: Record<LineGroup, LineSpec[]> = {shapes: [], walks: []}
 const drawnPaths: Record<LineGroup, string[]> = {shapes: [], walks: []}
 let drawnFavorites = new Set<string>()
-let accuracy: (LatLng & { radius: number }) | null = null
+let accuracy: (LatLng & {radius: number}) | null = null
 
 const currentStyle = () => mapStyle(isDarkMode.value)
 
@@ -220,7 +212,7 @@ const labelIndex = (layers: StyleSpecification['layers']) => {
   return label === -1 ? layers.length : label
 }
 
-const slotId = (slot: typeof SLOTS[number]) => `${OVERLAY}slot-${slot}`
+const slotId = (slot: (typeof SLOTS)[number]) => `${OVERLAY}slot-${slot}`
 
 const ensureSlots = (m: MapLibreMap) => {
   if (m.getLayer(slotId('accuracy'))) return
@@ -232,8 +224,7 @@ const ensureSlots = (m: MapLibreMap) => {
 }
 
 // Dash arrays are in line widths.
-const dashOf = (pattern: string, width: number) =>
-  pattern ? pattern.split(' ').map((n) => Number(n) / width) : undefined
+const dashOf = (pattern: string, width: number) => (pattern ? pattern.split(' ').map((n) => Number(n) / width) : undefined)
 
 const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
 
@@ -292,8 +283,8 @@ const syncLines = (group: LineGroup) => {
 }
 
 const accuracyRing = ({lat, lng}: LatLng, radius: number): Feature<Polygon> => {
-  const dLat = (radius / EARTH_RADIUS_M) * 180 / Math.PI
-  const dLng = dLat / Math.cos(lat * Math.PI / 180)
+  const dLat = ((radius / EARTH_RADIUS_M) * 180) / Math.PI
+  const dLng = dLat / Math.cos((lat * Math.PI) / 180)
   const steps = 64
   const ring = Array.from({length: steps + 1}, (_, i) => {
     const a = (i / steps) * 2 * Math.PI
@@ -370,9 +361,7 @@ const clearMarkers = (markers: Marker[]) => {
   }
 }
 
-const useTouchDragLift = () =>
-  typeof window !== 'undefined'
-  && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
+const useTouchDragLift = () => typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window)
 
 const attachPlannerDragLift = (marker: Marker) => {
   if (!useTouchDragLift()) return
@@ -380,9 +369,8 @@ const attachPlannerDragLift = (marker: Marker) => {
   marker.on('dragend', () => marker.getElement().classList.remove('planner-drag-active'))
 }
 
-const stopIconForId = (stopId: string) => favoritesStore.isStopFavorite(Number(stopId))
-  ? makeHighlightIcon('favorite')
-  : makeStopIcon(network.value?.look(Number(stopId)))
+const stopIconForId = (stopId: string) =>
+  favoritesStore.isStopFavorite(Number(stopId)) ? makeHighlightIcon('favorite') : makeStopIcon(network.value?.look(Number(stopId)))
 
 const stationCard = (stopId: string, name: string) => () => stationCardHtml(name, network.value?.look(Number(stopId)))
 
@@ -395,7 +383,7 @@ const clusterKey = () => {
   return [selected ? `@${selected}` : '', ...skip].filter(Boolean).join(',')
 }
 
-const coverageColor = () => isDarkMode.value ? '#f1f5f9' : '#0f172a'
+const coverageColor = () => (isDarkMode.value ? '#f1f5f9' : '#0f172a')
 
 const hideCoverage = (key: string) => {
   const m = map.value
@@ -410,8 +398,11 @@ const hideCoverage = (key: string) => {
 const showCoverage = (index: MapClusters, group: StopGroup) => {
   const m = map.value
   if (!m || !styleReady) return
-  const radius = Math.max(...makeStopIcon().size) / 2 * lngPerPixel(m.getZoom())
-  const ring = roundedHull(group.points.map((i): [number, number] => [index.points[i]!.lng, index.points[i]!.lat]), radius)
+  const radius = (Math.max(...makeStopIcon().size) / 2) * lngPerPixel(m.getZoom())
+  const ring = roundedHull(
+    group.points.map((i): [number, number] => [index.points[i]!.lng, index.points[i]!.lat]),
+    radius,
+  )
   const data: Feature<Polygon> = {type: 'Feature', properties: {}, geometry: {type: 'Polygon', coordinates: [ring]}}
   const id = `${OVERLAY}coverage`
   const source = m.getSource<GeoJSONSource>(id)
@@ -469,9 +460,8 @@ const groupLabel = ({index, labels}: Clusters, group: StopGroup) => {
   return label
 }
 
-const groupIconCount = (group: StopGroup) => group.stations.size <= CLUSTER_STATIONS_MAX
-  ? group.stations.size
-  : modesIn(group.modes).length + (group.favorite ? 1 : 0)
+const groupIconCount = (group: StopGroup) =>
+  group.stations.size <= CLUSTER_STATIONS_MAX ? group.stations.size : modesIn(group.modes).length + (group.favorite ? 1 : 0)
 
 const stopClusters = (): Clusters => {
   const key = clusterKey()
@@ -481,19 +471,21 @@ const stopClusters = (): Clusters => {
   const anchor = currentlyHighlightedStopId.value
   const skip = new Set(highlightedStops.value.map((h) => h.stopId).filter((id) => id !== anchor))
   const net = network.value
-  const points = [...stopData].filter(([id]) => !skip.has(id) && (!net || net.look(Number(id)))).map(([id, {lat, lng}]) => {
-    const stop = net?.stopById.get(Number(id))
-    const types = net?.look(Number(id))?.routes.map((r) => r.route_type) ?? []
-    return {
-      id,
-      lat,
-      lng,
-      station: stop ? stationOf(stop) : Number(id),
-      modes: modeMask(types) || modeMask([3]),
-      rank: id === anchor ? Number.MAX_SAFE_INTEGER : stationRank(types),
-      favorite: favoritesStore.isStopFavorite(Number(id)),
-    }
-  })
+  const points = [...stopData]
+    .filter(([id]) => !skip.has(id) && (!net || net.look(Number(id))))
+    .map(([id, {lat, lng}]) => {
+      const stop = net?.stopById.get(Number(id))
+      const types = net?.look(Number(id))?.routes.map((r) => r.route_type) ?? []
+      return {
+        id,
+        lat,
+        lng,
+        station: stop ? stationOf(stop) : Number(id),
+        modes: modeMask(types) || modeMask([3]),
+        rank: id === anchor ? Number.MAX_SAFE_INTEGER : stationRank(types),
+        favorite: favoritesStore.isStopFavorite(Number(id)),
+      }
+    })
   const station = makeStopIcon()
   const heart = makeHighlightIcon('favorite')
   if (!labelProbe && mapContainer.value) {
@@ -536,7 +528,7 @@ const buildClusters = (clusters: Clusters) => {
 }
 
 const groupStations = (index: MapClusters, group: StopGroup) => {
-  const byStation = new Map<number, {id: string, rank: number, favorite: boolean}>()
+  const byStation = new Map<number, {id: string; rank: number; favorite: boolean}>()
   for (const i of [group.leader, ...group.points]) {
     const {id, station, rank, favorite} = index.points[i]!
     const seen = byStation.get(station)
@@ -547,22 +539,28 @@ const groupStations = (index: MapClusters, group: StopGroup) => {
   return [leader!, ...rest.sort((a, b) => b.rank - a.rank)]
 }
 
-const legsToward = (from: LatLng, ids: string[]) => spiderLegsToward(ids.map((id) => {
-  const to = stopData.get(id) ?? from
-  return (calculateBearing(from.lat, from.lng, to.lat, to.lng) - 90) * Math.PI / 180
-}))
+const legsToward = (from: LatLng, ids: string[]) =>
+  spiderLegsToward(
+    ids.map((id) => {
+      const to = stopData.get(id) ?? from
+      return ((calculateBearing(from.lat, from.lng, to.lat, to.lng) - 90) * Math.PI) / 180
+    }),
+  )
 
 const spiderMarker = (at: LatLng, ids: string[], legs: SpiderLeg[]): Marker => {
   const stations = ids.map((id, i) => ({id, name: stopData.get(id)?.name ?? '', icon: stopIconForId(id), leg: legs[i]!}))
   const marker = htmlMarker(at, makeSpiderIcon(stations), {interactive: false, zIndex: 900})
-  marker.getElement().querySelectorAll<HTMLElement>('[data-stop]').forEach((el, i) => {
-    const {id, name, leg} = stations[i]!
-    tooltip?.bindAt(marker, el, () => at, [leg.x, leg.y], stationCard(id, name), '', 14)
-    onElementClick(el, () => {
-      unspiderfy()
-      void openStop(id)
+  marker
+    .getElement()
+    .querySelectorAll<HTMLElement>('[data-stop]')
+    .forEach((el, i) => {
+      const {id, name, leg} = stations[i]!
+      tooltip?.bindAt(marker, el, () => at, [leg.x, leg.y], stationCard(id, name), '', 14)
+      onElementClick(el, () => {
+        unspiderfy()
+        void openStop(id)
+      })
     })
-  })
   return marker
 }
 
@@ -583,17 +581,25 @@ const aroundLegs = ({index, labelWidth}: Clusters, group: StopGroup, zoom: numbe
   const groups = index.at(zoom)
   if (aroundCache?.groups === groups && aroundCache.group === group) return aroundCache.legs
   const {obstacles, offset} = index.surroundings(group, zoom)
-  const items = groupStations(index, group).slice(1).map(({id}) => {
-    const stop = stopData.get(id)!
-    return {station: offset(stop.lat, stop.lng), icon: stopIconForId(id), labelWidth: labelWidth(stop.name)}
-  })
+  const items = groupStations(index, group)
+    .slice(1)
+    .map(({id}) => {
+      const stop = stopData.get(id)!
+      return {station: offset(stop.lat, stop.lng), icon: stopIconForId(id), labelWidth: labelWidth(stop.name)}
+    })
   const legs = spiderLegsClear(items, obstacles)
   aroundCache = {groups, group, legs}
   return legs
 }
 
 const aroundMarker = (index: MapClusters, group: StopGroup, legs: SpiderLeg[]): Marker => {
-  const marker = spiderMarker(index.lngLat(group), groupStations(index, group).slice(1).map(({id}) => id), legs)
+  const marker = spiderMarker(
+    index.lngLat(group),
+    groupStations(index, group)
+      .slice(1)
+      .map(({id}) => id),
+    legs,
+  )
   if (aroundShown === group.key) marker.getElement().querySelector('.stop-spider')?.classList.add('is-settled')
   aroundShown = group.key
   return marker
@@ -640,38 +646,49 @@ const newGroupMarker = (clusters: Clusters, group: StopGroup): Marker => {
     return marker
   }
   const stations = groupStations(index, group)
-  const icons: ClusterIcon[] = group.stations.size <= CLUSTER_STATIONS_MAX
-    ? stations.map(({id, favorite}) => favorite ? 'heart' : network.value?.look(Number(id)) ?? {mode: 'bus', color: UNKNOWN_MODE_COLOR})
-    : [
-      ...(group.favorite ? ['heart' as const] : []),
-      ...modesIn(group.modes).map((mode) => ({mode, color: network.value?.modeColor(mode) ?? UNKNOWN_MODE_COLOR})),
-    ]
+  const icons: ClusterIcon[] =
+    group.stations.size <= CLUSTER_STATIONS_MAX
+      ? stations.map(({id, favorite}) => (favorite ? 'heart' : (network.value?.look(Number(id)) ?? {mode: 'bus', color: UNKNOWN_MODE_COLOR})))
+      : [
+          ...(group.favorite ? ['heart' as const] : []),
+          ...modesIn(group.modes).map((mode) => ({mode, color: network.value?.modeColor(mode) ?? UNKNOWN_MODE_COLOR})),
+        ]
   const marker = htmlMarker(at, makeClusterIcon(icons, name, more, clusters.labelWidth(text)))
   const card = (): ClusterStation[] => stations.map(({id}) => ({name: stopData.get(id)?.name ?? '', mark: network.value?.look(Number(id))}))
   tooltip?.bind(marker, () => clusterCardHtml(card(), (n) => t('mapMoreStations', {n})), '', 14)
   marker.getElement().classList.add('stop-group')
-  onPreview(marker.getElement(), () => showCoverage(index, group), () => hideCoverage(group.key))
+  onPreview(
+    marker.getElement(),
+    () => showCoverage(index, group),
+    () => hideCoverage(group.key),
+  )
   onMarkerClick(marker, () => expandGroup(index, group))
   return marker
 }
 
 const groupMarker = (clusters: Clusters, group: StopGroup): Marker => {
   let marker = clusters.markers.get(group.key)
-  if (!marker) clusters.markers.set(group.key, marker = newGroupMarker(clusters, group))
+  if (!marker) clusters.markers.set(group.key, (marker = newGroupMarker(clusters, group)))
   return marker
 }
 
 // Only the stops on screen are on the map: every marker costs a style update per frame while the map moves.
 // While the map shows a stop's, line's or trip's own content, other stops only appear from street zoom.
-const showsContent = computed(() => shapesToDisplay.value.length > 0 || vehiclesToDisplay.value.length > 0
-  || walkingPolylines.value.length > 0 || highlightedStops.value.length > 0 || !!currentlyHighlightedStopId.value)
+const showsContent = computed(
+  () =>
+    shapesToDisplay.value.length > 0 ||
+    vehiclesToDisplay.value.length > 0 ||
+    walkingPolylines.value.length > 0 ||
+    highlightedStops.value.length > 0 ||
+    !!currentlyHighlightedStopId.value,
+)
 
 // Markers pop in and fade out when the groups change, not when a pan brings them in or takes them away.
 // Until the latest groups are built for this zoom, the ones on the map stay.
 const refreshStops = () => {
   const m = map.value
   if (!m) return
-  const wanted = new Map<string, {make: () => Marker | undefined, enter: boolean}>()
+  const wanted = new Map<string, {make: () => Marker | undefined; enter: boolean}>()
   const zoom = m.getZoom()
   const selected = currentlyHighlightedStopId.value
   if (stopData.size && (!showsContent.value || zoom >= STOP_ZOOM_THRESHOLD)) {
@@ -689,7 +706,7 @@ const refreshStops = () => {
       const {index} = clusters
       const groups = index.at(zoom)
       let level = shownLevel
-      const before = level?.groups === groups ? null : level?.keys ?? new Set<string>()
+      const before = level?.groups === groups ? null : (level?.keys ?? new Set<string>())
       if (!level || before) level = shownLevel = {groups, keys: new Set(groups.map((g) => g.key))}
       if (before) for (const key of clusters.markers.keys()) if (!before.has(key) && !level.keys.has(key)) clusters.markers.delete(key)
       const bounds = m.getBounds()
@@ -794,8 +811,7 @@ const scheduleInvalidateMapSize = () => {
   }, 280)
 }
 
-const isStandaloneApp = () =>
-  window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+const isStandaloneApp = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & {standalone?: boolean}).standalone === true
 
 const fixOf = ({coords}: GeolocationPosition): Fix => ({
   lat: coords.latitude,
@@ -810,7 +826,7 @@ const stopLocate = () => {
 }
 
 const onLocationError = (error: GeolocationPositionError) => {
-  console.warn("GPS Error:", error.message)
+  console.warn('GPS Error:', error.message)
   userStore.setIsLocating(false)
   pendingCenterOnUser = false
   if (error.code === error.PERMISSION_DENIED) {
@@ -827,15 +843,11 @@ const beginLocationWatch = (enableHighAccuracy = false) => {
 
   userStore.setIsLocating(true)
   stopLocate()
-  geoWatchId = navigator.geolocation.watchPosition(
-    (position) => updateLiveLocation(fixOf(position)),
-    onLocationError,
-    {
-      enableHighAccuracy,
-      maximumAge: 30000,
-      timeout: enableHighAccuracy ? 15000 : 6000,
-    },
-  )
+  geoWatchId = navigator.geolocation.watchPosition((position) => updateLiveLocation(fixOf(position)), onLocationError, {
+    enableHighAccuracy,
+    maximumAge: 30000,
+    timeout: enableHighAccuracy ? 15000 : 6000,
+  })
 }
 
 const requestCurrentLocation = (enableHighAccuracy = false) => {
@@ -871,7 +883,9 @@ const retryLocationForStandaloneApp = () => {
 const credits = document.createElement('div')
 credits.className = 'maplibregl-ctrl maplibregl-ctrl-attrib'
 
-watchEffect(() => { credits.innerHTML = mapCreditsHTML() })
+watchEffect(() => {
+  credits.innerHTML = mapCreditsHTML()
+})
 
 const createCreditsControl = (): IControl => ({onAdd: () => credits, onRemove: () => credits.remove()})
 
@@ -964,7 +978,9 @@ const loadAreas = async () => {
     if (city !== currentCity.value) return
     areaList = list
     resetClusters()
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 const blueDotIcon: MarkerIcon = {
@@ -975,7 +991,7 @@ const blueDotIcon: MarkerIcon = {
     </div>
   `,
   size: [16, 16],
-  anchor: [8, 8]
+  anchor: [8, 8],
 }
 
 const updateLiveLocation = (fix: Fix) => {
@@ -1013,26 +1029,21 @@ const updateLiveLocation = (fix: Fix) => {
   else userDot.value = htmlMarker(fix, blueDotIcon, {interactive: false, zIndex: 10000}).addTo(m)
 }
 
-const savedView = (slug: string): LatLng & { zoom: number } | null => {
+const savedView = (slug: string): (LatLng & {zoom: number}) | null => {
   try {
     const parsed = JSON.parse(localStorage.getItem(mapViewKey(slug)) ?? 'null') as Partial<SavedMapView> | null
     if (!parsed) return null
     // Views saved by the Leaflet map are one zoom higher.
-    const zoom = Number.isFinite(parsed.glZoom) ? parsed.glZoom as number : (parsed.zoom ?? NaN) - 1
-    if (
-      !Number.isFinite(parsed.lat)
-      || !Number.isFinite(parsed.lng)
-      || !Number.isFinite(zoom)
-      || !inCity(parsed.lat as number, parsed.lng as number, slug)
-    ) return null
+    const zoom = Number.isFinite(parsed.glZoom) ? (parsed.glZoom as number) : (parsed.zoom ?? NaN) - 1
+    if (!Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lng) || !Number.isFinite(zoom) || !inCity(parsed.lat as number, parsed.lng as number, slug))
+      return null
     return {lat: parsed.lat as number, lng: parsed.lng as number, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))}
   } catch {
     return null
   }
 }
 
-const openingView = (city: Pick<City, 'slug' | 'lat' | 'lon'>) =>
-  savedView(city.slug) ?? {lat: city.lat, lng: city.lon, zoom: DEFAULT_ZOOM}
+const openingView = (city: Pick<City, 'slug' | 'lat' | 'lon'>) => savedView(city.slug) ?? {lat: city.lat, lng: city.lon, zoom: DEFAULT_ZOOM}
 
 const clearStops = () => {
   for (const marker of shownStops.values()) {
@@ -1103,9 +1114,12 @@ onMounted(() => {
   locationRetryTimer = setTimeout(retryLocationForStandaloneApp, LOCATION_RETRY_DELAY_MS)
 })
 
-watch(() => route.params.stopId, (newId) => {
-  highlightSelectedStop(newId as string)
-})
+watch(
+  () => route.params.stopId,
+  (newId) => {
+    highlightSelectedStop(newId as string)
+  },
+)
 
 const refreshStopIcons = () => {
   stopMarkers.forEach((marker, id) => {
@@ -1140,21 +1154,17 @@ const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
 }
 
 const getShapeSignature = (latLngs: LatLngTuple[], dashArray: string) => {
-  return `${dashArray}|${latLngs.map(ll => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')}`
+  return `${dashArray}|${latLngs.map((ll) => `${ll[0].toFixed(4)},${ll[1].toFixed(4)}`).join('|')}`
 }
 
-const addGroupedStart = (
-  groupedStarts: Map<string, GroupedStart>,
-  startPoint: LatLngTuple,
-  routeName: string,
-  routeColor: string,
-) => {
+const addGroupedStart = (groupedStarts: Map<string, GroupedStart>, startPoint: LatLngTuple, routeName: string, routeColor: string) => {
   const key = `${startPoint[0].toFixed(4)},${startPoint[1].toFixed(4)}`
-  if (!groupedStarts.has(key)) groupedStarts.set(key, {
-    lat: startPoint[0],
-    lng: startPoint[1],
-    routes: []
-  })
+  if (!groupedStarts.has(key))
+    groupedStarts.set(key, {
+      lat: startPoint[0],
+      lng: startPoint[1],
+      routes: [],
+    })
   const existing = groupedStarts.get(key)!
   if (!existing.routes.some((r) => r.name === routeName)) {
     existing.routes.push({name: routeName, color: routeColor})
@@ -1165,11 +1175,7 @@ const addShapeMarker = (m: MapLibreMap, [lat, lng]: LatLngTuple, icon: MarkerIco
   shapeMarkers.push(htmlMarker({lat, lng}, icon, options).addTo(m))
 }
 
-const addDirectionArrowMarker = (
-  m: MapLibreMap,
-  startPoint: LatLngTuple,
-  bearing: number,
-) => {
+const addDirectionArrowMarker = (m: MapLibreMap, startPoint: LatLngTuple, bearing: number) => {
   const arrowSvg = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" style="transform: rotate(${bearing}deg); display:block;">
     <path d="M12 3 L20 19 L12 15 L4 19 Z"/>
   </svg>`
@@ -1180,11 +1186,16 @@ const addDirectionArrowMarker = (
     <div class="dir-arrow-tail"></div>
   </div>`
 
-  addShapeMarker(m, startPoint, {
-    html,
-    size: [22, 32],
-    anchor: [11, 44],
-  }, {zIndex: 1500, interactive: false})
+  addShapeMarker(
+    m,
+    startPoint,
+    {
+      html,
+      size: [22, 32],
+      anchor: [11, 44],
+    },
+    {zIndex: 1500, interactive: false},
+  )
 }
 
 const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: string) => {
@@ -1193,21 +1204,26 @@ const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: st
               style="background-color: ${routeColor};">
            <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
          </div>`,
-    size: [24, 24], anchor: [12, 12]
+    size: [24, 24],
+    anchor: [12, 12],
   })
 }
 
 const addGroupedStartMarkers = (m: MapLibreMap, groupedStarts: Map<string, GroupedStart>) => {
   groupedStarts.forEach((data) => {
-    const routesHtml = data.routes.map((r) =>
-      `<div style="background-color: ${r.color};"
+    const routesHtml = data.routes
+      .map(
+        (r) =>
+          `<div style="background-color: ${r.color};"
                 class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
              ${r.name}
-           </div>`
-    ).join('')
+           </div>`,
+      )
+      .join('')
     addShapeMarker(m, [data.lat, data.lng], {
       html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
-      size: [0, 0], anchor: [0, 0]
+      size: [0, 0],
+      anchor: [0, 0],
     })
   })
 }
@@ -1233,9 +1249,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
     const colorVariantIdx = colorSeen.get(routeColor) ?? 0
     colorSeen.set(routeColor, colorVariantIdx + 1)
-    const dashArray = (colorCounts.get(routeColor) ?? 0) > 1
-      ? (DUPLICATE_DASH_PATTERNS[colorVariantIdx % DUPLICATE_DASH_PATTERNS.length] ?? '')
-      : ''
+    const dashArray = (colorCounts.get(routeColor) ?? 0) > 1 ? (DUPLICATE_DASH_PATTERNS[colorVariantIdx % DUPLICATE_DASH_PATTERNS.length] ?? '') : ''
 
     const signature = getShapeSignature(latLngs, dashArray)
     if (drawnPaths.has(signature)) continue
@@ -1274,30 +1288,40 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   if (zoomOut.value) zoomOut.value = false
 }
 
-watch([shapesToDisplay, directionArrowAtStart, lineColors], ([newShapes]) => {
-  renderShapes(newShapes as ShapeLayerEntry[])
-}, {deep: true})
+watch(
+  [shapesToDisplay, directionArrowAtStart, lineColors],
+  ([newShapes]) => {
+    renderShapes(newShapes as ShapeLayerEntry[])
+  },
+  {deep: true},
+)
 
-watch(shapesToDisplay, (newShapes) => {
-  if (!settingsStore.autoFitMap || !map.value) return
-  if (newShapes.length && mapStore.fitWalkingPolylines) return
-  if (newShapes.length) {
-    const bounds = linesBounds(lines.shapes)
-    if (bounds) {
-      fitTo(bounds)
-      hasFittedForContent = true
+watch(
+  shapesToDisplay,
+  (newShapes) => {
+    if (!settingsStore.autoFitMap || !map.value) return
+    if (newShapes.length && mapStore.fitWalkingPolylines) return
+    if (newShapes.length) {
+      const bounds = linesBounds(lines.shapes)
+      if (bounds) {
+        fitTo(bounds)
+        hasFittedForContent = true
+      }
     }
-  }
-}, {deep: true})
+  },
+  {deep: true},
+)
 
 const renderWalkingPolylines = (polylines: [number, number][][]) => {
-  lines.walks = polylines.filter((points) => points.length).map((points) => ({
-    coords: points,
-    color: '#38bdf8',
-    width: 3,
-    opacity: 0.85,
-    dash: dashOf('8 6', 3),
-  }))
+  lines.walks = polylines
+    .filter((points) => points.length)
+    .map((points) => ({
+      coords: points,
+      color: '#38bdf8',
+      width: 3,
+      opacity: 0.85,
+      dash: dashOf('8 6', 3),
+    }))
   syncLines('walks')
   const bounds = linesBounds(lines.walks, lines.shapes)
   if (bounds && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
@@ -1307,10 +1331,13 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
   }
 }
 
-watch(walkingPolylines, (polylines) => {
-  renderWalkingPolylines(polylines as [number, number][][])
-}, {deep: true})
-
+watch(
+  walkingPolylines,
+  (polylines) => {
+    renderWalkingPolylines(polylines as [number, number][][])
+  },
+  {deep: true},
+)
 
 const renderHighlightedStops = () => {
   const m = map.value
@@ -1333,7 +1360,6 @@ const renderHighlightedStops = () => {
 }
 
 watch([highlightedStops, currentlyHighlightedStopId], renderHighlightedStops, {deep: true})
-
 
 const visibleArea = (): ScreenArea => {
   const box = map.value!.getContainer().getBoundingClientRect()
@@ -1456,13 +1482,20 @@ const moveVehicles = () => {
   if (moving) vehicleFrame = requestAnimationFrame(moveVehicles)
 }
 
-watch([vehiclesToDisplay, () => route.name, selectedVehicleId, colorfulLines, lineColors], ([vehicles]) => {
-  renderVehicles(vehicles as DisplayVehicle[])
-}, {deep: true})
+watch(
+  [vehiclesToDisplay, () => route.name, selectedVehicleId, colorfulLines, lineColors],
+  ([vehicles]) => {
+    renderVehicles(vehicles as DisplayVehicle[])
+  },
+  {deep: true},
+)
 
-watch(() => route.name, () => {
-  selectedVehicleId.value = null
-})
+watch(
+  () => route.name,
+  () => {
+    selectedVehicleId.value = null
+  },
+)
 
 watch(centerOnUser, (shouldCenter) => {
   if (!shouldCenter) return
@@ -1474,20 +1507,26 @@ watch(centerOnUser, (shouldCenter) => {
   centerOnUser.value = false
 })
 
-watch(() => mapStore.centerRequest, () => {
-  const location = userDot.value ? markerLatLng(userDot.value) : null
-  if (!location) {
-    pendingCenterOnUser = true
-    requestCurrentLocation(true)
-    return
-  }
-  flyToVisible(location, DEFAULT_ZOOM)
-})
+watch(
+  () => mapStore.centerRequest,
+  () => {
+    const location = userDot.value ? markerLatLng(userDot.value) : null
+    if (!location) {
+      pendingCenterOnUser = true
+      requestCurrentLocation(true)
+      return
+    }
+    flyToVisible(location, DEFAULT_ZOOM)
+  },
+)
 
-watch(() => mapStore.fitRequest, () => {
-  const bounds = linesBounds(lines.shapes)
-  if (bounds) fitTo(bounds)
-})
+watch(
+  () => mapStore.fitRequest,
+  () => {
+    const bounds = linesBounds(lines.shapes)
+    if (bounds) fitTo(bounds)
+  },
+)
 
 watch(flyToLocation, (loc) => {
   if (!loc || !map.value) return
@@ -1495,7 +1534,7 @@ watch(flyToLocation, (loc) => {
   flyToLocation.value = null
 })
 
-const placePin = (loc: { lat: number, lng: number, label: string }, color: string | undefined, onDragged: (lat: number, lng: number) => void) => {
+const placePin = (loc: {lat: number; lng: number; label: string}, color: string | undefined, onDragged: (lat: number, lng: number) => void) => {
   const marker = htmlMarker(loc, makePinIcon(color), {zIndex: 9000, draggable: true})
   attachPlannerDragLift(marker)
   tooltip?.bind(marker, placeTooltipHtml(loc.label), 'pin-tooltip', 30)
@@ -1513,8 +1552,9 @@ watch(pinnedLocation, (loc) => {
     pinMarker.value = undefined
   }
   if (!loc || !map.value) return
-  pinMarker.value = placePin(loc as { lat: number, lng: number, label: string }, undefined,
-    (lat, lng) => mapStore.setPinnedLocationDragged(lat, lng)).addTo(map.value)
+  pinMarker.value = placePin(loc as {lat: number; lng: number; label: string}, undefined, (lat, lng) => mapStore.setPinnedLocationDragged(lat, lng)).addTo(
+    map.value,
+  )
 })
 
 watch(customOriginLocation, (loc) => {
@@ -1524,8 +1564,9 @@ watch(customOriginLocation, (loc) => {
     originMarker.value = undefined
   }
   if (!loc || !map.value) return
-  originMarker.value = placePin(loc as { lat: number, lng: number, label: string }, '#22c55e',
-    (lat, lng) => mapStore.setCustomOriginLocationDragged(lat, lng)).addTo(map.value)
+  originMarker.value = placePin(loc as {lat: number; lng: number; label: string}, '#22c55e', (lat, lng) =>
+    mapStore.setCustomOriginLocationDragged(lat, lng),
+  ).addTo(map.value)
 })
 
 onUnmounted(() => {

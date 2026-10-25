@@ -25,7 +25,7 @@ function readFlag(key: string, fallback: boolean): boolean {
 
 // Only one tab syncs at a time; the others pick its changes up from storage events.
 async function exclusive<T>(fn: () => Promise<T>): Promise<T> {
-  return navigator.locks ? await navigator.locks.request('cai-sync', fn) as T : fn()
+  return navigator.locks ? ((await navigator.locks.request('cai-sync', fn)) as T) : fn()
 }
 
 export const useSyncStore = defineStore('sync', () => {
@@ -105,10 +105,15 @@ export const useSyncStore = defineStore('sync', () => {
     const favorites = useFavoritesStore()
     const routeUpdates = useRouteUpdatesStore()
     const settings = useSettingsStore()
-    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed, routeUpdates.seenIds], schedule, {deep: true})
-    watch(() => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.regionSetting('cluj', 'showGreenFriday')], () => {
-      if (withSettings.value) schedule()
+    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed, routeUpdates.seenIds], schedule, {
+      deep: true,
     })
+    watch(
+      () => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.regionSetting('cluj', 'showGreenFriday')],
+      () => {
+        if (withSettings.value) schedule()
+      },
+    )
     window.addEventListener('storage', onStorage)
     window.addEventListener('online', () => void syncNow())
     // A desktop window coming back to the front stays "visible" the whole time; focus is what changes.
@@ -131,7 +136,9 @@ export const useSyncStore = defineStore('sync', () => {
     withSettings.value = value
     try {
       localStorage.setItem(SETTINGS_KEY, String(value))
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     if (value) void syncNow()
   }
 
@@ -148,7 +155,7 @@ export const useSyncStore = defineStore('sync', () => {
   async function stop(everywhere: boolean) {
     busy.value = true
     try {
-      await exclusive(() => everywhere ? engine.deleteEverything() : engine.leave())
+      await exclusive(() => (everywhere ? engine.deleteEverything() : engine.leave()))
       status.value = 'off'
       devices.value = []
       problems.value = []
@@ -158,7 +165,19 @@ export const useSyncStore = defineStore('sync', () => {
   }
 
   return {
-    status, busy, devices, problems, lastSynced, removed, offline, withSettings,
-    start, syncNow, joined, setWithSettings, removeDevice, stop,
+    status,
+    busy,
+    devices,
+    problems,
+    lastSynced,
+    removed,
+    offline,
+    withSettings,
+    start,
+    syncNow,
+    joined,
+    setWithSettings,
+    removeDevice,
+    stop,
   }
 })

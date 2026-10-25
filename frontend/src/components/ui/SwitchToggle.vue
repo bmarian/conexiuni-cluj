@@ -2,8 +2,8 @@
 import {CheckIcon, CloseIcon} from '@/utils/icons.ts'
 import PopIcon from '@/components/ui/PopIcon.vue'
 
-defineProps<{ checked: boolean, disabled?: boolean }>()
-defineEmits<{ change: [checked: boolean] }>()
+defineProps<{checked: boolean; disabled?: boolean}>()
+defineEmits<{change: [checked: boolean]}>()
 </script>
 
 <template>
@@ -11,13 +11,13 @@ defineEmits<{ change: [checked: boolean] }>()
     type="button"
     role="switch"
     class="switch"
-    :class="{ 'is-on': checked }"
+    :class="{'is-on': checked}"
     :aria-checked="checked"
     :disabled="disabled"
     @click="$emit('change', !checked)"
   >
     <span class="thumb">
-      <PopIcon :icon="checked ? CheckIcon : CloseIcon" :on="checked" class="size-4"/>
+      <PopIcon :icon="checked ? CheckIcon : CloseIcon" :on="checked" class="size-4" />
     </span>
   </button>
 </template>
@@ -34,7 +34,9 @@ defineEmits<{ change: [checked: boolean] }>()
   background: var(--md-surface-container-highest);
   box-shadow: inset 0 0 0 2px var(--md-outline);
   cursor: pointer;
-  transition: background-color 150ms linear, box-shadow 150ms linear;
+  transition:
+    background-color 150ms linear,
+    box-shadow 150ms linear;
 }
 
 .thumb {
@@ -49,7 +51,11 @@ defineEmits<{ change: [checked: boolean] }>()
   border-radius: 50%;
   background: var(--md-outline);
   color: var(--md-surface-container-highest);
-  transition: translate var(--spring-fast-ms) var(--spring-fast), scale var(--spring-fast-ms) var(--spring-fast), background-color 150ms linear, color 150ms linear;
+  transition:
+    translate var(--spring-fast-ms) var(--spring-fast),
+    scale var(--spring-fast-ms) var(--spring-fast),
+    background-color 150ms linear,
+    color 150ms linear;
 }
 
 .switch:active .thumb {

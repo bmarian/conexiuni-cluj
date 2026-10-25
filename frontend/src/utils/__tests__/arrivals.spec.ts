@@ -11,8 +11,8 @@ describe('minutesUntil', () => {
   })
 
   it('still reads across midnight the short way round', () => {
-    expect(minutesUntil(5, 23 * 60 + 50)).toBe(15)   // 00:05 seen from 23:50
-    expect(minutesUntil(23 * 60 + 50, 5)).toBe(-15)  // 23:50 seen from 00:05
+    expect(minutesUntil(5, 23 * 60 + 50)).toBe(15) // 00:05 seen from 23:50
+    expect(minutesUntil(23 * 60 + 50, 5)).toBe(-15) // 23:50 seen from 00:05
   })
 })
 
@@ -39,10 +39,11 @@ describe('a stop list with nothing tracked', () => {
   // Bus 32 towards P-ța Mihai Viteazul at 09:17 on 2026-09-23, with none of its buses reported.
   const departures32 = [9 * 60 + 3, 9 * 60 + 12, 9 * 60 + 22, 9 * 60 + 31]
   const offsets32 = [0, 1, 2, 4, 7, 9, 14]
-  const firstColumn = markRepeatedNow(offsets32.map((offsetMinutes) => nextArrivals(
-    scheduledArrivals({departureMinutes: departures32, offsetSeconds: offsetMinutes * 60, nowMinutes: 9 * 60 + 17, graceMinutes: 3}),
-    3,
-  ))).map(([first]) => (first!.soon ? 'soon' : String(first!.minutes)))
+  const firstColumn = markRepeatedNow(
+    offsets32.map((offsetMinutes) =>
+      nextArrivals(scheduledArrivals({departureMinutes: departures32, offsetSeconds: offsetMinutes * 60, nowMinutes: 9 * 60 + 17, graceMinutes: 3}), 3),
+    ),
+  ).map(([first]) => (first!.soon ? 'soon' : String(first!.minutes)))
 
   it('says "now" at the first of consecutive stops and "soon" at the rest', () => {
     expect(firstColumn).toEqual(['5', '6', '0', 'soon', '2', '4', '0'])
@@ -53,7 +54,13 @@ describe('a stop list with nothing tracked', () => {
   })
 
   it('reads a second zero within one row as "soon"', () => {
-    const [row] = markRepeatedNow([[{minutes: 0, isLive: true}, {minutes: 0, isLive: false}, {minutes: 9, isLive: false}]])
+    const [row] = markRepeatedNow([
+      [
+        {minutes: 0, isLive: true},
+        {minutes: 0, isLive: false},
+        {minutes: 9, isLive: false},
+      ],
+    ])
     expect(row!.map((a) => a.soon)).toEqual([false, true, false])
   })
 })

@@ -20,7 +20,7 @@ export interface RouteChangeItem {
   since?: string
   all?: boolean
   times?: string[]
-  shifts?: { from: string; to: string }[]
+  shifts?: {from: string; to: string}[]
   stops?: string[]
 }
 
@@ -39,9 +39,7 @@ export interface NewsItem {
   url: string
 }
 
-export type Update =
-  | { kind: 'news'; at: number; news: NewsItem }
-  | { kind: 'change'; at: number; change: RouteChange }
+export type Update = {kind: 'news'; at: number; news: NewsItem} | {kind: 'change'; at: number; change: RouteChange}
 
 function readList<T>(key: string, isItem: (v: unknown) => v is T): T[] {
   try {
@@ -80,11 +78,15 @@ export const useRouteUpdatesStore = defineStore('routeUpdates', () => {
     seenIds.value = new Set(readList(seenKey(), isNumber))
   }
 
-  watch(currentCity, () => {
-    reload()
-    updates.value = []
-    lastFetchAt = 0
-  }, {flush: 'sync'})
+  watch(
+    currentCity,
+    () => {
+      reload()
+      updates.value = []
+      lastFetchAt = 0
+    },
+    {flush: 'sync'},
+  )
 
   const unseenIds = computed(() => new Set(changes.value.filter((c) => !seenIds.value.has(c.id)).map((c) => c.id)))
   const hasUnseen = computed(() => unseenIds.value.size > 0)

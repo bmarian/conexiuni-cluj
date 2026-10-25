@@ -15,15 +15,14 @@ const {t} = useI18n()
 const router = useRouter()
 const {openingRouteId, openRoute} = useOpenRoute()
 
-const groups = computed(() => groupByMode((network.value?.bundle.routes ?? [])
-  .filter((route) => route.timetable && hasTimetableEntries(route.timetable))))
+const groups = computed(() => groupByMode((network.value?.bundle.routes ?? []).filter((route) => route.timetable && hasTimetableEntries(route.timetable))))
 </script>
 
 <template>
   <section v-if="groups.length" class="pt-2" data-kbd-section="all-lines" data-kbd-entry="1">
     <h1 class="text-title-large font-bold px-4 pt-1 pb-1">{{ t('linesIn', cityParams()) }}</h1>
     <template v-for="group in groups" :key="group.mode">
-      <SubLabel :text="t(`modeLines_${group.mode}`)" class="pt-2"/>
+      <SubLabel :text="t(`modeLines_${group.mode}`)" class="pt-2" />
       <RouteRow
         v-for="route in group.lines"
         :key="route.route_id"

@@ -11,23 +11,23 @@ defineProps<{
   beta?: boolean
   disabled?: boolean
 }>()
-const emit = defineEmits<{ change: [checked: boolean] }>()
+const emit = defineEmits<{change: [checked: boolean]}>()
 
 const {t} = useI18n()
 </script>
 
 <template>
-  <div class="toggle-row state" :class="{ 'is-disabled': disabled }" role="presentation" @click="!disabled && emit('change', !checked)">
-    <component :is="icon" class="m-icon text-on-surface-variant"/>
+  <div class="toggle-row state" :class="{'is-disabled': disabled}" role="presentation" @click="!disabled && emit('change', !checked)">
+    <component :is="icon" class="m-icon text-on-surface-variant" />
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-1.5">
         <span class="text-body-large text-on-surface">{{ title }}</span>
         <span v-if="beta" class="beta">{{ t('beta') }}</span>
       </div>
       <p v-if="description" class="text-body-medium text-on-surface-variant">{{ description }}</p>
-      <slot/>
+      <slot />
     </div>
-    <SwitchToggle :checked="checked" :disabled="disabled" @click.stop @change="emit('change', $event)"/>
+    <SwitchToggle :checked="checked" :disabled="disabled" @click.stop @change="emit('change', $event)" />
   </div>
 </template>
 

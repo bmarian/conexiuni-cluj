@@ -15,7 +15,7 @@ import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
-import {useRoute, useRouter} from "vue-router";
+import {useRoute, useRouter} from 'vue-router'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
@@ -27,9 +27,18 @@ import DirectionArrow from '@/components/ui/DirectionArrow.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
-import {ArrowBackIcon, ArrowForwardIcon, CloseIcon, FavoriteBorderIcon, FavoriteIcon, NotificationsIcon, NotificationsNoneIcon, ShareIcon} from '@/utils/icons.ts'
+import {
+  ArrowBackIcon,
+  ArrowForwardIcon,
+  CloseIcon,
+  FavoriteBorderIcon,
+  FavoriteIcon,
+  NotificationsIcon,
+  NotificationsNoneIcon,
+  ShareIcon,
+} from '@/utils/icons.ts'
 
-const props = defineProps<{ routeId: string; direction: string }>()
+const props = defineProps<{routeId: string; direction: string}>()
 
 const {t} = useI18n()
 const favoritesStore = useFavoritesStore()
@@ -61,9 +70,7 @@ const {
 const routeIdNum = computed(() => Number(props.routeId))
 
 const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value, currentDirection.value))
-const isFollowing = computed(() =>
-  !!shapeInfo.value && routeUpdates.isFollowing(shapeInfo.value.route_short_name)
-)
+const isFollowing = computed(() => !!shapeInfo.value && routeUpdates.isFollowing(shapeInfo.value.route_short_name))
 
 function toggleFollow() {
   const name = shapeInfo.value?.route_short_name
@@ -82,15 +89,19 @@ function toggleFollow() {
 const activeChange = ref<RouteChange | null>(null)
 
 // Direction switches replace the URL without the query, so only a new id replaces the banner.
-watch(() => currentRoute.query.change, async (raw) => {
-  const id = Number(raw)
-  if (!Number.isInteger(id) || id <= 0) return
-  const change = await routeUpdates.loadChange(id)
-  if (change) {
-    activeChange.value = change
-    routeUpdates.markSeen([change.id])
-  }
-}, {immediate: true})
+watch(
+  () => currentRoute.query.change,
+  async (raw) => {
+    const id = Number(raw)
+    if (!Number.isInteger(id) || id <= 0) return
+    const change = await routeUpdates.loadChange(id)
+    if (change) {
+      activeChange.value = change
+      routeUpdates.markSeen([change.id])
+    }
+  },
+  {immediate: true},
+)
 
 function dismissChange() {
   activeChange.value = null
@@ -121,15 +132,12 @@ useHead(() => {
   }
 })
 
-
-
 function formatAbsoluteMinutes(absMin: number): string {
   const dayMin = ((Math.round(absMin) % 1440) + 1440) % 1440
   const h = Math.floor(dayMin / 60)
   const m = dayMin % 60
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
-
 
 function getStopLabel(idx: number, stop: IndexedStop): string {
   return stop.stop_headsign || `Stop ${idx + 1}`
@@ -152,9 +160,7 @@ const todayNotice = computed(() => {
   if (!special) return ''
   const timetable = t(`timetableName_${special.schedule}`)
   const holiday = special.note?.holiday
-  return holiday
-    ? t('specialDayHoliday', {holiday: t(`holiday_${holiday}`), timetable})
-    : t('specialDayChanged', {timetable})
+  return holiday ? t('specialDayHoliday', {holiday: t(`holiday_${holiday}`), timetable}) : t('specialDayChanged', {timetable})
 })
 
 const timetableTabOrder: Record<TimetableTab, number> = {
@@ -163,16 +169,14 @@ const timetableTabOrder: Record<TimetableTab, number> = {
   sunday: 2,
 }
 
-const isPastTab = (tab: TimetableTab): boolean =>
-  timetableTabOrder[tab] < timetableTabOrder[plainTodayTab.value]
+const isPastTab = (tab: TimetableTab): boolean => timetableTabOrder[tab] < timetableTabOrder[plainTodayTab.value]
 
-const dayHasContent = (d?: DaySchedule | null): boolean =>
-  !!(d?.entries?.length || d?.in_frequency || d?.out_frequency)
+const dayHasContent = (d?: DaySchedule | null): boolean => !!(d?.entries?.length || d?.in_frequency || d?.out_frequency)
 
 const availableTabs = computed(() => {
   const tt = timetable.value
   if (!tt) return []
-  const tabs: Array<{ key: TimetableTab; label: string }> = []
+  const tabs: Array<{key: TimetableTab; label: string}> = []
   if (dayHasContent(tt.weekdays)) tabs.push({key: 'weekdays', label: t('weekdays')})
   if (dayHasContent(tt.saturday)) tabs.push({key: 'saturday', label: t('saturday')})
   if (dayHasContent(tt.sunday)) tabs.push({key: 'sunday', label: t('sunday')})
@@ -183,20 +187,21 @@ const availableTabs = computed(() => {
 const activeFrequency = computed((): Frequency | null => {
   const tt = timetable.value
   if (!tt) return null
-  const sched =
-    selectedTimetableTab.value === 'sunday' ? tt.sunday :
-      selectedTimetableTab.value === 'saturday' ? tt.saturday :
-        tt.weekdays
+  const sched = selectedTimetableTab.value === 'sunday' ? tt.sunday : selectedTimetableTab.value === 'saturday' ? tt.saturday : tt.weekdays
   return (isOutgoing.value ? sched?.in_frequency : sched?.out_frequency) ?? null
 })
 
 const hourlyOffsets = ref<Record<string, HourlyStopOffsets>>({})
 
-watch([() => shapeInfo.value?.route_short_name, selectedTimetableTab], async ([name, tab]) => {
-  if (!name) return
-  const data = await fetchHourlyStopOffsets(name, tab === 'weekdays' ? 'weekday' : tab)
-  if (name === shapeInfo.value?.route_short_name && tab === selectedTimetableTab.value) hourlyOffsets.value = data
-}, {immediate: true})
+watch(
+  [() => shapeInfo.value?.route_short_name, selectedTimetableTab],
+  async ([name, tab]) => {
+    if (!name) return
+    const data = await fetchHourlyStopOffsets(name, tab === 'weekdays' ? 'weekday' : tab)
+    if (name === shapeInfo.value?.route_short_name && tab === selectedTimetableTab.value) hourlyOffsets.value = data
+  },
+  {immediate: true},
+)
 
 const hourlyTripOffsets = computed((): Record<string, number[]> | null => {
   const trip = hourlyOffsets.value[currentTripId.value]
@@ -212,8 +217,8 @@ function tripOffsetsAt(departureMin: number): number[] {
 }
 
 // time is CTP's printed departure and identifies the run; startMin adds the first stop's learned delay.
-type TimetableChip = { time: string; startMin: number | null; isPast: boolean }
-type GridChip = TimetableChip & { startMin: number }
+type TimetableChip = {time: string; startMin: number | null; isPast: boolean}
+type GridChip = TimetableChip & {startMin: number}
 
 const timetableEntries = computed((): TimetableChip[] => {
   const tt = timetable.value
@@ -239,17 +244,13 @@ const timetableEntries = computed((): TimetableChip[] => {
     .filter((e): e is TimetableChip => e !== null)
 })
 
-const allEntriesSuspended = computed(
-  () => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.startMin === null)
-)
+const allEntriesSuspended = computed(() => timetableEntries.value.length > 0 && timetableEntries.value.every((e) => e.startMin === null))
 
-type HourGroup = { hour: string; chips: GridChip[]; isNextDay: boolean }
+type HourGroup = {hour: string; chips: GridChip[]; isNextDay: boolean}
 
 const timetableByHour = computed((): HourGroup[] => {
   const groups = new Map<number, GridChip[]>()
-  const chips = timetableEntries.value
-    .filter((chip): chip is GridChip => chip.startMin !== null)
-    .sort((a, b) => a.startMin - b.startMin)
+  const chips = timetableEntries.value.filter((chip): chip is GridChip => chip.startMin !== null).sort((a, b) => a.startMin - b.startMin)
   for (const chip of chips) {
     const h = Math.floor(chip.startMin / 60)
     if (!groups.has(h)) groups.set(h, [])
@@ -279,7 +280,7 @@ watch([currentDirection, selectedTimetableTab], () => {
   selectedDepartureTime.value = null
 })
 
-type TripStop = IndexedStop & { arrivalTimeStr: string }
+type TripStop = IndexedStop & {arrivalTimeStr: string}
 
 const selectedDepartureStops = computed((): TripStop[] => {
   if (!selectedDepartureTime.value) return []
@@ -292,9 +293,7 @@ const selectedDepartureStops = computed((): TripStop[] => {
   })
 })
 
-const selectedDepartureTimeDisplay = computed(
-  () => selectedDepartureStops.value[0]?.arrivalTimeStr ?? null
-)
+const selectedDepartureTimeDisplay = computed(() => selectedDepartureStops.value[0]?.arrivalTimeStr ?? null)
 
 function onDirClick(dir: '0' | '1') {
   router.replace({name: 'route', params: {routeId: props.routeId, direction: dir}})
@@ -317,7 +316,7 @@ function switchDirection() {
 
 const nextChipTime = computed(() => {
   for (const group of timetableByHour.value) {
-    const chip = group.chips.find(c => !c.isPast)
+    const chip = group.chips.find((c) => !c.isPast)
     if (chip) return chip.time
   }
   return null
@@ -333,7 +332,12 @@ watch(selectedDepartureTime, (time, prev) => {
   })
 })
 
-useKbdEscape(() => selectedDepartureTime.value !== null, () => { selectedDepartureTime.value = null })
+useKbdEscape(
+  () => selectedDepartureTime.value !== null,
+  () => {
+    selectedDepartureTime.value = null
+  },
+)
 
 useKbdShortcuts({
   f: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
@@ -344,13 +348,21 @@ useKbdShortcuts({
 
 const {share} = useShare()
 
-const barTitle = computed(() => shapeInfo.value
-  ? `${shapeInfo.value.route_short_name} · ${timetable.value?.route_long_name || shapeInfo.value.route_short_name}`
-  : null)
+const barTitle = computed(() =>
+  shapeInfo.value ? `${shapeInfo.value.route_short_name} · ${timetable.value?.route_long_name || shapeInfo.value.route_short_name}` : null,
+)
 
-const topMenu = computed<MenuAction[]>(() => shapeInfo.value
-  ? [{label: t(isFollowing.value ? 'followingChanges' : 'followChanges'), icon: isFollowing.value ? NotificationsIcon : NotificationsNoneIcon, onClick: toggleFollow}]
-  : [])
+const topMenu = computed<MenuAction[]>(() =>
+  shapeInfo.value
+    ? [
+        {
+          label: t(isFollowing.value ? 'followingChanges' : 'followChanges'),
+          icon: isFollowing.value ? NotificationsIcon : NotificationsNoneIcon,
+          onClick: toggleFollow,
+        },
+      ]
+    : [],
+)
 
 const chips = computed<ChipAction[]>(() => [
   {
@@ -385,18 +397,19 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
 
 <template>
   <div class="route-view">
-    <SheetTopBar :title="barTitle" :menu="topMenu"/>
+    <SheetTopBar :title="barTitle" :menu="topMenu" />
 
-    <LoadingIndicator v-if="isInitialLoading || !shapeInfo" :text="t('loadingRoute')"/>
+    <LoadingIndicator v-if="isInitialLoading || !shapeInfo" :text="t('loadingRoute')" />
 
     <template v-else>
-      <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange"/>
+      <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange" />
 
       <header class="header">
-        <LineBadge :name="shapeInfo.route_short_name" :color="shapeInfo.route_color" :height="52" :min-width="52" :corner="16"/>
+        <LineBadge :name="shapeInfo.route_short_name" :color="shapeInfo.route_color" :height="52" :min-width="52" :corner="16" />
         <div class="flex-1 min-w-0">
           <h1>
-            <span class="block text-label-medium text-on-surface-variant">{{ t('routeNamed', {name: shapeInfo.route_short_name}) }}</span> <span class="block text-title-large font-bold">{{ timetable?.route_long_name || shapeInfo.route_short_name }}</span>
+            <span class="block text-label-medium text-on-surface-variant">{{ t('routeNamed', {name: shapeInfo.route_short_name}) }}</span>
+            <span class="block text-title-large font-bold">{{ timetable?.route_long_name || shapeInfo.route_short_name }}</span>
           </h1>
           <p v-if="fromStopName" class="flex items-center gap-1.5 pt-1 text-body-small text-on-surface-variant">
             <span class="size-1.5 rounded-full bg-[#10b981] shrink-0"></span>
@@ -404,20 +417,13 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
           </p>
         </div>
       </header>
-      <ActionChips :actions="chips" class="pb-3"/>
+      <ActionChips :actions="chips" class="pb-3" />
 
-      <ChoiceRow
-        :options="directionChoices"
-        :model-value="currentDirection"
-        kbd="dir"
-        class="mx-4"
-        data-kbd-entry="3"
-        @update:model-value="onDirClick"
-      >
+      <ChoiceRow :options="directionChoices" :model-value="currentDirection" kbd="dir" class="mx-4" data-kbd-entry="3" @update:model-value="onDirClick">
         <template #label="{option, checked}">
-          <DirectionArrow v-if="option.value === '0'" :icon="ArrowForwardIcon" :rest="90" :heading="directionHeadings['0']" :on="checked"/>
+          <DirectionArrow v-if="option.value === '0'" :icon="ArrowForwardIcon" :rest="90" :heading="directionHeadings['0']" :on="checked" />
           <span class="truncate">{{ option.label }}</span>
-          <DirectionArrow v-if="option.value === '1'" :icon="ArrowBackIcon" :rest="270" :heading="directionHeadings['1']" :on="checked"/>
+          <DirectionArrow v-if="option.value === '1'" :icon="ArrowBackIcon" :rest="270" :heading="directionHeadings['1']" :on="checked" />
         </template>
       </ChoiceRow>
 
@@ -440,7 +446,7 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
             v-for="(stop, idx) in stopsForDirection"
             :key="`${stop.stop_id}-${idx}`"
             class="cascade"
-            :style="{ '--i': idx }"
+            :style="{'--i': idx}"
             :name="getStopLabel(idx, stop)"
             :mark="stopMark(idx, stop, stopsForDirection.length)"
             :favorite="favoritesStore.isStopFavorite(stop.stop_id)"
@@ -463,7 +469,7 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
 
           <ChoiceRow v-model="selectedTimetableTab" :options="tabChoices" kbd="tab" class="mx-4" data-kbd-section="tt-tabs">
             <template #label="{option, checked}">
-              <span class="truncate" :class="{ 'text-outline': isPastTab(option.value) && !checked }">{{ option.label }}</span>
+              <span class="truncate" :class="{'text-outline': isPastTab(option.value) && !checked}">{{ option.label }}</span>
               <span v-if="option.value === todayTab" class="today-dot"></span>
             </template>
           </ChoiceRow>
@@ -486,7 +492,7 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
 
           <div v-if="timetableByHour.length" class="pt-2" data-kbd-section="tt-minutes" data-kbd-axis="grid">
             <div v-for="group in timetableByHour" :key="group.hour" class="hour-row">
-              <span class="hour" :class="{ 'is-gone': group.isNextDay || group.chips.every((c) => c.isPast) }">{{ group.hour }}</span>
+              <span class="hour" :class="{'is-gone': group.isNextDay || group.chips.every((c) => c.isPast)}">{{ group.hour }}</span>
               <span class="minutes">
                 <button
                   v-for="chip in group.chips"
@@ -501,7 +507,9 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
                   :data-kbd-item="`min-${chip.time}`"
                   :data-kbd-active="selectedDepartureTime ? selectedDepartureTime === chip.time : nextChipTime === chip.time"
                   @click="selectDeparture(chip)"
-                >{{ formatAbsoluteMinutes(chip.startMin).slice(3) }}</button>
+                >
+                  {{ formatAbsoluteMinutes(chip.startMin).slice(3) }}
+                </button>
               </span>
             </div>
           </div>
@@ -509,8 +517,15 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
           <div v-if="selectedDepartureTime && selectedDepartureStops.length" ref="tripViewRef" class="pt-5">
             <div class="trip-head" data-kbd-section="trip-head" data-kbd-axis="x">
               <span class="flex-1 text-title-small text-on-surface-variant">{{ t('tripAt', {time: selectedDepartureTimeDisplay}) }}</span>
-              <button type="button" class="icon-btn" :aria-label="t('closeTripView')" :title="t('closeTripView')" data-kbd-item="trip-close" @click="selectedDepartureTime = null">
-                <CloseIcon class="m-icon"/>
+              <button
+                type="button"
+                class="icon-btn"
+                :aria-label="t('closeTripView')"
+                :title="t('closeTripView')"
+                data-kbd-item="trip-close"
+                @click="selectedDepartureTime = null"
+              >
+                <CloseIcon class="m-icon" />
               </button>
             </div>
             <div data-kbd-section="trip">
@@ -655,7 +670,10 @@ const openStop = (stop: IndexedStop) => router.push(stopHref(stop))
   font-weight: 700;
   letter-spacing: 0.1px;
   cursor: pointer;
-  transition: border-radius var(--spring-fast-ms) var(--spring-fast), scale var(--spring-press-ms) var(--spring-press), background-color 150ms linear;
+  transition:
+    border-radius var(--spring-fast-ms) var(--spring-fast),
+    scale var(--spring-press-ms) var(--spring-press),
+    background-color 150ms linear;
 }
 
 .minute.is-past {

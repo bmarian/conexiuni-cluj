@@ -15,7 +15,7 @@ async function load() {
   try {
     const res = await fetch('/api/admin/cities', {credentials: 'same-origin'})
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    list.value = await res.json() as AdminCity[]
+    list.value = (await res.json()) as AdminCity[]
     loadError.value = ''
   } catch (err) {
     loadError.value = (err as Error).message
@@ -52,13 +52,8 @@ onMounted(load)
   <p v-if="loadError" class="admin-note admin-bad">Could not load ({{ loadError }})</p>
   <ul v-else class="cities">
     <li v-for="city in list" :key="city.slug">
-      <span class="text-body-large truncate" :class="{ 'text-on-surface-variant': !city.enabled }">{{ city.name }}</span>
-      <SwitchToggle
-        :checked="city.enabled"
-        :disabled="!!busy"
-        :aria-label="city.name"
-        @change="setEnabled(city, $event)"
-      />
+      <span class="text-body-large truncate" :class="{'text-on-surface-variant': !city.enabled}">{{ city.name }}</span>
+      <SwitchToggle :checked="city.enabled" :disabled="!!busy" :aria-label="city.name" @change="setEnabled(city, $event)" />
     </li>
   </ul>
   <p v-if="switchError" class="admin-note admin-bad">{{ switchError }}</p>

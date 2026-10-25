@@ -166,11 +166,19 @@ type problemEntry struct {
 	Text  string    `json:"text"`
 }
 
+type errorDetail struct {
+	Endpoint string `json:"endpoint"`
+	Status   int    `json:"status"`
+	Text     string `json:"text"`
+	Count    int    `json:"count"`
+}
+
 type adminTraffic struct {
-	DBBytes   int64           `json:"db_bytes"`
-	Requests  int             `json:"requests"`
-	Errors    int             `json:"errors"`
-	Endpoints []endpointToday `json:"endpoints"`
+	DBBytes      int64           `json:"db_bytes"`
+	Requests     int             `json:"requests"`
+	Errors       int             `json:"errors"`
+	Endpoints    []endpointToday `json:"endpoints"`
+	ErrorDetails []errorDetail   `json:"error_details"`
 }
 
 func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
@@ -608,7 +616,7 @@ func archiveSection(city *cities.City, run *live.ArchiveRun) adminArchive {
 }
 
 func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
-	t := adminTraffic{Endpoints: []endpointToday{}}
+	t := adminTraffic{Endpoints: []endpointToday{}, ErrorDetails: []errorDetail{}}
 	var err error
 	if t.DBBytes, err = city.Size(); err != nil {
 		return t, err
@@ -652,7 +660,36 @@ func trafficSection(city *cities.City, now time.Time) (adminTraffic, error) {
 		}
 		return cmp.Compare(a.Key, b.Key)
 	})
-	return t, nil
+	t.ErrorDetails, err = errorDetails(city, today)
+	return t, err
+}
+
+// Keys are "METHOD /route|status|text".
+func errorDetails(city *cities.City, today string) ([]errorDetail, error) {
+	rows, err := city.MetricRows("error_detail", today)
+	if err != nil {
+		return nil, err
+	}
+	counts := map[string]int{}
+	for _, r := range rows {
+		counts[r.Key] += r.Count
+	}
+	out := make([]errorDetail, 0, len(counts))
+	for key, count := range counts {
+		parts := strings.SplitN(key, "|", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		status, _ := strconv.Atoi(parts[1])
+		out = append(out, errorDetail{Endpoint: parts[0], Status: status, Text: truncateText(parts[2], 160), Count: count})
+	}
+	slices.SortFunc(out, func(a, b errorDetail) int {
+		if c := cmp.Compare(b.Count, a.Count); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Endpoint+a.Text, b.Endpoint+b.Text)
+	})
+	return out, nil
 }
 
 func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, now time.Time) []string {
@@ -681,7 +718,7 @@ func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaU
 		}
 	}
 	if errors > 0 {
-		out = append(out, fmt.Sprintf("%d server errors today", errors))
+		out = append(out, plural(errors, "server error")+" today")
 	}
 	if p := st.CalendarProblem; p != "" {
 		out = append(out, p)
@@ -696,6 +733,13 @@ func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaU
 		out = append(out, "Archive not run for "+humanDuration(now.Sub(*archive.RanAt)))
 	}
 	return out
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 func truncateText(s string, n int) string {

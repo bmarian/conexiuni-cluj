@@ -28,7 +28,7 @@ export const scheduledArrivals = (query: ScheduleQuery): number[] => {
     .sort((a, b) => a - b)
 }
 
-export type Arrival = { minutes: number; isLive: boolean }
+export type Arrival = {minutes: number; isLive: boolean}
 
 /** The next runs from the timetable alone, for a list the live feed is not reaching, as the minutes shown. */
 export const nextArrivals = (scheduled: number[], limit: number): Arrival[] =>
@@ -37,8 +37,10 @@ export const nextArrivals = (scheduled: number[], limit: number): Arrival[] =>
 const readsNow = (arrival: Arrival | undefined): boolean => arrival !== undefined && Math.round(arrival.minutes) === 0
 
 /** Only the first of consecutive zeros, down a column or along a row, reads "now"; the rest "soon". */
-export const markRepeatedNow = (rows: Arrival[][]): (Arrival & { soon: boolean })[][] =>
-  rows.map((row, stop) => row.map((arrival, column) => ({
-    ...arrival,
-    soon: readsNow(arrival) && (readsNow(rows[stop - 1]?.[column]) || row.slice(0, column).some(readsNow)),
-  })))
+export const markRepeatedNow = (rows: Arrival[][]): (Arrival & {soon: boolean})[][] =>
+  rows.map((row, stop) =>
+    row.map((arrival, column) => ({
+      ...arrival,
+      soon: readsNow(arrival) && (readsNow(rows[stop - 1]?.[column]) || row.slice(0, column).some(readsNow)),
+    })),
+  )

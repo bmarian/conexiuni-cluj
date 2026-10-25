@@ -30,7 +30,9 @@ export function writeCachedList(key: string, list: unknown[]) {
   const write = () => {
     try {
       localStorage.setItem(fullKey, JSON.stringify(list))
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }
   if (typeof requestIdleCallback === 'function') requestIdleCallback(write)
   else setTimeout(write)

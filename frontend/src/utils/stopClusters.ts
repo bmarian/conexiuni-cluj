@@ -2,7 +2,7 @@ import type {MarkerIcon} from '@/utils/mapIcons.ts'
 import {type Mode, MODES, modeOf} from '@/utils/modes.ts'
 import type {RouteType} from '@/types/tranzy.ts'
 
-export type StopPoint = {id: string, lat: number, lng: number, station: number, modes: number, rank: number, favorite: boolean}
+export type StopPoint = {id: string; lat: number; lng: number; station: number; modes: number; rank: number; favorite: boolean}
 
 export type StopGroup = {
   key: string
@@ -16,7 +16,7 @@ export type StopGroup = {
 
 export type ClusterBox = Pick<MarkerIcon, 'size' | 'anchor'>
 
-export type Rect = {left: number, top: number, right: number, bottom: number}
+export type Rect = {left: number; top: number; right: number; bottom: number}
 
 // MapLibre's world is 512 px wide at zoom 0.
 export const TILE_PX = 512
@@ -25,7 +25,7 @@ export const lngPerPixel = (zoom: number) => 360 / (TILE_PX * 2 ** zoom)
 
 export const mercX = (lng: number) => (lng + 180) / 360
 export const mercY = (lat: number) => {
-  const sin = Math.sin(lat * Math.PI / 180)
+  const sin = Math.sin((lat * Math.PI) / 180)
   return 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)
 }
 
@@ -33,11 +33,19 @@ const cellKey = (cx: number, cy: number) => cx * 0x4000000 + cy
 
 export const overlaps = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
-export const boxAt = (x: number, y: number, {size, anchor}: ClusterBox): Rect =>
-  ({left: x - anchor[0], top: y - anchor[1], right: x - anchor[0] + size[0], bottom: y - anchor[1] + size[1]})
+export const boxAt = (x: number, y: number, {size, anchor}: ClusterBox): Rect => ({
+  left: x - anchor[0],
+  top: y - anchor[1],
+  right: x - anchor[0] + size[0],
+  bottom: y - anchor[1] + size[1],
+})
 
-export const viewRect = (px: number, west: number, south: number, east: number, north: number): Rect =>
-  ({left: mercX(west) * px, top: mercY(north) * px, right: mercX(east) * px, bottom: mercY(south) * px})
+export const viewRect = (px: number, west: number, south: number, east: number, north: number): Rect => ({
+  left: mercX(west) * px,
+  top: mercY(north) * px,
+  right: mercX(east) * px,
+  bottom: mercY(south) * px,
+})
 
 export const modeMask = (routeTypes: Iterable<RouteType | number>): number => {
   let mask = 0
@@ -57,20 +65,24 @@ const collator = new Intl.Collator(undefined, {sensitivity: 'base'})
 
 const sameWord = (a: string, b: string) => collator.compare(a, b) === 0
 
-const plainWords = (name: string) => name.replace(/\s*\([^)]*\)/g, '').split(' ').filter(Boolean)
+const plainWords = (name: string) =>
+  name
+    .replace(/\s*\([^)]*\)/g, '')
+    .split(' ')
+    .filter(Boolean)
 
 // The start of the leader's name that the most other stations share, when it is longer than what any of them adds to it;
 // bracketed qualifiers like "(M1/3)" don't count.
-export function groupName(leader: string, others: string[]): {name: string, covered: number} {
+export function groupName(leader: string, others: string[]): {name: string; covered: number} {
   const words = plainWords(leader)
   const split = others.map(plainWords)
   let best = {name: leader, covered: 0}
   for (let k = 1; k <= words.length; k++) {
     const root = words.slice(0, k).join(' ')
     if (root.length <= words.slice(k).join(' ').length) continue
-    const covered = split.filter((w) => w.length >= k
-      && words.slice(0, k).every((word, i) => sameWord(word, w[i]!))
-      && root.length > w.slice(k).join(' ').length).length
+    const covered = split.filter(
+      (w) => w.length >= k && words.slice(0, k).every((word, i) => sameWord(word, w[i]!)) && root.length > w.slice(k).join(' ').length,
+    ).length
     if (covered && covered >= best.covered) best = {name: root, covered}
   }
   return best
@@ -96,7 +108,7 @@ export class StopClusters {
     this.xs = Float64Array.from(points, (p) => mercX(p.lng))
     this.ys = Float64Array.from(points, (p) => mercY(p.lat))
     points.forEach((p, i) => this.indexOf.set(p.id, i))
-    const extent = (values: Float64Array) => values.length ? Math.max(...values) - Math.min(...values) : 0
+    const extent = (values: Float64Array) => (values.length ? Math.max(...values) - Math.min(...values) : 0)
     this.span = Math.max(extent(this.xs), extent(this.ys)) ** 2
   }
 
@@ -138,11 +150,14 @@ export class StopClusters {
   bounds(group: StopGroup): [[number, number], [number, number]] {
     const lats = group.points.map((i) => this.points[i]!.lat)
     const lngs = group.points.map((i) => this.points[i]!.lng)
-    return [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]]
+    return [
+      [Math.min(...lngs), Math.min(...lats)],
+      [Math.max(...lngs), Math.max(...lats)],
+    ]
   }
 
   // The zooms at which the group first breaks up, and at which each of its stations stands alone; null when no zoom breaks it up.
-  expansion(group: StopGroup, zoom: number): {split: number, apart: number} | null {
+  expansion(group: StopGroup, zoom: number): {split: number; apart: number} | null {
     let split: number | null = null
     for (let level = this.levelOf(zoom) - 1; level >= 0; level--) {
       const owner = this.ownerAt(level)
@@ -174,7 +189,7 @@ export class StopClusters {
 
   box(group: StopGroup): ClusterBox {
     let box = this.boxes.get(group.key)
-    if (!box) this.boxes.set(group.key, box = this.boxOf(group))
+    if (!box) this.boxes.set(group.key, (box = this.boxOf(group)))
     return box
   }
 
@@ -238,7 +253,12 @@ export class StopClusters {
     return kept.map((l) => {
       const group = byLeader.get(l)!
       const extra = gained.get(l)
-      return extra ? this.group(l, [...group.points, ...extra].sort((a, b) => a - b)) : group
+      return extra
+        ? this.group(
+            l,
+            [...group.points, ...extra].sort((a, b) => a - b),
+          )
+        : group
     })
   }
 

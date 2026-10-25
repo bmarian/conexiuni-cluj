@@ -3,24 +3,27 @@ import {ref, watch} from 'vue'
 import {FavoriteIcon} from '@/utils/icons.ts'
 
 // subject: what it shows; a new one starts still. favorite: undefined until known, so loading never animates.
-const {color, favorite, subject} = defineProps<{ color: string, favorite?: boolean, subject?: string }>()
+const {color, favorite, subject} = defineProps<{color: string; favorite?: boolean; subject?: string}>()
 
 const played = ref<'on' | 'off' | 'fill' | null>(null)
 const before = ref<string>()
 const run = ref(0)
-watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wasSaved, was]) => {
-  if (now !== then || wasSaved === undefined) {
-    played.value = null
-    before.value = undefined
-    run.value = 0
-    return
-  }
-  if (saved !== wasSaved && saved !== undefined) played.value = saved ? 'on' : 'off'
-  else if (shown !== was) played.value = 'fill'
-  else return
-  before.value = was
-  run.value++
-})
+watch(
+  () => [subject, favorite, color] as const,
+  ([now, saved, shown], [then, wasSaved, was]) => {
+    if (now !== then || wasSaved === undefined) {
+      played.value = null
+      before.value = undefined
+      run.value = 0
+      return
+    }
+    if (saved !== wasSaved && saved !== undefined) played.value = saved ? 'on' : 'off'
+    else if (shown !== was) played.value = 'fill'
+    else return
+    before.value = was
+    run.value++
+  },
+)
 </script>
 
 <template>
@@ -28,18 +31,18 @@ watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wa
     :key="run"
     class="morph"
     :class="played && `is-${played}`"
-    :style="{ '--from': before ?? color, '--to': color, backgroundColor: played === 'fill' ? before : color }"
+    :style="{'--from': before ?? color, '--to': color, backgroundColor: played === 'fill' ? before : color}"
   >
     <span v-if="played === 'fill'" class="fill"></span>
-    <span class="content"><slot/></span>
+    <span class="content"><slot /></span>
     <span v-if="played === 'on' || played === 'off'" class="mark">
       <template v-if="played === 'on'">
-        <FavoriteIcon class="heart"/>
-        <span v-for="k in 8" :key="k" class="spark" :style="{ '--k': k }"></span>
+        <FavoriteIcon class="heart" />
+        <span v-for="k in 8" :key="k" class="spark" :style="{'--k': k}"></span>
       </template>
       <template v-else>
-        <FavoriteIcon class="heart is-left"/>
-        <FavoriteIcon class="heart is-right"/>
+        <FavoriteIcon class="heart is-left" />
+        <FavoriteIcon class="heart is-right" />
       </template>
     </span>
   </span>
@@ -75,7 +78,9 @@ watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wa
 
 .is-on,
 .is-off {
-  animation: pop var(--spring-pop-ms) var(--spring-pop), mark-on 1300ms linear both;
+  animation:
+    pop var(--spring-pop-ms) var(--spring-pop),
+    mark-on 1300ms linear both;
 }
 
 .is-off {
@@ -88,7 +93,9 @@ watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wa
 
 .is-on > .content > :deep(*),
 .is-off > .content > :deep(*) {
-  animation: shrink 160ms ease-in both, grow var(--spring-pop-ms) var(--spring-pop) 1100ms both;
+  animation:
+    shrink 160ms ease-in both,
+    grow var(--spring-pop-ms) var(--spring-pop) 1100ms both;
 }
 
 .mark {
@@ -106,7 +113,9 @@ watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wa
 }
 
 .is-on .heart {
-  animation: heart-in var(--spring-pop-ms) var(--spring-pop) 100ms both, shrink 160ms ease-in 950ms forwards;
+  animation:
+    heart-in var(--spring-pop-ms) var(--spring-pop) 100ms both,
+    shrink 160ms ease-in 950ms forwards;
 }
 
 .is-off .mark {
@@ -159,7 +168,8 @@ watch(() => [subject, favorite, color] as const, ([now, saved, shown], [then, wa
   0% {
     background-color: var(--from);
   }
-  12%, 75% {
+  12%,
+  75% {
     background-color: var(--mark);
   }
   100% {

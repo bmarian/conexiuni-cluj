@@ -20,9 +20,7 @@ const emptyTimetable = (route: Route): Timetable => ({
 })
 
 function deriveTerminalName(stopTimes: StopTime[], position: 'first' | 'last'): string {
-  const outbound = stopTimes
-    .filter((st) => st.trip_id.endsWith(OUTGOING_SUFFIX))
-    .sort((a, b) => a.stop_sequence - b.stop_sequence)
+  const outbound = stopTimes.filter((st) => st.trip_id.endsWith(OUTGOING_SUFFIX)).sort((a, b) => a.stop_sequence - b.stop_sequence)
   if (!outbound.length) return ''
   const target = position === 'first' ? outbound[0] : outbound[outbound.length - 1]
   return target?.stop_headsign?.trim() ?? ''
@@ -34,10 +32,7 @@ async function loadedNetwork() {
   return network.value
 }
 
-export async function fetchHourlyStopOffsets(
-  routeShortName: string,
-  dayType: 'weekday' | 'saturday' | 'sunday',
-): Promise<Record<string, HourlyStopOffsets>> {
+export async function fetchHourlyStopOffsets(routeShortName: string, dayType: 'weekday' | 'saturday' | 'sunday'): Promise<Record<string, HourlyStopOffsets>> {
   const index = await loadedNetwork()
   const local = index?.routeByShortName.get(routeShortName)
   return index && local ? buildHourlyOffsets(index, local, dayType) : {}

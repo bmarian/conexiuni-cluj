@@ -46,9 +46,7 @@ async function request(url: string, signal?: AbortSignal): Promise<Place[]> {
   const resp = await fetch(url, {signal})
   if (!resp.ok) return []
   const data = (await resp.json()) as unknown
-  const places = (Array.isArray(data) ? data : [])
-    .map((raw) => placeFromApi(raw as ApiPlace))
-    .filter((place): place is Place => place !== null)
+  const places = (Array.isArray(data) ? data : []).map((raw) => placeFromApi(raw as ApiPlace)).filter((place): place is Place => place !== null)
   remember(url, places)
   return places
 }

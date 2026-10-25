@@ -10,12 +10,15 @@ function opensKeyboard(el: EventTarget | null): boolean {
 
 // iOS scrolls the whole page to reveal a focused field and picks that scroll at the moment of focus,
 // so the sheet is lifted before it measures and the slide is replayed a frame later.
-export function useIOSKeyboard(sheet: Ref<HTMLElement | null>, options: {
-  enabled: Ref<boolean>
-  sheetHeight: Ref<number>
-  liftTo: Ref<number>
-  keyboardPx: Ref<number>
-}) {
+export function useIOSKeyboard(
+  sheet: Ref<HTMLElement | null>,
+  options: {
+    enabled: Ref<boolean>
+    sheetHeight: Ref<number>
+    liftTo: Ref<number>
+    keyboardPx: Ref<number>
+  },
+) {
   const {enabled, sheetHeight, liftTo, keyboardPx} = options
   const fieldFocused = ref(false)
   let lastTouch = -Infinity

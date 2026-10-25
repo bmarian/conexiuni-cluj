@@ -56,7 +56,7 @@ export interface PlanResponse {
   refresh_in: number
 }
 
-export function planQuery(from: {lat: number, lon: number}, to: {lat: number, lon: number}, mode: PlanTimeMode, time: string): string {
+export function planQuery(from: {lat: number; lon: number}, to: {lat: number; lon: number}, mode: PlanTimeMode, time: string): string {
   const params = new URLSearchParams({
     from_lat: from.lat.toFixed(4),
     from_lng: from.lon.toFixed(4),

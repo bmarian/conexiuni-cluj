@@ -10,28 +10,28 @@ defineProps<{
   favorite?: boolean
   first?: boolean
   last?: boolean
-  times?: { label: string, isLive: boolean }[]
+  times?: {label: string; isLive: boolean}[]
   trailing?: string
   trailingHighlight?: boolean
   href?: string
 }>()
-const emit = defineEmits<{ open: [] }>()
+const emit = defineEmits<{open: []}>()
 </script>
 
 <template>
   <RowLink class="stop-line state squish" :class="`is-${mark}`" :href="href" @open="emit('open')">
-    <span class="rail" :class="{ 'is-first': first, 'is-last': last }">
+    <span class="rail" :class="{'is-first': first, 'is-last': last}">
       <span class="dot"></span>
     </span>
     <span class="flex-1 min-w-0 flex items-center gap-1 pl-2">
       <span class="name text-body-medium">{{ name }}</span>
-      <PlaceIcon v-if="mark === 'from'" class="m-icon size-3.5 mark-tint"/>
-      <MyLocationIcon v-else-if="mark === 'nearest'" class="m-icon size-3.5 mark-tint"/>
-      <FavoriteIcon v-if="favorite" class="m-icon size-3 text-rose"/>
+      <PlaceIcon v-if="mark === 'from'" class="m-icon size-3.5 mark-tint" />
+      <MyLocationIcon v-else-if="mark === 'nearest'" class="m-icon size-3.5 mark-tint" />
+      <FavoriteIcon v-if="favorite" class="m-icon size-3 text-rose" />
     </span>
-    <span v-if="trailing" class="trailing" :class="{ 'is-highlight': trailingHighlight }">{{ trailing }}</span>
+    <span v-if="trailing" class="trailing" :class="{'is-highlight': trailingHighlight}">{{ trailing }}</span>
     <span v-else class="times">
-      <span v-for="(time, i) in times" :key="i" class="time" :class="{ 'is-live': time.isLive }">{{ time.label }}</span>
+      <span v-for="(time, i) in times" :key="i" class="time" :class="{'is-live': time.isLive}">{{ time.label }}</span>
     </span>
   </RowLink>
 </template>
@@ -77,7 +77,7 @@ const emit = defineEmits<{ open: [] }>()
 }
 
 .rail::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 9px;
   top: 0;

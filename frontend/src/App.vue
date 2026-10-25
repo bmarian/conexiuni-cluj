@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch} from "vue"
-import {useI18n} from "vue-i18n"
-import {useRoute, useRouter} from "vue-router"
-import {useHead} from "@unhead/vue"
-import MapComponent from "@/components/MapComponent.vue"
-import {mapCreditsHTML} from "@/utils/mapStyles.ts"
-import OfflinePill from "@/components/OfflinePill.vue"
-import GreenFridayBanner from "@/components/GreenFridayBanner.vue"
-import AppToast from "@/components/AppToast.vue"
-import KeyboardHelp from "@/components/KeyboardHelp.vue"
-import HomeChrome from "@/components/home/HomeChrome.vue"
-import MapFabs from "@/components/home/MapFabs.vue"
-import SearchOverlay from "@/components/home/SearchOverlay.vue"
-import {useRouteUpdatesStore} from "@/stores/routeUpdates.ts"
-import {useMapStore} from "@/stores/map.ts"
-import {useSettingsStore} from "@/stores/settings.ts"
-import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from "@/composables/useKeyboardNav.ts"
-import {cityParams, cityPath} from "@/utils/city.ts"
-import {useSheetMetrics} from "@/composables/useSheetMetrics.ts"
-import {useSheetGestures, type SheetSnap} from "@/composables/useSheetGestures.ts"
-import {useIOSKeyboard} from "@/composables/useIOSKeyboard.ts"
-import {useSheetKeyboard} from "@/composables/useSheetKeyboard.ts"
-import {useStandaloneRootBackground} from "@/composables/useStandaloneRootBackground.ts"
-import {takeUAVisualTransition} from "@/router/index.ts"
-import {KeyboardArrowLeftIcon, KeyboardArrowRightIcon} from "@/utils/icons.ts"
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRoute, useRouter} from 'vue-router'
+import {useHead} from '@unhead/vue'
+import MapComponent from '@/components/MapComponent.vue'
+import {mapCreditsHTML} from '@/utils/mapStyles.ts'
+import OfflinePill from '@/components/OfflinePill.vue'
+import GreenFridayBanner from '@/components/GreenFridayBanner.vue'
+import AppToast from '@/components/AppToast.vue'
+import KeyboardHelp from '@/components/KeyboardHelp.vue'
+import HomeChrome from '@/components/home/HomeChrome.vue'
+import MapFabs from '@/components/home/MapFabs.vue'
+import SearchOverlay from '@/components/home/SearchOverlay.vue'
+import {useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
+import {useMapStore} from '@/stores/map.ts'
+import {useSettingsStore} from '@/stores/settings.ts'
+import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from '@/composables/useKeyboardNav.ts'
+import {cityParams, cityPath} from '@/utils/city.ts'
+import {useSheetMetrics} from '@/composables/useSheetMetrics.ts'
+import {useSheetGestures, type SheetSnap} from '@/composables/useSheetGestures.ts'
+import {useIOSKeyboard} from '@/composables/useIOSKeyboard.ts'
+import {useSheetKeyboard} from '@/composables/useSheetKeyboard.ts'
+import {useStandaloneRootBackground} from '@/composables/useStandaloneRootBackground.ts'
+import {takeUAVisualTransition} from '@/router/index.ts'
+import {KeyboardArrowLeftIcon, KeyboardArrowRightIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 useHead(() => ({title: t('headHomeTitle', cityParams())}))
@@ -47,13 +47,13 @@ const FABS_FADE_PX = 120
 
 const SNAP_FRAC: Record<DrawerState, number> = {
   minimized: 0,
-  half: 0.50,
+  half: 0.5,
   fullscreen: 1.0,
 }
 
 const shellEl = ref<HTMLElement | null>(null)
 const drawerEl = ref<HTMLElement | null>(null)
-const chromeEl = ref<{ $el: HTMLElement } | null>(null)
+const chromeEl = ref<{$el: HTMLElement} | null>(null)
 const chromeH = ref(0)
 const drawerState = ref<DrawerState>('half')
 const isLandscapeDrawerOpen = ref(true)
@@ -70,10 +70,10 @@ let keyboardOpen = false
 let maxViewportHeight = 0
 let vvResizeHandler: (() => void) | null = null
 
-type VirtualKeyboard = EventTarget & { overlaysContent: boolean, boundingRect: DOMRect }
+type VirtualKeyboard = EventTarget & {overlaysContent: boolean; boundingRect: DOMRect}
 // Installed Android PWAs don't move the page for the keyboard; browser tabs do.
 const virtualKeyboard = window.matchMedia('(display-mode: standalone)').matches
-  ? (navigator as unknown as { virtualKeyboard?: VirtualKeyboard }).virtualKeyboard
+  ? (navigator as unknown as {virtualKeyboard?: VirtualKeyboard}).virtualKeyboard
   : undefined
 const keyboardPx = ref(0)
 
@@ -92,20 +92,18 @@ useSheetKeyboard(drawerEl, {
 })
 
 useStandaloneRootBackground(
-  () => isPortraitMobile.value && drawerState.value === 'minimized'
-    ? drawerEl.value
-    : drawerEl.value?.querySelector('.drawer-view > *'),
+  () => (isPortraitMobile.value && drawerState.value === 'minimized' ? drawerEl.value : drawerEl.value?.querySelector('.drawer-view > *')),
   [() => route.fullPath, drawerState, isPortraitMobile],
 )
 
 const addMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
   mql.addEventListener('change', listener)
-  ;(mql as unknown as { addListener?: (cb: () => void) => void }).addListener?.(listener)
+  ;(mql as unknown as {addListener?: (cb: () => void) => void}).addListener?.(listener)
 }
 
 const removeMqlChangeListener = (mql: MediaQueryList, listener: () => void) => {
   mql.removeEventListener('change', listener)
-  ;(mql as unknown as { removeListener?: (cb: () => void) => void }).removeListener?.(listener)
+  ;(mql as unknown as {removeListener?: (cb: () => void) => void}).removeListener?.(listener)
 }
 
 const updatePortraitMobile = (force = false) => {
@@ -166,11 +164,15 @@ onUnmounted(() => {
   if (mapInsetTimer) clearTimeout(mapInsetTimer)
 })
 
-watch([isPortraitMobile, isAdminRoute], ([portrait, admin]) => {
-  if (!virtualKeyboard) return
-  virtualKeyboard.overlaysContent = portrait && !admin
-  onKeyboardGeometryChange()
-}, {immediate: true})
+watch(
+  [isPortraitMobile, isAdminRoute],
+  ([portrait, admin]) => {
+    if (!virtualKeyboard) return
+    virtualKeyboard.overlaysContent = portrait && !admin
+    onKeyboardGeometryChange()
+  },
+  {immediate: true},
+)
 
 const drawerStyle = computed(() => {
   if (!isPortraitMobile.value) return {}
@@ -191,7 +193,7 @@ function sheetFollowers(top: number) {
   }
 }
 
-const shellStyle = computed(() => isPortraitMobile.value ? sheetFollowers(snapTopPx(drawerState.value)) : {})
+const shellStyle = computed(() => (isPortraitMobile.value ? sheetFollowers(snapTopPx(drawerState.value)) : {}))
 
 function followDrag(top: number) {
   const shell = shellEl.value
@@ -216,9 +218,13 @@ watch(chromeEl, (chrome) => {
   chromeObserver.observe(chrome.$el)
 })
 
-watch([atHome, chromeH], ([home, h]) => {
-  mapStore.chromeTopPx = home ? h : safeTop.value
-}, {immediate: true})
+watch(
+  [atHome, chromeH],
+  ([home, h]) => {
+    mapStore.chromeTopPx = home ? h : safeTop.value
+  },
+  {immediate: true},
+)
 
 // Rows rendered in the next `ms` appear in place instead of cascading in.
 function settleCascades(ms = 1000) {
@@ -235,13 +241,16 @@ function settleCascades(ms = 1000) {
 const navBack = ref(false)
 const navInstant = ref(false)
 let lastPosition = history.state?.position ?? 0
-watch(() => route.fullPath, () => {
-  const position = history.state?.position ?? 0
-  navBack.value = position < lastPosition
-  lastPosition = position
-  navInstant.value = takeUAVisualTransition()
-  if (navInstant.value) settleCascades()
-})
+watch(
+  () => route.fullPath,
+  () => {
+    const position = history.state?.position ?? 0
+    navBack.value = position < lastPosition
+    lastPosition = position
+    navInstant.value = takeUAVisualTransition()
+    if (navInstant.value) settleCascades()
+  },
+)
 
 watch([drawerState, isPortraitMobile, sheetH, safeTop, safeBottom], scheduleMapInsetSync, {immediate: true})
 
@@ -256,15 +265,22 @@ function reveal() {
 }
 
 // Sync, because the map flies to the pick right after and has to aim above the raised drawer.
-watch(() => mapStore.revealDrawer, (requested) => {
-  if (!requested) return
-  mapStore.revealDrawer = false
-  reveal()
-}, {flush: 'sync'})
+watch(
+  () => mapStore.revealDrawer,
+  (requested) => {
+    if (!requested) return
+    mapStore.revealDrawer = false
+    reveal()
+  },
+  {flush: 'sync'},
+)
 
-watch(() => route.path, () => {
-  if (!atHome.value && !isAdminRoute.value) reveal()
-})
+watch(
+  () => route.path,
+  () => {
+    if (!atHome.value && !isAdminRoute.value) reveal()
+  },
+)
 
 watch(isLandscapeDrawerOpen, () => {
   scheduleMapInsetSync()
@@ -346,35 +362,32 @@ function onDrawerFocusIn(e: FocusEvent) {
   })
 }
 
-useKbdShortcuts({
-  m: cycleDrawerSize,
-  o: () => void router.push(cityPath('/settings')),
-  n: () => {
-    if (routeUpdates.hasFeed) void router.push(cityPath('/news'))
+useKbdShortcuts(
+  {
+    m: cycleDrawerSize,
+    o: () => void router.push(cityPath('/settings')),
+    n: () => {
+      if (routeUpdates.hasFeed) void router.push(cityPath('/news'))
+    },
+    c: () => {
+      void router.push(cityPath('/settings'))
+      focusSectionSoon('city')
+    },
   },
-  c: () => {
-    void router.push(cityPath('/settings'))
-    focusSectionSoon('city')
-  },
-}, {global: true})
+  {global: true},
+)
 </script>
 
 <template>
-  <RouterView v-if="isAdminRoute"/>
-  <main
-    v-else
-    ref="shellEl"
-    class="app-shell"
-    :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
-    :style="shellStyle"
-  >
-    <MapComponent class="app-map"/>
+  <RouterView v-if="isAdminRoute" />
+  <main v-else ref="shellEl" class="app-shell" :class="{'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen}" :style="shellStyle">
+    <MapComponent class="app-map" />
     <Transition name="chrome" :css="!navInstant">
-      <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place"/>
+      <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place" />
     </Transition>
-    <OfflinePill class="offline-place"/>
-    <MapFabs class="fabs-place"/>
-    <AppToast/>
+    <OfflinePill class="offline-place" />
+    <MapFabs class="fabs-place" />
+    <AppToast />
     <button
       type="button"
       class="fab fab-small side-toggle squish"
@@ -383,14 +396,14 @@ useKbdShortcuts({
       :aria-expanded="isLandscapeDrawerOpen"
       @click="toggleLandscapeDrawer"
     >
-      <KeyboardArrowLeftIcon v-if="isLandscapeDrawerOpen" class="m-icon"/>
-      <KeyboardArrowRightIcon v-else class="m-icon"/>
+      <KeyboardArrowLeftIcon v-if="isLandscapeDrawerOpen" class="m-icon" />
+      <KeyboardArrowRightIcon v-else class="m-icon" />
     </button>
 
     <aside
       ref="drawerEl"
       class="app-drawer"
-      :class="{ 'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen }"
+      :class="{'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen}"
       :style="drawerStyle"
       data-kbd-root
       @focusin="onDrawerFocusIn"
@@ -412,41 +425,43 @@ useKbdShortcuts({
         <span class="drawer-grip"></span>
       </div>
       <div class="drawer-scroll">
-        <GreenFridayBanner v-if="appSettings.showGreenFriday"/>
+        <GreenFridayBanner v-if="appSettings.showGreenFriday" />
         <div class="drawer-view">
           <!-- RouteView only loads on mount, so another line needs a fresh instance. -->
           <!-- Without CSS, out-in re-renders mid-patch and crashes, so an instant swap uses the default mode. -->
-          <RouterView v-slot="{ Component, route: viewRoute }">
+          <RouterView v-slot="{Component, route: viewRoute}">
             <Transition :name="navBack ? 'page-back' : 'page'" :css="!navInstant" :mode="navInstant ? 'default' : 'out-in'">
               <KeepAlive include="RoutePlanningView">
-                <component :is="Component"
-                           :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"/>
+                <component
+                  :is="Component"
+                  :key="`${viewRoute.params.city}/${viewRoute.name === 'route' ? `route-${viewRoute.params.routeId}` : String(viewRoute.name)}`"
+                />
               </KeepAlive>
             </Transition>
           </RouterView>
         </div>
       </div>
     </aside>
-    <SearchOverlay/>
+    <SearchOverlay />
   </main>
-  <KeyboardHelp v-if="!isAdminRoute"/>
+  <KeyboardHelp v-if="!isAdminRoute" />
 </template>
 
 <style scoped>
 @property --sheet-top {
-  syntax: "<length>";
+  syntax: '<length>';
   inherits: true;
   initial-value: 0px;
 }
 
 @property --fabs-alpha {
-  syntax: "<number>";
+  syntax: '<number>';
   inherits: true;
   initial-value: 1;
 }
 
 @property --chrome-alpha {
-  syntax: "<number>";
+  syntax: '<number>';
   inherits: true;
   initial-value: 1;
 }
@@ -460,7 +475,10 @@ useKbdShortcuts({
   overflow: hidden;
   background: var(--md-surface);
   color: var(--md-on-surface);
-  transition: --sheet-top var(--spring-sheet-ms) var(--spring-sheet), --fabs-alpha var(--spring-sheet-ms) var(--spring-sheet), --chrome-alpha var(--spring-sheet-ms) var(--spring-sheet);
+  transition:
+    --sheet-top var(--spring-sheet-ms) var(--spring-sheet),
+    --fabs-alpha var(--spring-sheet-ms) var(--spring-sheet),
+    --chrome-alpha var(--spring-sheet-ms) var(--spring-sheet);
 }
 
 .app-shell.is-dragging {
@@ -532,7 +550,9 @@ useKbdShortcuts({
   flex-direction: column;
   background: var(--md-surface-container-low);
   color: var(--md-on-surface);
-  box-shadow: 0 -1px 3px rgb(0 0 0 / 0.12), 0 -4px 12px rgb(0 0 0 / 0.08);
+  box-shadow:
+    0 -1px 3px rgb(0 0 0 / 0.12),
+    0 -4px 12px rgb(0 0 0 / 0.08);
   transition: transform var(--spring-sheet-ms) var(--spring-sheet);
   will-change: transform;
 }
@@ -618,19 +638,25 @@ useKbdShortcuts({
 }
 
 .drawer-view::after {
-  content: "";
+  content: '';
   display: block;
   height: env(safe-area-inset-bottom);
 }
 
 .page-enter-active,
 .page-back-enter-active {
-  transition: opacity 210ms cubic-bezier(0, 0, 0.2, 1) 90ms, translate var(--spring-page-ms) var(--spring-page) 90ms, scale var(--spring-page-ms) var(--spring-page) 90ms;
+  transition:
+    opacity 210ms cubic-bezier(0, 0, 0.2, 1) 90ms,
+    translate var(--spring-page-ms) var(--spring-page) 90ms,
+    scale var(--spring-page-ms) var(--spring-page) 90ms;
 }
 
 .page-leave-active,
 .page-back-leave-active {
-  transition: opacity 90ms cubic-bezier(0.4, 0, 1, 1), translate 90ms cubic-bezier(0.4, 0, 1, 1), scale 90ms cubic-bezier(0.4, 0, 1, 1);
+  transition:
+    opacity 90ms cubic-bezier(0.4, 0, 1, 1),
+    translate 90ms cubic-bezier(0.4, 0, 1, 1),
+    scale 90ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 .page-enter-from {
@@ -709,7 +735,9 @@ useKbdShortcuts({
     left: calc(var(--panel-shown) + 8px + env(safe-area-inset-left));
     z-index: 4500;
     translate: 0 -50%;
-    transition: left var(--spring-sheet-ms) var(--spring-sheet), scale var(--spring-press-ms) var(--spring-press);
+    transition:
+      left var(--spring-sheet-ms) var(--spring-sheet),
+      scale var(--spring-press-ms) var(--spring-press);
   }
 
   /* drawerStyle returns {} here, so this CSS transform won't be shadowed by an inline style. */
@@ -725,7 +753,9 @@ useKbdShortcuts({
     transform: translateX(calc(-100% - env(safe-area-inset-left)));
     pointer-events: none;
     z-index: 4400;
-    box-shadow: 1px 0 3px rgb(0 0 0 / 0.12), 4px 0 12px rgb(0 0 0 / 0.08);
+    box-shadow:
+      1px 0 3px rgb(0 0 0 / 0.12),
+      4px 0 12px rgb(0 0 0 / 0.08);
   }
 
   .app-drawer.is-landscape-open {
@@ -755,7 +785,9 @@ useKbdShortcuts({
     width: var(--panel-w);
     height: 100dvh !important;
     border-radius: 0;
-    box-shadow: 1px 0 3px rgb(0 0 0 / 0.12), 4px 0 12px rgb(0 0 0 / 0.08);
+    box-shadow:
+      1px 0 3px rgb(0 0 0 / 0.12),
+      4px 0 12px rgb(0 0 0 / 0.08);
     transition: none;
     z-index: 4400;
   }

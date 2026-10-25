@@ -9,8 +9,8 @@ import accessibleSvg from '@material-design-icons/svg/round/accessible.svg?raw'
 import bikeSvg from '@material-design-icons/svg/round/pedal_bike.svg?raw'
 
 export type DisplayVehicle = Vehicle & {
-  route_short_name: string;
-  route_color?: string;
+  route_short_name: string
+  route_color?: string
   heading: number
   // Drawn faded: on the other direction now, counted on coming back.
   faded?: boolean
@@ -22,7 +22,7 @@ export interface MarkerIcon {
   anchor: [number, number]
 }
 
-export type StationMark = {mode: Mode, color: string}
+export type StationMark = {mode: Mode; color: string}
 
 const defaultStopIcon: MarkerIcon = {
   html: `
@@ -55,13 +55,20 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
 }
 
 export function stationCardHtml(name: string, look?: {groups: ModeLines[]}): string {
-  const groups = (look?.groups ?? []).map(({mode, color, routes}) => {
-    const lines = routes.map((r) => `<span class="station-card-line" style="background:${displayColor(r.route_short_name, r.route_color)}">${escapeHtml(r.route_short_name)}</span>`).join('')
-    return `<div class="station-card-mode">
+  const groups = (look?.groups ?? [])
+    .map(({mode, color, routes}) => {
+      const lines = routes
+        .map(
+          (r) =>
+            `<span class="station-card-line" style="background:${displayColor(r.route_short_name, r.route_color)}">${escapeHtml(r.route_short_name)}</span>`,
+        )
+        .join('')
+      return `<div class="station-card-mode">
       <span class="station-card-icon" style="background:${color}"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">${MODE_ICON[mode]}</svg></span>
       <span class="station-card-lines">${lines}</span>
     </div>`
-  }).join('')
+    })
+    .join('')
   return `<div class="station-card"><div class="station-card-name">${escapeHtml(name)}</div>${groups}</div>`
 }
 
@@ -94,8 +101,12 @@ export type ClusterIcon = StationMark | 'heart'
 export function makeClusterIcon(icons: ClusterIcon[], name: string, more: number, labelWidth: number): MarkerIcon {
   const [w, h] = clusterPill(icons.length)
   const box = clusterIconBox(icons.length, labelWidth)
-  const cells = icons.map((icon) =>
-    `<div style="width:${CLUSTER_CELL_PX}px;height:${CLUSTER_CELL_PX}px;display:flex;align-items:center;justify-content:center;">${(icon === 'heart' ? makeHighlightIcon('favorite') : stationIcon(icon)).html}</div>`).join('')
+  const cells = icons
+    .map(
+      (icon) =>
+        `<div style="width:${CLUSTER_CELL_PX}px;height:${CLUSTER_CELL_PX}px;display:flex;align-items:center;justify-content:center;">${(icon === 'heart' ? makeHighlightIcon('favorite') : stationIcon(icon)).html}</div>`,
+    )
+    .join('')
   return {
     html: `<div class="stop-cluster" style="width:${box.size[0]}px;">
       <div class="stop-cluster-pill" style="width:${w}px;height:${h}px;padding:${CLUSTER_PAD_PX}px;gap:${CLUSTER_GAP_PX}px;border-radius:${CLUSTER_CELL_PX / 2 + CLUSTER_PAD_PX}px;">${cells}</div>
@@ -105,7 +116,7 @@ export function makeClusterIcon(icons: ClusterIcon[], name: string, more: number
   }
 }
 
-export type ClusterStation = {name: string, mark?: Parameters<typeof stationCardHtml>[1]}
+export type ClusterStation = {name: string; mark?: Parameters<typeof stationCardHtml>[1]}
 
 export function clusterCardHtml(stations: ClusterStation[], more: (n: number) => string): string {
   if (stations.length <= CLUSTER_STATIONS_MAX) {
@@ -120,7 +131,7 @@ export function clusterCardHtml(stations: ClusterStation[], more: (n: number) =>
   </div>`
 }
 
-export type SpiderStation = {id: string, name: string, icon: MarkerIcon, leg: SpiderLeg}
+export type SpiderStation = {id: string; name: string; icon: MarkerIcon; leg: SpiderLeg}
 
 const SPIDER_PAD_PX = 16
 
@@ -128,16 +139,18 @@ export function makeSpiderIcon(stations: SpiderStation[]): MarkerIcon {
   const r = spiderRadius(stations.map((s) => s.leg)) + SPIDER_PAD_PX
   const size = 2 * r
   const legs = stations.map(({leg}) => `<line x1="${r}" y1="${r}" x2="${r + leg.x}" y2="${r + leg.y}"/>`).join('')
-  const items = stations.map(({id, name, icon, leg}, i) => {
-    const [w, h] = icon.size
-    const [ax, ay] = icon.anchor
-    const place = leg.side === 'right' ? `left:${r + leg.x - ax}px;` : `right:${r - leg.x - (w - ax)}px;flex-direction:row-reverse;`
-    const html = typeof icon.html === 'string' ? icon.html : icon.html.outerHTML
-    return `<div class="stop-spider-item" data-stop="${escapeHtml(id)}" style="${place}top:${r + leg.y - ay}px;--dx:${-leg.x}px;--dy:${-leg.y}px;--i:${i};">
+  const items = stations
+    .map(({id, name, icon, leg}, i) => {
+      const [w, h] = icon.size
+      const [ax, ay] = icon.anchor
+      const place = leg.side === 'right' ? `left:${r + leg.x - ax}px;` : `right:${r - leg.x - (w - ax)}px;flex-direction:row-reverse;`
+      const html = typeof icon.html === 'string' ? icon.html : icon.html.outerHTML
+      return `<div class="stop-spider-item" data-stop="${escapeHtml(id)}" style="${place}top:${r + leg.y - ay}px;--dx:${-leg.x}px;--dy:${-leg.y}px;--i:${i};">
       <div style="width:${w}px;height:${h}px;flex:none;">${html}</div>
       <div class="stop-cluster-label">${escapeHtml(name)}</div>
     </div>`
-  }).join('')
+    })
+    .join('')
   return {
     html: `<div class="stop-spider" style="width:${size}px;height:${size}px;">
       <svg class="stop-spider-legs" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${legs}<circle cx="${r}" cy="${r}" r="4"/></svg>${items}
@@ -155,20 +168,24 @@ export function makeSelectedStopIcon(mark?: StationMark): MarkerIcon {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">${MODE_ICON[mark?.mode ?? 'bus']}</svg>
       </div>
     `,
-    size: [32, 32], anchor: [16, 16],
+    size: [32, 32],
+    anchor: [16, 16],
   }
 }
 
-const HEART_PATH = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
+const HEART_PATH =
+  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
 
-export function makeHighlightIcon(
-  color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite',
-): MarkerIcon {
+export function makeHighlightIcon(color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite'): MarkerIcon {
   const bg =
-    color === 'green' ? '#10b981'
-      : color === 'purple' ? '#a855f7'
-        : color === 'red' || color === 'favorite' ? '#f43f5e'
-          : color === 'amber' ? '#f59e0b'
+    color === 'green'
+      ? '#10b981'
+      : color === 'purple'
+        ? '#a855f7'
+        : color === 'red' || color === 'favorite'
+          ? '#f43f5e'
+          : color === 'amber'
+            ? '#f59e0b'
             : '#64748b'
 
   if (color === 'favorite') {
@@ -190,7 +207,7 @@ export function makeHighlightIcon(
   }
 }
 
-export function makePinIcon(color: string = "#0ea5e9"): MarkerIcon {
+export function makePinIcon(color: string = '#0ea5e9'): MarkerIcon {
   return {
     html: `<div class="planner-pin-visual" style="width:24px;height:32px;display:flex;align-items:flex-end;justify-content:center;position:relative;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.35));">
       <svg viewBox="0 0 20 28" width="20" height="28" xmlns="http://www.w3.org/2000/svg">
@@ -204,7 +221,7 @@ export function makePinIcon(color: string = "#0ea5e9"): MarkerIcon {
 }
 
 // What the feed says about each, if anything; a feed that does not say gets no icon rather than a "no".
-function accessibility(vehicle: DisplayVehicle): {wheelchair?: boolean, bike?: boolean} {
+function accessibility(vehicle: DisplayVehicle): {wheelchair?: boolean; bike?: boolean} {
   const told = (value?: string) => value !== undefined && value !== '' && value !== 'UNKNOWN'
   return {
     wheelchair: told(vehicle.wheelchair_accessible) ? vehicle.wheelchair_accessible === 'WHEELCHAIR_ACCESSIBLE' : undefined,
@@ -214,15 +231,11 @@ function accessibility(vehicle: DisplayVehicle): {wheelchair?: boolean, bike?: b
 
 function accessibilityIcons(vehicle: DisplayVehicle): string {
   const {wheelchair, bike} = accessibility(vehicle)
-  const icon = (ok: boolean | undefined, svg: string) => ok === undefined ? '' : `<span class="vehicle-tip-icon${ok ? '' : ' is-off'}">${svg}</span>`
+  const icon = (ok: boolean | undefined, svg: string) => (ok === undefined ? '' : `<span class="vehicle-tip-icon${ok ? '' : ' is-off'}">${svg}</span>`)
   return icon(wheelchair, accessibleSvg) + icon(bike, bikeSvg)
 }
 
-export function getVehicleMarkerHtml(
-  vehicle: DisplayVehicle,
-  resolvedColor: string,
-  showStopInfo: boolean,
-): string {
+export function getVehicleMarkerHtml(vehicle: DisplayVehicle, resolvedColor: string, showStopInfo: boolean): string {
   const routeName = vehicle.route_short_name || ''
   const routeFontSize = routeName.length >= 4 ? 8 : routeName.length >= 3 ? 9 : 11
   const roundedSpeed = Math.round(vehicle.speed ?? 0)
@@ -242,7 +255,9 @@ export function getVehicleMarkerHtml(
           <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
         </svg>
       </div>
-      ${showStopInfo ? `
+      ${
+        showStopInfo
+          ? `
         <div class="vehicle-tip">
           <div class="vehicle-tip-text">
             <span class="vehicle-tip-title">${roundedSpeed} km/h</span>
@@ -250,7 +265,9 @@ export function getVehicleMarkerHtml(
           </div>
           ${accessibilityIcons(vehicle)}
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   `
 }
@@ -260,7 +277,5 @@ export function placeTooltipHtml(label: string): string {
   const parts = label.split(',').map((p) => escapeHtml(p.trim()))
   const main = parts[0] ?? escapeHtml(label)
   const sub = parts.slice(1).join(', ')
-  return sub
-    ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>`
-    : `<div class="pin-tip-main">${main}</div>`
+  return sub ? `<div class="pin-tip-main">${main}</div><div class="pin-tip-sub">${sub}</div>` : `<div class="pin-tip-main">${main}</div>`
 }

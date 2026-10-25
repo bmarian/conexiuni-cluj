@@ -5,7 +5,14 @@ import {useFavoritesStore} from '@/stores/favorites.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {network} from '@/utils/network.ts'
 
-const {name, color, height = 28, minWidth = 40, corner = 8, plain = false} = defineProps<{
+const {
+  name,
+  color,
+  height = 28,
+  minWidth = 40,
+  corner = 8,
+  plain = false,
+} = defineProps<{
   name: string
   color?: string
   plain?: boolean
@@ -16,7 +23,7 @@ const {name, color, height = 28, minWidth = 40, corner = 8, plain = false} = def
 
 const favorites = useFavoritesStore()
 const shown = computed(() => (plain ? color : displayColor(name, color ?? '')) || 'var(--md-outline)')
-const favorite = computed(() => !plain && network.value ? favorites.favoriteLineNames.has(name) : undefined)
+const favorite = computed(() => (!plain && network.value ? favorites.favoriteLineNames.has(name) : undefined))
 </script>
 
 <template>

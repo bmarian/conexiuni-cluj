@@ -12,7 +12,9 @@ const param = (query: LocationQuery, key: string) => (typeof query[key] === 'str
 export const isShare = (query: LocationQuery) => SHARE_PARAMS.some((key) => param(query, key))
 
 export async function sharedDestination(query: LocationQuery): Promise<RouteLocationRaw> {
-  const text = SHARE_PARAMS.map((key) => param(query, key)).filter(Boolean).join('\n')
+  const text = SHARE_PARAMS.map((key) => param(query, key))
+    .filter(Boolean)
+    .join('\n')
   const link = /https?:\/\/\S+/.exec(text)?.[0]
   if (link) {
     try {
@@ -20,7 +22,11 @@ export async function sharedDestination(query: LocationQuery): Promise<RouteLoca
       if (isSiteHost(url.host)) return url.pathname + url.search
     } catch {}
   }
-  const name = text.split('\n').map((line) => line.trim()).find((line) => line && !line.startsWith('http')) ?? text.trim()
+  const name =
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith('http')) ?? text.trim()
   if (!name) return {name: 'home', params: {city: currentCity.value}}
   const settings = useSettingsStore()
   settings.showToast(t('shareFinding', {name: name.slice(0, 40)}))

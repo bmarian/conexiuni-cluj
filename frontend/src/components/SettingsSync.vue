@@ -26,7 +26,7 @@ import {
 
 const QrCode = defineAsyncComponent(() => import('@/components/QrCode.vue'))
 
-const props = defineProps<{ pairCode?: string; pairKey?: string }>()
+const props = defineProps<{pairCode?: string; pairKey?: string}>()
 
 const {t, locale} = useI18n()
 const store = useSyncStore()
@@ -45,8 +45,8 @@ let lastAction: 'show' | 'enter' = 'show'
 
 const digits = computed(() => typed.value.replace(/\D/g, ''))
 const spaced = (value: string) => `${value.slice(0, 3)} ${value.slice(3)}`
-const kindIcon = (kind: string) => kind === 'android' ? SmartphoneIcon : kind === 'wear' ? WatchIcon : ComputerIcon
-const kindName = (kind: string) => kind === 'android' ? 'Android' : kind === 'wear' ? 'Wear OS' : t('syncWebDevice')
+const kindIcon = (kind: string) => (kind === 'android' ? SmartphoneIcon : kind === 'wear' ? WatchIcon : ComputerIcon)
+const kindName = (kind: string) => (kind === 'android' ? 'Android' : kind === 'wear' ? 'Wear OS' : t('syncWebDevice'))
 
 const pairingOpen = computed(() => entering.value || phase.value !== 'idle')
 
@@ -66,26 +66,36 @@ const statusText = computed(() => {
   return t('syncSynced', {time: new Date(store.lastSynced).toLocaleTimeString(locale.value, {hour: '2-digit', minute: '2-digit'})})
 })
 
-const problemTexts = computed(() => store.problems.map((p) => ({
-  broken: t('syncProblemBroken'),
-  update: t('syncProblemUpdate'),
-  'over-cap': t('syncProblemOverCap', {n: CITY_CAP}),
-  full: t('syncProblemFull'),
-  removed: t('syncRemoved'),
-}[p])))
+const problemTexts = computed(() =>
+  store.problems.map(
+    (p) =>
+      ({
+        broken: t('syncProblemBroken'),
+        update: t('syncProblemUpdate'),
+        'over-cap': t('syncProblemOverCap', {n: CITY_CAP}),
+        full: t('syncProblemFull'),
+        removed: t('syncRemoved'),
+      })[p],
+  ),
+)
 
-const listName = (list: string) => ({stops: t('favoriteStops'), lines: t('favoriteRoutes'), places: t('favoritePlans'), followed: t('followedLines')}[list] ?? list)
+const listName = (list: string) =>
+  ({stops: t('favoriteStops'), lines: t('favoriteRoutes'), places: t('favoritePlans'), followed: t('followedLines')})[list] ?? list
 const cityName = (slug: string) => cities.value.find((c) => c.slug === slug)?.name ?? slug
 
-const failureText = computed(() => failure.value && {
-  expired: t('syncFailExpired'),
-  unknown: t('syncFailUnknown'),
-  limited: t('syncFailLimited'),
-  broken: t('syncFailBroken'),
-  both: t('syncFailBoth'),
-  'over-cap': t('syncFailOverCap', {n: CITY_CAP}),
-  offline: t('syncFailOffline'),
-}[failure.value])
+const failureText = computed(
+  () =>
+    failure.value &&
+    {
+      expired: t('syncFailExpired'),
+      unknown: t('syncFailUnknown'),
+      limited: t('syncFailLimited'),
+      broken: t('syncFailBroken'),
+      both: t('syncFailBoth'),
+      'over-cap': t('syncFailOverCap', {n: CITY_CAP}),
+      offline: t('syncFailOffline'),
+    }[failure.value],
+)
 
 async function bringIntoView() {
   await nextTick()
@@ -125,18 +135,23 @@ function close() {
 }
 
 // The code from a scanned QR, with its key; scanning was the user's go-ahead.
-watch(() => props.pairCode, (scanned) => {
-  if (!scanned || !/^\d{6}$/.test(scanned) || !supported) return
-  lastAction = 'enter'
-  entering.value = false
-  void pairing.enter(scanned, props.pairKey)
-  void bringIntoView()
-}, {immediate: true})
+watch(
+  () => props.pairCode,
+  (scanned) => {
+    if (!scanned || !/^\d{6}$/.test(scanned) || !supported) return
+    lastAction = 'enter'
+    entering.value = false
+    void pairing.enter(scanned, props.pairKey)
+    void bringIntoView()
+  },
+  {immediate: true},
+)
 
 watch(phase, (now) => {
-  if (now === 'done') setTimeout(() => {
-    if (phase.value === 'done') close()
-  }, 1500)
+  if (now === 'done')
+    setTimeout(() => {
+      if (phase.value === 'done') close()
+    }, 1500)
   if (now === 'confirm' && keyboardMode.value) {
     void nextTick(() => {
       const button = rootRef.value?.querySelector<HTMLElement>('[data-kbd-item="sync-confirm"]')
@@ -145,10 +160,13 @@ watch(phase, (now) => {
   }
 })
 
-useKbdEscape(() => pairingOpen.value || asking.value !== null, () => {
-  if (asking.value) asking.value = null
-  else close()
-})
+useKbdEscape(
+  () => pairingOpen.value || asking.value !== null,
+  () => {
+    if (asking.value) asking.value = null
+    else close()
+  },
+)
 
 async function confirmAsk() {
   const ask = asking.value
@@ -178,7 +196,7 @@ async function confirmAsk() {
         <p v-if="failedRemove" class="note">{{ t('syncRemoveFailed') }}</p>
         <div class="devices" data-kbd-section="sync-devices">
           <div v-for="device in store.devices" :key="device.id" class="device">
-            <component :is="kindIcon(device.kind)" class="m-icon text-on-surface-variant"/>
+            <component :is="kindIcon(device.kind)" class="m-icon text-on-surface-variant" />
             <span class="flex-1 min-w-0 flex flex-col">
               <span class="text-body-large text-on-surface">{{ device.label || kindName(device.kind) }}</span>
               <span class="text-body-medium text-on-surface-variant">{{ device.self ? t('syncThisDevice') : seenText(device.seen) }}</span>
@@ -193,7 +211,7 @@ async function confirmAsk() {
               :disabled="store.busy"
               @click="asking = {kind: 'remove', id: device.id, name: device.label || kindName(device.kind)}"
             >
-              <CloseIcon class="m-icon"/>
+              <CloseIcon class="m-icon" />
             </button>
           </div>
         </div>
@@ -201,16 +219,16 @@ async function confirmAsk() {
 
       <div v-if="!pairingOpen && !asking" class="button-row" data-kbd-section="sync-start" data-kbd-axis="x">
         <button type="button" class="btn btn-filled" data-kbd-item="sync-show" @click="show">
-          <component :is="store.status === 'on' ? AddIcon : QrCode2Icon" class="m-icon"/>
+          <component :is="store.status === 'on' ? AddIcon : QrCode2Icon" class="m-icon" />
           {{ store.status === 'on' ? t('syncAddDevice') : t('syncShowCode') }}
         </button>
         <button type="button" class="btn btn-tonal" data-kbd-item="sync-enter" @click="openEnter">
-          <DialpadIcon class="m-icon"/>
+          <DialpadIcon class="m-icon" />
           {{ t('syncEnterCode') }}
         </button>
       </div>
 
-      <div v-if="pairingOpen" class="panel" :class="{ 'items-center text-center': !entering }">
+      <div v-if="pairingOpen" class="panel" :class="{'items-center text-center': !entering}">
         <template v-if="entering">
           <input
             ref="codeRef"
@@ -228,7 +246,7 @@ async function confirmAsk() {
         </template>
         <template v-else-if="phase === 'showing'">
           <div class="qr">
-            <QrCode :text="url" :label="spaced(code)"/>
+            <QrCode :text="url" :label="spaced(code)" />
           </div>
           <p class="text-headline-medium font-extrabold tracking-[2px]">{{ spaced(code) }}</p>
           <p class="text-body-small text-on-surface-variant">{{ t('syncShowHint') }}</p>
@@ -238,9 +256,7 @@ async function confirmAsk() {
           <p class="check" :aria-label="check">{{ spaced(check) }}</p>
           <p class="text-body-small text-on-surface-variant">{{ t('syncConfirmCheck') }}</p>
         </template>
-        <p v-else-if="phase === 'done'" class="flex items-center gap-2 text-body-medium">
-          <CheckIcon class="m-icon text-primary"/>{{ t('syncDone') }}
-        </p>
+        <p v-else-if="phase === 'done'" class="flex items-center gap-2 text-body-medium"><CheckIcon class="m-icon text-primary" />{{ t('syncDone') }}</p>
         <template v-else-if="phase === 'failed'">
           <p class="text-body-medium">{{ failureText }}</p>
           <ul v-if="failure === 'over-cap'" class="text-body-medium">
@@ -260,12 +276,16 @@ async function confirmAsk() {
           <button v-else-if="phase === 'confirm'" type="button" class="btn btn-filled" data-kbd-item="sync-confirm" @click="pairing.confirm()">
             {{ t('syncConfirm') }}
           </button>
-          <button v-else-if="phase === 'failed' && failure !== 'over-cap' && failure !== 'both'" type="button" class="btn btn-filled" data-kbd-item="sync-retry" @click="retry">
+          <button
+            v-else-if="phase === 'failed' && failure !== 'over-cap' && failure !== 'both'"
+            type="button"
+            class="btn btn-filled"
+            data-kbd-item="sync-retry"
+            @click="retry"
+          >
             {{ t('syncTryAgain') }}
           </button>
-          <button type="button" class="btn btn-text" data-kbd-item="sync-cancel" @click="close">
-            <CloseIcon class="m-icon"/>{{ t('cancel') }}
-          </button>
+          <button type="button" class="btn btn-text" data-kbd-item="sync-cancel" @click="close"><CloseIcon class="m-icon" />{{ t('cancel') }}</button>
         </div>
       </div>
 
@@ -290,8 +310,8 @@ async function confirmAsk() {
           data-kbd-item="sync-settings"
           @change="store.setWithSettings"
         />
-        <ListItem :icon="LogoutIcon" :title="t('syncTurnOff')" data-kbd-item="sync-off" @click="asking = {kind: 'off'}"/>
-        <ListItem :icon="DeleteIcon" :title="t('syncDelete')" data-kbd-item="sync-delete" @click="asking = {kind: 'delete'}"/>
+        <ListItem :icon="LogoutIcon" :title="t('syncTurnOff')" data-kbd-item="sync-off" @click="asking = {kind: 'off'}" />
+        <ListItem :icon="DeleteIcon" :title="t('syncDelete')" data-kbd-item="sync-delete" @click="asking = {kind: 'delete'}" />
       </div>
     </template>
   </div>

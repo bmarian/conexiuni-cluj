@@ -6,13 +6,19 @@ const REFRESH_MS = 30_000
 const AUTH_FLAG_KEY = 'admin:authed'
 
 export const adminAuthed = () => {
-  try { return localStorage.getItem(AUTH_FLAG_KEY) === '1' } catch { return false }
+  try {
+    return localStorage.getItem(AUTH_FLAG_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 const writeAuthFlag = (on: boolean) => {
   try {
     if (on) localStorage.setItem(AUTH_FLAG_KEY, '1')
     else localStorage.removeItem(AUTH_FLAG_KEY)
-  } catch { /* storage blocked */ }
+  } catch {
+    /* storage blocked */
+  }
 }
 
 class SignedOut extends Error {}
@@ -21,7 +27,7 @@ async function getJSON<T>(url: string): Promise<T> {
   const res = await fetch(url, {credentials: 'same-origin'})
   if (res.status === 401) throw new SignedOut()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return await res.json() as T
+  return (await res.json()) as T
 }
 
 export function useAdmin() {
@@ -111,7 +117,9 @@ export function useAdmin() {
     refreshTimer = setInterval(() => {
       if (document.visibilityState === 'visible' && state.value === 'ready') void load()
     }, REFRESH_MS)
-    clockTimer = setInterval(() => { clock.value = Date.now() }, 1000)
+    clockTimer = setInterval(() => {
+      clock.value = Date.now()
+    }, 1000)
     document.addEventListener('visibilitychange', onVisibility)
   })
 

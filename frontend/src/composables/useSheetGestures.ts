@@ -206,9 +206,12 @@ export function useSheetGestures(options: {
   function onWheel(e: WheelEvent) {
     if (!enabled.value || e.ctrlKey || held?.()) return
     const scroller = scrollerOf(e.target)
-    const unit = e.deltaMode === WheelEvent.DOM_DELTA_LINE
-      ? parseFloat(getComputedStyle(scroller ?? document.documentElement).fontSize)
-      : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1
+    const unit =
+      e.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? parseFloat(getComputedStyle(scroller ?? document.documentElement).fontSize)
+        : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? window.innerHeight
+          : 1
     const dy = e.deltaY * unit
     if (!dy || Math.abs(e.deltaX * unit) > Math.abs(dy)) return
     const direction = Math.sign(dy)

@@ -1,6 +1,6 @@
 import {boxAt, type ClusterBox, type Rect} from '@/utils/stopClusters.ts'
 
-export type SpiderLeg = {x: number, y: number, side: 'left' | 'right'}
+export type SpiderLeg = {x: number; y: number; side: 'left' | 'right'}
 
 const CIRCLE_MAX = 8
 const FOOT_PX = 48
@@ -15,12 +15,12 @@ const leg = (r: number, angle: number): SpiderLeg => ({
   side: Math.cos(angle) < -1e-6 ? 'left' : 'right',
 })
 
-const circleRadius = (count: number) => Math.max(MIN_RADIUS_PX, count * FOOT_PX / (2 * Math.PI))
+const circleRadius = (count: number) => Math.max(MIN_RADIUS_PX, (count * FOOT_PX) / (2 * Math.PI))
 
 export function spiderLegs(count: number): SpiderLeg[] {
   if (count <= CIRCLE_MAX) {
     const r = circleRadius(count)
-    return Array.from({length: count}, (_, i) => leg(r, 2 * Math.PI * i / count))
+    return Array.from({length: count}, (_, i) => leg(r, (2 * Math.PI * i) / count))
   }
   const legs: SpiderLeg[] = []
   let r = SPIRAL_START_PX
@@ -28,7 +28,7 @@ export function spiderLegs(count: number): SpiderLeg[] {
   for (let i = 0; i < count; i++) {
     angle += SPIRAL_FOOT_PX / r + i * 0.0005
     legs.push(leg(r, angle))
-    r += 2 * Math.PI * SPIRAL_GROWTH_PX / angle
+    r += (2 * Math.PI * SPIRAL_GROWTH_PX) / angle
   }
   return legs
 }
@@ -37,7 +37,7 @@ export function spiderLegsToward(screenAngles: number[]): SpiderLeg[] {
   const count = screenAngles.length
   if (count > CIRCLE_MAX) return spiderLegs(count)
   const order = screenAngles.map((_, i) => i).sort((a, b) => screenAngles[a]! - screenAngles[b]!)
-  const step = 2 * Math.PI / count
+  const step = (2 * Math.PI) / count
   let x = 0
   let y = 0
   order.forEach((i, k) => {
@@ -50,7 +50,7 @@ export function spiderLegsToward(screenAngles: number[]): SpiderLeg[] {
   return screenAngles.map((_, i) => leg(r, turn + slot.get(i)! * step))
 }
 
-export type SpiderItem = {station: {x: number, y: number}, icon: ClusterBox, labelWidth: number}
+export type SpiderItem = {station: {x: number; y: number}; icon: ClusterBox; labelWidth: number}
 
 // Same as .stop-spider-item's gap and .stop-cluster-label's line-height in map.css.
 const LABEL_GAP_PX = 4
@@ -72,7 +72,7 @@ export function spiderLegsClear(items: SpiderItem[], obstacles: Rect[]): SpiderL
   const taken = [...obstacles]
   return items.map((item) => {
     const toward = Math.atan2(item.station.y, item.station.x)
-    let best: {leg: SpiderLeg, covered: number, far: number} | null = null
+    let best: {leg: SpiderLeg; covered: number; far: number} | null = null
     for (let ring = 0; ring < RINGS; ring++) {
       const r = MIN_RADIUS_PX + ring * FOOT_PX
       const step = item.icon.size[0] / r
@@ -91,4 +91,4 @@ export function spiderLegsClear(items: SpiderItem[], obstacles: Rect[]): SpiderL
   })
 }
 
-export const spiderRadius =(legs: SpiderLeg[]): number => Math.ceil(Math.max(0, ...legs.map((l) => Math.hypot(l.x, l.y))))
+export const spiderRadius = (legs: SpiderLeg[]): number => Math.ceil(Math.max(0, ...legs.map((l) => Math.hypot(l.x, l.y))))

@@ -1,18 +1,6 @@
-import {
-  boxAt,
-  type ClusterBox,
-  groupOf,
-  mercX,
-  mercY,
-  overlaps,
-  type Rect,
-  type StopClusters,
-  type StopGroup,
-  TILE_PX,
-  viewRect,
-} from '@/utils/stopClusters.ts'
+import {boxAt, type ClusterBox, groupOf, mercX, mercY, overlaps, type Rect, type StopClusters, type StopGroup, TILE_PX, viewRect} from '@/utils/stopClusters.ts'
 
-export type Area = {name: string, lat: number, lon: number, place: string}
+export type Area = {name: string; lat: number; lon: number; place: string}
 
 const PLACES = ['city', 'town', 'village', 'suburb', 'quarter', 'neighbourhood']
 
@@ -40,7 +28,11 @@ export class AreaClusters {
   private readonly home: Int32Array
   private readonly rank: number[]
 
-  constructor(private readonly stations: StopClusters, areas: Area[], private readonly boxOf: (group: StopGroup) => ClusterBox) {
+  constructor(
+    private readonly stations: StopClusters,
+    areas: Area[],
+    private readonly boxOf: (group: StopGroup) => ClusterBox,
+  ) {
     const points = stations.points
     this.sx = Float64Array.from(points, (p) => mercX(p.lng))
     this.sy = Float64Array.from(points, (p) => mercY(p.lat))
@@ -93,7 +85,7 @@ export class AreaClusters {
 
   box(group: StopGroup): ClusterBox {
     let box = this.boxes.get(group.key)
-    if (!box) this.boxes.set(group.key, box = this.boxOf(group))
+    if (!box) this.boxes.set(group.key, (box = this.boxOf(group)))
     return box
   }
 
@@ -134,12 +126,17 @@ export class AreaClusters {
       const above = alive.filter((k) => this.rank[k]! >= this.rank[group.area!]!)
       for (const i of group.points) members.get(nearestOf(this.sx[i]!, this.sy[i]!, above, this.ax, this.ay))!.push(i)
     }
-    return [...members].map(([k, points]) => this.group(k, points.sort((a, b) => a - b)))
+    return [...members].map(([k, points]) =>
+      this.group(
+        k,
+        points.sort((a, b) => a - b),
+      ),
+    )
   }
 
   private group(k: number, points: number[]): StopGroup {
     const all = this.stations.points
-    const leader = points.reduce((best, i) => all[i]!.rank > all[best]!.rank ? i : best, points[0]!)
+    const leader = points.reduce((best, i) => (all[i]!.rank > all[best]!.rank ? i : best), points[0]!)
     const group = groupOf(all, leader, points, `a${k}`)
     group.area = k
     return group
@@ -151,7 +148,11 @@ export class MapClusters {
   private checked = 0
   private crossing: number | null = null
 
-  constructor(readonly stations: StopClusters, private readonly areas: AreaClusters | null, private readonly detail: number) {}
+  constructor(
+    readonly stations: StopClusters,
+    private readonly areas: AreaClusters | null,
+    private readonly detail: number,
+  ) {}
 
   get points() {
     return this.stations.points
@@ -210,14 +211,16 @@ export class MapClusters {
       const px = TILE_PX * 2 ** z
       return {x: (mercX(lng) - mercX(centre.lng)) * px, y: (mercY(lat) - mercY(centre.lat)) * px}
     }
-    const obstacles = this.at(zoom).filter((g) => g !== group).map((g): Rect => {
-      const {lat, lng} = this.lngLat(g)
-      const [a, b] = ends.map((z) => {
-        const {x, y} = offset(lat, lng, z)
-        return boxAt(x, y, this.box(g))
+    const obstacles = this.at(zoom)
+      .filter((g) => g !== group)
+      .map((g): Rect => {
+        const {lat, lng} = this.lngLat(g)
+        const [a, b] = ends.map((z) => {
+          const {x, y} = offset(lat, lng, z)
+          return boxAt(x, y, this.box(g))
+        })
+        return {left: Math.min(a!.left, b!.left), top: Math.min(a!.top, b!.top), right: Math.max(a!.right, b!.right), bottom: Math.max(a!.bottom, b!.bottom)}
       })
-      return {left: Math.min(a!.left, b!.left), top: Math.min(a!.top, b!.top), right: Math.max(a!.right, b!.right), bottom: Math.max(a!.bottom, b!.bottom)}
-    })
     obstacles.push(boxAt(0, 0, this.box(group)))
     return {obstacles, offset: (lat: number, lng: number) => offset(lat, lng)}
   }

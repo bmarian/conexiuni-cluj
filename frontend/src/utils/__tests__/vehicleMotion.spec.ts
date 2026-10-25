@@ -6,12 +6,12 @@ import {headingAt, locate, pathOf, pointAt, VehicleTrack} from '@/utils/vehicleM
 const M_PER_LNG = haversineMeters(46.77, 0, 46.77, 1)
 const M_PER_LAT = haversineMeters(0, 0, 1, 0)
 const east = (m: number, north = 0) => ({lat: 46.77 + north / M_PER_LAT, lng: 23.55 + m / M_PER_LNG})
-const shape = (pts: {lat: number, lng: number}[]): Shape[] =>
+const shape = (pts: {lat: number; lng: number}[]): Shape[] =>
   pts.map(({lat, lng}, i) => ({shape_id: 't', shape_pt_lat: lat, shape_pt_lon: lng, shape_pt_sequence: i, shape_dist_traveled: -1}))
 const line = pathOf(shape([0, 1000, 2000, 4000, 8000].map((m) => east(m))))
 
 function drive(track: VehicleTrack, from: number, ms: number) {
-  const frames: {s: number, v: number}[] = []
+  const frames: {s: number; v: number}[] = []
   for (let now = from + 16; now <= from + ms; now += 16) {
     track.step(now)
     frames.push({s: track.s, v: track.v})

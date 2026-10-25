@@ -7,7 +7,7 @@ import {ArrowBackIcon, CloseIcon} from '@/utils/icons.ts'
 import MenuButton from '@/components/ui/MenuButton.vue'
 import type {MenuAction} from '@/components/ui/types.ts'
 
-defineProps<{ title?: string | null, menu?: MenuAction[] }>()
+defineProps<{title?: string | null; menu?: MenuAction[]}>()
 
 const PAST_HEADER_PX = 120
 
@@ -32,30 +32,15 @@ onBeforeUnmount(() => scroller?.removeEventListener('scroll', onScroll))
 </script>
 
 <template>
-  <div ref="bar" class="sheet-top-bar" :class="{ 'is-past': pastHeader }" data-kbd-section="nav" data-kbd-axis="x">
-    <button
-      v-if="hasBack"
-      type="button"
-      class="icon-btn"
-      data-kbd-item="back"
-      :aria-label="t('back')"
-      :title="t('back')"
-      @click="router.back()"
-    >
-      <ArrowBackIcon class="m-icon"/>
+  <div ref="bar" class="sheet-top-bar" :class="{'is-past': pastHeader}" data-kbd-section="nav" data-kbd-axis="x">
+    <button v-if="hasBack" type="button" class="icon-btn" data-kbd-item="back" :aria-label="t('back')" :title="t('back')" @click="router.back()">
+      <ArrowBackIcon class="m-icon" />
     </button>
-    <span class="bar-title text-title-medium" :class="{ 'is-shown': pastHeader && title }">{{ title }}</span>
-    <slot/>
-    <MenuButton v-if="menu?.length" :actions="menu"/>
-    <button
-      type="button"
-      class="icon-btn"
-      data-kbd-item="home"
-      :aria-label="t('home')"
-      :title="t('home')"
-      @click="router.push(cityPath('/'))"
-    >
-      <CloseIcon class="m-icon"/>
+    <span class="bar-title text-title-medium" :class="{'is-shown': pastHeader && title}">{{ title }}</span>
+    <slot />
+    <MenuButton v-if="menu?.length" :actions="menu" />
+    <button type="button" class="icon-btn" data-kbd-item="home" :aria-label="t('home')" :title="t('home')" @click="router.push(cityPath('/'))">
+      <CloseIcon class="m-icon" />
     </button>
   </div>
 </template>
