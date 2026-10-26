@@ -273,7 +273,7 @@ async function choose(slug: string | null) {
 }
 
 .chevron {
-  transition: rotate 200ms ease;
+  transition: rotate 175ms ease;
 }
 
 .chevron.is-open {
@@ -306,7 +306,7 @@ async function choose(slug: string | null) {
 .expand-enter-active,
 .expand-leave-active {
   transition:
-    opacity 200ms linear,
+    opacity 175ms linear,
     translate var(--spring-fast-ms) var(--spring-fast);
 }
 

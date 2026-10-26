@@ -1,7 +1,7 @@
 import type {Map as MapLibreMap, Marker} from 'maplibre-gl'
 import {type LatLng, markerLatLng} from '@/utils/mapMarkers.ts'
 
-export const LEAVE_MS = 160
+export const LEAVE_MS = 140
 
 export const easeOutCubic = (k: number) => 1 - (1 - k) ** 3
 export const linear = (k: number) => k
@@ -39,5 +39,5 @@ export function fadeOutMarker(marker: Marker) {
 }
 
 export function flightMs(distancePx: number, zoomDelta: number): number {
-  return Math.min(1100, Math.max(350, 300 + distancePx * 0.25 + Math.abs(zoomDelta) * 180))
+  return Math.min(955, Math.max(305, 260 + distancePx * 0.22 + Math.abs(zoomDelta) * 155))
 }

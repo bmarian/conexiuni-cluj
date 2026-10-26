@@ -79,12 +79,6 @@ export function locate(path: Path, {lat, lng}: LatLng, from = 0, to = Infinity, 
   return off <= MAX_OFF_ROUTE_M ? {s: best.s, off} : null
 }
 
-// 0 for a point off the path.
-export function shareAlong(path: Path, point: LatLng): number {
-  const at = path.length ? locate(path, point) : null
-  return at ? at.s / path.length : 0
-}
-
 export class VehicleTrack {
   s = 0
   v = 0

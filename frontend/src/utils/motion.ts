@@ -11,7 +11,7 @@ export function spring(name: 'press' | 'pop' | 'slide' | 'land' | 'sheet' | 'pag
 export const EMPHASIZED_DECELERATE = 'cubic-bezier(0.05, 0.7, 0.1, 1)'
 export const EMPHASIZED = 'cubic-bezier(0.2, 0, 0, 1)'
 
-const RIPPLE_MS = 1000
+const RIPPLE_MS = 870
 
 export function pop(el: Element | null | undefined, from: number | string, delay = 0) {
   if (el && !reducedMotion()) el.animate([{scale: from}, {scale: 1}], {...spring('pop'), delay})

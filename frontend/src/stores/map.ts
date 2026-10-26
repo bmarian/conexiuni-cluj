@@ -71,7 +71,6 @@ export const useMapStore = defineStore('map', () => {
   const drawerLeftPx = ref(0)
   const chromeTopPx = ref(0)
   const fitWalkingPolylines = ref(false)
-  const growFrom = ref<{lat: number; lng: number} | null>(null)
   const arrival = ref<{color: string; vehicleId?: number; seq: number} | null>(null)
 
   const signalArrival = (color: string, vehicleId?: number) => {
@@ -184,7 +183,6 @@ export const useMapStore = defineStore('map', () => {
     highlightedStops,
     vehicleColor,
     directionArrowAtStart,
-    growFrom,
     arrival,
     signalArrival,
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useUserStore} from '@/stores/user.ts'
 import {storeToRefs} from 'pinia'
-import {computed, onUnmounted, toRef, watch} from 'vue'
+import {computed, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import StationIcon from '@/components/StationIcon.vue'
@@ -81,11 +81,9 @@ watch(
     const info = stopInfo.value
     if (!info) return
     mapStore.setFlyToLocation(info.stop_lat, info.stop_lon)
-    mapStore.growFrom = {lat: info.stop_lat, lng: info.stop_lon}
   },
   {immediate: true},
 )
-onUnmounted(() => (mapStore.growFrom = null))
 
 useHead(() => {
   // Keep the server-injected meta for crawlers until the stop loads.

@@ -82,6 +82,46 @@
   gap: 12px;
 }
 
+/* Line starts and ends wear the station markers' outline and shadow. */
+.line-start {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.line-start-badge,
+.line-end {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  color: white;
+}
+
+.line-start-badge {
+  min-width: 32px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.line-end {
+  width: 24px;
+  border-radius: 50%;
+}
+
+.line-end svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
 .station-names {
   display: flex;
   flex-direction: column;
@@ -229,7 +269,7 @@
 
 /* Animating the element MapLibre moves makes every frame's move a full style recalc. */
 .marker-enter .marker-body {
-  animation: marker-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: marker-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .marker-leave {
@@ -237,7 +277,7 @@
 }
 
 .marker-leave .marker-body {
-  animation: marker-leave 160ms ease-in forwards;
+  animation: marker-leave 140ms ease-in forwards;
 }
 
 @keyframes marker-enter {
@@ -256,7 +296,7 @@
 @media (hover: hover) {
   .marker-clickable .marker-body,
   .stop-spider-item.marker-clickable {
-    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .marker-clickable:hover .marker-body,
@@ -266,7 +306,7 @@
 }
 
 .stop-group {
-  transition: opacity 160ms ease-out;
+  transition: opacity 140ms ease-out;
 }
 
 .maplibregl-marker.is-spiderfied {
@@ -275,7 +315,7 @@
 }
 
 .stop-cluster-pill.is-opening {
-  animation: cluster-pulse 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: cluster-pulse 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes cluster-pulse {
@@ -292,7 +332,7 @@
   position: absolute;
   inset: 0;
   transform-origin: 50% 50%;
-  animation: spider-legs-out 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: spider-legs-out 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
   stroke: #0f172a;
   stroke-width: 1.5;
   stroke-opacity: 0.7;
@@ -306,8 +346,8 @@
   gap: 4px;
   pointer-events: auto;
   cursor: pointer;
-  animation: spider-out 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  animation-delay: calc(var(--i) * 30ms);
+  animation: spider-out 280ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i) * 26ms);
 }
 
 .stop-spider.is-closing {
@@ -315,11 +355,11 @@
 }
 
 .stop-spider.is-closing .stop-spider-item {
-  animation: spider-in 180ms ease-in forwards;
+  animation: spider-in 155ms ease-in forwards;
 }
 
 .stop-spider.is-closing .stop-spider-legs {
-  animation: spider-legs-in 180ms ease-in forwards;
+  animation: spider-legs-in 155ms ease-in forwards;
 }
 
 @keyframes spider-out {
@@ -455,7 +495,7 @@
 
 @media (pointer: coarse) {
   .maplibregl-marker .planner-pin-visual {
-    transition: transform 90ms linear;
+    transition: transform 80ms linear;
     transform-origin: 50% 100%;
   }
 

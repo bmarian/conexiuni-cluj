@@ -627,7 +627,7 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   position: absolute;
   left: 0;
   right: 0;
-  transition: opacity 160ms linear;
+  transition: opacity 140ms linear;
 }
 
 .flip-leave-to {
@@ -748,7 +748,7 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   transition:
     border-radius var(--spring-fast-ms) var(--spring-fast),
     scale var(--spring-press-ms) var(--spring-press),
-    background-color 150ms linear;
+    background-color 130ms linear;
 }
 
 .minute.is-past {

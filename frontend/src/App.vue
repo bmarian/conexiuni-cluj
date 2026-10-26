@@ -42,7 +42,7 @@ type DrawerState = SheetSnap
 const SHEET_HANDLE_PX = 28
 const PEEK_CONTENT_PX = 64
 const MINIMIZED_PX = SHEET_HANDLE_PX + PEEK_CONTENT_PX
-const SHEET_SETTLE_MS = 400
+const SHEET_SETTLE_MS = 350
 const FABS_FADE_PX = 120
 
 const SNAP_FRAC: Record<DrawerState, number> = {
@@ -504,11 +504,11 @@ useKbdShortcuts(
 }
 
 .chrome-enter-active {
-  transition: opacity 200ms linear;
+  transition: opacity 175ms linear;
 }
 
 .chrome-leave-active {
-  transition: opacity 120ms linear;
+  transition: opacity 105ms linear;
 }
 
 .chrome-enter-from,
@@ -646,17 +646,17 @@ useKbdShortcuts(
 .page-enter-active,
 .page-back-enter-active {
   transition:
-    opacity 210ms cubic-bezier(0, 0, 0.2, 1) 90ms,
-    translate var(--spring-page-ms) var(--spring-page) 90ms,
-    scale var(--spring-page-ms) var(--spring-page) 90ms;
+    opacity 185ms cubic-bezier(0, 0, 0.2, 1) 80ms,
+    translate var(--spring-page-ms) var(--spring-page) 80ms,
+    scale var(--spring-page-ms) var(--spring-page) 80ms;
 }
 
 .page-leave-active,
 .page-back-leave-active {
   transition:
-    opacity 90ms cubic-bezier(0.4, 0, 1, 1),
-    translate 90ms cubic-bezier(0.4, 0, 1, 1),
-    scale 90ms cubic-bezier(0.4, 0, 1, 1);
+    opacity 80ms cubic-bezier(0.4, 0, 1, 1),
+    translate 80ms cubic-bezier(0.4, 0, 1, 1),
+    scale 80ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 .page-enter-from {

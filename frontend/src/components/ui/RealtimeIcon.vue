@@ -8,7 +8,7 @@ const icon = ref<SVGSVGElement>()
 watch(useLiveBeat(), () => {
   if (reducedMotion()) return
   ;[...(icon.value?.children ?? [])].forEach((part, i) =>
-    part.animate([{opacity: 0.2}, {opacity: 1}], {duration: 240, delay: 140 + i * 110, easing: 'linear', fill: 'backwards'}),
+    part.animate([{opacity: 0.2}, {opacity: 1}], {duration: 210, delay: 120 + i * 95, easing: 'linear', fill: 'backwards'}),
   )
 })
 </script>

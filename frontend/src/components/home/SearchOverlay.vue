@@ -243,20 +243,6 @@ function dropPin() {
       <div ref="scroller" class="search-scroll">
         <template v-if="searching">
           <div v-if="placesLoading" class="progress" aria-hidden="true"><span></span></div>
-          <section v-if="isOnline && places.length" data-kbd-section="search-results">
-            <SubLabel :text="t('searchResultsPlaces')" class="pt-2" />
-            <ListRow
-              v-for="place in places"
-              :key="place.id"
-              :title="place.label"
-              :trailing="distanceTo(parseFloat(place.lat), parseFloat(place.lon)) ?? undefined"
-              chevron
-              :data-kbd-item="`place-${place.id}`"
-              @open="openPlace(place)"
-            >
-              <template #icon><RowIcon :icon="PlaceIcon" tone="tertiary" /></template>
-            </ListRow>
-          </section>
           <section v-if="routeResults.length" data-kbd-section="search-results">
             <SubLabel :text="t('searchResultsRoutes')" class="pt-2" />
             <RouteRow
@@ -280,6 +266,21 @@ function dropPin() {
               :data-kbd-item="`search-stop-${stop.stop_id}`"
               @open="openStop(stop)"
             />
+          </section>
+          <!-- Last: places arrive after the typing stops and would push the rows above them down. -->
+          <section v-if="isOnline && places.length" data-kbd-section="search-results">
+            <SubLabel :text="t('searchResultsPlaces')" class="pt-2" />
+            <ListRow
+              v-for="place in places"
+              :key="place.id"
+              :title="place.label"
+              :trailing="distanceTo(parseFloat(place.lat), parseFloat(place.lon)) ?? undefined"
+              chevron
+              :data-kbd-item="`place-${place.id}`"
+              @open="openPlace(place)"
+            >
+              <template #icon><RowIcon :icon="PlaceIcon" tone="tertiary" /></template>
+            </ListRow>
           </section>
           <template v-if="noResults">
             <ListRow
@@ -439,7 +440,7 @@ function dropPin() {
 }
 
 .chevron {
-  transition: rotate 200ms ease;
+  transition: rotate 175ms ease;
 }
 
 .chevron.is-open {
@@ -475,14 +476,14 @@ function dropPin() {
 
 .search-enter-active {
   transition:
-    opacity 160ms linear,
-    translate 220ms cubic-bezier(0.2, 0, 0, 1);
+    opacity 140ms linear,
+    translate 190ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .search-leave-active {
   transition:
-    opacity 120ms linear,
-    translate 160ms cubic-bezier(0.3, 0, 1, 1);
+    opacity 105ms linear,
+    translate 140ms cubic-bezier(0.3, 0, 1, 1);
 }
 
 .search-enter-from,

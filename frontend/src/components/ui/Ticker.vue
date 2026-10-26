@@ -86,14 +86,14 @@ function resize(el: Element, done: () => void, grow: boolean) {
 .roll-down-enter-active {
   transition:
     translate var(--spring-slide-ms) var(--spring-slide),
-    opacity 200ms linear;
+    opacity 175ms linear;
 }
 
 .tick-leave-active,
 .roll-down-leave-active {
   transition:
-    translate 300ms ease-in,
-    opacity 150ms linear;
+    translate 260ms ease-in,
+    opacity 130ms linear;
 }
 
 .tick-enter-from,

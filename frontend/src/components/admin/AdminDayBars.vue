@@ -75,7 +75,7 @@ const caption = computed(() => props.days[selected.value]?.caption ?? '')
   min-height: 1px;
   border-radius: 3px 3px 0 0;
   background: color-mix(in srgb, var(--md-primary) 30%, transparent);
-  transition: background-color 150ms linear;
+  transition: background-color 130ms linear;
 }
 
 .bar.is-today span {

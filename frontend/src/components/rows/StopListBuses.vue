@@ -167,7 +167,7 @@ onUnmounted(() => cancelAnimationFrame(frame))
   position: absolute;
   left: 0;
   right: 0;
-  animation: arrived 1100ms ease-out forwards;
+  animation: arrived 955ms ease-out forwards;
 }
 
 @keyframes arrived {

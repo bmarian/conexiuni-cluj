@@ -1,15 +1,15 @@
 import {easeOutCubic} from '@/utils/markerMotion.ts'
 
 const TAPS = 2
-const TAP_MS = 240
+const TAP_MS = 210
 const TAP_PX = 5
-const ORBIT_MS = 1000
+const ORBIT_MS = 870
 const ORBIT_PX = 6
 const FRAME_MS = 16
 export const ARROW_MS = TAPS * TAP_MS + ORBIT_MS
-export const ARROW_BACK_MS = 320
+export const ARROW_BACK_MS = 280
 // Waits out the page's slide-in.
-export const ARROW_OPEN_DELAY_MS = 500
+export const ARROW_OPEN_DELAY_MS = 435
 
 const rad = Math.PI / 180
 const smooth = (k: number) => (1 - Math.cos(Math.PI * k)) / 2
