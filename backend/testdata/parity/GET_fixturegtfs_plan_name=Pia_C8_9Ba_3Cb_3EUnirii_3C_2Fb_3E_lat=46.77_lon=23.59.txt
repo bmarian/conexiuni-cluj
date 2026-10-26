@@ -1,6 +1,6 @@
 GET /fixturegtfs/plan?name=Pia%C8%9Ba+%3Cb%3EUnirii%3C%2Fb%3E&lat=46.77&lon=23.59
 200
-Cache-Control: public, max-age=300
+Cache-Control: no-cache
 Content-Length: 1558
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8

@@ -38,6 +38,7 @@ func clientIDForLog(c fiber.Ctx, salt string) string {
 }
 
 func sendIndex(c fiber.Ctx) error {
+	c.Set("Cache-Control", web.Revalidate)
 	return c.SendFile("./dist/index.html")
 }
 
@@ -163,6 +164,12 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 		app.Use("/", static.New("./dist", static.Config{
 			Browse:   false,
 			Compress: true,
+			ModifyResponse: func(c fiber.Ctx) error {
+				if strings.HasPrefix(string(c.Response().Header.ContentType()), "text/html") {
+					c.Set("Cache-Control", web.Revalidate)
+				}
+				return nil
+			},
 		}))
 
 		app.Use("*", func(c fiber.Ctx) error {

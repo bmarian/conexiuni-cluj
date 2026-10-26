@@ -288,7 +288,7 @@ func injectMeta(c fiber.Ctx, l ogLocale, m metaInjection) error {
 	}
 
 	c.Set("Content-Type", "text/html; charset=utf-8")
-	c.Set("Cache-Control", "public, max-age=300")
+	c.Set("Cache-Control", web.Revalidate)
 	return c.SendString(body)
 }
 
