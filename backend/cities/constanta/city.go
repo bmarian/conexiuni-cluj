@@ -4,7 +4,7 @@ package constanta
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "constanta", Name: "Constanța", Operator: "CT BUS Constanța", OperatorURL: "https://www.ctbus.ro/",
+	Slug: "constanta", Name: "Constanța", Operator: "CT BUS Constanța", OperatorURL: "https://www.ctbus.ro/", County: "constanta",
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		f, err := env.Tranzy(10)
 		f.Timetables = env.GTFSTimetables(cities.GTFSRo("constanta"))

@@ -2,6 +2,7 @@ package calendar
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -16,7 +17,7 @@ const (
 
 	dateLayout   = "2006-01-02"
 	maxBreaks    = 12
-	maxBreakName = 40
+	MaxBreakName = 40
 )
 
 var ProfileDays = []string{Weekday, WeekdayVacation, Saturday, Sunday}
@@ -278,8 +279,8 @@ func (y SchoolYear) Validate() error {
 	}
 	for _, b := range y.Breaks {
 		name := strings.TrimSpace(b.Name)
-		if name == "" || len(name) > maxBreakName {
-			return fmt.Errorf("every break needs a name of up to %d characters", maxBreakName)
+		if name == "" || len(name) > MaxBreakName {
+			return fmt.Errorf("every break needs a name of up to %d characters", MaxBreakName)
 		}
 		bs, err := time.Parse(dateLayout, b.Start)
 		if err != nil {
@@ -306,4 +307,9 @@ func (y SchoolYear) Normalized() SchoolYear {
 	}
 	sort.SliceStable(out.Breaks, func(i, j int) bool { return out.Breaks[i].Start < out.Breaks[j].Start })
 	return out
+}
+
+func (y SchoolYear) Equal(o SchoolYear) bool {
+	a, b := y.Normalized(), o.Normalized()
+	return a.Year == b.Year && a.Start == b.Start && a.End == b.End && slices.Equal(a.Breaks, b.Breaks)
 }

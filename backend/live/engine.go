@@ -34,6 +34,7 @@ type Engine struct {
 	Runner func() *jobs.Runner
 	// Called once the calendar reads differently, for what was built from it elsewhere.
 	ScheduleChanged func()
+	SchoolCalendar  SchoolCalendar
 
 	engineState
 }

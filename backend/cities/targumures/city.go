@@ -4,7 +4,7 @@ package targumures
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "targumures", Name: "Târgu Mureș", Operator: "Transport Local", OperatorURL: "https://transportlocal.ro/",
+	Slug: "targumures", Name: "Târgu Mureș", Operator: "Transport Local", OperatorURL: "https://transportlocal.ro/", County: "mures",
 	// No news: transportlocal.ro has no feed.
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		if _, err := env.Store(); err != nil {

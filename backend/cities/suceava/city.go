@@ -4,7 +4,7 @@ package suceava
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "suceava", Name: "Suceava", Operator: "TPL Suceava", OperatorURL: "https://tpl-sv.ro/",
+	Slug: "suceava", Name: "Suceava", Operator: "TPL Suceava", OperatorURL: "https://tpl-sv.ro/", County: "suceava",
 	// The metropolitan lines need a ticket of their own outside the city.
 	Rules: cities.Rules{OwnTicket: cities.LinesStartingWith("M")},
 	// No news: tpl-sv.ro's feed and posts are empty.

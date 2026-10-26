@@ -1,6 +1,7 @@
 package main
 
 import (
+	"conexiuni-cluj/calendar/calendarscolar"
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/cities/botosani"
 	"conexiuni-cluj/cities/bucuresti"
@@ -69,6 +70,9 @@ func buildCity(cfg *config.Config, spec cities.Spec, opts live.Options) (*cities
 	opts.LearningEnabled = config.Bool("VEHICLE_LEARNING_ENABLED_"+strings.ToUpper(spec.Slug), opts.LearningEnabled)
 	city := cities.New(spec.Slug, spec.Name, store, feeds.Static, feeds.Timetables, feeds.Realtime, feeds.Learning, opts)
 	city.Operator, city.OperatorURL, city.News, city.Planner.OwnTicket = spec.Operator, spec.OperatorURL, feeds.News, spec.Rules.OwnTicket
+	if spec.County != "" {
+		city.Live.SchoolCalendar = calendarscolar.County(spec.County)
+	}
 	env.Place(city.Live)
 	return city, nil
 }

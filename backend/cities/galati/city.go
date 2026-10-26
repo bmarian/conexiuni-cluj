@@ -9,7 +9,7 @@ import (
 const volunteer = "https://codeberg.org/rapiteanu/public-transport"
 
 var City = cities.Spec{
-	Slug: "galati", Name: "Galați", Operator: "Transurb Galați", OperatorURL: "https://transurbgalati.ro/",
+	Slug: "galati", Name: "Galați", Operator: "Transurb Galați", OperatorURL: "https://transurbgalati.ro/", County: "galati",
 	// No news: transurbgalati.ro's announcements have no titles or links.
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		return cities.Feeds{

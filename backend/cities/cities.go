@@ -13,8 +13,10 @@ type Spec struct {
 	Name        string
 	Operator    string
 	OperatorURL string
-	Rules       Rules
-	Feeds       func(env *Env) (Feeds, error)
+	// The county's slug on calendarscolar.ro.
+	County string
+	Rules  Rules
+	Feeds  func(env *Env) (Feeds, error)
 }
 
 type Rules struct {

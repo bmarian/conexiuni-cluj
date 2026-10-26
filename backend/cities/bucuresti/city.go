@@ -4,7 +4,7 @@ package bucuresti
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "bucuresti", Name: "București", Operator: "TPBI", OperatorURL: "https://tpbi.ro/",
+	Slug: "bucuresti", Name: "București", Operator: "TPBI", OperatorURL: "https://tpbi.ro/", County: "bucuresti",
 	// The metro (M1 to M5) takes its own ticket.
 	Rules: cities.Rules{OwnTicket: cities.LinesStartingWith("M")},
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {

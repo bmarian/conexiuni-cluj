@@ -158,10 +158,10 @@ type TimetableTab = 'weekdays' | 'saturday' | 'sunday'
 
 const todayTab = computed((): TimetableTab => getTimetableDayKey(userTime.value || new Date()))
 
-const selectedTimetableTab = ref<TimetableTab>(todayTab.value)
+const pickedTimetableTab = ref<TimetableTab>(todayTab.value)
 
 watch(todayTab, (tab, previous) => {
-  if (selectedTimetableTab.value === previous) selectedTimetableTab.value = tab
+  if (pickedTimetableTab.value === previous) pickedTimetableTab.value = tab
 })
 
 const plainTodayTab = computed((): TimetableTab => plainTimetableDayKey(userTime.value || new Date()))
@@ -192,6 +192,19 @@ const availableTabs = computed(() => {
   if (dayHasContent(tt.saturday)) tabs.push({key: 'saturday', label: t('saturday')})
   if (dayHasContent(tt.sunday)) tabs.push({key: 'sunday', label: t('sunday')})
   return tabs
+})
+
+// A line with no service on the picked day shows the next day that has some.
+const selectedTimetableTab = computed<TimetableTab>({
+  get: () => {
+    const picked = pickedTimetableTab.value
+    const keys = availableTabs.value.map((tab) => tab.key)
+    if (!keys.length || keys.includes(picked)) return picked
+    return keys.find((key) => timetableTabOrder[key] > timetableTabOrder[picked]) ?? keys[0]!
+  },
+  set: (tab) => {
+    pickedTimetableTab.value = tab
+  },
 })
 
 // Headway directions (e.g. M26) list no departures, so show the frequency card.

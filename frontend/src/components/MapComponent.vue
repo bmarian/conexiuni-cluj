@@ -45,6 +45,7 @@ import {network} from '@/utils/network.ts'
 import {stationProps} from '@/utils/pagePaths.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
+import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
 import {squash} from '@/utils/motion.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
@@ -135,6 +136,7 @@ let shapeMarkers: Marker[] = []
 type ShownVehicle = {marker: Marker; html: string; settle: () => void; track?: VehicleTrack; untracked?: string; turn?: number}
 const vehicleMarkers = new Map<number, ShownVehicle>()
 let highlightMarkers: Marker[] = []
+const lineReveal = new LineReveal()
 let tooltip: ReturnType<typeof createTooltip> | null = null
 
 let isFirstLocationHandle = true
@@ -235,13 +237,27 @@ const toLngLat = ([lat, lng]: LatLngTuple): LatLngTuple => [lng, lat]
 
 const pathKey = (coords: LatLngTuple[]) => `${coords.length}|${coords[0]}|${coords.at(-1)}`
 
+const revealStop = (marker: Marker, now?: number) => {
+  const el = marker.getElement()
+  if (lineReveal.stop(el.querySelector<HTMLElement>('.marker-body')!, markerLatLng(marker), now)) el.classList.remove('marker-enter')
+}
+
+const revealVehicle = (marker: Marker, now?: number) => {
+  const el = marker.getElement()
+  if (lineReveal.vehicle(el.querySelector<HTMLElement>('.marker-body')!, now)) el.classList.remove('marker-enter')
+}
+
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
   const origin = growFrom.value
   const path = pathThrough(
     line.coords.map(([lat]) => lat),
     line.coords.map(([, lng]) => lng),
   )
-  growLine(m, id, line.color, origin ? shareAlong(path, origin) : 0)
+  const share = origin ? shareAlong(path, origin) : 0
+  growLine(m, id, line.color, share)
+  const start = lineReveal.grow(id, path, share)
+  for (const marker of highlightMarkers) revealStop(marker, start)
+  for (const {marker} of vehicleMarkers.values()) revealVehicle(marker, start)
 }
 
 // Layers are reused so a recoloured line can sweep into its new colour.
@@ -251,6 +267,7 @@ const syncLines = (group: LineGroup) => {
   const shown = drawnPaths[group]
   for (let i = lines[group].length; i < shown.length; i++) {
     const id = `${OVERLAY}${group}-${i}`
+    lineReveal.end(id)
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)
   }
@@ -263,6 +280,7 @@ const syncLines = (group: LineGroup) => {
       const was = m.getPaintProperty(id, 'line-color') as string
       if (shown[i] !== path) {
         stopSweep(m, id)
+        lineReveal.end(id)
         source.setData(data)
       }
       m.setPaintProperty(id, 'line-color', line.color)
@@ -1378,6 +1396,7 @@ const renderHighlightedStops = () => {
     tooltip?.bind(highlight, stationCard(stopId, stop.name), '', 14)
     onMarkerClick(highlight, () => openStop(stopId))
     highlightMarkers.push(highlight.addTo(m))
+    revealStop(highlight)
   }
   scheduleStopRefresh()
 }
@@ -1425,6 +1444,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     if (shown) {
       if (shown.html !== html) {
         setMarkerIcon(shown.marker, icon)
+        revealVehicle(shown.marker)
         shown.html = html
         shown.turn = undefined
       }
@@ -1440,10 +1460,12 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
       selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
     })
     vehicleMarkers.set(vehicle.id, {marker: marker.addTo(m), html, settle: () => {}})
+    revealVehicle(marker)
   }
   for (const [id, shown] of vehicleMarkers) {
     if (seen.has(id)) continue
     shown.settle()
+    lineReveal.show(shown.marker.getElement().querySelector<HTMLElement>('.marker-body')!)
     fadeOutMarker(shown.marker)
     vehicleMarkers.delete(id)
   }

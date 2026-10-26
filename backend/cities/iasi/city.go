@@ -4,7 +4,7 @@ package iasi
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "iasi", Name: "Iași", Operator: "CTP Iași", OperatorURL: "https://www.sctpiasi.ro/",
+	Slug: "iasi", Name: "Iași", Operator: "CTP Iași", OperatorURL: "https://www.sctpiasi.ro/", County: "iasi",
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		f, err := env.Tranzy(1)
 		f.Timetables = env.GTFSTimetables(cities.GTFSRo("iasi"))
