@@ -22,10 +22,10 @@ describe('direction arrow', () => {
   })
 
   it('taps towards the name twice, back on its spot in between', () => {
-    expect(arrowPose(270, 112, 70)[0]).toBeLessThan(-4)
-    expect(Math.abs(arrowPose(270, 112, 239)[0])).toBeLessThan(0.01)
-    expect(arrowPose(270, 112, 310)[0]).toBeLessThan(-4)
-    expect(arrowPose(90, 292, 70)[0]).toBeGreaterThan(4)
+    expect(arrowPose(270, 112, 61)[0]).toBeLessThan(-4)
+    expect(Math.abs(arrowPose(270, 112, 209)[0])).toBeLessThan(0.01)
+    expect(arrowPose(270, 112, 270)[0]).toBeLessThan(-4)
+    expect(arrowPose(90, 292, 61)[0]).toBeGreaterThan(4)
   })
 
   it('circles round its spot without spinning between frames', () => {

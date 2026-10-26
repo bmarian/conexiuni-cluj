@@ -10,9 +10,9 @@ describe('marker motion', () => {
   })
 
   it('flies short hops quickly and caps long ones', () => {
-    expect(flightMs(0, 0)).toBe(350)
-    expect(flightMs(0, 2)).toBe(660)
-    expect(flightMs(4000, 3)).toBe(1100)
+    expect(flightMs(0, 0)).toBe(305)
+    expect(flightMs(0, 2)).toBe(570)
+    expect(flightMs(4000, 3)).toBe(955)
     expect(flightMs(800, 1)).toBeGreaterThan(flightMs(200, 1))
   })
 })
