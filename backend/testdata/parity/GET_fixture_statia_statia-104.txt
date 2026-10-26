@@ -1,7 +1,7 @@
 GET /fixture/statia/statia-104
 200
 Cache-Control: public, max-age=300
-Content-Length: 2490
+Content-Length: 2514
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Stația Stația 104, Fixture — Plecări live | Ce autobuz iau?">
 <meta name="twitter:description" content="Plecări în timp real de la stația Stația 104 din Fixture. Liniile care opresc aici și orarele actuale.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/statia/statia-104"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/statia/statia-104?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/statia/statia-104"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"BusStop","address":{"@type":"PostalAddress","addressCountry":"RO","addressLocality":"Fixture"},"geo":{"@type":"GeoCoordinates","latitude":46,"longitude":24.006},"name":"Stația 104"},"description":"Plecări în timp real de la stația Stația 104 din Fixture. Liniile care opresc aici și orarele actuale.","inLanguage":"ro","name":"Stația Stația 104, Fixture — Plecări live | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/statia/statia-104"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 104, Fixture</h1><p>Plecări în timp real de la stația Stația 104 din Fixture. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixture/linia/1">1</a> spre Capăt 105</li><li><a href="/fixture/linia/1/intors">1</a> spre Capăt 101</li></ul><p><a href="/fixture/spre/fixture">Cum ajungi în fixture</a></p></div></div></body>
+<body><div id="app" data-name="Stația 104"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 104, Fixture</h1><p>Plecări în timp real de la stația Stația 104 din Fixture. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixture/linia/1">1</a> spre Capăt 105</li><li><a href="/fixture/linia/1/intors">1</a> spre Capăt 101</li></ul><p><a href="/fixture/spre/fixture">Cum ajungi în fixture</a></p></div></div></body>
 </html>
 

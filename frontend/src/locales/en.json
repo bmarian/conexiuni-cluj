@@ -105,6 +105,7 @@
   "planLocating": "Finding you…",
   "planCalculating": "Finding trips…",
   "loadingRoute": "Loading line…",
+  "loadingRouteNamed": "Loading line {name}…",
   "planChanges": "transfers",
   "planChange": "transfer",
   "planThen": "then",

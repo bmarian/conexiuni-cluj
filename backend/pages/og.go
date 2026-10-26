@@ -251,6 +251,8 @@ type metaInjection struct {
 	canonical   string // absolute URL of canonical version (Romanian, no lang query)
 	bodyHTML    string // raw HTML inserted inside #app for crawlers; Vue replaces on mount
 	jsonLD      string // raw JSON for application/ld+json (already JSON-encoded, no HTML escape)
+	// Shown by the app until its own data arrives.
+	name string
 }
 
 func injectMeta(c fiber.Ctx, l ogLocale, m metaInjection) error {
@@ -278,7 +280,11 @@ func injectMeta(c fiber.Ctx, l ogLocale, m metaInjection) error {
 	}
 
 	if m.bodyHTML != "" {
-		body = reAppMount.ReplaceAllLiteralString(body, `<div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">`+m.bodyHTML+`</div></div>`)
+		app := `<div id="app">`
+		if m.name != "" {
+			app = `<div id="app" data-name="` + html.EscapeString(m.name) + `">`
+		}
+		body = reAppMount.ReplaceAllLiteralString(body, app+`<div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">`+m.bodyHTML+`</div></div>`)
 	}
 
 	c.Set("Content-Type", "text/html; charset=utf-8")
@@ -336,8 +342,11 @@ func marshalJSONLD(data map[string]any) string {
 
 func routePage(city *cities.City, c fiber.Ctx, routeID, direction int) error {
 	routes, err := city.Routes(transit.RouteFilter{RouteID: &routeID})
-	if err != nil || len(routes) == 0 {
+	if err != nil {
 		return c.Next()
+	}
+	if len(routes) == 0 {
+		return missing(c)
 	}
 	shortName, longName := routes[0].RouteShortName, routes[0].RouteLongName
 
@@ -374,6 +383,7 @@ func routePage(city *cities.City, c fiber.Ctx, routeID, direction int) error {
 		title:       title,
 		description: desc,
 		canonical:   routeURL,
+		name:        shortName,
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(fmt.Sprintf(l.routeH1Fmt, shortName)),
 			html.EscapeString(fmt.Sprintf(l.routeBodyFmt, shortName, longName))) + routeStopsHTML(c, l, city, routeID, direction),
@@ -400,8 +410,11 @@ func publisherOrg() map[string]any {
 
 func stopPage(city *cities.City, c fiber.Ctx, stopID int) error {
 	stops, err := city.Stops(transit.StopFilter{StopID: &stopID})
-	if err != nil || len(stops) == 0 {
+	if err != nil {
 		return c.Next()
+	}
+	if len(stops) == 0 {
+		return missing(c)
 	}
 	stopName, stopLat, stopLon := stops[0].StopName, stops[0].StopLat, stops[0].StopLon
 
@@ -437,6 +450,7 @@ func stopPage(city *cities.City, c fiber.Ctx, stopID int) error {
 		title:       title,
 		description: desc,
 		canonical:   stopURL,
+		name:        stopName,
 		bodyHTML: fmt.Sprintf(`<h1>%s</h1><p>%s</p>`,
 			html.EscapeString(fmt.Sprintf(l.stopH1Fmt, stopName)),
 			html.EscapeString(fmt.Sprintf(l.stopBodyFmt, stopName))) + stationLinesHTML(c, l, city, stopID),

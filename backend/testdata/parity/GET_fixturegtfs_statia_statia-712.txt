@@ -1,7 +1,7 @@
 GET /fixturegtfs/statia/statia-712
 200
 Cache-Control: public, max-age=300
-Content-Length: 2593
+Content-Length: 2617
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Stația Stația 712, Fixture GTFS — Plecări live | Ce autobuz iau?">
 <meta name="twitter:description" content="Plecări în timp real de la stația Stația 712 din Fixture GTFS. Liniile care opresc aici și orarele actuale.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/statia/statia-712"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/statia/statia-712?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/statia/statia-712"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"BusStop","address":{"@type":"PostalAddress","addressCountry":"RO","addressLocality":"Fixture GTFS"},"geo":{"@type":"GeoCoordinates","latitude":44.996,"longitude":25},"name":"Stația 712"},"description":"Plecări în timp real de la stația Stația 712 din Fixture GTFS. Liniile care opresc aici și orarele actuale.","inLanguage":"ro","name":"Stația Stația 712, Fixture GTFS — Plecări live | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/statia/statia-712"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 712, Fixture GTFS</h1><p>Plecări în timp real de la stația Stația 712 din Fixture GTFS. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixturegtfs/linia/8b">8B</a> spre Capăt 715</li><li><a href="/fixturegtfs/linia/8b/intors">8B</a> spre Capăt 711</li></ul><p><a href="/fixturegtfs/spre/fixturegtfs">Cum ajungi în fixturegtfs</a></p></div></div></body>
+<body><div id="app" data-name="Stația 712"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 712, Fixture GTFS</h1><p>Plecări în timp real de la stația Stația 712 din Fixture GTFS. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixturegtfs/linia/8b">8B</a> spre Capăt 715</li><li><a href="/fixturegtfs/linia/8b/intors">8B</a> spre Capăt 711</li></ul><p><a href="/fixturegtfs/spre/fixturegtfs">Cum ajungi în fixturegtfs</a></p></div></div></body>
 </html>
 

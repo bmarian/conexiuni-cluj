@@ -1,9 +1,8 @@
 GET /fixture/stop/999999999
-200
+404
 Content-Length: 454
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
-Last-Modified: Thu, 01 Jan 2026 00:00:00 GMT
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff

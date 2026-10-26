@@ -16,6 +16,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
 import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from 'vue-router'
+import {servedName} from '@/utils/servedName.ts'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
@@ -53,6 +54,7 @@ const settings = useSettingsStore()
 const routeUpdates = useRouteUpdatesStore()
 const router = useRouter()
 const currentRoute = useRoute()
+const servedAs = computed(() => servedName(currentRoute.path))
 const {userTime} = storeToRefs(useUserStore())
 const {
   shapeInfo,
@@ -438,7 +440,7 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   <div class="route-view">
     <SheetTopBar :title="barTitle" :menu="topMenu" />
 
-    <LoadingIndicator v-if="isInitialLoading || !shapeInfo" :text="t('loadingRoute')" />
+    <LoadingIndicator v-if="isInitialLoading || !shapeInfo" :text="servedAs ? t('loadingRouteNamed', {name: servedAs}) : t('loadingRoute')" />
 
     <template v-else>
       <RouteChangeBanner v-if="activeChange" :change="activeChange" @dismiss="dismissChange" />

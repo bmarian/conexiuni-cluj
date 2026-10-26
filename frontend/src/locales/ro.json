@@ -105,6 +105,7 @@
   "planLocating": "Te căutăm…",
   "planCalculating": "Căutăm călătorii…",
   "loadingRoute": "Se încarcă linia…",
+  "loadingRouteNamed": "Se încarcă linia {name}…",
   "planChanges": "schimbări",
   "planChange": "schimbare",
   "planThen": "apoi",

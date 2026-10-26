@@ -1,7 +1,7 @@
 GET /fixture/statia/statia-101
 200
 Cache-Control: public, max-age=300
-Content-Length: 2430
+Content-Length: 2454
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Stația Stația 101, Fixture — Plecări live | Ce autobuz iau?">
 <meta name="twitter:description" content="Plecări în timp real de la stația Stația 101 din Fixture. Liniile care opresc aici și orarele actuale.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/statia/statia-101"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/statia/statia-101?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/statia/statia-101"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"BusStop","address":{"@type":"PostalAddress","addressCountry":"RO","addressLocality":"Fixture"},"geo":{"@type":"GeoCoordinates","latitude":46,"longitude":23.988},"name":"Stația 101"},"description":"Plecări în timp real de la stația Stația 101 din Fixture. Liniile care opresc aici și orarele actuale.","inLanguage":"ro","name":"Stația Stația 101, Fixture — Plecări live | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixture/statia/statia-101"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 101, Fixture</h1><p>Plecări în timp real de la stația Stația 101 din Fixture. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixture/linia/1">1</a> spre Capăt 105</li></ul><p><a href="/fixture/spre/cartier-0">Cum ajungi în Cartier 0</a></p></div></div></body>
+<body><div id="app" data-name="Stația 101"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Stația Stația 101, Fixture</h1><p>Plecări în timp real de la stația Stația 101 din Fixture. Vezi liniile de autobuz, troleibuz și tramvai care opresc aici, orele estimate și poziția vehiculelor pe hartă.</p><h2>Liniile care opresc aici</h2><ul><li><a href="/fixture/linia/1">1</a> spre Capăt 105</li></ul><p><a href="/fixture/spre/cartier-0">Cum ajungi în Cartier 0</a></p></div></div></body>
 </html>
 

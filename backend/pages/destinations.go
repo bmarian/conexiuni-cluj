@@ -171,6 +171,7 @@ func destinationPage(city *cities.City, c fiber.Ctx) error {
 		title:       title,
 		description: desc,
 		canonical:   pageURL,
+		name:        dest.Name,
 		bodyHTML:    sb.String(),
 		jsonLD: marshalJSONLD(map[string]any{
 			"@context":    "https://schema.org",
