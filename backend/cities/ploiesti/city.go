@@ -4,7 +4,7 @@ package ploiesti
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "ploiesti", Name: "Ploiești", Operator: "TCE Ploiești", OperatorURL: "https://tceph.ro/",
+	Slug: "ploiesti", Name: "Ploiești", Operator: "TCE Ploiești", OperatorURL: "https://tceph.ro/", County: "prahova",
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		return cities.Feeds{
 			Static:   env.GTFS("https://gtfs.opendev.ro/GTFS-305.zip"),

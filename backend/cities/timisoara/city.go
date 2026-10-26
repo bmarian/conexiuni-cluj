@@ -4,7 +4,7 @@ package timisoara
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "timisoara", Name: "Timișoara", Operator: "STPT Timișoara", OperatorURL: "https://stpt.ro/",
+	Slug: "timisoara", Name: "Timișoara", Operator: "STPT Timișoara", OperatorURL: "https://stpt.ro/", County: "timis",
 	// The metropolitan (M) lines take their own ticket.
 	Rules: cities.Rules{OwnTicket: cities.LinesStartingWith("M")},
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {

@@ -4,7 +4,7 @@ package sibiu
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "sibiu", Name: "Sibiu", Operator: "Tursib", OperatorURL: "https://tursib.ro/",
+	Slug: "sibiu", Name: "Sibiu", Operator: "Tursib", OperatorURL: "https://tursib.ro/", County: "sibiu",
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		return cities.Feeds{
 			Static: env.GTFS("https://tursib.ro/trasee/gtfs"),

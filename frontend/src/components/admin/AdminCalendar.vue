@@ -4,17 +4,21 @@ import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import type {LearningWindow} from '@/components/admin/types.ts'
-import {dayName, timetableLabels} from '@/utils/adminFormat.ts'
+import {ago, dayName, timetableLabels} from '@/utils/adminFormat.ts'
 import {AddIcon, CloseIcon, ExpandMoreIcon} from '@/utils/icons.ts'
 
 type Range = {name: string; start: string; end: string}
 
-type SchoolYear = {
+type YearDates = {
   year: number
   start: string
   end: string
   breaks: Range[]
-  status: 'saved' | 'built_in' | 'estimate'
+}
+
+type SchoolYear = YearDates & {
+  status: 'saved' | 'synced' | 'built_in' | 'estimate'
+  synced?: YearDates
 }
 
 type DayOverride = {date: string; schedule: string; source: string}
@@ -31,6 +35,7 @@ type CalendarView = {
   today: {date: string; schedule_day: string; holiday?: string}
   editable: boolean
   needed?: number
+  sync?: {source: string; checked_at?: number; error?: string}
   years: SchoolYear[]
   holidays: {date: string; name: string; schedule: string}[]
   overrides: DayOverride[]
@@ -53,9 +58,12 @@ const day = ref<CalendarDay | null>(null)
 const dayBusy = ref(false)
 const dayError = ref('')
 const dayPicker = ref<HTMLInputElement | null>(null)
+const syncing = ref(false)
+const syncError = ref('')
 
 const statusLabels: Record<SchoolYear['status'], string> = {
   saved: 'saved',
+  synced: 'synced',
   built_in: 'built in',
   estimate: 'estimate',
 }
@@ -119,6 +127,41 @@ async function save() {
     saving.value = false
   }
 }
+
+async function syncNow() {
+  if (syncing.value) return
+  syncing.value = true
+  syncError.value = ''
+  try {
+    const res = await fetch(`/api/admin/calendar/sync?city=${props.city}`, {method: 'POST', credentials: 'same-origin'})
+    const body = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
+    show(body as CalendarView)
+    emit('saved')
+  } catch (err) {
+    syncError.value = (err as Error).message
+  } finally {
+    syncing.value = false
+  }
+}
+
+function useSynced() {
+  const d = draft.value
+  const synced = view.value?.years.find((y) => y.year === d?.year)?.synced
+  if (!d || !synced) return
+  draft.value = {...d, start: synced.start, end: synced.end, breaks: synced.breaks.map((b) => ({...b}))}
+  saveFailed.value = false
+  saveMessage.value = 'Save to follow the feed again'
+}
+
+const syncHost = computed(() => (view.value?.sync ? new URL(view.value.sync.source).host : ''))
+
+const syncText = computed(() => {
+  const at = view.value?.sync?.checked_at
+  return at ? `read ${ago(at * 1000, Date.now())}` : 'not read yet'
+})
+
+const selectedSynced = computed(() => view.value?.years.find((y) => y.year === selectedYear.value)?.synced)
 
 async function loadDay() {
   if (!dayDate.value) return
@@ -239,6 +282,23 @@ onMounted(load)
 
       <details class="admin-fold" :open="!!view.needed">
         <summary class="state"><span>School years</span><ExpandMoreIcon class="m-icon" /></summary>
+        <dl v-if="view.sync" class="admin-rows">
+          <div class="has-action">
+            <dt class="name">
+              <a :href="view.sync.source" target="_blank" rel="noopener">{{ syncHost }}</a> · {{ syncText }}
+            </dt>
+            <dd>
+              <button type="button" class="btn btn-text" :disabled="syncing || !view.editable" @click="syncNow">
+                {{ syncing ? 'Reading…' : 'Read now' }}
+              </button>
+            </dd>
+          </div>
+          <div v-if="selectedSynced" class="has-action">
+            <dt class="name">{{ syncHost }} has other dates for {{ yearLabel(selectedSynced.year) }}</dt>
+            <dd><button type="button" class="btn btn-text" @click="useSynced">Use them</button></dd>
+          </div>
+        </dl>
+        <p v-if="syncError || view.sync?.error" class="admin-note admin-bad">Last read failed: {{ syncError || view.sync?.error }}</p>
         <div class="school">
           <ChoiceRow :options="yearChoices" :model-value="String(selectedYear)" class="years" @update:model-value="pick(Number($event))">
             <template #label="{option}">
@@ -389,5 +449,4 @@ onMounted(load)
 .actions > span {
   flex: 1;
   min-width: 0;
-}
-</style>
+}</style>

@@ -18,6 +18,7 @@ type engineState struct {
 	applyCalendarMu      sync.Mutex
 	dayWindowCache       dayWindowCacheState
 	seedFills            seedFillsState
+	schoolSync           schoolSyncState
 	feed                 feedState
 	liveTrips            liveTripsState
 	liveState            liveTableState

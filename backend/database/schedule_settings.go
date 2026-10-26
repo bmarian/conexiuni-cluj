@@ -6,12 +6,36 @@ import (
 	"time"
 )
 
-func (s *Store) SchoolYears() (map[int]string, error) {
+func (s *Store) SchoolYears() (map[int]string, error) { return s.schoolYears("school_years") }
+
+func (s *Store) SyncedSchoolYears() (map[int]string, error) {
+	return s.schoolYears("synced_school_years")
+}
+
+func (s *Store) SaveSchoolYear(year int, data string, at time.Time) error {
+	return s.saveSchoolYear("school_years", year, data, at)
+}
+
+func (s *Store) SaveSyncedSchoolYear(year int, data string, at time.Time) error {
+	return s.saveSchoolYear("synced_school_years", year, data, at)
+}
+
+func (s *Store) DeleteSchoolYear(year int) error {
+	if s.Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	s.archiveWrites.Lock()
+	defer s.archiveWrites.Unlock()
+	_, err := s.Archive.Exec(`DELETE FROM school_years WHERE year = ?`, year)
+	return err
+}
+
+func (s *Store) schoolYears(table string) (map[int]string, error) {
 	out := map[int]string{}
 	if s.Archive == nil {
 		return out, nil
 	}
-	rows, err := s.Archive.Query(`SELECT year, data FROM school_years`)
+	rows, err := s.Archive.Query(`SELECT year, data FROM ` + table)
 	if err != nil {
 		return nil, err
 	}
@@ -27,14 +51,14 @@ func (s *Store) SchoolYears() (map[int]string, error) {
 	return out, rows.Err()
 }
 
-func (s *Store) SaveSchoolYear(year int, data string, at time.Time) error {
+func (s *Store) saveSchoolYear(table string, year int, data string, at time.Time) error {
 	if s.Archive == nil {
 		return fmt.Errorf("the archive database is not open")
 	}
 	s.archiveWrites.Lock()
 	defer s.archiveWrites.Unlock()
 	_, err := s.Archive.Exec(`
-		INSERT INTO school_years (year, data, updated_at) VALUES (?, ?, ?)
+		INSERT INTO `+table+` (year, data, updated_at) VALUES (?, ?, ?)
 		ON CONFLICT(year) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, year, data, at.Unix())
 	return err
 }

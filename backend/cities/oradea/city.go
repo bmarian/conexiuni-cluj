@@ -4,7 +4,7 @@ package oradea
 import "conexiuni-cluj/cities"
 
 var City = cities.Spec{
-	Slug: "oradea", Name: "Oradea", Operator: "OTL Oradea", OperatorURL: "https://www.otl.ro/",
+	Slug: "oradea", Name: "Oradea", Operator: "OTL Oradea", OperatorURL: "https://www.otl.ro/", County: "bihor",
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		f, err := env.Tranzy(9)
 		f.Timetables = env.GTFSTimetables(cities.GTFSRo("oradea"))

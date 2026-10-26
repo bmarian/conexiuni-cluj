@@ -61,6 +61,7 @@ GET /registerSW.js
 GET /robots.txt
 GET /sitemap.xml
 GET /sw.js
+POST /api/admin/calendar/sync
 POST /api/admin/login
 POST /api/admin/logout
 POST /api/fixture/stats/event

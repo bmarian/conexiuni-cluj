@@ -104,19 +104,23 @@ func (eng *Engine) StartCalendar(r *jobs.Runner) {
 			eng.applyCalendar(time.Now())
 		}
 	})
+	eng.startSchoolCalendar(r)
 }
 
+// Each year comes from the admin page, else the feed, else the built-in seed.
 func (eng *Engine) LoadCalendar() error {
 	years := map[int]calendar.SchoolYear{}
 	for _, y := range calendar.Seed() {
 		years[y.Year] = y
 	}
-	saved, err := eng.savedSchoolYears()
-	if err != nil {
-		return err
-	}
-	for year, y := range saved {
-		years[year] = y
+	for _, stored := range []func() (map[int]calendar.SchoolYear, error){eng.syncedSchoolYears, eng.savedSchoolYears} {
+		ys, err := stored()
+		if err != nil {
+			return err
+		}
+		for year, y := range ys {
+			years[year] = y
+		}
 	}
 	overrides, err := eng.ScheduleOverrides()
 	if err != nil {
@@ -135,7 +139,10 @@ func (eng *Engine) LoadCalendar() error {
 }
 
 func (eng *Engine) savedSchoolYears() (map[int]calendar.SchoolYear, error) {
-	raw, err := eng.SchoolYears()
+	return decodeSchoolYears(eng.SchoolYears())
+}
+
+func decodeSchoolYears(raw map[int]string, err error) (map[int]calendar.SchoolYear, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -674,6 +681,8 @@ func (eng *Engine) calendarProblem(now time.Time) string {
 type adminCalendarYear struct {
 	calendar.SchoolYear
 	Status string `json:"status"`
+	// Only when a hand-set year differs from the feed's.
+	Synced *calendar.SchoolYear `json:"synced,omitempty"`
 }
 
 type adminHoliday struct {
@@ -693,6 +702,7 @@ type adminCalendarView struct {
 	Today     adminCalendarToday          `json:"today"`
 	Editable  bool                        `json:"editable"`
 	Needed    int                         `json:"needed,omitempty"`
+	Sync      *adminCalendarSync          `json:"sync,omitempty"`
 	Years     []adminCalendarYear         `json:"years"`
 	Holidays  []adminHoliday              `json:"holidays"`
 	Overrides []database.ScheduleOverride `json:"overrides"`
@@ -725,6 +735,7 @@ func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) 
 			Date: today.Format("2006-01-02"), ProfileDay: cal.ProfileDay(today), ScheduleDay: cal.ScheduleDay(today),
 		},
 		Editable:  eng.Archive != nil,
+		Sync:      eng.syncStatus(),
 		Years:     []adminCalendarYear{},
 		Holidays:  []adminHoliday{},
 		Overrides: []database.ScheduleOverride{},
@@ -741,6 +752,10 @@ func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) 
 	if err != nil {
 		return v, err
 	}
+	synced, err := eng.syncedSchoolYears()
+	if err != nil {
+		return v, err
+	}
 	var latest *calendar.SchoolYear
 	for _, y := range cal.Years() {
 		if latest == nil || y.Year > latest.Year {
@@ -750,11 +765,18 @@ func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) 
 		if y.Year < needed {
 			continue
 		}
-		status := "built_in"
-		if _, ok := saved[y.Year]; ok {
-			status = "saved"
+		year := adminCalendarYear{SchoolYear: y.Normalized(), Status: "built_in"}
+		fromFeed, inFeed := synced[y.Year]
+		switch _, own := saved[y.Year]; {
+		case own:
+			year.Status = "saved"
+			if inFeed && !fromFeed.Equal(y) {
+				year.Synced = &fromFeed
+			}
+		case inFeed:
+			year.Status = "synced"
 		}
-		v.Years = append(v.Years, adminCalendarYear{SchoolYear: y.Normalized(), Status: status})
+		v.Years = append(v.Years, year)
 	}
 	if latest != nil {
 		next := calendar.Estimate(*latest)
@@ -839,11 +861,7 @@ func RegisterAdminCalendar(admin fiber.Router, cityOf func(fiber.Ctx) *Engine, g
 		if err := year.Validate(); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
-		data, err := json.Marshal(year)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-		if err := eng.SaveSchoolYear(year.Year, string(data), time.Now()); err != nil {
+		if err := eng.saveAdminSchoolYear(year, time.Now()); err != nil {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": err.Error()})
 		}
 		if err := eng.LoadCalendar(); err != nil {
@@ -859,6 +877,8 @@ func RegisterAdminCalendar(admin fiber.Router, cityOf func(fiber.Ctx) *Engine, g
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(view)
 	})
+
+	admin.Post("/calendar/sync", guard, syncSchoolCalendarHandler(cityOf))
 
 	admin.Get("/calendar/day", guard, func(c fiber.Ctx) error {
 		eng := cityOf(c)

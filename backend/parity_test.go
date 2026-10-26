@@ -265,6 +265,7 @@ func freezeSources(t *testing.T, city *cities.City) {
 	}
 	city.Ingest.Static, city.Ingest.Timetables = city.Static, city.Timetables
 	city.Live.Realtime, city.Live.Learning = city.Realtime, city.Learning
+	city.Live.SchoolCalendar = nil
 }
 
 func storedVehicles(t *testing.T, db *sql.DB) []models.Vehicle {

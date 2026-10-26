@@ -106,6 +106,13 @@ const archiveSchema = `
 		updated_at INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS synced_school_years
+	(
+		year       INTEGER PRIMARY KEY,
+		data       TEXT    NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
+
 	CREATE TABLE IF NOT EXISTS tuning
 	(
 		name       TEXT PRIMARY KEY,
