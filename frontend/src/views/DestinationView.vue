@@ -2,13 +2,14 @@
 import {computed, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
-import {useRouter} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import {network, type NetworkRoute} from '@/utils/network.ts'
 import {type Destination, type DestinationSummary, fetchDestination, fetchDestinations, namedLike, type Ride, rideMinutes} from '@/utils/destinationPages.ts'
 import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {areaPath, linePath, stopPath} from '@/utils/pagePaths.ts'
+import {servedName} from '@/utils/servedName.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {DirectionsBusIcon, DirectionsIcon, MapIcon, PlaceIcon} from '@/utils/icons.ts'
@@ -30,6 +31,8 @@ const props = defineProps<{slug: string}>()
 
 const {t} = useI18n()
 const router = useRouter()
+const currentRoute = useRoute()
+const servedAs = computed(() => servedName(currentRoute.path))
 const mapStore = useMapStore()
 const {openStop} = useMapPicks()
 
@@ -192,7 +195,7 @@ useHead(() => {
       </section>
     </template>
 
-    <LoadingIndicator v-else-if="!destination || !network" />
+    <LoadingIndicator v-else-if="!destination || !network" :text="servedAs ? t('destQuestion', {area: servedAs}) : undefined" />
 
     <template v-else>
       <header class="header">

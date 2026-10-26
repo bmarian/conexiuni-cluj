@@ -1,7 +1,7 @@
 GET /fixturegtfs/spre/cartier-0?lang=en
 200
 Cache-Control: public, max-age=300
-Content-Length: 2764
+Content-Length: 2786
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,6 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Which bus to Cartier 0? Lines and times — Fixture GTFS | Ce autobuz iau?">
 <meta name="twitter:description" content="Direct lines to Cartier 0, Fixture GTFS, from every area: where to get on and off, how long it takes and how often they run.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/spre/cartier-0"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/spre/cartier-0?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/spre/cartier-0"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","about":{"@type":"Place","containedInPlace":{"@type":"City","name":"Fixture GTFS"},"geo":{"@type":"GeoCoordinates","latitude":44.9994,"longitude":24.988000000000003},"name":"Cartier 0"},"description":"Direct lines to Cartier 0, Fixture GTFS, from every area: where to get on and off, how long it takes and how often they run.","inLanguage":"en","name":"Which bus to Cartier 0? Lines and times — Fixture GTFS | Ce autobuz iau?","publisher":{"@type":"Organization","name":"Ce autobuz iau?","url":"https://ceautobuziau.ro/"},"url":"https://ceautobuziau.ro/fixturegtfs/spre/cartier-0?lang=en"}</script></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Which bus goes to Cartier 0?</h1><p>Lines stopping in Cartier 0: 7.</p><h2>From other areas</h2><h3><a href="/fixturegtfs/spre/fixturegtfs?lang=en">From fixturegtfs</a></h3><ul><li>line 7, from Stația 702 to Stația 701, 2 min, every ~12 min, first 05:10, last 23:10</li></ul><h2>Stops in Cartier 0</h2><ul><li><a href="/fixturegtfs/statia/statia-701?lang=en">Stația 701</a>: 7</li></ul><p><a href="/fixturegtfs/plan?lat=44.999400&amp;lon=24.988000&amp;name=Cartier+0&amp;lang=en">Plan a trip to Cartier 0</a></p><p><a href="/fixturegtfs/destinatii?lang=en">Destinations in Fixture GTFS</a></p></div></div></body>
+<body><div id="app" data-name="Cartier 0"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Which bus goes to Cartier 0?</h1><p>Lines stopping in Cartier 0: 7.</p><h2>From other areas</h2><h3><a href="/fixturegtfs/spre/fixturegtfs?lang=en">From fixturegtfs</a></h3><ul><li>line 7, from Stația 702 to Stația 701, 2 min, every ~12 min, first 05:10, last 23:10</li></ul><h2>Stops in Cartier 0</h2><ul><li><a href="/fixturegtfs/statia/statia-701?lang=en">Stația 701</a>: 7</li></ul><p><a href="/fixturegtfs/plan?lat=44.999400&amp;lon=24.988000&amp;name=Cartier+0&amp;lang=en">Plan a trip to Cartier 0</a></p><p><a href="/fixturegtfs/destinatii?lang=en">Destinations in Fixture GTFS</a></p></div></div></body>
 </html>
 

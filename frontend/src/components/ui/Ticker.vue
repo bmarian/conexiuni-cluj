@@ -8,6 +8,8 @@ const props = defineProps<{text: string}>()
 const wording = computed(() => props.text.replace(/\d+/g, '#'))
 const parts = computed(() => props.text.split(/(\d+)/))
 const numbers = (text: string) => (text.match(/\d+/g) ?? []).map(Number)
+// Screen readers and search engines read rolling digits one by one.
+const counted = computed(() => /\d/.test(props.text))
 
 const down = ref(false)
 watch(
@@ -32,8 +34,9 @@ function resize(el: Element, done: () => void, grow: boolean) {
 
 <template>
   <span class="ticker">
+    <span v-if="counted" class="sr-only">{{ text }}</span>
     <Transition name="tick">
-      <span :key="wording">
+      <span :key="wording" :aria-hidden="counted || undefined">
         <template v-for="(part, i) in parts" :key="i">
           <span v-if="i % 2" class="number">
             <TransitionGroup :css="false" @enter="(el, done) => resize(el, done, true)" @leave="(el, done) => resize(el, done, false)">

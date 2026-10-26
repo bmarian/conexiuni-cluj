@@ -102,15 +102,18 @@ func stationPage(city *cities.City, c fiber.Ctx) error {
 func idRoutePage(city *cities.City, c fiber.Ctx) error {
 	routeID, err := strconv.Atoi(c.Params("routeId"))
 	if err != nil {
-		return c.Next()
+		return missing(c)
 	}
 	param := c.Params("direction")
 	dir, err := strconv.Atoi(param)
 	if city.Slugs.Index().Of(slugs.Line, routeID) != "" && (err == nil || param == "auto") {
 		return moved(c, city, autoPath(linePath(city, routeID, dir), param == "auto"))
 	}
-	if err != nil {
+	if param == "auto" {
 		return c.Next()
+	}
+	if err != nil {
+		return missing(c)
 	}
 	return routePage(city, c, routeID, dir)
 }
@@ -118,11 +121,14 @@ func idRoutePage(city *cities.City, c fiber.Ctx) error {
 func idStopPage(city *cities.City, c fiber.Ctx) error {
 	stopID, err := strconv.Atoi(c.Params("stopId"))
 	if err != nil {
-		return c.Next()
+		return missing(c)
 	}
 	stops, err := city.Stops(transit.StopFilter{StopID: &stopID})
-	if err != nil || len(stops) == 0 {
+	if err != nil {
 		return c.Next()
+	}
+	if len(stops) == 0 {
+		return missing(c)
 	}
 	if station := stops[0].StationID; city.Slugs.Index().Of(slugs.Station, station) != "" {
 		return moved(c, city, stationPath(city, station))

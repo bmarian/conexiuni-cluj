@@ -11,13 +11,14 @@ import {formatMinutesFromNow} from '@/utils/time.ts'
 import {useStopDepartures} from '@/composables/useStopDepartures.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import {useRouter} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from '@/utils/trips.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useKbdShortcuts} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
 import {linePath, stopPath} from '@/utils/pagePaths.ts'
+import {servedName} from '@/utils/servedName.ts'
 import {groupByMode, mainMode} from '@/utils/modes.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
@@ -41,6 +42,8 @@ const routeStore = useRouteStore()
 const favoritesStore = useFavoritesStore()
 const mapStore = useMapStore()
 const router = useRouter()
+const currentRoute = useRoute()
+const servedAs = computed(() => servedName(currentRoute.path))
 const stopIdNum = computed(() => Number(props.stopId))
 const {userTime} = storeToRefs(userStore)
 const {
@@ -178,7 +181,8 @@ const chips = computed<ChipAction[]>(() => [
         <span class="skeleton size-[52px] rounded-2xl"></span>
         <div class="flex-1 flex flex-col gap-2 pt-1">
           <span class="skeleton h-3 w-24 rounded"></span>
-          <span class="skeleton h-6 w-44 rounded-lg"></span>
+          <h1 v-if="servedAs" class="text-title-large font-bold">{{ servedAs }}</h1>
+          <span v-else class="skeleton h-6 w-44 rounded-lg"></span>
         </div>
       </div>
       <div v-for="i in 3" :key="i" class="skeleton card-skeleton"></div>

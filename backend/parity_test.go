@@ -614,6 +614,7 @@ func (r *recorder) walkCity(slug string) {
 		r.get(page + "/statia/" + stops[0].Slug + "?lang=en")
 	}
 	r.get(page + "/stop/999999999")
+	r.get(page + "/route/999999999/0")
 	r.get(page + "/statia/nope")
 	r.get(page + "/linia/nope")
 }
