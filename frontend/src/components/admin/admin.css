@@ -236,7 +236,7 @@
 }
 
 .admin-fold > summary > .m-icon {
-  transition: rotate 200ms ease;
+  transition: rotate 175ms ease;
 }
 
 .admin-fold[open] > summary > .m-icon {

@@ -65,7 +65,7 @@ onBeforeUnmount(() => scroller?.removeEventListener('scroll', onScroll))
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 200ms linear;
+  transition: opacity 175ms linear;
 }
 
 .bar-title.is-shown {

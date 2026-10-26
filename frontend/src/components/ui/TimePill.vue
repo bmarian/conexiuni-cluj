@@ -15,9 +15,9 @@ watch(
   () => [props.due, props.live] as const,
   ([due], [wasDue, wasLive]) => {
     if (!due || wasDue || !wasLive || reducedMotion()) return
-    vehicle.value?.animate([{scale: 0.15, opacity: 0}, {scale: 1, opacity: 1}], {duration: 620, delay: 80, easing: EMPHASIZED_DECELERATE, fill: 'backwards'})
-    squash(vehicle.value, 700)
-    pop(pill.value, 0.86, 620)
+    vehicle.value?.animate([{scale: 0.15, opacity: 0}, {scale: 1, opacity: 1}], {duration: 540, delay: 70, easing: EMPHASIZED_DECELERATE, fill: 'backwards'})
+    squash(vehicle.value, 610)
+    pop(pill.value, 0.86, 540)
   },
   {flush: 'post'},
 )
@@ -73,8 +73,8 @@ watch(
 
 .shrink-leave-active {
   transition:
-    scale 160ms ease-in,
-    opacity 160ms ease-in;
+    scale 140ms ease-in,
+    opacity 140ms ease-in;
 }
 
 .shrink-leave-to {
@@ -86,8 +86,8 @@ watch(
   background: var(--md-live);
   color: var(--md-live-container);
   transition:
-    background-color 220ms linear 560ms,
-    color 220ms linear 560ms;
+    background-color 190ms linear 485ms,
+    color 190ms linear 485ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

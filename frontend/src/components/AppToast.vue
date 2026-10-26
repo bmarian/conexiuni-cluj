@@ -101,7 +101,7 @@ function onPointerCancel() {
   touch-action: none;
   user-select: none;
   translate: 0 var(--drag, 0px);
-  transition: translate 220ms cubic-bezier(0.2, 0, 0, 1);
+  transition: translate 190ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .snackbar.is-dragging {
@@ -118,13 +118,13 @@ function onPointerCancel() {
 .snackbar-enter-active {
   transition:
     translate var(--spring-fast-ms) var(--spring-fast),
-    opacity 150ms linear;
+    opacity 130ms linear;
 }
 
 .snackbar-leave-active {
   transition:
-    translate 200ms cubic-bezier(0.3, 0, 1, 1),
-    opacity 150ms linear;
+    translate 175ms cubic-bezier(0.3, 0, 1, 1),
+    opacity 130ms linear;
 }
 
 .snackbar-enter-from,

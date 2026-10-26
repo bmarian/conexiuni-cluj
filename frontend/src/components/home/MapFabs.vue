@@ -53,13 +53,13 @@ function center() {
 .fab-enter-active {
   transition:
     scale var(--spring-pop-ms) var(--spring-pop),
-    opacity 150ms linear;
+    opacity 130ms linear;
 }
 
 .fab-leave-active {
   transition:
-    scale 150ms ease-in,
-    opacity 150ms linear;
+    scale 130ms ease-in,
+    opacity 130ms linear;
 }
 
 .fab-enter-from,

@@ -64,8 +64,8 @@ defineProps<{actions: ChipAction[]}>()
   transition:
     border-radius var(--spring-fast-ms) var(--spring-fast),
     scale var(--spring-press-ms) var(--spring-press),
-    background-color 200ms linear,
-    color 200ms linear;
+    background-color 175ms linear,
+    color 175ms linear;
 }
 
 .chip::after {
@@ -75,7 +75,7 @@ defineProps<{actions: ChipAction[]}>()
   border-radius: inherit;
   background: currentColor;
   opacity: 0;
-  transition: opacity 150ms linear;
+  transition: opacity 130ms linear;
   z-index: -1;
 }
 

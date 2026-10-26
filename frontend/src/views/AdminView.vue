@@ -132,7 +132,7 @@ async function onCitiesChanged() {
   padding: env(safe-area-inset-top) 4px 0 16px;
   box-sizing: content-box;
   background: var(--md-surface);
-  transition: background-color 200ms linear;
+  transition: background-color 175ms linear;
 }
 
 .bar.is-scrolled {

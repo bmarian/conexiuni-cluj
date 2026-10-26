@@ -1,8 +1,7 @@
 import type {ExpressionSpecification, Map as MapLibreMap} from 'maplibre-gl'
-import {reducedMotion} from '@/utils/motion.ts'
 
 // In step with the badge's heart; the source needs lineMetrics.
-export const SWEEP_MS = 1300
+export const SWEEP_MS = 1130
 
 const CLEAR = 'rgba(0, 0, 0, 0)'
 
@@ -39,11 +38,11 @@ export function sweepLine(m: MapLibreMap, id: string, from: string, to: string, 
   animate(m, id, (done) => gradient(from, to, done, backwards))
 }
 
-export function growLine(m: MapLibreMap, id: string, color: string, origin = 0) {
-  if (reducedMotion()) return
-  animate(m, id, (done) => {
-    const low = origin * (1 - done)
-    const high = origin + (1 - origin) * done
-    return high > low ? ['step', ['line-progress'], CLEAR, low, color, high, CLEAR] : ['step', ['line-progress'], CLEAR, low, CLEAR]
-  })
+// Hidden until the returned start is called.
+export function growLine(m: MapLibreMap, id: string, color: string): () => void {
+  stopSweep(m, id)
+  m.setPaintProperty(id, 'line-gradient', gradient(CLEAR, color, 0, false))
+  // So stopSweep clears the hidden line too.
+  sweeps.set(id, 0)
+  return () => sweepLine(m, id, CLEAR, color)
 }

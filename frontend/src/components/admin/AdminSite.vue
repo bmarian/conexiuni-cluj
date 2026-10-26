@@ -164,7 +164,7 @@ const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk
   letter-spacing: 0.25px;
   text-align: left;
   cursor: pointer;
-  transition: background-color 150ms linear;
+  transition: background-color 130ms linear;
 }
 
 .city.is-current {

@@ -35,8 +35,8 @@ defineEmits<{change: [checked: boolean]}>()
   box-shadow: inset 0 0 0 2px var(--md-outline);
   cursor: pointer;
   transition:
-    background-color 150ms linear,
-    box-shadow 150ms linear;
+    background-color 130ms linear,
+    box-shadow 130ms linear;
 }
 
 .thumb {
@@ -54,8 +54,8 @@ defineEmits<{change: [checked: boolean]}>()
   transition:
     translate var(--spring-fast-ms) var(--spring-fast),
     scale var(--spring-fast-ms) var(--spring-fast),
-    background-color 150ms linear,
-    color 150ms linear;
+    background-color 130ms linear,
+    color 130ms linear;
 }
 
 .switch:active .thumb {

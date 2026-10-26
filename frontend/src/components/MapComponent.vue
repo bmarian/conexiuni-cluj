@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, shallowRef, watch, watchEffect} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch, watchEffect} from 'vue'
 import {
   type GeoJSONSource,
   type IControl,
@@ -34,6 +34,8 @@ import {
   clusterIconBox,
   makeClusterIcon,
   makeSpiderIcon,
+  lineEndIcon,
+  lineStartIcon,
   makeHighlightIcon,
   makePinIcon,
   makeSelectedStopIcon,
@@ -47,14 +49,14 @@ import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
 import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
-import {squash} from '@/utils/motion.ts'
+import {reducedMotion, squash} from '@/utils/motion.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
-import {pathOf, pathThrough, shareAlong, VehicleTrack} from '@/utils/vehicleMotion.ts'
+import {pathOf, pathThrough, VehicleTrack} from '@/utils/vehicleMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
@@ -97,7 +99,6 @@ const {
   drawerBottomPx,
   drawerLeftPx,
   chromeTopPx,
-  growFrom,
   arrival,
 } = storeToRefs(mapStore)
 const {colorfulLines} = storeToRefs(settingsStore)
@@ -165,12 +166,12 @@ const DUPLICATE_DASH_PATTERNS = ['', '8 7', '2 7', '10 4 2 4', '1 6']
 const LOCATION_RETRY_DELAY_MS = 1200
 const FADED_VEHICLE_OPACITY = 0.5
 const FADED_VEHICLE_SCALE = 0.7
-const VEHICLE_GLIDE_MS = 900
+const VEHICLE_GLIDE_MS = 785
 const VEHICLE_POP_M = 50
-const SPIDER_CLOSE_MS = 180
+const SPIDER_CLOSE_MS = 155
 const AROUND = 'around:'
-const CITY_FLIGHT_MS = 2500
-const FIT_DURATION_MS = 800
+const CITY_FLIGHT_MS = 2175
+const FIT_DURATION_MS = 695
 const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
 const SLOTS = ['shapes', 'walks', 'accuracy'] as const
@@ -247,17 +248,34 @@ const revealVehicle = (marker: Marker, now?: number) => {
   if (lineReveal.vehicle(el.querySelector<HTMLElement>('.marker-body')!, now)) el.classList.remove('marker-enter')
 }
 
+const revealAll = (now?: number) => {
+  for (const marker of [...highlightMarkers, ...shapeMarkers]) revealStop(marker, now)
+  for (const {marker} of vehicleMarkers.values()) revealVehicle(marker, now)
+}
+
+// After this update's zoom to fit, or the user's drag, so the drawing plays where it ends up.
+const whenStill = async (m: MapLibreMap) => {
+  await nextTick()
+  while (m.isMoving()) await new Promise((resolve) => m.once('moveend', resolve))
+}
+
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
-  const origin = growFrom.value
-  const path = pathThrough(
-    line.coords.map(([lat]) => lat),
-    line.coords.map(([, lng]) => lng),
+  if (reducedMotion()) return
+  const start = growLine(m, id, line.color)
+  const growth = lineReveal.grow(
+    id,
+    pathThrough(
+      line.coords.map(([lat]) => lat),
+      line.coords.map(([, lng]) => lng),
+    ),
   )
-  const share = origin ? shareAlong(path, origin) : 0
-  growLine(m, id, line.color, share)
-  const start = lineReveal.grow(id, path, share)
-  for (const marker of highlightMarkers) revealStop(marker, start)
-  for (const {marker} of vehicleMarkers.values()) revealVehicle(marker, start)
+  revealAll()
+  void whenStill(m).then(() => {
+    const at = lineReveal.start(id, growth)
+    if (at === undefined) return
+    start()
+    revealAll(at)
+  })
 }
 
 // Layers are reused so a recoloured line can sweep into its new colour.
@@ -1213,7 +1231,9 @@ const addGroupedStart = (groupedStarts: Map<string, GroupedStart>, startPoint: L
 }
 
 const addShapeMarker = (m: MapLibreMap, [lat, lng]: LatLngTuple, icon: MarkerIcon, options: HtmlMarkerOptions = {}) => {
-  shapeMarkers.push(htmlMarker({lat, lng}, icon, options).addTo(m))
+  const marker = htmlMarker({lat, lng}, icon, options).addTo(m)
+  shapeMarkers.push(marker)
+  revealStop(marker)
 }
 
 const addDirectionArrowMarker = (m: MapLibreMap, startPoint: LatLngTuple, bearing: number) => {
@@ -1240,33 +1260,11 @@ const addDirectionArrowMarker = (m: MapLibreMap, startPoint: LatLngTuple, bearin
 }
 
 const addRouteEndMarker = (m: MapLibreMap, endPoint: LatLngTuple, routeColor: string) => {
-  addShapeMarker(m, endPoint, {
-    html: `<div class="flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-white dark:border-[#0f172a] shadow-md z-20"
-              style="background-color: ${routeColor};">
-           <div class="w-1.5 h-1.5 bg-white dark:bg-[#0f172a] rounded-[2px]"></div>
-         </div>`,
-    size: [24, 24],
-    anchor: [12, 12],
-  })
+  addShapeMarker(m, endPoint, lineEndIcon(routeColor))
 }
 
 const addGroupedStartMarkers = (m: MapLibreMap, groupedStarts: Map<string, GroupedStart>) => {
-  groupedStarts.forEach((data) => {
-    const routesHtml = data.routes
-      .map(
-        (r) =>
-          `<div style="background-color: ${r.color};"
-                class="flex items-center justify-center min-w-[28px] h-[28px] px-2 rounded-full text-white text-[11px] font-black shadow-md border-[3px] border-white dark:border-[#0f172a]">
-             ${r.name}
-           </div>`,
-      )
-      .join('')
-    addShapeMarker(m, [data.lat, data.lng], {
-      html: `<div class="absolute flex flex-row items-center justify-center gap-0.5 whitespace-nowrap" style="transform: translate(-50%, -50%);">${routesHtml}</div>`,
-      size: [0, 0],
-      anchor: [0, 0],
-    })
-  })
+  groupedStarts.forEach((data) => addShapeMarker(m, [data.lat, data.lng], lineStartIcon(data.routes)))
 }
 
 const renderShapes = (newShapes: ShapeLayerEntry[]) => {

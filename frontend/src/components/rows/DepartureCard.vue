@@ -65,7 +65,7 @@ const emit = defineEmits<{open: []}>()
   border-radius: inherit;
   background: currentColor;
   opacity: 0;
-  transition: opacity 150ms linear;
+  transition: opacity 130ms linear;
   z-index: -1;
 }
 

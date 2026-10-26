@@ -64,7 +64,7 @@ function pick(slug: string) {
 
 .chevron {
   color: var(--md-on-surface-variant);
-  transition: rotate 200ms ease;
+  transition: rotate 175ms ease;
 }
 
 .chevron.is-open {

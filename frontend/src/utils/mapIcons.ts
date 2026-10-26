@@ -7,6 +7,7 @@ import {type SpiderLeg, spiderRadius} from '@/utils/spider.ts'
 import type {ModeLines} from '@/utils/network.ts'
 import accessibleSvg from '@material-design-icons/svg/round/accessible.svg?raw'
 import bikeSvg from '@material-design-icons/svg/round/pedal_bike.svg?raw'
+import flagSvg from '@material-design-icons/svg/round/flag.svg?raw'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string
@@ -52,6 +53,17 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
     stationIcons.set(key, icon)
   }
   return icon
+}
+
+// The lines starting at one point, as the app's line badges; centred on it.
+export function lineStartIcon(routes: {name: string; color: string}[]): MarkerIcon {
+  const badges = routes.map((r) => `<span class="line-start-badge" style="background:${r.color}">${escapeHtml(r.name)}</span>`).join('')
+  return {html: `<div class="line-start">${badges}</div>`, size: [0, 0], anchor: [0, 0]}
+}
+
+// A line's last stop: a station marker in the line's colour.
+export function lineEndIcon(color: string): MarkerIcon {
+  return {html: `<div class="line-end" style="background:${color}">${flagSvg}</div>`, size: [24, 24], anchor: [12, 12]}
 }
 
 export function stationCardHtml(name: string, look?: {groups: ModeLines[]}): string {

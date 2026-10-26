@@ -1,6 +1,6 @@
 import {pop, reducedMotion, ripple} from '@/utils/motion.ts'
 
-const RIPPLE_GAP_MS = 240
+const RIPPLE_GAP_MS = 210
 
 export function rippleFrom(body: HTMLElement, color: string) {
   if (reducedMotion()) return

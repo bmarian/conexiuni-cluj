@@ -102,7 +102,7 @@ watch(index, () => moving.value++)
   letter-spacing: 0.1px;
   cursor: pointer;
   transition:
-    color 200ms linear,
+    color 175ms linear,
     scale var(--spring-press-ms) var(--spring-press);
 }
 

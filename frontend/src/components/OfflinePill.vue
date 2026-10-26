@@ -35,7 +35,7 @@ const {isOnline} = useOnline()
 
 .offline-enter-active,
 .offline-leave-active {
-  transition: opacity 200ms linear;
+  transition: opacity 175ms linear;
 }
 
 .offline-enter-from,

@@ -47,7 +47,7 @@ watch(
   border-radius: 50%;
   background: currentColor;
   pointer-events: none;
-  animation: spark 520ms linear forwards;
+  animation: spark 450ms linear forwards;
 }
 
 @keyframes pop-on {
