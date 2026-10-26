@@ -1,6 +1,6 @@
 GET /fixturegtfs/linia/8b/intors
 200
-Cache-Control: public, max-age=300
+Cache-Control: no-cache
 Content-Length: 3076
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8

@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
+	"conexiuni-cluj/web"
 	"fmt"
 	"strconv"
 
@@ -53,6 +54,7 @@ func missing(c fiber.Ctx) error {
 		return c.Next()
 	}
 	c.Set("Content-Type", "text/html; charset=utf-8")
+	c.Set("Cache-Control", web.Revalidate)
 	return c.Status(fiber.StatusNotFound).SendString(indexHTMLContent)
 }
 
