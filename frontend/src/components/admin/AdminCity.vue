@@ -12,7 +12,7 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import LiveBadge from '@/components/ui/LiveBadge.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import TimetableBadge from '@/components/ui/TimetableBadge.vue'
-import {ago, bytes, came, clockTime, dayName, dur, minSec, num, pct, platformLabels, plural} from '@/utils/adminFormat.ts'
+import {ago, bytes, came, clockTime, dayName, dur, minSec, num, pct, platformLabels, plural, windowLabels} from '@/utils/adminFormat.ts'
 import {ExpandMoreIcon, LocationCityIcon, SettingsIcon} from '@/utils/icons.ts'
 
 const props = defineProps<{overview: Overview | null; cities: CitySummary[]; city: string; clock: number}>()
@@ -39,13 +39,6 @@ const changeLabels: Record<string, string> = {
   trips_removed: 'trips removed',
   stops_added: 'stops added',
   stops_removed: 'stops removed',
-}
-
-const windowLabels: Record<string, string> = {
-  weekday: 'School days',
-  weekday_vacation: 'School holidays',
-  saturday: 'Saturdays',
-  sunday: 'Sundays',
 }
 
 const learning = ref<LearningWindow[]>([])

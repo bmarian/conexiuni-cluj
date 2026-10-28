@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, ref, toRef, watch} from 'vue'
+import {computed, defineAsyncComponent, nextTick, ref, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -22,6 +22,7 @@ import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
 import {lineCanonicalPath, linePath, stopLocation, stopPath, type Direction} from '@/utils/pagePaths.ts'
 import {useShare} from '@/composables/useShare.ts'
+import {adminAuthed, lineStatsOn} from '@/composables/useAdmin.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import ChoiceRow from '@/components/ui/ChoiceRow.vue'
@@ -47,6 +48,9 @@ import {
 } from '@/utils/icons.ts'
 
 const props = defineProps<{routeId: string; direction: string}>()
+
+const AdminLineStats = defineAsyncComponent(() => import('@/components/admin/AdminLineStats.vue'))
+const showLineStats = adminAuthed() && lineStatsOn()
 
 const {t} = useI18n()
 const favoritesStore = useFavoritesStore()
@@ -467,6 +471,16 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
           <DirectionArrow v-if="option.value === '1'" :icon="ArrowBackIcon" :rest="270" :heading="directionHeadings['1']" :on="checked" />
         </template>
       </ChoiceRow>
+
+      <AdminLineStats v-if="showLineStats" :route-id="routeId" :direction="currentDirection">
+        <template #head="{day}">
+          <div class="tt-head">
+            <span class="text-title-small text-on-surface-variant">Line stats</span>
+            <span class="divider"></span>
+            <span class="text-label-small text-outline">{{ day }}</span>
+          </div>
+        </template>
+      </AdminLineStats>
 
       <p v-if="!stopsForDirection.length" class="text-body-medium text-on-surface-variant px-4 pt-4">{{ t('noSchedule') }}</p>
 

@@ -10,15 +10,14 @@ export type DayBar = {
 const props = defineProps<{
   days: DayBar[]
   max?: number
+  current?: number
 }>()
 
-const selected = ref(props.days.length - 1)
-watch(
-  () => props.days.length,
-  (n) => {
-    selected.value = n - 1
-  },
-)
+const now = computed(() => props.current ?? props.days.length - 1)
+const selected = ref(now.value)
+watch([() => props.days.length, now], () => {
+  selected.value = now.value
+})
 
 const top = computed(() => props.max ?? Math.max(1, ...props.days.map((d) => d.value)))
 const caption = computed(() => props.days[selected.value]?.caption ?? '')
@@ -33,7 +32,7 @@ const caption = computed(() => props.days[selected.value]?.caption ?? '')
         type="button"
         role="listitem"
         class="bar"
-        :class="{'is-today': i === days.length - 1, 'is-selected': i === selected}"
+        :class="{'is-today': i === now, 'is-selected': i === selected}"
         :aria-label="day.caption"
         @click="selected = i"
         @pointerenter="selected = i"

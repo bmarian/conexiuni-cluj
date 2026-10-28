@@ -169,6 +169,19 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 		return c.JSON(buildSite(registry, syncStats, time.Now()))
 	})
 
+	admin.Get("/line", RequireSession(token), func(c fiber.Ctx) error {
+		routeID, err := strconv.Atoi(c.Query("route"))
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid route"})
+		}
+		stats, err := cityOf(c).Live.LineStats(routeID, time.Now())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(stats)
+	})
+
 	admin.Get("/cities", RequireSession(token), func(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(adminCityList(registry))

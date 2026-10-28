@@ -107,3 +107,14 @@ export type LearningWindow = {
   from?: string
   last_year_days: number
 }
+
+export type LineHour = {hour: number; trip_sec?: number; delay_sec?: number}
+
+export type LineDirection = {
+  trip_sec?: number
+  delay_sec?: number
+  hours: LineHour[]
+  slowest?: {from: string; to: string; hour: number; extra_sec: number}
+}
+
+export type LineStats = {day_type: string; directions: LineDirection[]}
