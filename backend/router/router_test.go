@@ -249,6 +249,16 @@ func TestQuietEndIsWhenServiceResumes(t *testing.T) {
 	}
 }
 
+func TestInServiceIsFalseInTheLongestGap(t *testing.T) {
+	n, day := testNetwork(t, time.Minute)
+	if !n.InService(day.Add(8*time.Hour + 10*time.Minute).Unix()) {
+		t.Error("between runs counts as quiet")
+	}
+	if n.InService(day.Add(12 * time.Hour).Unix()) {
+		t.Error("after the last run counts as running")
+	}
+}
+
 func TestSameLinesAreOneOption(t *testing.T) {
 	n, day := testNetwork(t, time.Minute)
 	// Halfway between stops 3 and 4: line 1 could drop you at either.

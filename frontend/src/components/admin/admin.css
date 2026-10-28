@@ -69,6 +69,16 @@
   overflow-wrap: anywhere;
 }
 
+.admin-rows > div.line-row {
+  align-items: center;
+}
+
+.admin-rows > div.line-row dt.name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .admin-rows > div.has-action {
   align-items: center;
   min-height: 48px;

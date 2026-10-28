@@ -36,6 +36,7 @@ type adminOverview struct {
 	Quota       adminQuota    `json:"quota"`
 	Data        adminData     `json:"data"`
 	Traffic     adminTraffic  `json:"traffic"`
+	Fix         adminFix      `json:"fix"`
 }
 
 type adminNow struct {
@@ -204,6 +205,9 @@ func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
 	}
 	if o.Traffic, err = trafficSection(city, now); err != nil {
 		return nil, fmt.Errorf("traffic: %w", err)
+	}
+	if o.Fix, err = fixSection(city); err != nil {
+		return nil, fmt.Errorf("fix: %w", err)
 	}
 	o.Problems = cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, now)
 	return o, nil

@@ -259,7 +259,7 @@ func (eng *Engine) observeVehicleSegment(loc *time.Location, v models.Vehicle) (
 		return pendingSegmentSample{}, segmentObservedNoProgress
 	}
 
-	eng.noteArrival(v.ID, tracker.TripID, tracker.Stops[nearStopPos].StopID, observedAt)
+	eng.noteArrival(v.ID, tracker.RouteID, tracker.TripID, tracker.Stops[nearStopPos].StopID, observedAt)
 	if state.SegmentStartPos == 0 {
 		eng.recordTurnaroundDeparture(v.ID, tracker.TripID, state.SegmentStartedAt)
 	}

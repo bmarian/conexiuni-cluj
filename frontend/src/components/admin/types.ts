@@ -99,6 +99,14 @@ export type Overview = {
     endpoints: {key: string; calls: number; avg_ms: number; errors: number}[]
     error_details: ErrorDetail[]
   }
+  fix: Fix
+}
+
+export type Fix = {
+  searches: {query: string; count: number}[]
+  plans: {reason: string; from: string; to: string; count: number}[]
+  lines: {id: number; name: string; color?: string; n: number; off: number; avg_abs_sec: number}[]
+  buses: {id: number; name: string; color?: string; reason: string; buses: string[]; count: number; share: number}[]
 }
 
 export type LearningWindow = {

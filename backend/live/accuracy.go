@@ -98,7 +98,7 @@ func (p *pendingArrival) has(minutes int) bool {
 	return false
 }
 
-func (eng *Engine) noteArrival(vehicleID int, tripID string, stopID int, at time.Time) {
+func (eng *Engine) noteArrival(vehicleID int, routeID int, tripID string, stopID int, at time.Time) {
 	key := accuracyKey{vehicle: vehicleID, trip: tripID, stop: stopID}
 	eng.accuracy.Lock()
 	p := eng.accuracy.pending[key]
@@ -107,9 +107,24 @@ func (eng *Engine) noteArrival(vehicleID int, tripID string, stopID int, at time
 	if p == nil {
 		return
 	}
+	route := strconv.Itoa(routeID)
 	for _, s := range p.shown {
-		eng.RecordEvent("eta_error", accuracyStatsKey(s, at.Unix()-s.at))
+		errSec := at.Unix() - s.at
+		eng.RecordEvent("eta_error", accuracyStatsKey(s, errSec))
+		eng.recordLineMiss(route, errSec)
 	}
+}
+
+const LineAccuracyMetric = "eta_line"
+
+// Keys "route|n" shown times, "route|off" a minute or more out, "route|abs" seconds out, summed.
+func (eng *Engine) recordLineMiss(route string, errSec int64) {
+	eng.RecordEvent(LineAccuracyMetric, route+"|n")
+	if bin := errorBin(errSec); bin < -60/AccuracyBinSec || bin >= 60/AccuracyBinSec {
+		eng.RecordEvent(LineAccuracyMetric, route+"|off")
+	}
+	errSec = max(-accuracyMaxErrSec, min(accuracyMaxErrSec, errSec))
+	eng.RecordCount(LineAccuracyMetric, route+"|abs", int(max(errSec, -errSec)))
 }
 
 // accuracyStatsKey is "kind|horizon|bin"; bin b holds misses in [30b, 30b+30) s, positive when the bus came later.
