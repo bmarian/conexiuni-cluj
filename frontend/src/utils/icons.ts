@@ -21,6 +21,7 @@ export {default as FavoriteBorderIcon} from '@material-design-icons/svg/round/fa
 export {default as FileUploadIcon} from '@material-design-icons/svg/round/file_upload.svg?component'
 export {default as KeyboardArrowLeftIcon} from '@material-design-icons/svg/round/keyboard_arrow_left.svg?component'
 export {default as KeyboardArrowRightIcon} from '@material-design-icons/svg/round/keyboard_arrow_right.svg?component'
+export {default as KeyboardIcon} from '@material-design-icons/svg/round/keyboard.svg?component'
 export {default as LightModeIcon} from '@material-design-icons/svg/round/light_mode.svg?component'
 export {default as LocationCityIcon} from '@material-design-icons/svg/round/location_city.svg?component'
 export {default as LogoutIcon} from '@material-design-icons/svg/round/logout.svg?component'

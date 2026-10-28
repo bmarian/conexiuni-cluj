@@ -12,9 +12,8 @@ import {RouterLink, useRouter, type LocationQueryRaw} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {useMapStore, type HighlightedStop} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
-import {useSettingsStore} from '@/stores/settings.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import {usePlannerStore} from '@/stores/planner.ts'
+import {usePlannerStore, type PlanTimeMode} from '@/stores/planner.ts'
 import {apiRequest} from '@/utils/api.ts'
 import type {RouteType, Shape} from '@/types/tranzy.ts'
 import {storeToRefs} from 'pinia'
@@ -33,23 +32,22 @@ import {formatMinutesFromNow} from '@/utils/time.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from '@/utils/plan.ts'
 import {reversePlace, type Place} from '@/utils/places.ts'
-import {VueDatePicker} from '@vuepic/vue-datepicker'
-import '@vuepic/vue-datepicker/dist/main.css'
 import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
 import {useOwnRoute} from '@/composables/useOwnRoute.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
+import SelectField from '@/components/ui/SelectField.vue'
+import PlanTimeFields from '@/components/plan/PlanTimeFields.vue'
 import TimelineRow from '@/components/rows/TimelineRow.vue'
-import type {ChipAction} from '@/components/ui/types.ts'
+import type {ChipAction, Choice} from '@/components/ui/types.ts'
 import {
   CheckIcon,
   CloseIcon,
   DirectionsBusIcon,
   DirectionsWalkIcon,
   EditIcon,
-  ExpandMoreIcon,
   FavoriteBorderIcon,
   FavoriteIcon,
   KeyboardArrowRightIcon,
@@ -72,7 +70,6 @@ const router = useRouter()
 
 const mapStore = useMapStore()
 const userStore = useUserStore()
-const settings = useSettingsStore()
 const favoritesStore = useFavoritesStore()
 const plannerStore = usePlannerStore()
 const {isOnline} = useOnline()
@@ -875,8 +872,12 @@ useKbdShortcuts({
 
 // Changing the time doesn't recalculate; Search does.
 const minDateTime = computed(() => cityDateTime(userTime.value || new Date()))
-const minDateObj = computed(() => userTime.value || new Date())
-const isDarkTheme = computed(() => settings.isDark)
+const timeModes = computed<Choice<PlanTimeMode>[]>(() => [
+  {value: 'now', label: t('planTimeLeaveNow')},
+  {value: 'leave', label: t('planTimeLeaveAt')},
+  {value: 'arrive', label: t('planTimeArriveBy')},
+  {value: 'last', label: t('planTimeLast')},
+])
 watch(timeMode, (mode) => {
   if (mode !== 'now' && mode !== 'last' && !timeValue.value) {
     timeValue.value = cityDateTime(new Date())
@@ -1151,16 +1152,7 @@ const chips = computed<ChipAction[]>(() => [
 
       <div class="time-filter" role="group" :aria-label="t('planTimeFilterLabel')" data-kbd-section="time" data-kbd-axis="x">
         <div class="flex items-center gap-2">
-          <label class="select-field">
-            <span class="select-label">{{ t('planTimeFilterLabel') }}</span>
-            <select v-model="timeMode" data-kbd-item="time-mode" :aria-label="t('planTimeFilterLabel')">
-              <option value="now">{{ t('planTimeLeaveNow') }}</option>
-              <option value="leave">{{ t('planTimeLeaveAt') }}</option>
-              <option value="arrive">{{ t('planTimeArriveBy') }}</option>
-              <option value="last">{{ t('planTimeLast') }}</option>
-            </select>
-            <ExpandMoreIcon class="m-icon text-on-surface-variant pointer-events-none" />
-          </label>
+          <SelectField v-model="timeMode" class="flex-1" :label="t('planTimeFilterLabel')" :options="timeModes" kbd="time-mode" />
           <button
             v-if="timeMode === 'leave' || timeMode === 'arrive'"
             type="button"
@@ -1199,27 +1191,11 @@ const chips = computed<ChipAction[]>(() => [
             <RefreshIcon v-else class="m-icon" />
           </button>
         </div>
-        <VueDatePicker
-          v-if="timeMode === 'leave' || timeMode === 'arrive'"
+        <PlanTimeFields
+          v-if="(timeMode === 'leave' || timeMode === 'arrive') && timeValue"
           v-model="timeValue"
-          :min-date="minDateObj"
-          model-type="yyyy-MM-dd'T'HH:mm"
-          format="dd/MM/yyyy HH:mm"
-          :is24="true"
-          :enable-seconds="false"
-          :minutes-increment="1"
-          :week-start="1"
-          :auto-apply="false"
-          :teleport="true"
-          :floating="{arrow: false, strategy: 'fixed', offset: 4, placement: 'bottom-start'}"
-          :ui="{menu: 'plan-time-menu'}"
-          :input-attrs="{clearable: true, alwaysClearable: true, inputmode: 'none'}"
-          :dark="isDarkTheme"
-          text-input
-          class="plan-time-datetime"
-          data-kbd-item="time-date"
-          data-kbd-inner
-          :aria-label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
+          :label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
+          :now="now"
         />
       </div>
 
@@ -1529,52 +1505,6 @@ const chips = computed<ChipAction[]>(() => [
   padding: 4px 12px;
 }
 
-.select-field {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  height: 56px;
-  padding-right: 12px;
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px var(--md-outline);
-}
-
-.select-field:focus-within {
-  box-shadow: inset 0 0 0 2px var(--md-primary);
-}
-
-.select-label {
-  position: absolute;
-  top: -8px;
-  left: 12px;
-  padding: 0 4px;
-  background: var(--md-surface-container-low);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--md-on-surface-variant);
-}
-
-.select-field select {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0 0 0 16px;
-  border: 0;
-  outline: 0;
-  appearance: none;
-  background: transparent;
-  color: var(--md-on-surface);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.select-field option {
-  background: var(--md-surface-container);
-  color: var(--md-on-surface);
-}
-
 .tonal-icon {
   display: inline-flex;
   align-items: center;
@@ -1683,79 +1613,5 @@ const chips = computed<ChipAction[]>(() => [
   align-items: center;
   gap: 12px;
   padding: 32px;
-}
-
-.plan-time-datetime {
-  max-width: 100%;
-}
-
-.plan-time-datetime :deep(.dp__main),
-.plan-time-datetime :deep(.dp__theme_light),
-.plan-time-datetime :deep(.dp__theme_dark),
-.plan-time-datetime :deep(.dp--main),
-.plan-time-datetime :deep(.dp--theme-light),
-.plan-time-datetime :deep(.dp--theme-dark) {
-  --dp-font-family: var(--font-sans);
-  --dp-font-size: 16px;
-  --dp-border-radius: 14px;
-  --dp-input-padding: 16px 12px;
-  --dp-input-icon-padding: 44px;
-  --dp-background-color: transparent;
-  --dp-text-color: var(--md-on-surface);
-  --dp-border-color: var(--md-outline);
-  --dp-border-color-hover: var(--md-on-surface);
-  --dp-border-color-focus: var(--md-primary);
-  --dp-icon-color: var(--md-on-surface-variant);
-  --dp-primary-color: var(--md-primary);
-  --dp-primary-text-color: var(--md-on-primary);
-}
-
-.plan-time-datetime :deep(input) {
-  height: 56px;
-}
-</style>
-
-<style>
-/* Teleported out of the view. */
-.plan-time-menu {
-  --dp-font-family: var(--font-sans);
-  --dp-font-size: 14px;
-  --dp-border-radius: 28px;
-  --dp-cell-border-radius: 9999px;
-  --dp-menu-min-width: 300px;
-  --dp-action-button-height: 40px;
-  --dp-action-buttons-padding: 0 16px;
-  --dp-background-color: var(--md-surface-container-high);
-  --dp-text-color: var(--md-on-surface);
-  --dp-hover-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
-  --dp-hover-text-color: var(--md-on-surface);
-  --dp-primary-color: var(--md-primary);
-  --dp-primary-text-color: var(--md-on-primary);
-  --dp-secondary-color: var(--md-outline);
-  --dp-border-color: transparent;
-  --dp-menu-border-color: transparent;
-  --dp-success-color: var(--md-primary);
-  --dp-disabled-color: transparent;
-  --dp-icon-color: var(--md-on-surface-variant);
-  --dp-scroll-bar-background: var(--md-surface-container-high);
-  --dp-scroll-bar-color: var(--md-outline-variant);
-  box-shadow: var(--md-elevation-3);
-}
-
-.plan-time-menu .dp__action_select,
-.plan-time-menu .dp--action-select {
-  border-radius: 20px;
-  background: var(--md-primary);
-  color: var(--md-on-primary);
-  font-weight: 500;
-}
-
-.plan-time-menu .dp__action_cancel,
-.plan-time-menu .dp--action-cancel {
-  border: 0;
-  border-radius: 20px;
-  background: transparent;
-  color: var(--md-primary);
-  font-weight: 500;
 }
 </style>
