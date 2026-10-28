@@ -3,7 +3,7 @@ import type {LatLng} from '@/utils/mapMarkers.ts'
 import {spring} from '@/utils/motion.ts'
 import {locate, type Path} from '@/utils/vehicleMotion.ts'
 
-export type Growth = {path: Path; start?: number}
+export type Growth = {path: Path; name?: string; start?: number}
 
 // growLine's easeInOut solved for time.
 const timeAt = (done: number) => (done < 0.5 ? Math.sqrt(done / 2) : 1 - Math.sqrt(2 * (1 - done)) / 2)
@@ -15,15 +15,15 @@ function reachedAt({path, start}: Growth, point: LatLng): number | undefined {
   return start === undefined ? Infinity : start + timeAt(at.s / path.length) * SWEEP_MS
 }
 
-// While lines grow, their stops pop in as the front reaches them and buses once every line is drawn.
+// While lines grow, their stops pop in as the front reaches them and their buses once they are drawn.
 // Before [now] counts as already shown, so a marker rebuilt mid-growth doesn't pop twice.
 export class LineReveal {
   private growths = new Map<string, Growth>()
   private pops = new WeakMap<HTMLElement, Animation>()
 
-  // Its stops and every bus stay hidden until it starts.
-  grow(line: string, path: Path): Growth {
-    const growth: Growth = {path}
+  // Its stops and buses stay hidden until it starts.
+  grow(line: string, path: Path, name?: string): Growth {
+    const growth: Growth = {path, name}
     this.growths.set(line, growth)
     return growth
   }
@@ -44,8 +44,10 @@ export class LineReveal {
     return this.popAt(body, times.length ? Math.min(...times) : undefined, now)
   }
 
-  vehicle(body: HTMLElement, now = performance.now()): boolean {
-    const ends = this.live(now).map(({start}) => (start === undefined ? Infinity : start + SWEEP_MS))
+  vehicle(body: HTMLElement, name: string | undefined, now = performance.now()): boolean {
+    const ends = this.live(now)
+      .filter((growth) => !name || !growth.name || growth.name === name)
+      .map(({start}) => (start === undefined ? Infinity : start + SWEEP_MS))
     return this.popAt(body, ends.length ? Math.max(...ends) : undefined, now)
   }
 
