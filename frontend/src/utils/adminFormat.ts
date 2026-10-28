@@ -59,3 +59,10 @@ export const timetableLabels: Record<string, string> = {
   saturday: 'Saturday',
   sunday: 'Sunday',
 }
+
+export const windowLabels: Record<string, string> = {
+  weekday: 'School days',
+  weekday_vacation: 'School holidays',
+  saturday: 'Saturdays',
+  sunday: 'Sundays',
+}

@@ -37,6 +37,7 @@ export {default as PlaceIcon} from '@material-design-icons/svg/round/place.svg?c
 export {default as PublicIcon} from '@material-design-icons/svg/round/public.svg?component'
 export {default as PushPinIcon} from '@material-design-icons/svg/round/push_pin.svg?component'
 export {default as QrCode2Icon} from '@material-design-icons/svg/round/qr_code_2.svg?component'
+export {default as QueryStatsIcon} from '@material-design-icons/svg/round/query_stats.svg?component'
 export {default as RefreshIcon} from '@material-design-icons/svg/round/refresh.svg?component'
 export {default as ScheduleIcon} from '@material-design-icons/svg/round/schedule.svg?component'
 export {default as SearchIcon} from '@material-design-icons/svg/round/search.svg?component'

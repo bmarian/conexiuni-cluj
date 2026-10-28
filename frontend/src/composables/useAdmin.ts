@@ -4,26 +4,32 @@ import {currentCity} from '@/utils/city.ts'
 
 const REFRESH_MS = 30_000
 const AUTH_FLAG_KEY = 'admin:authed'
+const LINE_STATS_KEY = 'admin:line-stats'
 
-export const adminAuthed = () => {
+const readFlag = (key: string) => {
   try {
-    return localStorage.getItem(AUTH_FLAG_KEY) === '1'
+    return localStorage.getItem(key) === '1'
   } catch {
     return false
   }
 }
-const writeAuthFlag = (on: boolean) => {
+const writeFlag = (key: string, on: boolean) => {
   try {
-    if (on) localStorage.setItem(AUTH_FLAG_KEY, '1')
-    else localStorage.removeItem(AUTH_FLAG_KEY)
+    if (on) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
   } catch {
     /* storage blocked */
   }
 }
 
-class SignedOut extends Error {}
+export const adminAuthed = () => readFlag(AUTH_FLAG_KEY)
+export const writeAuthFlag = (on: boolean) => writeFlag(AUTH_FLAG_KEY, on)
+export const lineStatsOn = () => readFlag(LINE_STATS_KEY)
+export const setLineStats = (on: boolean) => writeFlag(LINE_STATS_KEY, on)
 
-async function getJSON<T>(url: string): Promise<T> {
+export class SignedOut extends Error {}
+
+export async function getJSON<T>(url: string): Promise<T> {
   const res = await fetch(url, {credentials: 'same-origin'})
   if (res.status === 401) throw new SignedOut()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

@@ -5,6 +5,7 @@ GET /.well-known/assetlinks.json
 GET /api/admin/calendar
 GET /api/admin/calendar/day
 GET /api/admin/cities
+GET /api/admin/line
 GET /api/admin/overview
 GET /api/admin/site
 GET /api/cities
