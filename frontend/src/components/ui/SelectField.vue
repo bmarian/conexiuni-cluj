@@ -9,7 +9,7 @@ import type {Choice} from '@/components/ui/types.ts'
 const GAP = 4
 const EDGE = 8
 
-const props = defineProps<{label: string; options: Choice<T>[]; modelValue: T; kbd: string}>()
+const props = defineProps<{label: string; options: Choice<T>[]; modelValue: T; kbd: string; hideLabel?: boolean}>()
 const emit = defineEmits<{'update:modelValue': [value: T]}>()
 
 const field = ref<HTMLElement | null>(null)
@@ -44,7 +44,8 @@ function pick(value: T) {
 <template>
   <div ref="field" class="select-field">
     <FieldButton
-      :label="label"
+      :label="hideLabel ? undefined : label"
+      :aria-label="label"
       :value="current"
       :icon="ExpandMoreIcon"
       :open="open"
@@ -90,8 +91,6 @@ function pick(value: T) {
 }
 
 .menu {
-  position: fixed;
-  z-index: 9000;
   max-width: calc(100vw - 16px);
   overflow-y: auto;
   transform-origin: top center;

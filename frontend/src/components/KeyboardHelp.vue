@@ -88,8 +88,8 @@ const groups = computed(() => [
 
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="kbd-help-backdrop" @click.self="isOpen = false">
-      <div ref="panelRef" class="kbd-help" role="dialog" :aria-label="t('kbdHelpTitle')">
+    <div v-if="isOpen" class="dialog-scrim" @click.self="isOpen = false">
+      <div ref="panelRef" class="kbd-help dialog" role="dialog" :aria-label="t('kbdHelpTitle')">
         <div class="kbd-help-head">
           <h2 class="kbd-help-title">{{ t('kbdHelpTitle') }}</h2>
           <button type="button" class="icon-btn" :aria-label="t('dismiss')" :title="t('dismiss')" @click="isOpen = false">
@@ -113,26 +113,11 @@ const groups = computed(() => [
 </template>
 
 <style scoped>
-.kbd-help-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: var(--md-scrim);
-}
-
 .kbd-help {
   width: min(640px, 100%);
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
   padding: 16px 24px 24px;
-  border-radius: 28px;
-  background: var(--md-surface-container-high);
-  color: var(--md-on-surface);
-  box-shadow: var(--md-elevation-3);
   outline: none;
 }
 

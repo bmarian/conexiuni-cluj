@@ -178,10 +178,10 @@ function onKey(e: KeyboardEvent) {
 <template>
   <Teleport to="body">
     <Transition name="scrim">
-      <div v-if="open" class="scrim" @pointerdown.self="cancel">
+      <div v-if="open" class="dialog-scrim" @pointerdown.self="cancel">
         <div
           ref="panel"
-          class="time-dialog"
+          class="time-dialog dialog"
           :class="{'is-typing': typing}"
           role="dialog"
           aria-modal="true"
@@ -256,17 +256,6 @@ function onKey(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: var(--md-scrim);
-}
-
 .scrim-enter-active,
 .scrim-leave-active {
   transition: opacity 105ms linear;
@@ -282,10 +271,6 @@ function onKey(e: KeyboardEvent) {
   flex-direction: column;
   align-items: center;
   padding: 24px 24px 20px;
-  border-radius: 28px;
-  background: var(--md-surface-container-high);
-  color: var(--md-on-surface);
-  box-shadow: var(--md-elevation-3);
   animation: dialog-in var(--spring-fast-ms) var(--spring-fast);
 }
 

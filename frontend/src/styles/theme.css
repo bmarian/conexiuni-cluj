@@ -382,6 +382,8 @@
   }
 
   .popup-menu {
+    position: fixed;
+    z-index: 9000;
     padding: 8px 0;
     border-radius: 12px;
     background: var(--md-surface-container);
@@ -404,6 +406,24 @@
     font-weight: 500;
     text-align: left;
     cursor: pointer;
+  }
+
+  .dialog-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--md-scrim);
+  }
+
+  .dialog {
+    border-radius: 28px;
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface);
+    box-shadow: var(--md-elevation-3);
   }
 
   .menu-enter-active {

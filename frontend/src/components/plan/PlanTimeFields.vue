@@ -10,7 +10,7 @@ import {ScheduleIcon} from '@/utils/icons.ts'
 
 const OTHER_DAY = 'other'
 
-const props = defineProps<{label: string; now: Date}>()
+const props = defineProps<{now: Date}>()
 const value = defineModel<string>({required: true})
 
 const {t, locale} = useI18n()
@@ -41,7 +41,7 @@ function onDatePicked() {
 
 <template>
   <div class="plan-time">
-    <FieldButton :label="label" :value="time" :icon="ScheduleIcon" aria-haspopup="dialog" data-kbd-item="time-clock" @click="picking = true" />
+    <FieldButton :label="t('planTime')" :value="time" :icon="ScheduleIcon" aria-haspopup="dialog" data-kbd-item="time-clock" @click="picking = true" />
     <div class="day">
       <SelectField :model-value="day" :label="t('planDay')" :options="days" kbd="time-day" @update:model-value="setDay" />
       <input ref="datePicker" class="date-picker" type="date" tabindex="-1" aria-hidden="true" :min="today" :value="day" @change="onDatePicked" />
@@ -53,7 +53,7 @@ function onDatePicked() {
 <style scoped>
 .plan-time {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: 8px;
 }
 
