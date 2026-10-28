@@ -196,7 +196,6 @@ function onKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey) return
   if (!rootEl()) return
   const target = e.target instanceof Element ? e.target : null
-  if (document.querySelector('.dp--outer-menu-wrap')) return
 
   const top = layers[layers.length - 1]
   if (top?.capture) {

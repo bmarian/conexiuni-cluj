@@ -122,9 +122,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
             return "vue-vendor";
           }
           if (
-            id.includes("/node_modules/@vuepic/vue-datepicker/") ||
             id.includes("/node_modules/@vueuse/") ||
-            id.includes("/node_modules/date-fns/") ||
             id.includes("/node_modules/vuedraggable/")
           ) {
             return "ui-vendor";
