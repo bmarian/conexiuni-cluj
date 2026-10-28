@@ -1,3 +1,5 @@
+import {dateLocale} from '@/utils/text.ts'
+
 const WEEK = 7
 
 type Translate = (key: string) => string
@@ -15,8 +17,8 @@ export function planDays(today: string, chosen: string): string[] {
 export function planDayLabel(date: string, today: string, locale: string, t: Translate): string {
   if (date === today) return t('planToday')
   if (date === addDays(today, 1)) return t('planTomorrow')
-  const label = new Date(`${date}T12:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'ro-RO', {
-    weekday: 'short',
+  const label = new Date(`${date}T12:00:00Z`).toLocaleDateString(dateLocale(locale), {
+    weekday: 'long',
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',

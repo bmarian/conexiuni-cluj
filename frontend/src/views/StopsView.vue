@@ -27,7 +27,7 @@ const stations = computed(() => {
     .map((stop) => ({
       stop,
       destinations: stationDestinations(index, stop.stop_id),
-      favorite: index.platforms(stop.stop_id).some((p) => favorites.isStopFavorite(p.stop_id)),
+      favorite: favorites.favoritePlatform(stop.stop_id) !== undefined,
     }))
 })
 

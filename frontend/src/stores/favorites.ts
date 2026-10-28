@@ -140,6 +140,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
     return favoriteStopIds.value.includes(id)
   }
 
+  function favoritePlatform(stopId: number): number | undefined {
+    const platforms = network.value?.platforms(stopId).map((p) => p.stop_id)
+    return (platforms?.length ? platforms : [stopId]).find(isStopFavorite)
+  }
+
   function isPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): boolean {
     return favoritePlans.value.some((p) => samePlace(p, lat, lon, originLat, originLon))
   }
@@ -272,6 +277,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     hydrate,
     isRouteFavorite,
     isStopFavorite,
+    favoritePlatform,
     isPlanFavorite,
     toggleRouteFavorite,
     toggleStopFavorite,

@@ -31,7 +31,7 @@ export function useStopDepartures(stopId: Ref<string>) {
   const cachedShapeKey = ref('')
   const cachedShapesWithTrip = ref<Array<[DisplayShape, Shape[]]>>([])
   const displayedFavoriteShapeKey = ref<string | null>(null)
-  // A line once drawn stays while it is a favourite here, so a bus missing from one update doesn't redraw it.
+  // Drawn lines stay while they are favourites here, so a bus missing from one update doesn't redraw them.
   const drawnTrips = new Set<string>()
 
   const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
@@ -75,9 +75,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     return byRoute
   })
 
-  const favoritePlatform = computed(() =>
-    (stopInfos.value.length ? stopInfos.value.map((info) => info.stop_id) : [stopIdNum.value]).find((id) => favoritesStore.isStopFavorite(id)),
-  )
+  const favoritePlatform = computed(() => favoritesStore.favoritePlatform(stopIdNum.value))
   const isFavorite = computed(() => favoritePlatform.value !== undefined)
   const toggleFavorite = () => favoritesStore.toggleStopFavorite(favoritePlatform.value ?? stopIdNum.value)
 

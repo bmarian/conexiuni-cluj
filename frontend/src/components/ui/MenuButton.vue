@@ -55,8 +55,6 @@ function pick(action: MenuAction) {
 
 <style scoped>
 .menu {
-  position: fixed;
-  z-index: 9000;
   min-width: 200px;
   max-width: 280px;
   transform-origin: top right;

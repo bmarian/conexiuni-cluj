@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type {Component} from 'vue'
 
-defineProps<{label: string; value: string; icon: Component; open?: boolean}>()
+defineProps<{label?: string; value: string; icon: Component; open?: boolean}>()
 </script>
 
 <template>
   <button type="button" class="field" :class="{'is-open': open}">
-    <span class="field-label">{{ label }}</span>
+    <span v-if="label" class="field-label">{{ label }}</span>
     <span class="field-value">{{ value }}</span>
     <component :is="icon" class="m-icon field-icon" />
   </button>

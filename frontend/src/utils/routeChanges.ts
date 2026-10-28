@@ -1,5 +1,6 @@
 import type {RouteChange, RouteChangeDay, RouteChangeItem, RouteChangeKind} from '@/stores/routeUpdates'
 import {timeStringToMinutes} from '@/utils/time'
+import {dateLocale} from '@/utils/text'
 
 type Translate = (key: string, named?: Record<string, unknown>) => string
 
@@ -84,7 +85,7 @@ export function changeDirection(change: RouteChange): '0' | '1' {
 }
 
 export function formatChangeDate(ms: number, locale: string, withYear = true): string {
-  return new Date(ms).toLocaleDateString(locale === 'en' ? 'en-GB' : 'ro-RO', {
+  return new Date(ms).toLocaleDateString(dateLocale(locale), {
     day: 'numeric',
     month: 'short',
     ...(withYear ? {year: 'numeric'} : {}),

@@ -1152,7 +1152,7 @@ const chips = computed<ChipAction[]>(() => [
 
       <div class="time-filter" role="group" :aria-label="t('planTimeFilterLabel')" data-kbd-section="time" data-kbd-axis="x">
         <div class="flex items-center gap-2">
-          <SelectField v-model="timeMode" class="flex-1" :label="t('planTimeFilterLabel')" :options="timeModes" kbd="time-mode" />
+          <SelectField v-model="timeMode" class="flex-1" :label="t('planTimeFilterLabel')" hide-label :options="timeModes" kbd="time-mode" />
           <button
             v-if="timeMode === 'leave' || timeMode === 'arrive'"
             type="button"
@@ -1191,12 +1191,7 @@ const chips = computed<ChipAction[]>(() => [
             <RefreshIcon v-else class="m-icon" />
           </button>
         </div>
-        <PlanTimeFields
-          v-if="(timeMode === 'leave' || timeMode === 'arrive') && timeValue"
-          v-model="timeValue"
-          :label="timeMode === 'arrive' ? t('planTimeArriveBy') : t('planTimeLeaveAt')"
-          :now="now"
-        />
+        <PlanTimeFields v-if="(timeMode === 'leave' || timeMode === 'arrive') && timeValue" v-model="timeValue" :now="now" />
       </div>
 
       <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')" />
