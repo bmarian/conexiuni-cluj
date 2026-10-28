@@ -68,3 +68,23 @@ func TestLineStatsSumsStretchMeans(t *testing.T) {
 		t.Fatalf("the route has no direction 1: %+v", other)
 	}
 }
+
+func TestLineStatsTakesWhatArrivalsAssumeForAnUnmeasuredStretch(t *testing.T) {
+	eng := newTestCity(t)
+	eng.installDelayRoute(t)
+	// The last stretch is never measured.
+	for _, day := range []int{10, 11, 14, 15, 16} {
+		eng.recordTimedRun(t, weekdayAt(day, 10, 3), 180, 200)
+	}
+	stats, err := eng.LineStats(delayRouteID, weekdayAt(23, 12, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := stats.Directions[0]
+	if d.TripSec == nil || *d.TripSec != 180+200+120 {
+		t.Fatalf("trip = %v, want the measured stretches plus the timetable's", d.TripSec)
+	}
+	if len(d.Hours) != 1 || d.Hours[0].TripSec == nil || *d.Hours[0].TripSec != 500 {
+		t.Fatalf("hours = %+v", d.Hours)
+	}
+}

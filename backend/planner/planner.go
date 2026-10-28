@@ -367,16 +367,18 @@ func (s *Service) plan(c fiber.Ctx) error {
 
 	from, to := router.Point{Lat: fromLat, Lon: fromLng}, router.Point{Lat: toLat, Lon: toLng}
 	resp := planResponse{Options: []planOption{}, Stops: map[string]planStop{}, Lines: map[string]planLine{}}
+	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: runsShown, Last: last}
 	if !n.Covers(from) || !n.Covers(to) {
+		s.notePlanMiss(c, n, q, nil, false)
 		c.Set("Cache-Control", web.Revalidate)
 		return c.JSON(resp)
 	}
-	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: runsShown, Last: last}
 	var refresh func(firsts []int64) int64
 	if !arriveBy {
 		q.Live, refresh = s.timing.LiveAt(when)
 	}
 	options := n.Plan(q)
+	s.notePlanMiss(c, n, q, options, true)
 	if last && len(options) == 1 && options[0].Rides == 0 {
 		// No bus at all: the walk, from now.
 		options[0].Runs[0] = router.Run{Depart: asked.Unix(), Arrive: asked.Unix() + options[0].Legs[0].Secs}

@@ -30,8 +30,9 @@ func (s *Service) searchPlaces(c fiber.Ctx) error {
 			limit = placesLimit
 		}
 		found := places.Search(q, limit)
-		if found == nil {
+		if len(found) == 0 {
 			found = []router.Place{}
+			s.notePlaceMiss(c, q)
 		}
 		return c.JSON(found)
 	}

@@ -240,7 +240,14 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 	raw := make(map[string][]predictions.RawVehicle)
 	byID := make(map[int]models.Vehicle, len(vehicles))
 	for _, v := range vehicles {
+		inService := v.TripID != "" && v.TripID != "-1"
+		if inService {
+			eng.RecordEvent(SeenMetric, strconv.Itoa(v.RouteID))
+		}
 		if _, ok := trips[v.TripID]; !ok {
+			if inService {
+				eng.recordUnplaced("trip", v.RouteID, v)
+			}
 			continue
 		}
 		raw[v.TripID] = append(raw[v.TripID], rawLiveVehicle(v, pollInterval))
@@ -295,10 +302,11 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 		if len(own) > 0 {
 			list := make([]liveVehicle, 0, len(own))
 			for _, v := range own {
+				src := byID[v.ID]
 				if !v.OnRoute() {
+					eng.recordUnplaced("route", src.RouteID, src)
 					continue
 				}
-				src := byID[v.ID]
 				list = append(list, liveVehicle{
 					ID: v.ID, TripID: tripID, RouteID: lt.routeID, Latitude: v.Lat, Longitude: v.Lon,
 					Heading: math.Round(v.Heading*10) / 10, Speed: math.Max(0, math.Round(src.Speed)), Timestamp: src.Timestamp, Label: src.Label, VehicleType: src.VehicleType,

@@ -5,6 +5,7 @@ import AdminCard from '@/components/admin/AdminCard.vue'
 import AdminCityMenu from '@/components/admin/AdminCityMenu.vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminErrors from '@/components/admin/AdminErrors.vue'
+import AdminFix from '@/components/admin/AdminFix.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import type {CitySummary, LearningWindow, Overview} from '@/components/admin/types.ts'
@@ -121,6 +122,10 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
       <div class="admin-cards">
         <AdminCard title="Errors" hint="today">
           <AdminErrors :errors="overview.traffic.error_details" :clock="clock" />
+        </AdminCard>
+
+        <AdminCard title="To fix" hint="7 days">
+          <AdminFix :fix="overview.fix" />
         </AdminCard>
 
         <AdminCard v-if="realtime || overview.now.lines.length || overview.now.stops.length" title="Now">
@@ -299,7 +304,7 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
           <template v-if="overview.data.route_changes.length">
             <SubLabel text="Timetable changes" />
             <dl class="admin-rows">
-              <div v-for="c in overview.data.route_changes" :key="`${c.line}-${c.detected_at}`" class="change">
+              <div v-for="c in overview.data.route_changes" :key="`${c.line}-${c.detected_at}`" class="line-row">
                 <dt class="name">
                   <LineBadge plain :name="c.line" :color="c.color" />
                   <span class="truncate">{{ c.kinds.map((k) => changeLabels[k] ?? k).join(', ') }}</span>
@@ -418,16 +423,6 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
 
 .track span.is-full {
   background: var(--md-error);
-}
-
-.change {
-  align-items: center;
-}
-
-.change dt.name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .endpoints {

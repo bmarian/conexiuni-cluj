@@ -512,6 +512,28 @@ func (n *Network) unreverse(j journey) journey {
 	return out
 }
 
+// InService is false inside the day's longest gap between departures.
+func (n *Network) InService(at int64) bool {
+	prev, next := int64(math.MinInt64), int64(math.MaxInt64)
+	for _, p := range n.forward.patterns {
+		for _, t := range p.times[0] {
+			if t <= at && t > prev {
+				prev = t
+			}
+			if t >= at && t < next {
+				next = t
+			}
+		}
+	}
+	switch {
+	case next == math.MaxInt64:
+		return false
+	case prev == math.MinInt64 || prev == next:
+		return true
+	}
+	return n.QuietEnd(prev) != next
+}
+
 // When service resumes after the day's longest gap; arriving by it means the last bus.
 func (n *Network) QuietEnd(at int64) int64 {
 	var deps []int64

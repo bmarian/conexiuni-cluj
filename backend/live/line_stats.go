@@ -6,6 +6,7 @@ import (
 	"conexiuni-cluj/transit"
 	"database/sql"
 	"math"
+	"slices"
 	"time"
 )
 
@@ -40,6 +41,8 @@ type stretchMean struct {
 }
 
 func (m stretchMean) mean() float64 { return m.sum / float64(m.n) }
+
+func (m stretchMean) measured() bool { return m.n >= minSegmentProfileSamples }
 
 func (eng *Engine) LineStats(routeID int, now time.Time) (LineStats, error) {
 	dayType := eng.profileDay(now)
@@ -109,7 +112,7 @@ func (eng *Engine) lineDirection(routeID, directionID int, dayType string, stops
 			}
 		}
 	}
-	d.TripSec = tripSeconds(allDay)
+	d.TripSec = tripSeconds(allDay, eng.assumedStretches(stops, routeID, directionID, dayType, allDaySegmentBucket))
 
 	var perHour [][]stretchMean
 	for b := first; b <= last; b += segmentBucketMinutes {
@@ -118,7 +121,7 @@ func (eng *Engine) lineDirection(routeID, directionID int, dayType string, stops
 			stretches[i] = byHour[stretchHour{stops[i].StopID, stops[i+1].StopID, b}]
 		}
 		perHour = append(perHour, stretches)
-		h := LineHour{Hour: b / 60, TripSec: tripSeconds(stretches)}
+		h := LineHour{Hour: b / 60, TripSec: tripSeconds(stretches, eng.assumedStretches(stops, routeID, directionID, dayType, b))}
 		if delay, ok := delayAt[b]; ok {
 			h.DelaySec = &delay
 		}
@@ -140,11 +143,17 @@ func (eng *Engine) lineDirection(routeID, directionID int, dayType string, stops
 		return d, nil
 	}
 	slow, fast := perHour[slowest], perHour[fastest]
-	worst := 0
+	worst := -1
 	for i := range slow {
-		if slow[i].mean()-fast[i].mean() > slow[worst].mean()-fast[worst].mean() {
+		if !slow[i].measured() || !fast[i].measured() {
+			continue
+		}
+		if worst < 0 || slow[i].mean()-fast[i].mean() > slow[worst].mean()-fast[worst].mean() {
 			worst = i
 		}
+	}
+	if worst < 0 {
+		return d, nil
 	}
 	d.Slowest = &LineStretch{
 		From:     stops[worst].StopHeadsign,
@@ -155,13 +164,33 @@ func (eng *Engine) lineDirection(routeID, directionID int, dayType string, stops
 	return d, nil
 }
 
-func tripSeconds(stretches []stretchMean) *float64 {
-	total := 0.0
-	for _, m := range stretches {
-		if m.n < minSegmentProfileSamples {
-			return nil
+// Nil when no stretch was measured.
+func tripSeconds(stretches []stretchMean, assumed []float64) *float64 {
+	total, measured := 0.0, false
+	for i, m := range stretches {
+		if m.measured() {
+			total += m.mean()
+			measured = true
+		} else {
+			total += assumed[i]
 		}
-		total += m.mean()
+	}
+	if !measured {
+		return nil
 	}
 	return &total
+}
+
+func (eng *Engine) assumedStretches(stops []models.StopTime, routeID, directionID int, dayType string, bucket int) []float64 {
+	trip := slices.Clone(stops)
+	ordered := make([]int, len(trip))
+	for i := range ordered {
+		ordered[i] = i
+	}
+	eng.timeTrip(trip, ordered, models.PatternID(routeID, directionID), dayType, bucket, eng.snapshotSegmentProfiles(routeID, directionID, dayType, bucket))
+	out := make([]float64, len(trip)-1)
+	for i := range out {
+		out[i] = trip[i+1].OffsetArrivalTime
+	}
+	return out
 }

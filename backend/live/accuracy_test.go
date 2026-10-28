@@ -43,7 +43,7 @@ func TestShownTimesScoredOnArrival(t *testing.T) {
 	if p == nil || len(p.shown) != 2 {
 		t.Fatalf("want 2 shown minutes (5, 4), got %+v", p)
 	}
-	eng.noteArrival(7, "5_0", 10, asOf.Add(330*time.Second))
+	eng.noteArrival(7, 5, "5_0", 10, asOf.Add(330*time.Second))
 	if len(eng.accuracy.pending) != 0 {
 		t.Fatalf("arrival left %d pending", len(eng.accuracy.pending))
 	}
