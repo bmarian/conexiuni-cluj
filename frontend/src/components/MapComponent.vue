@@ -134,7 +134,7 @@ const userDot = shallowRef<Marker>()
 const pinMarker = shallowRef<Marker>()
 const originMarker = shallowRef<Marker>()
 let shapeMarkers: Marker[] = []
-type ShownVehicle = {marker: Marker; html: string; settle: () => void; track?: VehicleTrack; untracked?: string; turn?: number}
+type ShownVehicle = {marker: Marker; line?: string; html: string; settle: () => void; track?: VehicleTrack; untracked?: string; turn?: number}
 const vehicleMarkers = new Map<number, ShownVehicle>()
 let highlightMarkers: Marker[] = []
 const lineReveal = new LineReveal()
@@ -243,14 +243,14 @@ const revealStop = (marker: Marker, now?: number) => {
   if (lineReveal.stop(el.querySelector<HTMLElement>('.marker-body')!, markerLatLng(marker), now)) el.classList.remove('marker-enter')
 }
 
-const revealVehicle = (marker: Marker, now?: number) => {
+const revealVehicle = (marker: Marker, line: string | undefined, now?: number) => {
   const el = marker.getElement()
-  if (lineReveal.vehicle(el.querySelector<HTMLElement>('.marker-body')!, now)) el.classList.remove('marker-enter')
+  if (lineReveal.vehicle(el.querySelector<HTMLElement>('.marker-body')!, line, now)) el.classList.remove('marker-enter')
 }
 
 const revealAll = (now?: number) => {
   for (const marker of [...highlightMarkers, ...shapeMarkers]) revealStop(marker, now)
-  for (const {marker} of vehicleMarkers.values()) revealVehicle(marker, now)
+  for (const {marker, line} of vehicleMarkers.values()) revealVehicle(marker, line, now)
 }
 
 // After this update's zoom to fit, or the user's drag, so the drawing plays where it ends up.
@@ -268,6 +268,7 @@ const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
       line.coords.map(([lat]) => lat),
       line.coords.map(([, lng]) => lng),
     ),
+    line.name,
   )
   revealAll()
   void whenStill(m).then(() => {
@@ -1442,7 +1443,7 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     if (shown) {
       if (shown.html !== html) {
         setMarkerIcon(shown.marker, icon)
-        revealVehicle(shown.marker)
+        revealVehicle(shown.marker, vehicle.route_short_name)
         shown.html = html
         shown.turn = undefined
       }
@@ -1457,8 +1458,8 @@ const renderVehicles = (vehicles: DisplayVehicle[]) => {
     onMarkerClick(marker, () => {
       selectedVehicleId.value = selectedVehicleId.value === vehicle.id ? null : vehicle.id
     })
-    vehicleMarkers.set(vehicle.id, {marker: marker.addTo(m), html, settle: () => {}})
-    revealVehicle(marker)
+    vehicleMarkers.set(vehicle.id, {marker: marker.addTo(m), line: vehicle.route_short_name, html, settle: () => {}})
+    revealVehicle(marker, vehicle.route_short_name)
   }
   for (const [id, shown] of vehicleMarkers) {
     if (seen.has(id)) continue

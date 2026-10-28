@@ -222,9 +222,7 @@ function onKey(e: KeyboardEvent) {
           >
             <Transition name="face" mode="out-in">
               <div :key="part" class="face">
-                <span v-for="mark in marks" :key="mark.value" class="mark" :style="{translate: `${mark.x - 24}px ${mark.y - 24}px`}">{{
-                  pad(mark.value)
-                }}</span>
+                <span v-for="mark in marks" :key="mark.value" class="mark" :style="{translate: `${mark.x - 24}px ${mark.y - 24}px`}">{{ mark.value }}</span>
               </div>
             </Transition>
             <span class="hand-center"></span>
@@ -232,9 +230,7 @@ function onKey(e: KeyboardEvent) {
               <span class="hand-line"></span>
               <span class="hand-knob">
                 <span class="knob-face" :style="{rotate: `${-turn}deg`}">
-                  <span v-for="mark in marks" :key="mark.value" class="mark" :style="{translate: `${mark.x - 24}px ${mark.y - 24}px`}">{{
-                    pad(mark.value)
-                  }}</span>
+                  <span v-for="mark in marks" :key="mark.value" class="mark" :style="{translate: `${mark.x - 24}px ${mark.y - 24}px`}">{{ mark.value }}</span>
                 </span>
               </span>
             </span>

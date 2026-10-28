@@ -31,6 +31,8 @@ export function useStopDepartures(stopId: Ref<string>) {
   const cachedShapeKey = ref('')
   const cachedShapesWithTrip = ref<Array<[DisplayShape, Shape[]]>>([])
   const displayedFavoriteShapeKey = ref<string | null>(null)
+  // A line once drawn stays while it is a favourite here, so a bus missing from one update doesn't redraw it.
+  const drawnTrips = new Set<string>()
 
   const applyInitialZoomOutForCurrentStop = (shouldZoomOut: boolean) => {
     const loadedStopId = stopInfo.value?.stop_id?.toString()
@@ -159,6 +161,7 @@ export function useStopDepartures(stopId: Ref<string>) {
     cachedShapeKey.value = ''
     cachedShapesWithTrip.value = []
     displayedFavoriteShapeKey.value = null
+    drawnTrips.clear()
     await fetchStopData(id)
     if (!stopInfo.value) loadError.value = true
     isLoading.value = false
@@ -192,14 +195,14 @@ export function useStopDepartures(stopId: Ref<string>) {
         cachedShapeKey.value = shapeKey
       }
       const vehicles: DisplayVehicle[] = []
-      const liveTripIds = new Set<string>()
+      for (const trip of drawnTrips) if (!tripIds.includes(trip)) drawnTrips.delete(trip)
       for (const d of displayShapes) {
         const list = byTrip.get(d.trip_id) ?? []
-        if (list.length) liveTripIds.add(d.trip_id)
+        if (list.length) drawnTrips.add(d.trip_id)
         for (const v of list) vehicles.push({...v, route_short_name: d.route_short_name, route_color: d.route_color})
       }
       const highlighted = cachedShapesWithTrip.value.filter(
-        ([displayShape, points]) => liveTripIds.has(displayShape.trip_id) && Array.isArray(points) && points.length > 0,
+        ([displayShape, points]) => drawnTrips.has(displayShape.trip_id) && Array.isArray(points) && points.length > 0,
       )
       setFavoriteRouteShapes(highlighted)
       applyInitialZoomOutForCurrentStop(highlighted.length > 0)
