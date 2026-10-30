@@ -23,6 +23,18 @@ func newRealtime(url string, ids feeds.IDMap, trace feeds.Tracing) *realtime {
 func (s *realtime) Budget() feeds.Budget { return feeds.Budget{} }
 
 func (s *realtime) Vehicles() ([]models.Vehicle, error) {
+	buses, err := s.journeys()
+	// The map's file is rewritten in place, so a read can land mid-write.
+	if err != nil {
+		buses, err = s.journeys()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.follower.Vehicles(buses, time.Now())
+}
+
+func (s *realtime) journeys() ([]follow.Bus, error) {
 	data, err := feeds.Download(s.url)
 	if err != nil {
 		return nil, fmt.Errorf("live.transportlocal.ro: %w", err)
@@ -31,7 +43,7 @@ func (s *realtime) Vehicles() ([]models.Vehicle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("live.transportlocal.ro: %w", err)
 	}
-	return s.follower.Vehicles(buses, time.Now())
+	return buses, nil
 }
 
 func parseJourneys(data []byte, routes map[string]int) ([]follow.Bus, error) {

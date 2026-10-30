@@ -25,6 +25,9 @@ func (s *Source) Credit() feeds.Credit {
 }
 
 func (s *Source) Snapshot() (*feeds.Snapshot, error) {
+	if left, resetAt := s.client.defaultQuota.remainingUntil(); left < snapshotCalls {
+		return nil, &QuotaError{Left: left, Needed: snapshotCalls, ResetAt: resetAt}
+	}
 	routes, err := fetch[[]models.Route](s.client, "/routes")
 	if err != nil {
 		return nil, err
@@ -85,10 +88,11 @@ func lineColor(r models.Route) string {
 }
 
 func (s *Source) Cadence() time.Duration {
-	if s.client.defaultQuota.limit <= 0 {
+	perDay := s.client.defaultQuota.limit / snapshotCalls
+	if perDay <= 0 {
 		return 24 * time.Hour
 	}
-	return 24 * time.Hour * snapshotCalls / time.Duration(s.client.defaultQuota.limit)
+	return 24 * time.Hour / time.Duration(perDay)
 }
 
 func (s *Source) Vehicles() ([]models.Vehicle, error) {

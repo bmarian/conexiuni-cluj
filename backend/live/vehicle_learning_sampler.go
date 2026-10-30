@@ -45,6 +45,8 @@ type learnerState struct {
 	cfg         VehicleLearningSamplerConfig
 	counter     *vehicleLearningDailyCounter
 	initialized bool
+	failures int
+	failing  string
 }
 
 func (eng *Engine) StartVehicleLearningSampler(r *jobs.Runner) {
@@ -146,18 +148,34 @@ func (eng *Engine) runVehicleLearningSample(cfg VehicleLearningSamplerConfig, co
 
 	counter.Record(time.Now())
 	_, err := eng.observeVehicles(eng.learner.source)
-	if err != nil {
-		eng.log("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
-			plan.Interval,
-			plan.LearnerUsed+1,
-			plan.VehiclesUsed,
-			plan.DailyBudget,
-			plan.CallsRemaining,
-			plan.QuotaRemaining,
-			err,
-		)
-		return
+	if failures, logged := eng.noteLearnerSample(err); err != nil {
+		if !logged {
+			eng.log("vehicle learner: sample failed interval=%s learner_used=%d vehicles_used=%d daily_budget=%d calls_remaining=%d quota_remaining=%d err=%v",
+				plan.Interval,
+				plan.LearnerUsed+1,
+				plan.VehiclesUsed,
+				plan.DailyBudget,
+				plan.CallsRemaining,
+				plan.QuotaRemaining,
+				err,
+			)
+		}
+	} else if failures > 0 {
+		eng.log("vehicle learner: samples back after %d failed", failures)
 	}
+}
+
+func (eng *Engine) noteLearnerSample(err error) (failures int, logged bool) {
+	eng.learner.Lock()
+	defer eng.learner.Unlock()
+	failures = eng.learner.failures
+	if err == nil {
+		eng.learner.failures, eng.learner.failing = 0, ""
+		return failures, false
+	}
+	logged = failures > 0 && err.Error() == eng.learner.failing
+	eng.learner.failures, eng.learner.failing = failures+1, err.Error()
+	return failures, logged
 }
 
 func (eng *Engine) currentVehicleLearningPlan(cfg VehicleLearningSamplerConfig, counter *vehicleLearningDailyCounter) vehicleLearningPlan {

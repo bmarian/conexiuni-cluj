@@ -2,7 +2,6 @@ package tranzy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -35,14 +34,29 @@ type dailyQuota struct {
 	persister QuotaPersister
 }
 
+type QuotaError struct {
+	Left, Needed int
+	ResetAt      time.Time
+}
+
+func (e *QuotaError) Error() string {
+	if e.Needed > 1 {
+		return fmt.Sprintf("tranzy: %d daily calls left, a snapshot takes %d", e.Left, e.Needed)
+	}
+	return "tranzy: daily quota exceeded for endpoint"
+}
+
+func (e *QuotaError) RetryAt() time.Time { return e.ResetAt }
+
 func (quota *dailyQuota) check() error {
 	quota.mutex.Lock()
 
 	quota.rolloverLocked()
 
 	if quota.count >= quota.limit {
+		err := &QuotaError{Needed: 1, ResetAt: quota.resetAt}
 		quota.mutex.Unlock()
-		return errors.New("tranzy: daily quota exceeded for endpoint")
+		return err
 	}
 
 	quota.count++
@@ -58,7 +72,7 @@ func (quota *dailyQuota) check() error {
 
 func (quota *dailyQuota) rolloverLocked() {
 	now := time.Now().In(quota.loc)
-	if now.After(quota.resetAt) {
+	if !now.Before(quota.resetAt) {
 		quota.count = 0
 		y, m, d := now.Date()
 		quota.resetAt = time.Date(y, m, d+1, 0, 0, 0, 0, quota.loc)
@@ -76,6 +90,11 @@ func (quota *dailyQuota) persistLocked() {
 }
 
 func (quota *dailyQuota) remaining() int {
+	r, _ := quota.remainingUntil()
+	return r
+}
+
+func (quota *dailyQuota) remainingUntil() (int, time.Time) {
 	quota.mutex.Lock()
 	defer quota.mutex.Unlock()
 	quota.rolloverLocked()
@@ -83,7 +102,7 @@ func (quota *dailyQuota) remaining() int {
 	if r < 0 {
 		r = 0
 	}
-	return r
+	return r, quota.resetAt
 }
 
 type Client struct {
