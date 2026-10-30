@@ -10,6 +10,7 @@ import (
 	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -82,6 +83,10 @@ func (im *Importer) Start(r *jobs.Runner) {
 				// Backs off up to the source's own pace.
 				wait := min(retry, im.Static.Cadence())
 				retry = min(retry*2, im.Static.Cadence())
+				var later interface{ RetryAt() time.Time }
+				if errors.As(err, &later) {
+					wait = time.Until(later.RetryAt())
+				}
 				im.store.Logf("ingest: %v; next try in %s", err, wait.Round(time.Second))
 				if !r.Sleep(wait) {
 					return
