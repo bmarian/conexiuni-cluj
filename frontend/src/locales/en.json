@@ -339,5 +339,16 @@
   "destsDistricts": "Districts",
   "destsTowns": "Towns and villages",
   "destCounts": "{stops} stops · {lines} lines",
-  "destNotFound": "No area called “{name}”"
+  "destNotFound": "No area called “{name}”",
+  "getApp": "Get the app",
+  "getAndroidApp": "Get the Android app",
+  "getAndroidAppDesc": "Navigation, reminders and alerts in the app.",
+  "appSection": "App",
+  "appDialogTitle": "Do you want to install the Android app?",
+  "appFeatureNavigation": "Guides you step by step the whole way",
+  "appFeatureReminders": "Reminds you when to leave for your stop",
+  "appFeatureStopAlert": "Tells you before your stop comes up",
+  "appFeatureWatch": "Works on Wear OS watches too",
+  "appDontAsk": "Don't ask again",
+  "yes": "Yes"
 }

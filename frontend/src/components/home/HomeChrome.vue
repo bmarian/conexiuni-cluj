@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import {computed, onMounted} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
+import AppInstallDialog from '@/components/home/AppInstallDialog.vue'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
+import {useSettingsStore} from '@/stores/settings'
 import {useOnline} from '@/composables/useOnline.ts'
 import {useSearch} from '@/composables/useSearch.ts'
+import {offersAndroidApp} from '@/utils/androidApp.ts'
 import {cityPath} from '@/utils/city.ts'
 import {planQuery} from '@/utils/planQuery.ts'
-import {NewspaperIcon, PlaceIcon, SearchIcon, SettingsIcon} from '@/utils/icons.ts'
+import {AndroidIcon, NewspaperIcon, PlaceIcon, SearchIcon, SettingsIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 const router = useRouter()
 const favorites = useFavoritesStore()
 const routeUpdates = useRouteUpdatesStore()
+const settings = useSettingsStore()
 const {isOnline} = useOnline()
 const search = useSearch()
+const installing = ref(false)
 
+const showApp = computed(() => offersAndroidApp && isOnline.value && !settings.appPromptDismissed)
 const showNews = computed(() => isOnline.value && routeUpdates.hasFeed)
 const places = computed(() => (isOnline.value ? favorites.favoritePlans : []))
 
@@ -34,7 +40,11 @@ onMounted(() => void routeUpdates.fetchUpdates())
         <SettingsIcon class="m-icon" />
       </button>
     </div>
-    <div v-if="showNews || places.length" class="chips">
+    <div v-if="showApp || showNews || places.length" class="chips">
+      <button v-if="showApp" type="button" class="map-chip app-chip squish" @click="installing = true">
+        <AndroidIcon class="m-icon size-[18px] android-icon" />
+        <span>{{ t('getApp') }}</span>
+      </button>
       <button v-if="showNews" type="button" class="map-chip squish" @click="router.push(cityPath('/anunturi'))">
         <span class="relative inline-flex">
           <NewspaperIcon class="m-icon size-[18px] text-on-surface-variant" />
@@ -53,6 +63,7 @@ onMounted(() => void routeUpdates.fetchUpdates())
         <span class="truncate">{{ place.label ?? place.name }}</span>
       </button>
     </div>
+    <AppInstallDialog v-model:open="installing" />
   </div>
 </template>
 
@@ -120,6 +131,11 @@ onMounted(() => void routeUpdates.fetchUpdates())
   font-weight: 500;
   letter-spacing: 0.1px;
   cursor: pointer;
+}
+
+.app-chip {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
 }
 
 .news-dot {

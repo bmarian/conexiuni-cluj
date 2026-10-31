@@ -71,6 +71,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const colorfulLines = ref(localStorage.getItem('settings.colorfulLines') === 'true')
+  const appPromptDismissed = ref(localStorage.getItem('settings.appPromptDismissed') === 'true')
 
   const regionValues = ref<Record<string, boolean>>({})
   function regionSetting(slug: string, key: RegionSettingKey): boolean {
@@ -89,6 +90,11 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(storageKey, val ? 'true' : 'false')
   }
   const showGreenFriday = computed(() => regionSetting(currentCity.value, 'showGreenFriday'))
+
+  function dismissAppPrompt() {
+    appPromptDismissed.value = true
+    localStorage.setItem('settings.appPromptDismissed', 'true')
+  }
 
   function setAutoCenterOnMe(val: boolean) {
     autoCenterOnMe.value = val
@@ -133,6 +139,8 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
+    appPromptDismissed,
+    dismissAppPrompt,
     theme,
     locale,
     isDark,
