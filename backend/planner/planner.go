@@ -466,7 +466,11 @@ func (s *Service) describePlan(resp *planResponse, options []router.Option) erro
 			first := po.Runs[0].Rides[ride]
 			leg.Seconds = first.Arrive - first.Depart
 			leg.Path = s.ridePolyline(first.TripID, l, stopByID)
-			key = append(key, fmt.Sprintf("%d>%d", l.FromStop, l.ToStop))
+			stops := fmt.Sprintf("%d>%d", l.FromStop, l.ToStop)
+			if l.OwnTicket {
+				stops += "t"
+			}
+			key = append(key, stops)
 			po.Legs = append(po.Legs, leg)
 			ride++
 		}

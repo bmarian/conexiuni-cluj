@@ -67,6 +67,84 @@ func TestATicketSavingLessThanItIsWorthGoes(t *testing.T) {
 	}
 }
 
+func TestASecondTicketThatSavesTimeComesSecond(t *testing.T) {
+	n, day := ticketNetwork(20)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute), Runs: 3}))
+	if len(got) != 2 || got[0] != "city " || got[1] != "metro " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestASecondTicketThatSavesNoTimeGoes(t *testing.T) {
+	n, day := ticketNetwork(40)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 50*time.Minute), Runs: 3}))
+	if len(got) != 1 || got[0] != "city " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+// Line 1 runs every ten minutes from stop 1 to stop 4; the other way changes at stop 2 and reaches it at the given minute past eight.
+func secondWayNetwork(arrives int) (*Network, time.Time) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	return streets.Network([]PatternInput{
+		{RouteID: 1, Key: "direct", Stops: []int{1, 4}, Trips: [][]int64{{at(8, 0), at(8, 20)}, {at(8, 10), at(8, 30)}, {at(8, 20), at(8, 40)}}},
+		{RouteID: 2, Key: "feeder", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 5)}}},
+		{RouteID: 3, Key: "main", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 8), at(8, arrives)}}},
+	}), day
+}
+
+func TestABeatenWayOnOtherLinesComesSecond(t *testing.T) {
+	n, day := secondWayNetwork(30)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 58*time.Minute), Runs: 3}))
+	if len(got) != 2 || got[0] != "direct " || got[1] != "feeder main " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestArrivingByKeepsASecondWay(t *testing.T) {
+	n, day := secondWayNetwork(30)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(8*time.Hour + 35*time.Minute), ArriveBy: true, Runs: 3}))
+	if len(got) != 2 || got[0] != "direct " || got[1] != "feeder main " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestASecondWaySlowerThanWaitingForTheBusGoes(t *testing.T) {
+	n, day := secondWayNetwork(55)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 58*time.Minute), Runs: 3}))
+	if len(got) != 1 || got[0] != "direct " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestASecondWayCanKeepOneRide(t *testing.T) {
+	streets, day := testStreets(time.Minute)
+	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).Unix() }
+	n := streets.Network([]PatternInput{
+		{RouteID: 1, Key: "first", Stops: []int{1, 2}, Trips: [][]int64{{at(8, 0), at(8, 5)}}},
+		{RouteID: 2, Key: "fast", Stops: []int{2, 4}, Trips: [][]int64{{at(8, 8), at(8, 20)}}},
+		{RouteID: 3, Key: "slow", Stops: []int{2, 3}, Trips: [][]int64{{at(8, 9), at(8, 15)}}},
+		{RouteID: 4, Key: "on", Stops: []int{3, 4}, Trips: [][]int64{{at(8, 17), at(8, 24)}}},
+	})
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 58*time.Minute), Runs: 1}))
+	if len(got) != 1 || got[0] != "first fast " {
+		t.Fatalf("slower than the only listed bus: got %q", got)
+	}
+	got = keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 58*time.Minute), Runs: 3}))
+	if len(got) != 2 || got[0] != "first fast " || got[1] != "first slow on " {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestDroppingARideIsNotASecondWay(t *testing.T) {
+	n, day := feederNetwork(23.506)
+	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5798}, Time: day.Add(7*time.Hour + 55*time.Minute), Runs: 3}))
+	if len(got) != 1 || got[0] != "feeder main " {
+		t.Fatalf("got %q", got)
+	}
+}
+
 // The second stop is a walk away, or one stop on the feeder; changes cost three minutes.
 func feederNetwork(secondStopLon float64) (*Network, time.Time) {
 	streets, day := testStreets(3*time.Minute, Stop{1, 46.77, 23.500}, Stop{2, 46.77, secondStopLon}, Stop{3, 46.77, 23.580})

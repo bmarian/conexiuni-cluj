@@ -30,13 +30,14 @@ type Query struct {
 
 // Leg is a walk or a ride; stop IDs are 0 at the origin and the destination.
 type Leg struct {
-	Ride     bool
-	FromStop int
-	ToStop   int
-	Passed   []int
-	Meters   float64
-	Secs     int64
-	Path     []Point
+	Ride      bool
+	FromStop  int
+	ToStop    int
+	Passed    []int
+	Meters    float64
+	Secs      int64
+	Path      []Point
+	OwnTicket bool
 }
 
 type Ride struct {
@@ -62,7 +63,8 @@ type Option struct {
 	Rides      int
 	WalkMeters float64
 	// Rides that need a ticket of their own.
-	Tickets int
+	Tickets      int
+	ridePatterns []map[int32]bool
 }
 
 type line struct{ pattern, board, alight int32 }
@@ -89,31 +91,38 @@ func (n *Network) Plan(q Query) []Option {
 	if q.ArriveBy {
 		walk.Runs[0] = Run{Depart: start - walk.Legs[0].Secs, Arrive: start}
 	}
-	var journeys []journey
-	if q.ArriveBy {
-		for _, j := range n.search(&n.backward, egress, access, -start, walk.Legs[0].Secs) {
-			journeys = append(journeys, n.unreverse(j))
+	find := func(skip map[int32]bool) []Option {
+		var journeys []journey
+		if q.ArriveBy {
+			for _, j := range n.search(&n.backward, egress, access, -start, walk.Legs[0].Secs, skip) {
+				journeys = append(journeys, n.unreverse(j))
+			}
+		} else {
+			journeys = n.search(&n.forward, access, egress, start, walk.Legs[0].Secs, skip)
 		}
-	} else {
-		journeys = n.search(&n.forward, access, egress, start, walk.Legs[0].Secs)
+		seen := make(map[string]bool)
+		var options []Option
+		for _, j := range journeys {
+			key := n.stopsKey(j)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			sk := n.skeleton(j, skip)
+			runs := n.runs(sk, start, q, walk.Legs[0].Secs)
+			if len(runs) == 0 {
+				continue
+			}
+			options = append(options, n.option(sk, runs))
+		}
+		return options
 	}
-
-	seen := make(map[string]bool)
-	var options []Option
-	for _, j := range journeys {
-		key := n.stopsKey(j)
-		if seen[key] {
-			continue
+	options := n.worthTaking(find(nil), walk, q)
+	if !q.Last && len(options) == 1 {
+		if second, ok := n.secondWay(options[0], walk, q, find); ok {
+			options = append(options, second)
 		}
-		seen[key] = true
-		sk := n.skeleton(j)
-		runs := n.runs(sk, start, q, walk.Legs[0].Secs)
-		if len(runs) == 0 {
-			continue
-		}
-		options = append(options, n.option(sk, runs))
 	}
-	options = n.worthTaking(options, walk, q)
 
 	for i := range options {
 		for l := range options[i].Legs {
@@ -147,8 +156,8 @@ func (n *Network) stopsKey(j journey) string {
 	return b.String()
 }
 
-// skeleton keeps the journey's stops and every line that rides between each pair of them on the same ticket.
-func (n *Network) skeleton(j journey) skeleton {
+// skeleton keeps the journey's stops and every line outside skip that rides between each pair of them on the same ticket.
+func (n *Network) skeleton(j journey, skip map[int32]bool) skeleton {
 	sk := skeleton{steps: j.steps}
 	for i, s := range j.steps {
 		if s.kind != byRide {
@@ -165,7 +174,7 @@ func (n *Network) skeleton(j journey) skeleton {
 		own := n.forward.patterns[s.pattern].ownTicket
 		sk.tickets += int(n.forward.patterns[s.pattern].tickets())
 		for _, sp := range n.forward.byStop[s.from] {
-			if n.forward.patterns[sp.pattern].ownTicket != own {
+			if n.forward.patterns[sp.pattern].ownTicket != own || skip[sp.pattern] {
 				continue
 			}
 			stops := n.forward.patterns[sp.pattern].stops
@@ -183,6 +192,13 @@ func (n *Network) skeleton(j journey) skeleton {
 
 func (n *Network) option(sk skeleton, runs []Run) Option {
 	o := Option{Runs: runs}
+	for _, lines := range sk.lines {
+		ride := make(map[int32]bool, len(lines))
+		for _, l := range lines {
+			ride[l.pattern] = true
+		}
+		o.ridePatterns = append(o.ridePatterns, ride)
+	}
 	for _, s := range sk.steps {
 		leg := Leg{Ride: s.kind == byRide, Secs: s.arrive - s.depart, Meters: s.meters}
 		if s.from >= 0 {
@@ -196,6 +212,7 @@ func (n *Network) option(sk skeleton, runs []Run) Option {
 			for _, st := range p.stops[s.board+1 : s.alight] {
 				leg.Passed = append(leg.Passed, n.stops[st].ID)
 			}
+			leg.OwnTicket = p.ownTicket
 			o.Rides++
 			o.Tickets += int(p.tickets())
 		} else {
@@ -361,24 +378,27 @@ func nearestRun(col []int64, at int64) int {
 	return i
 }
 
+func when(o Option, q Query) int64 {
+	switch {
+	case q.Last:
+		return o.Runs[0].Arrive - o.Runs[0].Depart
+	case q.ArriveBy:
+		return -o.Runs[0].Depart
+	}
+	return o.Runs[0].Arrive
+}
+
+func (n *Network) score(o Option, q Query) (t, effort int64) {
+	t = when(o, q) + int64(max(o.Rides-1, 0))*int64(n.opt.TransferSlack.Seconds()) + int64(o.Tickets)*int64(n.opt.TicketCost.Seconds())
+	return t, t + n.walkSecs(o.WalkMeters)
+}
+
 // Merges options on the same lines, then drops any beaten on effort, rides and tickets by more than runs stray.
 // Among the day's last buses, leaving later counts too.
 func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 	slack := int64(n.opt.TransferSlack.Seconds())
 	ticket := int64(n.opt.TicketCost.Seconds())
-	when := func(o Option) int64 {
-		switch {
-		case q.Last:
-			return o.Runs[0].Arrive - o.Runs[0].Depart
-		case q.ArriveBy:
-			return -o.Runs[0].Depart
-		}
-		return o.Runs[0].Arrive
-	}
-	score := func(o Option) (int64, int64) {
-		t := when(o) + int64(max(o.Rides-1, 0))*slack + int64(o.Tickets)*ticket
-		return t, t + n.walkSecs(o.WalkMeters)
-	}
+	score := func(o Option) (int64, int64) { return n.score(o, q) }
 	journey := make([]int, len(options))
 	var root func(i int) int
 	root = func(i int) int {
@@ -456,7 +476,7 @@ func (n *Network) worthTaking(options []Option, walk Option, q Query) []Option {
 		if q.Last {
 			return out[i].Runs[0].Depart > out[j].Runs[0].Depart
 		}
-		return when(out[i])+int64(out[i].Tickets)*ticket < when(out[j])+int64(out[j].Tickets)*ticket
+		return when(out[i], q)+int64(out[i].Tickets)*ticket < when(out[j], q)+int64(out[j].Tickets)*ticket
 	})
 	return out
 }
