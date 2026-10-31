@@ -5,17 +5,19 @@ import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import {useMapStore} from '@/stores/map.ts'
 import {useUserStore} from '@/stores/user.ts'
-import {useFavoritesStore, type FavoritePlan} from '@/stores/favorites.ts'
+import {matchingPlans, useFavoritesStore, type FavoritePlan} from '@/stores/favorites.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {useSearch} from '@/composables/useSearch.ts'
 import {useOpenRoute} from '@/composables/useOpenRoute.ts'
+import {useRecents} from '@/composables/useRecents.ts'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
+import {useOpenOnEnter} from '@/composables/useOpenOnEnter.ts'
 import type {Route, Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
-import {searchPlaces, type Place} from '@/utils/places.ts'
-import {RESULTS_PER_KIND, stopMatchRank} from '@/utils/stopSearch.ts'
+import {placeDetail, searchPlaces, type Place} from '@/utils/places.ts'
+import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {network} from '@/utils/network.ts'
 import {cityCenter, cityParams} from '@/utils/city.ts'
@@ -25,12 +27,14 @@ import {ArrowBackIcon, CloseIcon, DirectionsBusIcon, KeyboardArrowRightIcon, Map
 import SubLabel from '@/components/ui/SubLabel.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
+import RecentRow from '@/components/rows/RecentRow.vue'
 import RouteRow from '@/components/rows/RouteRow.vue'
 import StationRow from '@/components/rows/StationRow.vue'
 import LoadMore from '@/components/LoadMore.vue'
 
 const PLACE_DEBOUNCE_MS = 350
 const PLACE_MIN_CHARS = 3
+const PLACES_KEPT = 10
 const RECENTS_SHOWN = 8
 const PAGE_SIZE = 30
 
@@ -39,7 +43,7 @@ const router = useRouter()
 const mapStore = useMapStore()
 const userStore = useUserStore()
 const favorites = useFavoritesStore()
-const {favoritePlans, recentPlans} = storeToRefs(favorites)
+const {favoritePlans} = storeToRefs(favorites)
 const {routes, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
 const {isOnline} = useOnline()
@@ -74,31 +78,36 @@ const sortedStops = computed(() => {
   return network.value?.oneStopPerStation(sorted) ?? sorted
 })
 
+const savedResults = computed(() => matchingPlans(favoritePlans.value, query.value))
+
 const routeResults = computed<Route[]>(() => {
   const q = fold(query.value.trim())
   if (!q) return []
-  return sortedRoutes.value.filter((r) => fold(r.route_short_name).includes(q) || fold(r.route_long_name).includes(q)).slice(0, RESULTS_PER_KIND)
+  return matching(sortedRoutes.value, (r) => fold(`${r.route_short_name} ${r.route_long_name}`), q)
+    .slice(0, RESULTS_PER_KIND)
+    .map((m) => m.item)
 })
 
 const stopResults = computed<Stop[]>(() => {
   const q = fold(query.value.trim())
   if (!q) return []
-  const matches = stops.value.map((stop) => ({stop, rank: stopMatchRank(fold(stop.stop_name), q)})).filter((m) => m.rank >= 0)
+  const matches = matching(stops.value, (stop) => fold(stop.stop_name), q)
   const loc = userStore.userLocation
   const sorted = loc
     ? sortByDistance(
         matches,
         loc.latitude,
         loc.longitude,
-        (m) => m.stop.stop_lat,
-        (m) => m.stop.stop_lon,
+        (m) => m.item.stop_lat,
+        (m) => m.item.stop_lon,
       )
     : matches
-  const ranked = sorted.sort((a, b) => a.rank - b.rank).map((m) => m.stop)
+  const ranked = sorted.sort((a, b) => a.rank - b.rank).map((m) => m.item)
   return (network.value?.oneStopPerStation(ranked) ?? ranked).slice(0, RESULTS_PER_KIND)
 })
 
 const places = ref<Place[]>([])
+const placesOpen = ref(false)
 const placesLoading = ref(false)
 let placeTimer: ReturnType<typeof setTimeout> | null = null
 let placeRequest: AbortController | null = null
@@ -107,19 +116,9 @@ async function fetchPlaces(q: string) {
   const request = new AbortController()
   placeRequest = request
   try {
-    const found = await searchPlaces(q, RESULTS_PER_KIND, request.signal)
+    const found = await searchPlaces(q, PLACES_KEPT, request.signal)
     if (request.signal.aborted) return
-    const loc = userStore.userLocation
-    places.value =
-      loc && found.length > 1
-        ? sortByDistance(
-            found,
-            loc.latitude,
-            loc.longitude,
-            (r) => parseFloat(r.lat),
-            (r) => parseFloat(r.lon),
-          )
-        : found
+    places.value = found
   } catch {
     if (!request.signal.aborted) places.value = []
   } finally {
@@ -135,10 +134,29 @@ watch(query, (q) => {
   placeRequest?.abort()
   placeRequest = null
   places.value = []
+  placesOpen.value = false
   const trimmed = q.trim()
   placesLoading.value = isOnline.value && trimmed.length >= PLACE_MIN_CHARS
   if (placesLoading.value) placeTimer = setTimeout(() => fetchPlaces(trimmed), PLACE_DEBOUNCE_MS)
 })
+
+function nearestFirst(found: Place[]): Place[] {
+  const loc = userStore.userLocation
+  if (!loc) return found
+  return sortByDistance(
+    found,
+    loc.latitude,
+    loc.longitude,
+    (r) => parseFloat(r.lat),
+    (r) => parseFloat(r.lon),
+  )
+}
+
+// So nothing moves when the rest open.
+const shownPlaces = computed(() => [
+  ...nearestFirst(places.value.slice(0, RESULTS_PER_KIND)),
+  ...(placesOpen.value ? nearestFirst(places.value.slice(RESULTS_PER_KIND)) : []),
+])
 
 onUnmounted(() => {
   if (placeTimer) clearTimeout(placeTimer)
@@ -150,9 +168,11 @@ function distanceTo(lat: number, lon: number): string | null {
   return loc ? formatMeters(haversineMeters(loc.latitude, loc.longitude, lat, lon)) : null
 }
 
-const noResults = computed(() => !placesLoading.value && !places.value.length && !routeResults.value.length && !stopResults.value.length)
+const noResults = computed(
+  () => !placesLoading.value && !places.value.length && !savedResults.value.length && !routeResults.value.length && !stopResults.value.length,
+)
 
-const recents = computed(() => recentPlans.value.filter((p) => !favorites.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon)).slice(0, RECENTS_SHOWN))
+const recents = useRecents(RECENTS_SHOWN)
 
 function persistedToggle(key: string) {
   const on = ref(localStorage.getItem(key) === 'true')
@@ -177,7 +197,7 @@ function openPlace(place: Place) {
   const lat = parseFloat(place.lat)
   const lon = parseFloat(place.lon)
   go(() => {
-    if (!isNaN(lat) && !isNaN(lon)) favorites.addRecentPlan({name: place.label, lat, lon})
+    if (!isNaN(lat) && !isNaN(lon)) favorites.addRecent({name: place.label, lat, lon})
     void router.push({
       name: 'plan',
       query: {lat: place.lat, lon: place.lon, name: place.label},
@@ -191,6 +211,7 @@ function openPlan(plan: FavoritePlan) {
 
 function openStop(stop: Stop) {
   go(() => {
+    favorites.addRecent({stopId: stop.stop_id})
     mapStore.clearPinnedLocation()
     mapStore.setFlyToLocation(stop.stop_lat, stop.stop_lon)
     void router.push(stopLocation(stop.stop_id))
@@ -199,8 +220,25 @@ function openStop(stop: Stop) {
 
 function pickRoute(route: Route) {
   input.value?.blur()
-  void openRoute(route).then(() => close(false))
+  void openRoute(route).then(() => {
+    favorites.addRecent({routeId: route.route_id})
+    close(false)
+  })
 }
+
+function openTopResult(): boolean {
+  const plan = isOnline.value ? savedResults.value[0] : undefined
+  const route = routeResults.value[0]
+  const stop = stopResults.value[0]
+  const place = isOnline.value ? shownPlaces.value[0] : undefined
+  if (plan) openPlan(plan)
+  else if (route) pickRoute(route)
+  else if (stop) openStop(stop)
+  else if (place) openPlace(place)
+  return !!(plan || route || stop || place)
+}
+
+const onEnter = useOpenOnEnter(openTopResult, placesLoading, query, () => input.value?.blur())
 
 function dropPin() {
   go(
@@ -234,7 +272,7 @@ function dropPin() {
           :placeholder="t('searchPlaceholder')"
           autocomplete="off"
           enterkeyhint="search"
-          @keydown.enter="input?.blur()"
+          @keydown.enter="onEnter"
         />
         <button v-if="query" type="button" class="icon-btn" :aria-label="t('clearSearch')" :title="t('clearSearch')" @click="query = ''">
           <CloseIcon class="m-icon" />
@@ -243,6 +281,20 @@ function dropPin() {
       <div ref="scroller" class="search-scroll">
         <template v-if="searching">
           <div v-if="placesLoading" class="progress" aria-hidden="true"><span></span></div>
+          <section v-if="isOnline && savedResults.length" data-kbd-section="search-results">
+            <SubLabel :text="t('favoritePlans')" class="pt-2" />
+            <ListRow
+              v-for="plan in savedResults"
+              :key="`saved-result-${plan.lat}-${plan.lon}-${plan.originLat ?? ''}`"
+              :title="plan.label ?? plan.name"
+              :subtitle="plan.label ? plan.name : undefined"
+              chevron
+              :data-kbd-item="`saved-result-${plan.lat}_${plan.lon}`"
+              @open="openPlan(plan)"
+            >
+              <template #icon><RowIcon :icon="PlaceIcon" tone="tertiary" /></template>
+            </ListRow>
+          </section>
           <section v-if="routeResults.length" data-kbd-section="search-results">
             <SubLabel :text="t('searchResultsRoutes')" class="pt-2" />
             <RouteRow
@@ -271,15 +323,24 @@ function dropPin() {
           <section v-if="isOnline && places.length" data-kbd-section="search-results">
             <SubLabel :text="t('searchResultsPlaces')" class="pt-2" />
             <ListRow
-              v-for="place in places"
+              v-for="place in shownPlaces"
               :key="place.id"
-              :title="place.label"
+              :title="place.name"
+              :subtitle="placeDetail(place) || undefined"
               :trailing="distanceTo(parseFloat(place.lat), parseFloat(place.lon)) ?? undefined"
               chevron
               :data-kbd-item="`place-${place.id}`"
               @open="openPlace(place)"
             >
               <template #icon><RowIcon :icon="PlaceIcon" tone="tertiary" /></template>
+            </ListRow>
+            <ListRow
+              v-if="!placesOpen && places.length > RESULTS_PER_KIND"
+              :title="t('routeChangeShowMore')"
+              data-kbd-item="more-places"
+              @open="placesOpen = true"
+            >
+              <template #icon><RowIcon :icon="KeyboardArrowRightIcon" class="rotate-90" /></template>
             </ListRow>
           </section>
           <template v-if="noResults">
@@ -298,19 +359,31 @@ function dropPin() {
         </template>
 
         <template v-else>
-          <section v-if="isOnline && recents.length" data-kbd-section="recent-plans">
+          <section v-if="recents.length" data-kbd-section="recent-plans">
             <SubLabel :text="t('recentDestinations')" class="pt-2" />
-            <ListRow
-              v-for="plan in recents"
-              :key="`recent-${plan.lat}-${plan.lon}-${plan.originLat ?? ''}`"
-              :title="plan.name"
-              :subtitle="plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
-              chevron
-              :data-kbd-item="`recent-${plan.lat}_${plan.lon}`"
-              @open="openPlan(plan)"
-            >
-              <template #icon><RowIcon :icon="ScheduleIcon" /></template>
-            </ListRow>
+            <template v-for="item in recents" :key="item.key">
+              <ListRow
+                v-if="item.plan"
+                :title="item.plan.name"
+                :subtitle="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : undefined"
+                :remove-label="t('removeFromRecents')"
+                :data-kbd-item="`recent-${item.key}`"
+                @open="openPlan(item.plan!)"
+                @remove="favorites.removeRecent(item.recent)"
+              >
+                <template #icon><RowIcon :icon="ScheduleIcon" /></template>
+              </ListRow>
+              <RecentRow
+                v-else
+                :stop="item.stop"
+                :route="item.route"
+                :remove-label="t('removeFromRecents')"
+                :busy="!!item.route && openingRouteId === item.route.route_id"
+                :data-kbd-item="`recent-${item.key}`"
+                @open="item.stop ? openStop(item.stop) : pickRoute(item.route!)"
+                @remove="favorites.removeRecent(item.recent)"
+              />
+            </template>
           </section>
           <section v-if="isOnline && favoritePlans.length" data-kbd-section="fav-plans">
             <SubLabel :text="t('favoritePlans')" class="pt-2" />

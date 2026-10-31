@@ -11,10 +11,12 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {useOpenRoute} from '@/composables/useOpenRoute.ts'
+import {type RecentItem, useRecents} from '@/composables/useRecents.ts'
 import type {Route, RouteDirection, Stop} from '@/types/tranzy.ts'
 import {network} from '@/utils/network.ts'
 import StationIcon from '@/components/StationIcon.vue'
 import StationLines from '@/components/rows/StationLines.vue'
+import RecentRow from '@/components/rows/RecentRow.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
@@ -46,7 +48,7 @@ useHead(() => ({
   link: [{rel: 'canonical', href: canonicalUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
-const {favoriteRoutes, favoriteStopIds, favoritePlans, recentPlans, isHydrated} = storeToRefs(favoritesStore)
+const {favoriteRoutes, favoriteStopIds, favoritePlans, isHydrated} = storeToRefs(favoritesStore)
 
 const {routes, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -106,9 +108,7 @@ const favoriteStops = computed<Stop[]>(() => favoriteStopIds.value.map((id) => s
 
 const hasFavorites = computed(() => favoriteRoutes.value.length > 0 || favoriteStopIds.value.length > 0 || (isOnline.value && favoritePlans.value.length > 0))
 
-const recentNonFavoritePlans = computed<FavoritePlan[]>(() =>
-  recentPlans.value.filter((p) => !favoritesStore.isPlanFavorite(p.lat, p.lon, p.originLat, p.originLon)).slice(0, RECENTS_SHOWN),
-)
+const recents = useRecents(RECENTS_SHOWN)
 
 const lookOf = (stopId: number) => network.value?.look(stopId)
 
@@ -118,6 +118,12 @@ function openStop(stop: Stop) {
 
 function openPlan(plan: FavoritePlan) {
   if (isOnline.value) void router.push({name: 'plan', query: planQuery(plan)})
+}
+
+function openRecent(item: RecentItem) {
+  favoritesStore.addRecent(item.recent)
+  if (item.stop) openStop(item.stop)
+  else if (item.route) void openRoute(item.route)
 }
 
 function removeRouteGroup(group: FavoriteRouteGroup) {
@@ -145,7 +151,7 @@ const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${group.routeI
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
-const recentItemKey = (p: FavoritePlan) => `recent-${planKey(p)}`
+const recentItemKey = (item: RecentItem) => `recent-${item.key}`
 
 function removeFocused(): boolean {
   const key = kbd.focusedKey()
@@ -154,11 +160,11 @@ function removeFocused(): boolean {
   const group = favoriteRouteGroups.value.find((g) => favRouteItemKey(g) === key)
   const stopId = favoriteStopIds.value.find((id) => favStopItemKey(id) === key)
   const plan = favoritePlans.value.find((p) => favPlanItemKey(p) === key)
-  const recent = recentNonFavoritePlans.value.find((p) => recentItemKey(p) === key)
+  const recent = recents.value.find((item) => recentItemKey(item) === key)
   if (group) removeRouteGroup(group)
   else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
   else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
-  else if (recent && isOnline.value) favoritesStore.removeRecentPlan(recent)
+  else if (recent) favoritesStore.removeRecent(recent.recent)
   else return false
   void nextTick(() => {
     if (!neighbor || !kbd.focusKey(neighbor)) kbd.focusEntry()
@@ -287,24 +293,36 @@ const dragOptions = {
         </Draggable>
       </section>
 
-      <section v-if="isOnline && recentNonFavoritePlans.length" :class="hasFavorites ? 'pt-2' : 'pt-3'" data-kbd-section="recent-plans" data-kbd-entry="1">
+      <section v-if="recents.length" :class="hasFavorites ? 'pt-2' : 'pt-3'" data-kbd-section="recent-plans" data-kbd-entry="1">
         <SubLabel :text="t('recentDestinations')" />
-        <ListRow
-          v-for="plan in recentNonFavoritePlans"
-          :key="planKey(plan)"
-          :title="plan.name"
-          :title-prefix="plan.originName ? `${t('planTo')}: ` : undefined"
-          :kicker="plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
-          :remove-label="t('removeFromRecents')"
-          :data-kbd-item="recentItemKey(plan)"
-          @open="openPlan(plan)"
-          @remove="favoritesStore.removeRecentPlan(plan)"
-        >
-          <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
-        </ListRow>
+        <template v-for="item in recents" :key="item.key">
+          <ListRow
+            v-if="item.plan"
+            :title="item.plan.name"
+            :title-prefix="item.plan.originName ? `${t('planTo')}: ` : undefined"
+            :kicker="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : undefined"
+            :remove-label="t('removeFromRecents')"
+            :data-kbd-item="recentItemKey(item)"
+            @open="openPlan(item.plan!)"
+            @remove="favoritesStore.removeRecent(item.recent)"
+          >
+            <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
+          </ListRow>
+          <RecentRow
+            v-else
+            :stop="item.stop"
+            :route="item.route"
+            :icon-size="30"
+            :remove-label="t('removeFromRecents')"
+            :busy="!!item.route && openingRouteId === item.route.route_id"
+            :data-kbd-item="recentItemKey(item)"
+            @open="openRecent(item)"
+            @remove="favoritesStore.removeRecent(item.recent)"
+          />
+        </template>
       </section>
 
-      <p v-if="!hasFavorites && !(isOnline && recentNonFavoritePlans.length)" class="empty">
+      <p v-if="!hasFavorites && !recents.length" class="empty">
         {{ t('noFavorites') }}
       </p>
       <AllLines v-if="!hasFavorites" />

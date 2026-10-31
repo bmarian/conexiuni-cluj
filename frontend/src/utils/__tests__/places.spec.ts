@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {placeFromApi, resetPlaces, reversePlace, searchPlaces} from '@/utils/places.ts'
+import {placeDetail, placeFromApi, resetPlaces, reversePlace, searchPlaces} from '@/utils/places.ts'
 
 const apiPlace = (label: string, lat = 46.77, lon = 23.6, id = '7') => ({id, lat, lon, label})
 
@@ -14,11 +14,24 @@ describe('placeFromApi', () => {
       lat: '46.77',
       lon: '23.6',
       label: 'Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni',
+      name: 'Iulius Mall, Strada Alexandru Vaida Voevod, 53B, Gheorgheni',
     })
   })
 
+  it('leaves where a place is to the rest of its label', () => {
+    const place = placeFromApi({lat: 46.77, lon: 23.6, label: 'Iulius Mall, Strada Vaida Voevod, 53B, Micro 1', name: 'Iulius Mall'})!
+    expect(place.name).toBe('Iulius Mall')
+    expect(placeDetail(place)).toBe('Strada Vaida Voevod, 53B, Micro 1')
+  })
+
+  it('shows the whole label as the name when an older server sends none', () => {
+    const place = placeFromApi(apiPlace('Iulius Mall, Micro 1'))!
+    expect(place.name).toBe('Iulius Mall, Micro 1')
+    expect(placeDetail(place)).toBe('')
+  })
+
   it('falls back to coordinates for a label, and to them for an id', () => {
-    expect(placeFromApi({lat: 46.77, lon: 23.6})).toEqual({id: '46.77:23.6', lat: '46.77', lon: '23.6', label: '46.7700, 23.6000'})
+    expect(placeFromApi({lat: 46.77, lon: 23.6})).toEqual({id: '46.77:23.6', lat: '46.77', lon: '23.6', label: '46.7700, 23.6000', name: '46.7700, 23.6000'})
   })
 
   it('skips places without usable coordinates', () => {
