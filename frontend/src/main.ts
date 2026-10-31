@@ -16,8 +16,12 @@ import './main.css'
 import {i18n} from './i18n'
 import {apiPath, citiesReady} from './utils/city'
 import {lockIOSPageZoom} from './utils/ios'
+import {DELAY_PACE, LONG_PACE, SPRING_PACE} from './utils/motion'
 
 lockIOSPageZoom()
+
+const paces = {'--pace-long': LONG_PACE, '--pace-delay': DELAY_PACE, '--pace-spring': SPRING_PACE}
+for (const [name, pace] of Object.entries(paces)) document.documentElement.style.setProperty(name, String(pace))
 
 const sendPWAInstallEvent = () => {
   const body = JSON.stringify({metric: 'pwa_install', key: 'appinstalled'})

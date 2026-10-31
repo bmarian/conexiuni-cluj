@@ -49,7 +49,7 @@ import {displayColor, manyLines} from '@/utils/lineColor.ts'
 import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
 import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
-import {reducedMotion, squash} from '@/utils/motion.ts'
+import {paced, reducedMotion, squash} from '@/utils/motion.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
@@ -170,8 +170,8 @@ const VEHICLE_GLIDE_MS = 785
 const VEHICLE_POP_M = 50
 const SPIDER_CLOSE_MS = 155
 const AROUND = 'around:'
-const CITY_FLIGHT_MS = 2175
-const FIT_DURATION_MS = 695
+const CITY_FLIGHT_MS = 1400
+const FIT_DURATION_MS = paced(695)
 const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
 const SLOTS = ['shapes', 'walks', 'accuracy'] as const
@@ -254,9 +254,13 @@ const revealAll = (now?: number) => {
 }
 
 // After this update's zoom to fit, or the user's drag, so the drawing plays where it ends up.
-const whenStill = async (m: MapLibreMap) => {
+// Lines start drawing halfway through the move.
+const whenAiming = async (m: MapLibreMap) => {
   await nextTick()
-  while (m.isMoving()) await new Promise((resolve) => m.once('moveend', resolve))
+  if (m.isMoving()) await new Promise((resolve) => {
+    m.once('moveend', resolve)
+    setTimeout(resolve, FIT_DURATION_MS / 2)
+  })
 }
 
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
@@ -271,7 +275,7 @@ const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
     line.name,
   )
   revealAll()
-  void whenStill(m).then(() => {
+  void whenAiming(m).then(() => {
     const at = lineReveal.start(id, growth)
     if (at === undefined) return
     start()

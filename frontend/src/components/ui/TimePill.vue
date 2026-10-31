@@ -4,7 +4,7 @@ import RealtimeIcon from '@/components/ui/RealtimeIcon.vue'
 import Ticker from '@/components/ui/Ticker.vue'
 import {MODE_ICON} from '@/utils/modeIcons.ts'
 import type {Mode} from '@/utils/modes.ts'
-import {EMPHASIZED_DECELERATE, pop, reducedMotion, squash} from '@/utils/motion.ts'
+import {delayed, EMPHASIZED_DECELERATE, paced, pop, reducedMotion, squash} from '@/utils/motion.ts'
 
 const props = defineProps<{text: string; live?: boolean; extra?: boolean; due?: boolean; mode?: Mode}>()
 
@@ -15,9 +15,9 @@ watch(
   () => [props.due, props.live] as const,
   ([due], [wasDue, wasLive]) => {
     if (!due || wasDue || !wasLive || reducedMotion()) return
-    vehicle.value?.animate([{scale: 0.15, opacity: 0}, {scale: 1, opacity: 1}], {duration: 540, delay: 70, easing: EMPHASIZED_DECELERATE, fill: 'backwards'})
-    squash(vehicle.value, 610)
-    pop(pill.value, 0.86, 540)
+    vehicle.value?.animate([{scale: 0.15, opacity: 0}, {scale: 1, opacity: 1}], {duration: paced(540), delay: delayed(70), easing: EMPHASIZED_DECELERATE, fill: 'backwards'})
+    squash(vehicle.value, delayed(610))
+    pop(pill.value, 0.86, delayed(540))
   },
   {flush: 'post'},
 )
@@ -86,8 +86,8 @@ watch(
   background: var(--md-live);
   color: var(--md-live-container);
   transition:
-    background-color 190ms linear 485ms,
-    color 190ms linear 485ms;
+    background-color 190ms linear calc(485ms * var(--pace-delay)),
+    color 190ms linear calc(485ms * var(--pace-delay));
 }
 
 @media (prefers-reduced-motion: reduce) {

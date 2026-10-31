@@ -1,5 +1,6 @@
 import type {Map as MapLibreMap, Marker} from 'maplibre-gl'
 import {type LatLng, markerLatLng} from '@/utils/mapMarkers.ts'
+import {paced} from '@/utils/motion.ts'
 
 export const LEAVE_MS = 140
 
@@ -39,5 +40,5 @@ export function fadeOutMarker(marker: Marker) {
 }
 
 export function flightMs(distancePx: number, zoomDelta: number): number {
-  return Math.min(955, Math.max(305, 260 + distancePx * 0.22 + Math.abs(zoomDelta) * 155))
+  return paced(Math.min(955, Math.max(305, 260 + distancePx * 0.22 + Math.abs(zoomDelta) * 155)))
 }

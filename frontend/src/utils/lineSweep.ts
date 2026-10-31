@@ -1,7 +1,8 @@
 import type {ExpressionSpecification, Map as MapLibreMap} from 'maplibre-gl'
+import {paced} from '@/utils/motion.ts'
 
 // In step with the badge's heart; the source needs lineMetrics.
-export const SWEEP_MS = 1130
+export const SWEEP_MS = paced(1130)
 
 const CLEAR = 'rgba(0, 0, 0, 0)'
 
