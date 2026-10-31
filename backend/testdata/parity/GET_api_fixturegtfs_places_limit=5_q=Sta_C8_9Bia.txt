@@ -1,10 +1,10 @@
 GET /api/fixturegtfs/places?limit=5&q=Sta%C8%9Bia
 200
 Cache-Control: no-cache
-Content-Length: 196
+Content-Length: 254
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"196-2267689443"
+Etag: W/"254-2930333139"
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -15,12 +15,14 @@ X-Frame-Options: DENY
   "id": "3",
   "lat": 44.9924,
   "lon": 25.000400000000003,
-  "label": "Cafenea Stația 711, fixturegtfs"
+  "label": "Cafenea Stația 711, fixturegtfs",
+  "name": "Cafenea Stația 711"
  },
  {
   "id": "1",
   "lat": 45.000400000000006,
   "lon": 24.988400000000002,
-  "label": "Cafenea Stația 701, Cartier 0"
+  "label": "Cafenea Stația 701, Cartier 0",
+  "name": "Cafenea Stația 701"
  }
 ]

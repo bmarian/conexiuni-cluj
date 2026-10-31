@@ -5,6 +5,7 @@ export interface Place {
   lat: string
   lon: string
   label: string
+  name: string
 }
 
 interface ApiPlace {
@@ -12,6 +13,7 @@ interface ApiPlace {
   lat?: unknown
   lon?: unknown
   label?: unknown
+  name?: unknown
 }
 
 const CACHED = 64
@@ -29,13 +31,17 @@ export function placeFromApi(raw: ApiPlace): Place | null {
   const lon = typeof raw.lon === 'number' ? raw.lon : Number.NaN
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
   const label = typeof raw.label === 'string' ? raw.label.trim() : ''
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : `${lat}:${lon}`,
     lat: String(lat),
     lon: String(lon),
     label: label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+    name: (label && name) || label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
   }
 }
+
+export const placeDetail = (place: Place): string => place.label.slice(place.name.length).replace(/^,\s*/, '')
 
 async function request(url: string, signal?: AbortSignal): Promise<Place[]> {
   const hit = cache.get(url)

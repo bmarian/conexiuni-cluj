@@ -1,7 +1,7 @@
 package router
 
 import (
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -24,8 +24,10 @@ const (
 type placeTags struct {
 	kind                         placeKind
 	name, street, number, suburb string
+	aliases                      string
 	// A city or a town, not a village: what a district belongs to.
-	big bool
+	big     bool
+	notable bool
 	// Only for nodes: a way stands on its first node.
 	place string
 }
@@ -38,9 +40,29 @@ type pbfPlace struct {
 	placed   bool
 }
 
-var namedKeys = []string{"amenity", "shop", "tourism", "leisure", "office", "craft", "healthcare", "historic", "railway", "aeroway", "building"}
+var (
+	namedKeys = []string{
+		"amenity", "shop", "tourism", "leisure", "office", "craft", "healthcare", "historic", "railway", "aeroway", "building", "landuse", "natural",
+	}
+	aliasKeys   = []string{"alt_name", "old_name", "short_name", "official_name", "loc_name"}
+	notableKeys = []string{"wikidata", "wikipedia"}
+)
 
 func placeOf(tag func(string) string, way bool) (placeTags, bool) {
+	p, ok := placeKindOf(tag, way)
+	if !ok {
+		return p, false
+	}
+	var aliases []string
+	for _, k := range aliasKeys {
+		aliases = append(aliases, tag(k))
+	}
+	p.aliases = strings.Join(aliases, " ")
+	p.notable = slices.ContainsFunc(notableKeys, func(k string) bool { return tag(k) != "" })
+	return p, true
+}
+
+func placeKindOf(tag func(string) string, way bool) (placeTags, bool) {
 	name := strings.TrimSpace(tag("name"))
 	p := tag("place")
 	node := p
@@ -77,6 +99,8 @@ type Place struct {
 	Lat   float64 `json:"lat"`
 	Lon   float64 `json:"lon"`
 	Label string  `json:"label"`
+	// The start of Label.
+	Name string `json:"name"`
 }
 
 type placeEntry struct {
@@ -84,17 +108,22 @@ type placeEntry struct {
 	lat, lon float64
 	label    string
 	words    []string
-	// How many of the words are the place's own, before the area it is in.
-	own    int
-	number string
+	// How many of the words are the place's own name, before its address, area and aliases.
+	own     int
+	number  string
+	notable bool
+	nameLen int
 }
 
 type Places struct {
 	entries []placeEntry
 	// Entries by the first letters, up to three, of each of their words.
-	index  map[string][]int32
-	center Point
-	areas  []Area
+	index      map[string][]int32
+	center     Point
+	areas      []Area
+	townWords  map[string]bool
+	wordCounts map[string]int32
+	box        BBox
 }
 
 type Area struct {
@@ -108,7 +137,13 @@ type Area struct {
 const nearbyReach = 250.0
 
 func newPlaces(raw []pbfPlace, box BBox) *Places {
-	p := &Places{index: make(map[string][]int32), center: Point{(box.MinLat + box.MaxLat) / 2, (box.MinLon + box.MaxLon) / 2}}
+	p := &Places{
+		index:      make(map[string][]int32),
+		center:     Point{(box.MinLat + box.MaxLat) / 2, (box.MinLon + box.MaxLon) / 2},
+		townWords:  make(map[string]bool),
+		wordCounts: make(map[string]int32),
+		box:        box,
+	}
 	var districts, towns, cities []pbfPlace
 	for _, r := range raw {
 		switch r.kind {
@@ -118,6 +153,9 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 			towns = append(towns, r)
 			if r.big {
 				cities = append(cities, r)
+			}
+			for _, w := range words(r.name) {
+				p.townWords[w] = true
 			}
 		}
 	}
@@ -143,10 +181,13 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 	seen := make(map[string]bool)
 	for _, r := range raw {
 		var parts []string
+		name := r.name
 		switch r.kind {
 		case placeAddress:
 			if r.name != "" && fold(r.name) != fold(r.street) {
 				parts = append(parts, r.name)
+			} else {
+				name = r.street + ", " + r.number
 			}
 			parts = append(parts, r.street, r.number)
 		case placeNamed:
@@ -154,12 +195,9 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 			if r.street != "" {
 				parts = append(parts, r.street)
 			}
-		case placeStreet:
-			parts = append(parts, r.name)
-		case placeDistrict, placeTown:
+		case placeStreet, placeDistrict, placeTown:
 			parts = append(parts, r.name)
 		}
-		own := len(words(strings.Join(parts, ", ")))
 		switch {
 		case r.kind == placeDistrict:
 			if t, _ := nearestPlace(cities, r.lat, r.lon); t != nil {
@@ -176,7 +214,7 @@ func newPlaces(raw []pbfPlace, box BBox) *Places {
 			continue
 		}
 		seen[key] = true
-		p.add(r.kind, r.lat, r.lon, label, own, r.number)
+		p.add(r, label, name)
 	}
 	return p
 }
@@ -208,12 +246,16 @@ func nearestPlace(among []pbfPlace, lat, lon float64) (*pbfPlace, float64) {
 	return best, bestM
 }
 
-func (p *Places) add(kind placeKind, lat, lon float64, label string, own int, number string) {
+func (p *Places) add(r pbfPlace, label, name string) {
 	id := int32(len(p.entries))
-	e := placeEntry{kind: kind, lat: lat, lon: lon, label: label, words: words(label), own: own, number: fold(number)}
+	e := placeEntry{
+		kind: r.kind, lat: r.lat, lon: r.lon, label: label, number: fold(r.number), notable: r.notable,
+		words: append(words(label), words(r.aliases)...), own: len(words(name)), nameLen: len(name),
+	}
 	p.entries = append(p.entries, e)
 	keyed := make(map[string]bool)
 	for _, w := range e.words {
+		p.wordCounts[w]++
 		r := []rune(w)
 		for n := 1; n <= min(3, len(r)); n++ {
 			if k := string(r[:n]); !keyed[k] {
@@ -225,85 +267,6 @@ func (p *Places) add(kind placeKind, lat, lon float64, label string, own int, nu
 }
 
 func (p *Places) Count() int { return len(p.entries) }
-
-// Every query word must start a word of the place; best match first, then nearest the centre.
-func (p *Places) Search(query string, limit int) []Place {
-	tokens := words(query)
-	if len(tokens) == 0 || limit <= 0 {
-		return nil
-	}
-	// Candidates come from the word with the fewest places starting like it.
-	var candidates []int32
-	for i, t := range tokens {
-		r := []rune(t)
-		c := p.index[string(r[:min(3, len(r))])]
-		if i == 0 || len(c) < len(candidates) {
-			candidates = c
-		}
-	}
-	type hit struct {
-		id          int32
-		score, dist float64
-	}
-	var hits []hit
-	for _, id := range candidates {
-		e := &p.entries[id]
-		if score, ok := e.match(tokens); ok {
-			hits = append(hits, hit{id, score, haversine(e.lat, e.lon, p.center.Lat, p.center.Lon)})
-		}
-	}
-	sort.Slice(hits, func(i, j int) bool {
-		if hits[i].score != hits[j].score {
-			return hits[i].score > hits[j].score
-		}
-		return hits[i].dist < hits[j].dist
-	})
-	out := make([]Place, 0, min(limit, len(hits)))
-	for _, h := range hits[:min(limit, len(hits))] {
-		out = append(out, p.place(h.id))
-	}
-	return out
-}
-
-// 2 per whole word, 1 per prefix, +3 for the house number, +1 when all own words match, -0.1 per unmatched word.
-func (e *placeEntry) match(tokens []string) (float64, bool) {
-	score := 0.0
-	used := make([]bool, len(e.words))
-	for _, t := range tokens {
-		best, at := 0.0, -1
-		for i, w := range e.words {
-			switch {
-			case w == t:
-				if best < 2 {
-					best, at = 2, i
-				}
-			case strings.HasPrefix(w, t):
-				if best < 1 {
-					best, at = 1, i
-				}
-			}
-		}
-		if at < 0 {
-			return 0, false
-		}
-		used[at] = true
-		score += best
-		if e.number != "" && t == e.number {
-			score += 3
-		}
-	}
-	whole := true
-	for i, u := range used {
-		if !u {
-			score -= 0.1
-			whole = whole && i >= e.own
-		}
-	}
-	if whole {
-		score++
-	}
-	return score, true
-}
 
 // Nearby is the place at a position: the closest address or named place in reach, else the closest street.
 func (p *Places) Nearby(lat, lon float64) (Place, bool) {
@@ -327,7 +290,7 @@ func (p *Places) Nearby(lat, lon float64) (Place, bool) {
 
 func (p *Places) place(id int32) Place {
 	e := &p.entries[id]
-	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label}
+	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label, Name: e.label[:e.nameLen]}
 }
 
 // A Chain keeps state, and cities build their places concurrently.

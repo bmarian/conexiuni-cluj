@@ -36,6 +36,7 @@ import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
 import {useOwnRoute} from '@/composables/useOwnRoute.ts'
+import {usePlacePicks} from '@/composables/usePlacePicks.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import SelectField from '@/components/ui/SelectField.vue'
@@ -78,6 +79,7 @@ const {timeMode, timeValue} = storeToRefs(plannerStore)
 
 const customOrigin = ref<{name: string; lat: number; lon: number} | null>(null)
 const {activeSearchField, searchQuery, searchResults, isSearching, searchNow, openSearchField, closeSearchField} = usePlaceSearch(isOnline)
+const picks = usePlacePicks(searchQuery)
 
 const vFocus = {
   mounted: (el: HTMLElement) => el.focus(),
@@ -710,7 +712,7 @@ async function calculateRoutes(silent = false) {
     if (!silent && data.options.length) {
       mapStore.fitWalkingPolylines = true
       if (isOnline.value) {
-        favoritesStore.addRecentPlan({
+        favoritesStore.addRecent({
           name: destName.value || t('planTitleGeneric'),
           lat: destLat.value,
           lon: destLon.value,
@@ -999,11 +1001,15 @@ const chips = computed<ChipAction[]>(() => [
               />
               <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon" /></button>
             </label>
+            <button v-if="hasLocationPermission" type="button" class="result squish" data-kbd-item="from-current" @click="useCurrentLocation">
+              <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
+            </button>
+            <button v-for="res in picks" :key="res.id" type="button" class="result squish" :data-kbd-item="`from-pick-${res.id}`" @click="selectOrigin(res)">
+              <ScheduleIcon v-if="res.recent" class="m-icon size-5 text-on-surface-variant" />
+              <PlaceIcon v-else class="m-icon size-5 text-tertiary" />{{ res.label }}
+            </button>
             <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
             <template v-else>
-              <button v-if="hasLocationPermission" type="button" class="result squish" data-kbd-item="from-current" @click="useCurrentLocation">
-                <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
-              </button>
               <button
                 v-for="res in searchResults"
                 :key="res.id"
@@ -1109,17 +1115,28 @@ const chips = computed<ChipAction[]>(() => [
               <button type="button" class="icon-btn" :aria-label="t('cancel')" @click="activeSearchField = null"><CloseIcon class="m-icon" /></button>
             </label>
             <template v-if="isOnline">
+              <button
+                v-if="hasLocationPermission && userLocation"
+                type="button"
+                class="result squish"
+                data-kbd-item="to-current"
+                @click="useCurrentLocationAsDestination"
+              >
+                <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
+              </button>
+              <button
+                v-for="res in picks"
+                :key="res.id"
+                type="button"
+                class="result squish"
+                :data-kbd-item="`to-pick-${res.id}`"
+                @click="selectDestination(res)"
+              >
+                <ScheduleIcon v-if="res.recent" class="m-icon size-5 text-on-surface-variant" />
+                <PlaceIcon v-else class="m-icon size-5 text-tertiary" />{{ res.label }}
+              </button>
               <p v-if="isSearching" class="searching"><span class="spinner"></span>{{ t('planSearching') }}</p>
               <template v-else>
-                <button
-                  v-if="hasLocationPermission && userLocation"
-                  type="button"
-                  class="result squish"
-                  data-kbd-item="to-current"
-                  @click="useCurrentLocationAsDestination"
-                >
-                  <MyLocationIcon class="m-icon size-5 text-primary" />{{ t('planOriginCurrentLocation') }}
-                </button>
                 <button
                   v-for="res in searchResults"
                   :key="res.id"
@@ -1131,7 +1148,7 @@ const chips = computed<ChipAction[]>(() => [
                   <PlaceIcon class="m-icon size-5 text-tertiary" />{{ res.label }}
                 </button>
                 <button
-                  v-if="!searchResults.length && searchQuery.trim().length >= 3"
+                  v-if="!searchResults.length && !picks.length && searchQuery.trim().length >= 3"
                   type="button"
                   class="result squish"
                   data-kbd-item="to-drop-pin"
