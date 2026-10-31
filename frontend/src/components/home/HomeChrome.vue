@@ -42,7 +42,7 @@ onMounted(() => void routeUpdates.fetchUpdates())
     </div>
     <div v-if="showApp || showNews || places.length" class="chips">
       <button v-if="showApp" type="button" class="map-chip app-chip squish" @click="installing = true">
-        <AndroidIcon class="m-icon size-[18px] android-icon" />
+        <span class="app-bot"><AndroidIcon class="m-icon size-[18px]" /></span>
         <span>{{ t('getApp') }}</span>
       </button>
       <button v-if="showNews" type="button" class="map-chip squish" @click="router.push(cityPath('/anunturi'))">
@@ -134,8 +134,20 @@ onMounted(() => void routeUpdates.fetchUpdates())
 }
 
 .app-chip {
+  padding-left: 6px;
   background: var(--md-primary-container);
   color: var(--md-on-primary-container);
+}
+
+.app-bot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--android-ink);
+  color: var(--android-green);
 }
 
 .news-dot {
