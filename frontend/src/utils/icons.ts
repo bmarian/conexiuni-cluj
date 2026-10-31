@@ -51,6 +51,7 @@ export {default as ShareIcon} from '@material-design-icons/svg/round/share.svg?c
 export {default as SmartphoneIcon} from '@material-design-icons/svg/round/smartphone.svg?component'
 export {default as SwapVertIcon} from '@material-design-icons/svg/round/swap_vert.svg?component'
 export {default as TuneIcon} from '@material-design-icons/svg/round/tune.svg?component'
+export {default as VisibilityOffIcon} from '@material-design-icons/svg/round/visibility_off.svg?component'
 export {default as WarningAmberIcon} from '@material-design-icons/svg/round/warning_amber.svg?component'
 export {default as WatchIcon} from '@material-design-icons/svg/round/watch.svg?component'
 export {default as WifiOffIcon} from '@material-design-icons/svg/round/wifi_off.svg?component'

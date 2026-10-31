@@ -259,7 +259,7 @@ X-Frame-Options: DENY
  },
  "data": {
   "archive": {
-   "bytes": 110592,
+   "bytes": 118784,
    "enabled": true,
    "ran_at": "2026-10-20T03:30:00+03:00"
   },

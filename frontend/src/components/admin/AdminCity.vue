@@ -6,6 +6,7 @@ import AdminCityMenu from '@/components/admin/AdminCityMenu.vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminErrors from '@/components/admin/AdminErrors.vue'
 import AdminFix from '@/components/admin/AdminFix.vue'
+import AdminHiddenStops from '@/components/admin/AdminHiddenStops.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import type {CitySummary, LearningWindow, Overview} from '@/components/admin/types.ts'
@@ -370,6 +371,9 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
     <h3 class="admin-settings"><SettingsIcon class="m-icon" />{{ summary?.name ?? city }} settings</h3>
     <AdminCard title="Timetable calendar">
       <AdminCalendar :key="city" :city="city" @saved="emit('saved')" @learning="learning = $event" />
+    </AdminCard>
+    <AdminCard title="Hidden stops">
+      <AdminHiddenStops :key="city" :city="city" />
     </AdminCard>
   </section>
 </template>

@@ -407,6 +407,20 @@
     color: var(--android-green);
   }
 
+  .tt-head {
+    display: flex;
+    align-items: center;
+    padding: 28px 16px 8px;
+  }
+
+  .divider {
+    flex: 1;
+    height: 1px;
+    margin: 8px;
+    align-self: center;
+    background: var(--md-outline-variant);
+  }
+
   .dialog-scrim {
     position: fixed;
     inset: 0;

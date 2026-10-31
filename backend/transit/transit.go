@@ -6,11 +6,13 @@ import (
 	"conexiuni-cluj/models"
 	"database/sql"
 	"strings"
+	"sync/atomic"
 )
 
 type Data struct {
-	store *database.Store
-	db    *sql.DB
+	store  *database.Store
+	db     *sql.DB
+	hidden atomic.Pointer[map[int]bool]
 }
 
 func New(store *database.Store) *Data { return &Data{store: store, db: store.DB} }

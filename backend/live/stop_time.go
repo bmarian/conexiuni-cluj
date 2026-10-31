@@ -73,6 +73,9 @@ func (eng *Engine) TimedStopTimes(stopTimes []models.StopTime, routeID int, refT
 func (eng *Engine) timeTrip(stopTimes []models.StopTime, ordered []int, tripID, profileDay string, bucket int, profiles map[stopPair]segmentProfileEstimate) {
 	applyScheduledOffsets(stopTimes, ordered, eng.snapshotScheduledOffsets(tripID, calendar.ScheduleOf(profileDay), bucket))
 	applySegmentProfilesToTrip(stopTimes, ordered, profiles)
+	for pos := 1; pos <= eng.offered.TimetableStart(tripID) && pos < len(ordered); pos++ {
+		stopTimes[ordered[pos]].OffsetArrivalTime = 0
+	}
 }
 
 func applyScheduledOffsets(stopTimes []models.StopTime, ordered []int, offsets []float64) {

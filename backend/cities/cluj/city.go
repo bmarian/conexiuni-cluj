@@ -6,7 +6,8 @@ import "conexiuni-cluj/cities"
 var City = cities.Spec{
 	Slug: "cluj", Name: "Cluj-Napoca", Operator: "CTP Cluj-Napoca", OperatorURL: "https://ctpcj.ro/", County: "cluj",
 	// The city ticket does not cover the metropolitan (M) lines.
-	Rules: cities.Rules{OwnTicket: cities.LinesStartingWith("M")},
+	// The hidden stops are the Disp. stands, where buses wait between runs.
+	Rules: cities.Rules{OwnTicket: cities.LinesStartingWith("M"), HiddenStops: []int{1, 35, 46, 143, 154, 182, 223, 246, 254}},
 	Feeds: func(env *cities.Env) (cities.Feeds, error) {
 		f, err := env.Tranzy(2)
 		f.Timetables = newTimetables(env.Config.CtpCsvBaseUrl, env.Config.CtpCjRateLimit, env.Config.TimetableRefresh)

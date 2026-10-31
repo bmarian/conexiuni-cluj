@@ -22,6 +22,7 @@ type Spec struct {
 type Rules struct {
 	// Lines the city ticket does not cover; nil when it covers them all.
 	OwnTicket func(routeShortName string) bool
+	HiddenStops []int
 }
 
 func LinesStartingWith(prefix string) func(string) bool {

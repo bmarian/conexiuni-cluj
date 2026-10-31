@@ -7,11 +7,10 @@ import {
   LngLatBounds,
   Map as MapLibreMap,
   type Marker,
-  setWorkerUrl,
   type StyleSpecification,
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+import '@/utils/mapWorker.ts'
 import type {Feature, LineString, Polygon} from 'geojson'
 import {useUserStore} from '@/stores/user.ts'
 import {storeToRefs} from 'pinia'
@@ -61,7 +60,7 @@ import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
 import {
-  CLICK_TOLERANCE_PX,
+  FLAT_MAP_OPTIONS,
   createTooltip,
   htmlMarker,
   type HtmlMarkerOptions,
@@ -76,8 +75,6 @@ import {
 } from '@/utils/mapMarkers.ts'
 import {mapCreditsHTML, mapStyle} from '@/utils/mapStyles.ts'
 import {cacheKey, cities, cityBounds, cityCenter, currentCity, inCity, type City} from '@/utils/city.ts'
-
-setWorkerUrl(workerUrl)
 
 const userStore = useUserStore()
 const {isDarkMode} = storeToRefs(userStore)
@@ -955,10 +952,7 @@ const mapInit = (center: LatLng, zoom: number) => {
     maxZoom: MAX_ZOOM,
     maxBounds: cityMaxBounds() ?? undefined,
     attributionControl: false,
-    clickTolerance: CLICK_TOLERANCE_PX,
-    dragRotate: false,
-    pitchWithRotate: false,
-    touchPitch: false,
+    ...FLAT_MAP_OPTIONS,
   })
   mapValue.touchZoomRotate.disableRotation()
   mapValue.keyboard.disableRotation()

@@ -24,6 +24,8 @@ type Timing interface {
 	GraceSec() float64
 	// Period changes whenever the learned times may have, so a bundle built before is built again.
 	Period() int64
+	// PassengerShapes ends each line at its first and last visible stops.
+	PassengerShapes(points []models.Shape) []models.Shape
 }
 
 // The area the city's lines cover.

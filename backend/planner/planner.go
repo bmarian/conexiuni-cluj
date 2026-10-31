@@ -143,9 +143,9 @@ func (s *Service) servedStops() ([]models.Stop, error) {
 		served[c.StopID] = true
 	}
 	out := make([]models.Stop, 0, len(served))
-	for _, s := range stops {
-		if served[s.StopID] {
-			out = append(out, s)
+	for _, stop := range stops {
+		if served[stop.StopID] && !s.data.StopHidden(stop.StopID) {
+			out = append(out, stop)
 		}
 	}
 	if len(out) == 0 {
@@ -217,7 +217,7 @@ func (s *Service) plannerPatterns(day time.Time) ([]router.PatternInput, error) 
 				for _, suffix := range []string{models.OutgoingSuffix, models.IncomingSuffix} {
 					id := strconv.Itoa(routeID) + suffix
 					total := 0.0
-					for _, st := range transit.TripStopTimes(timed, id) {
+					for _, st := range s.data.Passenger(transit.TripStopTimes(timed, id)) {
 						total += st.OffsetArrivalTime
 						byTrip[id] = append(byTrip[id], total)
 					}
@@ -228,7 +228,7 @@ func (s *Service) plannerPatterns(day time.Time) ([]router.PatternInput, error) 
 		}
 		for dir, suffix := range []string{models.OutgoingSuffix, models.IncomingSuffix} {
 			tripID := strconv.Itoa(routeID) + suffix
-			rows := transit.TripStopTimes(base, tripID)
+			rows := s.data.Passenger(transit.TripStopTimes(base, tripID))
 			if len(rows) < 2 {
 				continue
 			}
@@ -317,7 +317,7 @@ type planResponse struct {
 	RefreshIn int64               `json:"refresh_in"`
 }
 
-// Runs after every ingest, the only writer of stops, so plans never re-read them.
+// Runs after every ingest and every hidden stop, the only changes to served stops, so plans never re-read them.
 // Warm reads the streets and builds today's network, so the first plan does not wait for them.
 func (s *Service) Warm() {
 	s.mu.Lock()
