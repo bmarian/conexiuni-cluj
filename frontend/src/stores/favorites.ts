@@ -174,8 +174,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
     reorderStopIds(favoriteStopIds.value.filter((id) => !saved.includes(id)))
   }
 
+  function findPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): FavoritePlan | undefined {
+    return favoritePlans.value.find((p) => samePlace(p, lat, lon, originLat, originLon))
+  }
+
   function isPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): boolean {
-    return favoritePlans.value.some((p) => samePlace(p, lat, lon, originLat, originLon))
+    return findPlanFavorite(lat, lon, originLat, originLon) !== undefined
   }
 
   function toggleRouteFavorite(routeId: number, direction: RouteDirection) {
@@ -211,7 +215,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function renamePlanFavorite(lat: number, lon: number, originLat: number | undefined, originLon: number | undefined, label: string | undefined) {
-    const plan = favoritePlans.value.find((p) => samePlace(p, lat, lon, originLat, originLon))
+    const plan = findPlanFavorite(lat, lon, originLat, originLon)
     if (plan) {
       plan.label = label || undefined
       persistPlans()
@@ -312,6 +316,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     toggleStopFavorite,
     toggleStationFavorite,
     togglePlanFavorite,
+    findPlanFavorite,
     renamePlanFavorite,
     reorderRoutes,
     reorderStopIds,
