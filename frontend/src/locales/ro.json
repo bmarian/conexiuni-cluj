@@ -339,5 +339,16 @@
   "destsDistricts": "Cartiere",
   "destsTowns": "Localități",
   "destCounts": "{stops} stații · {lines} linii",
-  "destNotFound": "Nicio zonă numită „{name}”"
+  "destNotFound": "Nicio zonă numită „{name}”",
+  "getApp": "Instalează aplicația",
+  "getAndroidApp": "Instalează aplicația Android",
+  "getAndroidAppDesc": "Navigare, mementouri și alerte în aplicație.",
+  "appSection": "Aplicație",
+  "appDialogTitle": "Vrei să instalezi aplicația Android?",
+  "appFeatureNavigation": "Te ghidează pas cu pas pe tot drumul",
+  "appFeatureReminders": "Îți amintește când să pleci spre stație",
+  "appFeatureStopAlert": "Te anunță înainte de stația la care cobori",
+  "appFeatureWatch": "Merge și pe Wear OS",
+  "appDontAsk": "Nu mai întreba",
+  "yes": "Da"
 }

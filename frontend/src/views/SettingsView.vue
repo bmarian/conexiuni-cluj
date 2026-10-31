@@ -16,7 +16,9 @@ import {useCityPicker} from '@/composables/useCityPicker.ts'
 import {chooseCity, cityChoice, cityInfo, currentCity, locationGranted} from '@/utils/city.ts'
 import {regionSettingsFor} from '@/utils/regionSettings.ts'
 import {adminAuthed} from '@/composables/useAdmin.ts'
+import {offersAndroidApp, PLAY_URL} from '@/utils/androidApp.ts'
 import {
+  AndroidIcon,
   BrightnessMediumIcon,
   CloseIcon,
   CropFreeIcon,
@@ -232,6 +234,15 @@ async function choose(slug: string | null) {
       <h2 class="section">Admin</h2>
       <div data-kbd-section="admin">
         <ListItem :icon="TuneIcon" :title="t('adminDashboard')" :description="t('settingsAdminDesc')" data-kbd-item="admin" @click="router.push('/admin')" />
+      </div>
+    </template>
+
+    <template v-if="offersAndroidApp">
+      <h2 class="section">{{ t('appSection') }}</h2>
+      <div data-kbd-section="app">
+        <ListItem as="a" :href="PLAY_URL" target="_blank" rel="noopener" :title="t('getAndroidApp')" :description="t('getAndroidAppDesc')" data-kbd-item="app">
+          <template #leading><AndroidIcon class="m-icon android-icon" /></template>
+        </ListItem>
       </div>
     </template>
 
