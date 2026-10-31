@@ -9,8 +9,12 @@ import {
   lineId,
   newestSeen,
   type NewsRecord,
+  type OptionsRecord,
   type Place,
   placeId,
+  RECENT_CAP,
+  recentId,
+  type RecentsRecord,
   type SettingsRecord,
   stopId,
 } from '@/utils/sync/records.ts'
@@ -87,6 +91,31 @@ export function mergeCity(base: CityRecord, local: CityRecord, remote: CityRecor
 export function mergeNews(base: NewsRecord, local: NewsRecord, remote: NewsRecord): NewsRecord {
   const {merged} = mergeList(base.seen, local.seen, remote.seen, String, sameItem, Infinity)
   return {seen: newestSeen(merged)}
+}
+
+// What neither side had goes first: it is what was just looked for.
+export function mergeRecents(base: RecentsRecord, local: RecentsRecord, remote: RecentsRecord): RecentsRecord {
+  const {merged} = mergeList(base.recent, local.recent, remote.recent, recentId, sameItem, Infinity)
+  const had = new Set(base.recent.map(recentId))
+  const fresh = merged.filter((item) => !had.has(recentId(item)))
+  return {recent: [...fresh, ...merged.filter((item) => had.has(recentId(item)))].slice(0, RECENT_CAP)}
+}
+
+export function mergeOptions(base: OptionsRecord | null, local: OptionsRecord, remote: OptionsRecord): OptionsRecord {
+  if (!base) {
+    return {
+      ...remote,
+      city: remote.city || local.city,
+      journeyVoice: remote.journeyVoice ?? local.journeyVoice,
+      fullScreenAlarms: remote.fullScreenAlarms ?? local.fullScreenAlarms,
+    }
+  }
+  return {
+    colorfulLines: pick(base.colorfulLines, local.colorfulLines, remote.colorfulLines, true),
+    city: pick(base.city, local.city, remote.city, true),
+    journeyVoice: pick(base.journeyVoice, local.journeyVoice, remote.journeyVoice, true),
+    fullScreenAlarms: pick(base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms, true),
+  }
 }
 
 export function mergeSettings(base: SettingsRecord | null, local: SettingsRecord, remote: SettingsRecord): SettingsRecord {

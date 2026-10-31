@@ -77,7 +77,7 @@ export function useStopDepartures(stopId: Ref<string>) {
 
   const favoritePlatform = computed(() => favoritesStore.favoritePlatform(stopIdNum.value))
   const isFavorite = computed(() => favoritePlatform.value !== undefined)
-  const toggleFavorite = () => favoritesStore.toggleStopFavorite(favoritePlatform.value ?? stopIdNum.value)
+  const toggleFavorite = () => favoritesStore.toggleStationFavorite(stopIdNum.value)
 
   const busesWithAvailableTimetables = computed(() => [...shapeInfoByRouteId.value.values()].filter((shape: ShapeInfo) => hasTimetableEntries(shape.timetable)))
 

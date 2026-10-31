@@ -17,7 +17,9 @@ import {
   CloseIcon,
   ComputerIcon,
   DeleteIcon,
+  DevicesIcon,
   DialpadIcon,
+  ExpandMoreIcon,
   LogoutIcon,
   QrCode2Icon,
   SmartphoneIcon,
@@ -39,6 +41,7 @@ const typed = ref('')
 const codeRef = ref<HTMLInputElement | null>(null)
 const asking = ref<{kind: 'remove'; id: string; name: string} | {kind: 'off' | 'delete'} | null>(null)
 const failedRemove = ref(false)
+const devicesOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const {keyboardMode} = useKeyboardNav()
 let lastAction: 'show' | 'enter' = 'show'
@@ -195,29 +198,44 @@ async function confirmAsk() {
         <p v-for="text in problemTexts" :key="text" class="note">{{ text }}</p>
         <p v-if="failedRemove" class="note">{{ t('syncRemoveFailed') }}</p>
         <div class="devices" data-kbd-section="sync-devices">
-          <div v-for="device in store.devices" :key="device.id" class="device">
-            <component :is="kindIcon(device.kind)" class="m-icon text-on-surface-variant" />
-            <span class="flex-1 min-w-0 flex flex-col">
-              <span class="text-body-large text-on-surface">{{ device.label || kindName(device.kind) }}</span>
-              <span class="text-body-medium text-on-surface-variant">{{ device.self ? t('syncThisDevice') : seenText(device.seen) }}</span>
-            </span>
-            <button
-              v-if="!device.self"
-              type="button"
-              class="icon-btn"
-              :data-kbd-item="`sync-remove-${device.id}`"
-              :aria-label="t('syncRemove')"
-              :title="t('syncRemove')"
-              :disabled="store.busy"
-              @click="asking = {kind: 'remove', id: device.id, name: device.label || kindName(device.kind)}"
-            >
-              <CloseIcon class="m-icon" />
-            </button>
-          </div>
+          <ListItem
+            :icon="DevicesIcon"
+            :title="t('syncDevices', {n: store.devices.length})"
+            :aria-expanded="devicesOpen"
+            data-kbd-item="sync-devices"
+            @click="devicesOpen = !devicesOpen"
+          >
+            <template #trailing>
+              <ExpandMoreIcon class="m-icon text-on-surface-variant chevron" :class="{'is-open': devicesOpen}" />
+            </template>
+          </ListItem>
+          <Transition name="expand">
+            <div v-if="devicesOpen">
+              <div v-for="device in store.devices" :key="device.id" class="device">
+                <component :is="kindIcon(device.kind)" class="m-icon text-on-surface-variant" />
+                <span class="flex-1 min-w-0 flex flex-col">
+                  <span class="text-body-large text-on-surface">{{ device.label || kindName(device.kind) }}</span>
+                  <span class="text-body-medium text-on-surface-variant">{{ device.self ? t('syncThisDevice') : seenText(device.seen) }}</span>
+                </span>
+                <button
+                  v-if="!device.self"
+                  type="button"
+                  class="icon-btn"
+                  :data-kbd-item="`sync-remove-${device.id}`"
+                  :aria-label="t('syncRemove')"
+                  :title="t('syncRemove')"
+                  :disabled="store.busy"
+                  @click="asking = {kind: 'remove', id: device.id, name: device.label || kindName(device.kind)}"
+                >
+                  <CloseIcon class="m-icon" />
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
       </template>
 
-      <div v-if="!pairingOpen && !asking" class="button-row" data-kbd-section="sync-start" data-kbd-axis="x">
+      <div v-if="!pairingOpen && !asking" class="button-stack" data-kbd-section="sync-start">
         <button type="button" class="btn btn-filled" data-kbd-item="sync-show" @click="show">
           <component :is="store.status === 'on' ? AddIcon : QrCode2Icon" class="m-icon" />
           {{ store.status === 'on' ? t('syncAddDevice') : t('syncShowCode') }}
@@ -337,6 +355,32 @@ async function confirmAsk() {
   gap: 16px;
   min-height: 56px;
   padding: 8px 12px 8px 20px;
+}
+
+.chevron {
+  transition: rotate 175ms ease;
+}
+
+.chevron.is-open {
+  rotate: 180deg;
+}
+
+.expand-enter-active,
+.expand-leave-active {
+  transition:
+    opacity 175ms linear,
+    translate var(--spring-fast-ms) var(--spring-fast);
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  translate: 0 -8px;
+}
+
+.button-stack {
+  display: grid;
+  gap: 8px;
 }
 
 .button-row {
