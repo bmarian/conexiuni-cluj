@@ -1,20 +1,28 @@
 export type Spring = {duration: number; easing: string}
 
-// Share of its full length each kind of animation runs for. main.ts hands them to the CSS.
+// Share of its full length each kind of animation runs for.
 export const LONG_PACE = 0.5
 export const DELAY_PACE = 0.4
 export const SPRING_PACE = 0.65
 
+const SPRING_MS = {press: 755, pop: 635, slide: 515, land: 550, sheet: 340, page: 375, fast: 350}
+
 export const paced = (ms: number) => ms * LONG_PACE
 export const delayed = (ms: number) => ms * DELAY_PACE
+
+// CSS reads every pace from here; the build rewrites values kept in stylesheets, so they can't be read back.
+export function applyPaces(root: HTMLElement) {
+  root.style.setProperty('--pace-long', String(LONG_PACE))
+  root.style.setProperty('--pace-delay', String(DELAY_PACE))
+  for (const [name, ms] of Object.entries(SPRING_MS)) root.style.setProperty(`--spring-${name}-ms`, `${ms * SPRING_PACE}ms`)
+}
 
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // The --spring-* curves of theme.css, for element.animate().
-export function spring(name: 'press' | 'pop' | 'slide' | 'land' | 'sheet' | 'page' | 'fast'): Spring {
+export function spring(name: keyof typeof SPRING_MS): Spring {
   const css = getComputedStyle(document.documentElement)
-  const full = /[\d.]+(?=ms)/.exec(css.getPropertyValue(`--spring-${name}-ms`))?.[0]
-  return {duration: Number(full) * SPRING_PACE, easing: css.getPropertyValue(`--spring-${name}`).trim()}
+  return {duration: SPRING_MS[name] * SPRING_PACE, easing: css.getPropertyValue(`--spring-${name}`).trim()}
 }
 
 export const EMPHASIZED_DECELERATE = 'cubic-bezier(0.05, 0.7, 0.1, 1)'
