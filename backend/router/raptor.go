@@ -236,6 +236,7 @@ type raptor struct {
 	slack int64
 	// Walking the whole way.
 	walkSecs int64
+	skip     map[int32]bool
 	// arr[k][stop]: with at most k rides, by ride or ride and walk; the next round boards from these.
 	arr [][]bag
 	// ride[k][stop]: straight off a ride, at most k of them; walks start from these.
@@ -245,8 +246,8 @@ type raptor struct {
 	marked []bool
 }
 
-func newRaptor(n *Network, tt *timetable, egress []reach, walkSecs int64) *raptor {
-	r := &raptor{n: n, tt: tt, slack: int64(n.opt.TransferSlack.Seconds()), walkSecs: walkSecs, egress: make(map[int32]reach, len(egress)), marked: make([]bool, len(n.stops))}
+func newRaptor(n *Network, tt *timetable, egress []reach, walkSecs int64, skip map[int32]bool) *raptor {
+	r := &raptor{n: n, tt: tt, slack: int64(n.opt.TransferSlack.Seconds()), walkSecs: walkSecs, skip: skip, egress: make(map[int32]reach, len(egress)), marked: make([]bool, len(n.stops))}
 	for _, e := range egress {
 		r.egress[e.stop] = e
 	}
@@ -327,6 +328,9 @@ func (r *raptor) iterate(depart int64, access []reach) []journey {
 		for _, p := range marked {
 			r.marked[p] = false
 			for _, sp := range r.tt.byStop[p] {
+				if r.skip[sp.pattern] {
+					continue
+				}
 				if pos, ok := queue[sp.pattern]; !ok || sp.pos < pos {
 					queue[sp.pattern] = sp.pos
 				}
@@ -448,6 +452,6 @@ func (r *raptor) backtrack(t *label) journey {
 	return j
 }
 
-func (n *Network) search(tt *timetable, access, egress []reach, start, walkSecs int64) []journey {
-	return newRaptor(n, tt, egress, walkSecs).iterate(start, access)
+func (n *Network) search(tt *timetable, access, egress []reach, start, walkSecs int64, skip map[int32]bool) []journey {
+	return newRaptor(n, tt, egress, walkSecs, skip).iterate(start, access)
 }
