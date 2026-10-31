@@ -179,6 +179,7 @@ func (city *City) shapesHandler(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	data = city.Live.PassengerShapes(data)
 	c.Set("Cache-Control", web.Revalidate)
 	if c.Query("format") == "polyline" {
 		return c.JSON(geo.Polylines(data))

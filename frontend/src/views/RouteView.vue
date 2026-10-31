@@ -486,8 +486,10 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
 
       <template v-else>
         <div class="stops-head">
-          <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>
-          <span class="divider"></span>
+          <span class="flex flex-1 items-center min-w-0">
+            <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>
+            <span class="divider"></span>
+          </span>
           <span class="flex flex-col items-end">
             <span class="next-head">{{ t('nextDepartures') }}</span>
             <span class="flex gap-1">
@@ -657,14 +659,6 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   }
 }
 
-.divider {
-  flex: 1;
-  height: 1px;
-  margin: 8px;
-  align-self: center;
-  background: var(--md-outline-variant);
-}
-
 .next-head {
   font-size: 9px;
   line-height: 14px;
@@ -682,12 +676,6 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
   text-align: right;
   color: var(--md-outline);
   white-space: nowrap;
-}
-
-.tt-head {
-  display: flex;
-  align-items: center;
-  padding: 28px 16px 8px;
 }
 
 .today-dot {

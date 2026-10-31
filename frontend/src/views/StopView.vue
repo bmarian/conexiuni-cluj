@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {useUserStore} from '@/stores/user.ts'
 import {storeToRefs} from 'pinia'
-import {computed, toRef, watch} from 'vue'
+import {computed, defineAsyncComponent, toRef, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import StationIcon from '@/components/StationIcon.vue'
@@ -21,6 +21,7 @@ import {linePath, stopPath} from '@/utils/pagePaths.ts'
 import {servedName} from '@/utils/servedName.ts'
 import {groupByMode, mainMode} from '@/utils/modes.ts'
 import {useShare} from '@/composables/useShare.ts'
+import {adminAuthed, stopControlsOn} from '@/composables/useAdmin.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
@@ -35,6 +36,9 @@ import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from '@/utils/icons.ts'
 
 const props = defineProps<{stopId: string}>()
+
+const AdminHideStop = defineAsyncComponent(() => import('@/components/admin/AdminHideStop.vue'))
+const showStopControls = adminAuthed() && stopControlsOn()
 
 const {t} = useI18n()
 const userStore = useUserStore()
@@ -205,6 +209,8 @@ const chips = computed<ChipAction[]>(() => [
         </div>
       </header>
       <ActionChips :actions="chips" class="pb-2" />
+
+      <AdminHideStop v-if="showStopControls" :stop-id="stopIdNum" />
 
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
         <div class="departures-label">

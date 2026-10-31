@@ -75,7 +75,7 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, map[string]string, e
 	}
 	stops := make([]models.Stop, 0, len(allStops))
 	for _, stop := range allStops {
-		if used[stop.StopID] || !s.offered.IsReady() || s.offered.StopHasBuses(stop.StopID) {
+		if !s.data.StopHidden(stop.StopID) && (used[stop.StopID] || !s.offered.IsReady() || s.offered.StopHasBuses(stop.StopID)) {
 			stops = append(stops, stop)
 		}
 	}
@@ -112,7 +112,7 @@ func (s *Service) buildNetworkRoute(route models.Route) models.NetworkRoute {
 		s.store.Logf("network: stop times for %s: %v", rsn, err)
 		return out
 	}
-	for _, st := range base {
+	for _, st := range s.data.Passenger(base) {
 		last := len(out.Trips) - 1
 		if last < 0 || out.Trips[last].TripID != st.TripID {
 			out.Trips = append(out.Trips, models.NetworkTrip{TripID: st.TripID, StopIDs: []int{}, StopSequences: []int{}})
@@ -132,6 +132,7 @@ func (s *Service) buildNetworkRoute(route models.Route) models.NetworkRoute {
 			if routeID != 0 {
 				rows = s.timing.TimedStopTimes(base, routeID, time.Date(day.Year(), day.Month(), day.Day(), hour, 0, 0, 0, loc))
 			}
+			rows = s.data.Passenger(rows)
 			offsets := make([]int, len(rows))
 			for i, st := range rows {
 				offsets[i] = int(math.Round(st.OffsetArrivalTime))
@@ -157,7 +158,7 @@ func (s *Service) tripShapes(routes []models.NetworkRoute) []models.Shape {
 	if err != nil {
 		s.store.Logf("network: shapes: %v", err)
 	}
-	return points
+	return s.timing.PassengerShapes(points)
 }
 
 func addShapeHashes(routes []models.NetworkRoute, points []models.Shape) {

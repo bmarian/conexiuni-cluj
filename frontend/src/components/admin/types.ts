@@ -126,3 +126,5 @@ export type LineDirection = {
 }
 
 export type LineStats = {day_type: string; directions: LineDirection[]}
+
+export type HiddenStation = {stop_ids: number[]; name: string; lat: number; lon: number; lines: Named[]}

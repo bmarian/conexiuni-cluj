@@ -409,6 +409,14 @@ func publisherOrg() map[string]any {
 }
 
 func stopPage(city *cities.City, c fiber.Ctx, stopID int) error {
+	if city.StopHidden(stopID) {
+		instead, ok := city.StopInstead(stopID)
+		if !ok {
+			return missing(c)
+		}
+		// Temporary: an admin can bring the stop back.
+		return redirect(c, city, stationPath(city, instead.Station()), fiber.StatusFound)
+	}
 	stops, err := city.Stops(transit.StopFilter{StopID: &stopID})
 	if err != nil {
 		return c.Next()

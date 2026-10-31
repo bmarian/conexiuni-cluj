@@ -41,11 +41,15 @@ func stationPath(city *cities.City, stationID int) string {
 }
 
 func moved(c fiber.Ctx, city *cities.City, path string) error {
+	return redirect(c, city, path, fiber.StatusMovedPermanently)
+}
+
+func redirect(c fiber.Ctx, city *cities.City, path string, status int) error {
 	to := "/" + city.Slug + path
 	if q := string(c.Request().URI().QueryString()); q != "" {
 		to += "?" + q
 	}
-	return c.Redirect().Status(fiber.StatusMovedPermanently).To(to)
+	return c.Redirect().Status(status).To(to)
 }
 
 // The app still loads, to suggest similar names.

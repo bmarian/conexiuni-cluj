@@ -5,6 +5,7 @@ GET /.well-known/assetlinks.json
 GET /api/admin/calendar
 GET /api/admin/calendar/day
 GET /api/admin/cities
+GET /api/admin/hidden-stops
 GET /api/admin/line
 GET /api/admin/overview
 GET /api/admin/site
@@ -76,5 +77,6 @@ POST /api/sync/pair/:code/messages
 PUT /api/admin/calendar
 PUT /api/admin/calendar/day
 PUT /api/admin/cities/:slug
+PUT /api/admin/hidden-stops
 PUT /api/sync/chains/:chain/records/:name
 PUT /api/sync/pair/:code/pub

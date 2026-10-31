@@ -5,6 +5,7 @@ import {currentCity} from '@/utils/city.ts'
 const REFRESH_MS = 30_000
 const AUTH_FLAG_KEY = 'admin:authed'
 const LINE_STATS_KEY = 'admin:line-stats'
+const STOP_CONTROLS_KEY = 'admin:stop-controls'
 
 const readFlag = (key: string) => {
   try {
@@ -26,6 +27,8 @@ export const adminAuthed = () => readFlag(AUTH_FLAG_KEY)
 export const writeAuthFlag = (on: boolean) => writeFlag(AUTH_FLAG_KEY, on)
 export const lineStatsOn = () => readFlag(LINE_STATS_KEY)
 export const setLineStats = (on: boolean) => writeFlag(LINE_STATS_KEY, on)
+export const stopControlsOn = () => readFlag(STOP_CONTROLS_KEY)
+export const setStopControls = (on: boolean) => writeFlag(STOP_CONTROLS_KEY, on)
 
 export class SignedOut extends Error {}
 
@@ -34,6 +37,19 @@ export async function getJSON<T>(url: string): Promise<T> {
   if (res.status === 401) throw new SignedOut()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return (await res.json()) as T
+}
+
+export async function putJSON<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new SignedOut()
+  const answer = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(answer?.error ?? `HTTP ${res.status}`)
+  return answer as T
 }
 
 export function useAdmin() {

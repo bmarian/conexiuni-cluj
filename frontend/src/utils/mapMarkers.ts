@@ -7,6 +7,8 @@ export type LatLng = {lat: number; lng: number}
 // Also the map's clickTolerance, so a marker and the map agree on what a drag is.
 export const CLICK_TOLERANCE_PX = 3
 
+export const FLAT_MAP_OPTIONS = {clickTolerance: CLICK_TOLERANCE_PX, dragRotate: false, pitchWithRotate: false, touchPitch: false}
+
 export interface HtmlMarkerOptions {
   interactive?: boolean
   draggable?: boolean

@@ -128,6 +128,13 @@ const archiveSchema = `
 		detail     TEXT    NOT NULL DEFAULT '',
 		created_at INTEGER NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS hidden_stops
+	(
+		stop_id    INTEGER PRIMARY KEY,
+		hidden     INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	);
 `
 
 func (s *Store) openArchive(path string) error {

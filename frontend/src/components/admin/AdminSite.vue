@@ -7,9 +7,9 @@ import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import type {Site} from '@/components/admin/types.ts'
-import {lineStatsOn, setLineStats} from '@/composables/useAdmin.ts'
+import {lineStatsOn, setLineStats, setStopControls, stopControlsOn} from '@/composables/useAdmin.ts'
 import {ago, bytes, dur, num, pct, plural} from '@/utils/adminFormat.ts'
-import {ExpandMoreIcon, PublicIcon, QueryStatsIcon, SettingsIcon, WarningAmberIcon} from '@/utils/icons.ts'
+import {ExpandMoreIcon, PublicIcon, QueryStatsIcon, SettingsIcon, VisibilityOffIcon, WarningAmberIcon} from '@/utils/icons.ts'
 
 const FAILURES_SHOWN = 5
 
@@ -31,10 +31,7 @@ const stats = computed(() => [
 const errors = computed(() => props.site.cities.flatMap((c) => c.errors.map((e) => ({...e, city: c.name}))).sort((a, b) => b.last_at.localeCompare(a.last_at)))
 
 const lineStats = ref(lineStatsOn())
-function toggleLineStats(on: boolean) {
-  setLineStats(on)
-  lineStats.value = on
-}
+const stopControls = ref(stopControlsOn())
 
 const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk_free / server.value.disk_total : null))
 </script>
@@ -131,7 +128,8 @@ const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk
       <AdminCities @changed="emit('changed')" />
     </details>
     <div class="admin-card">
-      <ToggleRow :icon="QueryStatsIcon" title="Line stats" :checked="lineStats" @change="toggleLineStats" />
+      <ToggleRow :icon="QueryStatsIcon" title="Line stats" :checked="lineStats" @change="(setLineStats($event), (lineStats = $event))" />
+      <ToggleRow :icon="VisibilityOffIcon" title="Hide stops" :checked="stopControls" @change="(setStopControls($event), (stopControls = $event))" />
     </div>
   </section>
 </template>

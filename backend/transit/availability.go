@@ -14,6 +14,7 @@ type Availability struct {
 	routesWithTimetable map[string]struct{}
 	stopsWithBuses      map[int]struct{}
 	busiestStation      int
+	timetableStarts     map[string]int
 }
 
 func (a *Availability) Refresh(d *Data) error {
@@ -55,18 +56,30 @@ func (a *Availability) Refresh(d *Data) error {
 	if err != nil {
 		return fmt.Errorf("busiest station: %w", err)
 	}
+	starts, err := d.timetableStarts()
+	if err != nil {
+		return fmt.Errorf("timetable starts: %w", err)
+	}
 	withTimetable := make(map[string]struct{}, len(routes))
 	for _, r := range routes {
 		withTimetable[r] = struct{}{}
 	}
 	withBuses := make(map[int]struct{}, len(stops))
 	for _, id := range stops {
-		withBuses[id] = struct{}{}
+		if !d.StopHidden(id) {
+			withBuses[id] = struct{}{}
+		}
 	}
 	a.mu.Lock()
-	a.routesWithTimetable, a.stopsWithBuses, a.busiestStation, a.ready = withTimetable, withBuses, busiest, true
+	a.routesWithTimetable, a.stopsWithBuses, a.busiestStation, a.timetableStarts, a.ready = withTimetable, withBuses, busiest, starts, true
 	a.mu.Unlock()
 	return nil
+}
+
+func (a *Availability) TimetableStart(tripID string) int {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.timetableStarts[tripID]
 }
 
 func (a *Availability) BusiestStation() int {
