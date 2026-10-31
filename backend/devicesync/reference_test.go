@@ -195,6 +195,15 @@ type cityRecord struct {
 
 type newsRecord struct{ seen []int64 }
 
+// One recent: a stop, a line or a place.
+type recent struct {
+	kind  string
+	id    int64
+	place place
+}
+
+type recentsRecord struct{ recent []recent }
+
 type deviceEntry struct{ id, kind, label, pub string }
 
 type settingsRecord struct {
@@ -203,9 +212,20 @@ type settingsRecord struct {
 	greenFriday                               bool
 }
 
+// A device that has not got the option yet leaves it null: "true", "false" or "null".
+type maybeBool string
+
+type optionsRecord struct {
+	colorfulLines                  bool
+	city                           string
+	journeyVoice, fullScreenAlarms maybeBool
+}
+
 const (
 	cityCap   = 50
 	newsCap   = 200
+	recentCap = 10
+	citySlug  = 40
 	deviceCap = 10
 	maxInt    = math.MaxInt32
 )
@@ -485,6 +505,87 @@ func parseNews(raw string) (newsRecord, error) {
 	return rec, canonical(raw, rec.write())
 }
 
+func parseRecentPlace(f []any) (place, error) {
+	var p place
+	if len(f) != 4 && len(f) != 7 {
+		return p, refuse("place has %d fields", len(f))
+	}
+	var err error
+	if p.name, err = text(f[0], 1, 100); err != nil {
+		return p, err
+	}
+	if p.label, err = text(f[1], 0, 40); err != nil {
+		return p, err
+	}
+	if p.lat, err = coordinate(f[2], 43.6, 48.3); err != nil {
+		return p, err
+	}
+	if p.lon, err = coordinate(f[3], 20.2, 29.8); err != nil {
+		return p, err
+	}
+	if len(f) == 7 {
+		o := origin{}
+		if o.name, err = text(f[4], 1, 100); err != nil {
+			return p, err
+		}
+		if o.lat, err = coordinate(f[5], 43.6, 48.3); err != nil {
+			return p, err
+		}
+		if o.lon, err = coordinate(f[6], 20.2, 29.8); err != nil {
+			return p, err
+		}
+		p.origin = &o
+	}
+	return p, nil
+}
+
+func parseRecents(raw string) (recentsRecord, error) {
+	var rec recentsRecord
+	v, err := parseJSON(raw)
+	if err != nil {
+		return rec, err
+	}
+	if err := version(v); err != nil {
+		return rec, err
+	}
+	m, err := object(v, "v", "recent")
+	if err != nil {
+		return rec, err
+	}
+	items, err := list(m["recent"], recentCap)
+	if err != nil {
+		return rec, err
+	}
+	for _, item := range items {
+		f, err := list(item, 8)
+		if err != nil {
+			return rec, err
+		}
+		if len(f) == 0 {
+			return rec, refuse("empty recent")
+		}
+		kind, _ := f[0].(string)
+		r := recent{kind: kind}
+		switch {
+		case (kind == "stop" || kind == "line") && len(f) == 2:
+			if r.id, err = integer(f[1], 1, maxInt); err != nil {
+				return rec, err
+			}
+		case kind == "place":
+			if r.place, err = parseRecentPlace(f[1:]); err != nil {
+				return rec, err
+			}
+		default:
+			return rec, refuse("bad recent")
+		}
+		rec.recent = append(rec.recent, r)
+	}
+	if err := unique(rec.recent, recentID); err != nil {
+		return rec, err
+	}
+	return rec, canonical(raw, rec.write())
+}
+
 func parseDevices(raw string) ([]deviceEntry, error) {
 	v, err := parseJSON(raw)
 	if err != nil {
@@ -575,6 +676,45 @@ func parseSettings(raw string) (settingsRecord, error) {
 	return rec, canonical(raw, rec.write())
 }
 
+func parseMaybe(v any) (maybeBool, error) {
+	if v == nil {
+		return "null", nil
+	}
+	b, err := boolean(v)
+	if err != nil {
+		return "", err
+	}
+	return maybeBool(strconv.FormatBool(b)), nil
+}
+
+func parseOptions(raw string) (optionsRecord, error) {
+	var rec optionsRecord
+	v, err := parseJSON(raw)
+	if err != nil {
+		return rec, err
+	}
+	if err := version(v); err != nil {
+		return rec, err
+	}
+	m, err := object(v, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms")
+	if err != nil {
+		return rec, err
+	}
+	if rec.colorfulLines, err = boolean(m["colorfulLines"]); err != nil {
+		return rec, err
+	}
+	if rec.city, err = text(m["city"], 0, citySlug); err != nil {
+		return rec, err
+	}
+	if rec.journeyVoice, err = parseMaybe(m["journeyVoice"]); err != nil {
+		return rec, err
+	}
+	if rec.fullScreenAlarms, err = parseMaybe(m["fullScreenAlarms"]); err != nil {
+		return rec, err
+	}
+	return rec, canonical(raw, rec.write())
+}
+
 func canonical(raw, written string) error {
 	if raw != written {
 		return refuse("not canonical: %s", written)
@@ -586,6 +726,13 @@ func stopID(id int64) string        { return strconv.FormatInt(id, 10) }
 func lineID(l line) string          { return stopID(l.route) + "/" + l.dir }
 func followedID(name string) string { return name }
 func deviceID(d deviceEntry) string { return d.id }
+
+func recentID(r recent) string {
+	if r.kind == "place" {
+		return "place:" + placeID(r.place)
+	}
+	return r.kind + ":" + stopID(r.id)
+}
 
 func placeID(p place) string {
 	if p.origin == nil {
@@ -619,6 +766,15 @@ func (r newsRecord) write() string {
 	return `{"v":1,"seen":` + joined(r.seen, stopID) + "}"
 }
 
+func (r recentsRecord) write() string {
+	return `{"v":1,"recent":` + joined(r.recent, func(item recent) string {
+		if item.kind == "place" {
+			return `["place",` + writePlace(item.place)[1:]
+		}
+		return "[" + quote(item.kind) + "," + stopID(item.id) + "]"
+	}) + "}"
+}
+
 func writePlace(p place) string {
 	out := "[" + quote(p.name) + "," + quote(p.label) + "," + coord(p.lat) + "," + coord(p.lon)
 	if p.origin != nil {
@@ -638,6 +794,11 @@ func (r settingsRecord) write() string {
 		`,"autoCenterOnMe":` + strconv.FormatBool(r.autoCenterOnMe) + `,"autoFitMap":` + strconv.FormatBool(r.autoFitMap) +
 		`,"showVehicleExtras":` + strconv.FormatBool(r.vehicleExtras) +
 		`,"regions":{"cluj":{"showGreenFriday":` + strconv.FormatBool(r.greenFriday) + "}}}"
+}
+
+func (r optionsRecord) write() string {
+	return `{"v":1,"colorfulLines":` + strconv.FormatBool(r.colorfulLines) + `,"city":` + quote(r.city) +
+		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms) + "}"
 }
 
 // Merging: protocol.md §6.
@@ -766,6 +927,49 @@ func mergeNews(base, local, remote newsRecord) newsRecord {
 	seen, _ := mergeList(base.seen, local.seen, remote.seen, stopID, same, math.MaxInt)
 	slices.SortFunc(seen, func(a, b int64) int { return cmp.Compare(b, a) })
 	return newsRecord{seen: seen[:min(len(seen), newsCap)]}
+}
+
+func mergeRecents(base, local, remote recentsRecord) recentsRecord {
+	merged, _ := mergeList(base.recent, local.recent, remote.recent, recentID, same, math.MaxInt)
+	had := make(map[string]bool, len(base.recent))
+	for _, r := range base.recent {
+		had[recentID(r)] = true
+	}
+	var fresh, known []recent
+	for _, r := range merged {
+		if had[recentID(r)] {
+			known = append(known, r)
+		} else {
+			fresh = append(fresh, r)
+		}
+	}
+	out := append(fresh, known...)
+	return recentsRecord{recent: out[:min(len(out), recentCap)]}
+}
+
+func firstKnown(remote, local maybeBool) maybeBool {
+	if remote == "null" {
+		return local
+	}
+	return remote
+}
+
+func mergeOptions(base *optionsRecord, local, remote optionsRecord) optionsRecord {
+	if base == nil {
+		out := remote
+		if out.city == "" {
+			out.city = local.city
+		}
+		out.journeyVoice = firstKnown(remote.journeyVoice, local.journeyVoice)
+		out.fullScreenAlarms = firstKnown(remote.fullScreenAlarms, local.fullScreenAlarms)
+		return out
+	}
+	return optionsRecord{
+		colorfulLines:    pick(&base.colorfulLines, local.colorfulLines, remote.colorfulLines),
+		city:             pick(&base.city, local.city, remote.city),
+		journeyVoice:     pick(&base.journeyVoice, local.journeyVoice, remote.journeyVoice),
+		fullScreenAlarms: pick(&base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms),
+	}
 }
 
 func mergeSettings(base *settingsRecord, local, remote settingsRecord) settingsRecord {

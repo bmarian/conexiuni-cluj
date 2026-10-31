@@ -8,7 +8,7 @@ import {cacheKey, currentCity} from '@/utils/city.ts'
 import {network} from '@/utils/network.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
-import {CITY_CAP, roundCoordinate} from '@/utils/sync/records.ts'
+import {CITY_CAP, RECENT_CAP, roundCoordinate} from '@/utils/sync/records.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
 
@@ -17,8 +17,6 @@ const routesKey = (city?: string) => cacheKey('favorites:routes', city)
 const stopsKey = (city?: string) => cacheKey('favorites:stops', city)
 const plansKey = (city?: string) => cacheKey('favorites:plans', city)
 const recentPlansKey = (city?: string) => cacheKey('recents:plans', city)
-
-const MAX_RECENTS = 10
 
 export interface FavoritePlan {
   name: string
@@ -168,6 +166,14 @@ export const useFavoritesStore = defineStore('favorites', () => {
     return (platforms?.length ? platforms : [stopId]).find(isStopFavorite)
   }
 
+  // Devices may have saved different platforms of one station: every one of them goes.
+  function toggleStationFavorite(stopId: number) {
+    const platforms = network.value?.platforms(stopId).map((p) => p.stop_id) ?? []
+    const saved = [stopId, ...platforms].filter(isStopFavorite)
+    if (!saved.length) return toggleStopFavorite(stopId)
+    reorderStopIds(favoriteStopIds.value.filter((id) => !saved.includes(id)))
+  }
+
   function isPlanFavorite(lat: number, lon: number, originLat?: number, originLon?: number): boolean {
     return favoritePlans.value.some((p) => samePlace(p, lat, lon, originLat, originLon))
   }
@@ -229,7 +235,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function addRecent(recent: Recent) {
     const key = recentKey(recent)
-    recents.value = [recent, ...recents.value.filter((r) => recentKey(r) !== key)].slice(0, MAX_RECENTS)
+    recents.value = [recent, ...recents.value.filter((r) => recentKey(r) !== key)].slice(0, RECENT_CAP)
     persistRecents()
   }
 
@@ -237,6 +243,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
     const key = recentKey(recent)
     recents.value = recents.value.filter((r) => recentKey(r) !== key)
     persistRecents()
+  }
+
+  function importRecents(list: Recent[], city = currentCity.value) {
+    localStorage.setItem(recentPlansKey(city), JSON.stringify(list))
+    if (city === currentCity.value) recents.value = list
   }
 
   function importAll(data: {routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown}, city = currentCity.value) {
@@ -299,6 +310,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     isPlanFavorite,
     toggleRouteFavorite,
     toggleStopFavorite,
+    toggleStationFavorite,
     togglePlanFavorite,
     renamePlanFavorite,
     reorderRoutes,
@@ -306,6 +318,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     reorderPlans,
     addRecent,
     removeRecent,
+    importRecents,
     importAll,
     preloadFavorites,
   }

@@ -618,6 +618,162 @@
       "about": "later version",
       "json": "{\"v\":2,\"seen\":\"all\"}",
       "outcome": "newer"
+    },
+    {
+      "kind": "recents",
+      "about": "empty",
+      "json": "{\"v\":1,\"recent\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "recents",
+      "about": "one of each",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",391],[\"line\",24],[\"place\",\"Iulius Mall\",\"\",46.77,23.6],[\"place\",\"Acasă\",\"Home\",46.77,23.61,\"Gară\",46.78,23.58]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "recents",
+      "about": "a stop and a line may share a number",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",24],[\"line\",24]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "recents",
+      "about": "ten",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8],[\"stop\",9],[\"stop\",10]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "recents",
+      "about": "eleven",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8],[\"stop\",9],[\"stop\",10],[\"stop\",11]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "same stop twice",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",1]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "same place twice",
+      "json": "{\"v\":1,\"recent\":[[\"place\",\"A\",\"\",46.77,23.6],[\"place\",\"B\",\"\",46.77,23.6]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "unknown kind",
+      "json": "{\"v\":1,\"recent\":[[\"bus\",1]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "stop id as text",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",\"1\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "stop id zero",
+      "json": "{\"v\":1,\"recent\":[[\"stop\",0]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "place with an origin name only",
+      "json": "{\"v\":1,\"recent\":[[\"place\",\"A\",\"\",46.77,23.6,\"B\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "place outside Romania",
+      "json": "{\"v\":1,\"recent\":[[\"place\",\"A\",\"\",40,23.6]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "empty item",
+      "json": "{\"v\":1,\"recent\":[[]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "whitespace",
+      "json": "{\"v\":1, \"recent\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "missing key",
+      "json": "{\"v\":1}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "recents",
+      "about": "later version",
+      "json": "{\"v\":2,\"recent\":\"all\"}",
+      "outcome": "newer"
+    },
+    {
+      "kind": "options",
+      "about": "nothing known yet",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "options",
+      "about": "everything set",
+      "json": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":true,\"fullScreenAlarms\":false}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "options",
+      "about": "null flag",
+      "json": "{\"v\":1,\"colorfulLines\":null,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "null city",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":null,\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "city too long",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "text for a flag",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":\"true\",\"fullScreenAlarms\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "wrong key order",
+      "json": "{\"v\":1,\"city\":\"\",\"colorfulLines\":false,\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "missing key",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "unknown key",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"more\":1}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "options",
+      "about": "later version",
+      "json": "{\"v\":2,\"colorfulLines\":\"maybe\"}",
+      "outcome": "newer"
     }
   ],
   "merges": [
@@ -813,6 +969,105 @@
       "local": "{\"v\":1,\"seen\":[202,201,200,199,198,197,196,195,194,193,192,191,190,189,188,187,186,185,184,183,182,181,180,179,178,177,176,175,174,173,172,171,170,169,168,167,166,165,164,163,162,161,160,159,158,157,156,155,154,153,152,151,150,149,148,147,146,145,144,143,142,141,140,139,138,137,136,135,134,133,132,131,130,129,128,127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3]}",
       "remote": "{\"v\":1,\"seen\":[203,200,199,198,197,196,195,194,193,192,191,190,189,188,187,186,185,184,183,182,181,180,179,178,177,176,175,174,173,172,171,170,169,168,167,166,165,164,163,162,161,160,159,158,157,156,155,154,153,152,151,150,149,148,147,146,145,144,143,142,141,140,139,138,137,136,135,134,133,132,131,130,129,128,127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2]}",
       "merged": "{\"v\":1,\"seen\":[203,202,201,200,199,198,197,196,195,194,193,192,191,190,189,188,187,186,185,184,183,182,181,180,179,178,177,176,175,174,173,172,171,170,169,168,167,166,165,164,163,162,161,160,159,158,157,156,155,154,153,152,151,150,149,148,147,146,145,144,143,142,141,140,139,138,137,136,135,134,133,132,131,130,129,128,127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "first sync joins both, remote first",
+      "base": null,
+      "local": "{\"v\":1,\"recent\":[[\"stop\",1]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"stop\",2]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"stop\",2],[\"stop\",1]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "one side removed one",
+      "base": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2]]}",
+      "local": "{\"v\":1,\"recent\":[[\"stop\",1]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"stop\",1]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "the new ones go first on both sides",
+      "base": "{\"v\":1,\"recent\":[[\"stop\",1]]}",
+      "local": "{\"v\":1,\"recent\":[[\"stop\",2],[\"stop\",1]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"line\",3],[\"stop\",1]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"line\",3],[\"stop\",2],[\"stop\",1]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "one reused an old one",
+      "base": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2]]}",
+      "local": "{\"v\":1,\"recent\":[[\"stop\",2],[\"stop\",1]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"stop\",2],[\"stop\",1]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "a reused old one stays behind a new one",
+      "base": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2]]}",
+      "local": "{\"v\":1,\"recent\":[[\"stop\",2],[\"stop\",1]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"line\",3],[\"stop\",1],[\"stop\",2]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"line\",3],[\"stop\",2],[\"stop\",1]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "recents",
+      "about": "over the cap loses the oldest",
+      "base": "{\"v\":1,\"recent\":[[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8],[\"stop\",9],[\"stop\",10]]}",
+      "local": "{\"v\":1,\"recent\":[[\"line\",1],[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8],[\"stop\",9]]}",
+      "remote": "{\"v\":1,\"recent\":[[\"line\",2],[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8],[\"stop\",9]]}",
+      "merged": "{\"v\":1,\"recent\":[[\"line\",2],[\"line\",1],[\"stop\",1],[\"stop\",2],[\"stop\",3],[\"stop\",4],[\"stop\",5],[\"stop\",6],[\"stop\",7],[\"stop\",8]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "first sync: remote, nulls and an empty city filled from local",
+      "base": null,
+      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":true}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":false}",
+      "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "each side changed one",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "both changed one: remote",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "a device without the setting keeps it",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "nearest city chosen on one side",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
       "dropped": {}
     }
   ]

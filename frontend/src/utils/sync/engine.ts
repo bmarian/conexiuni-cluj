@@ -29,27 +29,39 @@ import {
   type DevicesRecord,
   emptyCity,
   emptyNews,
+  emptyRecents,
   type NewsRecord,
+  type OptionsRecord,
   type Read,
   readCity,
   readDevices,
   readNews,
+  readOptions,
+  readRecents,
   readSettings,
+  type RecentsRecord,
   type SettingsRecord,
   writeCity,
   writeDevices,
   writeNews,
+  writeOptions,
+  writeRecents,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeNews, mergeSettings} from '@/utils/sync/merge.ts'
+import {mergeCity, mergeDevices, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 import {
   applyCity,
   applyNews,
+  applyOptions,
+  applyRecents,
   applySettings,
   cityFromLocal,
   isEmptyCity,
   isEmptyNews,
+  isEmptyRecents,
   newsFromLocal,
+  optionsFromLocal,
+  recentsFromLocal,
   settingsFromLocal,
   syncedCities,
 } from '@/utils/sync/local.ts'
@@ -80,9 +92,12 @@ type Kind<T> = {
 type Run = {m: Membership; keys: ChainKeys; bases: Record<string, Base>; report: Report; devices: DeviceEntry[]}
 
 const SETTINGS = 'settings'
+const OPTIONS = 'options'
 const DEVICES = 'devices'
 const cityName = (slug: string) => `city:${slug}`
 const newsName = (slug: string) => `news:${slug}`
+const recentsName = (slug: string) => `recents:${slug}`
+const cityRecords = (slug: string) => [cityName(slug), newsName(slug), recentsName(slug)]
 
 function cityKind(slug: string, run: Run): Kind<CityRecord> {
   return {
@@ -115,6 +130,25 @@ function newsKind(slug: string): Kind<NewsRecord> {
     apply: (value) => applyNews(slug, value),
     empty: isEmptyNews,
   }
+}
+
+function recentsKind(slug: string): Kind<RecentsRecord> {
+  return {
+    read: readRecents,
+    write: writeRecents,
+    local: () => recentsFromLocal(slug),
+    merge: (base, local, remote) => mergeRecents(base ?? emptyRecents(), local, remote),
+    apply: (value) => applyRecents(slug, value),
+    empty: isEmptyRecents,
+  }
+}
+
+const optionsKind: Kind<OptionsRecord> = {
+  read: readOptions,
+  write: writeOptions,
+  local: optionsFromLocal,
+  merge: mergeOptions,
+  apply: applyOptions,
 }
 
 const settingsKind: Kind<SettingsRecord> = {
@@ -278,8 +312,8 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
     }
   const steps = [
     step(DEVICES, devicesKind(run, label)),
-    ...(withSettings ? [step(SETTINGS, settingsKind)] : []),
-    ...syncedCities().flatMap((slug) => [step(cityName(slug), cityKind(slug, run)), step(newsName(slug), newsKind(slug))]),
+    ...(withSettings ? [step(SETTINGS, settingsKind), step(OPTIONS, optionsKind)] : []),
+    ...syncedCities().flatMap((slug) => [step(cityName(slug), cityKind(slug, run)), step(newsName(slug), newsKind(slug)), step(recentsName(slug), recentsKind(slug))]),
   ]
   try {
     for (const sync of steps) await sync()
@@ -327,7 +361,7 @@ export async function removeDevice(id: string, withSettings: boolean, label: str
   const m = (await getMembership())!
   const st = await state(m)
   const keys = await chainKeys(m.s)
-  const logicals = [DEVICES, SETTINGS, ...syncedCities().flatMap((slug) => [cityName(slug), newsName(slug)])]
+  const logicals = [DEVICES, SETTINGS, OPTIONS, ...syncedCities().flatMap(cityRecords)]
   const byName = new Map(await Promise.all(logicals.map(async (l): Promise<[string, string]> => [await recordName(keys.names, l), l])))
   const run: Run = {m, keys, bases: {}, report: {devices: [], dropped: 0, problems: []}, devices: []}
 

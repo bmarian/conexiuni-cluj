@@ -18,8 +18,24 @@ import {
   utf8,
   wrapSecret,
 } from '@/utils/sync/crypto.ts'
-import {emptyCity, emptyNews, readCity, readDevices, readNews, readSettings, writeCity, writeDevices, writeNews, writeSettings} from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeNews, mergeSettings} from '@/utils/sync/merge.ts'
+import {
+  emptyCity,
+  emptyNews,
+  emptyRecents,
+  readCity,
+  readDevices,
+  readNews,
+  readOptions,
+  readRecents,
+  readSettings,
+  writeCity,
+  writeDevices,
+  writeNews,
+  writeOptions,
+  writeRecents,
+  writeSettings,
+} from '@/utils/sync/records.ts'
+import {mergeCity, mergeDevices, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 
 // The shared files every client runs: made and checked by backend/devicesync/vectors_test.go.
 const testdata = (name: string) => JSON.parse(readFileSync(new URL(`../../../../../backend/devicesync/testdata/${name}`, import.meta.url), 'utf8'))
@@ -78,7 +94,18 @@ type RecordCase = {kind: string; about: string; json: string; outcome: string}
 type MergeCase = {kind: string; about: string; base: string | null; local: string; remote: string; merged: string; dropped: Record<string, unknown[]>}
 
 async function outcome(kind: string, raw: string) {
-  const read = kind === 'city' ? readCity(raw) : kind === 'news' ? readNews(raw) : kind === 'devices' ? await readDevices(raw) : readSettings(raw)
+  const read =
+    kind === 'city'
+      ? readCity(raw)
+      : kind === 'news'
+        ? readNews(raw)
+        : kind === 'devices'
+          ? await readDevices(raw)
+          : kind === 'recents'
+            ? readRecents(raw)
+            : kind === 'options'
+              ? readOptions(raw)
+              : readSettings(raw)
   return read.ok ? 'ok' : read.newer ? 'newer' : 'refuse'
 }
 
@@ -107,6 +134,13 @@ describe('sync cases', () => {
         }).filter(([, items]) => items.length),
       )
       expect(nonEmpty).toEqual(c.dropped)
+    } else if (c.kind === 'recents') {
+      const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyRecents>>(raw, readRecents)))
+      expect(writeRecents(mergeRecents(base ?? emptyRecents(), local!, remote!))).toBe(c.merged)
+    } else if (c.kind === 'options') {
+      type Options = Parameters<typeof writeOptions>[0]
+      const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<Options>(raw, readOptions)))
+      expect(writeOptions(mergeOptions(base, local!, remote!))).toBe(c.merged)
     } else if (c.kind === 'news') {
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyNews>>(raw, readNews)))
       expect(writeNews(mergeNews(base ?? emptyNews(), local!, remote!))).toBe(c.merged)

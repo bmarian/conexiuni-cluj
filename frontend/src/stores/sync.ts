@@ -4,7 +4,7 @@ import {useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
-import {currentCity} from '@/utils/city.ts'
+import {cityChoice, currentCity} from '@/utils/city.ts'
 import {canSync} from '@/utils/sync/crypto.ts'
 import {deviceLabel} from '@/utils/sync/local.ts'
 import * as engine from '@/utils/sync/engine.ts'
@@ -13,6 +13,8 @@ import type {DeviceView, Problem} from '@/utils/sync/engine.ts'
 const SETTINGS_KEY = 'sync.settings'
 // Collects a burst of edits (a reorder, a few toggles) into one write.
 const AFTER_EDIT_MS = 2000
+// An edit made on another device shows up here while this one stays open.
+const WHILE_OPEN_MS = 30000
 
 function readFlag(key: string, fallback: boolean): boolean {
   try {
@@ -42,14 +44,15 @@ export const useSyncStore = defineStore('sync', () => {
   let again = false
   let started = false
 
-  async function syncNow(): Promise<void> {
+  // quiet: the routine check, which the status line doesn't show.
+  async function syncNow(quiet = false): Promise<void> {
     if (status.value !== 'on') return
     if (running) {
       again = true
       return running
     }
     running = (async () => {
-      busy.value = true
+      busy.value = !quiet
       try {
         do {
           again = false
@@ -105,11 +108,19 @@ export const useSyncStore = defineStore('sync', () => {
     const favorites = useFavoritesStore()
     const routeUpdates = useRouteUpdatesStore()
     const settings = useSettingsStore()
-    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, routeUpdates.followed, routeUpdates.seenIds], schedule, {
+    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, favorites.recents, routeUpdates.followed, routeUpdates.seenIds], schedule, {
       deep: true,
     })
     watch(
-      () => [settings.theme, settings.locale, settings.autoCenterOnMe, settings.autoFitMap, settings.regionSetting('cluj', 'showGreenFriday')],
+      () => [
+        settings.theme,
+        settings.locale,
+        settings.autoCenterOnMe,
+        settings.autoFitMap,
+        settings.colorfulLines,
+        cityChoice.value,
+        settings.regionSetting('cluj', 'showGreenFriday'),
+      ],
       () => {
         if (withSettings.value) schedule()
       },
@@ -121,6 +132,9 @@ export const useSyncStore = defineStore('sync', () => {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void syncNow()
     })
+    setInterval(() => {
+      if (document.visibilityState === 'visible') void syncNow(true)
+    }, WHILE_OPEN_MS)
     void syncNow()
   }
 

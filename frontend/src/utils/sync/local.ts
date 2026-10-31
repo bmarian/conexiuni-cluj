@@ -1,9 +1,9 @@
 // This device's own data as sync records, and records written back into it.
-import {type FavoritePlan, savedFavorites, useFavoritesStore} from '@/stores/favorites'
+import {type FavoritePlan, type Recent, savedFavorites, useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
-import {cities} from '@/utils/city.ts'
+import {chooseCity, cities, cityChoice, currentCity, knownCity} from '@/utils/city.ts'
 import {
   blankEnd,
   CITY_CAP,
@@ -13,8 +13,12 @@ import {
   LON,
   newestSeen,
   type NewsRecord,
+  type OptionsRecord,
   type Place,
   placeId,
+  type RecentItem,
+  recentId,
+  type RecentsRecord,
   roundCoordinate,
   type SettingsRecord,
   validId,
@@ -105,6 +109,31 @@ export const isEmptyNews = (r: NewsRecord) => !r.seen.length
 
 export const applyNews = (slug: string, r: NewsRecord) => useRouteUpdatesStore().importSeen(r.seen, slug)
 
+function toRecentItem(r: Recent): RecentItem | null {
+  if ('stopId' in r) return validId(r.stopId) ? {kind: 'stop', id: r.stopId} : null
+  if ('routeId' in r) return validId(r.routeId) ? {kind: 'line', id: r.routeId} : null
+  const place = toPlace(r)
+  return place && {kind: 'place', place}
+}
+
+function toRecent(item: RecentItem): Recent {
+  if (item.kind === 'place') return toPlan(item.place)
+  return item.kind === 'stop' ? {stopId: item.id} : {routeId: item.id}
+}
+
+export const recentsFromLocal = (slug: string): RecentsRecord => ({
+  recent: distinct(
+    savedFavorites(slug)
+      .recentPlans.map(toRecentItem)
+      .filter((item): item is RecentItem => item !== null),
+    recentId,
+  ),
+})
+
+export const isEmptyRecents = (r: RecentsRecord) => !r.recent.length
+
+export const applyRecents = (slug: string, r: RecentsRecord) => useFavoritesStore().importRecents(r.recent.map(toRecent), slug)
+
 export const syncedCities = () => cities.value.map((c) => c.slug)
 
 export type OverCap = {city: string; list: 'stops' | 'lines' | 'places' | 'followed'; count: number}
@@ -143,6 +172,29 @@ export function applySettings(r: SettingsRecord) {
   if (s.autoCenterOnMe !== r.autoCenterOnMe) s.setAutoCenterOnMe(r.autoCenterOnMe)
   if (s.autoFitMap !== r.autoFitMap) s.setAutoFitMap(r.autoFitMap)
   if (s.regionSetting('cluj', 'showGreenFriday') !== r.greenFriday) s.setRegionSetting('cluj', 'showGreenFriday', r.greenFriday)
+}
+
+// What only the phone has stays as last agreed.
+export function optionsFromLocal(base: OptionsRecord | null): OptionsRecord {
+  return {
+    colorfulLines: useSettingsStore().colorfulLines,
+    city: cityChoice.value ?? '',
+    journeyVoice: base?.journeyVoice ?? null,
+    fullScreenAlarms: base?.fullScreenAlarms ?? null,
+  }
+}
+
+async function switchCity(slug: string | null) {
+  const target = await chooseCity(slug)
+  if (target === currentCity.value) return
+  const {default: router} = await import('@/router')
+  void router.push(`/${target}/`)
+}
+
+export function applyOptions(r: OptionsRecord) {
+  const s = useSettingsStore()
+  if (s.colorfulLines !== r.colorfulLines) s.setColorfulLines(r.colorfulLines)
+  if ((cityChoice.value ?? '') !== r.city && knownCity(r.city || currentCity.value)) void switchCity(r.city || null)
 }
 
 export function deviceLabel(): string {

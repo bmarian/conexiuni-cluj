@@ -29,7 +29,7 @@ One device **shows** (D), the other **enters** (E). Slots live 5 minutes on the 
    - `T = HKDF(Z, salt = K if scanned else empty, info = "cai-sync/v1/pair|<code>|" ‖ Pe ‖ Pd, 32)`
    - check number `= uint32_be(HKDF(T, empty, "cai-sync/v1/check", 4)) mod 1 000 000`, shown as six digits `NNN NNN` on both screens.
 6. Messages: `POST /api/sync/pair/<code>/messages {"message": sealed}`. The sealed value is the JSON message in canonical form (§4.2) padded to 512 bytes and sealed with `T`, associated data `"cai-sync/v1/pair-message|<code>|<D or E>"` naming the sender, so 540 bytes. Each side sends at most two; `GET` returns `messages` for the reader, oldest first, every time.
-   - `{"t": "hello", "kind": K, "label": L, "syncs": bool, "devices": n}`: both, first. `kind` and `label` follow §4.5; `devices` is 0 when `syncs` is false, else 1–10.
+   - `{"t": "hello", "kind": K, "label": L, "syncs": bool, "devices": n}`: both, first. `kind` and `label` follow §4.6; `devices` is 0 when `syncs` is false, else 1–10.
    - `{"t": "ready"}`: the receiving side, after its user confirms.
    - `{"t": "secret", "chain": id, "epoch": n, "s": S}`: the giving side, after its own user confirms and the `ready` arrived. `n` ≥ 1, `S` 32 bytes.
 7. Who gives: the side that syncs. Neither: E creates the chain (§3) and gives. Both: neither confirms; both show that one of them has to stop syncing first, and close the slot.
@@ -47,13 +47,13 @@ A message that fails to open, a wrong commit, an unexpected message or a slot th
 | data | `cai-sync/v1/data` | AES-GCM key for records |
 | names | `cai-sync/v1/names` | record name = first 16 bytes of HMAC-SHA256(names, logical name) |
 
-Logical names: `settings`, `devices`, `city:<slug>`, `news:<slug>`.
+Logical names: `settings`, `options`, `devices`, `city:<slug>`, `news:<slug>`, `recents:<slug>`.
 
 - Create: `POST /api/sync/chains {"join", "kind"}` → `{"chain", "epoch": 1, "device", "token"}`.
 - Join: `POST /api/sync/chains/<chain>/devices {"join", "kind"}` → `{"epoch", "device", "token"}`.
 - Every other call sends `Authorization: Bearer <token>`.
 
-Each device also makes a long-term P-256 key pair when it joins and adds itself to the `devices` record (§4.5) with its public key. The private key never leaves the device.
+Each device also makes a long-term P-256 key pair when it joins and adds itself to the `devices` record (§4.6) with its public key. The private key never leaves the device.
 
 ## 4. Records
 
@@ -103,7 +103,15 @@ A record for a city the device does not know is left alone.
 
 `seen`: the ids of the city's route changes the user has seen, integers 1 … 2³¹−1, strictly descending, at most 200 (the most `/updates` returns). A device that shows no news neither reads nor writes it.
 
-### 4.5 `devices`
+### 4.5 `recents:<slug>`
+
+```json
+{"v": 1, "recent": [["stop", 391], ["line", 24], ["place", "Iulius Mall", "", 46.77, 23.6]]}
+```
+
+`recent`: what the user looked for, newest first, at most 10, no two with the same identity. An item is `["stop", id]`, `["line", route id]` (ids as in §4.3) or `"place"` followed by the fields of a §4.3 place. A device that keeps no places leaves them as last agreed.
+
+### 4.6 `devices`
 
 ```json
 {"v": 1, "devices": [{"id": "…", "kind": "web", "label": "Chrome on Windows", "pub": "…"}]}
@@ -111,7 +119,7 @@ A record for a city the device does not know is left alone.
 
 `id` a device id; `kind` `web`, `android` or `wear`; `label` text 1–40, made by the device (browser and system, `Build.MODEL`), never typed; `pub` its long-term SPKI. At most 10, no duplicate ids.
 
-### 4.6 `settings`
+### 4.7 `settings`
 
 ```json
 {"v": 1, "theme": "system", "locale": "ro", "autoCenterOnMe": true, "autoFitMap": true, "showVehicleExtras": true, "regions": {"cluj": {"showGreenFriday": true}}}
@@ -120,6 +128,14 @@ A record for a city the device does not know is left alone.
 `theme` `light`, `dark` or `system`; `locale` `ro` or `en`; the three flags booleans; `regions` exactly the region settings of this version: `cluj.showGreenFriday`, boolean. A new setting is a new version.
 
 A device with "Also sync settings" off neither reads nor writes this record.
+
+### 4.8 `options`
+
+```json
+{"v": 1, "colorfulLines": false, "city": "cluj", "journeyVoice": null, "fullScreenAlarms": null}
+```
+
+The settings added after `settings` reached released apps, in a record of their own so those apps keep syncing. `colorfulLines` boolean; `city` the chosen city's slug, text 0–40, `""` for the nearest; `journeyVoice` and `fullScreenAlarms` boolean, or null until a device that has them writes them. A device without such a setting keeps its value as last agreed. A device with "Also sync settings" off neither reads nor writes this record.
 
 ## 5. Reading and writing
 
@@ -137,6 +153,8 @@ Each device keeps, per record, the last version it and the server agreed on (`ba
 - **Fields** (place name and label; device kind, label and key; each setting): the local value if it differs from `base` and the remote value doesn't; otherwise the remote value. An item new on one side takes that side's values; new on both, the remote's.
 - **Caps:** if a list ends up over its cap, items only the local side added are dropped from the end until it fits, and the device says what stayed local.
 - **Seen ids:** `seen` merges as a list, then is sorted descending and cut to its cap; nothing is reported.
+- **Recents:** `recent` merges as a list by identity, then the items `base` doesn't have move to the front in the order they ended up, and it is cut to its cap; nothing is reported.
+- **Options:** with no `base`, each null remote value and an empty remote `city` take the local value; everything else stays remote. With a `base`, every field follows the rule above.
 - **Push:** if the merge differs from the remote record, write it with `base` = the remote revision; on 409 read again and repeat.
 
 ## 7. Removing a device
@@ -172,6 +190,6 @@ Leaving: write the `devices` record without this device, then `DELETE /api/sync/
 | 401 answers | 20 per client per 10 minutes |
 | record writes | 120 per device per hour (a rotation counts each record) |
 | devices | 10 per chain |
-| records | 2 × cities + 2 per chain |
+| records | 3 × cities + 3 per chain |
 | storage | above `SYNC_DB_MAX_MB`: no new chains (503), no new or bigger records (409 `full`), no rotation that grows the chain (409 `full`) |
 | unused | a chain no device has called for 365 days is deleted |

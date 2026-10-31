@@ -330,6 +330,10 @@ func parseAny(kind, raw string) error {
 		_, err = parseDevices(raw)
 	case "settings":
 		_, err = parseSettings(raw)
+	case "recents":
+		_, err = parseRecents(raw)
+	case "options":
+		_, err = parseOptions(raw)
 	default:
 		err = fmt.Errorf("unknown kind %q", kind)
 	}
@@ -436,6 +440,23 @@ func TestMergeCases(t *testing.T) {
 			local, _ := parseSettings(c.Local)
 			remote, _ := parseSettings(c.Remote)
 			got = mergeSettings(base, local, remote).write()
+		case "recents":
+			var base recentsRecord
+			if c.Base != nil {
+				base, _ = parseRecents(*c.Base)
+			}
+			local, _ := parseRecents(c.Local)
+			remote, _ := parseRecents(c.Remote)
+			got = mergeRecents(base, local, remote).write()
+		case "options":
+			var base *optionsRecord
+			if c.Base != nil {
+				b, _ := parseOptions(*c.Base)
+				base = &b
+			}
+			local, _ := parseOptions(c.Local)
+			remote, _ := parseOptions(c.Remote)
+			got = mergeOptions(base, local, remote).write()
 		case "devices":
 			var base []deviceEntry
 			if c.Base != nil {
