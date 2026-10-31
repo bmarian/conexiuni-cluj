@@ -136,12 +136,7 @@ useHead(() => {
 
 const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon))
 
-const favoriteLabel = computed(
-  () =>
-    favoritesStore.favoritePlans.find(
-      (p) => p.lat === destLat.value && p.lon === destLon.value && p.originLat === customOrigin.value?.lat && p.originLon === customOrigin.value?.lon,
-    )?.label,
-)
+const favoriteLabel = computed(() => favoritesStore.findPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon)?.label)
 
 function toggleFavorite() {
   if (!isOnline.value) return
