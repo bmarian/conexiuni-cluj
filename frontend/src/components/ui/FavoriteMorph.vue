@@ -80,7 +80,7 @@ watch(
 .is-off {
   animation:
     pop var(--spring-pop-ms) var(--spring-pop),
-    mark-on 1130ms linear both;
+    mark-on calc(1130ms * var(--pace-long)) linear both;
 }
 
 .is-off {
@@ -95,7 +95,7 @@ watch(
 .is-off > .content > :deep(*) {
   animation:
     shrink 140ms ease-in both,
-    grow var(--spring-pop-ms) var(--spring-pop) 955ms both;
+    grow var(--spring-pop-ms) var(--spring-pop) calc(955ms * var(--pace-long)) both;
 }
 
 .mark {
@@ -114,12 +114,12 @@ watch(
 
 .is-on .heart {
   animation:
-    heart-in var(--spring-pop-ms) var(--spring-pop) 85ms both,
-    shrink 140ms ease-in 825ms forwards;
+    heart-in var(--spring-pop-ms) var(--spring-pop) calc(85ms * var(--pace-long)) both,
+    shrink 140ms ease-in calc(825ms * var(--pace-long)) forwards;
 }
 
 .is-off .mark {
-  animation: appear var(--spring-pop-ms) var(--spring-pop) 85ms both;
+  animation: appear var(--spring-pop-ms) var(--spring-pop) calc(85ms * var(--pace-long)) both;
 }
 
 .heart.is-left,
@@ -129,12 +129,12 @@ watch(
 
 .heart.is-left {
   clip-path: polygon(0 0, 50% 0, 40% 35%, 58% 55%, 46% 75%, 50% 100%, 0 100%);
-  animation: break-left 565ms ease-in 435ms both;
+  animation: break-left calc(565ms * var(--pace-long)) ease-in calc(435ms * var(--pace-long)) both;
 }
 
 .heart.is-right {
   clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%, 46% 75%, 58% 55%, 40% 35%);
-  animation: break-right 565ms ease-in 435ms both;
+  animation: break-right calc(565ms * var(--pace-long)) ease-in calc(435ms * var(--pace-long)) both;
 }
 
 .spark {
@@ -146,7 +146,7 @@ watch(
   border-radius: 50%;
   background: var(--md-rose);
   pointer-events: none;
-  animation: spark 450ms linear 85ms both;
+  animation: spark calc(450ms * var(--pace-long)) linear calc(85ms * var(--pace-long)) both;
 }
 
 @keyframes fill-in {

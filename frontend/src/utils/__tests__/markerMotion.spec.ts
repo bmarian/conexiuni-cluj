@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {easeOutCubic, flightMs, linear} from '@/utils/markerMotion.ts'
+import {paced} from '@/utils/motion.ts'
 
 describe('marker motion', () => {
   it('eases out and ends exactly at the target', () => {
@@ -10,9 +11,9 @@ describe('marker motion', () => {
   })
 
   it('flies short hops quickly and caps long ones', () => {
-    expect(flightMs(0, 0)).toBe(305)
-    expect(flightMs(0, 2)).toBe(570)
-    expect(flightMs(4000, 3)).toBe(955)
+    expect(flightMs(0, 0)).toBe(paced(305))
+    expect(flightMs(0, 2)).toBe(paced(570))
+    expect(flightMs(4000, 3)).toBe(paced(955))
     expect(flightMs(800, 1)).toBeGreaterThan(flightMs(200, 1))
   })
 })

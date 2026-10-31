@@ -1,7 +1,7 @@
 import {nextTick, type Ref} from 'vue'
-import {EMPHASIZED, reducedMotion, spring} from '@/utils/motion.ts'
+import {EMPHASIZED, paced, reducedMotion, spring} from '@/utils/motion.ts'
 
-const TRAVEL_MS = 520
+const TRAVEL_MS = paced(520)
 
 function travel(el: HTMLElement, to: DOMRect, aside: number, under: boolean): Animation {
   const from = el.getBoundingClientRect()

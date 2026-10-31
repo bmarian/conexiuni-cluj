@@ -1,15 +1,17 @@
 import {easeOutCubic} from '@/utils/markerMotion.ts'
+import {SPRING_PACE} from '@/utils/motion.ts'
 
 const TAPS = 2
 const TAP_MS = 210
 const TAP_PX = 5
-const ORBIT_MS = 870
+// Any shorter and it turns too far between frames to read as a spin.
+const ORBIT_MS = 870 * SPRING_PACE
 const ORBIT_PX = 6
 const FRAME_MS = 16
 export const ARROW_MS = TAPS * TAP_MS + ORBIT_MS
 export const ARROW_BACK_MS = 280
 // Waits out the page's slide-in.
-export const ARROW_OPEN_DELAY_MS = 435
+export const ARROW_OPEN_DELAY_MS = 435 * SPRING_PACE
 
 const rad = Math.PI / 180
 const smooth = (k: number) => (1 - Math.cos(Math.PI * k)) / 2

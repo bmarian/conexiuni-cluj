@@ -3,6 +3,7 @@ import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {useHead} from '@unhead/vue'
+import {SPRING_PACE} from '@/utils/motion.ts'
 import MapComponent from '@/components/MapComponent.vue'
 import {mapCreditsHTML} from '@/utils/mapStyles.ts'
 import OfflinePill from '@/components/OfflinePill.vue'
@@ -42,7 +43,7 @@ type DrawerState = SheetSnap
 const SHEET_HANDLE_PX = 28
 const PEEK_CONTENT_PX = 64
 const MINIMIZED_PX = SHEET_HANDLE_PX + PEEK_CONTENT_PX
-const SHEET_SETTLE_MS = 350
+const SHEET_SETTLE_MS = 350 * SPRING_PACE
 const FABS_FADE_PX = 120
 
 const SNAP_FRAC: Record<DrawerState, number> = {
