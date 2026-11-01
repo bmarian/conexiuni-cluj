@@ -1,7 +1,8 @@
+import {watch} from 'vue'
 import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import {isShare, sharedDestination} from '@/utils/share.ts'
-import {citiesReady, currentCity, knownCity, locatedCity, openingCity, setCity} from '@/utils/city.ts'
+import {citiesReady, cityToOpen, currentCity, knownCity, locatedCity, openingCity, setCity} from '@/utils/city.ts'
 import {lineProps, resolvePagePath, stationProps, stationsProps} from '@/utils/pagePaths.ts'
 
 const StopView = () => import('@/views/StopView.vue')
@@ -156,5 +157,11 @@ router.beforeEach(async (to) => {
 })
 
 router.beforeResolve(resolvePagePath)
+
+watch(cityToOpen, (slug) => {
+  if (!slug) return
+  cityToOpen.value = null
+  void router.push(`/${slug}/`)
+})
 
 export default router
