@@ -397,6 +397,14 @@ const linesBounds = (...groups: LineSpec[][]) => {
   return bounds.isEmpty() ? null : bounds
 }
 
+const contentBounds = () => {
+  const bounds = linesBounds(lines.walks, lines.shapes)
+  if (!bounds) return null
+  const start = customOriginLocation.value ?? (lines.walks.length && userDot.value ? markerLatLng(userDot.value) : null)
+  for (const place of [start, pinnedLocation.value]) if (place) bounds.extend([place.lng, place.lat])
+  return bounds
+}
+
 const fitPadding = () => ({
   top: FIT_PADDING_PX + chromeTopPx.value,
   left: FIT_PADDING_PX + drawerLeftPx.value,
@@ -1361,7 +1369,7 @@ const renderWalkingPolylines = (polylines: [number, number][][]) => {
       dash: dashOf('8 6', 3),
     }))
   syncLines('walks')
-  const bounds = linesBounds(lines.walks, lines.shapes)
+  const bounds = contentBounds()
   if (bounds && map.value && mapStore.fitWalkingPolylines && settingsStore.autoFitMap) {
     fitTo(bounds)
     mapStore.fitWalkingPolylines = false
@@ -1565,7 +1573,7 @@ watch(
 watch(
   () => mapStore.fitRequest,
   () => {
-    const bounds = linesBounds(lines.shapes)
+    const bounds = contentBounds()
     if (bounds) fitTo(bounds)
   },
 )

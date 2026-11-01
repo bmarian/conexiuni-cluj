@@ -208,7 +208,7 @@
   "headRouteDesc": "Orar, traseu, opriri și plecări live pentru linia {shortName} din {city}.",
   "headStopTitle": "Stația {stopName}, {city} - Plecări live {'|'} Ce autobuz iau?",
   "headStopDesc": "Plecări în timp real de la stația {stopName} din {city}. Liniile care opresc aici și orarele actuale.",
-  "headPlanToTitle": "Rută la {dest} - {city} {'|'} Ce autobuz iau?",
+  "headPlanToTitle": "Rută către {dest} - {city} {'|'} Ce autobuz iau?",
   "headPlanToDesc": "Planifică-ți călătoria la {dest} cu transportul în comun din {city}.",
   "headPlanFromToTitle": "Rută de la {origin} la {dest} - {city} {'|'} Ce autobuz iau?",
   "headPlanFromToDesc": "Planifică-ți călătoria de la {origin} la {dest} cu transportul în comun din {city}.",

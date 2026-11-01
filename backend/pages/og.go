@@ -105,7 +105,7 @@ var ogLocales = map[string]ogLocale{
 		planDesc:           "Planifică-ți călătoria cu transportul în comun din {city}. Găsește rute, orare și conexiuni între stații.",
 		planH1:             "Planifică-ți călătoria în {city}",
 		planBody:           "Planifică-ți ruta cu transportul în comun din {city}. Compară opțiuni, vezi conexiunile între linii și orele estimate de sosire.",
-		planToTitleFmt:     "Rută la %s — {city} | Ce autobuz iau?",
+		planToTitleFmt:     "Rută către %s — {city} | Ce autobuz iau?",
 		planToDescFmt:      "Planifică-ți călătoria la %s cu transportul în comun din {city}.",
 		planFromToTitleFmt: "Rută de la %s la %s — {city} | Ce autobuz iau?",
 		planFromToDescFmt:  "Planifică-ți călătoria de la %s la %s cu transportul în comun din {city}.",
