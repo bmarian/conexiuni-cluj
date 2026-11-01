@@ -25,6 +25,7 @@ export interface StopTimeDisplay {
   label: string
   isLive: boolean
   minutes: number
+  returning?: boolean
 }
 
 const SCHEDULE_HORIZON_MIN = 480
@@ -168,6 +169,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   )
   const {rows, vehiclesByTrip, asOfMs} = useLive(ref<number[]>([]), streamTripIds, {stands: true})
   const liveNowMs = computed(() => (userTime.value || new Date()).getTime())
+  const otherTripVehicles = computed(() => vehiclesByTrip.value.get(`${routeId.value}${isOutgoing.value ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`) ?? [])
 
   function liveEntriesFor(stop: IndexedStop): ShownEntry[] | null {
     if (asOfMs.value === null) return null
@@ -186,9 +188,10 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     const stops = stopsForDirection.value
     const live = stops.map((stop) => liveEntriesFor(stop))
     if (live.some((entries) => entries !== null)) {
+      const coming = live[0]?.find((e) => otherTripVehicles.value.some((v) => v.id === e.vehicle_id))
       return stops.map((stop, idx) => {
         const entries = live[idx]
-        if (entries) return entries.map((e) => toDisplay(e.minutes, e.live, e.soon))
+        if (entries) return entries.map((e) => ({...toDisplay(e.minutes, e.live, e.soon), returning: e === coming}))
         return nextArrivals(nextArrivalsAtStop(stop.secondsFromStart), ENTRIES_SHOWN).map((a) => toDisplay(a.minutes, false, false))
       })
     }
@@ -223,16 +226,15 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     const info = shapeInfo.value
     if (!info) return []
     const tripId = currentTripId.value
-    const otherTripId = `${routeId.value}${currentDirection.value === '0' ? INCOMING_SUFFIX : OUTGOING_SUFFIX}`
     const counted = new Set<number>()
     for (const row of rows.value.values()) {
       if (row.trip_id !== tripId) continue
       for (const e of row.entries) if (e.vehicle_id) counted.add(e.vehicle_id)
     }
-    const roundTrip = (vehiclesByTrip.value.get(otherTripId) ?? []).filter((v) => counted.has(v.id))
     const style = {route_short_name: info.route_short_name, route_color: info.route_color}
+    const returning = otherTripVehicles.value.filter((v) => counted.has(v.id)).map((v) => ({...v, ...style, faded: true, returning: true}))
     const own = (vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style, faded: v.at_stand}))
-    return [...roundTrip.map((v) => ({...v, ...style, faded: true})), ...own]
+    return [...returning, ...own]
   })
 
   function updateMap() {

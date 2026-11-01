@@ -8,6 +8,7 @@ import type {ModeLines} from '@/utils/network.ts'
 import accessibleSvg from '@material-design-icons/svg/round/accessible.svg?raw'
 import bikeSvg from '@material-design-icons/svg/round/pedal_bike.svg?raw'
 import flagSvg from '@material-design-icons/svg/round/flag.svg?raw'
+import uTurnSvg from '@material-design-icons/svg/round/u_turn_left.svg?raw'
 
 export type DisplayVehicle = Vehicle & {
   route_short_name: string
@@ -15,6 +16,7 @@ export type DisplayVehicle = Vehicle & {
   heading: number
   // Drawn faded: on the other direction now, counted on coming back, or at a hidden stand.
   faded?: boolean
+  returning?: boolean
 }
 
 export interface MarkerIcon {
@@ -262,10 +264,14 @@ export function getVehicleMarkerHtml(vehicle: DisplayVehicle, resolvedColor: str
               style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
       </div>
       <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="vehicle-heading w-2.5 h-2.5 shrink-0"
+        ${
+          vehicle.returning
+            ? `<span class="vehicle-heading vehicle-u-turn block" style="transform: rotate(${heading}deg);">${uTurnSvg}</span>`
+            : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="vehicle-heading w-2.5 h-2.5 shrink-0"
              style="transform: rotate(${heading}deg);">
           <path d="M12 2L21 21l-9-4-9 4 9-19z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-        </svg>
+        </svg>`
+        }
       </div>
       ${
         showStopInfo

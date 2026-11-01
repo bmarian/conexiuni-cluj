@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RowLink from '@/components/ui/RowLink.vue'
 import Ticker from '@/components/ui/Ticker.vue'
-import {FavoriteIcon, MyLocationIcon, PlaceIcon} from '@/utils/icons.ts'
+import {FavoriteIcon, MyLocationIcon, PlaceIcon, UTurnIcon} from '@/utils/icons.ts'
 
 export type StopMark = 'from' | 'nearest' | 'favorite' | 'terminal' | 'plain'
 
@@ -11,7 +11,7 @@ defineProps<{
   favorite?: boolean
   first?: boolean
   last?: boolean
-  times?: {label: string; isLive: boolean}[]
+  times?: {label: string; isLive: boolean; returning?: boolean}[]
   trailing?: string
   trailingHighlight?: boolean
   href?: string
@@ -37,7 +37,9 @@ const emit = defineEmits<{open: []}>()
     </span>
     <span v-if="trailing" class="trailing" :class="{'is-highlight': trailingHighlight}">{{ trailing }}</span>
     <span v-else class="times">
-      <span v-for="(time, i) in times" :key="i" class="time" :class="{'is-live': time.isLive}">{{ time.label }}</span>
+      <span v-for="(time, i) in times" :key="i" class="time" :class="{'is-live': time.isLive}">
+        <UTurnIcon v-if="time.returning" class="m-icon size-3 u-turn" />{{ time.label }}
+      </span>
     </span>
   </RowLink>
 </template>
@@ -179,6 +181,12 @@ const emit = defineEmits<{open: []}>()
 .time.is-live {
   color: var(--md-primary);
   font-weight: 800;
+}
+
+.u-turn {
+  display: inline-block;
+  margin-right: 2px;
+  vertical-align: -1px;
 }
 
 .trailing {
