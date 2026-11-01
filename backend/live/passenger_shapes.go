@@ -50,7 +50,7 @@ func (eng *Engine) passengerShape(shape []models.Shape) []models.Shape {
 	return shape[start:end]
 }
 
-// A bus at a hidden stand past either end of the drawn line is not shown; its stop rows stay.
+// A bus past either end of the drawn line sits at a hidden stand.
 func onDrawnLine(trip *predictions.Trip, shapeIdx int, hidden func(stopID int) bool) bool {
 	first, last := visibleEnds(len(trip.Stops), func(pos int) bool { return hidden(trip.Stops[pos].ID) })
 	if first > 0 && shapeIdx < trip.Positions[first] && trip.Shape.Distance(shapeIdx, trip.Positions[first]) > stopReach(trip, first-1, first) {

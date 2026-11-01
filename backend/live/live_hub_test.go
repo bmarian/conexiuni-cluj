@@ -23,6 +23,17 @@ func (f *heldFeed) Vehicles() ([]models.Vehicle, error) {
 
 func (f *heldFeed) Budget() feeds.Budget { return feeds.Budget{} }
 
+func TestStandBusesOnlyReachStreamsThatAskForThem(t *testing.T) {
+	table := &liveTable{AsOf: time.Now(), vehiclesByTrip: map[string][]liveVehicle{"7_0": {{ID: 1}, {ID: 2, AtStand: true}}}}
+	trips := map[string]struct{}{"7_0": {}}
+	if got := (&liveSubscriber{trips: trips}).view(table).Vehicles; len(got) != 1 || got[0].ID != 1 {
+		t.Errorf("without stands: %+v", got)
+	}
+	if got := (&liveSubscriber{trips: trips, stands: true}).view(table).Vehicles; len(got) != 2 {
+		t.Errorf("with stands: %+v", got)
+	}
+}
+
 func TestTheFirstViewerCostsOneFetch(t *testing.T) {
 	eng := newTestCity(t)
 	feed := &heldFeed{started: make(chan struct{}, 4), release: make(chan struct{})}

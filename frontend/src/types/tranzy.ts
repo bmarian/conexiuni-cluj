@@ -118,6 +118,7 @@ export type LiveVehicle = {
   vehicle_type?: number
   bike_accessible?: string
   wheelchair_accessible?: string
+  at_stand?: boolean
 }
 
 export type Vehicle = LiveVehicle
