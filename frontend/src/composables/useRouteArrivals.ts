@@ -166,7 +166,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   const streamTripIds = computed<string[]>(() =>
     shapeInfo.value?.route_id === Number(routeId.value) ? [`${routeId.value}${OUTGOING_SUFFIX}`, `${routeId.value}${INCOMING_SUFFIX}`] : [],
   )
-  const {rows, vehiclesByTrip, asOfMs} = useLive(ref<number[]>([]), streamTripIds)
+  const {rows, vehiclesByTrip, asOfMs} = useLive(ref<number[]>([]), streamTripIds, {stands: true})
   const liveNowMs = computed(() => (userTime.value || new Date()).getTime())
 
   function liveEntriesFor(stop: IndexedStop): ShownEntry[] | null {
@@ -199,7 +199,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
   const directionPath = computed(() => (currentDirectionShape.value?.length ? pathOf(currentDirectionShape.value) : null))
   const stopsOnPath = computed(() => (directionPath.value ? stopsAlong(directionPath.value, stopsForDirection.value) : []))
 
-  const listVehicles = computed(() => vehiclesByTrip.value.get(currentTripId.value) ?? [])
+  const listVehicles = computed(() => (vehiclesByTrip.value.get(currentTripId.value) ?? []).filter((v) => !v.at_stand))
 
   function getHeaderTimes(): string[] {
     const first = stopsForDirection.value[0]
@@ -218,7 +218,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
   }
 
-  // The other direction's buses this direction's rows count on coming back, faded.
+  // Faded: the other direction's buses this direction's rows count on coming back, and buses at a hidden stand.
   const displayVehicles = computed((): DisplayVehicle[] => {
     const info = shapeInfo.value
     if (!info) return []
@@ -231,7 +231,8 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     }
     const roundTrip = (vehiclesByTrip.value.get(otherTripId) ?? []).filter((v) => counted.has(v.id))
     const style = {route_short_name: info.route_short_name, route_color: info.route_color}
-    return [...roundTrip.map((v) => ({...v, ...style, faded: true})), ...(vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style}))]
+    const own = (vehiclesByTrip.value.get(tripId) ?? []).map((v) => ({...v, ...style, faded: v.at_stand}))
+    return [...roundTrip.map((v) => ({...v, ...style, faded: true})), ...own]
   })
 
   function updateMap() {

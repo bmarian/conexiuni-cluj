@@ -13,7 +13,7 @@ export type DisplayVehicle = Vehicle & {
   route_short_name: string
   route_color?: string
   heading: number
-  // Drawn faded: on the other direction now, counted on coming back.
+  // Drawn faded: on the other direction now, counted on coming back, or at a hidden stand.
   faded?: boolean
 }
 

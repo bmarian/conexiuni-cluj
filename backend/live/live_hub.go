@@ -35,6 +35,7 @@ type liveSubscriber struct {
 	person bool
 	stops  map[int]struct{}
 	trips  map[string]struct{}
+	stands bool
 	ch     chan *liveTable
 }
 
@@ -326,7 +327,11 @@ func (s *liveSubscriber) view(table *liveTable) liveView {
 				out.Rows = append(out.Rows, row)
 			}
 		}
-		out.Vehicles = append(out.Vehicles, table.vehiclesByTrip[tripID]...)
+		for _, v := range table.vehiclesByTrip[tripID] {
+			if s.stands || !v.AtStand {
+				out.Vehicles = append(out.Vehicles, v)
+			}
+		}
 	}
 	return out
 }
@@ -409,8 +414,9 @@ func (eng *Engine) ServeLive(c fiber.Ctx) error {
 	if person {
 		eng.recordLiveViews(client, stopIDs, tripIDs)
 	}
+	stands := c.Query("stands") != ""
 	if c.Query("once") != "" {
-		sub := &liveSubscriber{stops: map[int]struct{}{}, trips: map[string]struct{}{}}
+		sub := &liveSubscriber{stops: map[int]struct{}{}, trips: map[string]struct{}{}, stands: stands}
 		for _, id := range stopIDs {
 			sub.stops[id] = struct{}{}
 		}
@@ -438,6 +444,7 @@ func (eng *Engine) ServeLive(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
 		return c.SendString(fmt.Sprintf("retry: %d\n\n", liveKeepAlive.Milliseconds()))
 	}
+	sub.stands = stands
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")

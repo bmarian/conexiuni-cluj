@@ -16,7 +16,7 @@ export function entriesAt(row: LiveRow | undefined, nowMs: number): ShownEntry[]
 }
 
 // Kept current by the /live stream; offline, views fall back to the timetable.
-export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
+export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>, {stands = false} = {}) {
   const rows = ref<Map<string, LiveRow>>(new Map())
   const vehiclesByTrip = ref<Map<string, LiveVehicle[]>>(new Map())
   const asOfMs = ref<number | null>(null)
@@ -49,6 +49,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>) {
     const params = new URLSearchParams()
     if (stops.length) params.set('stop_ids', [...new Set(stops)].join(','))
     if (trips.length) params.set('trip_ids', [...new Set(trips)].join(','))
+    if (stands) params.set('stands', '1')
     es = new EventSource(`${apiPath('live')}?${params}`)
     const byId = new Map<number, LiveVehicle>()
     const publishVehicles = () => {

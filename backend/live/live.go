@@ -51,6 +51,7 @@ type liveVehicle struct {
 	VehicleType int     `json:"vehicle_type,omitempty"`
 	Bike        string  `json:"bike_accessible,omitempty"`
 	Wheelchair  string  `json:"wheelchair_accessible,omitempty"`
+	AtStand     bool    `json:"at_stand,omitempty"`
 }
 
 type liveTable struct {
@@ -307,13 +308,10 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 					eng.recordUnplaced("route", src.RouteID, src)
 					continue
 				}
-				if !onDrawnLine(lt.trip, v.ShapeIdx, eng.StopHidden) {
-					continue
-				}
 				list = append(list, liveVehicle{
 					ID: v.ID, TripID: tripID, RouteID: lt.routeID, Latitude: v.Lat, Longitude: v.Lon,
 					Heading: math.Round(v.Heading*10) / 10, Speed: math.Max(0, math.Round(src.Speed)), Timestamp: src.Timestamp, Label: src.Label, VehicleType: src.VehicleType,
-					Bike: src.BikeAccessible, Wheelchair: src.WheelchairAccessible,
+					Bike: src.BikeAccessible, Wheelchair: src.WheelchairAccessible, AtStand: !onDrawnLine(lt.trip, v.ShapeIdx, eng.StopHidden),
 				})
 			}
 			table.vehiclesByTrip[tripID] = list
