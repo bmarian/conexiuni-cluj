@@ -290,6 +290,29 @@ X-Frame-Options: DENY
   "warmup_next": "2026-10-20T07:00:26.37+03:00",
   "warmup_running": false
  },
+ "fix": {
+  "buses": [],
+  "lines": [
+   {
+    "avg_abs_sec": 90,
+    "color": "#C62F24",
+    "id": 1,
+    "n": 1717,
+    "name": "1",
+    "off": 622
+   },
+   {
+    "avg_abs_sec": 73,
+    "color": "#16D057",
+    "id": 2,
+    "n": 448,
+    "name": "2B",
+    "off": 137
+   }
+  ],
+  "plans": [],
+  "searches": []
+ },
  "generated_at": "2026-10-20T06:40:00+03:00",
  "now": {
   "buses_in_service": 3,

@@ -100,7 +100,12 @@ func init() {
 // A tree shaped like the deployed one, with the server run from backend/.
 func parityWorkdir(t *testing.T) string {
 	t.Helper()
-	work := t.TempDir()
+	work, err := os.MkdirTemp("", "parity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Not t.TempDir: Windows refuses to delete the files Fiber still holds open.
+	t.Cleanup(func() { _ = os.RemoveAll(work) })
 	dist := filepath.Join(work, "backend", "dist")
 	files := map[string]string{
 		filepath.Join(work, "keys.env"):             "",
