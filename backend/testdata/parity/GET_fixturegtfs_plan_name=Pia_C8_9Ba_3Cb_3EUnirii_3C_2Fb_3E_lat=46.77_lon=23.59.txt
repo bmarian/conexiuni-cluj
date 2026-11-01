@@ -12,15 +12,14 @@ X-Frame-Options: DENY
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-<title>Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?</title>
+<title>Rută către Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?</title>
 <meta name="description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
 <link rel="canonical" href="https://ceautobuziau.ro/fixturegtfs/plan">
-<meta property="og:title" content="Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
+<meta property="og:title" content="Rută către Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
 <meta property="og:description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
 <meta property="og:url" content="https://ceautobuziau.ro/fixturegtfs/plan">
-<meta name="twitter:title" content="Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
+<meta name="twitter:title" content="Rută către Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?">
 <meta name="twitter:description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixturegtfs/plan"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixturegtfs/plan?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixturegtfs/plan"></head>
 <body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture GTFS | Ce autobuz iau?</h1><p>Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture GTFS.</p></div></div></body>
 </html>
-
