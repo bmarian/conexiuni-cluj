@@ -297,7 +297,8 @@ function snapTopPx(state: DrawerState, kb = keyboardPx.value): number {
 }
 
 function updateMapInsets() {
-  mapStore.setDrawerBottomPx(isPortraitMobile.value ? sheetH.value - snapTopPx(drawerState.value, 0) : 0)
+  // Never past half: a fullscreen sheet leaves no map to fit into, so aim above where it comes down to.
+  mapStore.setDrawerBottomPx(isPortraitMobile.value ? sheetH.value - Math.max(snapTopPx(drawerState.value, 0), snapTopPx('half', 0)) : 0)
 
   if (isPortraitMobile.value) {
     mapStore.setDrawerLeftPx(0)
