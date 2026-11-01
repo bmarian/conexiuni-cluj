@@ -28,6 +28,21 @@ describe('vehicle accessibility', () => {
   })
 })
 
+describe('bus coming back', () => {
+  it('turns the U-turn with the bus instead of the arrow', () => {
+    const html = getVehicleMarkerHtml({...bus, faded: true, returning: true}, '#123456', false)
+    expect(html).toContain('vehicle-u-turn')
+    expect(html).toContain('rotate(90deg)')
+    expect(html).not.toContain('M12 2L21 21')
+  })
+
+  it('keeps the heading on a bus that is only at a stand', () => {
+    const html = getVehicleMarkerHtml({...bus, faded: true}, '#123456', false)
+    expect(html).not.toContain('vehicle-u-turn')
+    expect(html).toContain('vehicle-heading')
+  })
+})
+
 describe('station group marker', () => {
   const tram = {mode: 'tram' as const, color: '#BE1622'}
 
