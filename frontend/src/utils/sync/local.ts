@@ -3,7 +3,7 @@ import {type FavoritePlan, type Recent, savedFavorites, useFavoritesStore} from 
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
-import {chooseCity, cities, cityChoice, currentCity, knownCity} from '@/utils/city.ts'
+import {chooseCity, cities, cityChoice, cityToOpen, currentCity, knownCity} from '@/utils/city.ts'
 import {
   blankEnd,
   CITY_CAP,
@@ -186,9 +186,7 @@ export function optionsFromLocal(base: OptionsRecord | null): OptionsRecord {
 
 async function switchCity(slug: string | null) {
   const target = await chooseCity(slug)
-  if (target === currentCity.value) return
-  const {default: router} = await import('@/router')
-  void router.push(`/${target}/`)
+  if (target !== currentCity.value) cityToOpen.value = target
 }
 
 export function applyOptions(r: OptionsRecord) {

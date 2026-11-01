@@ -79,6 +79,8 @@ export const cityChoice = ref<string | null>(stored(CHOICE_KEY))
 
 export const currentCity = ref(typeof window === 'undefined' ? DEFAULT_CITY : (cityFromPath() ?? cityChoice.value ?? stored(LAST_KEY) ?? DEFAULT_CITY))
 
+export const cityToOpen = ref<string | null>(null)
+
 export function setCity(slug: string) {
   store(LAST_KEY, slug)
   currentCity.value = slug
