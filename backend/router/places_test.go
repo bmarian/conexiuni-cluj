@@ -222,10 +222,27 @@ func TestANumberIsNotAPlace(t *testing.T) {
 func TestStreetKindsAreSpelledAnyWay(t *testing.T) {
 	p := testPlaces()
 	for q, want := range map[string]string{
-		"bd 21 decembrie":    "The Office Wine Bar, Bulevardul 21 Decembrie 1989, Mărăști",
-		"b-dul 21 decembrie": "The Office Wine Bar, Bulevardul 21 Decembrie 1989, Mărăști",
-		"p-ta unirii":        "Piața Unirii, Cluj-Napoca",
-		"str. horea 31":      "Strada Horea, 31, Cluj-Napoca",
+		"bd 21 decembrie":     "The Office Wine Bar, Bulevardul 21 Decembrie 1989, Mărăști",
+		"b-dul 21 decembrie":  "The Office Wine Bar, Bulevardul 21 Decembrie 1989, Mărăști",
+		"p-ta unirii":         "Piața Unirii, Cluj-Napoca",
+		"str. horea 31":       "Strada Horea, 31, Cluj-Napoca",
+		"horea street 31":     "Strada Horea, 31, Cluj-Napoca",
+		"unirii square":       "Piața Unirii, Cluj-Napoca",
+		"21 decembrie avenue": "The Office Wine Bar, Bulevardul 21 Decembrie 1989, Mărăști",
+	} {
+		if got := labels(p.Search(q, 1)); len(got) != 1 || got[0] != want {
+			t.Fatalf("%s: got %q", q, got)
+		}
+	}
+}
+
+func TestAnEnglishAddressFindsTheStreet(t *testing.T) {
+	p := testPlaces()
+	for q, want := range map[string]string{
+		"horea street":       "Strada Horea, Cluj-Napoca",
+		"29 31 horea street": "Strada Horea, 31, Cluj-Napoca",
+		"traian vuia avenue": "Strada Traian Vuia, Cluj-Napoca",
+		"campului road 120":  "Strada Câmpului, 120, Cluj-Napoca",
 	} {
 		if got := labels(p.Search(q, 1)); len(got) != 1 || got[0] != want {
 			t.Fatalf("%s: got %q", q, got)

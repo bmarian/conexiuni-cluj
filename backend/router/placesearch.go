@@ -20,6 +20,12 @@ var streetKinds = map[string]string{
 	"intrarea": "intrarea", "intr": "intrarea",
 	"pasajul": "pasajul",
 	"drumul":  "drumul",
+	"street": "strada", 
+	"avenue": "bulevardul", 
+	"boulevard": "bulevardul", 
+	"square": "piata", 
+	"road": "calea", 
+	"alley": "aleea",
 }
 
 var hyphenated = strings.NewReplacer("b-dul", "bulevardul", "p-ta", "piata")
