@@ -21,6 +21,7 @@ GET /api/fixture/places
 GET /api/fixture/plan
 GET /api/fixture/route-changes
 GET /api/fixture/shapes
+GET /api/fixture/traffic
 GET /api/fixture/updates
 GET /api/fixturegtfs/areas
 GET /api/fixturegtfs/destinations
@@ -32,6 +33,7 @@ GET /api/fixturegtfs/places
 GET /api/fixturegtfs/plan
 GET /api/fixturegtfs/route-changes
 GET /api/fixturegtfs/shapes
+GET /api/fixturegtfs/traffic
 GET /api/fixturegtfs/updates
 GET /api/sync/chains/:chain
 GET /api/sync/chains/:chain/records/:name

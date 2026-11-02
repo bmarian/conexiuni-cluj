@@ -9,6 +9,7 @@ export type City = {
   operatorUrl?: string
   realtime: boolean
   news?: boolean
+  traffic?: boolean
   lat: number
   lon: number
   bounds?: Bounds

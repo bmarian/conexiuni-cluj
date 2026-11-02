@@ -351,5 +351,7 @@
   "appFeatureStopAlert": "Tells you before your stop comes up",
   "appFeatureWatch": "Works on Wear OS watches too",
   "appDontAsk": "Don't ask again",
-  "yes": "Yes"
+  "yes": "Yes",
+  "traffic": "Traffic",
+  "trafficDesc": "Lines are colored by traffic conditions."
 }

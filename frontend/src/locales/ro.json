@@ -351,5 +351,7 @@
   "appFeatureStopAlert": "Te anunță înainte de stația la care cobori",
   "appFeatureWatch": "Merge și pe Wear OS",
   "appDontAsk": "Nu mai întreba",
-  "yes": "Da"
+  "yes": "Da",
+  "traffic": "Trafic",
+  "trafficDesc": "Liniile sunt colorate în funcție de condițiile de trafic."
 }

@@ -52,6 +52,8 @@ import {paced, reducedMotion, squash} from '@/utils/motion.ts'
 import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
+import {useTraffic} from '@/composables/useTraffic.ts'
+import {trafficColor, trafficFeatures} from '@/utils/traffic.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
@@ -100,6 +102,7 @@ const {
 } = storeToRefs(mapStore)
 const {colorfulLines} = storeToRefs(settingsStore)
 const route = useRoute()
+const traffic = useTraffic()
 const stopData = new Map<string, {lat: number; lng: number; name: string}>()
 const stopMarkers = new Map<string, Marker>()
 const shownStops = new Map<string, Marker>()
@@ -171,7 +174,9 @@ const CITY_FLIGHT_MS = 1400
 const FIT_DURATION_MS = paced(695)
 const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
-const SLOTS = ['shapes', 'walks', 'accuracy'] as const
+const SLOTS = ['shapes', 'traffic', 'walks', 'accuracy'] as const
+const TRAFFIC = `${OVERLAY}traffic`
+const SHAPE_WIDTH = 5
 
 type LatLngTuple = [number, number]
 type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
@@ -373,9 +378,37 @@ const syncOverlays = () => {
   const m = map.value
   if (!m || !styleReady) return
   ensureSlots(m)
+  syncTraffic()
   syncLines('shapes')
   syncLines('walks')
   syncAccuracy()
+}
+
+// The drawn lines' stretches in traffic colours, over the lines themselves, which show through where nothing is measured.
+const syncTraffic = () => {
+  const m = map.value
+  if (!m || !styleReady) return
+  const now = traffic.now.value
+  if (!now) {
+    if (m.getLayer(TRAFFIC)) m.removeLayer(TRAFFIC)
+    if (m.getSource(TRAFFIC)) m.removeSource(TRAFFIC)
+    return
+  }
+  const features = trafficFeatures(now, shapesToDisplay.value.map(([shape]) => shape.trip_id))
+  const source = m.getSource<GeoJSONSource>(TRAFFIC)
+  if (source) source.setData(features)
+  else m.addSource(TRAFFIC, {type: 'geojson', data: features})
+  if (m.getLayer(TRAFFIC)) return
+  m.addLayer(
+    {
+      id: TRAFFIC,
+      type: 'line',
+      source: TRAFFIC,
+      layout: {'line-cap': 'round', 'line-join': 'round'},
+      paint: {'line-color': trafficColor, 'line-width': SHAPE_WIDTH},
+    },
+    slotId('traffic'),
+  )
 }
 
 const applyStyle = () => {
@@ -1197,6 +1230,7 @@ watch(showsContent, () => refreshStops())
 watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
 watch(isDarkMode, applyStyle)
+watch(traffic.now, syncTraffic)
 
 watch(arrival, (cue) => {
   if (!cue) return
@@ -1305,9 +1339,9 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       name: displayShape.route_short_name,
       coords: latLngs,
       color: routeColor || '#94a3b8',
-      width: 5,
+      width: SHAPE_WIDTH,
       opacity: 0.85,
-      dash: dashOf(dashArray, 5),
+      dash: dashOf(dashArray, SHAPE_WIDTH),
     })
 
     if (directionArrowAtStart.value && latLngs.length >= 2) {
