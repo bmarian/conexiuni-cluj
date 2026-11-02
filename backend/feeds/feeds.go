@@ -90,8 +90,8 @@ type credited struct {
 func (c credited) Credit() Credit { return c.credit }
 
 const (
-	QuotaPositions  = "positions"
-	QuotaTimetables = "timetables"
+	QuotaPositions = "positions"
+	QuotaNetwork   = "network"
 )
 
 type Quota struct {
