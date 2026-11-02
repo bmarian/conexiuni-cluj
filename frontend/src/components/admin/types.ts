@@ -93,6 +93,7 @@ export type Overview = {
     delays_at: string | null
     archive: {enabled: boolean; ran_at: string | null; error?: string; bytes: number; oldest_date?: string}
     learning: LearningWindow[]
+    timetable_fetches?: {done: number; failed: number}
   }
   traffic: {
     db_bytes: number

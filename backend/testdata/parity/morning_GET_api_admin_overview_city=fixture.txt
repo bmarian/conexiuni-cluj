@@ -316,6 +316,10 @@ X-Frame-Options: DENY
   ],
   "samples_hour": 90,
   "samples_today": 353,
+  "timetable_fetches": {
+   "done": 2,
+   "failed": 0
+  },
   "warmup_at": "2026-10-20T05:00:13.37+03:00",
   "warmup_next": "2026-10-20T07:00:26.37+03:00",
   "warmup_running": false

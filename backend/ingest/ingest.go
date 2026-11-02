@@ -21,6 +21,8 @@ import (
 const (
 	ingestStatic     = "static"
 	ingestTimetables = "timetables"
+	// Keyed done or failed, one per timetable refresh.
+	TimetableFetchMetric = "timetable_fetch"
 )
 
 type Importer struct {
@@ -175,8 +177,10 @@ func (im *Importer) Run(now time.Time) error {
 		started := time.Now()
 		timetables, err := im.Timetables.Timetables(snap)
 		if err != nil {
+			im.store.RecordEvent(TimetableFetchMetric, "failed")
 			timetablesErr = fmt.Errorf("timetables: %w", err)
 		} else {
+			im.store.RecordEvent(TimetableFetchMetric, "done")
 			snap.Timetables, stored = timetables, true
 			im.store.MarkFetched(ingestTimetables, time.Now())
 			im.store.Logf("ingest: %d timetables in %s", len(timetables), time.Since(started).Round(time.Millisecond))

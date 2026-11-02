@@ -297,6 +297,10 @@ X-Frame-Options: DENY
   "route_changes": [],
   "samples_hour": 0,
   "samples_today": 0,
+  "timetable_fetches": {
+   "done": 1,
+   "failed": 0
+  },
   "warmup_at": "2026-10-20T03:00:00+03:00",
   "warmup_next": "2026-10-20T05:00:13.37+03:00",
   "warmup_running": false
