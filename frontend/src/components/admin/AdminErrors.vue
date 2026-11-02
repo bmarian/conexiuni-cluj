@@ -5,7 +5,7 @@ import {ago, num} from '@/utils/adminFormat.ts'
 
 const SHOWN = 5
 
-const props = defineProps<{errors: (ErrorDetail & {city?: string})[]; clock: number}>()
+const props = defineProps<{errors: ErrorDetail[]; clock: number}>()
 
 const all = ref(false)
 const shown = computed(() => (all.value ? props.errors : props.errors.slice(0, SHOWN)))
@@ -14,10 +14,9 @@ const method = (e: ErrorDetail) => e.endpoint.split(' ')[0]
 
 <template>
   <ul v-if="errors.length" class="admin-log">
-    <li v-for="e in shown" :key="`${e.city}|${e.endpoint}|${e.status}|${e.text}`">
+    <li v-for="e in shown" :key="`${e.endpoint}|${e.status}|${e.text}`">
       <span class="admin-log-head">
-        <template v-if="e.city">{{ e.city }} · </template>{{ ago(e.last_at, clock) }} · {{ e.status
-        }}<template v-if="e.count > 1"> · {{ num(e.count) }}×</template>
+        {{ ago(e.last_at, clock) }} · {{ e.status }}<template v-if="e.count > 1"> · {{ num(e.count) }}×</template>
       </span>
       <code>{{ method(e) }} {{ e.path }}</code>
       <code class="admin-bad">{{ e.text || '–' }}</code>

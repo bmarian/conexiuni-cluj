@@ -29,7 +29,7 @@ type namedCount struct {
 
 type adminOverview struct {
 	GeneratedAt time.Time     `json:"generated_at"`
-	Problems    []string      `json:"problems"`
+	Problems    []problem     `json:"problems"`
 	Now         adminNow      `json:"now"`
 	Accuracy    adminAccuracy `json:"accuracy"`
 	People      adminPeople   `json:"people"`
@@ -112,10 +112,16 @@ type adminPeople struct {
 }
 
 type quotaUse struct {
-	Name  string `json:"name"`
-	Used  int    `json:"used"`
-	Limit int    `json:"limit"`
+	Key      string `json:"key"`
+	KeyLabel string `json:"key_label"`
+	Kind     string `json:"kind"`
+	Label    string `json:"label"`
+	Used     int    `json:"used"`
+	Limit    int    `json:"limit"`
 }
+
+var quotaKeyLabels = map[string]string{"main": "Main key", "learner": "Learner key"}
+var quotaKindLabels = map[string]string{feeds.QuotaPositions: "Bus positions", feeds.QuotaTimetables: "Timetable downloads"}
 
 type adminQuota struct {
 	Quotas   []quotaUse `json:"quotas"`
@@ -135,14 +141,15 @@ type routeChangeBrief struct {
 }
 
 type adminData struct {
-	WarmupAt      *time.Time         `json:"warmup_at"`
-	WarmupNext    time.Time          `json:"warmup_next"`
-	WarmupRunning bool               `json:"warmup_running"`
-	RouteChanges  []routeChangeBrief `json:"route_changes"`
-	SamplesToday  int                `json:"samples_today"`
-	SamplesHour   int                `json:"samples_hour"`
-	DelaysAt      *time.Time         `json:"delays_at"`
-	Archive       adminArchive       `json:"archive"`
+	WarmupAt      *time.Time            `json:"warmup_at"`
+	WarmupNext    time.Time             `json:"warmup_next"`
+	WarmupRunning bool                  `json:"warmup_running"`
+	RouteChanges  []routeChangeBrief    `json:"route_changes"`
+	SamplesToday  int                   `json:"samples_today"`
+	SamplesHour   int                   `json:"samples_hour"`
+	DelaysAt      *time.Time            `json:"delays_at"`
+	Archive       adminArchive          `json:"archive"`
+	Learning      []live.LearningWindow `json:"learning"`
 }
 
 type adminArchive struct {
@@ -184,7 +191,7 @@ type adminTraffic struct {
 	ErrorDetails []errorDetail   `json:"error_details"`
 }
 
-func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
+func buildOverview(city *cities.City, dismissed *dismissals, now time.Time) (*adminOverview, error) {
 	st := city.Live.Status(now)
 	o := &adminOverview{GeneratedAt: now}
 	var err error
@@ -209,7 +216,7 @@ func buildOverview(city *cities.City, now time.Time) (*adminOverview, error) {
 	if o.Fix, err = fixSection(city); err != nil {
 		return nil, fmt.Errorf("fix: %w", err)
 	}
-	o.Problems = cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, now)
+	o.Problems = dismissed.apply(city.Slug, cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, now))
 	return o, nil
 }
 
@@ -570,8 +577,17 @@ func quotaSection(city *cities.City, st live.Status) (adminQuota, error) {
 	for _, source := range []any{city.Static, city.Timetables, city.Realtime, city.Learning} {
 		if metered, ok := source.(feeds.Metered); ok && !seen[metered] {
 			seen[metered] = true
+			key := "main"
+			if source == city.Learning {
+				key = "learner"
+			}
 			for _, quota := range metered.Quotas() {
-				q.Quotas = append(q.Quotas, quotaUse{Name: quota.Name, Used: quota.Used, Limit: quota.Limit})
+				// The learner only fetches bus positions.
+				if key == "learner" && quota.Kind != feeds.QuotaPositions {
+					continue
+				}
+				label := cmp.Or(quotaKindLabels[quota.Kind], quota.Kind)
+				q.Quotas = append(q.Quotas, quotaUse{Key: key, KeyLabel: quotaKeyLabels[key], Kind: quota.Kind, Label: label, Used: quota.Used, Limit: quota.Limit})
 			}
 		}
 	}
@@ -602,10 +618,14 @@ func dataSection(city *cities.City, st live.Status, now time.Time) (adminData, e
 
 	var delaysAt time.Time
 	d.SamplesToday, d.SamplesHour, delaysAt, err = city.Live.LearningActivity(now)
+	if err != nil {
+		return d, err
+	}
 	if !delaysAt.IsZero() {
 		d.DelaysAt = &delaysAt
 	}
 	d.Archive = archiveSection(city, st.Archive)
+	d.Learning, err = city.Live.LearningWindows(now)
 	return d, err
 }
 
@@ -704,10 +724,12 @@ func errorDetails(city *cities.City, today string) ([]errorDetail, error) {
 	return out, nil
 }
 
-func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, now time.Time) []string {
-	out := []string{}
+func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, now time.Time) []problem {
+	out := []problem{}
+	add := func(key, text string) { out = append(out, problem{Key: key, Text: text}) }
+	today := database.StatsDate(now)
 	if n.FeedError != "" {
-		out = append(out, "Live feed failing: "+truncateText(n.FeedError, 160))
+		add("feed", "Live feed failing: "+truncateText(n.FeedError, 160))
 	}
 	if n.PollSec > 0 {
 		last := city.StartedAt()
@@ -715,34 +737,35 @@ func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaU
 			last = *n.FeedAt
 		}
 		if gap := now.Sub(last); gap > time.Duration(2*n.PollSec*float64(time.Second)) {
-			out = append(out, "No bus positions for "+humanDuration(gap))
+			add("no-positions", "No bus positions for "+humanDuration(gap))
 		}
 	}
 	if age := time.Duration(n.FixAgeSec) * time.Second; age > live.MaxVehicleAge {
-		out = append(out, "Bus positions are "+humanDuration(age)+" old")
+		add("stale-positions", "Bus positions are "+humanDuration(age)+" old")
 	}
 	if n.BusesInService > 0 && n.BusesTracked == 0 {
-		out = append(out, fmt.Sprintf("%d buses reported, none matched to a trip", n.BusesInService))
+		add("unmatched", fmt.Sprintf("%d buses reported, none matched to a trip", n.BusesInService))
 	}
+	// Dated keys, since these counts restart each day.
 	for _, q := range quotas {
 		if q.Limit > 0 && q.Used >= q.Limit {
-			out = append(out, "The "+q.Name+" quota is used up")
+			add("quota|"+q.Key+"|"+q.Kind+"|"+today, q.KeyLabel+": "+strings.ToLower(q.Label)+" used up")
 		}
 	}
 	if errors > 0 {
-		out = append(out, plural(errors, "server error")+" today")
+		add("errors|"+today, plural(errors, "server error")+" today")
 	}
 	if p := st.CalendarProblem; p != "" {
-		out = append(out, p)
+		add("calendar", p)
 	}
 	if !archive.Enabled {
-		out = append(out, "Archive off, no history kept")
+		add("archive-off", "Archive off, no history kept")
 	} else if archive.Error != "" {
-		out = append(out, "Archive failed: "+truncateText(archive.Error, 160))
+		add("archive-failed", "Archive failed: "+truncateText(archive.Error, 160))
 	} else if archive.RanAt == nil && now.Sub(city.StartedAt()) > live.ArchiveStartDelay+time.Hour {
-		out = append(out, "Archive not run for "+humanDuration(now.Sub(city.StartedAt())))
+		add("archive-late", "Archive not run for "+humanDuration(now.Sub(city.StartedAt())))
 	} else if archive.RanAt != nil && now.Sub(*archive.RanAt) > live.ArchiveOverdue {
-		out = append(out, "Archive not run for "+humanDuration(now.Sub(*archive.RanAt)))
+		add("archive-late", "Archive not run for "+humanDuration(now.Sub(*archive.RanAt)))
 	}
 	return out
 }

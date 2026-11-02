@@ -40,7 +40,8 @@ func adminApp(t *testing.T, path string, all ...*cities.City) *fiber.App {
 		t.Fatal(err)
 	}
 	app := fiber.New()
-	Register(app.Group("/api"), registry, func() (devicesync.Stats, error) { return devicesync.Stats{}, nil }, "secret", false)
+	syncStats := func() (devicesync.Stats, error) { return devicesync.Stats{}, nil }
+	Register(app.Group("/api"), registry, syncStats, filepath.Join(t.TempDir(), "admin-dismissed.json"), "secret", false)
 	return app
 }
 
@@ -88,7 +89,8 @@ func TestSiteListsEnabledCitiesByName(t *testing.T) {
 	if err := registry.SetEnabled("c", false); err != nil {
 		t.Fatal(err)
 	}
-	site := buildSite(registry, func() (devicesync.Stats, error) { return devicesync.Stats{}, errors.New("no sync") }, time.Now())
+	noSync := func() (devicesync.Stats, error) { return devicesync.Stats{}, errors.New("no sync") }
+	site := buildSite(registry, noSync, openDismissals(filepath.Join(t.TempDir(), "admin-dismissed.json")), time.Now())
 	if len(site.Cities) != 2 || site.Cities[0].Slug != "a" || site.Cities[1].Slug != "b" {
 		t.Fatalf("cities %+v", site.Cities)
 	}
@@ -100,7 +102,9 @@ func TestSiteListsEnabledCitiesByName(t *testing.T) {
 func TestAdminHidesAndBringsBackStops(t *testing.T) {
 	city := testCity(t, "a")
 	app := adminApp(t, filepath.Join(t.TempDir(), "disabled-cities.json"), city)
-	put := func(body string, signedIn bool) int { return putAs(t, app, "/api/admin/hidden-stops?city=a", body, signedIn) }
+	put := func(body string, signedIn bool) int {
+		return putAs(t, app, "/api/admin/hidden-stops?city=a", body, signedIn)
+	}
 	if got := put(`{"stop_ids":[7],"hidden":true}`, false); got != http.StatusUnauthorized {
 		t.Fatalf("signed out: %d, want 401", got)
 	}
@@ -158,7 +162,9 @@ func TestAdminHidesLinesAndListsTheIdleOnes(t *testing.T) {
 	}
 
 	app := adminApp(t, filepath.Join(t.TempDir(), "disabled-cities.json"), city)
-	put := func(body string, signedIn bool) int { return putAs(t, app, "/api/admin/hidden-lines?city=a", body, signedIn) }
+	put := func(body string, signedIn bool) int {
+		return putAs(t, app, "/api/admin/hidden-lines?city=a", body, signedIn)
+	}
 	if got := put(`{"names":["3"],"hidden":true}`, false); got != http.StatusUnauthorized {
 		t.Fatalf("signed out: %d, want 401", got)
 	}

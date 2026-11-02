@@ -709,7 +709,7 @@ type adminCalendarView struct {
 	Learning  adminLearning               `json:"learning"`
 }
 
-type adminWindow struct {
+type LearningWindow struct {
 	DayType      string      `json:"day_type"`
 	Days         int         `json:"days"`
 	From         string      `json:"from,omitempty"`
@@ -721,10 +721,10 @@ type adminWindow struct {
 }
 
 type adminLearning struct {
-	Windows    []adminWindow `json:"windows"`
-	Tuning     *windowTuning `json:"tuning,omitempty"`
-	Candidates []int         `json:"candidates"`
-	MinDays    int           `json:"min_days"`
+	Windows    []LearningWindow `json:"windows"`
+	Tuning     *windowTuning    `json:"tuning,omitempty"`
+	Candidates []int            `json:"candidates"`
+	MinDays    int              `json:"min_days"`
 }
 
 func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) {
@@ -808,12 +808,26 @@ func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) 
 		}
 	}
 
-	v.Learning = adminLearning{Windows: []adminWindow{}, Candidates: vacationWindowCandidates, MinDays: tuningMinDays}
+	windows, err := eng.LearningWindows(now)
+	if err != nil {
+		return v, err
+	}
+	v.Learning = adminLearning{Windows: windows, Candidates: vacationWindowCandidates, MinDays: tuningMinDays}
+	if t, ok, err := eng.savedWindowTuning(); err != nil {
+		return v, err
+	} else if ok {
+		v.Learning.Tuning = &t
+	}
+	return v, nil
+}
+
+func (eng *Engine) LearningWindows(now time.Time) ([]LearningWindow, error) {
+	out := []LearningWindow{}
 	dateOf := func(at int64) string { return time.Unix(at, 0).In(eng.Location).Format("2006-01-02") }
 	for _, day := range calendar.ProfileDays {
 		n, _ := eng.dayWindowSize(day)
 		w := eng.currentDayWindow(day, now)
-		a := adminWindow{DayType: day, Days: n, Seed: eng.seedFill(day), LastYearDays: len(w.lastYear)}
+		a := LearningWindow{DayType: day, Days: n, Seed: eng.seedFill(day), LastYearDays: len(w.lastYear)}
 		if since, ok := w.since(); ok {
 			a.From = dateOf(since)
 		}
@@ -822,18 +836,13 @@ func (eng *Engine) buildAdminCalendar(now time.Time) (adminCalendarView, error) 
 			a.LastYearTo = w.lastYear[len(w.lastYear)-1].Format("2006-01-02")
 		}
 		if t, ok, err := eng.savedSeedTuning(day); err != nil {
-			return v, err
+			return out, err
 		} else if ok {
 			a.Evaluation = &t
 		}
-		v.Learning.Windows = append(v.Learning.Windows, a)
+		out = append(out, a)
 	}
-	if t, ok, err := eng.savedWindowTuning(); err != nil {
-		return v, err
-	} else if ok {
-		v.Learning.Tuning = &t
-	}
-	return v, nil
+	return out, nil
 }
 
 // RegisterAdminCalendar serves the admin page's calendar of each city: school years and days set by hand, behind guard.

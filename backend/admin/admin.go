@@ -122,10 +122,11 @@ func adminCityList(registry *cities.Registry) []adminCity {
 }
 
 // Register serves the admin page's API under /admin, behind a session the token opens.
-func Register(api fiber.Router, registry *cities.Registry, syncStats func() (devicesync.Stats, error), token string, secureCookies bool) {
+func Register(api fiber.Router, registry *cities.Registry, syncStats func() (devicesync.Stats, error), dismissedPath, token string, secureCookies bool) {
 	if token == "" || len(registry.All()) == 0 {
 		return
 	}
+	dismissed := openDismissals(dismissedPath)
 	admin := api.Group("/admin")
 	cookiePath := "/api/admin"
 	// SetEnabled never turns the last city off, so there is always one.
@@ -156,7 +157,7 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 	})
 
 	admin.Get("/overview", RequireSession(token), func(c fiber.Ctx) error {
-		overview, err := buildOverview(cityOf(c), time.Now())
+		overview, err := buildOverview(cityOf(c), dismissed, time.Now())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -166,7 +167,7 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 
 	admin.Get("/site", RequireSession(token), func(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
-		return c.JSON(buildSite(registry, syncStats, time.Now()))
+		return c.JSON(buildSite(registry, syncStats, dismissed, time.Now()))
 	})
 
 	admin.Get("/line", RequireSession(token), func(c fiber.Ctx) error {
@@ -208,5 +209,6 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 
 	registerHiddenStops(admin, cityOf, RequireSession(token))
 	registerHiddenLines(admin, cityOf, RequireSession(token))
+	registerDismissals(admin, dismissed, RequireSession(token))
 	live.RegisterAdminCalendar(admin, func(c fiber.Ctx) *live.Engine { return cityOf(c).Live }, RequireSession(token))
 }

@@ -130,7 +130,7 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 	}))
 	api.Get("/cities", cities.Handler(registry))
 	devices.Register(api)
-	admin.Register(api, registry, devices.Stats, cfg.AdminToken, cfg.Environment == "production")
+	admin.Register(api, registry, devices.Stats, filepath.Join(cfg.DBDir, "admin-dismissed.json"), cfg.AdminToken, cfg.Environment == "production")
 	notFound := func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNotFound) }
 	for _, city := range built {
 		city.Register(api.Group("/"+city.Slug, city.OnlyEnabled(notFound)))

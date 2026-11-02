@@ -89,8 +89,14 @@ type credited struct {
 
 func (c credited) Credit() Credit { return c.credit }
 
+const (
+	QuotaPositions  = "positions"
+	QuotaTimetables = "timetables"
+)
+
 type Quota struct {
 	Name  string
+	Kind  string
 	Used  int
 	Limit int
 }
