@@ -11,6 +11,7 @@ import (
 	"conexiuni-cluj/network"
 	"conexiuni-cluj/planner"
 	"conexiuni-cluj/slugs"
+	"conexiuni-cluj/traffic"
 	"conexiuni-cluj/transit"
 	"conexiuni-cluj/updates"
 	"conexiuni-cluj/web"
@@ -45,6 +46,7 @@ type City struct {
 	Planner      *planner.Service
 	Network      *network.Service
 	Destinations *destinations.Service
+	Traffic      *traffic.Service
 	Slugs        *slugs.Service
 	Ingest       *ingest.Importer
 
@@ -79,6 +81,8 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Planner.Colorful = c.Network.Colorful
 	c.Updates.Colorful = c.Network.Colorful
 	c.Destinations = destinations.New(c.Network, c.Planner.Places)
+	c.Traffic = traffic.New(loc, store, c.Data, &c.offered, c.Live, realtime != nil)
+	c.Traffic.Runner = c.running
 	forget := func() {
 		c.Network.Invalidate()
 		c.Planner.Forget()
@@ -97,6 +101,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 		c.Live.RefreshTrips()
 		c.Network.Warm()
 		c.Planner.Warm()
+		c.Traffic.Warm()
 	}
 	c.run.enabled.Store(true)
 	return c
@@ -125,6 +130,7 @@ func (c *City) Register(api fiber.Router) {
 	c.Planner.Register(api)
 	c.Network.Register(api)
 	c.Destinations.Register(api)
+	c.Traffic.Register(api)
 	c.Updates.Register(api)
 }
 
@@ -197,6 +203,7 @@ type cityInfo struct {
 	Lat         float64         `json:"lat"`
 	Lon         float64         `json:"lon"`
 	Bounds      *network.Bounds `json:"bounds,omitempty"`
+	Traffic     bool            `json:"traffic"`
 	Credits     []feeds.Credit  `json:"credits"`
 }
 
@@ -229,7 +236,7 @@ func (c *City) refreshCentre() {
 }
 
 func (c *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: c.Slug, Name: c.Name, Operator: c.Operator, OperatorURL: c.OperatorURL, Realtime: c.Realtime != nil, News: c.News != nil, Credits: c.credits()}
+	info := cityInfo{Slug: c.Slug, Name: c.Name, Operator: c.Operator, OperatorURL: c.OperatorURL, Realtime: c.Realtime != nil, News: c.News != nil, Traffic: c.Traffic.Ready(), Credits: c.credits()}
 	c.centre.Lock()
 	ok := c.centre.ok
 	info.Lat, info.Lon = c.centre.lat, c.centre.lon

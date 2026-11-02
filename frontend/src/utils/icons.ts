@@ -59,3 +59,4 @@ export {default as WarningAmberIcon} from '@material-design-icons/svg/round/warn
 export {default as WatchIcon} from '@material-design-icons/svg/round/watch.svg?component'
 export {default as WifiOffIcon} from '@material-design-icons/svg/round/wifi_off.svg?component'
 export {default as EcoIcon} from '@/assets/icons/eco.svg?component'
+export {default as TrafficIcon} from '@material-design-icons/svg/round/traffic.svg?component'

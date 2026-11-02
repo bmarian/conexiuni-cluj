@@ -1,10 +1,10 @@
 GET /api/cities
 200
 Cache-Control: no-cache
-Content-Length: 283
+Content-Length: 298
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"283-925784489"
+Etag: W/"298-1299616573"
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -26,6 +26,7 @@ X-Frame-Options: DENY
    "north": 46.097932160591874,
    "east": 24.141462429902703
   },
+  "traffic": true,
   "credits": []
  }
 ]

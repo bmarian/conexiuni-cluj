@@ -71,6 +71,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const colorfulLines = ref(localStorage.getItem('settings.colorfulLines') === 'true')
+  const traffic = ref(localStorage.getItem('settings.traffic') === 'true')
   const appPromptDismissed = ref(localStorage.getItem('settings.appPromptDismissed') === 'true')
 
   const regionValues = ref<Record<string, boolean>>({})
@@ -111,6 +112,11 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings.colorfulLines', val ? 'true' : 'false')
   }
 
+  function setTraffic(val: boolean) {
+    traffic.value = val
+    localStorage.setItem('settings.traffic', val ? 'true' : 'false')
+  }
+
   // Another tab changed what is saved.
   function reload() {
     theme.value = (localStorage.getItem('settings.theme') as Theme) ?? 'system'
@@ -118,6 +124,7 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCenterOnMe.value = localStorage.getItem('settings.autoCenterOnMe') !== 'false'
     autoFitMap.value = localStorage.getItem('settings.autoFitMap') !== 'false'
     colorfulLines.value = localStorage.getItem('settings.colorfulLines') === 'true'
+    traffic.value = localStorage.getItem('settings.traffic') === 'true'
     regionValues.value = {}
   }
 
@@ -151,7 +158,9 @@ export const useSettingsStore = defineStore('settings', () => {
     setAutoCenterOnMe,
     setAutoFitMap,
     colorfulLines,
+    traffic,
     setColorfulLines,
+    setTraffic,
     showGreenFriday,
     regionSetting,
     setRegionSetting,
