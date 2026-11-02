@@ -3,6 +3,7 @@ package cities
 import (
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/models"
+	"conexiuni-cluj/transit"
 	"slices"
 	"testing"
 	"time"
@@ -91,5 +92,58 @@ func TestHidingAStopTakesItOutOfTheBundle(t *testing.T) {
 	}
 	if back, _, _ := trip(); !slices.Equal(back.StopIDs, shown.StopIDs) {
 		t.Fatalf("stops after bringing it back: %v", back.StopIDs)
+	}
+}
+
+func TestHidingALineTakesItAndItsOwnStopsOutOfTheBundle(t *testing.T) {
+	snap := oneLineSnapshot(24.02)
+	snap.Routes = append(snap.Routes, models.Route{RouteID: 2, RouteShortName: "2", RouteLongName: "B - C", RouteType: 3})
+	snap.Stops = append(snap.Stops, models.Stop{StopID: 3, StopName: "C", StopLat: 46, StopLon: 24.04})
+	snap.Trips = append(snap.Trips, models.Trip{TripID: "2_0", RouteID: 2, ShapeID: "2_0"})
+	snap.Shapes = append(snap.Shapes,
+		models.Shape{ShapeID: "2_0", ShapePtLat: 46, ShapePtLon: 24.02, ShapePtSequence: 1},
+		models.Shape{ShapeID: "2_0", ShapePtLat: 46, ShapePtLon: 24.04, ShapePtSequence: 2})
+	snap.TripStops = append(snap.TripStops, models.TripStop{TripID: "2_0", StopID: 2, StopSequence: 1}, models.TripStop{TripID: "2_0", StopID: 3, StopSequence: 2})
+	eng := newNamedTestCity(t, "t", &swapStatic{snap: snap})
+	if err := eng.Ingest.Run(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	shown := func() ([]string, []int) {
+		t.Helper()
+		bundle, _, err := eng.Network.Current()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var lines []string
+		for _, r := range bundle.Routes {
+			lines = append(lines, r.RouteShortName)
+		}
+		var stops []int
+		for _, s := range bundle.Stops {
+			stops = append(stops, s.StopID)
+		}
+		return lines, stops
+	}
+
+	if err := eng.HideLines([]string{"2"}, true); err != nil {
+		t.Fatal(err)
+	}
+	lines, stops := shown()
+	if !slices.Equal(lines, []string{"1"}) || !slices.Equal(stops, []int{1, 2}) {
+		t.Fatalf("lines %v, stops %v", lines, stops)
+	}
+	if eng.Availability().RouteHasTimetable("2") || eng.Availability().StopHasBuses(3) || !eng.Availability().StopHasBuses(2) {
+		t.Fatal("line 2 or its own stop is still offered")
+	}
+	restarted := transit.New(eng.Store)
+	if err := restarted.UseHiddenLines(); err != nil || !restarted.LineHidden("2") {
+		t.Fatalf("after a restart line 2 is hidden: %v (%v)", restarted.LineHidden("2"), err)
+	}
+
+	if err := eng.HideLines([]string{"2"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if lines, stops := shown(); !slices.Equal(lines, []string{"1", "2"}) || !slices.Equal(stops, []int{1, 2, 3}) {
+		t.Fatalf("after bringing it back: lines %v, stops %v", lines, stops)
 	}
 }

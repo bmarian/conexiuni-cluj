@@ -5,8 +5,6 @@ import (
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/models"
 	"database/sql"
-	"maps"
-	"slices"
 	"time"
 )
 
@@ -22,11 +20,7 @@ func (d *Data) readHiddenStops() error {
 	if err != nil {
 		return err
 	}
-	hidden := make(map[int]bool, len(ids))
-	for _, id := range ids {
-		hidden[id] = true
-	}
-	d.hidden.Store(&hidden)
+	d.hidden.store(ids)
 	return nil
 }
 
@@ -37,20 +31,13 @@ func (d *Data) SetStopsHidden(ids []int, hidden bool) error {
 	return d.readHiddenStops()
 }
 
-func (d *Data) hiddenStops() map[int]bool {
-	if hidden := d.hidden.Load(); hidden != nil {
-		return *hidden
-	}
-	return nil
-}
+func (d *Data) HiddenStops() []int { return d.hidden.sorted() }
 
-func (d *Data) HiddenStops() []int { return slices.Sorted(maps.Keys(d.hiddenStops())) }
-
-func (d *Data) StopHidden(id int) bool { return d.hiddenStops()[id] }
+func (d *Data) StopHidden(id int) bool { return d.hidden.has(id) }
 
 // Rows in trip and stop order; the next stop takes over a hidden stop's time.
 func (d *Data) Passenger(rows []models.StopTime) []models.StopTime {
-	hidden := d.hiddenStops()
+	hidden := d.hidden.all()
 	if len(hidden) == 0 {
 		return rows
 	}
@@ -74,7 +61,7 @@ func (d *Data) Passenger(rows []models.StopTime) []models.StopTime {
 // timetableStarts holds the trips whose timetable names their first visible stop, by that stop's position.
 func (d *Data) timetableStarts() (map[string]int, error) {
 	out := map[string]int{}
-	hidden := d.hiddenStops()
+	hidden := d.hidden.all()
 	if len(hidden) == 0 {
 		return out, nil
 	}

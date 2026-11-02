@@ -1,7 +1,7 @@
 GET /fixture/plan?name=Pia%C8%9Ba+%3Cb%3EUnirii%3C%2Fb%3E&lat=46.77&lon=23.59
 200
 Cache-Control: no-cache
-Content-Length: 1498
+Content-Length: 1514
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: text/html; charset=utf-8
 Strict-Transport-Security: max-age=31536000
@@ -21,5 +21,6 @@ X-Frame-Options: DENY
 <meta name="twitter:title" content="Rută către Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture | Ce autobuz iau?">
 <meta name="twitter:description" content="Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture.">
 <link rel="alternate" hreflang="ro" href="https://ceautobuziau.ro/fixture/plan"><link rel="alternate" hreflang="en" href="https://ceautobuziau.ro/fixture/plan?lang=en"><link rel="alternate" hreflang="x-default" href="https://ceautobuziau.ro/fixture/plan"></head>
-<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Rută la Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture | Ce autobuz iau?</h1><p>Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture.</p></div></div></body>
+<body><div id="app"><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><h1>Rută către Piața &lt;b&gt;Unirii&lt;/b&gt; — Fixture | Ce autobuz iau?</h1><p>Planifică-ți călătoria la Piața &lt;b&gt;Unirii&lt;/b&gt; cu transportul în comun din Fixture.</p></div></div></body>
 </html>
+

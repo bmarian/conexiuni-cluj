@@ -11,6 +11,10 @@ func (c *City) HideStops(ids []int, hidden bool) error {
 	if err := c.SetStopsHidden(ids, hidden); err != nil {
 		return err
 	}
+	return c.afterHiding()
+}
+
+func (c *City) afterHiding() error {
 	if err := c.offered.Refresh(c.Data); err != nil {
 		return err
 	}
@@ -20,6 +24,13 @@ func (c *City) HideStops(ids []int, hidden bool) error {
 	c.Planner.Forget()
 	c.running().Go(c.Planner.Warm)
 	return nil
+}
+
+func (c *City) HideLines(names []string, hidden bool) error {
+	if err := c.SetLinesHidden(names, hidden); err != nil {
+		return err
+	}
+	return c.afterHiding()
 }
 
 func (c *City) StopInstead(stopID int) (models.Stop, bool) {

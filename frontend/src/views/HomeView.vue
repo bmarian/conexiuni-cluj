@@ -106,7 +106,14 @@ const favoriteRouteChips = computed(() => {
 
 const favoriteStops = computed<Stop[]>(() => favoriteStopIds.value.map((id) => stopsById.value.get(id)).filter((s): s is Stop => !!s))
 
-const hasFavorites = computed(() => favoriteRoutes.value.length > 0 || favoriteStopIds.value.length > 0 || (isOnline.value && favoritePlans.value.length > 0))
+// Saved ones count until lines and stops load.
+const hasFavorites = computed(() => {
+  const shown =
+    routes.value.length && stops.value.length
+      ? favoriteRouteChips.value.size + favoriteStops.value.length
+      : favoriteRoutes.value.length + favoriteStopIds.value.length
+  return shown > 0 || (isOnline.value && favoritePlans.value.length > 0)
+})
 
 const recents = useRecents(RECENTS_SHOWN)
 

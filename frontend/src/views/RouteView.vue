@@ -22,7 +22,7 @@ import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
 import {lineCanonicalPath, linePath, stopLocation, stopPath, type Direction} from '@/utils/pagePaths.ts'
 import {useShare} from '@/composables/useShare.ts'
-import {adminAuthed, lineStatsOn} from '@/composables/useAdmin.ts'
+import {adminAuthed, lineStatsOn, stopControlsOn} from '@/composables/useAdmin.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
 import ChoiceRow from '@/components/ui/ChoiceRow.vue'
@@ -51,6 +51,8 @@ const props = defineProps<{routeId: string; direction: string}>()
 
 const AdminLineStats = defineAsyncComponent(() => import('@/components/admin/AdminLineStats.vue'))
 const showLineStats = adminAuthed() && lineStatsOn()
+const AdminHide = defineAsyncComponent(() => import('@/components/admin/AdminHide.vue'))
+const showLineControls = adminAuthed() && stopControlsOn()
 
 const {t} = useI18n()
 const favoritesStore = useFavoritesStore()
@@ -386,7 +388,7 @@ const topMenu = computed<MenuAction[]>(() =>
   shapeInfo.value
     ? [
         {
-          label: t(isFollowing.value ? 'followingChanges' : 'followChanges'),
+          label: t(isFollowing.value ? 'unfollowChanges' : 'followChanges'),
           icon: isFollowing.value ? NotificationsIcon : NotificationsNoneIcon,
           onClick: toggleFollow,
         },
@@ -481,6 +483,8 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
           </div>
         </template>
       </AdminLineStats>
+
+      <AdminHide v-if="showLineControls && shapeInfo" title="Line admin" list="hidden-lines" :body="{names: [shapeInfo.route_short_name]}" />
 
       <p v-if="!stopsForDirection.length" class="text-body-medium text-on-surface-variant px-4 pt-4">{{ t('noSchedule') }}</p>
 

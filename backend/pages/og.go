@@ -348,6 +348,10 @@ func routePage(city *cities.City, c fiber.Ctx, routeID, direction int) error {
 	if len(routes) == 0 {
 		return missing(c)
 	}
+	// Temporary: an admin can bring the line back.
+	if city.LineHidden(routes[0].RouteShortName) {
+		return redirect(c, city, "/", fiber.StatusFound)
+	}
 	shortName, longName := routes[0].RouteShortName, routes[0].RouteLongName
 
 	l := ogTexts(city, c)

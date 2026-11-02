@@ -501,14 +501,16 @@ func routeNamesQuery(c fiber.Ctx) []string {
 }
 
 func (s *Service) routeChangesOf(names []string) ([]RouteChange, error) {
-	if len(names) == 0 {
+	var args []any
+	for _, name := range names {
+		if !s.data.LineHidden(name) {
+			args = append(args, name)
+		}
+	}
+	if len(args) == 0 {
 		return []RouteChange{}, nil
 	}
-	args := make([]any, len(names))
-	for i, name := range names {
-		args[i] = name
-	}
-	return s.recentRouteChanges("c.route_short_name IN ("+strings.TrimSuffix(strings.Repeat("?,", len(names)), ",")+")", args...)
+	return s.recentRouteChanges("c.route_short_name IN ("+strings.TrimSuffix(strings.Repeat("?,", len(args)), ",")+")", args...)
 }
 
 func (s *Service) recentRouteChanges(condition string, args ...any) ([]RouteChange, error) {

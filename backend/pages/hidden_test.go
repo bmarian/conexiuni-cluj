@@ -33,3 +33,28 @@ func TestAHiddenStopSendsItsPageToTheNearestStop(t *testing.T) {
 		t.Fatalf("got %d to %q", res.StatusCode, res.Header.Get("Location"))
 	}
 }
+
+func TestAHiddenLineSendsItsPageHome(t *testing.T) {
+	city, _ := testCity(t)
+	err := city.StoreNetwork(&feeds.Snapshot{
+		Routes:    []models.Route{{RouteID: 1, RouteShortName: "1"}},
+		Stops:     []models.Stop{{StopID: 1, StopName: "A", StopLat: 46, StopLon: 24}, {StopID: 2, StopName: "B", StopLat: 46, StopLon: 24.1}},
+		Trips:     []models.Trip{{TripID: "1_0", RouteID: 1}},
+		TripStops: []models.TripStop{{TripID: "1_0", StopID: 1, StopSequence: 1}, {TripID: "1_0", StopID: 2, StopSequence: 2}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := city.HideLines([]string{"1"}, true); err != nil {
+		t.Fatal(err)
+	}
+	app := fiber.New()
+	app.Get("/line", func(c fiber.Ctx) error { return routePage(city, c, 1, 0) })
+	res, err := app.Test(httptest.NewRequest("GET", "/line", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != fiber.StatusFound || res.Header.Get("Location") != "/a/" {
+		t.Fatalf("got %d to %q", res.StatusCode, res.Header.Get("Location"))
+	}
+}

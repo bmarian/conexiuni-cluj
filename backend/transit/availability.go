@@ -22,7 +22,7 @@ func (a *Availability) Refresh(d *Data) error {
 		SELECT route_short_name FROM timetable
 		WHERE weekdays LIKE '%departure_in%' OR saturday LIKE '%departure_in%' OR sunday LIKE '%departure_in%'`
 	stopsSQL := `
-		SELECT DISTINCT ts.stop_id FROM trip_stops ts
+		SELECT DISTINCT ts.stop_id, r.route_short_name FROM trip_stops ts
 		JOIN trips t ON ts.trip_id = t.trip_id
 		JOIN routes r ON t.route_id = r.route_id
 		JOIN timetable tt ON tt.route_short_name = r.route_short_name`
@@ -34,16 +34,23 @@ func (a *Availability) Refresh(d *Data) error {
 	routes, err := database.QueryRows(d.db, routesSQL, nil, names)
 	// No departure times anywhere: every route with a pattern counts.
 	if err == nil && len(routes) == 0 {
-		stopsSQL = `SELECT DISTINCT stop_id FROM trip_stops`
+		stopsSQL = `
+			SELECT DISTINCT ts.stop_id, r.route_short_name FROM trip_stops ts
+			JOIN trips t ON ts.trip_id = t.trip_id
+			JOIN routes r ON t.route_id = r.route_id`
 		routes, err = database.QueryRows(d.db, `SELECT DISTINCT r.route_short_name FROM routes r JOIN trips t ON t.route_id = r.route_id`, nil, names)
 	}
 	if err != nil {
 		return fmt.Errorf("routes: %w", err)
 	}
-	stops, err := database.QueryRows(d.db, stopsSQL, nil, func(rows *sql.Rows) (int, error) {
-		var id int
-		err := rows.Scan(&id)
-		return id, err
+	type call struct {
+		stop int
+		line string
+	}
+	stops, err := database.QueryRows(d.db, stopsSQL, nil, func(rows *sql.Rows) (call, error) {
+		var c call
+		err := rows.Scan(&c.stop, &c.line)
+		return c, err
 	})
 	if err != nil {
 		return fmt.Errorf("stops: %w", err)
@@ -62,12 +69,14 @@ func (a *Availability) Refresh(d *Data) error {
 	}
 	withTimetable := make(map[string]struct{}, len(routes))
 	for _, r := range routes {
-		withTimetable[r] = struct{}{}
+		if !d.LineHidden(r) {
+			withTimetable[r] = struct{}{}
+		}
 	}
 	withBuses := make(map[int]struct{}, len(stops))
-	for _, id := range stops {
-		if !d.StopHidden(id) {
-			withBuses[id] = struct{}{}
+	for _, c := range stops {
+		if !d.StopHidden(c.stop) && !d.LineHidden(c.line) {
+			withBuses[c.stop] = struct{}{}
 		}
 	}
 	a.mu.Lock()

@@ -4,9 +4,9 @@ import {useRouter} from 'vue-router'
 import '@/components/admin/admin.css'
 import {putJSON, SignedOut, writeAuthFlag} from '@/composables/useAdmin.ts'
 import {cityPath, currentCity} from '@/utils/city.ts'
-import {network, refreshNetwork} from '@/utils/network.ts'
+import {refreshNetwork} from '@/utils/network.ts'
 
-const props = defineProps<{stopId: number}>()
+const props = defineProps<{title: string; list: 'hidden-stops' | 'hidden-lines'; body: Record<string, unknown>}>()
 
 const router = useRouter()
 const busy = ref(false)
@@ -16,8 +16,7 @@ async function hide() {
   busy.value = true
   saveError.value = ''
   try {
-    const stopIds = (network.value?.platforms(props.stopId) ?? []).map((s) => s.stop_id)
-    await putJSON(`/api/admin/hidden-stops?city=${currentCity.value}`, {stop_ids: stopIds, hidden: true})
+    await putJSON(`/api/admin/${props.list}?city=${currentCity.value}`, {...props.body, hidden: true})
     await refreshNetwork(true)
     await router.replace(cityPath('/'))
   } catch (err) {
@@ -31,7 +30,7 @@ async function hide() {
 
 <template>
   <div class="tt-head">
-    <span class="text-title-small text-on-surface-variant">Stop admin</span>
+    <span class="text-title-small text-on-surface-variant">{{ title }}</span>
     <span class="divider"></span>
   </div>
   <dl class="admin-rows">
