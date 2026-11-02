@@ -108,6 +108,7 @@ export function mergeOptions(base: OptionsRecord | null, local: OptionsRecord, r
       city: remote.city || local.city,
       journeyVoice: remote.journeyVoice ?? local.journeyVoice,
       fullScreenAlarms: remote.fullScreenAlarms ?? local.fullScreenAlarms,
+      traffic: remote.traffic ?? local.traffic,
     }
   }
   return {
@@ -115,6 +116,7 @@ export function mergeOptions(base: OptionsRecord | null, local: OptionsRecord, r
     city: pick(base.city, local.city, remote.city, true),
     journeyVoice: pick(base.journeyVoice, local.journeyVoice, remote.journeyVoice, true),
     fullScreenAlarms: pick(base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms, true),
+    traffic: pick(base.traffic, local.traffic, remote.traffic, true),
   }
 }
 

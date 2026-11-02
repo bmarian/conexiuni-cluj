@@ -718,43 +718,43 @@
     {
       "kind": "options",
       "about": "nothing known yet",
-      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "ok"
     },
     {
       "kind": "options",
       "about": "everything set",
-      "json": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":true,\"fullScreenAlarms\":false}",
+      "json": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":true,\"fullScreenAlarms\":false,\"traffic\":null}",
       "outcome": "ok"
     },
     {
       "kind": "options",
       "about": "null flag",
-      "json": "{\"v\":1,\"colorfulLines\":null,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"colorfulLines\":null,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "refuse"
     },
     {
       "kind": "options",
       "about": "null city",
-      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":null,\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":null,\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "refuse"
     },
     {
       "kind": "options",
       "about": "city too long",
-      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "refuse"
     },
     {
       "kind": "options",
       "about": "text for a flag",
-      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":\"true\",\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":\"true\",\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "refuse"
     },
     {
       "kind": "options",
       "about": "wrong key order",
-      "json": "{\"v\":1,\"city\":\"\",\"colorfulLines\":false,\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "json": "{\"v\":1,\"city\":\"\",\"colorfulLines\":false,\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "outcome": "refuse"
     },
     {
@@ -766,7 +766,7 @@
     {
       "kind": "options",
       "about": "unknown key",
-      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"more\":1}",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null,\"more\":1}",
       "outcome": "refuse"
     },
     {
@@ -774,6 +774,12 @@
       "about": "later version",
       "json": "{\"v\":2,\"colorfulLines\":\"maybe\"}",
       "outcome": "newer"
+    },
+    {
+      "kind": "options",
+      "about": "traffic set",
+      "json": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":true}",
+      "outcome": "ok"
     }
   ],
   "merges": [
@@ -1029,46 +1035,54 @@
       "kind": "options",
       "about": "first sync: remote, nulls and an empty city filled from local",
       "base": null,
-      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":true}",
-      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
-      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":false}",
+      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":true,\"traffic\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":true,\"fullScreenAlarms\":false,\"traffic\":null}",
       "dropped": {}
     },
     {
       "kind": "options",
       "about": "each side changed one",
-      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "merged": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "dropped": {}
     },
     {
       "kind": "options",
       "about": "both changed one: remote",
-      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"iasi\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"oradea\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "dropped": {}
     },
     {
       "kind": "options",
       "about": "a device without the setting keeps it",
-      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true}",
-      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true}",
-      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
-      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true,\"traffic\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":true,\"traffic\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":false,\"traffic\":null}",
       "dropped": {}
     },
     {
       "kind": "options",
       "about": "nearest city chosen on one side",
-      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
-      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null}",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "dropped": {}
+    },
+    {
+      "kind": "options",
+      "about": "traffic set on one side",
+      "base": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":true}",
+      "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
+      "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":true}"
     }
   ]
 }

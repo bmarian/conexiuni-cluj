@@ -27,7 +27,7 @@ export type SettingsRecord = {
   greenFriday: boolean
 }
 
-export type OptionsRecord = {colorfulLines: boolean; city: string; journeyVoice: boolean | null; fullScreenAlarms: boolean | null}
+export type OptionsRecord = {colorfulLines: boolean; city: string; journeyVoice: boolean | null; fullScreenAlarms: boolean | null; traffic: boolean | null}
 
 // newer: a later version this device leaves alone.
 export type Read<T> = {ok: true; value: T} | {ok: false; newer: boolean}
@@ -258,12 +258,18 @@ export const readSettings = (raw: string) => read(raw, parseSettings, writeSetti
 const maybeBool = (value: unknown): boolean | null => (value === null ? null : bool(value))
 
 function parseOptions(record: unknown): OptionsRecord {
-  const m = object(record, 'v', 'colorfulLines', 'city', 'journeyVoice', 'fullScreenAlarms')
-  return {colorfulLines: bool(m.colorfulLines), city: text(m.city, 0, 40), journeyVoice: maybeBool(m.journeyVoice), fullScreenAlarms: maybeBool(m.fullScreenAlarms)}
+  const m = object(record, 'v', 'colorfulLines', 'city', 'journeyVoice', 'fullScreenAlarms', 'traffic')
+  return {
+    colorfulLines: bool(m.colorfulLines),
+    city: text(m.city, 0, 40),
+    journeyVoice: maybeBool(m.journeyVoice),
+    fullScreenAlarms: maybeBool(m.fullScreenAlarms),
+    traffic: maybeBool(m.traffic),
+  }
 }
 
 export function writeOptions(r: OptionsRecord): string {
-  return JSON.stringify({v: 1, colorfulLines: r.colorfulLines, city: r.city, journeyVoice: r.journeyVoice, fullScreenAlarms: r.fullScreenAlarms})
+  return JSON.stringify({v: 1, colorfulLines: r.colorfulLines, city: r.city, journeyVoice: r.journeyVoice, fullScreenAlarms: r.fullScreenAlarms, traffic: r.traffic})
 }
 
 export const readOptions = (raw: string) => read(raw, parseOptions, writeOptions)
