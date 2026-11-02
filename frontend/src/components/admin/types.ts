@@ -103,6 +103,7 @@ export type Overview = {
     error_details: ErrorDetail[]
   }
   fix: Fix
+  failures: LoggedProblem[]
 }
 
 export type Quota = {key: 'main' | 'learner'; key_label: string; kind: string; label: string; used: number; limit: number}

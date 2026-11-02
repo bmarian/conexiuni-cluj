@@ -29,15 +29,16 @@ type namedCount struct {
 }
 
 type adminOverview struct {
-	GeneratedAt time.Time     `json:"generated_at"`
-	Problems    []problem     `json:"problems"`
-	Now         adminNow      `json:"now"`
-	Accuracy    adminAccuracy `json:"accuracy"`
-	People      adminPeople   `json:"people"`
-	Quota       adminQuota    `json:"quota"`
-	Data        adminData     `json:"data"`
-	Traffic     adminTraffic  `json:"traffic"`
-	Fix         adminFix      `json:"fix"`
+	GeneratedAt time.Time      `json:"generated_at"`
+	Problems    []problem      `json:"problems"`
+	Now         adminNow       `json:"now"`
+	Accuracy    adminAccuracy  `json:"accuracy"`
+	People      adminPeople    `json:"people"`
+	Quota       adminQuota     `json:"quota"`
+	Data        adminData      `json:"data"`
+	Traffic     adminTraffic   `json:"traffic"`
+	Fix         adminFix       `json:"fix"`
+	Failures    []problemEntry `json:"failures"`
 }
 
 type adminNow struct {
@@ -224,7 +225,8 @@ func buildOverview(city *cities.City, dismissed *dismissals, now time.Time) (*ad
 	if o.Fix, err = fixSection(city); err != nil {
 		return nil, fmt.Errorf("fix: %w", err)
 	}
-	o.Problems = dismissed.apply(city.Slug, cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, now))
+	o.Failures = cityFailures(city.Slug, now)
+	o.Problems = dismissed.apply(city.Slug, cityProblems(city, st, o.Now, o.Quota.Quotas, o.Traffic.Errors, o.Data.Archive, o.Failures, now))
 	return o, nil
 }
 
@@ -751,7 +753,9 @@ func errorDetails(city *cities.City, today string) ([]errorDetail, error) {
 	return out, nil
 }
 
-func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, now time.Time) []problem {
+func cityProblems(
+	city *cities.City, st live.Status, n adminNow, quotas []quotaUse, errors int, archive adminArchive, failures []problemEntry, now time.Time,
+) []problem {
 	out := []problem{}
 	add := func(key, text string) { out = append(out, problem{Key: key, Text: text}) }
 	today := database.StatsDate(now)
@@ -781,6 +785,9 @@ func cityProblems(city *cities.City, st live.Status, n adminNow, quotas []quotaU
 	}
 	if errors > 0 {
 		add("errors|"+today, plural(errors, "server error")+" today")
+	}
+	if failedLately(failures, now) {
+		add("failures", "Failures logged in the last hour")
 	}
 	if p := st.CalendarProblem; p != "" {
 		add("calendar", p)

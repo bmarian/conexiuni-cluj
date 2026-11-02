@@ -47,7 +47,11 @@ type adminSite struct {
 }
 
 func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, error), dismissed *dismissals, now time.Time) *adminSite {
-	s := &adminSite{GeneratedAt: now, Cities: []citySummary{}, Server: serverInfo(now)}
+	slugs := make([]string, 0, len(registry.All()))
+	for _, city := range registry.All() {
+		slugs = append(slugs, city.Slug)
+	}
+	s := &adminSite{GeneratedAt: now, Cities: []citySummary{}, Server: serverInfo(slugs, now)}
 	for _, city := range registry.Enabled() {
 		summary, traffic := summarize(city, dismissed, now)
 		s.Cities = append(s.Cities, summary)
@@ -76,12 +80,13 @@ func summarize(city *cities.City, dismissed *dismissals, now time.Time) (citySum
 	}
 	s.PeopleToday = people[today]
 	quota, _ := quotaSection(city, st)
-	s.Problems = dismissed.apply(city.Slug, cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), now))
+	problems := cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), cityFailures(city.Slug, now), now)
+	s.Problems = dismissed.apply(city.Slug, problems)
 	return s, traffic
 }
 
-func serverInfo(now time.Time) siteServer {
-	s := siteServer{StartedAt: serverStartedAt, Problems: []problemEntry{}}
+func serverInfo(slugs []string, now time.Time) siteServer {
+	s := siteServer{StartedAt: serverStartedAt, Problems: appFailures(slugs, now)}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, kv := range info.Settings {
 			switch kv.Key {
@@ -96,9 +101,6 @@ func serverInfo(now time.Time) siteServer {
 	runtime.ReadMemStats(&mem)
 	s.HeapBytes = mem.HeapAlloc
 	s.DiskFree, s.DiskTotal, _ = diskSpace(".")
-	for _, l := range ProblemLog.Recent(now.Add(-24 * time.Hour)) {
-		s.Problems = append(s.Problems, problemEntry{First: l.First, Last: l.Last, Count: l.Count, Text: l.Text})
-	}
 	return s
 }
 
@@ -109,11 +111,8 @@ func siteProblems(s siteServer, now time.Time) []problem {
 			out = append(out, problem{Key: "disk", Text: fmt.Sprintf("Disk %.0f%% full", used*100)})
 		}
 	}
-	for _, p := range s.Problems {
-		if now.Sub(p.Last) < time.Hour {
-			out = append(out, problem{Key: "failures", Text: "Failures logged in the last hour"})
-			break
-		}
+	if failedLately(s.Problems, now) {
+		out = append(out, problem{Key: "failures", Text: "Failures logged in the last hour"})
 	}
 	return out
 }
