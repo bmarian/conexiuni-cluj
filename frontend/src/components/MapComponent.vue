@@ -45,7 +45,7 @@ import {
 import {network} from '@/utils/network.ts'
 import {stationProps} from '@/utils/pagePaths.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
-import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
+import {growLine, type Paint, paintLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
 import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
 import {paced, reducedMotion, squash} from '@/utils/motion.ts'
@@ -53,11 +53,11 @@ import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup,
 import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {useTraffic} from '@/composables/useTraffic.ts'
-import {trafficColor, trafficFeatures} from '@/utils/traffic.ts'
+import {trafficPaint} from '@/utils/traffic.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
-import {pathOf, pathThrough, VehicleTrack} from '@/utils/vehicleMotion.ts'
+import {pathAlong, pathOf, VehicleTrack} from '@/utils/vehicleMotion.ts'
 import {textMeasurer} from '@/utils/textWidth.ts'
 import {whileIdle} from '@/utils/idle.ts'
 import {safeAreaPx} from '@/utils/safeArea.ts'
@@ -174,8 +174,7 @@ const CITY_FLIGHT_MS = 1400
 const FIT_DURATION_MS = paced(695)
 const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
-const SLOTS = ['shapes', 'traffic', 'walks', 'accuracy'] as const
-const TRAFFIC = `${OVERLAY}traffic`
+const SLOTS = ['shapes', 'walks', 'accuracy'] as const
 const SHAPE_WIDTH = 5
 
 type LatLngTuple = [number, number]
@@ -196,6 +195,7 @@ type SavedMapView = {
 type LineGroup = 'shapes' | 'walks'
 type LineSpec = {
   name?: string
+  tripId?: string
   coords: LatLngTuple[]
   color: string
   width: number
@@ -268,14 +268,7 @@ const whenAiming = async (m: MapLibreMap) => {
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
   if (reducedMotion()) return
   const start = growLine(m, id, line.color)
-  const growth = lineReveal.grow(
-    id,
-    pathThrough(
-      line.coords.map(([lat]) => lat),
-      line.coords.map(([, lng]) => lng),
-    ),
-    line.name,
-  )
+  const growth = lineReveal.grow(id, pathAlong(line.coords), line.name)
   revealAll()
   void whenAiming(m).then(() => {
     const at = lineReveal.start(id, growth)
@@ -293,6 +286,7 @@ const syncLines = (group: LineGroup) => {
   for (let i = lines[group].length; i < shown.length; i++) {
     const id = `${OVERLAY}${group}-${i}`
     lineReveal.end(id)
+    paintLine(m, id)
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)
   }
@@ -314,27 +308,27 @@ const syncLines = (group: LineGroup) => {
       m.setPaintProperty(id, 'line-dasharray', line.dash)
       const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
       if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
-      if (!shown.includes(path) && !line.dash) grow(m, id, line)
-      return
+    } else {
+      if (source) m.removeSource(id)
+      m.addSource(id, {type: 'geojson', data, lineMetrics: true})
+      const layer: LineLayerSpecification = {
+        id,
+        type: 'line',
+        source: id,
+        layout: {'line-cap': 'round', 'line-join': 'round'},
+        paint: {
+          'line-color': line.color,
+          'line-width': line.width,
+          'line-opacity': line.opacity,
+          'line-color-transition': {duration: 0, delay: 0},
+          'line-width-transition': {duration: 0, delay: 0},
+          'line-opacity-transition': {duration: 0, delay: 0},
+        },
+      }
+      if (line.dash) layer.paint!['line-dasharray'] = line.dash
+      m.addLayer(layer, slotId(group))
     }
-    if (source) m.removeSource(id)
-    m.addSource(id, {type: 'geojson', data, lineMetrics: true})
-    const layer: LineLayerSpecification = {
-      id,
-      type: 'line',
-      source: id,
-      layout: {'line-cap': 'round', 'line-join': 'round'},
-      paint: {
-        'line-color': line.color,
-        'line-width': line.width,
-        'line-opacity': line.opacity,
-        'line-color-transition': {duration: 0, delay: 0},
-        'line-width-transition': {duration: 0, delay: 0},
-        'line-opacity-transition': {duration: 0, delay: 0},
-      },
-    }
-    if (line.dash) layer.paint!['line-dasharray'] = line.dash
-    m.addLayer(layer, slotId(group))
+    paintLine(m, id, paintOf(line))
     if (!shown.includes(path) && !line.dash) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
@@ -384,31 +378,15 @@ const syncOverlays = () => {
   syncAccuracy()
 }
 
-// The drawn lines' stretches in traffic colours, over the lines themselves, which show through where nothing is measured.
+const paintOf = (line: LineSpec): Paint | undefined => {
+  const stretches = line.tripId === undefined ? undefined : traffic.now.value?.lines[line.tripId]
+  return stretches?.length ? trafficPaint(stretches, line.coords, line.color) : undefined
+}
+
 const syncTraffic = () => {
   const m = map.value
   if (!m || !styleReady) return
-  const now = traffic.now.value
-  if (!now) {
-    if (m.getLayer(TRAFFIC)) m.removeLayer(TRAFFIC)
-    if (m.getSource(TRAFFIC)) m.removeSource(TRAFFIC)
-    return
-  }
-  const features = trafficFeatures(now, shapesToDisplay.value.map(([shape]) => shape.trip_id))
-  const source = m.getSource<GeoJSONSource>(TRAFFIC)
-  if (source) source.setData(features)
-  else m.addSource(TRAFFIC, {type: 'geojson', data: features})
-  if (m.getLayer(TRAFFIC)) return
-  m.addLayer(
-    {
-      id: TRAFFIC,
-      type: 'line',
-      source: TRAFFIC,
-      layout: {'line-cap': 'round', 'line-join': 'round'},
-      paint: {'line-color': trafficColor, 'line-width': SHAPE_WIDTH},
-    },
-    slotId('traffic'),
-  )
+  lines.shapes.forEach((line, i) => paintLine(m, `${OVERLAY}shapes-${i}`, paintOf(line)))
 }
 
 const applyStyle = () => {
@@ -1337,6 +1315,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
     shapeLines.push({
       name: displayShape.route_short_name,
+      tripId: displayShape.trip_id,
       coords: latLngs,
       color: routeColor || '#94a3b8',
       width: SHAPE_WIDTH,

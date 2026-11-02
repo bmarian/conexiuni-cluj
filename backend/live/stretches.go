@@ -10,17 +10,14 @@ import (
 // AllDay is the Hour of a profile over the whole day.
 const AllDay = -1
 
-// MinProfileSamples is how many timings make a profile worth reading.
 const MinProfileSamples = minSegmentProfileSamples
 
-// Stretch is one stop-to-stop piece of a pattern with the shape points it runs along.
 type Stretch struct {
 	FromStopID int
 	ToStopID   int
 	Points     []models.Shape
 }
 
-// SegmentProfile is the learned time of a stretch for one hour of a day type.
 type SegmentProfile struct {
 	FromStopID  int
 	ToStopID    int
@@ -30,14 +27,15 @@ type SegmentProfile struct {
 	MedianSec   float64
 }
 
-// Stretches are a pattern's stop-to-stop pieces, in stop order.
+// Stretches are a pattern's stop-to-stop pieces in stop order, between the ends the passengers see.
 func (eng *Engine) Stretches(tripID string) ([]Stretch, bool) {
 	tracker, ok := eng.getTripSegmentTracker(tripID)
 	if !ok {
 		return nil, false
 	}
+	first, last := visibleEnds(len(tracker.Stops), func(pos int) bool { return eng.StopHidden(tracker.Stops[pos].StopID) })
 	out := make([]Stretch, 0, len(tracker.Stops))
-	for i := 0; i+1 < len(tracker.Stops); i++ {
+	for i := first; i < last; i++ {
 		from, to := tracker.Stops[i], tracker.Stops[i+1]
 		if to.ShapeIdx <= from.ShapeIdx {
 			continue
@@ -67,7 +65,6 @@ func (eng *Engine) SegmentProfiles(routeID, directionID int) ([]SegmentProfile, 
 	return out, nil
 }
 
-// RecentStretch is what the buses since a moment did over a stretch.
 type RecentStretch struct {
 	RouteID     int
 	DirectionID int
@@ -77,7 +74,6 @@ type RecentStretch struct {
 	MeanSec     float64
 }
 
-// RecentStretchTimes are every stretch's timings since a moment, by stretch.
 func (eng *Engine) RecentStretchTimes(since time.Time) ([]RecentStretch, error) {
 	return database.QueryRows(eng.DB, `
 		SELECT route_id, direction_id, from_stop_id, to_stop_id, COUNT(*), AVG(duration_sec)

@@ -1,4 +1,3 @@
-// Package traffic colours each line's stretches by how much slower than free flow its buses run them.
 package traffic
 
 import (
@@ -21,15 +20,12 @@ import (
 
 const (
 	HoursPerDay = 24
-	// LiveWindow is how far back a bus's timing still says something about the road now.
 	LiveWindow = 30 * time.Minute
-	// livePrior is how many usual buses a stretch's recent ones are weighed against, the prior the live-times replay settled on.
+	// How many usual buses a stretch's recent ones weigh against: the prior the live-times replay settled on.
 	livePrior = 4.0
-	// A served rating is at most this old; the web asks again every minute.
 	liveEvery = time.Minute
 )
 
-// Timing is what the map reads from the city's live side.
 type Timing interface {
 	Stretches(tripID string) ([]live.Stretch, bool)
 	SegmentProfiles(routeID, directionID int) ([]live.SegmentProfile, error)
@@ -38,15 +34,12 @@ type Timing interface {
 	Period() int64
 }
 
-// Now is the traffic on the asked-for lines: each line direction's rated stretches in stop order, by pattern id.
 type Now struct {
 	Lines map[string][]Stretch `json:"lines"`
 }
 
-// Stretch is a line's road from one stop to the next.
 type Stretch struct {
 	Path string `json:"path"`
-	// Band is how slow it is now, 0 (free flow) to 3 (jammed), by the city's bands.
 	Band int `json:"band"`
 }
 
@@ -58,7 +51,6 @@ type Service struct {
 	timing  Timing
 	// A timetable-only city has no bus timings to colour by.
 	realtime bool
-	// Runner is the city's background work, which builds the map.
 	Runner func() *jobs.Runner
 
 	mu       sync.Mutex
@@ -68,7 +60,6 @@ type Service struct {
 	rated    map[cell]*ratedNow
 }
 
-// What every line's stretches read at one hour, served until liveEvery passes.
 type ratedNow struct {
 	Now
 	at time.Time
@@ -82,7 +73,6 @@ func (s *Service) Register(api fiber.Router) {
 	api.Get("/traffic", s.serve)
 }
 
-// Warm starts measuring ahead of the first request.
 func (s *Service) Warm() {
 	if !s.realtime {
 		return
@@ -92,14 +82,12 @@ func (s *Service) Warm() {
 	s.mu.Unlock()
 }
 
-// Ready once the lines were measured.
 func (s *Service) Ready() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.all != nil
 }
 
-// serve answers with the traffic on the lines of ?trip_ids, by pattern id.
 func (s *Service) serve(c fiber.Ctx) error {
 	now, err := s.now(time.Now().In(s.loc))
 	if err != nil {
@@ -122,7 +110,6 @@ var (
 	errUnmeasured = errors.New("nothing measured at this hour yet")
 )
 
-// now is every line at this hour over the last measurements, having stale ones measured again in the background.
 func (s *Service) now(at time.Time) (*ratedNow, error) {
 	if !s.realtime {
 		return nil, errNoTimings
@@ -147,7 +134,6 @@ func (s *Service) now(at time.Time) (*ratedNow, error) {
 	return s.rated[k], nil
 }
 
-// recent is what the buses of the last half hour did, by stretch; nothing when that cannot be read.
 func (s *Service) recent(at time.Time) map[stretchKey]live.RecentStretch {
 	rows, err := s.timing.RecentStretchTimes(at.Add(-LiveWindow))
 	if err != nil {
@@ -193,13 +179,12 @@ type stretchKey struct {
 	routeID, directionID, fromStopID, toStopID int
 }
 
-// A stretch's shape, length and learned paces, for one line.
 type measuredStretch struct {
 	key    stretchKey
 	path   string
 	meters float64
 	paceStats
-	// allDay is the pace over the whole of each kind of day, what the ETA model falls back to as well.
+	// Over the whole of each kind of day, the ETA model's own fallback.
 	allDay map[string]paceSum
 }
 
@@ -208,8 +193,7 @@ type paceSum struct {
 	samples int
 }
 
-// slowdown is how much slower than free flow the buses run the stretch at k: by its profile there, else the hours
-// either side, else the whole of that kind of day.
+// By the stretch's profile at k, else the hours either side, else the whole of that kind of day.
 func (st *measuredStretch) slowdown(k cell) (float64, bool) {
 	if st.free <= 0 {
 		return 0, false
@@ -234,13 +218,11 @@ func (st *measuredStretch) slowdown(k cell) (float64, bool) {
 	return 0, false
 }
 
-// What was measured: every line direction's stretches in stop order, with their learned paces, and the city's bands.
 type measured struct {
 	bands []int
 	lines map[string][]*measuredStretch
 }
 
-// now colours each line's stretches at k, patched by the last half hour's buses and filled in between rated neighbours.
 func (m *measured) now(k cell, recent map[stretchKey]live.RecentStretch) (Now, error) {
 	out := Now{Lines: make(map[string][]Stretch, len(m.lines))}
 	for id, line := range m.lines {
@@ -270,7 +252,6 @@ func (m *measured) now(k cell, recent map[stretchKey]live.RecentStretch) (Now, e
 	return out, nil
 }
 
-// measure lists every visible line's stretches with what was learned about them and rates each against its free-flow pace.
 func (s *Service) measure() (*measured, error) {
 	started := time.Now()
 	routes, err := s.data.Routes(transit.RouteFilter{})
@@ -298,7 +279,7 @@ func (s *Service) measure() (*measured, error) {
 				byPair[[2]int{p.FromStopID, p.ToStopID}] = append(byPair[[2]int{p.FromStopID, p.ToStopID}], p)
 			}
 			for _, st := range stretches {
-				meters := shapeMeters(st.Points)
+				meters := geo.ShapeDistance(st.Points, 0, len(st.Points)-1)
 				if meters <= 0 {
 					continue
 				}
@@ -316,7 +297,6 @@ func (s *Service) measure() (*measured, error) {
 	return out, nil
 }
 
-// learn files a stretch's profiles as paces per hour, and its typical pace.
 func learn(key stretchKey, path string, meters float64, profiles []live.SegmentProfile) *measuredStretch {
 	st := &measuredStretch{key: key, path: path, meters: meters, paceStats: paceStats{pace: map[cell]float64{}, samples: map[cell]int{}}, allDay: map[string]paceSum{}}
 	for _, p := range profiles {
@@ -335,17 +315,8 @@ func learn(key stretchKey, path string, meters float64, profiles []live.SegmentP
 	return st
 }
 
-func shapeMeters(points []models.Shape) float64 {
-	meters := 0.0
-	for i := 1; i < len(points); i++ {
-		meters += geo.Haversine(points[i-1].ShapePtLat, points[i-1].ShapePtLon, points[i].ShapePtLat, points[i].ShapePtLon)
-	}
-	return meters
-}
-
 func percent(ratio float64) int { return int(math.Round(ratio * 100)) }
 
-// band is how many of the bands the pace passes: 0 for free flow, 3 for jammed.
 func band(pace int, bands []int) int {
 	n := 0
 	for _, b := range bands {

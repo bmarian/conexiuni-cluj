@@ -1,7 +1,6 @@
 package traffic
 
-// fillBetween rates a line's unrated stretches along the slope between the rated ones either side, and an unrated
-// terminus stretch like its neighbour: a bus waiting at the terminus is what keeps that one from being measured.
+// Unrated stretches follow the slope between their rated neighbours; a terminus one, unmeasured because buses wait there, its neighbour.
 func fillBetween(line []*measuredStretch, ratio map[stretchKey]float64) {
 	last := -1
 	for i, st := range line {

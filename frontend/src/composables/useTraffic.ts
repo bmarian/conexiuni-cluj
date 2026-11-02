@@ -8,7 +8,6 @@ import type {TrafficNow} from '@/utils/traffic.ts'
 
 const MINUTE_MS = 60_000
 
-// The traffic on the lines drawn on the map, while the setting is on and the city measures it.
 export function useTraffic() {
   const {traffic} = storeToRefs(useSettingsStore())
   const {shapesToDisplay} = storeToRefs(useMapStore())

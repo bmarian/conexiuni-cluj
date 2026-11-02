@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {TRAFFIC_COLORS, trafficFeatures, type TrafficNow} from '@/utils/traffic.ts'
+import {TRAFFIC_COLORS, trafficPaint} from '@/utils/traffic.ts'
 
 // The backend's polyline encoding, six decimals.
 function encodePolyline(points: [number, number][]): string {
@@ -21,25 +21,33 @@ function encodePolyline(points: [number, number][]): string {
   return out
 }
 
-const now: TrafficNow = {
-  lines: {
-    '18_0': [{path: encodePolyline([[46.77, 23.59], [46.771, 23.592]]), band: 2}],
-    '18_1': [{path: encodePolyline([[46.78, 23.6], [46.781, 23.601]]), band: 0}],
-  },
-}
+// A straight line east, four equal legs.
+const line: [number, number][] = [
+  [46.77, 23.59],
+  [46.77, 23.6],
+  [46.77, 23.61],
+  [46.77, 23.62],
+  [46.77, 23.63],
+]
+const leg = (from: number, to: number) => encodePolyline(line.slice(from, to + 1))
 
-describe('traffic on the drawn lines', () => {
-  it('draws the stretches of the drawn lines in lon/lat with their band', () => {
-    const {features} = trafficFeatures(now, ['18_0', '18_0', '92_0'])
-    expect(features).toHaveLength(1)
-    expect(features[0].properties).toEqual({band: 2})
-    expect(features[0].geometry.coordinates).toEqual([
-      [23.59, 46.77],
-      [23.592, 46.771],
+describe('traffic paint', () => {
+  it('colours each stretch over its share of the line and leaves the rest in the line colour', () => {
+    const paint = trafficPaint([{path: leg(0, 1), band: 2}, {path: leg(2, 3), band: 0}], line, '#123456')
+    expect(paint.map((stop) => [Math.round(stop.at * 100), stop.color])).toEqual([
+      [0, TRAFFIC_COLORS[2]],
+      [25, '#123456'],
+      [50, TRAFFIC_COLORS[0]],
+      [75, '#123456'],
     ])
   })
 
-  it('has a colour per band', () => {
-    expect(TRAFFIC_COLORS).toHaveLength(4)
+  it('joins touching stretches of one band', () => {
+    const paint = trafficPaint([{path: leg(0, 2), band: 1}, {path: leg(2, 4), band: 1}], line, '#123456')
+    expect(paint).toEqual([{at: 0, color: TRAFFIC_COLORS[1]}])
+  })
+
+  it('is the line colour alone when nothing is measured', () => {
+    expect(trafficPaint([], line, '#123456')).toEqual([{at: 0, color: '#123456'}])
   })
 })

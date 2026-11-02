@@ -25,6 +25,12 @@ export function pathThrough(lat: number[], lng: number[]): Path {
   return {lat, lng, at, length: at.at(-1)!}
 }
 
+export const pathAlong = (coords: [number, number][]): Path =>
+  pathThrough(
+    coords.map(([lat]) => lat),
+    coords.map(([, lng]) => lng),
+  )
+
 export function pathOf(shape: Shape[]): Path {
   let path = paths.get(shape)
   if (path) return path

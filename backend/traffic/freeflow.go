@@ -6,7 +6,6 @@ import (
 	"sort"
 )
 
-// paceStats are the learned paces of one stretch per hour of every kind of day.
 type paceStats struct {
 	// Sample-weighted seconds per metre per cell.
 	pace    map[cell]float64
@@ -24,7 +23,13 @@ func (ps *paceStats) usual(k cell) (float64, bool) {
 	return sum / float64(ps.samples[k]), true
 }
 
-// medianPace is the pace half the buses beat at the hours that count, 0 when none was measured.
+func (ps *paceStats) each(fn func(k cell, pace float64)) {
+	for k := range ps.pace {
+		pace, _ := ps.usual(k)
+		fn(k, pace)
+	}
+}
+
 func (ps *paceStats) medianPace(counts func(cell) bool) float64 {
 	type cellPace struct {
 		pace    float64
@@ -32,14 +37,12 @@ func (ps *paceStats) medianPace(counts func(cell) bool) float64 {
 	}
 	cells := make([]cellPace, 0, len(ps.pace))
 	total := 0
-	for k := range ps.pace {
-		if !counts(k) {
-			continue
+	ps.each(func(k cell, pace float64) {
+		if counts(k) {
+			cells = append(cells, cellPace{pace, ps.samples[k]})
+			total += ps.samples[k]
 		}
-		usual, _ := ps.usual(k)
-		cells = append(cells, cellPace{usual, ps.samples[k]})
-		total += ps.samples[k]
-	}
+	})
 	sort.Slice(cells, func(i, j int) bool { return cells[i].pace < cells[j].pace })
 	seen := 0
 	for _, c := range cells {
@@ -51,14 +54,11 @@ func (ps *paceStats) medianPace(counts func(cell) bool) float64 {
 	return 0
 }
 
-// quietCells are the hours of each kind of day when the city's buses run closer to their fastest than to their normal: free flow.
+// The hours of each kind of day when the city's buses run closer to their fastest than to their normal: free flow.
 func quietCells(stats []*paceStats) map[cell]bool {
 	ratios := make(map[cell][]float64)
 	for _, ps := range stats {
-		for k := range ps.pace {
-			usual, _ := ps.usual(k)
-			ratios[k] = append(ratios[k], usual/ps.typical)
-		}
+		ps.each(func(k cell, pace float64) { ratios[k] = append(ratios[k], pace/ps.typical) })
 	}
 	curve := make(map[cell]float64)
 	fastest := math.Inf(1)
@@ -79,7 +79,6 @@ func quietCells(stats []*paceStats) map[cell]bool {
 	return quiet
 }
 
-// rateFreeFlow gives every stretch its free-flow pace and returns the slowdowns seen at quiet and at busy hours.
 func rateFreeFlow(stats []*paceStats) (atQuiet, atBusy []float64) {
 	quiet := quietCells(stats)
 	var typicalOverFree []float64
@@ -99,20 +98,18 @@ func rateFreeFlow(stats []*paceStats) (atQuiet, atBusy []float64) {
 		if ps.free == 0 {
 			ps.free = ps.typical / borrow
 		}
-		for k := range ps.pace {
-			usual, _ := ps.usual(k)
+		ps.each(func(k cell, pace float64) {
 			if quiet[k] {
-				atQuiet = append(atQuiet, usual/ps.free)
+				atQuiet = append(atQuiet, pace/ps.free)
 			} else {
-				atBusy = append(atBusy, usual/ps.free)
+				atBusy = append(atBusy, pace/ps.free)
 			}
-		}
+		})
 	}
 	return atQuiet, atBusy
 }
 
-// splits are the slowdowns, in percent of free flow, past which a stretch is busy, slow and jammed: the spread of the
-// quiet hours themselves, then the slowest quarter and tenth of the busy hours.
+// Busy, slow and jammed, in percent of free flow: the spread of the quiet hours, then the slowest quarter and tenth of the busy ones.
 func splits(atQuiet, atBusy []float64) []int {
 	if len(atBusy) == 0 {
 		return []int{}
@@ -132,7 +129,6 @@ func splits(atQuiet, atBusy []float64) []int {
 	return out
 }
 
-// quantile is the value a share p of the sorted values stay at or under.
 func quantile(sorted []float64, p float64) float64 {
 	i := min(int(math.Ceil(p*float64(len(sorted))))-1, len(sorted)-1)
 	return sorted[max(i, 0)]
