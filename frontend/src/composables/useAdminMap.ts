@@ -4,7 +4,7 @@ import {storeToRefs} from 'pinia'
 import {onBeforeUnmount, onMounted, watch, type Ref} from 'vue'
 import {useUserStore} from '@/stores/user.ts'
 import {FLAT_MAP_OPTIONS} from '@/utils/mapMarkers.ts'
-import {mapCreditsHTML, mapStyle} from '@/utils/mapStyles.ts'
+import {mapStyle} from '@/utils/mapStyles.ts'
 import '@/utils/mapWorker.ts'
 
 export const ADMIN_MAP_PADDING_PX = 48
@@ -17,7 +17,7 @@ export function useAdminMap(container: Ref<HTMLElement | null>, ready: (map: Map
     map = new MapLibreMap({
       container: container.value!,
       style: mapStyle(isDarkMode.value),
-      attributionControl: {compact: true, customAttribution: mapCreditsHTML()},
+      attributionControl: false,
       ...FLAT_MAP_OPTIONS,
     })
     map.touchZoomRotate.disableRotation()
