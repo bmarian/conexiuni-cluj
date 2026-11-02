@@ -5,6 +5,7 @@ export {default as ArrowBackIcon} from '@material-design-icons/svg/round/arrow_b
 export {default as ArrowForwardIcon} from '@material-design-icons/svg/round/arrow_forward.svg?component'
 export {default as BrightnessMediumIcon} from '@material-design-icons/svg/round/brightness_medium.svg?component'
 export {default as CheckIcon} from '@material-design-icons/svg/round/check.svg?component'
+export {default as CheckCircleIcon} from '@material-design-icons/svg/round/check_circle.svg?component'
 export {default as CloseIcon} from '@material-design-icons/svg/round/close.svg?component'
 export {default as ComputerIcon} from '@material-design-icons/svg/round/computer.svg?component'
 export {default as ContentCopyIcon} from '@material-design-icons/svg/round/content_copy.svg?component'

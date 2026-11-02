@@ -111,6 +111,15 @@ export function useAdmin() {
     }
   }
 
+  async function dismiss(problems: {scope: string; key: string}[], dismissed: boolean) {
+    try {
+      await Promise.all(problems.map(({scope, key}) => putJSON('/api/admin/problems', {scope, key, dismissed})))
+      await load()
+    } catch (err) {
+      fail(err)
+    }
+  }
+
   async function login(token: string): Promise<string> {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
@@ -151,5 +160,5 @@ export function useAdmin() {
     document.removeEventListener('visibilitychange', onVisibility)
   })
 
-  return {state, site, overview, city, loading, loadError, clock, load, pick, login, logout}
+  return {state, site, overview, city, loading, loadError, clock, load, pick, dismiss, login, logout}
 }

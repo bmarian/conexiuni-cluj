@@ -17,13 +17,12 @@ var serverStartedAt = time.Now()
 const diskFullWarning = 0.9
 
 type citySummary struct {
-	Slug        string        `json:"slug"`
-	Name        string        `json:"name"`
-	Realtime    bool          `json:"realtime"`
-	Watching    int           `json:"watching"`
-	PeopleToday int           `json:"people_today"`
-	Problems    []string      `json:"problems"`
-	Errors      []errorDetail `json:"errors"`
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Realtime    bool      `json:"realtime"`
+	Watching    int       `json:"watching"`
+	PeopleToday int       `json:"people_today"`
+	Problems    []problem `json:"problems"`
 }
 
 type siteServer struct {
@@ -42,15 +41,15 @@ type siteServer struct {
 
 type adminSite struct {
 	GeneratedAt time.Time     `json:"generated_at"`
-	Problems    []string      `json:"problems"`
+	Problems    []problem     `json:"problems"`
 	Cities      []citySummary `json:"cities"`
 	Server      siteServer    `json:"server"`
 }
 
-func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, error), now time.Time) *adminSite {
+func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, error), dismissed *dismissals, now time.Time) *adminSite {
 	s := &adminSite{GeneratedAt: now, Cities: []citySummary{}, Server: serverInfo(now)}
 	for _, city := range registry.Enabled() {
-		summary, traffic := summarize(city, now)
+		summary, traffic := summarize(city, dismissed, now)
 		s.Cities = append(s.Cities, summary)
 		s.Server.Requests += traffic.Requests
 		s.Server.Errors += traffic.Errors
@@ -60,24 +59,24 @@ func buildSite(registry *cities.Registry, syncStats func() (devicesync.Stats, er
 	if stats, err := syncStats(); err == nil {
 		s.Server.Sync = &stats
 	}
-	s.Problems = siteProblems(s.Server, now)
+	s.Problems = dismissed.apply(appScope, siteProblems(s.Server, now))
 	return s
 }
 
-func summarize(city *cities.City, now time.Time) (citySummary, adminTraffic) {
+func summarize(city *cities.City, dismissed *dismissals, now time.Time) (citySummary, adminTraffic) {
 	st := city.Live.Status(now)
 	n := nowCounts(st)
-	s := citySummary{Slug: city.Slug, Name: city.Name, Realtime: city.Realtime != nil, Watching: n.People, Errors: []errorDetail{}}
+	s := citySummary{Slug: city.Slug, Name: city.Name, Realtime: city.Realtime != nil, Watching: n.People}
 	today := database.StatsDate(now)
 	traffic, err := trafficSection(city, now)
 	people, peopleErr := peopleByDay(city, today)
 	if err = cmp.Or(err, peopleErr); err != nil {
-		s.Problems = []string{fmt.Sprintf("Could not read: %v", err)}
+		s.Problems = []problem{{Key: "unreadable", Text: fmt.Sprintf("Could not read: %v", err)}}
 		return s, traffic
 	}
-	s.PeopleToday, s.Errors = people[today], traffic.ErrorDetails
+	s.PeopleToday = people[today]
 	quota, _ := quotaSection(city, st)
-	s.Problems = cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), now)
+	s.Problems = dismissed.apply(city.Slug, cityProblems(city, st, n, quota.Quotas, traffic.Errors, archiveSection(city, st.Archive), now))
 	return s, traffic
 }
 
@@ -103,16 +102,16 @@ func serverInfo(now time.Time) siteServer {
 	return s
 }
 
-func siteProblems(s siteServer, now time.Time) []string {
-	out := []string{}
+func siteProblems(s siteServer, now time.Time) []problem {
+	out := []problem{}
 	if s.DiskTotal > 0 {
 		if used := 1 - float64(s.DiskFree)/float64(s.DiskTotal); used >= diskFullWarning {
-			out = append(out, fmt.Sprintf("Disk %.0f%% full", used*100))
+			out = append(out, problem{Key: "disk", Text: fmt.Sprintf("Disk %.0f%% full", used*100)})
 		}
 	}
 	for _, p := range s.Problems {
 		if now.Sub(p.Last) < time.Hour {
-			out = append(out, "Failures logged in the last hour")
+			out = append(out, problem{Key: "failures", Text: "Failures logged in the last hour"})
 			break
 		}
 	}

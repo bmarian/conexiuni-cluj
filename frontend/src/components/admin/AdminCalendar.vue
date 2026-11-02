@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
+import AdminSub from '@/components/admin/AdminSub.vue'
 import ChoiceRow from '@/components/ui/ChoiceRow.vue'
-import SubLabel from '@/components/ui/SubLabel.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import type {LearningWindow} from '@/components/admin/types.ts'
 import {ago, dayName, timetableLabels} from '@/utils/adminFormat.ts'
@@ -43,7 +43,7 @@ type CalendarView = {
 }
 
 const props = defineProps<{city: string}>()
-const emit = defineEmits<{saved: []; learning: [windows: LearningWindow[]]}>()
+const emit = defineEmits<{saved: []}>()
 
 const view = ref<CalendarView | null>(null)
 const loadError = ref('')
@@ -95,7 +95,6 @@ async function load() {
 
 function show(next: CalendarView) {
   view.value = next
-  emit('learning', next.learning.windows)
   const keep = next.years.find((y) => y.year === selectedYear.value)
   const preferred = next.years.find((y) => y.year === next.needed) ?? next.years.find((y) => y.status !== 'estimate') ?? next.years[0]
   const target = keep ?? preferred
@@ -272,7 +271,7 @@ onMounted(load)
         </div>
       </dl>
 
-      <SubLabel text="Timetable for a day" />
+      <AdminSub text="Timetable for a day" />
       <div class="day">
         <input ref="dayPicker" v-model="dayDate" class="admin-field" type="date" aria-label="Day" @change="loadDay" />
         <ChoiceRow :options="dayChoices" :model-value="dayChoice" aria-label="Timetable to run" @update:model-value="chooseDay" />
@@ -342,7 +341,7 @@ onMounted(load)
         </div>
       </details>
 
-      <SubLabel text="Public holidays" />
+      <AdminSub text="Public holidays" />
       <dl class="admin-rows">
         <div v-for="h in holidays" :key="h.date" class="has-action">
           <dt class="name">{{ dayName(h.date) }} · {{ h.name }}</dt>
@@ -356,7 +355,7 @@ onMounted(load)
       </button>
 
       <template v-if="view.overrides.length">
-        <SubLabel text="Changed days" />
+        <AdminSub text="Changed days" />
         <dl class="admin-rows">
           <div v-for="o in view.overrides" :key="o.date" class="has-action">
             <dt class="name">{{ dayName(o.date) }} · {{ timetableLabels[o.schedule] ?? o.schedule }}, {{ o.source === 'admin' ? 'by you' : 'seen' }}</dt>

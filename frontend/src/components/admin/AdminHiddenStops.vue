@@ -47,9 +47,9 @@ onMounted(load)
   <p v-else-if="!stations.length" class="admin-note">None</p>
   <template v-else>
     <AdminStopsMap :stations="stations" :focused="focused" @pick="focused = $event" />
-    <ul class="stations">
+    <ul class="admin-picks">
       <li v-for="s in stations" :key="s.stop_ids[0]">
-        <button type="button" class="station state" :class="{'is-focused': s === focused}" @click="focused = s">
+        <button type="button" class="admin-pick state" :class="{'is-focused': s === focused}" @click="focused = s">
           <span class="name">{{ s.name }}</span>
           <span class="lines">
             <LineBadge v-for="l in s.lines" :key="l.id" plain :name="l.name" :color="l.color" />
@@ -63,37 +63,8 @@ onMounted(load)
 </template>
 
 <style scoped>
-.stations {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.stations li {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-right: 4px;
-}
-
-.station {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 16px;
-  text-align: left;
-  border-radius: 12px;
-}
-
 .name {
   display: block;
-  font-size: 14px;
-  line-height: 20px;
-  letter-spacing: 0.25px;
-}
-
-.is-focused .name {
-  font-weight: 600;
-  color: var(--md-primary);
 }
 
 .lines {

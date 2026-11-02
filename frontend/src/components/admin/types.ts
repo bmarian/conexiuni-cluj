@@ -11,21 +11,22 @@ export type Accuracy = {
 
 export type ErrorDetail = {endpoint: string; status: number; text: string; count: number; last_at: string; path: string}
 
+export type Problem = {key: string; text: string; dismissed: boolean}
+
 export type CitySummary = {
   slug: string
   name: string
   realtime: boolean
   watching: number
   people_today: number
-  problems: string[]
-  errors: ErrorDetail[]
+  problems: Problem[]
 }
 
 export type LoggedProblem = {first: string; last: string; count: number; text: string}
 
 export type Site = {
   generated_at: string
-  problems: string[]
+  problems: Problem[]
   cities: CitySummary[]
   server: {
     started_at: string
@@ -44,7 +45,7 @@ export type Site = {
 
 export type Overview = {
   generated_at: string
-  problems: string[]
+  problems: Problem[]
   now: {
     streams: number
     people: number
@@ -79,7 +80,7 @@ export type Overview = {
     installs: number
   }
   quota: {
-    quotas: {name: string; used: number; limit: number}[]
+    quotas: Quota[]
     learning: {enabled: boolean; dedicated: boolean; used: number; budget: number}
   }
   data: {
@@ -91,6 +92,7 @@ export type Overview = {
     samples_hour: number
     delays_at: string | null
     archive: {enabled: boolean; ran_at: string | null; error?: string; bytes: number; oldest_date?: string}
+    learning: LearningWindow[]
   }
   traffic: {
     db_bytes: number
@@ -101,6 +103,8 @@ export type Overview = {
   }
   fix: Fix
 }
+
+export type Quota = {key: 'main' | 'learner'; key_label: string; kind: string; label: string; used: number; limit: number}
 
 export type Fix = {
   searches: {query: string; count: number}[]
@@ -129,6 +133,6 @@ export type LineStats = {day_type: string; directions: LineDirection[]}
 
 export type HiddenStation = {stop_ids: number[]; name: string; lat: number; lon: number; lines: Named[]}
 
-export type AdminLine = {id: number; name: string; color?: string; long_name: string; last_run: number}
+export type AdminLine = {id: number; name: string; color?: string; long_name: string; last_run: number; shapes: string[]}
 
 export type HiddenLines = {hidden: AdminLine[]; idle: AdminLine[]}

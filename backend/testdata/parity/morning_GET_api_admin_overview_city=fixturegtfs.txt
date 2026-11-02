@@ -264,6 +264,36 @@ X-Frame-Options: DENY
    "ran_at": "2026-10-20T03:30:00+03:00"
   },
   "delays_at": null,
+  "learning": [
+   {
+    "day_type": "weekday",
+    "days": 10,
+    "from": "2026-10-07",
+    "last_year_days": 0,
+    "seed": "previous"
+   },
+   {
+    "day_type": "weekday_vacation",
+    "days": 5,
+    "from": "2026-08-31",
+    "last_year_days": 0,
+    "seed": "previous"
+   },
+   {
+    "day_type": "saturday",
+    "days": 2,
+    "from": "2026-10-10",
+    "last_year_days": 0,
+    "seed": "previous"
+   },
+   {
+    "day_type": "sunday",
+    "days": 2,
+    "from": "2026-10-11",
+    "last_year_days": 0,
+    "seed": "previous"
+   }
+  ],
   "route_changes": [
    {
     "color": "#1C38D9",
