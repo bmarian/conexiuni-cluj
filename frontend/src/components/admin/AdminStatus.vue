@@ -160,6 +160,13 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
             <dt>Timetables</dt>
             <dd>{{ overview.data.warmup_running ? 'refreshing' : ago(overview.data.warmup_at, clock) }} · next {{ clockTime(overview.data.warmup_next) }}</dd>
           </div>
+          <div v-if="overview.data.timetable_fetches">
+            <dt>Timetable updates today</dt>
+            <dd>
+              {{ num(overview.data.timetable_fetches.done) }}
+              <span v-if="overview.data.timetable_fetches.failed" class="admin-bad"> · {{ num(overview.data.timetable_fetches.failed) }} failed</span>
+            </dd>
+          </div>
           <template v-if="realtime">
             <div>
               <dt>Learned today</dt>

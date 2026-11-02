@@ -5,6 +5,7 @@ import (
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/ingest"
 	"conexiuni-cluj/live"
 	"fmt"
 	"math"
@@ -150,6 +151,13 @@ type adminData struct {
 	DelaysAt      *time.Time            `json:"delays_at"`
 	Archive       adminArchive          `json:"archive"`
 	Learning      []live.LearningWindow `json:"learning"`
+	// Nil for a city with no timetable source of its own.
+	TimetableFetches *timetableFetches `json:"timetable_fetches,omitempty"`
+}
+
+type timetableFetches struct {
+	Done   int `json:"done"`
+	Failed int `json:"failed"`
 }
 
 type adminArchive struct {
@@ -625,8 +633,27 @@ func dataSection(city *cities.City, st live.Status, now time.Time) (adminData, e
 		d.DelaysAt = &delaysAt
 	}
 	d.Archive = archiveSection(city, st.Archive)
+	if city.Timetables != nil {
+		if d.TimetableFetches, err = timetableFetchesToday(city, now); err != nil {
+			return d, err
+		}
+	}
 	d.Learning, err = city.Live.LearningWindows(now)
 	return d, err
+}
+
+func timetableFetchesToday(city *cities.City, now time.Time) (*timetableFetches, error) {
+	rows, err := city.MetricRows(ingest.TimetableFetchMetric, database.StatsDate(now))
+	out := &timetableFetches{}
+	for _, r := range rows {
+		switch r.Key {
+		case "done":
+			out.Done += r.Count
+		case "failed":
+			out.Failed += r.Count
+		}
+	}
+	return out, err
 }
 
 func archiveSection(city *cities.City, run *live.ArchiveRun) adminArchive {
