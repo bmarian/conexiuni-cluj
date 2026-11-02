@@ -120,7 +120,7 @@ func (s *Source) Quotas() []feeds.Quota {
 	for _, q := range []struct {
 		*dailyQuota
 		kind string
-	}{{s.client.vehiclesQuota, feeds.QuotaPositions}, {s.client.defaultQuota, feeds.QuotaTimetables}} {
+	}{{s.client.vehiclesQuota, feeds.QuotaPositions}, {s.client.defaultQuota, feeds.QuotaNetwork}} {
 		out = append(out, feeds.Quota{Name: q.name, Kind: q.kind, Used: q.limit - q.remaining(), Limit: q.limit})
 	}
 	return out

@@ -121,7 +121,7 @@ type quotaUse struct {
 }
 
 var quotaKeyLabels = map[string]string{"main": "Main key", "learner": "Learner key"}
-var quotaKindLabels = map[string]string{feeds.QuotaPositions: "Bus positions", feeds.QuotaTimetables: "Timetable downloads"}
+var quotaKindLabels = map[string]string{feeds.QuotaPositions: "Bus positions", feeds.QuotaNetwork: "Network downloads"}
 
 type adminQuota struct {
 	Quotas   []quotaUse `json:"quotas"`
