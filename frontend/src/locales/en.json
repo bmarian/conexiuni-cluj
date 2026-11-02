@@ -308,7 +308,7 @@
   "save": "Save",
   "saved": "Saved",
   "followChanges": "Follow changes",
-  "followingChanges": "Following changes",
+  "unfollowChanges": "Stop following changes",
   "close": "Close",
   "shareFinding": "Finding {name}…",
   "shareNotFound": "Couldn't find that place. Search for it here.",

@@ -32,15 +32,13 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, map[string]string, e
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("routes: %w", err)
 	}
-	if s.offered.IsReady() {
-		kept := make([]models.Route, 0, len(routes))
-		for _, r := range routes {
-			if s.offered.RouteHasTimetable(r.RouteShortName) {
-				kept = append(kept, r)
-			}
+	kept := make([]models.Route, 0, len(routes))
+	for _, r := range routes {
+		if !s.data.LineHidden(r.RouteShortName) && (!s.offered.IsReady() || s.offered.RouteHasTimetable(r.RouteShortName)) {
+			kept = append(kept, r)
 		}
-		routes = kept
 	}
+	routes = kept
 	sort.Slice(routes, func(i, j int) bool { return routes[i].RouteID < routes[j].RouteID })
 
 	allStops, err := s.data.Stops(transit.StopFilter{})

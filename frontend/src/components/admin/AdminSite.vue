@@ -129,7 +129,7 @@ const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk
     </details>
     <div class="admin-card">
       <ToggleRow :icon="QueryStatsIcon" title="Line stats" :checked="lineStats" @change="(setLineStats($event), (lineStats = $event))" />
-      <ToggleRow :icon="VisibilityOffIcon" title="Hide stops" :checked="stopControls" @change="(setStopControls($event), (stopControls = $event))" />
+      <ToggleRow :icon="VisibilityOffIcon" title="Hide stops and lines" :checked="stopControls" @change="(setStopControls($event), (stopControls = $event))" />
     </div>
   </section>
 </template>

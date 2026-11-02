@@ -64,6 +64,7 @@ type liveTable struct {
 type liveTrip struct {
 	trip          *predictions.Trip
 	routeID       int
+	line          string
 	cumulativeSec []float64
 	departures    map[string][]int
 	// What the timetable plans between arriving and leaving the departure terminus, per kind of day.
@@ -201,6 +202,7 @@ func (eng *Engine) buildLiveTrips(route models.Route, now time.Time) []*liveTrip
 		out = append(out, &liveTrip{
 			trip:          predictions.NewTrip(tripID, predictions.NewShapeIndex(points), stops, turnaround),
 			routeID:       route.RouteID,
+			line:          rsn,
 			cumulativeSec: cumulative,
 			departures:    departures,
 			layoverMin:    layovers,
@@ -290,6 +292,7 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 			rows[pos] = predictions.MergeArrivals(live, scheduled, tracked, liveEntriesPerRow, rules.graceSec)
 		}
 		marked := predictions.MarkRepeatedNow(rows)
+		hiddenLine := eng.LineHidden(lt.line)
 		tripRows := make([]liveRow, len(marked))
 		for pos, row := range marked {
 			entries := make([]liveEntry, len(row))
@@ -297,7 +300,9 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 				entries[i] = liveEntry{At: now.Unix() + int64(math.Round(a.Seconds)), Live: a.Live, Soon: a.Soon, VehicleID: a.VehicleID, kind: a.Kind}
 			}
 			tripRows[pos] = liveRow{TripID: tripID, StopID: lt.trip.Stops[pos].ID, Entries: entries}
-			table.rowsByStop[lt.trip.Stops[pos].ID] = append(table.rowsByStop[lt.trip.Stops[pos].ID], tripRows[pos])
+			if !hiddenLine {
+				table.rowsByStop[lt.trip.Stops[pos].ID] = append(table.rowsByStop[lt.trip.Stops[pos].ID], tripRows[pos])
+			}
 		}
 		table.rowsByTrip[tripID] = tripRows
 		if len(own) > 0 {

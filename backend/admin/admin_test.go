@@ -5,12 +5,16 @@ import (
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/devicesync"
+	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/live"
+	"conexiuni-cluj/models"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -111,5 +115,63 @@ func TestAdminHidesAndBringsBackStops(t *testing.T) {
 	}
 	if got := put(`{"stop_ids":[7],"hidden":false}`, true); got != http.StatusOK || city.StopHidden(7) {
 		t.Fatalf("bring back: %d, hidden %v", got, city.StopHidden(7))
+	}
+}
+
+func TestAdminHidesLinesAndListsTheIdleOnes(t *testing.T) {
+	city := testCity(t, "a")
+	snap := &feeds.Snapshot{Stops: []models.Stop{{StopID: 1, StopName: "A", StopLat: 46, StopLon: 24}, {StopID: 2, StopName: "B", StopLat: 46, StopLon: 24.01}}}
+	for id := 1; id <= 3; id++ {
+		trip := fmt.Sprintf("%d_0", id)
+		snap.Routes = append(snap.Routes, models.Route{RouteID: id, RouteShortName: fmt.Sprint(id)})
+		snap.Trips = append(snap.Trips, models.Trip{TripID: trip, RouteID: id})
+		snap.TripStops = append(snap.TripStops, models.TripStop{TripID: trip, StopID: 1, StopSequence: 1}, models.TripStop{TripID: trip, StopID: 2, StopSequence: 2})
+	}
+	if err := city.StoreNetwork(snap); err != nil {
+		t.Fatal(err)
+	}
+	if err := city.Availability().Refresh(city.Data); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	ran := func(route int, at time.Time) {
+		t.Helper()
+		if _, err := city.Archive.Exec(`INSERT INTO segment_travel_time_samples VALUES (?, 0, 1, 2, 'weekday', 480, 60, ?)`, route, at.Unix()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func(lines []adminLine) (out []string) {
+		for _, l := range lines {
+			out = append(out, l.Name)
+		}
+		return out
+	}
+
+	ran(2, now.Add(-10*24*time.Hour))
+	if got, err := hiddenLines(city, now); err != nil || len(got.Idle) != 0 {
+		t.Fatalf("no bus this week, idle %v (%v)", names(got.Idle), err)
+	}
+	ran(1, now.Add(-time.Hour))
+	got, err := hiddenLines(city, now)
+	if err != nil || !slices.Equal(names(got.Idle), []string{"3", "2"}) || got.Idle[1].LastRun != now.Add(-10*24*time.Hour).Unix() {
+		t.Fatalf("idle %+v (%v)", got.Idle, err)
+	}
+
+	app := adminApp(t, filepath.Join(t.TempDir(), "disabled-cities.json"), city)
+	put := func(body string, signedIn bool) int { return putAs(t, app, "/api/admin/hidden-lines?city=a", body, signedIn) }
+	if got := put(`{"names":["3"],"hidden":true}`, false); got != http.StatusUnauthorized {
+		t.Fatalf("signed out: %d, want 401", got)
+	}
+	if got := put(`{"names":[],"hidden":true}`, true); got != http.StatusBadRequest {
+		t.Fatalf("no lines: %d, want 400", got)
+	}
+	if got := put(`{"names":["3"],"hidden":true}`, true); got != http.StatusOK || !city.LineHidden("3") {
+		t.Fatalf("hide: %d, hidden %v", got, city.LineHidden("3"))
+	}
+	if got, _ := hiddenLines(city, now); !slices.Equal(names(got.Hidden), []string{"3"}) || !slices.Equal(names(got.Idle), []string{"2"}) {
+		t.Fatalf("hidden %v, idle %v", names(got.Hidden), names(got.Idle))
+	}
+	if got := put(`{"names":["3"],"hidden":false}`, true); got != http.StatusOK || city.LineHidden("3") {
+		t.Fatalf("bring back: %d, hidden %v", got, city.LineHidden("3"))
 	}
 }

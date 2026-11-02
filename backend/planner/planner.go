@@ -199,6 +199,9 @@ func (s *Service) plannerPatterns(day time.Time) ([]router.PatternInput, error) 
 	var out []router.PatternInput
 	for _, route := range routes {
 		rsn := route.RouteShortName
+		if s.data.LineHidden(rsn) {
+			continue
+		}
 		base, routeID, err := s.data.BaseStopTimes(transit.StopTimeFilter{RouteShortName: &rsn})
 		if err != nil || routeID == 0 {
 			continue

@@ -135,6 +135,13 @@ const archiveSchema = `
 		hidden     INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS hidden_lines
+	(
+		route_short_name TEXT PRIMARY KEY,
+		hidden           INTEGER NOT NULL,
+		updated_at       INTEGER NOT NULL
+	);
 `
 
 func (s *Store) openArchive(path string) error {
@@ -474,4 +481,27 @@ func (s *Store) ArchiveHasSegmentSamples(from, to int64) (bool, error) {
 	var found bool
 	err := s.Archive.QueryRow(`SELECT EXISTS (SELECT 1 FROM segment_travel_time_samples WHERE observed_at >= ? AND observed_at < ?)`, from, to).Scan(&found)
 	return found, err
+}
+
+// The key is the query's first argument.
+func writeEach[K any](s *Store, keys []K, query string, args ...any) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	if s.Archive == nil {
+		return fmt.Errorf("the archive database is not open")
+	}
+	s.archiveWrites.Lock()
+	defer s.archiveWrites.Unlock()
+	tx, err := s.Archive.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, key := range keys {
+		if _, err := tx.Exec(query, append([]any{key}, args...)...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

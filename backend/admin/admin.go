@@ -207,5 +207,6 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 	})
 
 	registerHiddenStops(admin, cityOf, RequireSession(token))
+	registerHiddenLines(admin, cityOf, RequireSession(token))
 	live.RegisterAdminCalendar(admin, func(c fiber.Ctx) *live.Engine { return cityOf(c).Live }, RequireSession(token))
 }

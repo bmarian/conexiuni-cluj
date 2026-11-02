@@ -73,6 +73,9 @@ func buildCity(cfg *config.Config, spec cities.Spec, opts live.Options) (*cities
 	if err := city.UseHiddenStops(spec.Rules.HiddenStops); err != nil {
 		return nil, err
 	}
+	if err := city.UseHiddenLines(); err != nil {
+		return nil, err
+	}
 	if spec.County != "" {
 		city.Live.SchoolCalendar = calendarscolar.County(spec.County)
 	}

@@ -6,6 +6,7 @@ import AdminCityMenu from '@/components/admin/AdminCityMenu.vue'
 import AdminDayBars, {type DayBar} from '@/components/admin/AdminDayBars.vue'
 import AdminErrors from '@/components/admin/AdminErrors.vue'
 import AdminFix from '@/components/admin/AdminFix.vue'
+import AdminHiddenLines from '@/components/admin/AdminHiddenLines.vue'
 import AdminHiddenStops from '@/components/admin/AdminHiddenStops.vue'
 import AdminScope from '@/components/admin/AdminScope.vue'
 import AdminStats from '@/components/admin/AdminStats.vue'
@@ -374,6 +375,9 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
     </AdminCard>
     <AdminCard title="Hidden stops">
       <AdminHiddenStops :key="city" :city="city" />
+    </AdminCard>
+    <AdminCard title="Hidden lines">
+      <AdminHiddenLines :key="city" :city="city" />
     </AdminCard>
   </section>
 </template>

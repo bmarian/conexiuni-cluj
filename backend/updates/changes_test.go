@@ -247,3 +247,20 @@ func TestStoreStopTimesDropsStaleTail(t *testing.T) {
 		t.Fatalf("flapping data should not repeat the same news, got %d rows", count)
 	}
 }
+
+func TestFollowedHiddenLinesGetNoChanges(t *testing.T) {
+	s := newTestService(t)
+	items := []RouteChangeItem{{Kind: "later", Direction: "0"}}
+	s.Record("25", "timetable", items)
+	s.Record("26", "timetable", items)
+	if err := s.data.SetLinesHidden([]string{"26"}, true); err != nil {
+		t.Fatal(err)
+	}
+	changes, err := s.routeChangesOf([]string{"25", "26"})
+	if err != nil || len(changes) != 1 || changes[0].RouteShortName != "25" {
+		t.Fatalf("changes %+v (%v)", changes, err)
+	}
+	if changes, err := s.routeChangesOf([]string{"26"}); err != nil || len(changes) != 0 {
+		t.Fatalf("only a hidden line followed: %+v (%v)", changes, err)
+	}
+}

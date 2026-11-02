@@ -37,7 +37,7 @@ import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, 
 
 const props = defineProps<{stopId: string}>()
 
-const AdminHideStop = defineAsyncComponent(() => import('@/components/admin/AdminHideStop.vue'))
+const AdminHide = defineAsyncComponent(() => import('@/components/admin/AdminHide.vue'))
 const showStopControls = adminAuthed() && stopControlsOn()
 
 const {t} = useI18n()
@@ -210,7 +210,12 @@ const chips = computed<ChipAction[]>(() => [
       </header>
       <ActionChips :actions="chips" class="pb-2" />
 
-      <AdminHideStop v-if="showStopControls" :stop-id="stopIdNum" />
+      <AdminHide
+        v-if="showStopControls"
+        title="Stop admin"
+        list="hidden-stops"
+        :body="{stop_ids: (network?.platforms(stopIdNum) ?? []).map((s) => s.stop_id)}"
+      />
 
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
         <div class="departures-label">
