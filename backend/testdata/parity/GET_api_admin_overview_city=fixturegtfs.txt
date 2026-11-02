@@ -301,6 +301,7 @@ X-Frame-Options: DENY
   "warmup_next": "2026-10-20T05:00:13.37+03:00",
   "warmup_running": false
  },
+ "failures": [],
  "fix": {
   "buses": [],
   "lines": [],

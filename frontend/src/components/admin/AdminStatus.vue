@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed} from 'vue'
 import AdminCard from '@/components/admin/AdminCard.vue'
 import AdminErrors from '@/components/admin/AdminErrors.vue'
+import AdminFailures from '@/components/admin/AdminFailures.vue'
 import AdminProblems from '@/components/admin/AdminProblems.vue'
 import AdminSub from '@/components/admin/AdminSub.vue'
 import type {Overview, Problem, Site} from '@/components/admin/types.ts'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import {ago, bytes, clockTime, dayName, dur, num, pct, plural, windowLabels} from '@/utils/adminFormat.ts'
 import {ExpandMoreIcon} from '@/utils/icons.ts'
-
-const FAILURES_SHOWN = 5
 
 const props = defineProps<{site: Site; overview: Overview; city: string; name: string; realtime: boolean; clock: number}>()
 const emit = defineEmits<{dismiss: [problems: (Problem & {scope: string})[], dismissed: boolean]}>()
@@ -31,8 +30,6 @@ const problems = computed(() => [
 const server = computed(() => props.site.server)
 const uptime = computed(() => dur((props.clock - new Date(server.value.started_at).getTime()) / 1000))
 const diskUsed = computed(() => (server.value.disk_total ? 1 - server.value.disk_free / server.value.disk_total : null))
-const allFailures = ref(false)
-const failures = computed(() => (allFailures.value ? server.value.problems : server.value.problems.slice(0, FAILURES_SHOWN)))
 
 const pollText = computed(() => {
   const n = props.overview.now
@@ -65,19 +62,8 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
         <AdminErrors :errors="overview.traffic.error_details" :clock="clock" />
       </AdminCard>
 
-      <AdminCard title="Failures" scope="Server" app hint="24 h">
-        <ul v-if="server.problems.length" class="admin-log">
-          <li v-for="p in failures" :key="p.text">
-            <span class="admin-log-head"
-              >{{ ago(p.last, clock) }}<template v-if="p.count > 1"> · {{ num(p.count) }}×</template></span
-            >
-            <code>{{ p.text }}</code>
-          </li>
-        </ul>
-        <p v-else class="admin-note">None</p>
-        <button v-if="server.problems.length > FAILURES_SHOWN" type="button" class="btn btn-text admin-more" @click="allFailures = !allFailures">
-          {{ allFailures ? 'Fewer' : `All ${server.problems.length}` }}
-        </button>
+      <AdminCard title="Failures" :scope="name" hint="24 h">
+        <AdminFailures :failures="overview.failures" :clock="clock" />
       </AdminCard>
 
       <AdminCard title="Server" scope="Whole app" app>
@@ -114,6 +100,10 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
             </dd>
           </div>
         </dl>
+      </AdminCard>
+
+      <AdminCard title="Server failures" scope="Whole app" app hint="24 h">
+        <AdminFailures :failures="server.problems" :clock="clock" />
       </AdminCard>
     </div>
 

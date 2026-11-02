@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -9,7 +10,11 @@ import (
 // Latest logged failures, for the admin dashboard.
 var ProblemLog = &problemLog{}
 
-const problemLogSize = 40
+const (
+	problemLogSize = 40
+	failureWindow  = 24 * time.Hour
+	recentFailure  = time.Hour
+)
 
 var problemWords = []string{"failed:", "failed ", "error:", "err=", "panic", "refused", "exceeded", "could not", "warning:"}
 
@@ -80,4 +85,33 @@ func (p *problemLog) Recent(since time.Time) []problemLine {
 		}
 	}
 	return out
+}
+
+func (l problemLine) entry(text string) problemEntry {
+	return problemEntry{First: l.First, Last: l.Last, Count: l.Count, Text: text}
+}
+
+// A city's lines start with its slug, as Store.Logf writes them.
+func cityFailures(slug string, now time.Time) []problemEntry {
+	out := []problemEntry{}
+	for _, l := range ProblemLog.Recent(now.Add(-failureWindow)) {
+		if text, ok := strings.CutPrefix(l.Text, slug+": "); ok {
+			out = append(out, l.entry(text))
+		}
+	}
+	return out
+}
+
+func appFailures(slugs []string, now time.Time) []problemEntry {
+	out := []problemEntry{}
+	for _, l := range ProblemLog.Recent(now.Add(-failureWindow)) {
+		if !slices.ContainsFunc(slugs, func(slug string) bool { return strings.HasPrefix(l.Text, slug+": ") }) {
+			out = append(out, l.entry(l.Text))
+		}
+	}
+	return out
+}
+
+func failedLately(entries []problemEntry, now time.Time) bool {
+	return slices.ContainsFunc(entries, func(p problemEntry) bool { return now.Sub(p.Last) < recentFailure })
 }
