@@ -181,6 +181,7 @@ export function optionsFromLocal(base: OptionsRecord | null): OptionsRecord {
     city: cityChoice.value ?? '',
     journeyVoice: base?.journeyVoice ?? null,
     fullScreenAlarms: base?.fullScreenAlarms ?? null,
+    traffic: useSettingsStore().traffic,
   }
 }
 
@@ -192,6 +193,7 @@ async function switchCity(slug: string | null) {
 export function applyOptions(r: OptionsRecord) {
   const s = useSettingsStore()
   if (s.colorfulLines !== r.colorfulLines) s.setColorfulLines(r.colorfulLines)
+  if (r.traffic !== null && s.traffic !== r.traffic) s.setTraffic(r.traffic)
   if ((cityChoice.value ?? '') !== r.city && knownCity(r.city || currentCity.value)) void switchCity(r.city || null)
 }
 

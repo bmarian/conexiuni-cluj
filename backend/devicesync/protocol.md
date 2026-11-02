@@ -132,10 +132,10 @@ A device with "Also sync settings" off neither reads nor writes this record.
 ### 4.8 `options`
 
 ```json
-{"v": 1, "colorfulLines": false, "city": "cluj", "journeyVoice": null, "fullScreenAlarms": null}
+{"v": 1, "colorfulLines": false, "city": "cluj", "journeyVoice": null, "fullScreenAlarms": null, "traffic": null}
 ```
 
-The settings added after `settings` reached released apps, in a record of their own so those apps keep syncing. `colorfulLines` boolean; `city` the chosen city's slug, text 0–40, `""` for the nearest; `journeyVoice` and `fullScreenAlarms` boolean, or null until a device that has them writes them. A device without such a setting keeps its value as last agreed. A device with "Also sync settings" off neither reads nor writes this record.
+The settings added after `settings` reached released apps, in a record of their own so those apps keep syncing. `colorfulLines` boolean; `city` the chosen city's slug, text 0–40, `""` for the nearest; `journeyVoice`, `fullScreenAlarms` and `traffic` boolean, or null until a device that has them writes them. A device without such a setting keeps its value as last agreed. A device with "Also sync settings" off neither reads nor writes this record.
 
 ## 5. Reading and writing
 

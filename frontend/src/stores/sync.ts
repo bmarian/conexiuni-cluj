@@ -118,6 +118,7 @@ export const useSyncStore = defineStore('sync', () => {
         settings.autoCenterOnMe,
         settings.autoFitMap,
         settings.colorfulLines,
+        settings.traffic,
         cityChoice.value,
         settings.regionSetting('cluj', 'showGreenFriday'),
       ],

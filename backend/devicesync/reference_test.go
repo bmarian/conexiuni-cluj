@@ -216,9 +216,9 @@ type settingsRecord struct {
 type maybeBool string
 
 type optionsRecord struct {
-	colorfulLines                  bool
-	city                           string
-	journeyVoice, fullScreenAlarms maybeBool
+	colorfulLines                           bool
+	city                                    string
+	journeyVoice, fullScreenAlarms, traffic maybeBool
 }
 
 const (
@@ -696,7 +696,7 @@ func parseOptions(raw string) (optionsRecord, error) {
 	if err := version(v); err != nil {
 		return rec, err
 	}
-	m, err := object(v, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms")
+	m, err := object(v, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms", "traffic")
 	if err != nil {
 		return rec, err
 	}
@@ -710,6 +710,9 @@ func parseOptions(raw string) (optionsRecord, error) {
 		return rec, err
 	}
 	if rec.fullScreenAlarms, err = parseMaybe(m["fullScreenAlarms"]); err != nil {
+		return rec, err
+	}
+	if rec.traffic, err = parseMaybe(m["traffic"]); err != nil {
 		return rec, err
 	}
 	return rec, canonical(raw, rec.write())
@@ -798,7 +801,7 @@ func (r settingsRecord) write() string {
 
 func (r optionsRecord) write() string {
 	return `{"v":1,"colorfulLines":` + strconv.FormatBool(r.colorfulLines) + `,"city":` + quote(r.city) +
-		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms) + "}"
+		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms) + `,"traffic":` + string(r.traffic) + "}"
 }
 
 // Merging: protocol.md §6.
@@ -962,6 +965,7 @@ func mergeOptions(base *optionsRecord, local, remote optionsRecord) optionsRecor
 		}
 		out.journeyVoice = firstKnown(remote.journeyVoice, local.journeyVoice)
 		out.fullScreenAlarms = firstKnown(remote.fullScreenAlarms, local.fullScreenAlarms)
+		out.traffic = firstKnown(remote.traffic, local.traffic)
 		return out
 	}
 	return optionsRecord{
@@ -969,6 +973,7 @@ func mergeOptions(base *optionsRecord, local, remote optionsRecord) optionsRecor
 		city:             pick(&base.city, local.city, remote.city),
 		journeyVoice:     pick(&base.journeyVoice, local.journeyVoice, remote.journeyVoice),
 		fullScreenAlarms: pick(&base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms),
+		traffic:          pick(&base.traffic, local.traffic, remote.traffic),
 	}
 }
 
