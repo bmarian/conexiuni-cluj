@@ -28,6 +28,7 @@
 .map-tooltip-detached::before {
   display: none;
 }
+
 .station-card {
   display: flex;
   flex-direction: column;
@@ -274,7 +275,8 @@
 }
 
 /* Animating the element MapLibre moves makes every frame's move a full style recalc. */
-.marker-enter .marker-body {
+.marker-enter .marker-body,
+.stop-label {
   animation: marker-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -430,7 +432,6 @@
 .stop-label {
   position: absolute;
   margin: 0;
-  animation: marker-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root.dark .stop-spider-legs {
