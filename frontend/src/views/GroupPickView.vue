@@ -119,6 +119,9 @@ function show() {
     <label class="search-pill mx-4 mb-2">
       <SearchIcon class="m-icon text-on-surface" />
       <input v-model="query" class="search-input text-body-large" type="search" :placeholder="t('groupSearch')" :aria-label="t('groupSearch')" />
+      <button v-if="query" type="button" class="icon-btn" :aria-label="t('clearSearch')" :title="t('clearSearch')" @click="query = ''">
+        <CloseIcon class="m-icon" />
+      </button>
     </label>
 
     <section v-if="chosenRows.length" class="pt-1" data-kbd-section="chosen">
