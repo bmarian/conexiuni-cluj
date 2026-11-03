@@ -10,13 +10,12 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import PickRow from '@/components/rows/PickRow.vue'
 import type {RouteDirection} from '@/types/tranzy.ts'
 import {network, type NetworkRoute} from '@/utils/network.ts'
-import {useLegsNear} from '@/composables/useLegsNear.ts'
-import {type GroupLine, meetingLines, readLines} from '@/utils/lineGroups.ts'
+import {type GroupLine, readLines} from '@/utils/lineGroups.ts'
 import {groupLocation} from '@/utils/pagePaths.ts'
 import {compareUse, lineUse, readUsage, totalUses, whenOf} from '@/utils/lineUsage.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {byModeThenNumber, groupByMode} from '@/utils/modes.ts'
-import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
+import {matching} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {GROUP_LINES_CAP} from '@/utils/sync/records.ts'
 import {directedDestination, hasTimetableEntries} from '@/utils/time.ts'
@@ -44,8 +43,6 @@ const routes = computed(() => (network.value?.bundle.routes ?? []).filter((r) =>
 const routeOf = (routeId: number) => network.value?.routeById.get(routeId)
 const isChosen = (routeId: number) => chosen.value.some((l) => l.routeId === routeId)
 
-const legs = useLegsNear(chosen)
-
 // Read once so the lists don't reorder under the finger.
 const lineUsage = readUsage()
 const now = whenOf(Date.now())
@@ -54,27 +51,18 @@ const usageOf = (routeId: number) => lineUse(lineUsage, routeId)
 
 const isFavorite = (routeId: number) => favorites.isRouteFavorite(routeId)
 const recentIds = new Set(favorites.recents.flatMap((r) => ('routeId' in r ? [r.routeId] : [])))
-const used = (routeId: number) => isFavorite(routeId) || recentIds.has(routeId) || totalUses(usageOf(routeId)) > 0
 const byUse = (a: number, b: number) => compareUse(usageOf(a), usageOf(b), now) || Number(isFavorite(b)) - Number(isFavorite(a))
 
-const first = computed(() => legs.value[0]?.lines[0])
 const servable = computed(() => new Set(routes.value.map((r) => r.route_id)))
 
-const meeting = computed(() => (network.value && first.value ? meetingLines(network.value, first.value).filter((m) => servable.value.has(m.routeId)) : []))
-
-const connections = computed(() =>
-  [...meeting.value].sort((a, b) => byUse(a.routeId, b.routeId)).filter((m, i) => used(m.routeId) || isChosen(m.routeId) || i < RESULTS_PER_KIND),
-)
-
 const often = computed(() => {
-  const shown = new Set(connections.value.map((m) => m.routeId))
   const ids = new Set<number>([
     ...Object.keys(lineUsage).map((key) => Number(key.split('/')[0])),
     ...favorites.favoriteRoutes.map((r) => r.routeId),
     ...recentIds,
   ])
   return [...ids]
-    .filter((id) => servable.value.has(id) && !shown.has(id))
+    .filter((id) => servable.value.has(id))
     .map((id) => routeOf(id)!)
     .sort((a, b) => byUse(a.route_id, b.route_id) || byModeThenNumber(a, b))
 })
@@ -91,16 +79,14 @@ const found = computed(() => {
 })
 
 function directionFor(routeId: number): RouteDirection {
-  const meet = meeting.value.find((m) => m.routeId === routeId)
-  if (meet) return meet.direction
   const [u0, u1] = [totalUses(lineUsage[`${routeId}/0`]), totalUses(lineUsage[`${routeId}/1`])]
   if (u0 !== u1) return u1 > u0 ? '1' : '0'
   return favorites.favoriteRoutes.find((r) => r.routeId === routeId)?.direction ?? '0'
 }
 
-function toggle(routeId: number, direction?: RouteDirection) {
+function toggle(routeId: number) {
   if (isChosen(routeId)) chosen.value = chosen.value.filter((l) => l.routeId !== routeId)
-  else if (!atCap(chosen.value, GROUP_LINES_CAP)) chosen.value = [...chosen.value, {routeId, direction: direction ?? directionFor(routeId)}]
+  else if (!atCap(chosen.value, GROUP_LINES_CAP)) chosen.value = [...chosen.value, {routeId, direction: directionFor(routeId)}]
 }
 
 function flip(routeId: number) {
@@ -112,20 +98,9 @@ const badgeColor = (r: NetworkRoute) => displayColor(r.route_short_name, r.route
 const chosenRows = computed(() =>
   chosen.value.flatMap((line) => {
     const r = routeOf(line.routeId)
-    if (!r) return []
-    const board = legs.value.flatMap((leg) => leg.lines).find((l) => l.routeId === line.routeId)
-    return [
-      {
-        line,
-        route: r,
-        destination: directedDestination(r.route_long_name, line.direction),
-        from: board ? stopName(board.stopId) : '',
-      },
-    ]
+    return r ? [{line, route: r, destination: directedDestination(r.route_long_name, line.direction)}] : []
   }),
 )
-
-const stopName = (stopId: number) => network.value?.stopById.get(stopId)?.stop_name ?? ''
 
 function show() {
   const index = network.value
@@ -150,10 +125,7 @@ function show() {
       <SubLabel :text="t('groupChosen')" />
       <div v-for="row in chosenRows" :key="row.line.routeId" class="chosen-row">
         <LineBadge :name="row.route.route_short_name" :color="badgeColor(row.route)" plain :height="32" :min-width="40" :corner="10" />
-        <span class="flex-1 min-w-0 flex flex-col">
-          <span class="text-title-small truncate">→ {{ row.destination }}</span>
-          <span v-if="row.from" class="text-body-small text-on-surface-variant truncate">{{ t('from', {name: row.from}) }}</span>
-        </span>
+        <span class="flex-1 min-w-0 text-title-small truncate">→ {{ row.destination }}</span>
         <button type="button" class="icon-btn text-on-surface-variant" :aria-label="t('groupFlip')" :title="t('groupFlip')" @click="flip(row.line.routeId)">
           <SwapHorizIcon class="m-icon" />
         </button>
@@ -164,20 +136,6 @@ function show() {
     </section>
 
     <template v-if="!query.trim()">
-      <section v-if="connections.length" class="pt-2" data-kbd-section="connections">
-        <SubLabel :text="t('groupConnects', {line: routeOf(first!.routeId)?.route_short_name ?? ''})" />
-        <PickRow
-          v-for="m in connections"
-          :key="m.routeId"
-          :name="routeOf(m.routeId)!.route_short_name"
-          :color="badgeColor(routeOf(m.routeId)!)"
-          :title="routeOf(m.routeId)!.route_long_name"
-          :subtitle="t('groupMeetsAt', {name: stopName(m.stopId)})"
-          :checked="isChosen(m.routeId)"
-          @toggle="toggle(m.routeId, m.direction)"
-        />
-      </section>
-
       <section v-if="often.length" class="pt-2" data-kbd-section="often">
         <SubLabel :text="t('groupOften')" />
         <PickRow

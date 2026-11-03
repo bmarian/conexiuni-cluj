@@ -56,14 +56,13 @@ export interface PlanResponse {
   refresh_in: number
 }
 
-export function planQuery(from: {lat: number; lon: number}, to: {lat: number; lon: number}, mode: PlanTimeMode, time: string, trips: string[] = []): string {
+export function planQuery(from: {lat: number; lon: number}, to: {lat: number; lon: number}, mode: PlanTimeMode, time: string): string {
   const params = new URLSearchParams({
     from_lat: from.lat.toFixed(4),
     from_lng: from.lon.toFixed(4),
     to_lat: to.lat.toFixed(4),
     to_lng: to.lon.toFixed(4),
   })
-  if (trips.length) params.set('trips', trips.join(','))
   if (mode === 'last') {
     params.set('last', 'true')
   } else if (mode !== 'now' && time) {

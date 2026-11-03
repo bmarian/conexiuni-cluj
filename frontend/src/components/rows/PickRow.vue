@@ -2,17 +2,14 @@
 import LineBadge from '@/components/ui/LineBadge.vue'
 import {CheckIcon} from '@/utils/icons.ts'
 
-defineProps<{name: string; color: string; title: string; subtitle?: string; checked: boolean}>()
+defineProps<{name: string; color: string; title: string; checked: boolean}>()
 defineEmits<{toggle: []}>()
 </script>
 
 <template>
   <button type="button" class="pick-row state" role="checkbox" :aria-checked="checked" @click="$emit('toggle')">
     <LineBadge :name="name" :color="color" plain :height="32" :min-width="40" :corner="10" />
-    <span class="flex-1 min-w-0 flex flex-col">
-      <span class="text-body-medium font-medium truncate">{{ title }}</span>
-      <span v-if="subtitle" class="text-body-small text-on-surface-variant truncate">{{ subtitle }}</span>
-    </span>
+    <span class="flex-1 min-w-0 text-body-medium font-medium truncate">{{ title }}</span>
     <span class="box" :class="{'is-checked': checked}">
       <CheckIcon v-if="checked" class="m-icon size-4" />
     </span>

@@ -370,7 +370,7 @@ func (s *Service) plan(c fiber.Ctx) error {
 
 	from, to := router.Point{Lat: fromLat, Lon: fromLng}, router.Point{Lat: toLat, Lon: toLng}
 	resp := planResponse{Options: []planOption{}, Stops: map[string]planStop{}, Lines: map[string]planLine{}}
-	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: runsShown, Last: last, Only: parsePlanTrips(c)}
+	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: runsShown, Last: last}
 	if !n.Covers(from) || !n.Covers(to) {
 		s.notePlanMiss(c, n, q, nil, false)
 		c.Set("Cache-Control", web.Revalidate)
@@ -381,10 +381,7 @@ func (s *Service) plan(c fiber.Ctx) error {
 		q.Live, refresh = s.timing.LiveAt(when)
 	}
 	options := n.Plan(q)
-	// Kept to some trips, a miss is the user's choice of lines.
-	if len(q.Only) == 0 {
-		s.notePlanMiss(c, n, q, options, true)
-	}
+	s.notePlanMiss(c, n, q, options, true)
 	if last && len(options) == 1 && options[0].Rides == 0 {
 		// No bus at all: the walk, from now.
 		options[0].Runs[0] = router.Run{Depart: asked.Unix(), Arrive: asked.Unix() + options[0].Legs[0].Secs}
@@ -517,19 +514,6 @@ type plannerUnavailableError struct {
 func (e plannerUnavailableError) Error() string { return e.err.Error() }
 
 func (e plannerUnavailableError) Unwrap() error { return e.err }
-
-func parsePlanTrips(c fiber.Ctx) map[string]bool {
-	var only map[string]bool
-	for _, id := range strings.Split(c.Query("trips"), ",") {
-		if id = strings.TrimSpace(id); id != "" {
-			if only == nil {
-				only = make(map[string]bool)
-			}
-			only[id] = true
-		}
-	}
-	return only
-}
 
 func parsePlanCoords(c fiber.Ctx) (fromLat, fromLng, toLat, toLng float64, err error) {
 	fromLatS := c.Query("from_lat")

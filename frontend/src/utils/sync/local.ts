@@ -162,16 +162,12 @@ const fromLines = (lines: Line[]): GroupLine[] => lines.map((l) => ({routeId: l.
 function toGroup(g: FavoriteGroup): Group | null {
   const lines = toLines(g.lines)
   if (!lines.length) return null
-  const group: Group = {lines, name: cleanText(g.name, 40)}
-  const to = g.destination && toSpot(g.destination.name, g.destination.lat, g.destination.lon)
-  if (to) group.to = to
-  return group
+  return {lines, name: cleanText(g.name, 40)}
 }
 
 function fromGroup(g: Group): FavoriteGroup {
   const group: FavoriteGroup = {lines: fromLines(g.lines)}
   if (g.name) group.name = g.name
-  if (g.to) group.destination = g.to
   return group
 }
 

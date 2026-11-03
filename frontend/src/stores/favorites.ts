@@ -42,7 +42,6 @@ export function recentKey(r: Recent): string {
 export interface FavoriteGroup {
   lines: GroupLine[]
   name?: string
-  destination?: {name: string; lat: number; lon: number}
 }
 
 export interface FavoriteRoute {
@@ -91,8 +90,6 @@ export function parseGroups(raw: unknown): FavoriteGroup[] {
     if (!lines.length) return []
     const group: FavoriteGroup = {lines}
     if (typeof item.name === 'string' && item.name.trim()) group.name = item.name.trim()
-    const to = item.destination
-    if (typeof to?.name === 'string' && Number.isFinite(to.lat) && Number.isFinite(to.lon)) group.destination = {name: to.name, lat: to.lat, lon: to.lon}
     return [group]
   })
 }
@@ -288,14 +285,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistGroups()
   }
 
-  function setGroupDestination(lines: GroupLine[], to: {name: string; lat: number; lon: number}) {
-    const group = findGroup(lines)
-    const known = group?.destination
-    if (!group || (known?.lat === to.lat && known.lon === to.lon && known.name === to.name)) return
-    group.destination = to
-    persistGroups()
-  }
-
   function reorderGroups(groups: FavoriteGroup[]) {
     favoriteGroups.value = groups
     persistGroups()
@@ -406,7 +395,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
     saveGroup,
     removeGroup,
     replaceGroupLines,
-    setGroupDestination,
     reorderGroups,
     importGroups,
     reorderRoutes,

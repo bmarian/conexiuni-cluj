@@ -421,28 +421,6 @@
     background: var(--md-outline-variant);
   }
 
-  .skeleton {
-    display: block;
-    background: var(--md-surface-container);
-  }
-
-  .card-skeleton {
-    height: 64px;
-    margin: 4px 12px;
-    border-radius: 12px;
-  }
-
-  .station-line {
-    min-width: 28px;
-    padding: 1px 5px;
-    border-radius: 5px;
-    color: #fff;
-    font-size: 11px;
-    line-height: 16px;
-    font-weight: 900;
-    text-align: center;
-  }
-
   .dialog-scrim {
     position: fixed;
     inset: 0;

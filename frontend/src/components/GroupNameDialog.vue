@@ -2,11 +2,11 @@
 import {nextTick, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
-import LineChain from '@/components/ui/LineChain.vue'
-import type {ChainLeg} from '@/utils/lineGroups.ts'
+import StationLines from '@/components/rows/StationLines.vue'
+import type {NetworkRoute} from '@/utils/network.ts'
 
 const open = defineModel<boolean>('open', {required: true})
-const props = defineProps<{chain: ChainLeg[]; name?: string}>()
+const props = defineProps<{routes: NetworkRoute[]; name?: string}>()
 const emit = defineEmits<{save: [name: string]}>()
 
 const {t} = useI18n()
@@ -37,7 +37,7 @@ useKbdLayer(open, {el: () => panel.value, close})
     <div v-if="open" class="dialog-scrim" @click.self="close">
       <form ref="panel" class="name-dialog dialog dialog-small" role="dialog" :aria-label="t('groupNameTitle')" @submit.prevent="save">
         <h2 class="dialog-title">{{ t('groupNameTitle') }}</h2>
-        <LineChain :legs="chain" small />
+        <StationLines :routes="routes" />
         <label class="field">
           <span class="field-label">{{ t('groupName') }}</span>
           <input ref="field" v-model="value" class="field-input" type="text" maxlength="40" />

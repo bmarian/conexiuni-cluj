@@ -3,45 +3,34 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {storeToRefs} from 'pinia'
-import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import {useRouteStore} from '@/stores/route.ts'
 import {useLineGroup} from '@/composables/useLineGroup.ts'
-import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
-import LineChain from '@/components/ui/LineChain.vue'
-import DeparturesLabel from '@/components/ui/DeparturesLabel.vue'
-import LegCard from '@/components/rows/LegCard.vue'
+import SubLabel from '@/components/ui/SubLabel.vue'
+import ListRow from '@/components/ui/ListRow.vue'
+import LineBadge from '@/components/ui/LineBadge.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
-import {buildStopInfo, network} from '@/utils/network.ts'
-import {chainText, groupKey, type Leg, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
-import {legsChain} from '@/utils/groupChain.ts'
-import {displayColor} from '@/utils/lineColor.ts'
-import {cityClock} from '@/utils/cityClock.ts'
-import {directedDestination, formatMinutesFromNow} from '@/utils/time.ts'
-import {linePath, stopLocation} from '@/utils/pagePaths.ts'
-import {DirectionsIcon, EditIcon, FavoriteBorderIcon, FavoriteIcon, ShareIcon} from '@/utils/icons.ts'
+import {network} from '@/utils/network.ts'
+import {type GroupLine, groupKey, groupLabel, groupRoutes, readLines, writeLines} from '@/utils/lineGroups.ts'
+import {directedDestination} from '@/utils/time.ts'
+import {groupLocation, linePath} from '@/utils/pagePaths.ts'
+import {EditIcon, FavoriteBorderIcon, FavoriteIcon, ShareIcon, SwapHorizIcon, VisibilityIcon, VisibilityOffIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const favorites = useFavoritesStore()
-const routeStore = useRouteStore()
-const {userTime} = storeToRefs(useUserStore())
 
 const raw = computed(() => String(route.query.linii ?? ''))
 const lines = computed(() => (network.value ? readLines(network.value, raw.value) : []))
 const key = computed(() => groupKey(lines.value))
 const saved = computed(() => favorites.findGroup(lines.value))
+const routes = computed(() => (network.value ? groupRoutes(network.value, lines.value) : []))
 
-const {legs, times, asOfMs} = useLineGroup(lines)
-provideLiveBeat(asOfMs)
-
-const now = computed(() => (userTime.value ?? new Date()).getTime())
+const {hidden, toggleHidden} = useLineGroup(lines)
 
 // The shared drawer scroller keeps the picker's offset.
 const view = ref<HTMLElement>()
@@ -58,40 +47,30 @@ watch(
   {immediate: true},
 )
 
-const chain = computed(() => (network.value ? legsChain(network.value, legs.value) : []))
-const chainLabel = computed(() => chainText(chain.value))
-const title = computed(() => saved.value?.name || chainLabel.value)
+const title = computed(() => saved.value?.name || groupLabel(routes.value))
 
 useHead(() => ({
   title: [title.value, 'Ce autobuz iau?'].filter(Boolean).join(' | '),
   meta: [{name: 'robots', content: 'noindex'}],
 }))
 
-const stopName = (stopId: number) => network.value?.stopById.get(stopId)?.stop_name ?? ''
+const rows = computed(() =>
+  lines.value.flatMap((line) => {
+    const r = network.value?.routeById.get(line.routeId)
+    return r ? [{line, route: r, destination: directedDestination(r.route_long_name, line.direction)}] : []
+  }),
+)
 
-function cardOf(leg: Leg) {
+function flip(routeId: number) {
   const index = network.value
-  const cardLines = leg.lines.flatMap((l) => {
-    const r = index?.routeById.get(l.routeId)
-    return r ? [{routeId: l.routeId, name: r.route_short_name, color: displayColor(r.route_short_name, r.route_color), routeType: r.route_type}] : []
-  })
-  const destinations = leg.lines.map((l) => directedDestination(index?.routeById.get(l.routeId)?.route_long_name ?? '', l.direction))
-  return {lines: cardLines, destination: [...new Set(destinations)].join(' / '), from: stopName(leg.lines[0]!.stopId)}
+  if (!index) return
+  const next = lines.value.map((l): GroupLine => (l.routeId === routeId ? {...l, direction: l.direction === '0' ? '1' : '0'} : l))
+  if (saved.value) favorites.replaceGroupLines(lines.value, next)
+  favorites.removeRecent({lines: lines.value})
+  void router.replace(groupLocation(index, next))
 }
 
-const label = (minutes: number) => formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
-
-function openLeg(leg: Leg) {
-  const index = network.value
-  const first = leg.lines[0]!
-  if (leg.lines.length > 1 || !index) {
-    void router.push(stopLocation(first.stopId))
-    return
-  }
-  const info = buildStopInfo(index, first.stopId)?.shapes_info.find((s) => s.route_id === first.routeId)
-  if (info) routeStore.setSelectedRoute(info, tripOf(first), String(first.stopId), stopName(first.stopId))
-  void router.push(linePath(first.routeId, first.direction))
-}
+const openLine = (line: GroupLine) => void router.push(linePath(line.routeId, line.direction))
 
 const naming = ref(false)
 
@@ -113,15 +92,7 @@ function editLines() {
 
 const {share} = useShare()
 
-function directions() {
-  const index = network.value
-  if (!index) return
-  const to = saved.value?.destination
-  void router.push({name: 'plan', query: {linii: writeLines(index, lines.value), ...(to ? {lat: String(to.lat), lon: String(to.lon), name: to.name} : {})}})
-}
-
 const chips = computed<ChipAction[]>(() => [
-  {label: t('directions'), icon: DirectionsIcon, primary: true, kbd: 'directions', onClick: directions},
   {
     label: t(saved.value ? 'saved' : 'save'),
     icon: saved.value ? FavoriteIcon : FavoriteBorderIcon,
@@ -145,41 +116,46 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
       <h1 class="flex flex-col gap-1.5">
         <span class="text-label-medium text-primary">{{ t('lineGroups') }}</span>
         <span v-if="saved?.name" class="text-headline-small font-bold">{{ saved.name }}</span>
-        <LineChain :legs="chain" />
+        <span class="flex flex-wrap gap-1.5">
+          <LineBadge v-for="r in routes" :key="r.route_id" :name="r.route_short_name" :color="r.route_color" :height="36" :min-width="44" :corner="12" />
+        </span>
       </h1>
     </header>
     <ActionChips :actions="chips" class="pb-2" />
 
-    <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
-      <DeparturesLabel :text="t('nextDepartures')" />
-      <template v-if="!network">
-        <div v-for="i in 2" :key="i" class="skeleton card-skeleton"></div>
-      </template>
-      <p v-else-if="!legs.length" class="text-body-medium text-on-surface-variant px-4 py-3">{{ t('noResults') }}</p>
-      <template v-for="(leg, i) in legs" v-else :key="`${i}-${leg.lines[0]!.routeId}`">
-        <div v-if="leg.alight" class="change">
-          <span class="change-rule"><span></span></span>
-          <span class="flex items-center gap-2 py-1">
-            <span class="text-title-small">{{ t('groupChange', {name: stopName(leg.lines[0]!.stopId)}) }}</span>
-            <span v-if="times[i]?.arrival" class="text-body-small text-on-surface-variant">{{ cityClock(times[i]!.arrival!) }}</span>
-          </span>
-        </div>
-        <LegCard
-          v-if="times[i]"
-          v-bind="cardOf(leg)"
-          class="cascade"
-          :style="{'--i': i}"
-          :times="times[i]!"
-          :now="now"
-          :label="label"
-          :data-kbd-item="`leg-${i}`"
-          @open="openLeg(leg)"
-        />
-      </template>
+    <section class="flex flex-col" data-kbd-section="lines" data-kbd-entry="1">
+      <SubLabel :text="t('groupOnMap')" />
+      <ListRow
+        v-for="row in rows"
+        :key="row.line.routeId"
+        :title="`→ ${row.destination}`"
+        :class="{'is-hidden': hidden.has(row.line.routeId)}"
+        :data-kbd-item="`line-${row.line.routeId}`"
+        @open="openLine(row.line)"
+      >
+        <template #icon>
+          <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="28" :min-width="40" :corner="6" />
+        </template>
+        <template #trailing>
+          <button type="button" class="icon-btn text-on-surface-variant" :aria-label="t('groupFlip')" :title="t('groupFlip')" @click.stop="flip(row.line.routeId)">
+            <SwapHorizIcon class="m-icon" />
+          </button>
+          <button
+            type="button"
+            class="icon-btn text-on-surface-variant mr-1"
+            :aria-label="t(hidden.has(row.line.routeId) ? 'groupShowLine' : 'groupHideLine')"
+            :title="t(hidden.has(row.line.routeId) ? 'groupShowLine' : 'groupHideLine')"
+            @click.stop="toggleHidden(row.line.routeId)"
+          >
+            <VisibilityOffIcon v-if="hidden.has(row.line.routeId)" class="m-icon" />
+            <VisibilityIcon v-else class="m-icon" />
+          </button>
+        </template>
+      </ListRow>
     </section>
     <div class="h-6"></div>
 
-    <GroupNameDialog v-model:open="naming" :chain="chain" :name="saved?.name" @save="saveNamed" />
+    <GroupNameDialog v-model:open="naming" :routes="routes" :name="saved?.name" @save="saveNamed" />
   </div>
 </template>
 
@@ -188,21 +164,7 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
   padding: 4px 16px 8px;
 }
 
-.change {
-  display: flex;
-  align-items: stretch;
-  min-height: 44px;
-  margin: 0 12px;
-}
-
-.change-rule {
-  display: flex;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 72px;
-}
-
-.change-rule > span {
-  border-left: 2px dotted var(--md-outline);
+.is-hidden {
+  opacity: 0.55;
 }
 </style>

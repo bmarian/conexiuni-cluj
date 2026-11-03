@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import {computed} from 'vue'
-import {storeToRefs} from 'pinia'
 import type {Route, Stop} from '@/types/tranzy.ts'
-import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {network} from '@/utils/network.ts'
-import type {GroupLine} from '@/utils/lineGroups.ts'
-import {chainNear} from '@/utils/groupChain.ts'
+import {type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
 import StationIcon from '@/components/StationIcon.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
-import LineChain from '@/components/ui/LineChain.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 
 const {
@@ -21,11 +17,10 @@ const {
 } = defineProps<{route?: Route; stop?: Stop; group?: GroupLine[]; iconSize?: number; removeLabel?: string; busy?: boolean}>()
 defineEmits<{open: []; remove: []}>()
 
-const {userLocation} = storeToRefs(useUserStore())
 const favorites = useFavoritesStore()
 
 const look = computed(() => (stop ? network.value?.look(stop.stop_id) : undefined))
-const chain = computed(() => (group && network.value ? chainNear(network.value, group, userLocation.value) : []))
+const groupLines = computed(() => (group && network.value ? groupRoutes(network.value, group) : []))
 const title = computed(() => stop?.stop_name ?? route?.route_long_name ?? (group && favorites.findGroup(group)?.name))
 </script>
 
@@ -39,7 +34,7 @@ const title = computed(() => stop?.stop_name ?? route?.route_long_name ?? (group
       <StationLines :routes="look?.routes ?? []" />
     </template>
     <template v-else-if="group" #lines>
-      <LineChain :legs="chain" small />
+      <StationLines :routes="groupLines" />
     </template>
   </ListRow>
 </template>

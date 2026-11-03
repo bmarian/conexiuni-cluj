@@ -7,7 +7,6 @@ import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import type {FavoriteGroup, FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
-import {useUserStore} from '@/stores/user.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
@@ -23,9 +22,7 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
-import LineChain from '@/components/ui/LineChain.vue'
-import {groupKey, type GroupLine} from '@/utils/lineGroups.ts'
-import {chainNear} from '@/utils/groupChain.ts'
+import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
@@ -53,7 +50,6 @@ useHead(() => ({
 }))
 const favoritesStore = useFavoritesStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, favoriteGroups, isHydrated} = storeToRefs(favoritesStore)
-const {userLocation} = storeToRefs(useUserStore())
 
 const {routes, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -120,10 +116,9 @@ const hasFavorites = computed(() => {
   return shown > 0 || favoriteGroups.value.length > 0 || (isOnline.value && favoritePlans.value.length > 0)
 })
 
-const groupChains = computed(() => {
+const groupLines = computed(() => {
   const index = network.value
-  if (!index) return []
-  return favoriteGroups.value.map((g) => chainNear(index, g.lines, userLocation.value))
+  return index ? favoriteGroups.value.map((g) => groupRoutes(index, g.lines)) : []
 })
 
 function openGroup(lines: GroupLine[]) {
@@ -295,7 +290,7 @@ const dragOptions = {
               @remove="favoritesStore.removeGroup(group.lines)"
             >
               <template #lines>
-                <LineChain :legs="groupChains[i] ?? []" small />
+                <StationLines :routes="groupLines[i] ?? []" />
               </template>
             </ListRow>
           </template>
