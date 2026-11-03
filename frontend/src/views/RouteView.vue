@@ -96,7 +96,7 @@ const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.valu
 watch(
   () => (shapeInfo.value?.route_id === routeIdNum.value ? routeIdNum.value : null),
   (id) => {
-    if (id !== null) recordUse('lines', `${id}/${currentDirection.value}`)
+    if (id !== null) recordUse(`${id}/${currentDirection.value}`)
   },
   {immediate: true},
 )

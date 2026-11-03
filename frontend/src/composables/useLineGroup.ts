@@ -19,6 +19,7 @@ const legStops = (leg: Leg) => [...leg.lines, ...(leg.alight ?? [])].map((l) => 
 export function useLineGroup(lines: Ref<GroupLine[]>) {
   const {userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
+  mapStore.linesApart = false
   const now = () => (userTime.value ?? new Date()).getTime()
 
   const legs = useLegsNear(lines)
@@ -120,6 +121,7 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
   })
 
   onUnmounted(() => {
+    mapStore.linesApart = true
     mapStore.setHighlightedStops([])
     mapStore.setShapesToDisplay([])
     mapStore.setVehiclesToDisplay([])

@@ -47,7 +47,7 @@ const isChosen = (routeId: number) => chosen.value.some((l) => l.routeId === rou
 const legs = useLegsNear(chosen)
 
 // Read once so the lists don't reorder under the finger.
-const lineUsage = readUsage('lines')
+const lineUsage = readUsage()
 const now = whenOf(Date.now())
 
 const usageOf = (routeId: number) => lineUse(lineUsage, routeId)
@@ -107,7 +107,7 @@ function flip(routeId: number) {
   chosen.value = chosen.value.map((l) => (l.routeId === routeId ? {...l, direction: l.direction === '0' ? '1' : '0'} : l))
 }
 
-const badgeColor = (r: NetworkRoute) => displayColor(r.route_short_name, r.route_color, isChosen(r.route_id))
+const badgeColor = (r: NetworkRoute) => displayColor(r.route_short_name, r.route_color)
 
 const chosenRows = computed(() =>
   chosen.value.flatMap((line) => {

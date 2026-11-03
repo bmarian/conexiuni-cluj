@@ -58,6 +58,7 @@ export const useMapStore = defineStore('map', () => {
   const vehicleColor = ref<string | null>(null)
   const zoomOut = ref(false)
   const directionArrowAtStart = ref(false)
+  const linesApart = ref(true)
   const centerOnUser = ref(false)
   const revealDrawer = ref(false)
   const centerRequest = ref(0)
@@ -79,7 +80,7 @@ export const useMapStore = defineStore('map', () => {
 
   const lineColors = computed(() => {
     const drawn = shapesToDisplay.value.filter(([, points]) => points.length).map(([shape]) => shape)
-    const apart = manyLines(drawn.map((shape) => shape.route_short_name))
+    const apart = linesApart.value && manyLines(drawn.map((shape) => shape.route_short_name))
     return new Map(drawn.map((shape) => [shape.route_short_name, ownColor(shape.route_short_name, shape.route_color, apart)]))
   })
 
@@ -177,6 +178,7 @@ export const useMapStore = defineStore('map', () => {
     customOriginLocationDragged,
     shapesToDisplay,
     lineColors,
+    linesApart,
     walkingPolylines,
     zoomOut,
     vehiclesToDisplay,
