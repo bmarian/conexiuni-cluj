@@ -234,6 +234,13 @@ func TestALineWithoutDirectionsTakesThemFromWhereItsRunsHead(t *testing.T) {
 	}
 }
 
+func TestRunsKeepTheirDirectionOffThePattern(t *testing.T) {
+	want := map[string]int{"t1": 0, "t2": 0, "t3": 0, "short": 0, "late": 0, "extra": 0, "detour": 0, "b1": 1, "b2": 1}
+	if got := testFeed(t).runs(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("runs %v, want %v", got, want)
+	}
+}
+
 func TestHeadwayTripsBecomeTimedRuns(t *testing.T) {
 	f := testFeedWith(t, map[string]string{
 		"trips.txt": "route_id,service_id,trip_id,direction_id,shape_id,trip_headsign\nL1,WK,every,0,s0,Delta\n",

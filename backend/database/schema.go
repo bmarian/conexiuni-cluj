@@ -155,6 +155,13 @@ func (s *Store) initSchemas() error {
             line TEXT PRIMARY KEY
         );
 
+		-- The direction of each of the feed's own trips, for buses that name only their trip.
+		CREATE TABLE IF NOT EXISTS runs
+        (
+            run_id    TEXT PRIMARY KEY,
+            direction INTEGER NOT NULL
+        );
+
 		DROP TABLE IF EXISTS cache_times;
 		DROP TABLE IF EXISTS stop_info;
 		DROP TABLE IF EXISTS api_stop_times;

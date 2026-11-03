@@ -29,6 +29,8 @@ type Feed struct {
 	url     string
 	cadence time.Duration
 	ids     feeds.IDMap
+	// Fills the Snapshot's Runs, for buses that name only their trip.
+	ListRuns bool
 }
 
 // ids may be nil when the feed only adds times to another source's Snapshot.
@@ -368,6 +370,8 @@ type lineDir struct {
 	direction int
 }
 
+func (k lineDir) id() string { return k.line + "_" + strconv.Itoa(k.direction) }
+
 func (f *feed) timetables(snap *feeds.Snapshot, now time.Time) map[string]*models.Timetable {
 	routes := f.files["routes"]
 	routeShort := map[string]string{}
@@ -456,7 +460,22 @@ func (f *Feed) Snapshot() (*feeds.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	return data.snapshot(f.ids, time.Now())
+	snap, err := data.snapshot(f.ids, time.Now())
+	if err == nil && f.ListRuns {
+		snap.Runs = data.runs()
+	}
+	return snap, err
+}
+
+// Trips whose line and direction have a pattern; a short run is placed on its direction's.
+func (f *feed) runs() map[string]int {
+	out := map[string]int{}
+	for tripID, info := range f.trips {
+		if _, ok := f.patterns[lineDir{info.routeID, info.direction}.id()]; ok {
+			out[tripID] = info.direction
+		}
+	}
+	return out
 }
 
 type pattern struct {
@@ -508,7 +527,7 @@ func patterns(trips map[string]tripInfo, stops tripStops) (map[string]*pattern, 
 				best, n = sig, len(ts)
 			}
 		}
-		id := k.line + "_" + strconv.Itoa(k.direction)
+		id := k.id()
 		p := &pattern{routeID: k.line, dir: k.direction, stops: g.order[best], trips: g.bySignature[best]}
 		sort.Strings(p.trips)
 		first := trips[p.trips[0]]

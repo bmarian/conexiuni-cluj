@@ -19,6 +19,8 @@ type Snapshot struct {
 	HourlyOffsets map[string]map[string][][]float64
 	// By route short name.
 	Timetables map[string]*models.Timetable
+	// Directions by the feed's own trip id, for buses that name only their trip; nil for other feeds.
+	Runs map[string]int
 }
 
 type IDMap interface {

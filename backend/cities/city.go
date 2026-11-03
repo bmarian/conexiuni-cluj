@@ -217,6 +217,14 @@ func (c *City) credits() []feeds.Credit {
 	return out
 }
 
+// Provider is whom the city's data is credited to; empty when no source asks for credit.
+func (c *City) Provider() string {
+	if credits := c.credits(); len(credits) > 0 {
+		return credits[0].Name
+	}
+	return ""
+}
+
 // The median, so outlying villages on long lines do not pull the centre away.
 func (c *City) refreshCentre() {
 	stops, err := c.Stops(transit.StopFilter{})

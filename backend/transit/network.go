@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 )
 
 // StoreNetwork replaces the lines, stops, patterns and shapes with snap's, in one transaction so a reader never sees half a network.
@@ -15,7 +17,7 @@ func (d *Data) StoreNetwork(snap *feeds.Snapshot) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	for _, table := range []string{"routes", "stops", "trips", "shapes", "trip_stops"} {
+	for _, table := range []string{"routes", "stops", "trips", "shapes", "trip_stops", "runs"} {
 		if _, err := tx.Exec(`DELETE FROM ` + table); err != nil {
 			return err
 		}
@@ -54,6 +56,12 @@ func (d *Data) StoreNetwork(snap *feeds.Snapshot) error {
 			return []any{s.TripID, s.StopID, s.StopSequence}
 		}); err != nil {
 		return fmt.Errorf("trip stops: %w", err)
+	}
+	runIDs := slices.Collect(maps.Keys(snap.Runs))
+	if err := insertAll(tx, `INSERT INTO runs (run_id, direction) VALUES (?, ?)`, len(runIDs), func(i int) []any {
+		return []any{runIDs[i], snap.Runs[runIDs[i]]}
+	}); err != nil {
+		return fmt.Errorf("runs: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return err
