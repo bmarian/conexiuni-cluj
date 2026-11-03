@@ -1,14 +1,22 @@
 import {computed, onUnmounted, ref, watch, watchEffect, type Ref} from 'vue'
+import {storeToRefs} from 'pinia'
+import {useUserStore} from '@/stores/user.ts'
 import {type DisplayShape, useMapStore} from '@/stores/map.ts'
-import {useLive} from '@/composables/useLive.ts'
-import {network} from '@/utils/network.ts'
+import {liveRowKey, useLive} from '@/composables/useLive.ts'
+import {SCHEDULE_HORIZON_MIN, withArrivals} from '@/composables/useStopDepartures.ts'
+import type {StopInfo, VehiclesInStop} from '@/types/tranzy.ts'
+import {buildStopInfo, network, type NetworkIndex} from '@/utils/network.ts'
+import {cityTime} from '@/utils/cityClock.ts'
+import {getAvailableBusesForStop} from '@/utils/time.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
-import {divergingStops, type GroupLine, tripOf} from '@/utils/lineGroups.ts'
+import {boardingStop, type GroupLine, tripOf} from '@/utils/lineGroups.ts'
 
 export function useLineGroup(lines: Ref<GroupLine[]>) {
+  const {userLocation, userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
   mapStore.linesApart = false
   mapStore.lineEnds = true
+  mapStore.setHighlightedStops([])
   const hidden = ref(new Set<number>())
   const shown = computed(() => lines.value.filter((l) => !hidden.value.has(l.routeId)))
 
@@ -18,8 +26,44 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
     hidden.value = next
   }
 
+  // A fix that moves no boarding stop keeps the same list, or the stream restarts on each one.
+  const boards = computed<(number | undefined)[]>((prev) => {
+    const index = network.value
+    const next = index ? lines.value.map((line) => boardingStop(index, line, userLocation.value)) : []
+    return prev && prev.join() === next.join() ? prev : next
+  })
+
+  const streamStops = computed(() => [...new Set(boards.value.filter((id) => id !== undefined))])
   const tripIds = computed(() => shown.value.map(tripOf))
-  const {vehiclesByTrip} = useLive(ref([]), tripIds)
+  const {rows, vehiclesByTrip, asOfMs} = useLive(streamStops, tripIds)
+
+  // Timetables change with the hour.
+  let infoHour = ''
+  const infos = new Map<number, StopInfo | null>()
+  function stopInfo(index: NetworkIndex, stopId: number, at: Date): StopInfo | null {
+    const {date, hour} = cityTime(at)
+    if (infoHour !== `${date} ${hour}`) {
+      infoHour = `${date} ${hour}`
+      infos.clear()
+    }
+    if (!infos.has(stopId)) infos.set(stopId, buildStopInfo(index, stopId, at))
+    return infos.get(stopId)!
+  }
+
+  // Each line's next buses at its boarding stop; null once none is left today.
+  const departures = computed<(VehiclesInStop | null)[]>(() => {
+    const index = network.value
+    const at = userTime.value || new Date()
+    return lines.value.map((line, i) => {
+      const stopId = boards.value[i]
+      const info = index && stopId !== undefined ? stopInfo(index, stopId, at) : null
+      const tripId = tripOf(line)
+      const shape = info ? getAvailableBusesForStop(info, at, {maxMinutes: SCHEDULE_HORIZON_MIN, tripId})[0] : undefined
+      if (!shape || stopId === undefined) return null
+      const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(tripId, stopId))
+      return withArrivals({...shape, stop_id: stopId}, row, at.getTime())
+    })
+  })
 
   const displayShapes = computed<DisplayShape[]>(() =>
     shown.value.flatMap((line) => {
@@ -64,18 +108,12 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
     mapStore.setVehiclesToDisplay(vehicles)
   })
 
-  watchEffect(() => {
-    const index = network.value
-    mapStore.setHighlightedStops(index ? divergingStops(index, shown.value).map((stop) => ({stopId: String(stop), color: 'gray' as const})) : [])
-  })
-
   onUnmounted(() => {
     mapStore.linesApart = true
     mapStore.lineEnds = false
-    mapStore.setHighlightedStops([])
     mapStore.setShapesToDisplay([])
     mapStore.setVehiclesToDisplay([])
   })
 
-  return {hidden, toggleHidden}
+  return {hidden, toggleHidden, boards, departures, asOfMs}
 }

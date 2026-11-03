@@ -366,7 +366,7 @@
   "groupRename": "Rename",
   "groupFlip": "Switch direction",
   "groupRemoveLine": "Remove line",
-  "groupOnMap": "On the map",
+  "groupNoMore": "No more today",
   "groupShowLine": "Show on the map",
   "groupHideLine": "Hide from the map"
 }

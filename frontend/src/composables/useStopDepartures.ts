@@ -5,7 +5,7 @@ import {type DisplayShape, useMapStore} from '@/stores/map.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
 import {entriesAt, liveRowKey, useLive} from '@/composables/useLive.ts'
-import type {Shape, ShapeInfo, StopInfo, VehiclesInStop} from '@/types/tranzy.ts'
+import type {LiveRow, Shape, ShapeInfo, StopInfo, VehiclesInStop} from '@/types/tranzy.ts'
 import {getAvailableBusesForStop, hasTimetableEntries} from '@/utils/time.ts'
 import {nextArrivals} from '@/utils/arrivals.ts'
 import {getRouteIdFromTripId} from '@/utils/trips.ts'
@@ -14,6 +14,29 @@ import {buildStopInfo, network} from '@/utils/network.ts'
 
 export const DEPARTURES_SHOWN = 3
 export const SCHEDULE_HORIZON_MIN = 480
+
+// The server's row replaces the timetable list; without one the timetable stands.
+export function withArrivals(shape: VehiclesInStop, row: LiveRow | undefined, nowMs: number): VehiclesInStop | null {
+  if (row) {
+    const entries = entriesAt(row, nowMs)
+    if (!entries.length) return null
+    return {
+      ...shape,
+      minutes_left: entries[0]!.minutes,
+      next_times: entries.map((e) => ({minutes: e.minutes, is_live: e.live, vehicle_id: e.vehicle_id})),
+      static_time_approximation: !entries.some((e) => e.live),
+    }
+  }
+  const scheduled = (shape.next_times ?? []).map((entry) => entry.minutes)
+  const merged = nextArrivals(scheduled, DEPARTURES_SHOWN)
+  if (!merged.length) return null
+  return {
+    ...shape,
+    minutes_left: merged[0]!.minutes,
+    next_times: merged.map((arrival) => ({minutes: arrival.minutes, is_live: false})),
+    static_time_approximation: true,
+  }
+}
 
 export function useStopDepartures(stopId: Ref<string>) {
   const userStore = useUserStore()
@@ -121,33 +144,15 @@ export function useStopDepartures(stopId: Ref<string>) {
     return [...byTrip.values()]
   })
 
-  // The server's row replaces the timetable list; without one the timetable stands.
-  function withArrivals(shape: VehiclesInStop): VehiclesInStop | null {
-    const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(shape.trip_id, shape.stop_id ?? stopIdNum.value))
-    if (row) {
-      const entries = entriesAt(row, (userTime.value || new Date()).getTime())
-      if (!entries.length) return null
-      return {
-        ...shape,
-        minutes_left: entries[0]!.minutes,
-        next_times: entries.map((e) => ({minutes: e.minutes, is_live: e.live, vehicle_id: e.vehicle_id})),
-        static_time_approximation: !entries.some((e) => e.live),
-      }
-    }
-    const scheduled = (shape.next_times ?? []).map((entry) => entry.minutes)
-    const merged = nextArrivals(scheduled, DEPARTURES_SHOWN)
-    if (!merged.length) return null
-    return {
-      ...shape,
-      minutes_left: merged[0]!.minutes,
-      next_times: merged.map((arrival) => ({minutes: arrival.minutes, is_live: false})),
-      static_time_approximation: true,
-    }
-  }
-
   const departures = computed((): VehiclesInStop[] =>
     shapesComingToTheStopBasedOnTimetable.value
-      .map((shape) => withArrivals(shape))
+      .map((shape) =>
+        withArrivals(
+          shape,
+          asOfMs.value === null ? undefined : rows.value.get(liveRowKey(shape.trip_id, shape.stop_id ?? stopIdNum.value)),
+          (userTime.value || new Date()).getTime(),
+        ),
+      )
       .filter((shape): shape is VehiclesInStop => shape !== null)
       .sort((a, b) => a.minutes_left - b.minutes_left),
   )
