@@ -22,7 +22,8 @@ import {fold} from '@/utils/text.ts'
 import {network} from '@/utils/network.ts'
 import {cityCenter, cityParams} from '@/utils/city.ts'
 import {planQuery} from '@/utils/planQuery.ts'
-import {stopLocation} from '@/utils/pagePaths.ts'
+import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
+import type {GroupLine} from '@/utils/lineGroups.ts'
 import {ArrowBackIcon, CloseIcon, DirectionsBusIcon, KeyboardArrowRightIcon, MapIcon, PlaceIcon, PushPinIcon, ScheduleIcon} from '@/utils/icons.ts'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
@@ -218,6 +219,11 @@ function openStop(stop: Stop) {
   })
 }
 
+function openGroup(lines: GroupLine[]) {
+  const index = network.value
+  if (index) go(() => void router.push(groupLocation(index, lines)))
+}
+
 function pickRoute(route: Route) {
   input.value?.blur()
   void openRoute(route).then(() => {
@@ -377,10 +383,11 @@ function dropPin() {
                 v-else
                 :stop="item.stop"
                 :route="item.route"
+                :group="item.group"
                 :remove-label="t('removeFromRecents')"
                 :busy="!!item.route && openingRouteId === item.route.route_id"
                 :data-kbd-item="`recent-${item.key}`"
-                @open="item.stop ? openStop(item.stop) : pickRoute(item.route!)"
+                @open="item.stop ? openStop(item.stop) : item.route ? pickRoute(item.route) : openGroup(item.group!)"
                 @remove="favorites.removeRecent(item.recent)"
               />
             </template>

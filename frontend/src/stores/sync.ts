@@ -108,9 +108,21 @@ export const useSyncStore = defineStore('sync', () => {
     const favorites = useFavoritesStore()
     const routeUpdates = useRouteUpdatesStore()
     const settings = useSettingsStore()
-    watch(() => [favorites.favoriteStopIds, favorites.favoriteRoutes, favorites.favoritePlans, favorites.recents, routeUpdates.followed, routeUpdates.seenIds], schedule, {
-      deep: true,
-    })
+    watch(
+      () => [
+        favorites.favoriteStopIds,
+        favorites.favoriteRoutes,
+        favorites.favoritePlans,
+        favorites.favoriteGroups,
+        favorites.recents,
+        routeUpdates.followed,
+        routeUpdates.seenIds,
+      ],
+      schedule,
+      {
+        deep: true,
+      },
+    )
     watch(
       () => [
         settings.theme,

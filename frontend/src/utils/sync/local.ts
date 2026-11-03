@@ -1,15 +1,21 @@
 // This device's own data as sync records, and records written back into it.
-import {type FavoritePlan, type Recent, savedFavorites, useFavoritesStore} from '@/stores/favorites'
+import {type FavoriteGroup, type FavoritePlan, type Recent, savedFavorites, useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
 import {chooseCity, cities, cityChoice, cityToOpen, currentCity, knownCity} from '@/utils/city.ts'
+import type {GroupLine} from '@/utils/lineGroups.ts'
 import {
   blankEnd,
   CITY_CAP,
   type CityRecord,
   forbidden,
+  type Group,
+  GROUP_LINES_CAP,
+  groupId,
+  type GroupsRecord,
   LAT,
+  type Line,
   LON,
   newestSeen,
   type NewsRecord,
@@ -21,6 +27,7 @@ import {
   type RecentsRecord,
   roundCoordinate,
   type SettingsRecord,
+  type Spot,
   validId,
 } from '@/utils/sync/records.ts'
 
@@ -38,16 +45,21 @@ export function cleanText(value: unknown, max: number): string {
 const inside = (x: number, [lo, hi]: readonly [number, number]) => x >= lo && x <= hi
 const coordsText = (lat: number, lon: number) => `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 
-function toPlace(p: FavoritePlan): Place | null {
-  const lat = roundCoordinate(p.lat),
-    lon = roundCoordinate(p.lon)
+function toSpot(name: string | undefined, rawLat: number, rawLon: number): Spot | null {
+  const lat = roundCoordinate(rawLat),
+    lon = roundCoordinate(rawLon)
   if (!inside(lat, LAT) || !inside(lon, LON)) return null
-  const place: Place = {name: cleanText(p.name, 100) || coordsText(lat, lon), label: cleanText(p.label, 40), lat, lon}
+  return {name: cleanText(name, 100) || coordsText(lat, lon), lat, lon}
+}
+
+function toPlace(p: FavoritePlan): Place | null {
+  const spot = toSpot(p.name, p.lat, p.lon)
+  if (!spot) return null
+  const place: Place = {...spot, label: cleanText(p.label, 40)}
   if (Number.isFinite(p.originLat) && Number.isFinite(p.originLon)) {
-    const oLat = roundCoordinate(p.originLat!),
-      oLon = roundCoordinate(p.originLon!)
-    if (!inside(oLat, LAT) || !inside(oLon, LON)) return null
-    place.origin = {name: cleanText(p.originName, 100) || coordsText(oLat, oLon), lat: oLat, lon: oLon}
+    const origin = toSpot(p.originName, p.originLat!, p.originLon!)
+    if (!origin) return null
+    place.origin = origin
   }
   return place
 }
@@ -112,12 +124,17 @@ export const applyNews = (slug: string, r: NewsRecord) => useRouteUpdatesStore()
 function toRecentItem(r: Recent): RecentItem | null {
   if ('stopId' in r) return validId(r.stopId) ? {kind: 'stop', id: r.stopId} : null
   if ('routeId' in r) return validId(r.routeId) ? {kind: 'line', id: r.routeId} : null
+  if ('lines' in r) {
+    const lines = toLines(r.lines)
+    return lines.length ? {kind: 'group', lines} : null
+  }
   const place = toPlace(r)
   return place && {kind: 'place', place}
 }
 
 function toRecent(item: RecentItem): Recent {
   if (item.kind === 'place') return toPlan(item.place)
+  if (item.kind === 'group') return {lines: fromLines(item.lines)}
   return item.kind === 'stop' ? {stopId: item.id} : {routeId: item.id}
 }
 
@@ -134,9 +151,46 @@ export const isEmptyRecents = (r: RecentsRecord) => !r.recent.length
 
 export const applyRecents = (slug: string, r: RecentsRecord) => useFavoritesStore().importRecents(r.recent.map(toRecent), slug)
 
+const toLines = (lines: GroupLine[]): Line[] =>
+  distinct(
+    lines.filter((l) => validId(l.routeId)).map((l) => ({route: l.routeId, dir: l.direction})),
+    (l) => String(l.route),
+  ).slice(0, GROUP_LINES_CAP)
+
+const fromLines = (lines: Line[]): GroupLine[] => lines.map((l) => ({routeId: l.route, direction: l.dir}))
+
+function toGroup(g: FavoriteGroup): Group | null {
+  const lines = toLines(g.lines)
+  if (!lines.length) return null
+  const group: Group = {lines, name: cleanText(g.name, 40)}
+  const to = g.destination && toSpot(g.destination.name, g.destination.lat, g.destination.lon)
+  if (to) group.to = to
+  return group
+}
+
+function fromGroup(g: Group): FavoriteGroup {
+  const group: FavoriteGroup = {lines: fromLines(g.lines)}
+  if (g.name) group.name = g.name
+  if (g.to) group.destination = g.to
+  return group
+}
+
+export const groupsFromLocal = (slug: string): GroupsRecord => ({
+  groups: distinct(
+    savedFavorites(slug)
+      .groups.map(toGroup)
+      .filter((g): g is Group => g !== null),
+    groupId,
+  ),
+})
+
+export const isEmptyGroups = (r: GroupsRecord) => !r.groups.length
+
+export const applyGroups = (slug: string, r: GroupsRecord) => useFavoritesStore().importGroups(r.groups.map(fromGroup), slug)
+
 export const syncedCities = () => cities.value.map((c) => c.slug)
 
-export type OverCap = {city: string; list: 'stops' | 'lines' | 'places' | 'followed'; count: number}
+export type OverCap = {city: string; list: 'stops' | 'lines' | 'places' | 'followed' | 'groups'; count: number}
 
 // Lists already past their cap, which sync will not cut on its own.
 export function overCaps(): OverCap[] {
@@ -146,6 +200,8 @@ export function overCaps(): OverCap[] {
     for (const list of ['stops', 'lines', 'places', 'followed'] as const) {
       if (r[list].length > CITY_CAP) out.push({city, list, count: r[list].length})
     }
+    const groups = groupsFromLocal(city).groups.length
+    if (groups > CITY_CAP) out.push({city, list: 'groups', count: groups})
   }
   return out
 }

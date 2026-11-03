@@ -18,7 +18,8 @@ import LegCard from '@/components/rows/LegCard.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {buildStopInfo, network} from '@/utils/network.ts'
-import {chainOf, chainText, groupKey, type Leg, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
+import {chainText, groupKey, type Leg, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
+import {legsChain} from '@/utils/groupChain.ts'
 import {recordUse} from '@/utils/lineUsage.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {cityClock} from '@/utils/cityClock.ts'
@@ -53,12 +54,14 @@ onMounted(() => {
 watch(
   key,
   (k) => {
-    if (k) recordUse('groups', k)
+    if (!k) return
+    recordUse('groups', k)
+    favorites.addRecent({lines: lines.value})
   },
   {immediate: true},
 )
 
-const chain = computed(() => (network.value ? chainOf(network.value, legs.value, (name, color) => displayColor(name, color, true)) : []))
+const chain = computed(() => (network.value ? legsChain(network.value, legs.value) : []))
 const chainLabel = computed(() => chainText(chain.value))
 const title = computed(() => saved.value?.name || chainLabel.value)
 

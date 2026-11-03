@@ -197,7 +197,7 @@ func worstCity() cityRecord {
 		rec.stops = append(rec.stops, int64(maxInt-i))
 		rec.lines = append(rec.lines, line{int64(maxInt - i), "1"})
 		rec.places = append(rec.places, place{name: wide(100), label: wide(40), lat: at(43.6, i), lon: at(20.2, i),
-			origin: &origin{name: wide(100), lat: at(44.6, i), lon: at(21.2, i)}})
+			origin: &spot{name: wide(100), lat: at(44.6, i), lon: at(21.2, i)}})
 		rec.followed = append(rec.followed, wide(14)+fmt.Sprintf("%02d", i))
 	}
 	return rec
@@ -289,6 +289,29 @@ func TestVectorsOpen(t *testing.T) {
 	}
 }
 
+func worstGroups() groupsRecord {
+	wide := func(n int) string { return strings.Repeat("𝓐", n) }
+	var rec groupsRecord
+	for i := range cityCap {
+		g := group{name: wide(40), to: &spot{name: wide(100), lat: 43.611111, lon: 20.211111}}
+		for k := range groupLinesCap {
+			g.lines = append(g.lines, line{int64(maxInt - i*groupLinesCap - k), "1"})
+		}
+		rec.groups = append(rec.groups, g)
+	}
+	return rec
+}
+
+func TestWorstGroupsFit(t *testing.T) {
+	written := worstGroups().write()
+	if _, err := parseGroups(written); err != nil {
+		t.Fatal(err)
+	}
+	if bucketFor(len(written)) == 0 {
+		t.Fatalf("worst groups record is %d bytes", len(written))
+	}
+}
+
 func TestWorstCityFits(t *testing.T) {
 	written := worstCity().write()
 	if _, err := parseCity(written); err != nil {
@@ -334,6 +357,8 @@ func parseAny(kind, raw string) error {
 		_, err = parseRecents(raw)
 	case "options":
 		_, err = parseOptions(raw)
+	case "groups":
+		_, err = parseGroups(raw)
 	default:
 		err = fmt.Errorf("unknown kind %q", kind)
 	}
@@ -383,7 +408,7 @@ func droppedJSON(t *testing.T, d cityDropped) map[string]json.RawMessage {
 		}
 	}
 	add("stops", joined(d.stops, stopID), len(d.stops))
-	add("lines", joined(d.lines, func(l line) string { return "[" + stopID(l.route) + "," + quote(l.dir) + "]" }), len(d.lines))
+	add("lines", joined(d.lines, writeLine), len(d.lines))
 	add("places", joined(d.places, writePlace), len(d.places))
 	add("followed", joined(d.followed, quote), len(d.followed))
 	return out
@@ -457,6 +482,18 @@ func TestMergeCases(t *testing.T) {
 			local, _ := parseOptions(c.Local)
 			remote, _ := parseOptions(c.Remote)
 			got = mergeOptions(base, local, remote).write()
+		case "groups":
+			var base groupsRecord
+			if c.Base != nil {
+				base, _ = parseGroups(*c.Base)
+			}
+			local, _ := parseGroups(c.Local)
+			remote, _ := parseGroups(c.Remote)
+			merged, d := mergeGroups(base, local, remote)
+			got = merged.write()
+			if len(d) > 0 {
+				dropped["groups"] = json.RawMessage(joined(d, writeGroup))
+			}
 		case "devices":
 			var base []deviceEntry
 			if c.Base != nil {

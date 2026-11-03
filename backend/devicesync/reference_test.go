@@ -170,7 +170,7 @@ func (r refused) Error() string { return string(r) }
 
 func refuse(format string, args ...any) error { return refused(fmt.Sprintf(format, args...)) }
 
-type origin struct {
+type spot struct {
 	name     string
 	lat, lon float64
 }
@@ -178,7 +178,7 @@ type origin struct {
 type place struct {
 	name, label string
 	lat, lon    float64
-	origin      *origin
+	origin      *spot
 }
 
 type line struct {
@@ -195,10 +195,19 @@ type cityRecord struct {
 
 type newsRecord struct{ seen []int64 }
 
-// One recent: a stop, a line or a place.
+type group struct {
+	lines []line
+	name  string
+	to    *spot
+}
+
+type groupsRecord struct{ groups []group }
+
+// One recent: a stop, a line, a group or a place.
 type recent struct {
 	kind  string
 	id    int64
+	lines []line
 	place place
 }
 
@@ -222,7 +231,8 @@ type optionsRecord struct {
 }
 
 const (
-	cityCap   = 50
+	cityCap       = 50
+	groupLinesCap = 10
 	newsCap   = 200
 	recentCap = 10
 	citySlug  = 40
@@ -407,19 +417,11 @@ func parseCity(raw string) (cityRecord, error) {
 		return rec, err
 	}
 	for _, l := range lines {
-		pair, err := list(l, 2)
-		if err != nil || len(pair) != 2 {
-			return rec, refuse("line is not a pair")
-		}
-		route, err := integer(pair[0], 1, maxInt)
+		parsed, err := parseLine(l)
 		if err != nil {
 			return rec, err
 		}
-		dir, ok := pair[1].(string)
-		if !ok || (dir != "0" && dir != "1") {
-			return rec, refuse("bad direction")
-		}
-		rec.lines = append(rec.lines, line{route, dir})
+		rec.lines = append(rec.lines, parsed)
 	}
 	places, err := list(m["places"], cityCap)
 	if err != nil {
@@ -444,17 +446,9 @@ func parseCity(raw string) (cityRecord, error) {
 			return rec, err
 		}
 		if len(fields) == 7 {
-			o := &origin{}
-			if o.name, err = text(fields[4], 1, 100); err != nil {
+			if pl.origin, err = parseSpot(fields[4:]); err != nil {
 				return rec, err
 			}
-			if o.lat, err = coordinate(fields[5], 43.6, 48.3); err != nil {
-				return rec, err
-			}
-			if o.lon, err = coordinate(fields[6], 20.2, 29.8); err != nil {
-				return rec, err
-			}
-			pl.origin = o
 		}
 		rec.places = append(rec.places, pl)
 	}
@@ -524,19 +518,103 @@ func parseRecentPlace(f []any) (place, error) {
 		return p, err
 	}
 	if len(f) == 7 {
-		o := origin{}
-		if o.name, err = text(f[4], 1, 100); err != nil {
+		if p.origin, err = parseSpot(f[4:]); err != nil {
 			return p, err
 		}
-		if o.lat, err = coordinate(f[5], 43.6, 48.3); err != nil {
-			return p, err
-		}
-		if o.lon, err = coordinate(f[6], 20.2, 29.8); err != nil {
-			return p, err
-		}
-		p.origin = &o
 	}
 	return p, nil
+}
+
+func parseLine(v any) (line, error) {
+	pair, err := list(v, 2)
+	if err != nil || len(pair) != 2 {
+		return line{}, refuse("line is not a pair")
+	}
+	route, err := integer(pair[0], 1, maxInt)
+	if err != nil {
+		return line{}, err
+	}
+	dir, ok := pair[1].(string)
+	if !ok || (dir != "0" && dir != "1") {
+		return line{}, refuse("bad direction")
+	}
+	return line{route, dir}, nil
+}
+
+func parseSpot(f []any) (*spot, error) {
+	var s spot
+	var err error
+	if s.name, err = text(f[0], 1, 100); err != nil {
+		return nil, err
+	}
+	if s.lat, err = coordinate(f[1], 43.6, 48.3); err != nil {
+		return nil, err
+	}
+	if s.lon, err = coordinate(f[2], 20.2, 29.8); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func parseGroupLines(v any) ([]line, error) {
+	items, err := list(v, groupLinesCap)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, refuse("group without lines")
+	}
+	var lines []line
+	for _, item := range items {
+		l, err := parseLine(item)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, l)
+	}
+	return lines, unique(lines, routeID)
+}
+
+func parseGroups(raw string) (groupsRecord, error) {
+	var rec groupsRecord
+	v, err := parseJSON(raw)
+	if err != nil {
+		return rec, err
+	}
+	if err := version(v); err != nil {
+		return rec, err
+	}
+	m, err := object(v, "v", "groups")
+	if err != nil {
+		return rec, err
+	}
+	items, err := list(m["groups"], cityCap)
+	if err != nil {
+		return rec, err
+	}
+	for _, item := range items {
+		f, err := list(item, 5)
+		if err != nil || (len(f) != 2 && len(f) != 5) {
+			return rec, refuse("group is not 2 or 5 fields")
+		}
+		var g group
+		if g.lines, err = parseGroupLines(f[0]); err != nil {
+			return rec, err
+		}
+		if g.name, err = text(f[1], 0, 40); err != nil {
+			return rec, err
+		}
+		if len(f) == 5 {
+			if g.to, err = parseSpot(f[2:]); err != nil {
+				return rec, err
+			}
+		}
+		rec.groups = append(rec.groups, g)
+	}
+	if err := unique(rec.groups, groupID); err != nil {
+		return rec, err
+	}
+	return rec, canonical(raw, rec.write())
 }
 
 func parseRecents(raw string) (recentsRecord, error) {
@@ -569,6 +647,10 @@ func parseRecents(raw string) (recentsRecord, error) {
 		switch {
 		case (kind == "stop" || kind == "line") && len(f) == 2:
 			if r.id, err = integer(f[1], 1, maxInt); err != nil {
+				return rec, err
+			}
+		case kind == "group" && len(f) == 2:
+			if r.lines, err = parseGroupLines(f[1]); err != nil {
 				return rec, err
 			}
 		case kind == "place":
@@ -727,12 +809,16 @@ func canonical(raw, written string) error {
 
 func stopID(id int64) string        { return strconv.FormatInt(id, 10) }
 func lineID(l line) string          { return stopID(l.route) + "/" + l.dir }
+func routeID(l line) string         { return stopID(l.route) }
 func followedID(name string) string { return name }
 func deviceID(d deviceEntry) string { return d.id }
 
 func recentID(r recent) string {
-	if r.kind == "place" {
+	switch r.kind {
+	case "place":
 		return "place:" + placeID(r.place)
+	case "group":
+		return "group:" + linesID(r.lines)
 	}
 	return r.kind + ":" + stopID(r.id)
 }
@@ -743,6 +829,16 @@ func placeID(p place) string {
 	}
 	return coord(p.lat) + "," + coord(p.lon) + "," + coord(p.origin.lat) + "," + coord(p.origin.lon)
 }
+
+func linesID(lines []line) string {
+	ids := make([]string, len(lines))
+	for i, l := range lines {
+		ids[i] = lineID(l)
+	}
+	return strings.Join(ids, ",")
+}
+
+func groupID(g group) string { return linesID(g.lines) }
 
 func coord(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
 
@@ -760,7 +856,7 @@ func joined[T any](items []T, write func(T) string) string {
 
 func (r cityRecord) write() string {
 	return `{"v":1,"stops":` + joined(r.stops, stopID) +
-		`,"lines":` + joined(r.lines, func(l line) string { return "[" + stopID(l.route) + "," + quote(l.dir) + "]" }) +
+		`,"lines":` + joined(r.lines, writeLine) +
 		`,"places":` + joined(r.places, writePlace) +
 		`,"followed":` + joined(r.followed, quote) + "}"
 }
@@ -771,19 +867,38 @@ func (r newsRecord) write() string {
 
 func (r recentsRecord) write() string {
 	return `{"v":1,"recent":` + joined(r.recent, func(item recent) string {
-		if item.kind == "place" {
+		switch item.kind {
+		case "place":
 			return `["place",` + writePlace(item.place)[1:]
+		case "group":
+			return `["group",` + joined(item.lines, writeLine) + "]"
 		}
 		return "[" + quote(item.kind) + "," + stopID(item.id) + "]"
 	}) + "}"
 }
 
+func writeLine(l line) string { return "[" + stopID(l.route) + "," + quote(l.dir) + "]" }
+
+func (s spot) write() string { return quote(s.name) + "," + coord(s.lat) + "," + coord(s.lon) }
+
 func writePlace(p place) string {
 	out := "[" + quote(p.name) + "," + quote(p.label) + "," + coord(p.lat) + "," + coord(p.lon)
 	if p.origin != nil {
-		out += "," + quote(p.origin.name) + "," + coord(p.origin.lat) + "," + coord(p.origin.lon)
+		out += "," + p.origin.write()
 	}
 	return out + "]"
+}
+
+func writeGroup(g group) string {
+	out := "[" + joined(g.lines, writeLine) + "," + quote(g.name)
+	if g.to != nil {
+		out += "," + g.to.write()
+	}
+	return out + "]"
+}
+
+func (r groupsRecord) write() string {
+	return `{"v":1,"groups":` + joined(r.groups, writeGroup) + "}"
 }
 
 func writeDevices(devices []deviceEntry) string {
@@ -895,6 +1010,32 @@ func mergePlace(base *place, local, remote place) place {
 	out.name = pick(bName, local.name, remote.name)
 	out.label = pick(bLabel, local.label, remote.label)
 	return out
+}
+
+func toID(g group) string {
+	if g.to == nil {
+		return ""
+	}
+	return g.to.write()
+}
+
+func mergeGroup(base *group, local, remote group) group {
+	out := remote
+	var bName, bTo *string
+	if base != nil {
+		to := toID(*base)
+		bName, bTo = &base.name, &to
+	}
+	out.name = pick(bName, local.name, remote.name)
+	if pick(bTo, toID(local), toID(remote)) != toID(remote) {
+		out.to = local.to
+	}
+	return out
+}
+
+func mergeGroups(base, local, remote groupsRecord) (groupsRecord, []group) {
+	merged, dropped := mergeList(base.groups, local.groups, remote.groups, groupID, mergeGroup, cityCap)
+	return groupsRecord{groups: merged}, dropped
 }
 
 func mergeDevice(base *deviceEntry, local, remote deviceEntry) deviceEntry {

@@ -25,12 +25,12 @@ import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
 import LineChain from '@/components/ui/LineChain.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
-import {chainOf, groupKey, type GroupLine, legsNear, readKey, writeLines} from '@/utils/lineGroups.ts'
+import {groupKey, type GroupLine, readKey} from '@/utils/lineGroups.ts'
+import {chainNear} from '@/utils/groupChain.ts'
 import {compareUse, dismissUse, readUsage, totalUses, whenOf} from '@/utils/lineUsage.ts'
-import {displayColor} from '@/utils/lineColor.ts'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
-import {stopLocation} from '@/utils/pagePaths.ts'
+import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
@@ -140,11 +140,11 @@ const shownGroups = computed(() => [...favoriteGroups.value.map((g) => g.lines),
 const groupChains = computed(() => {
   const index = network.value
   if (!index) return []
-  return shownGroups.value.map((lines) => chainOf(index, legsNear(index, lines, userLocation.value), (name, color) => displayColor(name, color, true)))
+  return shownGroups.value.map((lines) => chainNear(index, lines, userLocation.value))
 })
 
 function openGroup(lines: GroupLine[]) {
-  if (network.value) void router.push({name: 'group', query: {linii: writeLines(network.value, lines)}})
+  if (network.value) void router.push(groupLocation(network.value, lines))
 }
 
 const namingSuggested = ref(false)
@@ -175,6 +175,7 @@ function openRecent(item: RecentItem) {
   favoritesStore.addRecent(item.recent)
   if (item.stop) openStop(item.stop)
   else if (item.route) void openRoute(item.route)
+  else if (item.group) openGroup(item.group)
 }
 
 function removeRouteGroup(group: FavoriteRouteGroup) {
@@ -410,6 +411,7 @@ const dragOptions = {
             v-else
             :stop="item.stop"
             :route="item.route"
+            :group="item.group"
             :icon-size="30"
             :remove-label="t('removeFromRecents')"
             :busy="!!item.route && openingRouteId === item.route.route_id"

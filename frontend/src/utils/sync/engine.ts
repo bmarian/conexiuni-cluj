@@ -27,7 +27,9 @@ import {
   type CityRecord,
   type DeviceEntry,
   type DevicesRecord,
+  type GroupsRecord,
   emptyCity,
+  emptyGroups,
   emptyNews,
   emptyRecents,
   type NewsRecord,
@@ -35,6 +37,7 @@ import {
   type Read,
   readCity,
   readDevices,
+  readGroups,
   readNews,
   readOptions,
   readRecents,
@@ -43,20 +46,24 @@ import {
   type SettingsRecord,
   writeCity,
   writeDevices,
+  writeGroups,
   writeNews,
   writeOptions,
   writeRecents,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
+import {mergeCity, mergeDevices, mergeGroups, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 import {
   applyCity,
+  applyGroups,
   applyNews,
   applyOptions,
   applyRecents,
   applySettings,
   cityFromLocal,
+  groupsFromLocal,
   isEmptyCity,
+  isEmptyGroups,
   isEmptyNews,
   isEmptyRecents,
   newsFromLocal,
@@ -97,7 +104,8 @@ const DEVICES = 'devices'
 const cityName = (slug: string) => `city:${slug}`
 const newsName = (slug: string) => `news:${slug}`
 const recentsName = (slug: string) => `recents:${slug}`
-const cityRecords = (slug: string) => [cityName(slug), newsName(slug), recentsName(slug)]
+const groupsName = (slug: string) => `groups:${slug}`
+const cityRecords = (slug: string) => [cityName(slug), newsName(slug), recentsName(slug), groupsName(slug)]
 
 function cityKind(slug: string, run: Run): Kind<CityRecord> {
   return {
@@ -140,6 +148,28 @@ function recentsKind(slug: string): Kind<RecentsRecord> {
     merge: (base, local, remote) => mergeRecents(base ?? emptyRecents(), local, remote),
     apply: (value) => applyRecents(slug, value),
     empty: isEmptyRecents,
+  }
+}
+
+function groupsKind(slug: string, run: Run): Kind<GroupsRecord> {
+  return {
+    read: readGroups,
+    write: writeGroups,
+    local: () => {
+      const local = groupsFromLocal(slug)
+      if (local.groups.length > CITY_CAP) {
+        run.report.problems.push('over-cap')
+        return null
+      }
+      return local
+    },
+    merge: (base, local, remote) => {
+      const {merged, dropped} = mergeGroups(base ?? emptyGroups(), local, remote)
+      run.report.dropped += dropped.length
+      return merged
+    },
+    apply: (value) => applyGroups(slug, value),
+    empty: isEmptyGroups,
   }
 }
 
@@ -313,7 +343,12 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
   const steps = [
     step(DEVICES, devicesKind(run, label)),
     ...(withSettings ? [step(SETTINGS, settingsKind), step(OPTIONS, optionsKind)] : []),
-    ...syncedCities().flatMap((slug) => [step(cityName(slug), cityKind(slug, run)), step(newsName(slug), newsKind(slug)), step(recentsName(slug), recentsKind(slug))]),
+    ...syncedCities().flatMap((slug) => [
+      step(cityName(slug), cityKind(slug, run)),
+      step(newsName(slug), newsKind(slug)),
+      step(recentsName(slug), recentsKind(slug)),
+      step(groupsName(slug), groupsKind(slug, run)),
+    ]),
   ]
   try {
     for (const sync of steps) await sync()
