@@ -3,21 +3,22 @@ import {computed, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {storeToRefs} from 'pinia'
-import {useUserStore} from '@/stores/user.ts'
-import {useFavoritesStore} from '@/stores/favorites.ts'
+import {atCap, useFavoritesStore} from '@/stores/favorites.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import PickRow from '@/components/rows/PickRow.vue'
 import type {RouteDirection} from '@/types/tranzy.ts'
 import {network, type NetworkRoute} from '@/utils/network.ts'
-import {type GroupLine, legsNear, meetingLines, readLines, writeLines} from '@/utils/lineGroups.ts'
+import {useLegsNear} from '@/composables/useLegsNear.ts'
+import {type GroupLine, meetingLines, readLines} from '@/utils/lineGroups.ts'
+import {groupLocation} from '@/utils/pagePaths.ts'
 import {compareUse, lineUse, readUsage, totalUses, whenOf} from '@/utils/lineUsage.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {byModeThenNumber, groupByMode} from '@/utils/modes.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
+import {GROUP_LINES_CAP} from '@/utils/sync/records.ts'
 import {directedDestination, hasTimetableEntries} from '@/utils/time.ts'
 import {CloseIcon, SearchIcon, SwapHorizIcon} from '@/utils/icons.ts'
 
@@ -25,7 +26,6 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const favorites = useFavoritesStore()
-const {userLocation} = storeToRefs(useUserStore())
 
 useHead(() => ({title: `${t('lineGroups')} | Ce autobuz iau?`, meta: [{name: 'robots', content: 'noindex'}]}))
 
@@ -44,7 +44,7 @@ const routes = computed(() => (network.value?.bundle.routes ?? []).filter((r) =>
 const routeOf = (routeId: number) => network.value?.routeById.get(routeId)
 const isChosen = (routeId: number) => chosen.value.some((l) => l.routeId === routeId)
 
-const legs = computed(() => (network.value ? legsNear(network.value, chosen.value, userLocation.value) : []))
+const legs = useLegsNear(chosen)
 
 // Read once so the lists don't reorder under the finger.
 const lineUsage = readUsage('lines')
@@ -100,7 +100,7 @@ function directionFor(routeId: number): RouteDirection {
 
 function toggle(routeId: number, direction?: RouteDirection) {
   if (isChosen(routeId)) chosen.value = chosen.value.filter((l) => l.routeId !== routeId)
-  else chosen.value = [...chosen.value, {routeId, direction: direction ?? directionFor(routeId)}]
+  else if (!atCap(chosen.value, GROUP_LINES_CAP)) chosen.value = [...chosen.value, {routeId, direction: direction ?? directionFor(routeId)}]
 }
 
 function flip(routeId: number) {
@@ -132,7 +132,7 @@ function show() {
   if (!index || !chosen.value.length) return
   const editing = route.query.schimba
   if (editing) favorites.replaceGroupLines(readLines(index, String(editing)), chosen.value)
-  void router.replace({name: 'group', query: {linii: writeLines(index, chosen.value)}})
+  void router.replace(groupLocation(index, chosen.value))
 }
 </script>
 

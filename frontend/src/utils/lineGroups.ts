@@ -1,6 +1,7 @@
 import {INCOMING_SUFFIX, OUTGOING_SUFFIX, type RouteDirection, type UserLocation} from '@/types/tranzy.ts'
 import type {NetworkIndex} from '@/utils/network.ts'
 import {haversineMeters} from '@/utils/geo.ts'
+import {GROUP_LINES_CAP} from '@/utils/sync/records.ts'
 
 export type GroupLine = {routeId: number; direction: RouteDirection}
 
@@ -45,6 +46,7 @@ export function writeLines(index: NetworkIndex, lines: GroupLine[]): string {
 export function readLines(index: NetworkIndex, raw: string): GroupLine[] {
   const lines: GroupLine[] = []
   for (const part of raw.split(',')) {
+    if (lines.length === GROUP_LINES_CAP) break
     const direction: RouteDirection = part.endsWith(INTORS) ? '1' : '0'
     const slug = direction === '1' ? part.slice(0, -INTORS.length) : part
     const routeId = slug.startsWith('~') ? Number(slug.slice(1)) : index.routeBySlug.get(slug)

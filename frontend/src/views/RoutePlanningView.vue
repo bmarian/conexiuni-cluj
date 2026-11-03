@@ -31,7 +31,9 @@ import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from '@/utils/plan.ts'
-import {chainOf, legsNear, readLines, tripOf} from '@/utils/lineGroups.ts'
+import {useLegsNear} from '@/composables/useLegsNear.ts'
+import {readLines, tripOf} from '@/utils/lineGroups.ts'
+import {legsChain} from '@/utils/groupChain.ts'
 import {network} from '@/utils/network.ts'
 import LineChain from '@/components/ui/LineChain.vue'
 import {reversePlace, type Place} from '@/utils/places.ts'
@@ -364,9 +366,8 @@ onUnmounted(() => {
 })
 
 const groupLines = computed(() => (network.value ? readLines(network.value, String(route.value.query.linii ?? '')) : []))
-const groupChain = computed(() =>
-  network.value ? chainOf(network.value, legsNear(network.value, groupLines.value, userLocation.value), (name, color) => displayColor(name, color, true)) : [],
-)
+const groupLegs = useLegsNear(groupLines)
+const groupChain = computed(() => (network.value ? legsChain(network.value, groupLegs.value) : []))
 
 watch([groupLines, destLat, destLon, destName], ([lines, lat, lon, name]) => {
   if (lines.length && !isNaN(lat) && !isNaN(lon) && name) favoritesStore.setGroupDestination(lines, {name, lat, lon})

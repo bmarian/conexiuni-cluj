@@ -5,6 +5,7 @@ import {useOnline} from '@/composables/useOnline.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import type {Route, Stop} from '@/types/tranzy.ts'
+import type {GroupLine} from '@/utils/lineGroups.ts'
 
 export interface RecentItem {
   key: string
@@ -12,6 +13,7 @@ export interface RecentItem {
   plan?: FavoritePlan
   stop?: Stop
   route?: Route
+  group?: GroupLine[]
 }
 
 export function useRecents(shown: number) {
@@ -27,8 +29,9 @@ export function useRecents(shown: number) {
       const item: RecentItem = {key: recentKey(recent), recent}
       if ('stopId' in recent) item.stop = stops.value.find((s) => s.stop_id === recent.stopId)
       else if ('routeId' in recent) item.route = routes.value.find((r) => r.route_id === recent.routeId)
+      else if ('lines' in recent) item.group = recent.lines
       else if (isOnline.value && !favorites.isPlanFavorite(recent.lat, recent.lon, recent.originLat, recent.originLon)) item.plan = recent
-      if (item.stop || item.route || item.plan) items.push(item)
+      if (item.stop || item.route || item.plan || item.group) items.push(item)
     }
     return items.slice(0, shown)
   })

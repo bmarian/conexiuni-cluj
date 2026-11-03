@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {computed, ref, watch} from 'vue'
+import {computed, ref, type Ref, watch} from 'vue'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useRouteShapeInfoApi} from '@/composables/useRouteShapeInfoApi.ts'
 import {useStopInfoApi} from '@/composables/useStopInfoApi.ts'
@@ -30,11 +30,12 @@ export interface FavoritePlan {
   originLon?: number
 }
 
-export type Recent = FavoritePlan | {stopId: number} | {routeId: number}
+export type Recent = FavoritePlan | {stopId: number} | {routeId: number} | {lines: GroupLine[]}
 
 export function recentKey(r: Recent): string {
   if ('stopId' in r) return `stop-${r.stopId}`
   if ('routeId' in r) return `route-${r.routeId}`
+  if ('lines' in r) return `group-${groupKey(r.lines)}`
   return `${r.lat}_${r.lon}_${r.originLat ?? ''}_${r.originLon ?? ''}`
 }
 
@@ -60,9 +61,9 @@ function samePlace(p: FavoritePlan, lat: number, lon: number, originLat?: number
   return p.lat === rounded(lat) && p.lon === rounded(lon) && rounded(p.originLat) === rounded(originLat) && rounded(p.originLon) === rounded(originLon)
 }
 
-function atCap(list: unknown[]): boolean {
-  if (list.length < CITY_CAP) return false
-  useSettingsStore().showToast(translate('limitReached', {n: CITY_CAP}))
+export function atCap(list: unknown[], cap = CITY_CAP): boolean {
+  if (list.length < cap) return false
+  useSettingsStore().showToast(translate('limitReached', {n: cap}))
   return true
 }
 
@@ -81,10 +82,12 @@ export function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
   return parsed
 }
 
+const groupLines = (raw: unknown): GroupLine[] => parseFavoriteRoutes(raw).map((r) => ({routeId: r.routeId, direction: r.direction}))
+
 export function parseGroups(raw: unknown): FavoriteGroup[] {
   if (!Array.isArray(raw)) return []
   return raw.flatMap((item): FavoriteGroup[] => {
-    const lines = parseFavoriteRoutes(item?.lines).map((r) => ({routeId: r.routeId, direction: r.direction}))
+    const lines = groupLines(item?.lines)
     if (!lines.length) return []
     const group: FavoriteGroup = {lines}
     if (typeof item.name === 'string' && item.name.trim()) group.name = item.name.trim()
@@ -105,7 +108,11 @@ export function parsePlans(raw: unknown): FavoritePlan[] {
 
 export function parseRecents(raw: unknown): Recent[] {
   if (!Array.isArray(raw)) return []
-  return raw.filter((r): r is Recent => Number.isInteger(r?.stopId) || Number.isInteger(r?.routeId) || parsePlans([r]).length > 0)
+  return raw.flatMap((r): Recent[] => {
+    if (Number.isInteger(r?.stopId) || Number.isInteger(r?.routeId) || parsePlans([r]).length > 0) return [r]
+    const lines = groupLines(r?.lines)
+    return lines.length ? [{lines}] : []
+  })
 }
 
 export function matchingPlans(plans: FavoritePlan[], query: string): FavoritePlan[] {
@@ -130,6 +137,7 @@ export function savedFavorites(city: string) {
     stops: parseStopIds(readSaved(stopsKey(city))),
     plans: parsePlans(readSaved(plansKey(city))),
     recentPlans: parseRecents(readSaved(recentPlansKey(city))),
+    groups: parseGroups(readSaved(groupsKey(city))),
   }
 }
 
@@ -320,10 +328,14 @@ export const useFavoritesStore = defineStore('favorites', () => {
     persistRecents()
   }
 
-  function importRecents(list: Recent[], city = currentCity.value) {
-    localStorage.setItem(recentPlansKey(city), JSON.stringify(list))
-    if (city === currentCity.value) recents.value = list
+  function imported<T>(key: (city: string) => string, target: Ref<T[]>, list: T[], city: string) {
+    localStorage.setItem(key(city), JSON.stringify(list))
+    if (city === currentCity.value) target.value = list
   }
+
+  const importRecents = (list: Recent[], city = currentCity.value) => imported(recentPlansKey, recents, list, city)
+
+  const importGroups = (list: FavoriteGroup[], city = currentCity.value) => imported(groupsKey, favoriteGroups, list, city)
 
   function importAll(data: {routes?: unknown; stops?: unknown; plans?: unknown; recentPlans?: unknown}, city = currentCity.value) {
     const routes = parseFavoriteRoutes(data.routes)
@@ -396,6 +408,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     replaceGroupLines,
     setGroupDestination,
     reorderGroups,
+    importGroups,
     reorderRoutes,
     reorderStopIds,
     reorderPlans,

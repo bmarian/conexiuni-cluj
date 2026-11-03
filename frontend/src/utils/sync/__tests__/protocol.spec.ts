@@ -20,22 +20,25 @@ import {
 } from '@/utils/sync/crypto.ts'
 import {
   emptyCity,
+  emptyGroups,
   emptyNews,
   emptyRecents,
   readCity,
   readDevices,
+  readGroups,
   readNews,
   readOptions,
   readRecents,
   readSettings,
   writeCity,
   writeDevices,
+  writeGroups,
   writeNews,
   writeOptions,
   writeRecents,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
+import {mergeCity, mergeDevices, mergeGroups, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 
 // The shared files every client runs: made and checked by backend/devicesync/vectors_test.go.
 const testdata = (name: string) => JSON.parse(readFileSync(new URL(`../../../../../backend/devicesync/testdata/${name}`, import.meta.url), 'utf8'))
@@ -105,7 +108,9 @@ async function outcome(kind: string, raw: string) {
             ? readRecents(raw)
             : kind === 'options'
               ? readOptions(raw)
-              : readSettings(raw)
+              : kind === 'groups'
+                ? readGroups(raw)
+                : readSettings(raw)
   return read.ok ? 'ok' : read.newer ? 'newer' : 'refuse'
 }
 
@@ -137,6 +142,11 @@ describe('sync cases', () => {
     } else if (c.kind === 'recents') {
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyRecents>>(raw, readRecents)))
       expect(writeRecents(mergeRecents(base ?? emptyRecents(), local!, remote!))).toBe(c.merged)
+    } else if (c.kind === 'groups') {
+      const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyGroups>>(raw, readGroups)))
+      const {merged, dropped} = mergeGroups(base ?? emptyGroups(), local!, remote!)
+      expect(writeGroups(merged)).toBe(c.merged)
+      expect(dropped.length ? {groups: JSON.parse(writeGroups({groups: dropped})).groups} : {}).toEqual(c.dropped)
     } else if (c.kind === 'options') {
       type Options = Parameters<typeof writeOptions>[0]
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<Options>(raw, readOptions)))

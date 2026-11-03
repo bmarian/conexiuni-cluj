@@ -83,7 +83,7 @@ const problemTexts = computed(() =>
 )
 
 const listName = (list: string) =>
-  ({stops: t('favoriteStops'), lines: t('favoriteRoutes'), places: t('favoritePlans'), followed: t('followedLines')})[list] ?? list
+  ({stops: t('favoriteStops'), lines: t('favoriteRoutes'), places: t('favoritePlans'), followed: t('followedLines'), groups: t('lineGroups')})[list] ?? list
 const cityName = (slug: string) => cities.value.find((c) => c.slug === slug)?.name ?? slug
 
 const failureText = computed(

@@ -47,7 +47,7 @@ A message that fails to open, a wrong commit, an unexpected message or a slot th
 | data | `cai-sync/v1/data` | AES-GCM key for records |
 | names | `cai-sync/v1/names` | record name = first 16 bytes of HMAC-SHA256(names, logical name) |
 
-Logical names: `settings`, `options`, `devices`, `city:<slug>`, `news:<slug>`, `recents:<slug>`.
+Logical names: `settings`, `options`, `devices`, `city:<slug>`, `news:<slug>`, `recents:<slug>`, `groups:<slug>`.
 
 - Create: `POST /api/sync/chains {"join", "kind"}` → `{"chain", "epoch": 1, "device", "token"}`.
 - Join: `POST /api/sync/chains/<chain>/devices {"join", "kind"}` → `{"epoch", "device", "token"}`.
@@ -106,10 +106,10 @@ A record for a city the device does not know is left alone.
 ### 4.5 `recents:<slug>`
 
 ```json
-{"v": 1, "recent": [["stop", 391], ["line", 24], ["place", "Iulius Mall", "", 46.77, 23.6]]}
+{"v": 1, "recent": [["stop", 391], ["line", 24], ["group", [[45, "1"], [25, "1"]]], ["place", "Iulius Mall", "", 46.77, 23.6]]}
 ```
 
-`recent`: what the user looked for, newest first, at most 10, no two with the same identity. An item is `["stop", id]`, `["line", route id]` (ids as in §4.3) or `"place"` followed by the fields of a §4.3 place. A device that keeps no places leaves them as last agreed.
+`recent`: what the user looked for, newest first, at most 10, no two with the same identity. An item is `["stop", id]`, `["line", route id]` (ids as in §4.3), `["group", lines]` (lines as in §4.9; its identity is the lines in order) or `"place"` followed by the fields of a §4.3 place. A device that keeps no places leaves them as last agreed.
 
 ### 4.6 `devices`
 
@@ -137,6 +137,14 @@ A device with "Also sync settings" off neither reads nor writes this record.
 
 The settings added after `settings` reached released apps, in a record of their own so those apps keep syncing. `colorfulLines` boolean; `city` the chosen city's slug, text 0–40, `""` for the nearest; `journeyVoice`, `fullScreenAlarms` and `traffic` boolean, or null until a device that has them writes them. A device without such a setting keeps its value as last agreed. A device with "Also sync settings" off neither reads nor writes this record.
 
+### 4.9 `groups:<slug>`
+
+```json
+{"v": 1, "groups": [[[[45, "1"], [25, "1"]], "Acasă"], [[[47, "0"]], "", "Iulius Mall", 46.77, 23.6]]}
+```
+
+`groups`: the saved line groups, at most 50, no two with the same lines. A group is `[lines, name]` or `[lines, name, destination name, lat, lon]`: `lines` 1–10 `[route id, "0" or "1"]` (as in §4.3) in the order they are ridden, no route twice; `name` text 0–40 (`""` = none); the destination is where the planner last took the group, a name text 1–100 and coordinates.
+
 ## 5. Reading and writing
 
 - `GET /api/sync/chains/<chain>` → `{"epoch", "device", "devices": [{"id", "kind", "created", "seen"}], "records": [{"name", "rev"}]}`. Times are Unix seconds; `seen` is the start of the UTC day the device last called.
@@ -148,9 +156,9 @@ The settings added after `settings` reached released apps, in a record of their 
 
 Each device keeps, per record, the last version it and the server agreed on (`base`), empty for a record it never had.
 
-- **Lists**, by identity (a stop's id, a line's pair, a place's four coordinates, a followed name, a device's id): an item is kept if both sides have it, or if one side has it and `base` doesn't. An item in `base` that either side dropped is gone.
+- **Lists**, by identity (a stop's id, a line's pair, a place's four coordinates, a followed name, a device's id, a group's lines in order): an item is kept if both sides have it, or if one side has it and `base` doesn't. An item in `base` that either side dropped is gone.
 - **Order:** the local order wins if, over the items both it and `base` have, it differs from `base` while the remote order over the items both remote and `base` have does not; otherwise the remote order wins. The result is the winning list's kept items in its order, then the kept items only the other list has, in its order.
-- **Fields** (place name and label; device kind, label and key; each setting): the local value if it differs from `base` and the remote value doesn't; otherwise the remote value. An item new on one side takes that side's values; new on both, the remote's.
+- **Fields** (place name and label; device kind, label and key; group name, and group destination as one value; each setting): the local value if it differs from `base` and the remote value doesn't; otherwise the remote value. An item new on one side takes that side's values; new on both, the remote's.
 - **Caps:** if a list ends up over its cap, items only the local side added are dropped from the end until it fits, and the device says what stayed local.
 - **Seen ids:** `seen` merges as a list, then is sorted descending and cut to its cap; nothing is reported.
 - **Recents:** `recent` merges as a list by identity, then the items `base` doesn't have move to the front in the order they ended up, and it is cut to its cap; nothing is reported.
@@ -190,6 +198,6 @@ Leaving: write the `devices` record without this device, then `DELETE /api/sync/
 | 401 answers | 20 per client per 10 minutes |
 | record writes | 120 per device per hour (a rotation counts each record) |
 | devices | 10 per chain |
-| records | 3 × cities + 3 per chain |
+| records | 4 × cities + 3 per chain |
 | storage | above `SYNC_DB_MAX_MB`: no new chains (503), no new or bigger records (409 `full`), no rotation that grows the chain (409 `full`) |
 | unused | a chain no device has called for 365 days is deleted |

@@ -1,6 +1,7 @@
 import type {RouteLocationNormalized, RouteLocationRaw} from 'vue-router'
 import {cityPath} from '@/utils/city.ts'
-import {loadedNetwork, network, stationOf} from '@/utils/network.ts'
+import {loadedNetwork, network, type NetworkIndex, stationOf} from '@/utils/network.ts'
+import {type GroupLine, writeLines} from '@/utils/lineGroups.ts'
 import type {RouteDirection} from '@/types/tranzy.ts'
 
 export type Direction = RouteDirection | 'auto'
@@ -21,6 +22,8 @@ export function stopsPath(stopIds: string[]): string {
 export const stopLocation = (stopId: number | string): RouteLocationRaw => ({path: stopPath(stopId), state: {platform: Number(stopId)}})
 
 export const areaPath = (slug: string) => cityPath(`/spre/${slug}`)
+
+export const groupLocation = (index: NetworkIndex, lines: GroupLine[]): RouteLocationRaw => ({name: 'group', query: {linii: writeLines(index, lines)}})
 
 export function linePath(routeId: number | string, direction: Direction): string {
   const slug = network.value?.routeById.get(Number(routeId))?.slug

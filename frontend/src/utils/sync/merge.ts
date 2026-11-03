@@ -6,6 +6,9 @@ import {
   type DeviceEntry,
   deviceId,
   followedId,
+  type Group,
+  groupId,
+  type GroupsRecord,
   lineId,
   newestSeen,
   type NewsRecord,
@@ -63,6 +66,18 @@ export function mergeList<T>(base: T[], local: T[], remote: T[], id: (item: T) =
 
 function mergePlace(base: Place | undefined, local: Place, remote: Place): Place {
   return {...remote, name: pick(base?.name, local.name, remote.name, !!base), label: pick(base?.label, local.label, remote.label, !!base)}
+}
+
+const toId = (g: Group) => (g.to ? [g.to.name, g.to.lat, g.to.lon].join('\n') : '')
+
+function mergeGroup(base: Group | undefined, local: Group, remote: Group): Group {
+  const to = pick(base && toId(base), toId(local), toId(remote), !!base) === toId(remote) ? remote.to : local.to
+  return {lines: remote.lines, name: pick(base?.name, local.name, remote.name, !!base), ...(to ? {to} : {})}
+}
+
+export function mergeGroups(base: GroupsRecord, local: GroupsRecord, remote: GroupsRecord): {merged: GroupsRecord; dropped: Group[]} {
+  const {merged, dropped} = mergeList(base.groups, local.groups, remote.groups, groupId, mergeGroup, CITY_CAP)
+  return {merged: {groups: merged}, dropped}
 }
 
 function mergeDevice(base: DeviceEntry | undefined, local: DeviceEntry, remote: DeviceEntry): DeviceEntry {

@@ -11,16 +11,17 @@ import {getAvailableBusesForStop} from '@/utils/time.ts'
 import {haversineMeters} from '@/utils/geo.ts'
 import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
-import {type Departure, type GroupLine, type Leg, type LegLine, type LegTimes, legsNear, stopsOf, timeLegs, tripOf} from '@/utils/lineGroups.ts'
+import {useLegsNear} from '@/composables/useLegsNear.ts'
+import {type Departure, type GroupLine, type Leg, type LegLine, type LegTimes, stopsOf, timeLegs, tripOf} from '@/utils/lineGroups.ts'
 
 const legStops = (leg: Leg) => [...leg.lines, ...(leg.alight ?? [])].map((l) => l.stopId)
 
 export function useLineGroup(lines: Ref<GroupLine[]>) {
-  const {userTime, userLocation} = storeToRefs(useUserStore())
+  const {userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
   const now = () => (userTime.value ?? new Date()).getTime()
 
-  const legs = computed<Leg[]>(() => (network.value ? legsNear(network.value, lines.value, userLocation.value) : []))
+  const legs = useLegsNear(lines)
 
   const streamStops = computed(() => [...new Set(legs.value.flatMap(legStops))])
   const tripIds = computed(() => lines.value.map(tripOf))
