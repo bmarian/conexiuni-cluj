@@ -260,6 +260,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function saveGroup(lines: GroupLine[], name?: string) {
+    if (!lines.length) return
     const group = findGroup(lines)
     if (group) {
       group.name = name || undefined

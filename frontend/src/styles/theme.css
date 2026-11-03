@@ -432,6 +432,17 @@
     background: var(--md-scrim);
   }
 
+  .skeleton {
+    display: block;
+    background: var(--md-surface-container);
+  }
+
+  .card-skeleton {
+    height: 64px;
+    margin: 4px 12px;
+    border-radius: 12px;
+  }
+
   .dialog {
     border-radius: 28px;
     background: var(--md-surface-container-high);

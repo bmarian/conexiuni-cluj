@@ -11,14 +11,6 @@ export const tripOf = (line: GroupLine) => `${line.routeId}${line.direction === 
 
 export const groupKey = (lines: GroupLine[]) => lines.map((l) => `${l.routeId}/${l.direction}`).join(',')
 
-export function readKey(index: NetworkIndex, key: string): GroupLine[] {
-  return key.split(',').flatMap((part): GroupLine[] => {
-    const [id, direction] = part.split('/')
-    const routeId = Number(id)
-    return index.routeById.has(routeId) && (direction === '0' || direction === '1') ? [{routeId, direction}] : []
-  })
-}
-
 export function writeLines(index: NetworkIndex, lines: GroupLine[]): string {
   return lines
     .map((l) => {
@@ -49,7 +41,7 @@ export const groupRoutes = (index: NetworkIndex, lines: GroupLine[]): NetworkRou
 
 export const groupLabel = (routes: NetworkRoute[]) => routes.map((r) => r.route_short_name).join(', ')
 
-export function stopsOf(index: NetworkIndex, line: GroupLine): number[] {
+function stopsOf(index: NetworkIndex, line: GroupLine): number[] {
   return index.routeById.get(line.routeId)?.trips.find((t) => t.trip_id === tripOf(line))?.stop_ids ?? []
 }
 

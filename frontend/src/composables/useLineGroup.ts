@@ -15,7 +15,6 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
   const {userLocation, userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
   mapStore.linesApart = false
-  mapStore.lineEnds = true
   mapStore.setHighlightedStops([])
   const hidden = ref(new Set<number>())
   const shown = computed(() => lines.value.filter((l) => !hidden.value.has(l.routeId)))
@@ -34,16 +33,19 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
   })
 
   const streamStops = computed(() => [...new Set(boards.value.filter((id) => id !== undefined))])
-  const tripIds = computed(() => shown.value.map(tripOf))
+  // Every line streams, so hiding one doesn't restart the stream.
+  const tripIds = computed(() => lines.value.map(tripOf))
   const {rows, vehiclesByTrip, asOfMs} = useLive(streamStops, tripIds)
 
-  // Timetables change with the hour.
+  // Timetables change with the hour and with a new bundle.
   let infoHour = ''
+  let infoIndex: NetworkIndex | null = null
   const infos = new Map<number, StopInfo | null>()
   function stopInfo(index: NetworkIndex, stopId: number, at: Date): StopInfo | null {
     const {date, hour} = cityTime(at)
-    if (infoHour !== `${date} ${hour}`) {
+    if (infoHour !== `${date} ${hour}` || infoIndex !== index) {
       infoHour = `${date} ${hour}`
+      infoIndex = index
       infos.clear()
     }
     if (!infos.has(stopId)) infos.set(stopId, buildStopInfo(index, stopId, at))
@@ -110,7 +112,6 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
 
   onUnmounted(() => {
     mapStore.linesApart = true
-    mapStore.lineEnds = false
     mapStore.setShapesToDisplay([])
     mapStore.setVehiclesToDisplay([])
   })

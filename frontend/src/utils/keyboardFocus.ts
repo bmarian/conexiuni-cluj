@@ -89,21 +89,24 @@ function nearestX(items: HTMLElement[], x: number): HTMLElement | undefined {
   return best
 }
 
+// Rows go by vertical centre, so a card and the buttons beside it share one.
+function centerY(el: Element): number {
+  const r = el.getBoundingClientRect()
+  return r.top + r.height / 2
+}
+
 function rowAt(items: HTMLElement[], edge: Edge): HTMLElement[] {
-  const tops = items.map((el) => el.getBoundingClientRect().top)
-  const target = edge === 'start' ? Math.min(...tops) : Math.max(...tops)
-  return items.filter((_, i) => Math.abs(tops[i]! - target) < 4)
+  const middles = items.map(centerY)
+  const target = edge === 'start' ? Math.min(...middles) : Math.max(...middles)
+  return items.filter((_, i) => Math.abs(middles[i]! - target) < 4)
 }
 
 function gridStep(items: HTMLElement[], cur: HTMLElement, dir: 1 | -1): HTMLElement | undefined {
-  const r = cur.getBoundingClientRect()
-  const half = r.height / 2
-  const candidates = items.filter((el) => {
-    const top = el.getBoundingClientRect().top
-    return dir > 0 ? top > r.top + half : top < r.top - half
-  })
+  const middle = centerY(cur)
+  const half = cur.getBoundingClientRect().height / 2
+  const candidates = items.filter((el) => (dir > 0 ? centerY(el) > middle + half : centerY(el) < middle - half))
   if (!candidates.length) return undefined
-  return nearestX(rowAt(candidates, dir > 0 ? 'start' : 'end'), r.left + r.width / 2)
+  return nearestX(rowAt(candidates, dir > 0 ? 'start' : 'end'), centerX(cur))
 }
 
 function activeIn(items: HTMLElement[]): HTMLElement | undefined {

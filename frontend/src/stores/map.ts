@@ -59,7 +59,6 @@ export const useMapStore = defineStore('map', () => {
   const zoomOut = ref(false)
   const directionArrowAtStart = ref(false)
   const linesApart = ref(true)
-  const lineEnds = ref(false)
   const centerOnUser = ref(false)
   const revealDrawer = ref(false)
   const centerRequest = ref(0)
@@ -180,7 +179,6 @@ export const useMapStore = defineStore('map', () => {
     shapesToDisplay,
     lineColors,
     linesApart,
-    lineEnds,
     walkingPolylines,
     zoomOut,
     vehiclesToDisplay,

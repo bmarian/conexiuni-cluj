@@ -143,7 +143,7 @@ The settings added after `settings` reached released apps, in a record of their 
 {"v": 1, "groups": [[[[45, "1"], [25, "1"]], "Acasă"], [[[47, "0"]], "", "Iulius Mall", 46.77, 23.6]]}
 ```
 
-`groups`: the saved line groups, at most 50, no two with the same lines. A group is `[lines, name]` or `[lines, name, destination name, lat, lon]`: `lines` 1–10 `[route id, "0" or "1"]` (as in §4.3) in the order they are ridden, no route twice; `name` text 0–40 (`""` = none); the destination is where the planner last took the group, a name text 1–100 and coordinates.
+`groups`: the saved line groups, at most 50, no two with the same lines. A group is `[lines, name]` or `[lines, name, destination name, lat, lon]`: `lines` 1–10 `[route id, "0" or "1"]` (as in §4.3) in the order they are ridden, no route twice; `name` text 0–40 (`""` = none); the destination, a name text 1–100 and coordinates, comes only from older app versions: current ones never set it.
 
 ## 5. Reading and writing
 

@@ -232,7 +232,7 @@ const chips = computed<ChipAction[]>(() => [
             :shape="shape"
             :label="formatMinutes"
             :favorite="isDepartureFavorite(shape)"
-            :data-kbd-item="`dep-${shape.trip_id}`"
+            :kbd="`dep-${shape.trip_id}`"
             @open="navigateToRoute(shape)"
           />
         </template>
@@ -266,16 +266,5 @@ const chips = computed<ChipAction[]>(() => [
   align-items: flex-start;
   gap: 14px;
   padding: 4px 8px 8px 16px;
-}
-
-.skeleton {
-  display: block;
-  background: var(--md-surface-container);
-}
-
-.card-skeleton {
-  height: 64px;
-  margin: 4px 12px;
-  border-radius: 12px;
 }
 </style>
