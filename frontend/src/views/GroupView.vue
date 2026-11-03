@@ -120,18 +120,22 @@ function editLines() {
 
 const {share} = useShare()
 
-const chips = computed<ChipAction[]>(() => [
-  {
-    label: t(saved.value ? 'saved' : 'save'),
-    icon: saved.value ? FavoriteIcon : FavoriteBorderIcon,
-    selected: !!saved.value,
-    tint: saved.value ? 'var(--md-rose)' : undefined,
-    kbd: 'fav',
-    onClick: toggleSaved,
-  },
-  {label: t('groupLines'), icon: EditIcon, kbd: 'lines', onClick: editLines},
-  {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
-])
+const chips = computed<ChipAction[]>(() => {
+  const edit: ChipAction = {label: t('groupLines'), icon: EditIcon, kbd: 'lines', onClick: editLines}
+  if (network.value && !lines.value.length) return [edit]
+  return [
+    {
+      label: t(saved.value ? 'saved' : 'save'),
+      icon: saved.value ? FavoriteIcon : FavoriteBorderIcon,
+      selected: !!saved.value,
+      tint: saved.value ? 'var(--md-rose)' : undefined,
+      kbd: 'fav',
+      onClick: toggleSaved,
+    },
+    edit,
+    {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
+  ]
+})
 
 const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRename'), icon: EditIcon, onClick: () => (naming.value = true)}] : []))
 </script>
@@ -151,8 +155,12 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
     </header>
     <ActionChips :actions="chips" class="pb-2" />
 
-    <section class="flex flex-col" data-kbd-section="lines" data-kbd-entry="1">
+    <section class="flex flex-col" data-kbd-section="lines" data-kbd-axis="grid" data-kbd-entry="1">
       <DeparturesLabel :text="t('nextDepartures')" />
+      <template v-if="!network">
+        <div v-for="i in 3" :key="i" class="skeleton card-skeleton"></div>
+      </template>
+      <p v-else-if="!rows.length" class="text-body-medium text-on-surface-variant px-4 py-3">{{ t('noResults') }}</p>
       <BusCard
         v-for="(row, i) in rows"
         :key="row.line.routeId"
@@ -160,14 +168,13 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
         :class="{'is-hidden': hidden.has(row.line.routeId)}"
         :style="{'--i': i}"
         :live="!!row.departure && !row.departure.static_time_approximation"
+        :name="row.route.route_short_name"
+        :color="row.route.route_color"
         :destination="row.destination"
         :subtitle="row.from ? t('from', {name: row.from}) : undefined"
-        :data-kbd-item="`line-${row.line.routeId}`"
+        :kbd="`line-${row.line.routeId}`"
         @open="openLine(row.line, row.stopId)"
       >
-        <template #badge>
-          <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="36" :min-width="44" :corner="12" />
-        </template>
         <DepartureTimes v-if="row.departure" :shape="row.departure" :label="label" />
         <span v-else class="text-body-small text-on-surface-variant pt-1">{{ t('groupNoMore') }}</span>
         <template #trailing>
@@ -176,16 +183,18 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
             class="icon-btn text-on-surface-variant"
             :aria-label="t('groupFlip')"
             :title="t('groupFlip')"
-            @click.stop="flip(row.line.routeId)"
+            :data-kbd-item="`flip-${row.line.routeId}`"
+            @click="flip(row.line.routeId)"
           >
             <SwapHorizIcon class="m-icon" />
           </button>
           <button
             type="button"
-            class="icon-btn text-on-surface-variant mr-1"
+            class="icon-btn text-on-surface-variant"
             :aria-label="t(hidden.has(row.line.routeId) ? 'groupShowLine' : 'groupHideLine')"
             :title="t(hidden.has(row.line.routeId) ? 'groupShowLine' : 'groupHideLine')"
-            @click.stop="toggleHidden(row.line.routeId)"
+            :data-kbd-item="`hide-${row.line.routeId}`"
+            @click="toggleHidden(row.line.routeId)"
           >
             <VisibilityOffIcon v-if="hidden.has(row.line.routeId)" class="m-icon" />
             <VisibilityIcon v-else class="m-icon" />

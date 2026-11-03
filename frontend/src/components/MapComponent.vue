@@ -296,6 +296,8 @@ const syncLines = (group: LineGroup) => {
     const id = `${OVERLAY}${group}-${i}`
     const path = pathKey(line.coords)
     const data: Feature<LineString> = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}}
+    const paint = paintOf(line)
+    const dash = drawnDash(line, paint)
     const source = m.getSource<GeoJSONSource>(id)
     if (source && m.getLayer(id)) {
       const was = m.getPaintProperty(id, 'line-color') as string
@@ -308,7 +310,7 @@ const syncLines = (group: LineGroup) => {
       m.setPaintProperty(id, 'line-width', line.width)
       m.setPaintProperty(id, 'line-opacity', line.opacity)
       const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
-      if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
+      if (shown[i] === path && was !== line.color && !dash) sweepLine(m, id, was, line.color, unsaved)
     } else {
       if (source) m.removeSource(id)
       m.addSource(id, {type: 'geojson', data, lineMetrics: true})
@@ -326,11 +328,11 @@ const syncLines = (group: LineGroup) => {
           'line-opacity-transition': {duration: 0, delay: 0},
         },
       }
-      if (line.dash) layer.paint!['line-dasharray'] = line.dash
+      if (dash) layer.paint!['line-dasharray'] = dash
       m.addLayer(layer, slotId(group))
     }
-    paintShape(m, id, line)
-    if (!shown.includes(path) && !line.dash) grow(m, id, line)
+    paintShape(m, id, line, paint)
+    if (!shown.includes(path) && !dash) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
   drawnFavorites = new Set(favoritesStore.favoriteLineNames)
@@ -385,9 +387,10 @@ const paintOf = (line: LineSpec): Paint | undefined => {
 }
 
 // In traffic colours a line drops the dash that told it apart from another line of its colour.
-const paintShape = (m: MapLibreMap, id: string, line: LineSpec) => {
-  const paint = paintOf(line)
-  m.setPaintProperty(id, 'line-dasharray', paint ? undefined : line.dash)
+const drawnDash = (line: LineSpec, paint: Paint | undefined) => (paint ? undefined : line.dash)
+
+const paintShape = (m: MapLibreMap, id: string, line: LineSpec, paint = paintOf(line)) => {
+  m.setPaintProperty(id, 'line-dasharray', drawnDash(line, paint))
   paintLine(m, id, paint)
 }
 
@@ -1338,7 +1341,6 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   const drawnPaths = new Set<string>()
   const groupedStarts = new Map<string, GroupedStart>()
   const hasHighlights = highlightedStops.value.length > 0
-  const markEnds = !hasHighlights || mapStore.lineEnds
   const colorCounts = getShapeColorCounts(newShapes)
   const colorSeen = new Map<string, number>()
 
@@ -1373,7 +1375,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       }
     }
 
-    if (!markEnds) continue
+    if (hasHighlights) continue
 
     const startPoint = latLngs[0]
     if (startPoint && displayShape.route_short_name) {
@@ -1386,7 +1388,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
   lines.shapes = shapeLines
   syncLines('shapes')
-  if (markEnds) addGroupedStartMarkers(m, groupedStarts)
+  if (!hasHighlights) addGroupedStartMarkers(m, groupedStarts)
   if (zoomOut.value) zoomOut.value = false
 }
 
