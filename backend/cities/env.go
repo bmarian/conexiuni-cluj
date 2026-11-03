@@ -6,6 +6,7 @@ import (
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/feeds/gtfs"
 	"conexiuni-cluj/feeds/gtfsrt"
+	"conexiuni-cluj/feeds/modeshift"
 	"conexiuni-cluj/feeds/news"
 	"conexiuni-cluj/feeds/traces"
 	"conexiuni-cluj/feeds/tranzy"
@@ -108,6 +109,20 @@ func (e *Env) GTFSTimetables(url string) feeds.Timetables {
 // GTFSRo is the zip external.gtfs.ro keeps for a city.
 func GTFSRo(city string) string {
 	return "https://external.gtfs.ro/" + city + "/" + strings.ToUpper(city) + ".zip"
+}
+
+// Modeshift is a city on a Modeshift journey planner: its GTFS export and its buses, by the trips they name.
+func (e *Env) Modeshift(base string) (Feeds, error) {
+	store, err := e.Store()
+	if err != nil {
+		return Feeds{}, err
+	}
+	static := gtfs.New(base+"/transport/gtfs/gtfs.zip", e.Config.TimetableRefresh, store)
+	static.ListRuns = true
+	return Feeds{
+		Static:   feeds.WithCredit(static, feeds.Credit{Name: "Modeshift", URL: "https://www.modeshift.com/"}),
+		Realtime: modeshift.New(base+"/transport/planner/vehicles", store, store),
+	}, nil
 }
 
 func (e *Env) GTFSRT(url string) feeds.Realtime {

@@ -3,19 +3,36 @@ package main
 import (
 	"conexiuni-cluj/calendar/calendarscolar"
 	"conexiuni-cluj/cities"
+	"conexiuni-cluj/cities/arad"
+	"conexiuni-cluj/cities/bistrita"
+	"conexiuni-cluj/cities/bocsa"
 	"conexiuni-cluj/cities/botosani"
+	"conexiuni-cluj/cities/braila"
 	"conexiuni-cluj/cities/bucuresti"
+	"conexiuni-cluj/cities/buzau"
+	"conexiuni-cluj/cities/calarasi"
 	"conexiuni-cluj/cities/cluj"
 	"conexiuni-cluj/cities/constanta"
 	"conexiuni-cluj/cities/craiova"
+	"conexiuni-cluj/cities/dej"
+	"conexiuni-cluj/cities/drobeta"
+	"conexiuni-cluj/cities/focsani"
 	"conexiuni-cluj/cities/galati"
+	"conexiuni-cluj/cities/giurgiu"
 	"conexiuni-cluj/cities/iasi"
+	"conexiuni-cluj/cities/medias"
+	"conexiuni-cluj/cities/nasaud"
 	"conexiuni-cluj/cities/oradea"
 	"conexiuni-cluj/cities/ploiesti"
 	"conexiuni-cluj/cities/sibiu"
+	"conexiuni-cluj/cities/sighisoara"
+	"conexiuni-cluj/cities/sinaia"
 	"conexiuni-cluj/cities/suceava"
 	"conexiuni-cluj/cities/targumures"
 	"conexiuni-cluj/cities/timisoara"
+	"conexiuni-cluj/cities/tulcea"
+	"conexiuni-cluj/cities/vaslui"
+	"conexiuni-cluj/cities/vicovudesus"
 	"conexiuni-cluj/config"
 	"conexiuni-cluj/database"
 	"conexiuni-cluj/live"
@@ -32,6 +49,9 @@ var allCities = []cities.Spec{
 	cluj.City, iasi.City, botosani.City, oradea.City, constanta.City,
 	sibiu.City, bucuresti.City, timisoara.City, suceava.City,
 	ploiesti.City, craiova.City, targumures.City, galati.City,
+	arad.City, braila.City, buzau.City, focsani.City, bistrita.City, tulcea.City,
+	drobeta.City, vaslui.City, sinaia.City, sighisoara.City, nasaud.City, calarasi.City,
+	dej.City, medias.City, giurgiu.City, bocsa.City, vicovudesus.City,
 }
 
 func buildCities(cfg *config.Config) ([]*cities.City, error) {

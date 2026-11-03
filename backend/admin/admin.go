@@ -107,15 +107,16 @@ func RequireSession(token string) fiber.Handler {
 }
 
 type adminCity struct {
-	Slug    string `json:"slug"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	Enabled  bool   `json:"enabled"`
+	Provider string `json:"provider"`
 }
 
 func adminCityList(registry *cities.Registry) []adminCity {
 	out := make([]adminCity, 0, len(registry.All()))
 	for _, eng := range registry.All() {
-		out = append(out, adminCity{Slug: eng.Slug, Name: eng.Name, Enabled: eng.Enabled()})
+		out = append(out, adminCity{Slug: eng.Slug, Name: eng.Name, Enabled: eng.Enabled(), Provider: eng.Provider()})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out

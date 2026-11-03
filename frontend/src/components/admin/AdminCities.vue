@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
+import AdminSub from '@/components/admin/AdminSub.vue'
 import SwitchToggle from '@/components/ui/SwitchToggle.vue'
 
-type AdminCity = {slug: string; name: string; enabled: boolean}
+type AdminCity = {slug: string; name: string; enabled: boolean; provider: string}
 
 const emit = defineEmits<{changed: []}>()
 
@@ -10,6 +11,20 @@ const list = ref<AdminCity[]>([])
 const loadError = ref('')
 const busy = ref('')
 const switchError = ref('')
+
+const byName = new Intl.Collator(undefined, {sensitivity: 'base'})
+
+// Grouped by the source the data is credited to, uncredited cities last.
+const groups = computed(() => {
+  const sorted = [...list.value].sort((a, b) => Number(!a.provider) - Number(!b.provider) || byName.compare(a.provider, b.provider) || byName.compare(a.name, b.name))
+  const out: Array<{name: string; cities: AdminCity[]}> = []
+  for (const city of sorted) {
+    const name = city.provider || 'Other sources'
+    if (out.at(-1)?.name !== name) out.push({name, cities: []})
+    out.at(-1)!.cities.push(city)
+  }
+  return out
+})
 
 async function load() {
   try {
@@ -50,12 +65,17 @@ onMounted(load)
 
 <template>
   <p v-if="loadError" class="admin-note admin-bad">Could not load ({{ loadError }})</p>
-  <ul v-else class="cities">
-    <li v-for="city in list" :key="city.slug">
-      <span class="text-body-large truncate" :class="{'text-on-surface-variant': !city.enabled}">{{ city.name }}</span>
-      <SwitchToggle :checked="city.enabled" :disabled="!!busy" :aria-label="city.name" @change="setEnabled(city, $event)" />
-    </li>
-  </ul>
+  <template v-else>
+    <section v-for="group in groups" :key="group.name">
+      <AdminSub :text="group.name" />
+      <ul class="cities">
+        <li v-for="city in group.cities" :key="city.slug">
+          <span class="text-body-large truncate" :class="{'text-on-surface-variant': !city.enabled}">{{ city.name }}</span>
+          <SwitchToggle :checked="city.enabled" :disabled="!!busy" :aria-label="city.name" @change="setEnabled(city, $event)" />
+        </li>
+      </ul>
+    </section>
+  </template>
   <p v-if="switchError" class="admin-note admin-bad">{{ switchError }}</p>
 </template>
 

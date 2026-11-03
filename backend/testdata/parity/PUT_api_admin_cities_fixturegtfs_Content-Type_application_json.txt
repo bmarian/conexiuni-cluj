@@ -2,10 +2,10 @@ PUT /api/admin/cities/fixturegtfs
 > Content-Type: application/json
 200
 Cache-Control: no-store
-Content-Length: 113
+Content-Length: 141
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"113-703369275"
+Etag: W/"141-2717031074"
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -15,11 +15,13 @@ X-Frame-Options: DENY
  {
   "slug": "fixture",
   "name": "Fixture",
-  "enabled": true
+  "enabled": true,
+  "provider": ""
  },
  {
   "slug": "fixturegtfs",
   "name": "Fixture GTFS",
-  "enabled": false
+  "enabled": false,
+  "provider": ""
  }
 ]
