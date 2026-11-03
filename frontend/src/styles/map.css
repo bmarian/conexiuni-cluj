@@ -28,7 +28,6 @@
 .map-tooltip-detached::before {
   display: none;
 }
-
 .station-card {
   display: flex;
   flex-direction: column;
@@ -405,6 +404,7 @@
 @media (prefers-reduced-motion: reduce) {
   .marker-enter .marker-body,
   .marker-leave .marker-body,
+  .stop-label,
   .stop-cluster-pill.is-opening,
   .stop-spider-item,
   .stop-spider-legs,
@@ -422,8 +422,15 @@
   margin-top: 0;
 }
 
-.stop-spider-item:hover .stop-cluster-label {
+.stop-spider-item:hover .stop-cluster-label,
+.marker-clickable:hover .stop-label {
   text-decoration: underline;
+}
+
+.stop-label {
+  position: absolute;
+  margin: 0;
+  animation: marker-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root.dark .stop-spider-legs {
