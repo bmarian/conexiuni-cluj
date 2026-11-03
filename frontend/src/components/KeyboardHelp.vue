@@ -5,6 +5,7 @@ import {useKbdLayer, useKbdShortcuts, useKeyboardNav} from '@/composables/useKey
 import {CloseIcon} from '@/utils/icons.ts'
 import {useOnline} from '@/composables/useOnline'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
+import {cityInfo} from '@/utils/city.ts'
 
 const {t} = useI18n()
 const routeUpdates = useRouteUpdatesStore()
@@ -51,6 +52,7 @@ const groups = computed(() => [
       ...(routeUpdates.hasFeed && isOnline.value ? [{keys: ['n'], label: t('news')}] : []),
       {keys: ['c'], label: t('city')},
       {keys: ['m'], label: t('kbdDrawer')},
+      ...(cityInfo()?.traffic ? [{keys: ['T'], label: t('traffic')}] : []),
       {keys: ['?'], label: t('kbdHelp')},
     ],
   },

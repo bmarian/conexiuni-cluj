@@ -31,7 +31,6 @@ import {
   PaletteIcon,
   PlaceIcon,
   SearchIcon,
-  TrafficIcon,
   TuneIcon,
   WarningAmberIcon,
 } from "@/utils/icons.ts";
@@ -143,15 +142,6 @@ async function choose(slug: string | null) {
         :checked="settings.colorfulLines"
         data-kbd-item="colorful-lines"
         @change="settings.setColorfulLines"
-      />
-      <ToggleRow
-        v-if="info?.traffic"
-        :icon="TrafficIcon"
-        :title="t('traffic')"
-        :description="t('trafficDesc')"
-        :checked="settings.traffic"
-        data-kbd-item="traffic"
-        @change="settings.setTraffic"
       />
     </div>
 
