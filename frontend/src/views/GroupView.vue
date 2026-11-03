@@ -3,19 +3,24 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
+import {storeToRefs} from 'pinia'
+import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
+import {useRouteStore} from '@/stores/route.ts'
 import {useLineGroup} from '@/composables/useLineGroup.ts'
+import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useShare} from '@/composables/useShare.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import ActionChips from '@/components/ui/ActionChips.vue'
-import SubLabel from '@/components/ui/SubLabel.vue'
-import ListRow from '@/components/ui/ListRow.vue'
+import DeparturesLabel from '@/components/ui/DeparturesLabel.vue'
+import DepartureTimes from '@/components/ui/DepartureTimes.vue'
+import BusCard from '@/components/rows/BusCard.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
-import {network} from '@/utils/network.ts'
-import {type GroupLine, groupKey, groupLabel, groupRoutes, readLines, writeLines} from '@/utils/lineGroups.ts'
-import {directedDestination} from '@/utils/time.ts'
+import {buildStopInfo, network} from '@/utils/network.ts'
+import {type GroupLine, groupKey, groupLabel, groupRoutes, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
+import {directedDestination, formatMinutesFromNow} from '@/utils/time.ts'
 import {groupLocation, linePath} from '@/utils/pagePaths.ts'
 import {EditIcon, FavoriteBorderIcon, FavoriteIcon, ShareIcon, SwapHorizIcon, VisibilityIcon, VisibilityOffIcon} from '@/utils/icons.ts'
 
@@ -23,6 +28,8 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const favorites = useFavoritesStore()
+const routeStore = useRouteStore()
+const {userTime} = storeToRefs(useUserStore())
 
 const raw = computed(() => String(route.query.linii ?? ''))
 const lines = computed(() => (network.value ? readLines(network.value, raw.value) : []))
@@ -30,7 +37,8 @@ const key = computed(() => groupKey(lines.value))
 const saved = computed(() => favorites.findGroup(lines.value))
 const routes = computed(() => (network.value ? groupRoutes(network.value, lines.value) : []))
 
-const {hidden, toggleHidden} = useLineGroup(lines)
+const {hidden, toggleHidden, boards, departures, asOfMs} = useLineGroup(lines)
+provideLiveBeat(asOfMs)
 
 // The shared drawer scroller keeps the picker's offset.
 const view = ref<HTMLElement>()
@@ -54,12 +62,27 @@ useHead(() => ({
   meta: [{name: 'robots', content: 'noindex'}],
 }))
 
+const stopName = (stopId: number | undefined) => (stopId === undefined ? '' : (network.value?.stopById.get(stopId)?.stop_name ?? ''))
+
 const rows = computed(() =>
-  lines.value.flatMap((line) => {
+  lines.value.flatMap((line, i) => {
     const r = network.value?.routeById.get(line.routeId)
-    return r ? [{line, route: r, destination: directedDestination(r.route_long_name, line.direction)}] : []
+    if (!r) return []
+    const stopId = boards.value[i]
+    return [
+      {
+        line,
+        route: r,
+        stopId,
+        from: stopName(stopId),
+        departure: departures.value[i] ?? null,
+        destination: directedDestination(r.route_long_name, line.direction),
+      },
+    ]
   }),
 )
+
+const label = (minutes: number) => formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 
 function flip(routeId: number) {
   const index = network.value
@@ -70,7 +93,12 @@ function flip(routeId: number) {
   void router.replace(groupLocation(index, next))
 }
 
-const openLine = (line: GroupLine) => void router.push(linePath(line.routeId, line.direction))
+function openLine(line: GroupLine, stopId: number | undefined) {
+  const index = network.value
+  const info = index && stopId !== undefined ? buildStopInfo(index, stopId)?.shapes_info.find((s) => s.route_id === line.routeId) : undefined
+  if (info) routeStore.setSelectedRoute(info, tripOf(line), String(stopId), stopName(stopId))
+  void router.push(linePath(line.routeId, line.direction))
+}
 
 const naming = ref(false)
 
@@ -124,20 +152,32 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
     <ActionChips :actions="chips" class="pb-2" />
 
     <section class="flex flex-col" data-kbd-section="lines" data-kbd-entry="1">
-      <SubLabel :text="t('groupOnMap')" />
-      <ListRow
-        v-for="row in rows"
+      <DeparturesLabel :text="t('nextDepartures')" />
+      <BusCard
+        v-for="(row, i) in rows"
         :key="row.line.routeId"
-        :title="`→ ${row.destination}`"
+        class="cascade"
         :class="{'is-hidden': hidden.has(row.line.routeId)}"
+        :style="{'--i': i}"
+        :live="!!row.departure && !row.departure.static_time_approximation"
+        :destination="row.destination"
+        :subtitle="row.from ? t('from', {name: row.from}) : undefined"
         :data-kbd-item="`line-${row.line.routeId}`"
-        @open="openLine(row.line)"
+        @open="openLine(row.line, row.stopId)"
       >
-        <template #icon>
-          <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="28" :min-width="40" :corner="6" />
+        <template #badge>
+          <LineBadge :name="row.route.route_short_name" :color="row.route.route_color" :height="36" :min-width="44" :corner="12" />
         </template>
+        <DepartureTimes v-if="row.departure" :shape="row.departure" :label="label" />
+        <span v-else class="text-body-small text-on-surface-variant pt-1">{{ t('groupNoMore') }}</span>
         <template #trailing>
-          <button type="button" class="icon-btn text-on-surface-variant" :aria-label="t('groupFlip')" :title="t('groupFlip')" @click.stop="flip(row.line.routeId)">
+          <button
+            type="button"
+            class="icon-btn text-on-surface-variant"
+            :aria-label="t('groupFlip')"
+            :title="t('groupFlip')"
+            @click.stop="flip(row.line.routeId)"
+          >
             <SwapHorizIcon class="m-icon" />
           </button>
           <button
@@ -151,7 +191,7 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
             <VisibilityIcon v-else class="m-icon" />
           </button>
         </template>
-      </ListRow>
+      </BusCard>
     </section>
     <div class="h-6"></div>
 

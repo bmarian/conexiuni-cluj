@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest'
 import {NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
-import {divergingStops, groupKey, readLines, writeLines} from '@/utils/lineGroups.ts'
+import {boardingStop, groupKey, readLines, writeLines} from '@/utils/lineGroups.ts'
 
-const stop = (stop_id: number, station_id = stop_id) => ({stop_id, stop_name: `S${stop_id}`, stop_lat: 46.77 + stop_id / 1000, stop_lon: 23.6, station_id})
+const stop = (stop_id: number) => ({stop_id, stop_name: `S${stop_id}`, stop_lat: 46.77 + stop_id / 1000, stop_lon: 23.6, station_id: stop_id})
 const route = (route_id: number, slug: string, trips: Record<string, number[]>) => ({
   route_id,
   agency_id: 1,
@@ -17,20 +17,12 @@ const route = (route_id: number, slug: string, trips: Record<string, number[]>) 
   trips: Object.entries(trips).map(([trip_id, stop_ids]) => ({trip_id, stop_ids, stop_sequences: stop_ids.map((_, i) => i)})),
 })
 
-// A rides 1→6; B and C join at 4 and split after 8; E rides 3, 4, 9 against A going back.
 const index = new NetworkIndex({
   version: '',
   static_version: '',
   generated_at: '',
-  stops: [...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15].map((id) => stop(id)), stop(14, 4)],
-  routes: [
-    route(1, 'a', {'1_0': [6, 5, 4, 3, 2, 1], '1_1': [1, 2, 3, 4, 5, 6]}),
-    route(2, 'b', {'2_1': [7, 4, 8, 9]}),
-    route(3, 'c', {'3_1': [10, 4, 8, 11]}),
-    route(4, 'd', {'4_0': [12, 13]}),
-    route(5, 'e', {'5_0': [3, 4, 9]}),
-    route(6, 'f', {'6_0': [14, 15]}),
-  ],
+  stops: [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13].map((id) => stop(id)),
+  routes: [route(1, 'a', {'1_0': [6, 5, 4, 3, 2, 1], '1_1': [1, 2, 3, 4, 5, 6]}), route(2, 'b', {'2_1': [7, 4, 8, 9]}), route(4, 'd', {'4_0': [12, 13]})],
 } as unknown as NetworkBundle)
 
 describe('line group addresses', () => {
@@ -46,25 +38,13 @@ describe('line group addresses', () => {
   })
 })
 
-describe('stations where lines split', () => {
-  it('marks where lines riding together join or split, nothing where they cross or run the other way', () => {
-    expect(
-      divergingStops(index, [
-        {routeId: 2, direction: '1'},
-        {routeId: 3, direction: '1'},
-      ]),
-    ).toEqual([4, 8])
-    expect(
-      divergingStops(index, [
-        {routeId: 1, direction: '1'},
-        {routeId: 2, direction: '1'},
-      ]),
-    ).toEqual([])
-    expect(
-      divergingStops(index, [
-        {routeId: 1, direction: '0'},
-        {routeId: 5, direction: '0'},
-      ]),
-    ).toEqual([])
+describe('boarding stop', () => {
+  const near = (stopId: number) => ({latitude: 46.77 + stopId / 1000, longitude: 23.6})
+
+  it('boards at the stop nearest you, never at the last one, and at the first without a location', () => {
+    const a = {routeId: 1, direction: '1' as const}
+    expect(boardingStop(index, a, near(3))).toBe(3)
+    expect(boardingStop(index, a, near(6))).toBe(5)
+    expect(boardingStop(index, a, null)).toBe(1)
   })
 })
