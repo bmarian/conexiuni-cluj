@@ -307,7 +307,6 @@ const syncLines = (group: LineGroup) => {
       m.setPaintProperty(id, 'line-color', line.color)
       m.setPaintProperty(id, 'line-width', line.width)
       m.setPaintProperty(id, 'line-opacity', line.opacity)
-      m.setPaintProperty(id, 'line-dasharray', line.dash)
       const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
       if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
     } else {
@@ -330,7 +329,7 @@ const syncLines = (group: LineGroup) => {
       if (line.dash) layer.paint!['line-dasharray'] = line.dash
       m.addLayer(layer, slotId(group))
     }
-    paintLine(m, id, paintOf(line))
+    paintShape(m, id, line)
     if (!shown.includes(path) && !line.dash) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
@@ -385,10 +384,20 @@ const paintOf = (line: LineSpec): Paint | undefined => {
   return stretches?.length ? trafficPaint(stretches, line.coords, line.color) : undefined
 }
 
+// In traffic colours a line drops the dash that told it apart from another line of its colour.
+const paintShape = (m: MapLibreMap, id: string, line: LineSpec) => {
+  const paint = paintOf(line)
+  m.setPaintProperty(id, 'line-dasharray', paint ? undefined : line.dash)
+  paintLine(m, id, paint)
+}
+
 const syncTraffic = () => {
   const m = map.value
   if (!m || !styleReady) return
-  lines.shapes.forEach((line, i) => paintLine(m, `${OVERLAY}shapes-${i}`, paintOf(line)))
+  lines.shapes.forEach((line, i) => {
+    const id = `${OVERLAY}shapes-${i}`
+    if (m.getLayer(id)) paintShape(m, id, line)
+  })
 }
 
 const applyStyle = () => {
@@ -1329,6 +1338,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   const drawnPaths = new Set<string>()
   const groupedStarts = new Map<string, GroupedStart>()
   const hasHighlights = highlightedStops.value.length > 0
+  const markEnds = !hasHighlights || mapStore.lineEnds
   const colorCounts = getShapeColorCounts(newShapes)
   const colorSeen = new Map<string, number>()
 
@@ -1363,7 +1373,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       }
     }
 
-    if (hasHighlights) continue
+    if (!markEnds) continue
 
     const startPoint = latLngs[0]
     if (startPoint && displayShape.route_short_name) {
@@ -1376,7 +1386,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
   lines.shapes = shapeLines
   syncLines('shapes')
-  if (!hasHighlights) addGroupedStartMarkers(m, groupedStarts)
+  if (markEnds) addGroupedStartMarkers(m, groupedStarts)
   if (zoomOut.value) zoomOut.value = false
 }
 

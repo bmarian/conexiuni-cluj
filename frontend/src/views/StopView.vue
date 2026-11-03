@@ -27,7 +27,7 @@ import ActionChips from '@/components/ui/ActionChips.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import DepartureCard from '@/components/rows/DepartureCard.vue'
-import DeparturesLabel from '@/components/ui/DeparturesLabel.vue'
+import LiveDot from '@/components/ui/LiveDot.vue'
 import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useDueArrivals} from '@/composables/useDueArrivals.ts'
 import {displayColor} from '@/utils/lineColor.ts'
@@ -218,7 +218,10 @@ const chips = computed<ChipAction[]>(() => [
       />
 
       <section class="flex flex-col" data-kbd-section="departures" data-kbd-entry="1">
-        <DeparturesLabel :text="t('nextDepartures')" />
+        <div class="departures-label">
+          <LiveDot />
+          <h2 class="text-title-small text-on-surface-variant">{{ t('nextDepartures') }}</h2>
+        </div>
         <template v-if="isComputingDepartures">
           <div v-for="i in 3" :key="i" class="skeleton card-skeleton"></div>
         </template>
@@ -266,5 +269,23 @@ const chips = computed<ChipAction[]>(() => [
   align-items: flex-start;
   gap: 14px;
   padding: 4px 8px 8px 16px;
+}
+
+.departures-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.skeleton {
+  display: block;
+  background: var(--md-surface-container);
+}
+
+.card-skeleton {
+  height: 64px;
+  margin: 4px 12px;
+  border-radius: 12px;
 }
 </style>

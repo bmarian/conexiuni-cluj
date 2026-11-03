@@ -55,6 +55,7 @@ export {default as SwapHorizIcon} from '@material-design-icons/svg/round/swap_ho
 export {default as SwapVertIcon} from '@material-design-icons/svg/round/swap_vert.svg?component'
 export {default as TuneIcon} from '@material-design-icons/svg/round/tune.svg?component'
 export {default as UTurnIcon} from '@material-design-icons/svg/round/u_turn_left.svg?component'
+export {default as VisibilityIcon} from '@material-design-icons/svg/round/visibility.svg?component'
 export {default as VisibilityOffIcon} from '@material-design-icons/svg/round/visibility_off.svg?component'
 export {default as WarningAmberIcon} from '@material-design-icons/svg/round/warning_amber.svg?component'
 export {default as WatchIcon} from '@material-design-icons/svg/round/watch.svg?component'

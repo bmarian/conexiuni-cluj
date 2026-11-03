@@ -19,4 +19,15 @@ defineProps<{routes: Pick<Route, 'route_id' | 'route_short_name' | 'route_color'
   flex-wrap: wrap;
   gap: 4px;
 }
+
+.station-line {
+  min-width: 28px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 900;
+  text-align: center;
+}
 </style>

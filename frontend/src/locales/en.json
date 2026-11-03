@@ -358,10 +358,7 @@
   "createGroup": "Create group",
   "groupLines": "Lines",
   "groupChosen": "Chosen",
-  "groupConnects": "Connects with {line}",
   "groupOften": "Lines you use often",
-  "groupMeetsAt": "at {name}",
-  "groupChange": "Change at {name}",
   "groupShow": "Show",
   "groupSearch": "Search for a line",
   "groupNameTitle": "Name the group",
@@ -369,7 +366,7 @@
   "groupRename": "Rename",
   "groupFlip": "Switch direction",
   "groupRemoveLine": "Remove line",
-  "groupThen": "then",
-  "groupOr": "or",
-  "groupNoMore": "No more today"
+  "groupOnMap": "On the map",
+  "groupShowLine": "Show on the map",
+  "groupHideLine": "Hide from the map"
 }

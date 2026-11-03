@@ -31,11 +31,6 @@ import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from '@/utils/plan.ts'
-import {useLegsNear} from '@/composables/useLegsNear.ts'
-import {readLines, tripOf} from '@/utils/lineGroups.ts'
-import {legsChain} from '@/utils/groupChain.ts'
-import {network} from '@/utils/network.ts'
-import LineChain from '@/components/ui/LineChain.vue'
 import {reversePlace, type Place} from '@/utils/places.ts'
 import {canonicalUrl, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
@@ -365,14 +360,6 @@ onUnmounted(() => {
   if (refreshTimer) clearTimeout(refreshTimer)
 })
 
-const groupLines = computed(() => (network.value ? readLines(network.value, String(route.value.query.linii ?? '')) : []))
-const groupLegs = useLegsNear(groupLines)
-const groupChain = computed(() => (network.value ? legsChain(network.value, groupLegs.value) : []))
-
-watch([groupLines, destLat, destLon, destName], ([lines, lat, lon, name]) => {
-  if (lines.length && !isNaN(lat) && !isNaN(lon) && name) favoritesStore.setGroupDestination(lines, {name, lat, lon})
-})
-
 const hasValidDest = computed(() => destName.value.length > 0)
 const hasValidCoords = computed(() => !isNaN(destLat.value) && !isNaN(destLon.value))
 const isGpsResolving = computed(() => isLocating.value && !userLocation.value && !customOrigin.value)
@@ -392,7 +379,7 @@ function planOrigin(): {lat: number; lon: number} | null {
 function getQueryKey() {
   const origin = planOrigin()
   if (!origin || isNaN(destLat.value) || isNaN(destLon.value)) return null
-  return planQuery(origin, {lat: destLat.value, lon: destLon.value}, timeMode.value, timeValue.value, groupLines.value.map(tripOf))
+  return planQuery(origin, {lat: destLat.value, lon: destLon.value}, timeMode.value, timeValue.value)
 }
 
 function clearPlanSelection() {
@@ -923,7 +910,7 @@ const chips = computed<ChipAction[]>(() => [
   <div ref="view" class="plan-view flex flex-col">
     <SheetTopBar :title="favoriteLabel ?? (hasValidDest ? destName : null)" />
 
-    <ViewErrorState v-if="!hasValidCoords && !groupLines.length" />
+    <ViewErrorState v-if="!hasValidCoords" />
 
     <template v-else>
       <header class="header" data-kbd-section="rename" data-kbd-axis="x">
@@ -942,7 +929,6 @@ const chips = computed<ChipAction[]>(() => [
           <h1 v-else class="text-title-large font-bold truncate" :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
             {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
           </h1>
-          <LineChain v-if="groupChain.length" :legs="groupChain" small class="pt-1" />
         </div>
         <template v-if="isRenaming">
           <button

@@ -358,10 +358,7 @@
   "createGroup": "Creează grup",
   "groupLines": "Linii",
   "groupChosen": "Alese",
-  "groupConnects": "Se leagă cu {line}",
   "groupOften": "Liniile des folosite",
-  "groupMeetsAt": "la {name}",
-  "groupChange": "Schimbi la {name}",
   "groupShow": "Arată",
   "groupSearch": "Caută o linie",
   "groupNameTitle": "Denumește grupul",
@@ -369,7 +366,7 @@
   "groupRename": "Redenumește",
   "groupFlip": "Schimbă sensul",
   "groupRemoveLine": "Scoate linia",
-  "groupThen": "apoi",
-  "groupOr": "sau",
-  "groupNoMore": "Nu mai pleacă azi"
+  "groupOnMap": "Pe hartă",
+  "groupShowLine": "Arată pe hartă",
+  "groupHideLine": "Ascunde de pe hartă"
 }

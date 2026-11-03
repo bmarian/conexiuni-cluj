@@ -1,72 +1,28 @@
-import {computed, onUnmounted, watch, watchEffect, type Ref} from 'vue'
-import {storeToRefs} from 'pinia'
-import {useUserStore} from '@/stores/user.ts'
-import {type DisplayShape, type HighlightedStop, useMapStore} from '@/stores/map.ts'
-import {liveRowKey, useLive} from '@/composables/useLive.ts'
-import {DEPARTURES_SHOWN, SCHEDULE_HORIZON_MIN} from '@/composables/useStopDepartures.ts'
-import type {StopInfo} from '@/types/tranzy.ts'
-import {buildStopInfo, network, type NetworkIndex} from '@/utils/network.ts'
-import {cityTime} from '@/utils/cityClock.ts'
-import {getAvailableBusesForStop} from '@/utils/time.ts'
-import {haversineMeters} from '@/utils/geo.ts'
-import {WALKING_SPEED_M_PER_MIN} from '@/utils/trips.ts'
+import {computed, onUnmounted, ref, watch, watchEffect, type Ref} from 'vue'
+import {type DisplayShape, useMapStore} from '@/stores/map.ts'
+import {useLive} from '@/composables/useLive.ts'
+import {network} from '@/utils/network.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
-import {useLegsNear} from '@/composables/useLegsNear.ts'
-import {type Departure, type GroupLine, type Leg, type LegLine, type LegTimes, stopsOf, timeLegs, tripOf} from '@/utils/lineGroups.ts'
-
-const legStops = (leg: Leg) => [...leg.lines, ...(leg.alight ?? [])].map((l) => l.stopId)
+import {divergingStops, type GroupLine, tripOf} from '@/utils/lineGroups.ts'
 
 export function useLineGroup(lines: Ref<GroupLine[]>) {
-  const {userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
   mapStore.linesApart = false
-  const now = () => (userTime.value ?? new Date()).getTime()
+  mapStore.lineEnds = true
+  const hidden = ref(new Set<number>())
+  const shown = computed(() => lines.value.filter((l) => !hidden.value.has(l.routeId)))
 
-  const legs = useLegsNear(lines)
-
-  const streamStops = computed(() => [...new Set(legs.value.flatMap(legStops))])
-  const tripIds = computed(() => lines.value.map(tripOf))
-  const {rows, vehiclesByTrip, asOfMs} = useLive(streamStops, tripIds)
-
-  // Timetables change with the hour.
-  let infoHour = ''
-  const infos = new Map<number, StopInfo | null>()
-  function stopInfo(index: NetworkIndex, stopId: number, at: Date): StopInfo | null {
-    const {date, hour} = cityTime(at)
-    if (infoHour !== `${date} ${hour}`) {
-      infoHour = `${date} ${hour}`
-      infos.clear()
-    }
-    if (!infos.has(stopId)) infos.set(stopId, buildStopInfo(index, stopId, at))
-    return infos.get(stopId)!
+  const toggleHidden = (routeId: number) => {
+    const next = new Set(hidden.value)
+    if (!next.delete(routeId)) next.add(routeId)
+    hidden.value = next
   }
 
-  function busesAt(line: LegLine): Departure[] {
-    const index = network.value
-    if (!index) return []
-    const tripId = tripOf(line)
-    const row = asOfMs.value === null ? undefined : rows.value.get(liveRowKey(tripId, line.stopId))
-    if (row) return row.entries.map((e) => ({routeId: line.routeId, at: e.at * 1000, live: e.live, vehicleId: e.vehicle_id}))
-    const at = new Date(now())
-    const info = stopInfo(index, line.stopId, at)
-    const here = info ? getAvailableBusesForStop(info, at, {maxMinutes: SCHEDULE_HORIZON_MIN, tripId}) : []
-    return (here[0]?.next_times ?? []).map((time) => ({routeId: line.routeId, at: at.getTime() + time.minutes * 60_000, live: false}))
-  }
-
-  function walkMs(from: number, to: number): number {
-    const a = network.value?.stopById.get(from)
-    const b = network.value?.stopById.get(to)
-    if (from === to || !a || !b) return 0
-    return (haversineMeters(a.stop_lat, a.stop_lon, b.stop_lat, b.stop_lon) / WALKING_SPEED_M_PER_MIN) * 60_000
-  }
-
-  const times = computed<LegTimes[]>(() => {
-    void userTime.value
-    return timeLegs(legs.value, busesAt, busesAt, walkMs, DEPARTURES_SHOWN)
-  })
+  const tripIds = computed(() => shown.value.map(tripOf))
+  const {vehiclesByTrip} = useLive(ref([]), tripIds)
 
   const displayShapes = computed<DisplayShape[]>(() =>
-    lines.value.flatMap((line) => {
+    shown.value.flatMap((line) => {
       const route = network.value?.routeById.get(line.routeId)
       return route
         ? [
@@ -88,11 +44,12 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
     async (shapes) => {
       const key = shapes.map((s) => s.trip_id).join(',')
       if (key === drawnKey) return
+      const first = !drawnKey
       drawnKey = key
       const loaded = await mapStore.requestShapes(shapes)
       if (key !== drawnKey) return
       mapStore.setLoadedShapes(loaded.filter(([, points]) => points.length))
-      mapStore.zoomOut = true
+      if (first) mapStore.zoomOut = true
     },
     {immediate: true},
   )
@@ -109,23 +66,16 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
 
   watchEffect(() => {
     const index = network.value
-    const marked = new Set(legs.value.flatMap(legStops).map(String))
-    const highlights = new Map<string, HighlightedStop>()
-    for (const line of lines.value) {
-      for (const id of index ? stopsOf(index, line) : []) {
-        const stopId = String(id)
-        if (!highlights.has(stopId)) highlights.set(stopId, {stopId, color: marked.has(stopId) ? 'green' : 'gray'})
-      }
-    }
-    mapStore.setHighlightedStops([...highlights.values()])
+    mapStore.setHighlightedStops(index ? divergingStops(index, shown.value).map((stop) => ({stopId: String(stop), color: 'gray' as const})) : [])
   })
 
   onUnmounted(() => {
     mapStore.linesApart = true
+    mapStore.lineEnds = false
     mapStore.setHighlightedStops([])
     mapStore.setShapesToDisplay([])
     mapStore.setVehiclesToDisplay([])
   })
 
-  return {legs, times, asOfMs}
+  return {hidden, toggleHidden}
 }
