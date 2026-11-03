@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted} from 'vue'
+import {computed, nextTick, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
 import Draggable from 'vuedraggable'
 import {useFavoritesStore} from '@/stores/favorites.ts'
-import type {FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
+import type {FavoriteGroup, FavoritePlan, FavoriteRoute} from '@/stores/favorites.ts'
+import {useUserStore} from '@/stores/user.ts'
 import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
@@ -22,6 +23,11 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
+import LineChain from '@/components/ui/LineChain.vue'
+import GroupNameDialog from '@/components/GroupNameDialog.vue'
+import {chainOf, groupKey, type GroupLine, legsNear, readKey, writeLines} from '@/utils/lineGroups.ts'
+import {compareUse, dismissUse, readUsage, totalUses, whenOf} from '@/utils/lineUsage.ts'
+import {displayColor} from '@/utils/lineColor.ts'
 import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {stopLocation} from '@/utils/pagePaths.ts'
@@ -48,7 +54,8 @@ useHead(() => ({
   link: [{rel: 'canonical', href: canonicalUrl(cityPath('/'))}],
 }))
 const favoritesStore = useFavoritesStore()
-const {favoriteRoutes, favoriteStopIds, favoritePlans, isHydrated} = storeToRefs(favoritesStore)
+const {favoriteRoutes, favoriteStopIds, favoritePlans, favoriteGroups, isHydrated} = storeToRefs(favoritesStore)
+const {userLocation} = storeToRefs(useUserStore())
 
 const {routes, fetchRoutes} = useRoutesApi()
 const {stops, fetchStops} = useStopsApi()
@@ -112,8 +119,45 @@ const hasFavorites = computed(() => {
     routes.value.length && stops.value.length
       ? favoriteRouteChips.value.size + favoriteStops.value.length
       : favoriteRoutes.value.length + favoriteStopIds.value.length
-  return shown > 0 || (isOnline.value && favoritePlans.value.length > 0)
+  return shown > 0 || favoriteGroups.value.length > 0 || (isOnline.value && favoritePlans.value.length > 0)
 })
+
+const groupUsage = ref(readUsage('groups'))
+
+const suggested = computed<GroupLine[] | null>(() => {
+  const index = network.value
+  if (!index) return null
+  const saved = new Set(favoriteGroups.value.map((g) => groupKey(g.lines)))
+  const when = whenOf(Date.now())
+  const best = Object.entries(groupUsage.value)
+    .filter(([key, usage]) => !usage.dismissed && !saved.has(key) && totalUses(usage) > 1)
+    .sort(([, a], [, b]) => compareUse(a, b, when))[0]
+  const lines = best ? readKey(index, best[0]) : []
+  return lines.length ? lines : null
+})
+
+const shownGroups = computed(() => [...favoriteGroups.value.map((g) => g.lines), ...(suggested.value ? [suggested.value] : [])])
+const groupChains = computed(() => {
+  const index = network.value
+  if (!index) return []
+  return shownGroups.value.map((lines) => chainOf(index, legsNear(index, lines, userLocation.value), (name, color) => displayColor(name, color, true)))
+})
+
+function openGroup(lines: GroupLine[]) {
+  if (network.value) void router.push({name: 'group', query: {linii: writeLines(network.value, lines)}})
+}
+
+const namingSuggested = ref(false)
+
+function saveSuggested(name: string) {
+  if (suggested.value) favoritesStore.saveGroup(suggested.value, name || undefined)
+}
+
+function dismissSuggested() {
+  if (!suggested.value) return
+  dismissUse('groups', groupKey(suggested.value))
+  groupUsage.value = readUsage('groups')
+}
 
 const recents = useRecents(RECENTS_SHOWN)
 
@@ -147,6 +191,11 @@ const stopFavoritesModel = computed<number[]>({
   set: (newIds) => favoritesStore.reorderStopIds([...newIds]),
 })
 
+const groupFavoritesModel = computed<FavoriteGroup[]>({
+  get: () => favoriteGroups.value,
+  set: (groups) => favoritesStore.reorderGroups([...groups]),
+})
+
 const planFavoritesModel = computed<FavoritePlan[]>({
   get: () => favoritePlans.value,
   set: (newPlans) => favoritesStore.reorderPlans([...newPlans]),
@@ -155,6 +204,7 @@ const planFavoritesModel = computed<FavoritePlan[]>({
 const kbd = useKeyboardNav()
 
 const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${group.routeId}`
+const favGroupItemKey = (group: FavoriteGroup) => `fav-group-${groupKey(group.lines)}`
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
@@ -168,7 +218,9 @@ function removeFocused(): boolean {
   const stopId = favoriteStopIds.value.find((id) => favStopItemKey(id) === key)
   const plan = favoritePlans.value.find((p) => favPlanItemKey(p) === key)
   const recent = recents.value.find((item) => recentItemKey(item) === key)
-  if (group) removeRouteGroup(group)
+  const lineGroup = favoriteGroups.value.find((g) => favGroupItemKey(g) === key)
+  if (lineGroup) favoritesStore.removeGroup(lineGroup.lines)
+  else if (group) removeRouteGroup(group)
   else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
   else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
   else if (recent) favoritesStore.removeRecent(recent.recent)
@@ -194,6 +246,7 @@ function moveFocused(delta: 1 | -1): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
   const moved =
+    swapInList(favoriteGroups.value, favGroupItemKey, key, delta, (l) => favoritesStore.reorderGroups(l)) ||
     swapInList(favoriteRouteGroups.value, favRouteItemKey, key, delta, (l) => favoritesStore.reorderRoutes(l.flatMap((g) => g.favorites))) ||
     swapInList(favoriteStopIds.value, favStopItemKey, key, delta, (l) => favoritesStore.reorderStopIds(l)) ||
     swapInList(favoritePlans.value, favPlanItemKey, key, delta, (l) => favoritesStore.reorderPlans(l))
@@ -220,7 +273,45 @@ const dragOptions = {
 <template>
   <div class="home-view">
     <template v-if="isHydrated">
-      <section v-if="favoriteRouteChips.size" class="pt-3" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
+      <section v-if="favoriteGroups.length" class="pt-3" data-kbd-section="fav-groups" data-kbd-entry="1">
+        <SubLabel :text="t('lineGroups')" />
+        <Draggable v-model="groupFavoritesModel" :item-key="(g: FavoriteGroup) => groupKey(g.lines)" tag="div" v-bind="dragOptions">
+          <template #item="{element: group, index: i}">
+            <ListRow
+              :title="group.name"
+              :remove-label="t('removeFromFavorites')"
+              :data-kbd-item="favGroupItemKey(group)"
+              @open="openGroup(group.lines)"
+              @remove="favoritesStore.removeGroup(group.lines)"
+            >
+              <template #lines>
+                <LineChain :legs="groupChains[i] ?? []" small />
+              </template>
+            </ListRow>
+          </template>
+        </Draggable>
+      </section>
+
+      <section v-if="suggested" :class="favoriteGroups.length ? 'pt-2' : 'pt-3'" data-kbd-section="group-suggestion" data-kbd-entry="1">
+        <SubLabel :text="t('groupSuggested')" />
+        <ListRow :remove-label="t('groupNotNow')" data-kbd-item="group-suggestion" @open="openGroup(suggested)" @remove="dismissSuggested">
+          <template #lines>
+            <LineChain :legs="groupChains[favoriteGroups.length] ?? []" small />
+          </template>
+          <template #trailing>
+            <button type="button" class="btn btn-text shrink-0" @click.stop="namingSuggested = true">{{ t('save') }}</button>
+          </template>
+        </ListRow>
+        <GroupNameDialog v-model:open="namingSuggested" :chain="groupChains[favoriteGroups.length] ?? []" @save="saveSuggested" />
+      </section>
+
+      <section
+        v-if="favoriteRouteChips.size"
+        :class="favoriteGroups.length || suggested ? 'pt-2' : 'pt-3'"
+        data-kbd-section="fav-routes"
+        data-kbd-axis="grid"
+        data-kbd-entry="1"
+      >
         <SubLabel :text="t('favoriteRoutes')" />
         <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
           <template #item="{element: group}">

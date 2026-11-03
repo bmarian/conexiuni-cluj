@@ -51,6 +51,7 @@ export {default as SendIcon} from '@material-design-icons/svg/round/send.svg?com
 export {default as SettingsIcon} from '@material-design-icons/svg/round/settings.svg?component'
 export {default as ShareIcon} from '@material-design-icons/svg/round/share.svg?component'
 export {default as SmartphoneIcon} from '@material-design-icons/svg/round/smartphone.svg?component'
+export {default as SwapHorizIcon} from '@material-design-icons/svg/round/swap_horiz.svg?component'
 export {default as SwapVertIcon} from '@material-design-icons/svg/round/swap_vert.svg?component'
 export {default as TuneIcon} from '@material-design-icons/svg/round/tune.svg?component'
 export {default as UTurnIcon} from '@material-design-icons/svg/round/u_turn_left.svg?component'

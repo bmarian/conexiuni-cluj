@@ -6,7 +6,7 @@ import {MODE_ICON} from '@/utils/modeIcons.ts'
 import type {Mode} from '@/utils/modes.ts'
 import {delayed, EMPHASIZED_DECELERATE, paced, pop, reducedMotion, squash} from '@/utils/motion.ts'
 
-const props = defineProps<{text: string; live?: boolean; extra?: boolean; due?: boolean; mode?: Mode}>()
+const props = defineProps<{text: string; live?: boolean; extra?: boolean; due?: boolean; mode?: Mode; line?: {name: string; color: string}; missed?: boolean}>()
 
 const pill = ref<HTMLElement>()
 const vehicle = ref<SVGSVGElement>()
@@ -24,14 +24,16 @@ watch(
 </script>
 
 <template>
-  <span ref="pill" class="time-pill" :class="{'is-live': live, 'is-extra': extra && !live, 'is-due': due}">
+  <span ref="pill" class="time-pill" :class="{'is-live': live, 'is-extra': extra && !live, 'is-due': due, 'has-line': line, 'is-missed': missed}">
+    <span v-if="line" class="station-line" :style="{backgroundColor: line.color}">{{ line.name }}</span>
     <span v-if="live" class="glyph">
       <Transition name="shrink">
         <RealtimeIcon v-if="!due" />
       </Transition>
       <svg v-if="due" ref="vehicle" class="fill-current" viewBox="0 0 24 24" aria-hidden="true" v-html="MODE_ICON[mode ?? 'bus']"></svg>
     </span>
-    <Ticker :text="text" />
+    <s v-if="missed">{{ text }}</s>
+    <Ticker v-else :text="text" />
   </span>
 </template>
 
@@ -57,6 +59,17 @@ watch(
 .time-pill.is-extra {
   background: transparent;
   font-weight: 500;
+}
+
+.time-pill.has-line {
+  gap: 5px;
+  padding-left: 3px;
+}
+
+.time-pill.is-missed {
+  background: transparent;
+  font-weight: 500;
+  opacity: 0.55;
 }
 
 .glyph {

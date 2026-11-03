@@ -9,14 +9,16 @@ import {network} from '@/utils/network.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {CITY_CAP, RECENT_CAP, roundCoordinate} from '@/utils/sync/records.ts'
+import {groupKey, type GroupLine} from '@/utils/lineGroups.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
 
-export const FAVORITE_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'recents:plans']
+export const FAVORITE_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'favorites:groups', 'recents:plans']
 const routesKey = (city?: string) => cacheKey('favorites:routes', city)
 const stopsKey = (city?: string) => cacheKey('favorites:stops', city)
 const plansKey = (city?: string) => cacheKey('favorites:plans', city)
 const recentPlansKey = (city?: string) => cacheKey('recents:plans', city)
+const groupsKey = (city?: string) => cacheKey('favorites:groups', city)
 
 export interface FavoritePlan {
   name: string
@@ -34,6 +36,12 @@ export function recentKey(r: Recent): string {
   if ('stopId' in r) return `stop-${r.stopId}`
   if ('routeId' in r) return `route-${r.routeId}`
   return `${r.lat}_${r.lon}_${r.originLat ?? ''}_${r.originLon ?? ''}`
+}
+
+export interface FavoriteGroup {
+  lines: GroupLine[]
+  name?: string
+  destination?: {name: string; lat: number; lon: number}
 }
 
 export interface FavoriteRoute {
@@ -71,6 +79,19 @@ export function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
     if (fav && !parsed.some((p) => sameRoute(p, fav))) parsed.push(fav)
   }
   return parsed
+}
+
+export function parseGroups(raw: unknown): FavoriteGroup[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item): FavoriteGroup[] => {
+    const lines = parseFavoriteRoutes(item?.lines).map((r) => ({routeId: r.routeId, direction: r.direction}))
+    if (!lines.length) return []
+    const group: FavoriteGroup = {lines}
+    if (typeof item.name === 'string' && item.name.trim()) group.name = item.name.trim()
+    const to = item.destination
+    if (typeof to?.name === 'string' && Number.isFinite(to.lat) && Number.isFinite(to.lon)) group.destination = {name: to.name, lat: to.lat, lon: to.lon}
+    return [group]
+  })
 }
 
 export function parseStopIds(raw: unknown): number[] {
@@ -117,6 +138,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const favoriteStopIds = ref<number[]>([])
   const favoritePlans = ref<FavoritePlan[]>([])
   const recents = ref<Recent[]>([])
+  const favoriteGroups = ref<FavoriteGroup[]>([])
   const isHydrated = ref(false)
   const favoriteLineNames = computed(() => new Set(favoriteRoutes.value.map((r) => network.value?.routeById.get(r.routeId)?.route_short_name ?? '')))
 
@@ -126,6 +148,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       const stops = JSON.parse(localStorage.getItem(stopsKey()) ?? 'null')
       const plans = JSON.parse(localStorage.getItem(plansKey()) ?? 'null')
       const savedRecents = JSON.parse(localStorage.getItem(recentPlansKey()) ?? 'null')
+      favoriteGroups.value = parseGroups(JSON.parse(localStorage.getItem(groupsKey()) ?? 'null'))
       favoriteRoutes.value = parseFavoriteRoutes(routes)
       favoriteStopIds.value = Array.isArray(stops) ? stops : []
       favoritePlans.value = Array.isArray(plans) ? plans : []
@@ -147,6 +170,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function persistPlans() {
     localStorage.setItem(plansKey(), JSON.stringify(favoritePlans.value))
+  }
+
+  function persistGroups() {
+    localStorage.setItem(groupsKey(), JSON.stringify(favoriteGroups.value))
   }
 
   function persistRecents() {
@@ -220,6 +247,50 @@ export const useFavoritesStore = defineStore('favorites', () => {
       plan.label = label || undefined
       persistPlans()
     }
+  }
+
+  function findGroup(lines: GroupLine[]): FavoriteGroup | undefined {
+    const key = groupKey(lines)
+    return favoriteGroups.value.find((g) => groupKey(g.lines) === key)
+  }
+
+  function saveGroup(lines: GroupLine[], name?: string) {
+    const group = findGroup(lines)
+    if (group) {
+      group.name = name || undefined
+    } else {
+      if (atCap(favoriteGroups.value)) return
+      favoriteGroups.value.push(name ? {lines, name} : {lines})
+    }
+    persistGroups()
+  }
+
+  function removeGroup(lines: GroupLine[]) {
+    const key = groupKey(lines)
+    favoriteGroups.value = favoriteGroups.value.filter((g) => groupKey(g.lines) !== key)
+    persistGroups()
+  }
+
+  function replaceGroupLines(from: GroupLine[], lines: GroupLine[]) {
+    const group = findGroup(from)
+    if (!group) return
+    const taken = findGroup(lines)
+    if (taken && taken !== group) favoriteGroups.value = favoriteGroups.value.filter((g) => g !== taken)
+    group.lines = lines
+    persistGroups()
+  }
+
+  function setGroupDestination(lines: GroupLine[], to: {name: string; lat: number; lon: number}) {
+    const group = findGroup(lines)
+    const known = group?.destination
+    if (!group || (known?.lat === to.lat && known.lon === to.lon && known.name === to.name)) return
+    group.destination = to
+    persistGroups()
+  }
+
+  function reorderGroups(groups: FavoriteGroup[]) {
+    favoriteGroups.value = groups
+    persistGroups()
   }
 
   function reorderRoutes(newRoutes: FavoriteRoute[]) {
@@ -305,6 +376,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     favoriteLineNames,
     favoriteStopIds,
     favoritePlans,
+    favoriteGroups,
     recents,
     isHydrated,
     hydrate,
@@ -318,6 +390,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
     togglePlanFavorite,
     findPlanFavorite,
     renamePlanFavorite,
+    findGroup,
+    saveGroup,
+    removeGroup,
+    replaceGroupLines,
+    setGroupDestination,
+    reorderGroups,
     reorderRoutes,
     reorderStopIds,
     reorderPlans,

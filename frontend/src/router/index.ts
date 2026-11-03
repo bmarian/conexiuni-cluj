@@ -14,6 +14,8 @@ const SettingsView = () => import('@/views/SettingsView.vue')
 const NewsView = () => import('@/views/NewsView.vue')
 const DestinationsView = () => import('@/views/DestinationsView.vue')
 const DestinationView = () => import('@/views/DestinationView.vue')
+const GroupView = () => import('@/views/GroupView.vue')
+const GroupPickView = () => import('@/views/GroupPickView.vue')
 
 let uaVisualTransition = false
 window.addEventListener('popstate', (e) => {
@@ -105,6 +107,16 @@ const router = createRouter({
           name: 'route-id',
           component: RouteView,
           props: true,
+        },
+        {
+          path: 'grup',
+          name: 'group',
+          component: GroupView,
+        },
+        {
+          path: 'grup/alege',
+          name: 'group-pick',
+          component: GroupPickView,
         },
         {
           path: 'plan',

@@ -12,7 +12,8 @@ import {getRouteIdFromTripId} from '@/utils/trips.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {buildStopInfo, network} from '@/utils/network.ts'
 
-const DEPARTURES_SHOWN = 3
+export const DEPARTURES_SHOWN = 3
+export const SCHEDULE_HORIZON_MIN = 480
 
 export function useStopDepartures(stopId: Ref<string>) {
   const userStore = useUserStore()
@@ -111,7 +112,7 @@ export function useStopDepartures(stopId: Ref<string>) {
   const shapesComingToTheStopBasedOnTimetable = computed(() => {
     const byTrip = new Map<string, VehiclesInStop>()
     for (const info of stopInfos.value) {
-      const here = getAvailableBusesForStop(info, userTime.value || new Date(), {maxMinutes: 480, limit: DEPARTURES_SHOWN + 1})
+      const here = getAvailableBusesForStop(info, userTime.value || new Date(), {maxMinutes: SCHEDULE_HORIZON_MIN, limit: DEPARTURES_SHOWN + 1})
       for (const shape of here) {
         const known = byTrip.get(shape.trip_id)
         if (!known || shape.minutes_left < known.minutes_left) byTrip.set(shape.trip_id, {...shape, stop_id: info.stop_id})
