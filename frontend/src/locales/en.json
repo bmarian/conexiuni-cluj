@@ -353,7 +353,6 @@
   "appDontAsk": "Don't ask again",
   "yes": "Yes",
   "traffic": "Traffic",
-  "trafficDesc": "Lines are colored by traffic conditions.",
   "lineGroups": "Line groups",
   "createGroup": "Create group",
   "groupLines": "Lines",
