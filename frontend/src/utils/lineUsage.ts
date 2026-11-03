@@ -4,9 +4,8 @@ import {cityTime} from '@/utils/cityClock.ts'
 export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night'
 export type When = {part: DayPart; weekend: boolean}
 
-export type Usage = {counts: Record<string, number>; last: number; dismissed?: boolean}
+export type Usage = {counts: Record<string, number>; last: number}
 export type UsageLog = Record<string, Usage>
-export type UsageKind = 'lines' | 'groups'
 
 export function dayPart(hour: number): DayPart {
   if (hour < 5) return 'night'
@@ -22,40 +21,33 @@ export function whenOf(at: number): When {
 
 const slot = (when: When) => `${when.part}/${when.weekend ? 'weekend' : 'weekday'}`
 
-const storageKey = (kind: UsageKind) => cacheKey(`usage:${kind}`)
+const storageKey = () => cacheKey('usage:lines')
 
-export function readUsage(kind: UsageKind): UsageLog {
+export function readUsage(): UsageLog {
   try {
-    const raw: unknown = JSON.parse(localStorage.getItem(storageKey(kind)) ?? 'null')
+    const raw: unknown = JSON.parse(localStorage.getItem(storageKey()) ?? 'null')
     return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as UsageLog) : {}
   } catch {
     return {}
   }
 }
 
-function writeUsage(kind: UsageKind, log: UsageLog) {
+function writeUsage(log: UsageLog) {
   try {
-    localStorage.setItem(storageKey(kind), JSON.stringify(log))
+    localStorage.setItem(storageKey(), JSON.stringify(log))
   } catch {
     /* noop */
   }
 }
 
-export function recordUse(kind: UsageKind, key: string, at = Date.now()) {
-  const log = readUsage(kind)
+export function recordUse(key: string, at = Date.now()) {
+  const log = readUsage()
   const usage = log[key] ?? {counts: {}, last: 0}
   const s = slot(whenOf(at))
   usage.counts[s] = (usage.counts[s] ?? 0) + 1
   usage.last = at
   log[key] = usage
-  writeUsage(kind, log)
-}
-
-export function dismissUse(kind: UsageKind, key: string) {
-  const log = readUsage(kind)
-  if (!log[key]) return
-  log[key].dismissed = true
-  writeUsage(kind, log)
+  writeUsage(log)
 }
 
 export const totalUses = (usage: Usage | undefined) => Object.values(usage?.counts ?? {}).reduce((a, b) => a + b, 0)

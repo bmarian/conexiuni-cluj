@@ -20,7 +20,6 @@ import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {buildStopInfo, network} from '@/utils/network.ts'
 import {chainText, groupKey, type Leg, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
 import {legsChain} from '@/utils/groupChain.ts'
-import {recordUse} from '@/utils/lineUsage.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {cityClock} from '@/utils/cityClock.ts'
 import {directedDestination, formatMinutesFromNow} from '@/utils/time.ts'
@@ -54,9 +53,7 @@ onMounted(() => {
 watch(
   key,
   (k) => {
-    if (!k) return
-    recordUse('groups', k)
-    favorites.addRecent({lines: lines.value})
+    if (k) favorites.addRecent({lines: lines.value})
   },
   {immediate: true},
 )
@@ -76,7 +73,7 @@ function cardOf(leg: Leg) {
   const index = network.value
   const cardLines = leg.lines.flatMap((l) => {
     const r = index?.routeById.get(l.routeId)
-    return r ? [{routeId: l.routeId, name: r.route_short_name, color: displayColor(r.route_short_name, r.route_color, true), routeType: r.route_type}] : []
+    return r ? [{routeId: l.routeId, name: r.route_short_name, color: displayColor(r.route_short_name, r.route_color), routeType: r.route_type}] : []
   })
   const destinations = leg.lines.map((l) => directedDestination(index?.routeById.get(l.routeId)?.route_long_name ?? '', l.direction))
   return {lines: cardLines, destination: [...new Set(destinations)].join(' / '), from: stopName(leg.lines[0]!.stopId)}
