@@ -1,8 +1,9 @@
 import {describe, expect, it} from 'vitest'
-import {createExpression, latest} from '@maplibre/maplibre-gl-style-spec'
+import {createExpression, latest, type StylePropertySpecification} from '@maplibre/maplibre-gl-style-spec'
 import {solid, step} from '@/utils/lineSweep.ts'
 
-const valid = (paint: Parameters<typeof step>[0]) => createExpression(step(paint), latest.paint_line['line-gradient']).result
+const gradient = latest.paint_line['line-gradient'] as StylePropertySpecification
+const valid = (paint: Parameters<typeof step>[0]) => createExpression(step(paint), 'paint.line-gradient', gradient).result
 
 describe('step', () => {
   it('is a gradient MapLibre accepts for a single colour', () => {
