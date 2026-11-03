@@ -49,10 +49,11 @@ import {growLine, type Paint, paintLine, stopSweep, sweepLine} from '@/utils/lin
 import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
 import {paced, reducedMotion, squash} from '@/utils/motion.ts'
-import {type ClusterBox, groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
-import {labelBox, labelSidesClear, type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
+import {groupName, lngPerPixel, modeMask, modesIn, StopClusters, type StopGroup, stationRank} from '@/utils/stopClusters.ts'
+import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.ts'
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {useTraffic} from '@/composables/useTraffic.ts'
+import {createStationLabels} from '@/utils/stationLabels.ts'
 import {trafficPaint} from '@/utils/traffic.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
@@ -139,7 +140,7 @@ const vehicleMarkers = new Map<number, ShownVehicle>()
 let highlightMarkers: Marker[] = []
 const lineReveal = new LineReveal()
 let tooltip: ReturnType<typeof createTooltip> | null = null
-const stationLabels = new Map<string, {marker: HTMLElement; label: HTMLElement}>()
+const stationLabels = createStationLabels()
 
 let isFirstLocationHandle = true
 let hasFittedForContent = false
@@ -1017,8 +1018,7 @@ const openStopId = () => (route.name === 'stop' ? stationProps(route).stopId : (
 
 const openStopsIds = () => (route.name === 'stops' ? stationsProps(route).stopIds : route.name === 'stops-id' ? String(route.params.stopIds) : '')
 
-// The marker on the map that draws this station alone, if there is one.
-const ownMarker = (id: string): Marker | undefined => {
+const soloMarker = (id: string): Marker | undefined => {
   const own = shownStops.get(id)
   if (own) return own
   const i = drawn?.index.stations.indexOf.get(id)
@@ -1026,52 +1026,22 @@ const ownMarker = (id: string): Marker | undefined => {
   return group && shownStops.get(group.key)
 }
 
-// The stops list's stations wear their names beside their markers, as in a spider, once the map settles.
 const labelStations = () => {
   const m = map.value
   if (!m) return
-  const wanted = new Map<string, Marker>()
-  for (const id of openStopsIds().split(',')) {
-    const marker = stopData.has(id) ? ownMarker(id) : undefined
-    if (marker) wanted.set(id, marker)
-  }
-  for (const [id, {marker, label}] of stationLabels) {
-    if (wanted.get(id)?.getElement() === marker && label.parentElement === marker) continue
-    label.remove()
-    marker.style.zIndex = ''
-    stationLabels.delete(id)
-  }
-  if (!wanted.size || !drawn || m.isMoving()) return
-  const {labelWidth} = drawn
+  const stations = openStopsIds()
+    .split(',')
+    .flatMap((id) => {
+      const marker = stopData.has(id) ? soloMarker(id) : undefined
+      return marker ? [{id, name: stopData.get(id)!.name, marker}] : []
+    })
+  stationLabels.keep(stations)
+  if (!stations.length || !drawn || m.isMoving()) return
   const obstacles = [
     ...[...shownStops.values()].map((marker) => marker.getElement().getBoundingClientRect()),
     ...[...(spider?.marker.getElement().querySelectorAll('.stop-spider-item') ?? [])].map((el) => el.getBoundingClientRect()),
   ]
-  const items = [...wanted].map(([id, marker]) => {
-    const r = marker.getElement().getBoundingClientRect()
-    const {x, y} = marker.getOffset()
-    const icon: ClusterBox = {size: [r.width, r.height], anchor: [-x, -y]}
-    return {id, el: marker.getElement(), station: {x: r.left - x, y: r.top - y}, icon, labelWidth: labelWidth(stopData.get(id)!.name)}
-  })
-  const sides = labelSidesClear(items, obstacles, visibleArea())
-  items.forEach(({id, el, icon, labelWidth: width}, i) => {
-    let shown = stationLabels.get(id)
-    if (!shown) {
-      const label = document.createElement('div')
-      label.className = 'stop-cluster-label stop-label'
-      label.textContent = stopData.get(id)!.name
-      el.append(label)
-      el.style.zIndex = '900'
-      stationLabels.set(id, (shown = {marker: el, label}))
-    }
-    const side = sides[i]!
-    const box = labelBox({x: icon.anchor[0], y: icon.anchor[1]}, icon, width, side)
-    const {style} = shown.label
-    style.top = `${box.top}px`
-    style.left = side === 'right' ? `${box.left}px` : side === 'below' ? '50%' : ''
-    style.right = side === 'left' ? `${icon.size[0] - box.right}px` : ''
-    style.translate = side === 'below' ? '-50% 0' : ''
-  })
+  stationLabels.place(stations, drawn.labelWidth, obstacles, visibleArea())
 }
 
 const stopMarker = (id: string): Marker | undefined => {

@@ -54,13 +54,12 @@ export type SpiderItem = {station: {x: number; y: number}; icon: ClusterBox; lab
 
 export type LabelSide = SpiderLeg['side'] | 'below'
 
-// Same as .stop-spider-item's gap, .stop-cluster-label's line-height and its margin under a group's pill in map.css.
+// Same as .stop-spider-item's gap and .stop-cluster-label's line-height and margin in map.css.
 const LABEL_GAP_PX = 4
 const LABEL_HEIGHT_PX = 13
 const LABEL_UNDER_PX = 2
 const RINGS = 3
 
-// Beside the icon as in a spider item, or under it as under a group's pill.
 export function labelBox({x, y}: {x: number; y: number}, icon: ClusterBox, labelWidth: number, side: LabelSide): Rect {
   const box = boxAt(x, y, icon)
   if (side === 'below') {
@@ -77,21 +76,22 @@ const itemBoxes = ({icon, labelWidth}: SpiderItem, {x, y, side}: SpiderLeg): Rec
 const overlap = (a: Rect, b: Rect) =>
   Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
 
-// Stations that stay where they are: each label on the first side clear of the obstacles, the labels before it and the area's edge,
-// away from the other stations first as spider legs point, then the other side, then under the icon; else the least covered.
+const coveredBy = (boxes: Rect[], taken: Rect[]) => boxes.reduce((sum, box) => taken.reduce((s, t) => s + overlap(box, t), sum), 0)
+
+// Away from the other stations first, then the other side, then under the icon; else the least covered.
 export function labelSidesClear(items: SpiderItem[], obstacles: Rect[], area: Rect): LabelSide[] {
   const taken = [...obstacles]
   const middle = items.reduce((sum, item) => sum + item.station.x, 0) / items.length
   return items.map(({station, icon, labelWidth}) => {
     const out: LabelSide = station.x < middle ? 'left' : 'right'
-    let best: {side: LabelSide; covered: number} | null = null
+    let best: {side: LabelSide; box: Rect; covered: number} | null = null
     for (const side of [out, out === 'left' ? 'right' : 'left', 'below'] as const) {
-      const r = labelBox(station, icon, labelWidth, side)
-      const covered = taken.reduce((sum, t) => sum + overlap(r, t), (r.right - r.left) * (r.bottom - r.top) - overlap(r, area))
-      if (!best || covered < best.covered) best = {side, covered}
+      const box = labelBox(station, icon, labelWidth, side)
+      const covered = coveredBy([box], taken) + (box.right - box.left) * (box.bottom - box.top) - overlap(box, area)
+      if (!best || covered < best.covered) best = {side, box, covered}
       if (!covered) break
     }
-    taken.push(labelBox(station, icon, labelWidth, best!.side))
+    taken.push(best!.box)
     return best!.side
   })
 }
@@ -108,8 +108,7 @@ export function spiderLegsClear(items: SpiderItem[], obstacles: Rect[]): SpiderL
       for (let k = 0; k * step <= Math.PI; k++) {
         for (const turn of k ? [k * step, -k * step] : [0]) {
           const l = leg(r, toward + turn)
-          const boxes = itemBoxes(item, l)
-          const covered = taken.reduce((sum, t) => sum + overlap(boxes[0]!, t) + overlap(boxes[1]!, t), 0)
+          const covered = coveredBy(itemBoxes(item, l), taken)
           const far = Math.hypot(l.x - item.station.x, l.y - item.station.y)
           if (!best || covered < best.covered || (covered === best.covered && far < best.far)) best = {leg: l, covered, far}
         }
