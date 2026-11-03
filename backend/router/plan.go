@@ -1,6 +1,7 @@
 package router
 
 import (
+	"maps"
 	"math"
 	"sort"
 	"strconv"
@@ -26,6 +27,8 @@ type Query struct {
 	Runs int
 	// The day's last buses: walking the whole way only counts when there are none.
 	Last bool
+	// The only trips it may ride; empty rides any.
+	Only map[string]bool
 }
 
 // Leg is a walk or a ride; stop IDs are 0 at the origin and the destination.
@@ -91,7 +94,9 @@ func (n *Network) Plan(q Query) []Option {
 	if q.ArriveBy {
 		walk.Runs[0] = Run{Depart: start - walk.Legs[0].Secs, Arrive: start}
 	}
+	kept := n.notRidden(q.Only)
 	find := func(skip map[int32]bool) []Option {
+		skip = joined(kept, skip)
 		var journeys []journey
 		if q.ArriveBy {
 			for _, j := range n.search(&n.backward, egress, access, -start, walk.Legs[0].Secs, skip) {
@@ -577,4 +582,29 @@ func (n *Network) QuietEnd(at int64) int64 {
 		end = at + 24*3600
 	}
 	return end
+}
+
+func (n *Network) notRidden(only map[string]bool) map[int32]bool {
+	if len(only) == 0 {
+		return nil
+	}
+	skip := make(map[int32]bool)
+	for i, p := range n.forward.patterns {
+		if !only[p.key] {
+			skip[int32(i)] = true
+		}
+	}
+	return skip
+}
+
+func joined(a, b map[int32]bool) map[int32]bool {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	out := maps.Clone(a)
+	maps.Copy(out, b)
+	return out
 }

@@ -34,15 +34,15 @@ function dontAskAgain() {
 <template>
   <Teleport to="body">
     <div v-if="open" class="dialog-scrim" @click.self="close">
-      <div ref="panel" class="app-dialog dialog" role="dialog" :aria-label="t('appDialogTitle')">
-        <h2 class="title">{{ t('appDialogTitle') }}</h2>
+      <div ref="panel" class="dialog dialog-small" role="dialog" :aria-label="t('appDialogTitle')">
+        <h2 class="dialog-title">{{ t('appDialogTitle') }}</h2>
         <ul class="features">
           <li v-for="feature in FEATURES" :key="feature.text" class="feature">
             <component :is="feature.icon" class="m-icon text-on-surface-variant" />
             <span class="text-body-medium">{{ t(feature.text) }}</span>
           </li>
         </ul>
-        <div class="actions">
+        <div class="dialog-actions">
           <button type="button" class="btn btn-text" @click="dontAskAgain">{{ t('appDontAsk') }}</button>
           <a class="btn btn-filled" :href="PLAY_URL" target="_blank" rel="noopener" @click="close">{{ t('yes') }}</a>
         </div>
@@ -52,17 +52,6 @@ function dontAskAgain() {
 </template>
 
 <style scoped>
-.app-dialog {
-  width: min(360px, 100%);
-  padding: 24px;
-  outline: none;
-}
-
-.title {
-  font-size: 24px;
-  line-height: 32px;
-}
-
 .features {
   display: flex;
   flex-direction: column;
@@ -74,11 +63,5 @@ function dontAskAgain() {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 </style>

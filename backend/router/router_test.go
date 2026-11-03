@@ -215,6 +215,19 @@ func TestTransferAndDirectAreBothKept(t *testing.T) {
 	}
 }
 
+func TestAPlanKeptToSomeTripsRidesOnlyThem(t *testing.T) {
+	n, day := testNetwork(t, time.Minute)
+	q := Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 40*time.Minute)}
+	q.Only = map[string]bool{"2_0": true, "3_0": true}
+	if got := keys(transit(n.Plan(q))); len(got) != 1 || got[0] != "2_0 3_0 " {
+		t.Fatalf("kept to the change, got %q", got)
+	}
+	q.Only = map[string]bool{"1_0": true}
+	if got := keys(transit(n.Plan(q))); len(got) != 1 || got[0] != "1_0 " {
+		t.Fatalf("kept to the direct line, got %q", got)
+	}
+}
+
 func TestSlackRulesOutTightTransfer(t *testing.T) {
 	n, day := testNetwork(t, 3*time.Minute)
 	got := keys(n.Plan(Query{From: Point{46.7701, 23.5002}, To: Point{46.7701, 23.5898}, Time: day.Add(7*time.Hour + 40*time.Minute)}))

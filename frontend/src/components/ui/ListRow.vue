@@ -3,7 +3,7 @@ import RowLink from '@/components/ui/RowLink.vue'
 import {CloseIcon, KeyboardArrowRightIcon} from '@/utils/icons.ts'
 
 defineProps<{
-  title: string
+  title?: string
   titlePrefix?: string
   kicker?: string
   subtitle?: string
@@ -21,7 +21,7 @@ const emit = defineEmits<{open: []; remove: []}>()
     <slot name="icon" />
     <div class="flex-1 min-w-0">
       <p v-if="kicker" class="kicker">{{ kicker }}</p>
-      <p class="text-body-large truncate">
+      <p v-if="title" class="text-body-large truncate">
         <span v-if="titlePrefix" class="text-on-surface-variant">{{ titlePrefix }}</span
         >{{ title }}
       </p>
@@ -31,6 +31,7 @@ const emit = defineEmits<{open: []; remove: []}>()
       </div>
     </div>
     <span v-if="trailing" class="text-label-medium text-on-surface-variant shrink-0">{{ trailing }}</span>
+    <slot name="trailing" />
     <button v-if="removeLabel" type="button" class="icon-btn text-outline" :aria-label="removeLabel" :title="removeLabel" @click.stop="emit('remove')">
       <CloseIcon class="m-icon size-[18px]" />
     </button>

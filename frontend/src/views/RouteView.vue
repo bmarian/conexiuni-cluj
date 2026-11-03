@@ -35,8 +35,11 @@ import {directionKeys} from '@/utils/stopPairs.ts'
 import {network} from '@/utils/network.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {modeOf} from '@/utils/modes.ts'
+import {writeLines} from '@/utils/lineGroups.ts'
+import {recordUse} from '@/utils/lineUsage.ts'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
 import {
+  AddIcon,
   ArrowBackIcon,
   ArrowForwardIcon,
   CloseIcon,
@@ -89,6 +92,19 @@ const {
 const routeIdNum = computed(() => Number(props.routeId))
 
 const isFavorite = computed(() => favoritesStore.isRouteFavorite(routeIdNum.value, currentDirection.value))
+
+watch(
+  () => (shapeInfo.value?.route_id === routeIdNum.value ? routeIdNum.value : null),
+  (id) => {
+    if (id !== null) recordUse('lines', `${id}/${currentDirection.value}`)
+  },
+  {immediate: true},
+)
+
+function createGroup() {
+  if (!network.value) return
+  void router.push({name: 'group-pick', query: {linii: writeLines(network.value, [{routeId: routeIdNum.value, direction: currentDirection.value}])}})
+}
 const isFollowing = computed(() => !!shapeInfo.value && routeUpdates.isFollowing(shapeInfo.value.route_short_name))
 
 function toggleFollow() {
@@ -405,6 +421,7 @@ const chips = computed<ChipAction[]>(() => [
     kbd: 'fav',
     onClick: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
   },
+  {label: t('createGroup'), icon: AddIcon, kbd: 'group', onClick: createGroup},
   {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
 ])
 
