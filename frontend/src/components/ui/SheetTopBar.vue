@@ -55,6 +55,8 @@ onBeforeUnmount(() => scroller?.removeEventListener('scroll', onScroll))
   height: 48px;
   padding: 0 4px;
   background: var(--md-surface-container-low);
+  /* At fractional scaling the scrolled content shows through a sliver above the bar. */
+  box-shadow: 0 -2px 0 var(--md-surface-container-low);
 }
 
 .bar-title {
