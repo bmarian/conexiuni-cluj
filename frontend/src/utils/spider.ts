@@ -52,20 +52,49 @@ export function spiderLegsToward(screenAngles: number[]): SpiderLeg[] {
 
 export type SpiderItem = {station: {x: number; y: number}; icon: ClusterBox; labelWidth: number}
 
-// Same as .stop-spider-item's gap and .stop-cluster-label's line-height in map.css.
+export type LabelSide = SpiderLeg['side'] | 'below'
+
+// Same as .stop-spider-item's gap, .stop-cluster-label's line-height and its margin under a group's pill in map.css.
 const LABEL_GAP_PX = 4
 const LABEL_HEIGHT_PX = 13
+const LABEL_UNDER_PX = 2
 const RINGS = 3
 
-const itemBoxes = ({icon, labelWidth}: SpiderItem, {x, y, side}: SpiderLeg): Rect[] => {
+// Beside the icon as in a spider item, or under it as under a group's pill.
+export function labelBox({x, y}: {x: number; y: number}, icon: ClusterBox, labelWidth: number, side: LabelSide): Rect {
   const box = boxAt(x, y, icon)
+  if (side === 'below') {
+    const left = (box.left + box.right - labelWidth) / 2
+    return {left, top: box.bottom + LABEL_UNDER_PX, right: left + labelWidth, bottom: box.bottom + LABEL_UNDER_PX + LABEL_HEIGHT_PX}
+  }
   const middle = (box.top + box.bottom) / 2
   const start = side === 'right' ? box.right + LABEL_GAP_PX : box.left - LABEL_GAP_PX - labelWidth
-  return [box, {left: start, top: middle - LABEL_HEIGHT_PX / 2, right: start + labelWidth, bottom: middle + LABEL_HEIGHT_PX / 2}]
+  return {left: start, top: middle - LABEL_HEIGHT_PX / 2, right: start + labelWidth, bottom: middle + LABEL_HEIGHT_PX / 2}
 }
+
+const itemBoxes = ({icon, labelWidth}: SpiderItem, {x, y, side}: SpiderLeg): Rect[] => [boxAt(x, y, icon), labelBox({x, y}, icon, labelWidth, side)]
 
 const overlap = (a: Rect, b: Rect) =>
   Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+
+// Stations that stay where they are: each label on the first side clear of the obstacles, the labels before it and the area's edge,
+// away from the other stations first as spider legs point, then the other side, then under the icon; else the least covered.
+export function labelSidesClear(items: SpiderItem[], obstacles: Rect[], area: Rect): LabelSide[] {
+  const taken = [...obstacles]
+  const middle = items.reduce((sum, item) => sum + item.station.x, 0) / items.length
+  return items.map(({station, icon, labelWidth}) => {
+    const out: LabelSide = station.x < middle ? 'left' : 'right'
+    let best: {side: LabelSide; covered: number} | null = null
+    for (const side of [out, out === 'left' ? 'right' : 'left', 'below'] as const) {
+      const r = labelBox(station, icon, labelWidth, side)
+      const covered = taken.reduce((sum, t) => sum + overlap(r, t), (r.right - r.left) * (r.bottom - r.top) - overlap(r, area))
+      if (!best || covered < best.covered) best = {side, covered}
+      if (!covered) break
+    }
+    taken.push(labelBox(station, icon, labelWidth, best!.side))
+    return best!.side
+  })
+}
 
 // The free spot nearest each station, else the least covered one.
 export function spiderLegsClear(items: SpiderItem[], obstacles: Rect[]): SpiderLeg[] {

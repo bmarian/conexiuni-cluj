@@ -16,8 +16,11 @@ const paints = new Map<string, Paint>()
 
 export const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
 
-const step = (paint: Paint): ExpressionSpecification =>
-  ['step', ['line-progress'], paint[0]!.color, ...paint.slice(1).flatMap(({at, color}) => [at, color])] as ExpressionSpecification
+// MapLibre drops a step without stops and keeps the previous gradient, so one colour still gets one.
+export const step = (paint: Paint): ExpressionSpecification => {
+  const stops = paint.length > 1 ? paint.slice(1) : [{at: 0, color: paint[0]!.color}]
+  return ['step', ['line-progress'], paint[0]!.color, ...stops.flatMap(({at, color}) => [at, color])] as ExpressionSpecification
+}
 
 const colorAt = (paint: Paint, at: number) => paint.reduce((color, stop) => (stop.at <= at ? stop.color : color), paint[0]!.color)
 

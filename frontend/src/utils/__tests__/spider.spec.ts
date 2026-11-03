@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {spiderLegs, spiderLegsClear, spiderLegsToward, spiderRadius} from '@/utils/spider.ts'
+import {labelSidesClear, spiderLegs, spiderLegsClear, spiderLegsToward, spiderRadius} from '@/utils/spider.ts'
+import {boxAt} from '@/utils/stopClusters.ts'
 
 describe('spider legs', () => {
   it('puts two stations side by side', () => {
@@ -44,5 +45,28 @@ describe('spider legs', () => {
     expect(spiderRadius(spiderLegs(2))).toBe(44)
     expect(spiderRadius(spiderLegs(20))).toBeGreaterThan(spiderRadius(spiderLegs(9)))
     expect(spiderRadius([])).toBe(0)
+  })
+})
+
+describe('labels of stations left in place', () => {
+  const icon = {size: [24, 24] as [number, number], anchor: [12, 12] as [number, number]}
+  const area = {left: 0, top: 0, right: 1000, bottom: 1000}
+  const at = (x: number, y = 500) => ({station: {x, y}, icon, labelWidth: 120})
+  const icons = (items: ReturnType<typeof at>[]) => items.map(({station}) => boxAt(station.x, station.y, icon))
+  const sides = (items: ReturnType<typeof at>[], obstacles = icons(items)) => labelSidesClear(items, obstacles, area)
+
+  it('faces away from the other stations', () => {
+    expect(sides([at(500), at(527)])).toEqual(['left', 'right'])
+    expect(sides([at(500)])).toEqual(['right'])
+  })
+
+  it('turns from what is in the way, then goes under the icon', () => {
+    const items = [at(500)]
+    expect(sides(items, [...icons(items), {left: 520, top: 480, right: 600, bottom: 520}])).toEqual(['left'])
+    expect(sides([at(473), at(500), at(527)])).toEqual(['left', 'below', 'right'])
+  })
+
+  it('stays inside the area', () => {
+    expect(sides([at(960)])).toEqual(['left'])
   })
 })
