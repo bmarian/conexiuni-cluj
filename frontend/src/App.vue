@@ -794,4 +794,18 @@ useKbdShortcuts(
     z-index: 4400;
   }
 }
+
+:root.dark .app-drawer {
+  box-shadow:
+    0 -1px 0 var(--md-outline-variant),
+    0 -4px 16px rgb(0 0 0 / 0.5);
+}
+
+@media (max-width: 1023px) and (orientation: landscape), (min-width: 1024px) {
+  :root.dark .app-drawer {
+    box-shadow:
+      1px 0 0 var(--md-outline-variant),
+      4px 0 16px rgb(0 0 0 / 0.5);
+  }
+}
 </style>

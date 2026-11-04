@@ -94,12 +94,17 @@
   --md-outline-variant: #45464f;
   --md-surface-container-lowest: #0d0e13;
   --md-surface-container-low: #1a1b21;
-  --md-surface-container: #1e1f25;
-  --md-surface-container-high: #292a2f;
-  --md-surface-container-highest: #33343a;
+  --md-surface-container: #26272d;
+  --md-surface-container-high: #2f3036;
+  --md-surface-container-highest: #393a40;
   --md-live: #81c995;
   --md-live-container: #0f5223;
   --md-on-live-container: #a8dab5;
+
+  --md-ring: 0 0 0 1px rgb(255 255 255 / 0.06);
+  --md-elevation-1: var(--md-ring), 0 1px 3px 1px rgb(0 0 0 / 0.5);
+  --md-elevation-2: var(--md-ring), 0 2px 6px 2px rgb(0 0 0 / 0.5);
+  --md-elevation-3: var(--md-ring), 0 4px 8px 3px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
