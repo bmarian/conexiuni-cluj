@@ -317,6 +317,10 @@
   transition: opacity 140ms ease-out;
 }
 
+.maplibregl-marker.has-station-label {
+  z-index: 900;
+}
+
 .maplibregl-marker.is-spiderfied {
   opacity: 0 !important;
   pointer-events: none;
