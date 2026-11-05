@@ -12,7 +12,7 @@ export function createStationLabels() {
     for (const [id, {el, label}] of shown) {
       if (wanted.get(id) === el && label.parentElement === el) continue
       label.remove()
-      el.style.zIndex = ''
+      el.classList.remove('has-station-label')
       shown.delete(id)
     }
   }
@@ -34,7 +34,7 @@ export function createStationLabels() {
         label.className = 'stop-cluster-label stop-label'
         label.textContent = name
         el.append(label)
-        el.style.zIndex = '900'
+        el.classList.add('has-station-label')
         shown.set(id, {el, label})
       }
       const box = labelBox({x: icon.anchor[0], y: icon.anchor[1]}, icon, width, side)
