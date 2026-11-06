@@ -633,6 +633,8 @@ useKbdShortcuts(
   min-height: 0;
   overflow-y: auto;
   overflow-x: clip;
+  /* Same gutter as GreenFridayBanner. */
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior: contain;

@@ -12,6 +12,7 @@ import {CITY_CAP, RECENT_CAP, roundCoordinate} from '@/utils/sync/records.ts'
 import {groupKey, type GroupLine} from '@/utils/lineGroups.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
+import {readSaved} from '@/utils/storage.ts'
 
 export const FAVORITE_KEYS = ['favorites:routes', 'favorites:stops', 'favorites:plans', 'favorites:groups', 'recents:plans']
 const routesKey = (city?: string) => cacheKey('favorites:routes', city)
@@ -118,14 +119,6 @@ export function matchingPlans(plans: FavoritePlan[], query: string): FavoritePla
   return matching(plans, (p) => fold(`${p.label ?? ''} ${p.name}`), q)
     .slice(0, RESULTS_PER_KIND)
     .map((m) => m.item)
-}
-
-function readSaved(key: string): unknown {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? 'null')
-  } catch {
-    return null
-  }
 }
 
 export function savedFavorites(city: string) {
