@@ -96,6 +96,7 @@ const {
   vehiclesToDisplay,
   highlightedStops,
   directionArrowAtStart,
+  lineEnds,
   drawerBottomPx,
   drawerLeftPx,
   chromeTopPx,
@@ -1328,7 +1329,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
   const shapeLines: LineSpec[] = []
   const drawnPaths = new Set<string>()
   const groupedStarts = new Map<string, GroupedStart>()
-  const hasHighlights = highlightedStops.value.length > 0
+  const hideEnds = highlightedStops.value.length > 0 && !lineEnds.value
   const colorCounts = getShapeColorCounts(newShapes)
   const colorSeen = new Map<string, number>()
 
@@ -1363,7 +1364,7 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
       }
     }
 
-    if (hasHighlights) continue
+    if (hideEnds) continue
 
     const startPoint = latLngs[0]
     if (startPoint && displayShape.route_short_name) {
@@ -1376,12 +1377,12 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
 
   lines.shapes = shapeLines
   syncLines('shapes')
-  if (!hasHighlights) addGroupedStartMarkers(m, groupedStarts)
+  if (!hideEnds) addGroupedStartMarkers(m, groupedStarts)
   if (zoomOut.value) zoomOut.value = false
 }
 
 watch(
-  [shapesToDisplay, directionArrowAtStart, lineColors],
+  [shapesToDisplay, directionArrowAtStart, lineColors, lineEnds],
   ([newShapes]) => {
     renderShapes(newShapes as ShapeLayerEntry[])
   },

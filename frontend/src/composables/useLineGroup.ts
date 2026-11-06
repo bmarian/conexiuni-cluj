@@ -15,7 +15,7 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
   const {userLocation, userTime} = storeToRefs(useUserStore())
   const mapStore = useMapStore()
   mapStore.linesApart = false
-  mapStore.setHighlightedStops([])
+  mapStore.lineEnds = true
   const hidden = ref(new Set<number>())
   const shown = computed(() => lines.value.filter((l) => !hidden.value.has(l.routeId)))
 
@@ -30,6 +30,15 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
     const index = network.value
     const next = index ? lines.value.map((line) => boardingStop(index, line, userLocation.value)) : []
     return prev && prev.join() === next.join() ? prev : next
+  })
+
+  // Where the shown lines' times are from.
+  watchEffect(() => {
+    const stops = lines.value.flatMap((line, i) => {
+      const stopId = boards.value[i]
+      return stopId !== undefined && !hidden.value.has(line.routeId) ? [String(stopId)] : []
+    })
+    mapStore.setHighlightedStops([...new Set(stops)].map((stopId) => ({stopId, color: 'green'})))
   })
 
   const streamStops = computed(() => [...new Set(boards.value.filter((id) => id !== undefined))])
@@ -112,6 +121,8 @@ export function useLineGroup(lines: Ref<GroupLine[]>) {
 
   onUnmounted(() => {
     mapStore.linesApart = true
+    mapStore.lineEnds = false
+    mapStore.setHighlightedStops([])
     mapStore.setShapesToDisplay([])
     mapStore.setVehiclesToDisplay([])
   })
