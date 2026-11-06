@@ -25,6 +25,7 @@ defineProps<{routes: Pick<Route, 'route_id' | 'route_short_name' | 'route_color'
   padding: 1px 5px;
   border-radius: 5px;
   color: #fff;
+  text-shadow: var(--line-number-shadow);
   font-size: 11px;
   line-height: 16px;
   font-weight: 900;

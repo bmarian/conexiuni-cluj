@@ -1,9 +1,11 @@
 package network
 
 import (
+	"conexiuni-cluj/geo"
 	"conexiuni-cluj/models"
 	"math"
 	"sort"
+	"sync"
 )
 
 // A colour in OKLab, where distance follows how different two colours look.
@@ -14,13 +16,7 @@ func (c lab) dist(o lab) float64 {
 }
 
 func oklab(r, g, b float64) lab {
-	linear := func(v float64) float64 {
-		if v <= 0.04045 {
-			return v / 12.92
-		}
-		return math.Pow((v+0.055)/1.055, 2.4)
-	}
-	r, g, b = linear(r), linear(g), linear(b)
+	r, g, b = models.Linear(r), models.Linear(g), models.Linear(b)
 	l := math.Cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*b)
 	m := math.Cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*b)
 	s := math.Cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*b)
@@ -31,31 +27,76 @@ func oklab(r, g, b float64) lab {
 	}
 }
 
-// By whole degree of hue.
-type hueCircle [360]lab
-
-func circleOf(s, l float64) *hueCircle {
-	var c hueCircle
-	for h := range c {
-		c[h] = oklab(models.HSLRGB(float64(h), s, models.ReadableLightness(float64(h), s, l)))
+// Channels fall outside 0..1 where sRGB cannot show the colour.
+func oklchRGB(l, chroma, hue float64) (r, g, b float64) {
+	a, bb := chroma*math.Cos(hue*math.Pi/180), chroma*math.Sin(hue*math.Pi/180)
+	lc := math.Pow(l+0.3963377774*a+0.2158037573*bb, 3)
+	mc := math.Pow(l-0.1055613458*a-0.0638541728*bb, 3)
+	sc := math.Pow(l-0.0894841775*a-1.2914855480*bb, 3)
+	gamma := func(v float64) float64 {
+		if v <= 0.0031308 {
+			return 12.92 * v
+		}
+		return 1.055*math.Pow(v, 1/2.4) - 0.055
 	}
-	return &c
+	return gamma(4.0767416621*lc - 3.3077115913*mc + 0.2309699292*sc),
+		gamma(-1.2684380046*lc + 2.6097574011*mc - 0.3413193965*sc),
+		gamma(-0.0041960863*lc - 0.7034186147*mc + 1.7076147010*sc)
 }
 
-// How far apart n lines at one station can be at best: n colours spread evenly around the circle.
-func (c *hueCircle) spread(n int) float64 {
-	length := 0.0
-	for h := range c {
-		length += c[h].dist(c[(h+1)%360])
-	}
-	return length / math.Pi * math.Sin(math.Pi/float64(n))
+// Dark shades must carry white numbers alone; light ones rely on the numbers' shadow.
+var shades = []struct {
+	l, maxChroma float64
+	light        bool
+}{{0.44, 0.19, false}, {0.52, 0.19, false}, {0.60, 0.19, false}, {0.78, 0.15, true}, {0.86, 0.12, true}}
+
+const (
+	hueStep   = 5
+	minChroma = 0.06
+)
+
+type candidate struct {
+	hex string
+	lab lab
 }
+
+var palette = sync.OnceValue(func() []candidate {
+	inGamut := func(v float64) bool { return v >= 0 && v <= 1 }
+	var out []candidate
+	for _, shade := range shades {
+		for hue := 0; hue < 360; hue += hueStep {
+			for chroma := shade.maxChroma; chroma >= minChroma; chroma -= 0.005 {
+				r, g, b := oklchRGB(shade.l, chroma, float64(hue))
+				if !inGamut(r) || !inGamut(g) || !inGamut(b) {
+					continue
+				}
+				if hex := models.RGBHex(r, g, b); shade.light || models.WhiteReadable(hex) {
+					out = append(out, candidate{hex, labOfHex(hex)})
+				}
+				break
+			}
+		}
+	}
+	return out
+})
+
+func labOfHex(hex string) lab {
+	r, g, b := models.HexRGB(hex)
+	return oklab(r, g, b)
+}
+
+type place struct{ lat, lon float64 }
 
 // The stations each line stops at, platforms counted as their station.
-func stationsOfLines(bundle *models.NetworkBundle) map[string]map[int]bool {
+func stationsOfLines(bundle *models.NetworkBundle) (map[string]map[int]bool, map[int]place) {
 	stationOf := make(map[int]int, len(bundle.Stops))
+	at := map[int]place{}
 	for _, stop := range bundle.Stops {
-		stationOf[stop.StopID] = stop.Station()
+		station := stop.Station()
+		stationOf[stop.StopID] = station
+		if _, ok := at[station]; !ok {
+			at[station] = place{stop.StopLat, stop.StopLon}
+		}
 	}
 	out := map[string]map[int]bool{}
 	for _, route := range bundle.Routes {
@@ -68,49 +109,80 @@ func stationsOfLines(bundle *models.NetworkBundle) map[string]map[int]bool {
 			}
 		}
 	}
+	return out, at
+}
+
+// Within the city's median gap to the nearest station, riders take two stations for one place.
+func nearStations(at map[int]place) map[int][]int {
+	ids := make([]int, 0, len(at))
+	for id := range at {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		if at[ids[i]].lat != at[ids[j]].lat {
+			return at[ids[i]].lat < at[ids[j]].lat
+		}
+		return ids[i] < ids[j]
+	})
+	meters := func(i, j int) float64 {
+		return geo.Haversine(at[ids[i]].lat, at[ids[i]].lon, at[ids[j]].lat, at[ids[j]].lon)
+	}
+	north := func(i, j int) float64 { return geo.Haversine(at[ids[i]].lat, 0, at[ids[j]].lat, 0) }
+	// Sorted by latitude, so the north-south gap alone ends a scan.
+	within := func(i int, limit float64, visit func(j int, d float64) float64) {
+		for _, step := range [2]int{-1, 1} {
+			for j := i + step; j >= 0 && j < len(ids) && north(i, j) <= limit; j += step {
+				limit = visit(j, meters(i, j))
+			}
+		}
+	}
+	nearest := make([]float64, 0, len(ids))
+	for i := range ids {
+		best := math.Inf(1)
+		within(i, best, func(_ int, d float64) float64 {
+			best = min(best, d)
+			return best
+		})
+		if !math.IsInf(best, 1) {
+			nearest = append(nearest, best)
+		}
+	}
+	out := map[int][]int{}
+	if len(nearest) == 0 {
+		return out
+	}
+	sort.Float64s(nearest)
+	gap := nearest[len(nearest)/2]
+	for i := range ids {
+		within(i, gap, func(j int, d float64) float64 {
+			if d <= gap {
+				out[ids[i]] = append(out[ids[i]], ids[j])
+			}
+			return gap
+		})
+	}
 	return out
 }
 
-// lineColors keeps lines that share a station apart, each as near its ColorfulRouteColor as that allows.
-func lineColors(stationsOf map[string]map[int]bool) map[string]string {
+// lineColors keeps lines that meet apart, each as near its ColorfulRouteColor as that allows.
+func lineColors(stationsOf map[string]map[int]bool, near map[int][]int) map[string]string {
 	linesAt := map[int][]string{}
 	for name, stations := range stationsOf {
 		for station := range stations {
 			linesAt[station] = append(linesAt[station], name)
 		}
 	}
-	// For each pair of lines, the fewest lines any station they share has.
-	together := map[string]map[string]int{}
-	for _, names := range linesAt {
-		for _, a := range names {
-			for _, b := range names {
-				if a == b {
-					continue
-				}
-				if together[a] == nil {
-					together[a] = map[string]int{}
-				}
-				if together[a][b] == 0 || len(names) < together[a][b] {
-					together[a][b] = len(names)
+	meets := map[string]map[string]bool{}
+	for name, stations := range stationsOf {
+		meets[name] = map[string]bool{}
+		for station := range stations {
+			for _, there := range append([]int{station}, near[station]...) {
+				for _, other := range linesAt[there] {
+					if other != name {
+						meets[name][other] = true
+					}
 				}
 			}
-		}
-	}
-	// A pair that also meets at a quiet stop needs no more room than a typical station's lines get.
-	sizes := []int{}
-	for _, names := range linesAt {
-		if len(names) > 1 {
-			sizes = append(sizes, len(names))
-		}
-	}
-	sort.Ints(sizes)
-	typical := 2
-	if len(sizes) > 0 {
-		typical = sizes[len(sizes)/2]
-	}
-	for a := range together {
-		for b, count := range together[a] {
-			together[a][b] = max(count, typical)
 		}
 	}
 	order := make([]string, 0, len(stationsOf))
@@ -118,54 +190,49 @@ func lineColors(stationsOf map[string]map[int]bool) map[string]string {
 		order = append(order, name)
 	}
 	sort.Slice(order, func(i, j int) bool {
-		if len(together[order[i]]) != len(together[order[j]]) {
-			return len(together[order[i]]) > len(together[order[j]])
+		if len(meets[order[i]]) != len(meets[order[j]]) {
+			return len(meets[order[i]]) > len(meets[order[j]])
 		}
 		return order[i] < order[j]
 	})
 
-	lo, hi := models.ColorfulLightness()
-	type line struct {
-		own, hue, shade int
-		s               float64
-		shades          [4]float64
-		circles         [4]*hueCircle
-	}
-	lines := map[string]*line{}
-	for _, name := range order {
-		if h, s, l, ok := models.ColorfulHSL(name); ok {
-			// One step darker too: made readable, light colours crowd together and need the room.
-			ln := &line{own: int(h), hue: -1, s: s, shades: [4]float64{l, lo, hi, lo - (hi - lo)}}
-			for i, shade := range ln.shades {
-				ln.circles[i] = circleOf(s, shade)
-			}
-			lines[name] = ln
+	colors := palette()
+	apart := make([][]float64, len(colors))
+	for i := range colors {
+		apart[i] = make([]float64, len(colors))
+		for j := range colors {
+			apart[i][j] = colors[i].lab.dist(colors[j].lab)
 		}
 	}
-	place := func(name string) bool {
-		ln := lines[name]
-		var near []apart
-		for other, count := range together[name] {
-			if o := lines[other]; o != nil && o.hue >= 0 {
-				near = append(near, apart{o.circles[o.shade][o.hue], ln.circles[0].spread(count)})
+	// Whole thousandths, so near-equal choices settle the same way every build.
+	thousandths := func(v float64) int { return int(math.Round(v * 1000)) }
+	picked := map[string]int{}
+	choose := func(name string) int {
+		own := labOfHex(models.ColorfulRouteColor(name))
+		best, bestRoom, bestNear := 0, -1, math.MaxInt
+		for i, c := range colors {
+			room := math.MaxInt
+			for other := range meets[name] {
+				if j, ok := picked[other]; ok {
+					room = min(room, thousandths(apart[i][j]))
+				}
+			}
+			nearOwn := thousandths(c.lab.dist(own))
+			if room > bestRoom || room == bestRoom && nearOwn < bestNear {
+				best, bestRoom, bestNear = i, room, nearOwn
 			}
 		}
-		hue, shade := pickHue(ln.own, ln.circles, near)
-		moved := hue != ln.hue || shade != ln.shade
-		ln.hue, ln.shade = hue, shade
-		return moved
+		return best
 	}
 	for _, name := range order {
-		if lines[name] != nil {
-			place(name)
-		}
+		picked[name] = choose(name)
 	}
 	// Later lines may have taken room an earlier one needed: settle until no line moves.
 	for range len(order) {
 		moved := false
 		for _, name := range order {
-			if lines[name] != nil && place(name) {
-				moved = true
+			if c := choose(name); c != picked[name] {
+				picked[name], moved = c, true
 			}
 		}
 		if !moved {
@@ -174,39 +241,7 @@ func lineColors(stationsOf map[string]map[int]bool) map[string]string {
 	}
 	out := make(map[string]string, len(order))
 	for _, name := range order {
-		if ln := lines[name]; ln != nil {
-			hue := float64(ln.hue)
-			out[name] = models.HSLHex(hue, ln.s, models.ReadableLightness(hue, ln.s, ln.shades[ln.shade]))
-		} else {
-			out[name] = models.FallbackRouteColor
-		}
+		out[name] = colors[picked[name]].hex
 	}
 	return out
-}
-
-type apart struct {
-	color lab
-	need  float64
-}
-
-// The hue and shade nearest own with room from every neighbour, else the roomiest.
-func pickHue(own int, circles [4]*hueCircle, near []apart) (hue, shade int) {
-	bestHue, bestShade, room := own, 0, math.Inf(-1)
-	for step := 0; step <= 180; step++ {
-		for _, h := range [2]int{(own + step) % 360, (own - step + 360) % 360} {
-			for sh, circle := range circles {
-				least := math.Inf(1)
-				for _, n := range near {
-					least = min(least, circle[h].dist(n.color)/n.need)
-				}
-				if least >= 1 {
-					return h, sh
-				}
-				if least > room {
-					bestHue, bestShade, room = h, sh, least
-				}
-			}
-		}
-	}
-	return bestHue, bestShade
 }

@@ -161,6 +161,7 @@ onUnmounted(() => cancelAnimationFrame(frame))
   width: 12px;
   height: 12px;
   fill: currentColor;
+  filter: var(--line-glyph-shadow);
 }
 
 .arrived {

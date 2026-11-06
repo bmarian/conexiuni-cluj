@@ -261,7 +261,7 @@ export function getVehicleMarkerHtml(vehicle: DisplayVehicle, resolvedColor: str
       <div class="flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-md z-30"
            style="background-color: ${resolvedColor};">
         <span class="font-black leading-none text-white tracking-tight"
-              style="font-size:${routeFontSize}px;max-width:22px;">${routeName}</span>
+              style="font-size:${routeFontSize}px;max-width:22px;text-shadow:var(--line-number-shadow);">${routeName}</span>
       </div>
       <div class="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full border border-white bg-slate-900/85 flex items-center justify-center shadow-sm z-40">
         ${

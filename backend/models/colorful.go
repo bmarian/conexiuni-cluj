@@ -38,16 +38,35 @@ func ReadableLightness(h, s, l float64) float64 {
 }
 
 func whiteContrast(h, s, l float64) float64 {
-	r, g, b := HSLRGB(h, s, l)
-	linear := func(v float64) float64 {
-		v = math.Round(v*255) / 255
-		if v <= 0.04045 {
-			return v / 12.92
-		}
-		return math.Pow((v+0.055)/1.055, 2.4)
+	return contrast(luminance(HSLRGB(h, s, l)), 1)
+}
+
+func WhiteReadable(hex string) bool {
+	return contrast(luminance(HexRGB(hex)), 1) >= minContrast
+}
+
+func contrast(y1, y2 float64) float64 {
+	return (max(y1, y2) + 0.05) / (min(y1, y2) + 0.05)
+}
+
+// Of the channels rounded to 8 bits, as shown.
+func luminance(r, g, b float64) float64 {
+	shown := func(v float64) float64 { return Linear(math.Round(v*255) / 255) }
+	return 0.2126*shown(r) + 0.7152*shown(g) + 0.0722*shown(b)
+}
+
+// Linear is an sRGB channel from 0 to 1 without its gamma.
+func Linear(v float64) float64 {
+	if v <= 0.04045 {
+		return v / 12.92
 	}
-	luminance := 0.2126*linear(r) + 0.7152*linear(g) + 0.0722*linear(b)
-	return 1.05 / (luminance + 0.05)
+	return math.Pow((v+0.055)/1.055, 2.4)
+}
+
+func HexRGB(hex string) (r, g, b float64) {
+	var ri, gi, bi int
+	_, _ = fmt.Sscanf(hex, "#%02x%02x%02x", &ri, &gi, &bi)
+	return float64(ri) / 255, float64(gi) / 255, float64(bi) / 255
 }
 
 // ColorfulHSL is ColorfulRouteColor as hue in degrees, saturation and lightness.
@@ -64,13 +83,11 @@ func ColorfulHSL(shortName string) (h, s, l float64, ok bool) {
 
 const lightnessFrom, lightnessSteps = 44, 12
 
-// ColorfulLightness is the lightness range ColorfulHSL picks from.
-func ColorfulLightness() (lo, hi float64) {
-	return lightnessFrom / 100.0, (lightnessFrom + lightnessSteps - 1) / 100.0
+func HSLHex(h, s, l float64) string {
+	return RGBHex(HSLRGB(h, s, l))
 }
 
-func HSLHex(h, s, l float64) string {
-	r, g, b := HSLRGB(h, s, l)
+func RGBHex(r, g, b float64) string {
 	channel := func(v float64) int { return int(math.Round(v * 255)) }
 	return fmt.Sprintf("#%02X%02X%02X", channel(r), channel(g), channel(b))
 }

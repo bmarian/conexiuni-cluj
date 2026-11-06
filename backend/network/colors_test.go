@@ -6,28 +6,56 @@ import (
 	"testing"
 )
 
-func labOfHex(hex string) lab {
-	var r, g, b int
-	_, _ = fmt.Sscanf(hex, "#%02X%02X%02X", &r, &g, &b)
-	return oklab(float64(r)/255, float64(g)/255, float64(b)/255)
-}
-
-func TestLineColorsSetLinesAtOneStationApart(t *testing.T) {
-	// 47 and 6 hash to nearly the same cyan; 99 shares no station.
-	stations := map[string]map[int]bool{"47": {1: true, 2: true}, "6": {1: true}, "8": {2: true}, "99": {3: true}}
-	colors := lineColors(stations)
-	if got, want := colors["99"], models.ColorfulRouteColor("99"); got != want {
-		t.Errorf("a line alone keeps its own colour: got %s, want %s", got, want)
+func TestLineColorsSetLinesThatMeetApart(t *testing.T) {
+	// Eight lines at one station, two more meeting them only at a station next door, and one alone.
+	stations := map[string]map[int]bool{"99": {9: true}, "N1": {2: true}, "N2": {2: true}}
+	for i := range 8 {
+		stations[fmt.Sprint(i+1)] = map[int]bool{1: true}
 	}
-	before := labOfHex(models.ColorfulRouteColor("47")).dist(labOfHex(models.ColorfulRouteColor("6")))
-	after := labOfHex(colors["47"]).dist(labOfHex(colors["6"]))
-	if after <= before*2 {
-		t.Errorf("47 and 6 share a station but stay close: %.3f, was %.3f", after, before)
+	near := map[int][]int{1: {2}, 2: {1}}
+	colors := lineColors(stations, near)
+	inPalette := map[string]bool{}
+	for _, c := range palette() {
+		inPalette[c.hex] = true
 	}
-	again := lineColors(stations)
+	for a := range stations {
+		if !inPalette[colors[a]] {
+			t.Errorf("%s: %s is not from the palette", a, colors[a])
+		}
+		for b := range stations {
+			if a >= b || a == "99" || b == "99" {
+				continue
+			}
+			if d := labOfHex(colors[a]).dist(labOfHex(colors[b])); d < 0.12 {
+				t.Errorf("%s %s and %s %s meet but are only %.3f apart", a, colors[a], b, colors[b], d)
+			}
+		}
+	}
+	again := lineColors(stations, near)
 	for name, color := range colors {
 		if again[name] != color {
 			t.Errorf("%s: %s, then %s", name, color, again[name])
+		}
+	}
+}
+
+func TestNearStationsUsesTheTypicalGap(t *testing.T) {
+	// Stations 1-2 and 3-4 are pairs 30 m apart, 1 km from each other; 5 sits 2 km out.
+	const deg = 1.0 / 111_195
+	at := map[int]place{1: {46, 23}, 2: {46 + 30*deg, 23}, 3: {46 + 1000*deg, 23}, 4: {46 + 1030*deg, 23}, 5: {46 + 3000*deg, 23}}
+	near := nearStations(at)
+	if len(near[1]) != 1 || near[1][0] != 2 || len(near[3]) != 1 || near[3][0] != 4 {
+		t.Errorf("pairs should be near each other: %v", near)
+	}
+	if len(near[5]) != 0 {
+		t.Errorf("a far station is near nothing: %v", near[5])
+	}
+}
+
+func TestWhiteReadable(t *testing.T) {
+	for hex, want := range map[string]bool{"#1D71B8": true, "#FFE066": false, "#7F7F7F": false} {
+		if got := models.WhiteReadable(hex); got != want {
+			t.Errorf("%s: %v, want %v", hex, got, want)
 		}
 	}
 }
