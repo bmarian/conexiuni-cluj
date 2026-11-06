@@ -44,6 +44,12 @@ function onPointerUp(e: PointerEvent) {
   else dragY.value = 0
 }
 
+function runAction() {
+  const action = settings.toast?.action
+  settings.dismissToast()
+  action?.run()
+}
+
 function onPointerCancel() {
   pointerId = -1
   dragging.value = false
@@ -65,8 +71,13 @@ function onPointerCancel() {
         @pointerup="onPointerUp"
         @pointercancel="onPointerCancel"
       >
-        <span class="text-body-medium">{{ settings.toast.title }}</span>
-        <span v-if="settings.toast.body" class="snackbar-body">{{ settings.toast.body }}</span>
+        <div class="snackbar-text">
+          <span class="text-body-medium">{{ settings.toast.title }}</span>
+          <span v-if="settings.toast.body" class="snackbar-body">{{ settings.toast.body }}</span>
+        </div>
+        <button v-if="settings.toast.action" type="button" class="btn btn-text snackbar-action" @pointerdown.stop @click.stop="runAction">
+          {{ settings.toast.action.label }}
+        </button>
       </div>
     </Transition>
   </div>
@@ -87,10 +98,10 @@ function onPointerCancel() {
 
 .snackbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   width: min(560px, 100%);
   min-height: 48px;
-  justify-content: center;
   padding: 14px 16px;
   border-radius: 4px;
   background: var(--md-surface-container-highest);
@@ -102,6 +113,23 @@ function onPointerCancel() {
   user-select: none;
   translate: 0 var(--drag, 0px);
   transition: translate 190ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.snackbar-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.snackbar:has(.snackbar-action) {
+  padding-block: 4px;
+  padding-right: 8px;
+}
+
+.snackbar-action {
+  flex-shrink: 0;
+  margin-block: 0;
 }
 
 .snackbar.is-dragging {

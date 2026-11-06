@@ -19,6 +19,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from '@/composables/useKeyboardNav.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {useSheetMetrics} from '@/composables/useSheetMetrics.ts'
+import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
 import {useSheetGestures, type SheetSnap} from '@/composables/useSheetGestures.ts'
 import {useIOSKeyboard} from '@/composables/useIOSKeyboard.ts'
 import {useSheetKeyboard} from '@/composables/useSheetKeyboard.ts'
@@ -37,6 +38,7 @@ const {keyboardMode, focusSectionSoon} = useKeyboardNav()
 useKeyboardNavRoot(router)
 const isAdminRoute = computed(() => route.name === 'admin')
 const atHome = computed(() => route.name === 'home')
+const {holding} = useFavoriteDrag()
 
 type DrawerState = SheetSnap
 
@@ -385,7 +387,7 @@ useKbdShortcuts(
   <main v-else ref="shellEl" class="app-shell" :class="{'is-dragging': isDragging, 'is-landscape-open': isLandscapeDrawerOpen}" :style="shellStyle">
     <MapComponent class="app-map" />
     <Transition name="chrome" :css="!navInstant">
-      <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place" />
+      <HomeChrome v-if="atHome" ref="chromeEl" class="home-chrome-place" :class="{'is-holding': holding}" />
     </Transition>
     <OfflinePill class="offline-place" />
     <MapFabs class="fabs-place" />
@@ -503,6 +505,11 @@ useKbdShortcuts(
   right: 0;
   z-index: 3000;
   opacity: var(--chrome-alpha);
+}
+
+.home-chrome-place.is-holding {
+  z-index: 5000;
+  opacity: 1;
 }
 
 .chrome-enter-active {
