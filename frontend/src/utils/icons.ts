@@ -14,6 +14,7 @@ export {default as DarkModeIcon} from '@material-design-icons/svg/round/dark_mod
 export {default as DeleteIcon} from '@material-design-icons/svg/round/delete.svg?component'
 export {default as DevicesIcon} from '@material-design-icons/svg/round/devices.svg?component'
 export {default as DialpadIcon} from '@material-design-icons/svg/round/dialpad.svg?component'
+export {default as DragIndicatorIcon} from '@material-design-icons/svg/round/drag_indicator.svg?component'
 export {default as DirectionsIcon} from '@material-design-icons/svg/round/directions.svg?component'
 export {default as DirectionsBusIcon} from '@material-design-icons/svg/round/directions_bus.svg?component'
 export {default as DirectionsWalkIcon} from '@material-design-icons/svg/round/directions_walk.svg?component'

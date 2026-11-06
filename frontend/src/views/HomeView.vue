@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted} from 'vue'
+import {computed, nextTick, onMounted, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
@@ -17,18 +17,20 @@ import {network} from '@/utils/network.ts'
 import StationIcon from '@/components/StationIcon.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 import RecentRow from '@/components/rows/RecentRow.vue'
-import SubLabel from '@/components/ui/SubLabel.vue'
+import HomeSection from '@/components/home/HomeSection.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
 import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
-import {CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
+import {CheckIcon, CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
+import {type HomeSectionId, withShownOrder} from '@/utils/homeSections.ts'
+import {useHomeSections} from '@/composables/useHomeSections.ts'
 
 const RECENTS_SHOWN = 5
 const LONG_PRESS_MS = 350
@@ -168,6 +170,35 @@ const planFavoritesModel = computed<FavoritePlan[]>({
   set: (newPlans) => favoritesStore.reorderPlans([...newPlans]),
 })
 
+const {order: sectionOrder, setOrder: setSectionOrder, toggle: toggleCollapsed, isCollapsed} = useHomeSections()
+
+const shownSections = computed<HomeSectionId[]>(() =>
+  sectionOrder.value.filter((id) => {
+    if (id === 'lines') return favoriteRouteChips.value.size > 0
+    if (id === 'groups') return favoriteGroups.value.length > 0
+    if (id === 'stops') return favoriteStops.value.length > 0
+    if (id === 'places') return isOnline.value && favoritePlans.value.length > 0
+    if (id === 'recents') return recents.value.length > 0
+    return false
+  }),
+)
+
+const sectionsModel = computed<HomeSectionId[]>({
+  get: () => shownSections.value,
+  set: (shown) => setSectionOrder(withShownOrder(sectionOrder.value, shown)),
+})
+
+const SECTION_TITLES: Partial<Record<HomeSectionId, string>> = {
+  lines: 'favoriteRoutes',
+  groups: 'lineGroups',
+  stops: 'favoriteStops',
+  places: 'favoritePlans',
+  recents: 'recentDestinations',
+}
+const sectionTitle = (id: HomeSectionId) => t(SECTION_TITLES[id] ?? id)
+
+const arranging = ref(false)
+
 const kbd = useKeyboardNav()
 
 const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${group.routeId}`
@@ -176,6 +207,7 @@ const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
 const recentItemKey = (item: RecentItem) => `recent-${item.key}`
+const sectionItemKey = (id: HomeSectionId) => `section-${id}`
 
 function removeFocused(): boolean {
   const key = kbd.focusedKey()
@@ -213,6 +245,7 @@ function moveFocused(delta: 1 | -1): boolean {
   const key = kbd.focusedKey()
   if (!key) return false
   const moved =
+    swapInList(shownSections.value, sectionItemKey, key, delta, (l) => (sectionsModel.value = l)) ||
     swapInList(favoriteGroups.value, favGroupItemKey, key, delta, (l) => favoritesStore.reorderGroups(l)) ||
     swapInList(favoriteRouteGroups.value, favRouteItemKey, key, delta, (l) => favoritesStore.reorderRoutes(l.flatMap((g) => g.favorites))) ||
     swapInList(favoriteStopIds.value, favStopItemKey, key, delta, (l) => favoritesStore.reorderStopIds(l)) ||
@@ -222,6 +255,11 @@ function moveFocused(delta: 1 | -1): boolean {
 }
 
 useKbdShortcuts({
+  Escape: () => {
+    if (!arranging.value) return false
+    arranging.value = false
+    return true
+  },
   x: removeFocused,
   Delete: removeFocused,
   J: () => moveFocused(1),
@@ -235,144 +273,164 @@ const dragOptions = {
   ghostClass: 'drag-ghost',
   chosenClass: 'drag-chosen',
 }
+
+const sectionDragOptions = computed(() => ({
+  disabled: !arranging.value,
+  animation: dragOptions.animation,
+  ghostClass: dragOptions.ghostClass,
+  chosenClass: dragOptions.chosenClass,
+  handle: '.section-head',
+  // The native drag image lags behind the list.
+  forceFallback: true,
+  fallbackTolerance: 3,
+  // The sheet's transform offsets a nested clone.
+  fallbackOnBody: true,
+}))
 </script>
 
 <template>
   <div class="home-view">
     <template v-if="isHydrated">
-      <section v-if="favoriteRouteChips.size" class="pt-3" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
-        <SubLabel :text="t('favoriteRoutes')" />
-        <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
-          <template #item="{element: group}">
-            <div v-if="favoriteRouteChips.get(group.routeId)" class="chip-cell">
-              <div
-                class="route-chip state squish"
-                :class="{'is-busy': openingRouteId === group.routeId}"
-                role="button"
-                tabindex="0"
-                :title="favoriteRouteChips.get(group.routeId)!.name"
-                :data-kbd-item="favRouteItemKey(group)"
-                @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
-                @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
-              >
-                <LineBadge
-                  :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
-                  :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
-                  :height="28"
-                  :min-width="36"
-                  :corner="8"
-                />
-                <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
-                <button
-                  type="button"
-                  class="icon-btn chip-remove"
-                  :title="t('removeFromFavorites')"
-                  :aria-label="t('removeFromFavorites')"
-                  @click.stop="removeRouteGroup(group)"
-                >
-                  <CloseIcon class="m-icon size-4" />
-                </button>
-              </div>
-            </div>
-          </template>
-        </Draggable>
-      </section>
-
-      <section v-if="favoriteGroups.length" :class="favoriteRouteChips.size ? 'pt-2' : 'pt-3'" data-kbd-section="fav-groups" data-kbd-entry="1">
-        <SubLabel :text="t('lineGroups')" />
-        <Draggable v-model="groupFavoritesModel" :item-key="(g: FavoriteGroup) => groupKey(g.lines)" tag="div" v-bind="dragOptions">
-          <template #item="{element: group, index: i}">
-            <ListRow
-              :title="group.name"
-              :remove-label="t('removeFromFavorites')"
-              :data-kbd-item="favGroupItemKey(group)"
-              @open="openGroup(group.lines)"
-              @remove="favoritesStore.removeGroup(group.lines)"
-            >
-              <template #lines>
-                <StationLines :routes="groupLines[i] ?? []" />
-              </template>
-            </ListRow>
-          </template>
-        </Draggable>
-      </section>
-
-      <section
-        v-if="favoriteStops.length"
-        :class="favoriteRouteChips.size || favoriteGroups.length ? 'pt-2' : 'pt-3'"
-        data-kbd-section="fav-stops"
-        data-kbd-entry="1"
-      >
-        <SubLabel :text="t('favoriteStops')" />
-        <Draggable v-model="stopFavoritesModel" :item-key="(id: number) => id" tag="div" v-bind="dragOptions">
-          <template #item="{element: stopId}">
-            <ListRow
-              v-if="stopsById.get(stopId)"
-              :title="stopsById.get(stopId)!.stop_name"
-              :remove-label="t('removeFromFavorites')"
-              :data-kbd-item="favStopItemKey(stopId)"
-              @open="openStop(stopsById.get(stopId)!)"
-              @remove="favoritesStore.toggleStopFavorite(stopId)"
-            >
-              <template #icon>
-                <StationIcon :look="lookOf(stopId)" class="size-[30px]" />
-              </template>
-              <template #lines>
-                <StationLines :routes="lookOf(stopId)?.routes ?? []" />
-              </template>
-            </ListRow>
-          </template>
-        </Draggable>
-      </section>
-
-      <section v-if="isOnline && favoritePlans.length" class="pt-2" data-kbd-section="fav-plans" data-kbd-entry="1">
-        <SubLabel :text="t('favoritePlans')" />
-        <Draggable v-model="planFavoritesModel" :item-key="planKey" tag="div" v-bind="dragOptions">
-          <template #item="{element: plan}">
-            <ListRow
-              :title="plan.label ?? plan.name"
-              :title-prefix="!plan.label && plan.originName ? `${t('planTo')}: ` : undefined"
-              :kicker="!plan.label && plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
-              :remove-label="t('removeFromFavorites')"
-              :data-kbd-item="favPlanItemKey(plan)"
-              @open="openPlan(plan)"
-              @remove="favoritesStore.togglePlanFavorite(plan)"
-            >
-              <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30" /></template>
-            </ListRow>
-          </template>
-        </Draggable>
-      </section>
-
-      <section v-if="recents.length" :class="hasFavorites ? 'pt-2' : 'pt-3'" data-kbd-section="recent-plans" data-kbd-entry="1">
-        <SubLabel :text="t('recentDestinations')" />
-        <template v-for="item in recents" :key="item.key">
-          <ListRow
-            v-if="item.plan"
-            :title="item.plan.name"
-            :title-prefix="item.plan.originName ? `${t('planTo')}: ` : undefined"
-            :kicker="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : undefined"
-            :remove-label="t('removeFromRecents')"
-            :data-kbd-item="recentItemKey(item)"
-            @open="openPlan(item.plan!)"
-            @remove="favoritesStore.removeRecent(item.recent)"
+      <div v-if="arranging" class="arrange-bar">
+        <span class="text-body-medium text-on-surface-variant">{{ t('sectionsArrangeHint') }}</span>
+        <button type="button" class="btn btn-tonal" @click="arranging = false"><CheckIcon class="m-icon" />{{ t('save') }}</button>
+      </div>
+      <Draggable v-model="sectionsModel" :item-key="(id: HomeSectionId) => id" tag="div" v-bind="sectionDragOptions">
+        <template #item="{element: id}">
+          <HomeSection
+            :title="sectionTitle(id)"
+            :collapsed="isCollapsed(id)"
+            :arranging="arranging"
+            :head-key="sectionItemKey(id)"
+            @toggle="toggleCollapsed(id)"
+            @hold="arranging = true"
           >
-            <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
-          </ListRow>
-          <RecentRow
-            v-else
-            :stop="item.stop"
-            :route="item.route"
-            :group="item.group"
-            :icon-size="30"
-            :remove-label="t('removeFromRecents')"
-            :busy="!!item.route && openingRouteId === item.route.route_id"
-            :data-kbd-item="recentItemKey(item)"
-            @open="openRecent(item)"
-            @remove="favoritesStore.removeRecent(item.recent)"
-          />
+            <div v-if="id === 'lines'" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
+              <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
+                <template #item="{element: group}">
+                  <div v-if="favoriteRouteChips.get(group.routeId)" class="chip-cell">
+                    <div
+                      class="route-chip state squish"
+                      :class="{'is-busy': openingRouteId === group.routeId}"
+                      role="button"
+                      tabindex="0"
+                      :title="favoriteRouteChips.get(group.routeId)!.name"
+                      :data-kbd-item="favRouteItemKey(group)"
+                      @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
+                      @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
+                    >
+                      <LineBadge
+                        :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
+                        :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
+                        :height="28"
+                        :min-width="36"
+                        :corner="8"
+                      />
+                      <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
+                      <button
+                        type="button"
+                        class="icon-btn chip-remove"
+                        :title="t('removeFromFavorites')"
+                        :aria-label="t('removeFromFavorites')"
+                        @click.stop="removeRouteGroup(group)"
+                      >
+                        <CloseIcon class="m-icon size-4" />
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </Draggable>
+            </div>
+
+            <div v-else-if="id === 'groups'" data-kbd-section="fav-groups" data-kbd-entry="1">
+              <Draggable v-model="groupFavoritesModel" :item-key="(g: FavoriteGroup) => groupKey(g.lines)" tag="div" v-bind="dragOptions">
+                <template #item="{element: group, index: i}">
+                  <ListRow
+                    :title="group.name"
+                    :remove-label="t('removeFromFavorites')"
+                    :data-kbd-item="favGroupItemKey(group)"
+                    @open="openGroup(group.lines)"
+                    @remove="favoritesStore.removeGroup(group.lines)"
+                  >
+                    <template #lines>
+                      <StationLines :routes="groupLines[i] ?? []" />
+                    </template>
+                  </ListRow>
+                </template>
+              </Draggable>
+            </div>
+
+            <div v-else-if="id === 'stops'" data-kbd-section="fav-stops" data-kbd-entry="1">
+              <Draggable v-model="stopFavoritesModel" :item-key="(id: number) => id" tag="div" v-bind="dragOptions">
+                <template #item="{element: stopId}">
+                  <ListRow
+                    v-if="stopsById.get(stopId)"
+                    :title="stopsById.get(stopId)!.stop_name"
+                    :remove-label="t('removeFromFavorites')"
+                    :data-kbd-item="favStopItemKey(stopId)"
+                    @open="openStop(stopsById.get(stopId)!)"
+                    @remove="favoritesStore.toggleStopFavorite(stopId)"
+                  >
+                    <template #icon>
+                      <StationIcon :look="lookOf(stopId)" class="size-[30px]" />
+                    </template>
+                    <template #lines>
+                      <StationLines :routes="lookOf(stopId)?.routes ?? []" />
+                    </template>
+                  </ListRow>
+                </template>
+              </Draggable>
+            </div>
+
+            <div v-else-if="id === 'places'" data-kbd-section="fav-plans" data-kbd-entry="1">
+              <Draggable v-model="planFavoritesModel" :item-key="planKey" tag="div" v-bind="dragOptions">
+                <template #item="{element: plan}">
+                  <ListRow
+                    :title="plan.label ?? plan.name"
+                    :title-prefix="!plan.label && plan.originName ? `${t('planTo')}: ` : undefined"
+                    :kicker="!plan.label && plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
+                    :remove-label="t('removeFromFavorites')"
+                    :data-kbd-item="favPlanItemKey(plan)"
+                    @open="openPlan(plan)"
+                    @remove="favoritesStore.togglePlanFavorite(plan)"
+                  >
+                    <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30" /></template>
+                  </ListRow>
+                </template>
+              </Draggable>
+            </div>
+
+            <div v-else-if="id === 'recents'" data-kbd-section="recent-plans" data-kbd-entry="1">
+              <template v-for="item in recents" :key="item.key">
+                <ListRow
+                  v-if="item.plan"
+                  :title="item.plan.name"
+                  :title-prefix="item.plan.originName ? `${t('planTo')}: ` : undefined"
+                  :kicker="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : undefined"
+                  :remove-label="t('removeFromRecents')"
+                  :data-kbd-item="recentItemKey(item)"
+                  @open="openPlan(item.plan!)"
+                  @remove="favoritesStore.removeRecent(item.recent)"
+                >
+                  <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
+                </ListRow>
+                <RecentRow
+                  v-else
+                  :stop="item.stop"
+                  :route="item.route"
+                  :group="item.group"
+                  :icon-size="30"
+                  :remove-label="t('removeFromRecents')"
+                  :busy="!!item.route && openingRouteId === item.route.route_id"
+                  :data-kbd-item="recentItemKey(item)"
+                  @open="openRecent(item)"
+                  @remove="favoritesStore.removeRecent(item.recent)"
+                />
+              </template>
+            </div>
+          </HomeSection>
         </template>
-      </section>
+      </Draggable>
 
       <p v-if="!hasFavorites && !recents.length" class="empty">
         {{ t('noFavorites') }}
@@ -389,7 +447,7 @@ const dragOptions = {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 0 12px 4px;
 }
 
 /* 48px touch target */
@@ -408,7 +466,7 @@ const dragOptions = {
   min-width: 0;
   padding: 6px 0 6px 10px;
   border-radius: 14px;
-  background: var(--md-surface-container);
+  background: var(--md-surface-container-high);
   color: var(--md-on-surface);
   cursor: pointer;
 }
@@ -447,6 +505,14 @@ const dragOptions = {
   color: var(--md-on-surface-variant);
 }
 
+.arrange-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 16px 0 24px;
+}
+
 .drag-ghost {
   opacity: 0.3;
 }
@@ -455,9 +521,14 @@ const dragOptions = {
   scale: 1.03;
 }
 
-.drag-chosen:not(.chip-cell),
-.drag-chosen > .route-chip {
+.drag-chosen:not(.chip-cell) {
+  border-radius: 16px;
   box-shadow: var(--md-elevation-3);
   background: var(--md-surface-container-high);
+}
+
+.drag-chosen > .route-chip {
+  box-shadow: var(--md-elevation-3);
+  background: var(--md-surface-container-highest);
 }
 </style>

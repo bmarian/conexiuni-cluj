@@ -25,54 +25,48 @@ function dismiss() {
 </script>
 
 <template>
-  <div v-if="isFriday && !dismissed" class="green-friday" data-kbd-section="banner" data-kbd-axis="x">
-    <span class="tile"><EcoIcon class="m-icon" /></span>
-    <div class="flex-1 min-w-0">
-      <p class="title">{{ t('greenFridayTitle') }}</p>
-      <p class="desc">{{ t('greenFridayDesc') }}</p>
+  <div v-if="isFriday && !dismissed" class="banner-gutter">
+    <div class="green-friday" data-kbd-section="banner" data-kbd-axis="x">
+      <span class="icon-well"><EcoIcon class="m-icon size-5" /></span>
+      <div class="flex-1 min-w-0">
+        <p class="text-title-small">{{ t('greenFridayTitle') }}</p>
+        <p class="text-body-medium text-on-surface-variant">{{ t('greenFridayDesc') }}</p>
+      </div>
+      <button type="button" class="icon-btn text-outline" :aria-label="t('dismiss')" :title="t('dismiss')" data-kbd-item="banner-dismiss" @click="dismiss">
+        <CloseIcon class="m-icon size-[18px]" />
+      </button>
     </div>
-    <button type="button" class="icon-btn close" :aria-label="t('dismiss')" :title="t('dismiss')" data-kbd-item="banner-dismiss" @click="dismiss">
-      <CloseIcon class="m-icon" />
-    </button>
   </div>
 </template>
 
 <style scoped>
+/* Same gutter as .drawer-view. */
+.banner-gutter {
+  flex-shrink: 0;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+}
+
 .green-friday {
+  --eco: #2e9e57;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 4px 8px 16px;
-  background: linear-gradient(135deg, #dcfce7, #d1fae5);
+  margin: 8px 12px 0;
+  padding: 10px 4px 10px 14px;
+  border-radius: 20px;
+  background: color-mix(in oklch, var(--eco) 9%, var(--md-surface-container));
+  color: var(--md-on-surface);
 }
 
-.tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.icon-well {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  background: #10b981;
-  color: #fff;
-}
-
-.title {
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 800;
-  color: #065f46;
-}
-
-.desc {
-  font-size: 12px;
-  line-height: 16px;
-  letter-spacing: 0.4px;
-  color: #047857;
-}
-
-.close {
-  color: #059669;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--eco) 24%, var(--md-surface-container-high));
+  color: color-mix(in oklch, var(--eco) 75%, var(--md-on-surface));
 }
 </style>
