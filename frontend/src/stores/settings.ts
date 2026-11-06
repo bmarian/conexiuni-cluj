@@ -71,7 +71,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoCenterOnMe = ref(localStorage.getItem('settings.autoCenterOnMe') !== 'false')
   const autoFitMap = ref(localStorage.getItem('settings.autoFitMap') !== 'false')
   const colorfulLines = ref(localStorage.getItem('settings.colorfulLines') === 'true')
-  const traffic = ref(localStorage.getItem('settings.traffic') === 'true')
+  const traffic = ref(localStorage.getItem('settings.traffic') !== 'false')
   const appPromptDismissed = ref(localStorage.getItem('settings.appPromptDismissed') === 'true')
 
   const regionValues = ref<Record<string, boolean>>({})
@@ -124,7 +124,7 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCenterOnMe.value = localStorage.getItem('settings.autoCenterOnMe') !== 'false'
     autoFitMap.value = localStorage.getItem('settings.autoFitMap') !== 'false'
     colorfulLines.value = localStorage.getItem('settings.colorfulLines') === 'true'
-    traffic.value = localStorage.getItem('settings.traffic') === 'true'
+    traffic.value = localStorage.getItem('settings.traffic') !== 'false'
     regionValues.value = {}
   }
 

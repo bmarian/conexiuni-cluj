@@ -1,9 +1,33 @@
+import {computed, shallowRef} from 'vue'
 import type {Paint} from '@/utils/lineSweep.ts'
 import {decodePolyline} from '@/utils/network.ts'
 import {locate, pathAlong} from '@/utils/vehicleMotion.ts'
 
 export type TrafficStretch = {path: string; band: number}
-export type TrafficNow = {lines: Record<string, TrafficStretch[]>}
+export type Jam = {from_stop_id: number; to_stop_id: number; band: number; delay_sec: number}
+export type Traffic = {stretches: TrafficStretch[]; jams: Jam[]}
+export type TrafficByTrip = Record<string, Traffic>
+
+const streams = shallowRef(new Map<object, TrafficByTrip>())
+
+export const liveTraffic = computed<TrafficByTrip>(() => Object.assign({}, ...streams.value.values()))
+
+export function publishTraffic(stream: object, traffic: TrafficByTrip | null) {
+  const next = new Map(streams.value)
+  if (traffic) next.set(stream, traffic)
+  else next.delete(stream)
+  streams.value = next
+}
+
+export function worstJam(traffic: Traffic | undefined, stopIds: number[], fromStopId?: number): Jam | undefined {
+  const from = fromStopId === undefined ? 0 : stopIds.indexOf(fromStopId)
+  if (!traffic || from < 0) return undefined
+  return traffic.jams
+    .filter((jam) => stopIds.indexOf(jam.from_stop_id) >= from)
+    .reduce<Jam | undefined>((worst, jam) => (worst && worst.delay_sec >= jam.delay_sec ? worst : jam), undefined)
+}
+
+export const jamMinutes = (jam: Jam) => Math.max(1, Math.round(jam.delay_sec / 60))
 
 export const TRAFFIC_COLORS = ['#34a853', '#fbbc04', '#ea4335', '#a50e0e'] as const
 

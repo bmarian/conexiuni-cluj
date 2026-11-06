@@ -45,7 +45,7 @@ import {
 import {network} from '@/utils/network.ts'
 import {stationProps, stationsProps} from '@/utils/pagePaths.ts'
 import {displayColor, manyLines} from '@/utils/lineColor.ts'
-import {growLine, type Paint, paintLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
+import {growLine, stopSweep, sweepLine} from '@/utils/lineSweep.ts'
 import {LineReveal} from '@/utils/lineReveal.ts'
 import {rippleFrom} from '@/utils/arrivalCue.ts'
 import {paced, reducedMotion, squash} from '@/utils/motion.ts'
@@ -54,7 +54,7 @@ import {type SpiderLeg, spiderLegsClear, spiderLegsToward} from '@/utils/spider.
 import {useMapPicks} from '@/composables/useMapPicks.ts'
 import {useTraffic} from '@/composables/useTraffic.ts'
 import {createStationLabels} from '@/utils/stationLabels.ts'
-import {trafficPaint} from '@/utils/traffic.ts'
+import {dropRails, growRails, syncRails} from '@/utils/trafficRails.ts'
 import {type Area, AreaClusters, MapClusters} from '@/utils/areaClusters.ts'
 import {apiRequest} from '@/utils/api.ts'
 import {fadeOutMarker, flightMs, glideMarker, showMarker} from '@/utils/markerMotion.ts'
@@ -269,13 +269,13 @@ const whenAiming = async (m: MapLibreMap) => {
 
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
   if (reducedMotion()) return
-  const start = growLine(m, id, line.color)
+  const starts = [growLine(m, id, line.color), ...growRails(m, id)]
   const growth = lineReveal.grow(id, pathAlong(line.coords), line.name)
   revealAll()
   void whenAiming(m).then(() => {
     const at = lineReveal.start(id, growth)
     if (at === undefined) return
-    start()
+    for (const start of starts) start()
     revealAll(at)
   })
 }
@@ -288,7 +288,7 @@ const syncLines = (group: LineGroup) => {
   for (let i = lines[group].length; i < shown.length; i++) {
     const id = `${OVERLAY}${group}-${i}`
     lineReveal.end(id)
-    paintLine(m, id)
+    dropRails(m, id)
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)
   }
@@ -296,8 +296,6 @@ const syncLines = (group: LineGroup) => {
     const id = `${OVERLAY}${group}-${i}`
     const path = pathKey(line.coords)
     const data: Feature<LineString> = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: line.coords.map(toLngLat)}}
-    const paint = paintOf(line)
-    const dash = drawnDash(line, paint)
     const source = m.getSource<GeoJSONSource>(id)
     if (source && m.getLayer(id)) {
       const was = m.getPaintProperty(id, 'line-color') as string
@@ -309,9 +307,11 @@ const syncLines = (group: LineGroup) => {
       m.setPaintProperty(id, 'line-color', line.color)
       m.setPaintProperty(id, 'line-width', line.width)
       m.setPaintProperty(id, 'line-opacity', line.opacity)
+      m.setPaintProperty(id, 'line-dasharray', line.dash)
       const unsaved = line.name !== undefined && drawnFavorites.has(line.name) && !favoritesStore.favoriteLineNames.has(line.name)
-      if (shown[i] === path && was !== line.color && !dash) sweepLine(m, id, was, line.color, unsaved)
+      if (shown[i] === path && was !== line.color && !line.dash) sweepLine(m, id, was, line.color, unsaved)
     } else {
+      dropRails(m, id)
       if (source) m.removeSource(id)
       m.addSource(id, {type: 'geojson', data, lineMetrics: true})
       const layer: LineLayerSpecification = {
@@ -328,11 +328,11 @@ const syncLines = (group: LineGroup) => {
           'line-opacity-transition': {duration: 0, delay: 0},
         },
       }
-      if (dash) layer.paint!['line-dasharray'] = dash
+      if (line.dash) layer.paint!['line-dasharray'] = line.dash
       m.addLayer(layer, slotId(group))
     }
-    paintShape(m, id, line, paint)
-    if (!shown.includes(path) && !dash) grow(m, id, line)
+    if (group === 'shapes') syncRails(m, id, line, trafficOf(line))
+    if (!shown.includes(path) && !line.dash) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
   drawnFavorites = new Set(favoritesStore.favoriteLineNames)
@@ -375,31 +375,19 @@ const syncOverlays = () => {
   const m = map.value
   if (!m || !styleReady) return
   ensureSlots(m)
-  syncTraffic()
   syncLines('shapes')
   syncLines('walks')
   syncAccuracy()
 }
 
-const paintOf = (line: LineSpec): Paint | undefined => {
-  const stretches = line.tripId === undefined ? undefined : traffic.now.value?.lines[line.tripId]
-  return stretches?.length ? trafficPaint(stretches, line.coords, line.color) : undefined
-}
-
-// In traffic colours a line drops the dash that told it apart from another line of its colour.
-const drawnDash = (line: LineSpec, paint: Paint | undefined) => (paint ? undefined : line.dash)
-
-const paintShape = (m: MapLibreMap, id: string, line: LineSpec, paint = paintOf(line)) => {
-  m.setPaintProperty(id, 'line-dasharray', drawnDash(line, paint))
-  paintLine(m, id, paint)
-}
+const trafficOf = (line: LineSpec) => (line.tripId === undefined ? undefined : traffic.value[line.tripId])
 
 const syncTraffic = () => {
   const m = map.value
   if (!m || !styleReady) return
   lines.shapes.forEach((line, i) => {
     const id = `${OVERLAY}shapes-${i}`
-    if (m.getLayer(id)) paintShape(m, id, line)
+    if (m.getLayer(id)) syncRails(m, id, line, trafficOf(line))
   })
 }
 
@@ -1253,7 +1241,7 @@ watch(showsContent, () => refreshStops())
 watch(() => favoritesStore.favoriteStopIds, refreshStopIcons, {deep: true})
 
 watch(isDarkMode, applyStyle)
-watch(traffic.now, syncTraffic)
+watch(traffic, syncTraffic)
 
 watch(arrival, (cue) => {
   if (!cue) return

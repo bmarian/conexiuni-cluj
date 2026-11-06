@@ -27,6 +27,7 @@ import ActionChips from '@/components/ui/ActionChips.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import DepartureCard from '@/components/rows/DepartureCard.vue'
+import {useJams} from '@/composables/useTraffic.ts'
 import DeparturesLabel from '@/components/ui/DeparturesLabel.vue'
 import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useDueArrivals} from '@/composables/useDueArrivals.ts'
@@ -174,6 +175,7 @@ const chips = computed<ChipAction[]>(() => [
   },
   {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
 ])
+const jamAhead = useJams()
 </script>
 
 <template>
@@ -233,6 +235,7 @@ const chips = computed<ChipAction[]>(() => [
             :label="formatMinutes"
             :favorite="isDepartureFavorite(shape)"
             :kbd="`dep-${shape.trip_id}`"
+            :jam="jamAhead(shape.trip_id, shape.stop_id ?? stopIdNum)"
             @open="navigateToRoute(shape)"
           />
         </template>

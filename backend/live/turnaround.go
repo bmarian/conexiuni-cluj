@@ -181,8 +181,8 @@ func (eng *Engine) loadTerminusProfile(routeID, directionID int) terminusProfile
 func learnTurnaround(stands []float64) predictions.Turnaround {
 	n := float64(len(stands))
 	weight := n / (n + turnaroundMinSamples)
-	stand := weight*nearestRank(stands, 0.25) + (1-weight)*predictions.DefaultStandSec
-	return predictions.Turnaround{Through: true, StandSec: stand, MaxWaitMin: nearestRank(stands, 0.9) / 60}
+	stand := weight*NearestRank(stands, 0.25) + (1-weight)*predictions.DefaultStandSec
+	return predictions.Turnaround{Through: true, StandSec: stand, MaxWaitMin: NearestRank(stands, 0.9) / 60}
 }
 
 // Planned gap between arriving on the feeder direction and the next departure.
@@ -214,7 +214,7 @@ func scheduledLayoverMinutes(day models.DaySchedule, fromDurationMin float64, to
 	if len(gaps) == 0 {
 		return 0, false
 	}
-	return median(gaps), true
+	return Median(gaps), true
 }
 
 func tripDurationMinutes(trip []models.StopTime) float64 {

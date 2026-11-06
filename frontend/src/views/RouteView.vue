@@ -30,6 +30,8 @@ import DirectionArrow from '@/components/ui/DirectionArrow.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StopLine, {type StopMark} from '@/components/rows/StopLine.vue'
 import StopListBuses from '@/components/rows/StopListBuses.vue'
+import TrafficNote from '@/components/ui/TrafficNote.vue'
+import {useJams} from '@/composables/useTraffic.ts'
 import {useListFlip} from '@/composables/useListFlip.ts'
 import {directionKeys} from '@/utils/stopPairs.ts'
 import {network} from '@/utils/network.ts'
@@ -457,6 +459,8 @@ const lineColor = computed(() => (shapeInfo.value ? displayColor(shapeInfo.value
 
 const stopHref = (stop: IndexedStop) => stopPath(stop.stop_id)
 const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
+const jams = useJams()
+const jam = computed(() => jams(`${routeIdNum.value}_${currentDirection.value}`))
 </script>
 
 <template>
@@ -506,6 +510,7 @@ const openStop = (stop: IndexedStop) => router.push(stopLocation(stop.stop_id))
       <p v-if="!stopsForDirection.length" class="text-body-medium text-on-surface-variant px-4 pt-4">{{ t('noSchedule') }}</p>
 
       <template v-else>
+        <TrafficNote v-if="jam" :jam="jam" between class="px-4 pt-3 text-label-medium" />
         <div class="stops-head">
           <span class="flex flex-1 items-center min-w-0">
             <span class="text-title-small text-on-surface-variant">{{ t('stops') }}</span>

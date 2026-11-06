@@ -83,6 +83,7 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Destinations = destinations.New(c.Network, c.Planner.Places)
 	c.Traffic = traffic.New(loc, store, c.Data, &c.offered, c.Live, realtime != nil)
 	c.Traffic.Runner = c.running
+	c.Live.Traffic = c.Traffic.Lines
 	forget := func() {
 		c.Network.Invalidate()
 		c.Planner.Forget()

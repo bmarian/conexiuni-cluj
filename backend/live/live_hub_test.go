@@ -4,6 +4,8 @@ import (
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/jobs"
 	"conexiuni-cluj/models"
+	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -127,5 +129,17 @@ func TestOnDemandAnswersShareAndPaceFetches(t *testing.T) {
 	}
 	if n := len(feed.started); n != 1 {
 		t.Fatalf("an answer past the pace cost %d fetches, want 1", n)
+	}
+}
+
+func TestDeltasCarryTrafficOnlyWhenItChanges(t *testing.T) {
+	jam := map[string]models.Traffic{"7_0": {Jams: []models.Jam{{FromStopID: 1, ToStopID: 2, Band: 2, DelaySec: 90}}}}
+	prev := liveView{Traffic: jam}
+	if _, changed := diffViews(prev, liveView{Traffic: jam}); changed {
+		t.Fatal("unchanged traffic made a delta")
+	}
+	delta, changed := diffViews(prev, liveView{Traffic: map[string]models.Traffic{}})
+	if data, _ := json.Marshal(delta); !changed || !strings.Contains(string(data), `"traffic":{}`) {
+		t.Fatalf("a cleared jam sent %s, want an empty traffic map", data)
 	}
 }

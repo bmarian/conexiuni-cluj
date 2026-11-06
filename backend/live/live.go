@@ -56,6 +56,7 @@ type liveVehicle struct {
 
 type liveTable struct {
 	AsOf           time.Time
+	traffic        map[string]models.Traffic
 	rowsByTrip     map[string][]liveRow
 	rowsByStop     map[int][]liveRow
 	vehiclesByTrip map[string][]liveVehicle
@@ -101,8 +102,8 @@ func (eng *Engine) learnLiveRules() liveRules {
 	// A run that still reads "now" on a screen (half a minute late) is always listed.
 	rules := liveRules{graceSec: 30, slotWindow: time.Minute}
 	if len(lateness) > 0 {
-		rules.graceSec = math.Max(30, nearestRank(lateness, 0.75))
-		rules.slotWindow = time.Duration(math.Max(60, nearestRank(lateness, 0.9)) * float64(time.Second))
+		rules.graceSec = math.Max(30, NearestRank(lateness, 0.75))
+		rules.slotWindow = time.Duration(math.Max(60, NearestRank(lateness, 0.9)) * float64(time.Second))
 	}
 	return rules
 }
@@ -265,6 +266,7 @@ func (eng *Engine) RecomputeLive(vehicles []models.Vehicle, now time.Time) *live
 
 	table := &liveTable{
 		AsOf:           now,
+		traffic:        eng.Traffic(),
 		rowsByTrip:     make(map[string][]liveRow, len(trips)),
 		rowsByStop:     make(map[int][]liveRow),
 		vehiclesByTrip: make(map[string][]liveVehicle, len(indexed)),

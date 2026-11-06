@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {TRAFFIC_COLORS, trafficPaint} from '@/utils/traffic.ts'
+import {type Jam, TRAFFIC_COLORS, trafficPaint, worstJam} from '@/utils/traffic.ts'
 
 // The backend's polyline encoding, six decimals.
 function encodePolyline(points: [number, number][]): string {
@@ -49,5 +49,19 @@ describe('traffic paint', () => {
 
   it('is the line colour alone when nothing is measured', () => {
     expect(trafficPaint([], line, '#123456')).toEqual([{at: 0, color: '#123456'}])
+  })
+})
+
+describe('worst jam', () => {
+  const jam = (from: number, delay: number): Jam => ({from_stop_id: from, to_stop_id: from + 1, band: 2, delay_sec: delay})
+  const traffic = {stretches: [], jams: [jam(1, 90), jam(3, 200), jam(5, 120)]}
+
+  it('is the one costing the most on the trip', () => {
+    expect(worstJam(traffic, [1, 2, 3, 4, 5, 6])?.from_stop_id).toBe(3)
+  })
+
+  it('counts only jams from the given stop on', () => {
+    expect(worstJam(traffic, [1, 2, 3, 4, 5, 6], 4)?.from_stop_id).toBe(5)
+    expect(worstJam(traffic, [1, 2, 3, 4, 5, 6], 6)).toBeUndefined()
   })
 })

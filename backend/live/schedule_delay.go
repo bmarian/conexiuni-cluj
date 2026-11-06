@@ -239,7 +239,7 @@ func (eng *Engine) collectScheduleResiduals(
 				r = &scheduleResiduals{runs: make(map[int]struct{})}
 				into[key] = r
 			}
-			r.seconds = append(r.seconds, median(residuals))
+			r.seconds = append(r.seconds, Median(residuals))
 			r.runs[*runID] = struct{}{}
 		}
 	}
@@ -406,8 +406,8 @@ func (eng *Engine) storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleR
 		if runs < scheduleDelayMinRuns {
 			continue
 		}
-		prior := median(byDay[dayKey{key.RouteID, key.DirectionID, key.DayType}])
-		centre := median(r.seconds)
+		prior := Median(byDay[dayKey{key.RouteID, key.DirectionID, key.DayType}])
+		centre := Median(r.seconds)
 		weight := float64(runs) / float64(runs+scheduleDelayShrinkRuns)
 		delay := weight*centre + (1-weight)*prior
 		// How far single runs stray from the hour's delay.
@@ -416,7 +416,7 @@ func (eng *Engine) storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleR
 			strays[i] = math.Abs(s - centre)
 		}
 		sort.Float64s(strays)
-		spread := nearestRank(strays, 0.75)
+		spread := NearestRank(strays, 0.75)
 		if _, err := stmt.Exec(key.RouteID, key.DirectionID, key.DayType, key.BucketStartMin, runs, delay, spread, now.Unix()); err != nil {
 			return 0, err
 		}
@@ -425,7 +425,7 @@ func (eng *Engine) storeScheduleDelays(residuals map[scheduleDelayKey]*scheduleR
 	return stored, tx.Commit()
 }
 
-func median(values []float64) float64 {
+func Median(values []float64) float64 {
 	sorted := append([]float64(nil), values...)
 	sort.Float64s(sorted)
 	n := len(sorted)

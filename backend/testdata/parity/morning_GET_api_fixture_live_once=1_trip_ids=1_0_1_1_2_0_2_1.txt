@@ -1,10 +1,10 @@
 GET /api/fixture/live?once=1&trip_ids=1_0,1_1,2_0,2_1
 200
 Cache-Control: no-store
-Content-Length: 3355
+Content-Length: 3368
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"3355-923625927"
+Etag: W/"3368-1734506962"
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -395,5 +395,6 @@ X-Frame-Options: DENY
    "timestamp": "2026-10-20T03:39:44Z",
    "label": "T21"
   }
- ]
+ ],
+ "traffic": {}
 }

@@ -45,7 +45,7 @@ func (eng *Engine) RunShift(date time.Time, w io.Writer) error {
 	baseline := map[shiftKey]float64{}
 	for k, durations := range groups {
 		if len(durations) >= minSegmentProfileSamples {
-			baseline[k] = median(durations)
+			baseline[k] = Median(durations)
 		}
 	}
 	ratio := func(s replaySample) (float64, bool) {
@@ -107,5 +107,5 @@ func shiftLevel(ratios []float64) string {
 	if len(ratios) == 0 {
 		return "–"
 	}
-	return fmt.Sprintf("%.2f", median(ratios))
+	return fmt.Sprintf("%.2f", Median(ratios))
 }

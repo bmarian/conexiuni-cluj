@@ -71,9 +71,20 @@ export class NetworkIndex {
     return Math.max(1, this.bundle.rules?.late_grace_min ?? 1)
   }
 
+  private trip(tripId: string) {
+    return this.routeById.get(Number(tripId.split('_')[0]))?.trips.find((t) => t.trip_id === tripId)
+  }
+
   shapeHash(tripId: string): string | undefined {
-    const route = this.routeById.get(Number(tripId.split('_')[0]))
-    return route?.trips.find((t) => t.trip_id === tripId)?.shape_hash
+    return this.trip(tripId)?.shape_hash
+  }
+
+  stopName(stopId: number): string {
+    return this.stopById.get(stopId)?.stop_name ?? ''
+  }
+
+  tripStopIds(tripId: string): number[] {
+    return this.trip(tripId)?.stop_ids ?? []
   }
 
   private stationIndex?: {platforms: Map<number, Stop[]>; looks: Map<number, StationLook>}

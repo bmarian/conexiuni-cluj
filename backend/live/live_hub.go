@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -302,14 +303,17 @@ func (s *liveSubscriber) offer(table *liveTable) {
 }
 
 type liveView struct {
-	AsOf     int64         `json:"as_of"`
-	Rows     []liveRow     `json:"rows"`
-	Vehicles []liveVehicle `json:"vehicles"`
+	AsOf     int64                     `json:"as_of"`
+	Rows     []liveRow                 `json:"rows"`
+	Vehicles []liveVehicle             `json:"vehicles"`
+	Traffic  map[string]models.Traffic `json:"traffic"`
 }
 
 type liveDelta struct {
-	AsOf     int64     `json:"as_of"`
-	Rows     []liveRow `json:"rows"`
+	AsOf int64     `json:"as_of"`
+	Rows []liveRow `json:"rows"`
+	// Only when it changed, then whole.
+	Traffic  *map[string]models.Traffic `json:"traffic,omitempty"`
 	Vehicles struct {
 		Upsert []liveVehicle `json:"upsert"`
 		Remove []int         `json:"remove"`
@@ -317,7 +321,7 @@ type liveDelta struct {
 }
 
 func (s *liveSubscriber) view(table *liveTable) liveView {
-	out := liveView{AsOf: table.AsOf.Unix(), Rows: []liveRow{}, Vehicles: []liveVehicle{}}
+	out := liveView{AsOf: table.AsOf.Unix(), Rows: []liveRow{}, Vehicles: []liveVehicle{}, Traffic: map[string]models.Traffic{}}
 	for _, stopID := range slices.Sorted(maps.Keys(s.stops)) {
 		out.Rows = append(out.Rows, table.rowsByStop[stopID]...)
 	}
@@ -331,6 +335,16 @@ func (s *liveSubscriber) view(table *liveTable) liveView {
 			if s.stands || !v.AtStand {
 				out.Vehicles = append(out.Vehicles, v)
 			}
+		}
+	}
+	for _, row := range out.Rows {
+		if t, ok := table.traffic[row.TripID]; ok {
+			out.Traffic[row.TripID] = t
+		}
+	}
+	for tripID := range s.trips {
+		if t, ok := table.traffic[tripID]; ok {
+			out.Traffic[tripID] = t
 		}
 	}
 	return out
@@ -378,7 +392,11 @@ func diffViews(prev, next liveView) (liveDelta, bool) {
 			delta.Vehicles.Remove = append(delta.Vehicles.Remove, id)
 		}
 	}
-	changed := len(delta.Rows) > 0 || len(delta.Vehicles.Upsert) > 0 || len(delta.Vehicles.Remove) > 0
+	trafficChanged := !reflect.DeepEqual(prev.Traffic, next.Traffic)
+	if trafficChanged {
+		delta.Traffic = &next.Traffic
+	}
+	changed := len(delta.Rows) > 0 || len(delta.Vehicles.Upsert) > 0 || len(delta.Vehicles.Remove) > 0 || trafficChanged
 	return delta, changed
 }
 

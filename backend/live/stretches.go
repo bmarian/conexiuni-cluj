@@ -1,9 +1,7 @@
 package live
 
 import (
-	"conexiuni-cluj/database"
 	"conexiuni-cluj/models"
-	"database/sql"
 	"time"
 )
 
@@ -65,27 +63,34 @@ func (eng *Engine) SegmentProfiles(routeID, directionID int) ([]SegmentProfile, 
 	return out, nil
 }
 
-type RecentStretch struct {
-	RouteID     int
-	DirectionID int
+type StretchRun struct {
 	FromStopID  int
 	ToStopID    int
-	Samples     int
-	MeanSec     float64
+	DayType     string
+	Hour        int
+	DurationSec float64
+	ObservedAt  int64
 }
 
-func (eng *Engine) RecentStretchTimes(since time.Time) ([]RecentStretch, error) {
-	return database.QueryRows(eng.DB, `
-		SELECT route_id, direction_id, from_stop_id, to_stop_id, COUNT(*), AVG(duration_sec)
+// Oldest first.
+func (eng *Engine) EachStretchRun(since time.Time, fn func(StretchRun)) error {
+	rows, err := eng.DB.Query(`
+		SELECT from_stop_id, to_stop_id, day_type, bucket_start_min, duration_sec, observed_at
 		FROM segment_travel_time_samples INDEXED BY idx_segment_samples_observed_at
 		WHERE observed_at >= ?
-		GROUP BY route_id, direction_id, from_stop_id, to_stop_id`,
-		[]any{since.Unix()},
-		func(rows *sql.Rows) (RecentStretch, error) {
-			var r RecentStretch
-			err := rows.Scan(&r.RouteID, &r.DirectionID, &r.FromStopID, &r.ToStopID, &r.Samples, &r.MeanSec)
-			return r, err
-		})
+		ORDER BY observed_at`, since.Unix())
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r StretchRun
+		var bucket int
+		if err := rows.Scan(&r.FromStopID, &r.ToStopID, &r.DayType, &bucket, &r.DurationSec, &r.ObservedAt); err != nil {
+			return err
+		}
+		r.Hour = bucket / 60
+		fn(r)
+	}
+	return rows.Err()
 }
-
-func (eng *Engine) ProfileDay(t time.Time) string { return eng.profileDay(t) }
