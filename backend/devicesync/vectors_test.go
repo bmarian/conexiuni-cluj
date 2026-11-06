@@ -359,6 +359,8 @@ func parseAny(kind, raw string) error {
 		_, err = parseOptions(raw)
 	case "groups":
 		_, err = parseGroups(raw)
+	case "home":
+		_, err = parseHome(raw)
 	default:
 		err = fmt.Errorf("unknown kind %q", kind)
 	}
@@ -482,6 +484,15 @@ func TestMergeCases(t *testing.T) {
 			local, _ := parseOptions(c.Local)
 			remote, _ := parseOptions(c.Remote)
 			got = mergeOptions(base, local, remote).write()
+		case "home":
+			var base *homeRecord
+			if c.Base != nil {
+				b, _ := parseHome(*c.Base)
+				base = &b
+			}
+			local, _ := parseHome(c.Local)
+			remote, _ := parseHome(c.Remote)
+			got = mergeHome(base, local, remote).write()
 		case "groups":
 			var base groupsRecord
 			if c.Base != nil {

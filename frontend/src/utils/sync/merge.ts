@@ -3,12 +3,15 @@ import {
   CITY_CAP,
   type CityRecord,
   DEVICE_CAP,
+  emptyHome,
   type DeviceEntry,
   deviceId,
   followedId,
   type Group,
   groupId,
   type GroupsRecord,
+  HOME_CAP,
+  type HomeRecord,
   lineId,
   newestSeen,
   type NewsRecord,
@@ -21,6 +24,7 @@ import {
   type SettingsRecord,
   stopId,
 } from '@/utils/sync/records.ts'
+import {HOME_SECTIONS} from '@/utils/homeSections.ts'
 
 // The local value when only this side changed it since base; otherwise the remote one.
 export function pick<T>(base: T | undefined, local: T, remote: T, inBase: boolean): T {
@@ -114,6 +118,13 @@ export function mergeRecents(base: RecentsRecord, local: RecentsRecord, remote: 
   const had = new Set(base.recent.map(recentId))
   const fresh = merged.filter((item) => !had.has(recentId(item)))
   return {recent: [...fresh, ...merged.filter((item) => had.has(recentId(item)))].slice(0, RECENT_CAP)}
+}
+
+export function mergeHome(base: HomeRecord | null, local: HomeRecord, remote: HomeRecord): HomeRecord {
+  const from = base ?? emptyHome()
+  const ids = (key: keyof HomeRecord, mine: HomeRecord, theirs: HomeRecord) => mergeList(from[key], mine[key], theirs[key], String, sameItem, HOME_CAP).merged
+  const untouched = !base && remote.order.join() === HOME_SECTIONS.join()
+  return {order: untouched ? ids('order', remote, local) : ids('order', local, remote), collapsed: ids('collapsed', local, remote)}
 }
 
 export function mergeOptions(base: OptionsRecord | null, local: OptionsRecord, remote: OptionsRecord): OptionsRecord {

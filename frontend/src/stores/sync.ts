@@ -3,6 +3,7 @@ import {ref, watch} from 'vue'
 import {useFavoritesStore} from '@/stores/favorites'
 import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
+import {homeLayout} from '@/composables/useHomeSections.ts'
 import {i18n, translate} from '@/i18n'
 import {cityChoice, currentCity} from '@/utils/city.ts'
 import {canSync} from '@/utils/sync/crypto.ts'
@@ -133,6 +134,7 @@ export const useSyncStore = defineStore('sync', () => {
         settings.traffic,
         cityChoice.value,
         settings.regionSetting('cluj', 'showGreenFriday'),
+        homeLayout(),
       ],
       () => {
         if (withSettings.value) schedule()

@@ -7,6 +7,7 @@ export const NEWS_CAP = 200
 export const DEVICE_CAP = 10
 export const RECENT_CAP = 10
 export const GROUP_LINES_CAP = 10
+export const HOME_CAP = 20
 const MAX_INT = 2 ** 31 - 1
 
 export type Spot = {name: string; lat: number; lon: number}
@@ -31,6 +32,8 @@ export type SettingsRecord = {
   greenFriday: boolean
 }
 
+export type HomeRecord = {order: string[]; collapsed: string[]}
+
 export type OptionsRecord = {colorfulLines: boolean; city: string; journeyVoice: boolean | null; fullScreenAlarms: boolean | null; traffic: boolean | null}
 
 // newer: a later version this device leaves alone.
@@ -46,6 +49,7 @@ export const emptyCity = (): CityRecord => ({stops: [], lines: [], places: [], f
 export const emptyNews = (): NewsRecord => ({seen: []})
 export const emptyRecents = (): RecentsRecord => ({recent: []})
 export const emptyGroups = (): GroupsRecord => ({groups: []})
+export const emptyHome = (): HomeRecord => ({order: [], collapsed: []})
 
 export const validId = (id: number) => Number.isInteger(id) && id >= 1 && id <= MAX_INT
 
@@ -318,7 +322,29 @@ function parseOptions(record: unknown): OptionsRecord {
 }
 
 export function writeOptions(r: OptionsRecord): string {
-  return JSON.stringify({v: 1, colorfulLines: r.colorfulLines, city: r.city, journeyVoice: r.journeyVoice, fullScreenAlarms: r.fullScreenAlarms, traffic: r.traffic})
+  return JSON.stringify({
+    v: 1,
+    colorfulLines: r.colorfulLines,
+    city: r.city,
+    journeyVoice: r.journeyVoice,
+    fullScreenAlarms: r.fullScreenAlarms,
+    traffic: r.traffic,
+  })
 }
 
 export const readOptions = (raw: string) => read(raw, parseOptions, writeOptions)
+
+function sections(value: unknown): string[] {
+  const ids = list(value, HOME_CAP).map((id) => text(id, 1, 20))
+  unique(ids, String)
+  return ids
+}
+
+function parseHome(record: unknown): HomeRecord {
+  const m = object(record, 'v', 'order', 'collapsed')
+  return {order: sections(m.order), collapsed: sections(m.collapsed)}
+}
+
+export const writeHome = (r: HomeRecord) => JSON.stringify({v: 1, order: r.order, collapsed: r.collapsed})
+
+export const readHome = (raw: string) => read(raw, parseHome, writeHome)

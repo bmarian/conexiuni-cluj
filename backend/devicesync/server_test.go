@@ -292,10 +292,11 @@ func TestRecords(t *testing.T) {
 	h.want(200, "PUT", name(4), write(1, 0, 1024), a.auth()...)
 	h.want(200, "PUT", name(5), write(1, 0, 1024), a.auth()...)
 	h.want(200, "PUT", name(6), write(1, 0, 1024), a.auth()...)
-	if out := h.want(409, "PUT", name(7), write(1, 0, 1024), a.auth()...); out["error"] != "full" {
+	h.want(200, "PUT", name(7), write(1, 0, 1024), a.auth()...)
+	if out := h.want(409, "PUT", name(8), write(1, 0, 1024), a.auth()...); out["error"] != "full" {
 		t.Fatalf("%v", out)
 	}
-	if records := h.want(200, "GET", a.path(""), "", b.auth()...)["records"].([]any); len(records) != 7 {
+	if records := h.want(200, "GET", a.path(""), "", b.auth()...)["records"].([]any); len(records) != 8 {
 		t.Fatalf("records %v", records)
 	}
 }

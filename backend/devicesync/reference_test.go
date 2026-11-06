@@ -230,6 +230,15 @@ type optionsRecord struct {
 	journeyVoice, fullScreenAlarms, traffic maybeBool
 }
 
+type homeRecord struct{ order, collapsed []string }
+
+const (
+	homeCap    = 20
+	sectionLen = 20
+)
+
+var homeSections = []string{"reminders", "lines", "groups", "stops", "places", "recents"}
+
 const (
 	cityCap       = 50
 	groupLinesCap = 10
@@ -800,6 +809,44 @@ func parseOptions(raw string) (optionsRecord, error) {
 	return rec, canonical(raw, rec.write())
 }
 
+func parseSections(v any) ([]string, error) {
+	items, err := list(v, homeCap)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		id, err := text(item, 1, sectionLen)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, unique(ids, followedID)
+}
+
+func parseHome(raw string) (homeRecord, error) {
+	var rec homeRecord
+	v, err := parseJSON(raw)
+	if err != nil {
+		return rec, err
+	}
+	if err := version(v); err != nil {
+		return rec, err
+	}
+	m, err := object(v, "v", "order", "collapsed")
+	if err != nil {
+		return rec, err
+	}
+	if rec.order, err = parseSections(m["order"]); err != nil {
+		return rec, err
+	}
+	if rec.collapsed, err = parseSections(m["collapsed"]); err != nil {
+		return rec, err
+	}
+	return rec, canonical(raw, rec.write())
+}
+
 func canonical(raw, written string) error {
 	if raw != written {
 		return refuse("not canonical: %s", written)
@@ -917,6 +964,10 @@ func (r settingsRecord) write() string {
 func (r optionsRecord) write() string {
 	return `{"v":1,"colorfulLines":` + strconv.FormatBool(r.colorfulLines) + `,"city":` + quote(r.city) +
 		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms) + `,"traffic":` + string(r.traffic) + "}"
+}
+
+func (r homeRecord) write() string {
+	return `{"v":1,"order":` + joined(r.order, quote) + `,"collapsed":` + joined(r.collapsed, quote) + "}"
 }
 
 // Merging: protocol.md §6.
@@ -1116,6 +1167,19 @@ func mergeOptions(base *optionsRecord, local, remote optionsRecord) optionsRecor
 		fullScreenAlarms: pick(&base.fullScreenAlarms, local.fullScreenAlarms, remote.fullScreenAlarms),
 		traffic:          pick(&base.traffic, local.traffic, remote.traffic),
 	}
+}
+
+func mergeHome(base *homeRecord, local, remote homeRecord) homeRecord {
+	from := homeRecord{}
+	if base != nil {
+		from = *base
+	}
+	if base == nil && slices.Equal(remote.order, homeSections) {
+		local, remote = homeRecord{order: remote.order, collapsed: local.collapsed}, homeRecord{order: local.order, collapsed: remote.collapsed}
+	}
+	order, _ := mergeList(from.order, local.order, remote.order, followedID, same, homeCap)
+	collapsed, _ := mergeList(from.collapsed, local.collapsed, remote.collapsed, followedID, same, homeCap)
+	return homeRecord{order: order, collapsed: collapsed}
 }
 
 func mergeSettings(base *settingsRecord, local, remote settingsRecord) settingsRecord {

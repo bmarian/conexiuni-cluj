@@ -47,7 +47,7 @@ A message that fails to open, a wrong commit, an unexpected message or a slot th
 | data | `cai-sync/v1/data` | AES-GCM key for records |
 | names | `cai-sync/v1/names` | record name = first 16 bytes of HMAC-SHA256(names, logical name) |
 
-Logical names: `settings`, `options`, `devices`, `city:<slug>`, `news:<slug>`, `recents:<slug>`, `groups:<slug>`.
+Logical names: `settings`, `options`, `home`, `devices`, `city:<slug>`, `news:<slug>`, `recents:<slug>`, `groups:<slug>`.
 
 - Create: `POST /api/sync/chains {"join", "kind"}` → `{"chain", "epoch": 1, "device", "token"}`.
 - Join: `POST /api/sync/chains/<chain>/devices {"join", "kind"}` → `{"epoch", "device", "token"}`.
@@ -145,6 +145,14 @@ The settings added after `settings` reached released apps, in a record of their 
 
 `groups`: the saved line groups, at most 50, no two with the same lines. A group is `[lines, name]` or `[lines, name, destination name, lat, lon]`: `lines` 1–10 `[route id, "0" or "1"]` (as in §4.3) in the order they are ridden, no route twice; `name` text 0–40 (`""` = none); the destination, a name text 1–100 and coordinates, comes only from older app versions: current ones never set it.
 
+### 4.10 `home`
+
+```json
+{"v": 1, "order": ["reminders", "lines", "groups", "stops", "places", "recents"], "collapsed": ["groups"]}
+```
+
+The Home sections: `order` the order they are shown in, `collapsed` the folded ones. Both are section ids, text 1–20, at most 20, no duplicates; a device shows the ids it knows, and a known section missing from `order` goes right after the one it follows by default. A device with "Also sync settings" off neither reads nor writes this record.
+
 ## 5. Reading and writing
 
 - `GET /api/sync/chains/<chain>` → `{"epoch", "device", "devices": [{"id", "kind", "created", "seen"}], "records": [{"name", "rev"}]}`. Times are Unix seconds; `seen` is the start of the UTC day the device last called.
@@ -162,6 +170,7 @@ Each device keeps, per record, the last version it and the server agreed on (`ba
 - **Caps:** if a list ends up over its cap, items only the local side added are dropped from the end until it fits, and the device says what stayed local.
 - **Seen ids:** `seen` merges as a list, then is sorted descending and cut to its cap; nothing is reported.
 - **Recents:** `recent` merges as a list by identity, then the items `base` doesn't have move to the front in the order they ended up, and it is cut to its cap; nothing is reported.
+- **Home:** `order` and `collapsed` merge as lists, with an empty `base` when there is none; nothing is reported. With no `base`, a remote `order` that is still the default (`reminders`, `lines`, `groups`, `stops`, `places`, `recents`) takes the local order.
 - **Options:** with no `base`, each null remote value and an empty remote `city` take the local value; everything else stays remote. With a `base`, every field follows the rule above.
 - **Push:** if the merge differs from the remote record, write it with `base` = the remote revision; on 409 read again and repeat.
 
