@@ -48,6 +48,7 @@ const favorite = computed(() => (!plain && network.value ? favorites.favoriteLin
   flex-shrink: 0;
   padding: 0 6px;
   color: #fff;
+  text-shadow: var(--line-number-shadow);
   font-weight: 900;
   line-height: 1;
   white-space: nowrap;

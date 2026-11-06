@@ -4,7 +4,7 @@ import {useI18n} from 'vue-i18n'
 import type {RouteChange} from '@/stores/routeUpdates'
 import {CloseIcon, NotificationsIcon} from '@/utils/icons.ts'
 import {changeRows, changeSummary, changeTitle, daysLabel, formatChangeDate, formatServiceStart, groupByDays, groupByDirection} from '@/utils/routeChanges.ts'
-import {displayColor} from '@/utils/lineColor.ts'
+import {displayColor, lineInk} from '@/utils/lineColor.ts'
 
 const ENTRY_LIMIT = 12
 
@@ -28,6 +28,7 @@ const detailsId = computed(() => `route-change-${props.change.id}`)
 const title = computed(() => changeTitle(props.change, t))
 const detected = computed(() => formatChangeDate(props.change.detected_at, locale.value, false))
 const summary = computed(() => changeSummary(props.change, t))
+const line = computed(() => displayColor(props.change.route_short_name, props.change.route_color) || '#64748b')
 
 const sections = computed(() =>
   groupByDirection(props.change).map((group) => ({
@@ -60,7 +61,7 @@ function openRow(key: string) {
 <template>
   <section
     class="change-banner"
-    :style="{'--line': displayColor(change.route_short_name, change.route_color) || '#64748b'}"
+    :style="{'--line': line, '--line-ink': lineInk(line)}"
     data-kbd-section="change-banner"
     data-kbd-axis="x"
     :aria-label="title"
@@ -121,7 +122,7 @@ function openRow(key: string) {
 }
 
 .line-tint {
-  color: var(--line);
+  color: var(--line-ink);
 }
 
 .rule {

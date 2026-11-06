@@ -11,8 +11,8 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 
 {
- "version": "2bc0d1e6d5203842",
- "static_version": "f88f611f728eb0d1",
+ "version": "00dcaaca7fb1bbb9",
+ "static_version": "ccf934fe6398b842",
  "generated_at": "2026-10-20T00:00:00Z",
  "routes": [
   {
@@ -23,7 +23,7 @@ X-Frame-Options: DENY
    "route_type": 3,
    "route_desc": "",
    "route_color": "#D84B3B",
-   "route_colorful": "#D64131",
+   "route_colorful": "#9D0618",
    "slug": "7",
    "timetable": {
     "route_short_name": "7",
@@ -1628,7 +1628,7 @@ X-Frame-Options: DENY
    "route_type": 0,
    "route_desc": "",
    "route_color": "#1C38D9",
-   "route_colorful": "#1C1CD9",
+   "route_colorful": "#5DE8F6",
    "slug": "8b",
    "timetable": {
     "route_short_name": "8B",

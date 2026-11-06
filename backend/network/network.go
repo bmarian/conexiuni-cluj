@@ -84,7 +84,8 @@ func (s *Service) bundle() (*models.NetworkBundle, *Bounds, map[string]string, e
 	}
 
 	bundle := &models.NetworkBundle{Routes: out, Stops: stops, Rules: models.NetworkRules{LateGraceMin: s.timing.GraceSec() / 60}}
-	colors := lineColors(stationsOfLines(bundle))
+	stations, at := stationsOfLines(bundle)
+	colors := lineColors(stations, nearStations(at))
 	for i := range out {
 		out[i].RouteColorful = colors[out[i].RouteShortName]
 		out[i].Slug = addresses.Of(slugs.Line, out[i].RouteID)

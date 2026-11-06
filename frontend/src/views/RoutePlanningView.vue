@@ -62,7 +62,7 @@ import {
   ShareIcon,
   SwapVertIcon,
 } from '@/utils/icons.ts'
-import {displayColor, manyLines} from '@/utils/lineColor.ts'
+import {displayColor, lineInk, manyLines} from '@/utils/lineColor.ts'
 import {linePath, stopLocation} from '@/utils/pagePaths.ts'
 
 const {t} = useI18n()
@@ -1026,7 +1026,7 @@ const chips = computed<ChipAction[]>(() => [
           </TimelineRow>
           <div v-for="(ld, legIdx) in selectedPlanLegsData" :key="legIdx" data-kbd-section="legs">
             <TimelineRow top="walk" :bottom="ld.color" dot="station" :color="ld.color">
-              <span class="kicker leg-lines" :style="{color: ld.color}">
+              <span class="kicker leg-lines" :style="{color: lineInk(ld.color)}">
                 <span class="font-bold">{{ t('planBoarding') }}&nbsp;</span>
                 <template v-for="(routeId, rIdx) in expandedLegs['detail-' + selectedPlan.key + '-' + legIdx] ? ld.lines : ld.lines.slice(0, 4)" :key="routeId">
                   <RouterLink
@@ -1062,7 +1062,7 @@ const chips = computed<ChipAction[]>(() => [
               }}</RouterLink>
             </TimelineRow>
             <TimelineRow :top="ld.color" bottom="walk" dot="station" :color="ld.color">
-              <span class="kicker font-bold" :style="{color: ld.color}">{{ t('planAlighting') }}</span>
+              <span class="kicker font-bold" :style="{color: lineInk(ld.color)}">{{ t('planAlighting') }}</span>
               <RouterLink class="stop-link is-bold" :data-kbd-item="`leg-${legIdx}-end`" :to="stopLocation(ld.leg.to)">{{ stopName(ld.leg.to) }}</RouterLink>
             </TimelineRow>
             <TimelineRow v-if="legIdx < selectedPlanLegsData.length - 1" top="walk" bottom="walk" dot="none" :color="ld.color" compact>
@@ -1571,6 +1571,7 @@ const chips = computed<ChipAction[]>(() => [
   padding: 4px 8px;
   border-radius: 8px;
   color: #fff;
+  text-shadow: var(--line-number-shadow);
   font-size: 14px;
   line-height: 20px;
   font-weight: 900;
@@ -1579,6 +1580,7 @@ const chips = computed<ChipAction[]>(() => [
 .line-chip.is-walk {
   background: var(--md-surface-container-highest);
   color: var(--md-on-surface);
+  text-shadow: none;
 }
 
 .departure {
