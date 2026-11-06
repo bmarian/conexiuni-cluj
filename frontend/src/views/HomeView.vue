@@ -27,6 +27,7 @@ import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
 import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
 import {CheckIcon, MapIcon, SwapHorizIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
+import {placeIcon} from '@/utils/placeLabel.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
 import {canonicalUrl} from '@/utils/site.ts'
@@ -211,6 +212,7 @@ const favGroupItemKey = (group: FavoriteGroup) => `fav-group-${groupKey(group.li
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
+const placeLabels = computed(() => new Map(favoritePlans.value.map((p) => [planKey(p), placeIcon(p.label ?? p.name)])))
 const recentItemKey = (item: RecentItem) => `recent-${item.key}`
 const sectionItemKey = (id: HomeSectionId) => `section-${id}`
 
@@ -416,13 +418,13 @@ const sectionDragOptions = computed(() => ({
               >
                 <template #item="{element: plan}">
                   <ListRow
-                    :title="plan.label ?? plan.name"
+                    :title="placeLabels.get(planKey(plan))?.name"
                     :title-prefix="!plan.label && plan.originName ? `${t('planTo')}: ` : undefined"
                     :kicker="!plan.label && plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
                     :data-kbd-item="favPlanItemKey(plan)"
                     @open="openPlan(plan)"
                   >
-                    <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30" /></template>
+                    <template #icon><RowIcon :icon="MapIcon" :emoji="placeLabels.get(planKey(plan))?.icon" tone="tertiary" :size="30" /></template>
                   </ListRow>
                 </template>
               </Draggable>

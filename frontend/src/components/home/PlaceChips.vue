@@ -8,6 +8,7 @@ import {useSettingsStore} from '@/stores/settings'
 import {useOnline} from '@/composables/useOnline.ts'
 import {offersAndroidApp} from '@/utils/androidApp.ts'
 import {planQuery} from '@/utils/planQuery.ts'
+import {placeIcon} from '@/utils/placeLabel.ts'
 import {AndroidIcon, PlaceIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
@@ -18,7 +19,7 @@ const {isOnline} = useOnline()
 const installing = ref(false)
 
 const showApp = computed(() => offersAndroidApp && isOnline.value && !settings.appPromptDismissed)
-const places = computed(() => (isOnline.value ? favorites.favoritePlans : []))
+const places = computed(() => (isOnline.value ? favorites.favoritePlans.map((place) => ({place, ...placeIcon(place.label ?? place.name)})) : []))
 </script>
 
 <template>
@@ -29,17 +30,18 @@ const places = computed(() => (isOnline.value ? favorites.favoritePlans : []))
       <span>{{ t('getApp') }}</span>
     </button>
     <button
-      v-for="place in places"
+      v-for="{place, icon, name} in places"
       :key="`${place.lat}-${place.lon}-${place.originLat ?? ''}`"
       type="button"
       class="place-chip squish"
       :data-kbd-item="`place-${place.lat}-${place.lon}-${place.originLat ?? ''}`"
       @click="router.push({name: 'plan', query: planQuery(place)})"
     >
-      <PlaceIcon class="m-icon size-[18px] text-tertiary" />
+      <span v-if="icon" class="place-emoji">{{ icon }}</span>
+      <PlaceIcon v-else class="m-icon size-[18px] text-tertiary" />
       <span v-if="place.originName" class="from">{{ place.originName }}</span>
       <span v-if="place.originName" class="text-on-surface-variant">→</span>
-      <span class="truncate">{{ place.label ?? place.name }}</span>
+      <span class="truncate">{{ name }}</span>
     </button>
     <AppInstallDialog v-model:open="installing" />
   </div>
@@ -78,6 +80,11 @@ const places = computed(() => (isOnline.value ? favorites.favoritePlans : []))
   font-weight: 500;
   letter-spacing: 0.1px;
   cursor: pointer;
+}
+
+.place-emoji {
+  font-size: 16px;
+  line-height: 18px;
 }
 
 .from {
