@@ -3,6 +3,7 @@ import type {Component} from 'vue'
 
 const {size = 36, tone = 'neutral'} = defineProps<{
   icon: Component
+  emoji?: string
   size?: number
   tone?: 'neutral' | 'primary' | 'secondary' | 'tertiary'
 }>()
@@ -10,7 +11,8 @@ const {size = 36, tone = 'neutral'} = defineProps<{
 
 <template>
   <span class="row-icon" :class="`is-${tone}`" :style="{width: `${size}px`, height: `${size}px`}">
-    <component :is="icon" class="m-icon" :style="{width: `${size / 2}px`, height: `${size / 2}px`}" />
+    <span v-if="emoji" :style="{fontSize: `${size / 2}px`, lineHeight: 1}">{{ emoji }}</span>
+    <component :is="icon" v-else class="m-icon" :style="{width: `${size / 2}px`, height: `${size / 2}px`}" />
   </span>
 </template>
 
