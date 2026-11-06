@@ -15,7 +15,10 @@ export interface Toast {
   body?: string
   icon: ToastIcon
   duration: number
+  action?: ToastAction
 }
+
+export type ToastAction = {label: string; run: () => void}
 
 export const useSettingsStore = defineStore('settings', () => {
   const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -132,9 +135,9 @@ export const useSettingsStore = defineStore('settings', () => {
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let toastSeq = 0
 
-  function showToast(title: string, options: {body?: string; icon?: ToastIcon} = {}) {
-    const duration = options.body ? 4500 : 3000
-    toast.value = {id: ++toastSeq, title, body: options.body, icon: options.icon ?? 'info', duration}
+  function showToast(title: string, options: {body?: string; icon?: ToastIcon; action?: ToastAction} = {}) {
+    const duration = options.body || options.action ? 4500 : 3000
+    toast.value = {id: ++toastSeq, title, body: options.body, icon: options.icon ?? 'info', duration, action: options.action}
     if (toastTimer) clearTimeout(toastTimer)
     toastTimer = setTimeout(dismissToast, duration)
   }

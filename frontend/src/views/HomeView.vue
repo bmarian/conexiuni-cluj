@@ -22,8 +22,10 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
+import PlaceChips from '@/components/home/PlaceChips.vue'
+import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
 import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
-import {CheckIcon, CloseIcon, MapIcon, ScheduleIcon} from '@/utils/icons.ts'
+import {CheckIcon, MapIcon, SwapHorizIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
@@ -73,7 +75,8 @@ type FavoriteRouteGroup = {
 
 type FavoriteRouteChip = {
   route: Route
-  label: string
+  parts: string[]
+  both?: boolean
   name: string
   direction?: RouteDirection
 }
@@ -99,9 +102,9 @@ const favoriteRouteChips = computed(() => {
     const end = i >= 0 ? longName.slice(i + 3) : longName
     const single = group.favorites.length === 1 ? group.favorites[0]! : null
     let chip: FavoriteRouteChip
-    if (!single) chip = {route, label: origin ? `${origin} ⇄ ${end}` : longName, name: longName}
-    else if (single.direction === '1' && origin) chip = {route, label: `→ ${origin}`, name: `${end} - ${origin}`, direction: '1'}
-    else chip = {route, label: `→ ${end}`, name: longName, direction: single.direction}
+    if (!single) chip = {route, parts: origin ? [origin, end] : [longName], both: true, name: longName}
+    else if (single.direction === '1' && origin) chip = {route, parts: [`→ ${origin}`], name: `${end} - ${origin}`, direction: '1'}
+    else chip = {route, parts: [`→ ${end}`], name: longName, direction: single.direction}
     chips.set(group.routeId, chip)
   }
   return chips
@@ -149,6 +152,8 @@ function openRecent(item: RecentItem) {
 function removeRouteGroup(group: FavoriteRouteGroup) {
   for (const fav of group.favorites) favoritesStore.toggleRouteFavorite(fav.routeId, fav.direction)
 }
+
+const {holdStart, holdEnd, removeWithUndo} = useFavoriteDrag()
 
 const routeFavoritesModel = computed<FavoriteRouteGroup[]>({
   get: () => favoriteRouteGroups.value,
@@ -218,10 +223,10 @@ function removeFocused(): boolean {
   const plan = favoritePlans.value.find((p) => favPlanItemKey(p) === key)
   const recent = recents.value.find((item) => recentItemKey(item) === key)
   const lineGroup = favoriteGroups.value.find((g) => favGroupItemKey(g) === key)
-  if (lineGroup) favoritesStore.removeGroup(lineGroup.lines)
-  else if (group) removeRouteGroup(group)
-  else if (stopId !== undefined) favoritesStore.toggleStopFavorite(stopId)
-  else if (plan && isOnline.value) favoritesStore.togglePlanFavorite(plan)
+  if (lineGroup) removeWithUndo(() => favoritesStore.removeGroup(lineGroup.lines))
+  else if (group) removeWithUndo(() => removeRouteGroup(group))
+  else if (stopId !== undefined) removeWithUndo(() => favoritesStore.toggleStopFavorite(stopId))
+  else if (plan && isOnline.value) removeWithUndo(() => favoritesStore.togglePlanFavorite(plan))
   else if (recent) favoritesStore.removeRecent(recent.recent)
   else return false
   void nextTick(() => {
@@ -290,6 +295,7 @@ const sectionDragOptions = computed(() => ({
 
 <template>
   <div class="home-view">
+    <PlaceChips />
     <template v-if="isHydrated">
       <div v-if="arranging" class="arrange-bar">
         <span class="text-body-medium text-on-surface-variant">{{ t('sectionsArrangeHint') }}</span>
@@ -306,7 +312,15 @@ const sectionDragOptions = computed(() => ({
             @hold="arranging = true"
           >
             <div v-if="id === 'lines'" data-kbd-section="fav-routes" data-kbd-axis="grid" data-kbd-entry="1">
-              <Draggable v-model="routeFavoritesModel" item-key="routeId" class="route-chips" tag="div" v-bind="dragOptions">
+              <Draggable
+                v-model="routeFavoritesModel"
+                item-key="routeId"
+                class="route-chips"
+                tag="div"
+                v-bind="dragOptions"
+                @start="holdStart"
+                @end="holdEnd('routes', $event)"
+              >
                 <template #item="{element: group}">
                   <div v-if="favoriteRouteChips.get(group.routeId)" class="chip-cell">
                     <div
@@ -319,23 +333,19 @@ const sectionDragOptions = computed(() => ({
                       @click="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
                       @keydown.enter.prevent="openRoute(favoriteRouteChips.get(group.routeId)!.route, favoriteRouteChips.get(group.routeId)!.direction)"
                     >
-                      <LineBadge
-                        :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
-                        :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
-                        :height="28"
-                        :min-width="36"
-                        :corner="8"
-                      />
-                      <span class="chip-label">{{ favoriteRouteChips.get(group.routeId)!.label }}</span>
-                      <button
-                        type="button"
-                        class="icon-btn chip-remove"
-                        :title="t('removeFromFavorites')"
-                        :aria-label="t('removeFromFavorites')"
-                        @click.stop="removeRouteGroup(group)"
-                      >
-                        <CloseIcon class="m-icon size-4" />
-                      </button>
+                      <span class="chip-badge">
+                        <LineBadge
+                          :name="favoriteRouteChips.get(group.routeId)!.route.route_short_name"
+                          :color="favoriteRouteChips.get(group.routeId)!.route.route_color"
+                          :height="28"
+                          :min-width="36"
+                          :corner="8"
+                        />
+                        <SwapHorizIcon v-if="favoriteRouteChips.get(group.routeId)!.both" class="m-icon size-4 text-on-surface-variant" />
+                      </span>
+                      <span class="chip-label" :class="{'is-both': favoriteRouteChips.get(group.routeId)!.both}">
+                        <span v-for="(part, i) in favoriteRouteChips.get(group.routeId)!.parts" :key="i">{{ part }}</span>
+                      </span>
                     </div>
                   </div>
                 </template>
@@ -343,14 +353,20 @@ const sectionDragOptions = computed(() => ({
             </div>
 
             <div v-else-if="id === 'groups'" data-kbd-section="fav-groups" data-kbd-entry="1">
-              <Draggable v-model="groupFavoritesModel" :item-key="(g: FavoriteGroup) => groupKey(g.lines)" tag="div" v-bind="dragOptions">
+              <Draggable
+                v-model="groupFavoritesModel"
+                :item-key="(g: FavoriteGroup) => groupKey(g.lines)"
+                class="fav-list"
+                tag="div"
+                v-bind="dragOptions"
+                @start="holdStart"
+                @end="holdEnd('groups', $event)"
+              >
                 <template #item="{element: group, index: i}">
                   <ListRow
                     :title="group.name"
-                    :remove-label="t('removeFromFavorites')"
                     :data-kbd-item="favGroupItemKey(group)"
                     @open="openGroup(group.lines)"
-                    @remove="favoritesStore.removeGroup(group.lines)"
                   >
                     <template #lines>
                       <StationLines :routes="groupLines[i] ?? []" />
@@ -361,15 +377,21 @@ const sectionDragOptions = computed(() => ({
             </div>
 
             <div v-else-if="id === 'stops'" data-kbd-section="fav-stops" data-kbd-entry="1">
-              <Draggable v-model="stopFavoritesModel" :item-key="(id: number) => id" tag="div" v-bind="dragOptions">
+              <Draggable
+                v-model="stopFavoritesModel"
+                :item-key="(id: number) => id"
+                class="fav-list"
+                tag="div"
+                v-bind="dragOptions"
+                @start="holdStart"
+                @end="holdEnd('stops', $event)"
+              >
                 <template #item="{element: stopId}">
                   <ListRow
                     v-if="stopsById.get(stopId)"
                     :title="stopsById.get(stopId)!.stop_name"
-                    :remove-label="t('removeFromFavorites')"
                     :data-kbd-item="favStopItemKey(stopId)"
                     @open="openStop(stopsById.get(stopId)!)"
-                    @remove="favoritesStore.toggleStopFavorite(stopId)"
                   >
                     <template #icon>
                       <StationIcon :look="lookOf(stopId)" class="size-[30px]" />
@@ -383,16 +405,22 @@ const sectionDragOptions = computed(() => ({
             </div>
 
             <div v-else-if="id === 'places'" data-kbd-section="fav-plans" data-kbd-entry="1">
-              <Draggable v-model="planFavoritesModel" :item-key="planKey" tag="div" v-bind="dragOptions">
+              <Draggable
+                v-model="planFavoritesModel"
+                :item-key="planKey"
+                class="fav-list"
+                tag="div"
+                v-bind="dragOptions"
+                @start="holdStart"
+                @end="holdEnd('plans', $event)"
+              >
                 <template #item="{element: plan}">
                   <ListRow
                     :title="plan.label ?? plan.name"
                     :title-prefix="!plan.label && plan.originName ? `${t('planTo')}: ` : undefined"
                     :kicker="!plan.label && plan.originName ? `${t('planFrom')}: ${plan.originName}` : undefined"
-                    :remove-label="t('removeFromFavorites')"
                     :data-kbd-item="favPlanItemKey(plan)"
                     @open="openPlan(plan)"
-                    @remove="favoritesStore.togglePlanFavorite(plan)"
                   >
                     <template #icon><RowIcon :icon="MapIcon" tone="tertiary" :size="30" /></template>
                   </ListRow>
@@ -405,14 +433,13 @@ const sectionDragOptions = computed(() => ({
                 <ListRow
                   v-if="item.plan"
                   :title="item.plan.name"
-                  :title-prefix="item.plan.originName ? `${t('planTo')}: ` : undefined"
-                  :kicker="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : undefined"
+                  :subtitle="item.plan.originName ? `${t('planFrom')}: ${item.plan.originName}` : t('planTo')"
                   :remove-label="t('removeFromRecents')"
                   :data-kbd-item="recentItemKey(item)"
                   @open="openPlan(item.plan!)"
                   @remove="favoritesStore.removeRecent(item.recent)"
                 >
-                  <template #icon><RowIcon :icon="ScheduleIcon" :size="30" /></template>
+                  <template #icon><RowIcon :icon="MapIcon" :size="30" /></template>
                 </ListRow>
                 <RecentRow
                   v-else
@@ -420,6 +447,7 @@ const sectionDragOptions = computed(() => ({
                   :route="item.route"
                   :group="item.group"
                   :icon-size="30"
+                  by-kind
                   :remove-label="t('removeFromRecents')"
                   :busy="!!item.route && openingRouteId === item.route.route_id"
                   :data-kbd-item="recentItemKey(item)"
@@ -464,7 +492,7 @@ const sectionDragOptions = computed(() => ({
   flex: 1;
   align-items: center;
   min-width: 0;
-  padding: 6px 0 6px 10px;
+  padding: 6px 12px 6px 10px;
   border-radius: 14px;
   background: var(--md-surface-container-high);
   color: var(--md-on-surface);
@@ -490,11 +518,32 @@ const sectionDragOptions = computed(() => ({
   overflow: hidden;
 }
 
-.chip-remove {
-  width: 32px;
-  height: 32px;
-  margin: 0;
-  color: var(--md-outline);
+.chip-label.is-both {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.chip-label.is-both > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.route-chips,
+.fav-list {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .empty {
