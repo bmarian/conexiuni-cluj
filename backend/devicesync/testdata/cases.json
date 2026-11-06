@@ -954,6 +954,54 @@
       "about": "later version",
       "json": "{\"v\":2,\"groups\":\"all\"}",
       "outcome": "newer"
+    },
+    {
+      "kind": "home",
+      "about": "default order, nothing folded",
+      "json": "{\"v\":1,\"order\":[\"reminders\",\"lines\",\"groups\",\"stops\",\"places\",\"recents\"],\"collapsed\":[]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "home",
+      "about": "a section this device does not have",
+      "json": "{\"v\":1,\"order\":[\"recents\",\"news\",\"lines\"],\"collapsed\":[\"news\",\"groups\"]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "home",
+      "about": "a section twice",
+      "json": "{\"v\":1,\"order\":[\"lines\",\"lines\"],\"collapsed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "home",
+      "about": "empty id",
+      "json": "{\"v\":1,\"order\":[\"\"],\"collapsed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "home",
+      "about": "id over 20",
+      "json": "{\"v\":1,\"order\":[\"abcdefghijklmnopqrstu\"],\"collapsed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "home",
+      "about": "over the cap",
+      "json": "{\"v\":1,\"order\":[\"s0\",\"s1\",\"s2\",\"s3\",\"s4\",\"s5\",\"s6\",\"s7\",\"s8\",\"s9\",\"s10\",\"s11\",\"s12\",\"s13\",\"s14\",\"s15\",\"s16\",\"s17\",\"s18\",\"s19\",\"s20\"],\"collapsed\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "home",
+      "about": "missing collapsed",
+      "json": "{\"v\":1,\"order\":[]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "home",
+      "about": "later version",
+      "json": "{\"v\":2,\"order\":[],\"collapsed\":[],\"pinned\":[]}",
+      "outcome": "newer"
     }
   ],
   "merges": [
@@ -1359,6 +1407,42 @@
           ]
         ]
       }
+    },
+    {
+      "kind": "home",
+      "about": "first sync: remote order, folds from both",
+      "base": null,
+      "local": "{\"v\":1,\"order\":[\"lines\",\"stops\",\"recents\"],\"collapsed\":[\"stops\"]}",
+      "remote": "{\"v\":1,\"order\":[\"recents\",\"lines\",\"stops\"],\"collapsed\":[\"lines\"]}",
+      "merged": "{\"v\":1,\"order\":[\"recents\",\"lines\",\"stops\"],\"collapsed\":[\"lines\",\"stops\"]}",
+      "dropped": {}
+    },
+    {
+      "kind": "home",
+      "about": "only this side moved a section",
+      "base": "{\"v\":1,\"order\":[\"lines\",\"stops\",\"recents\"],\"collapsed\":[]}",
+      "local": "{\"v\":1,\"order\":[\"recents\",\"lines\",\"stops\"],\"collapsed\":[]}",
+      "remote": "{\"v\":1,\"order\":[\"lines\",\"stops\",\"recents\"],\"collapsed\":[\"stops\"]}",
+      "merged": "{\"v\":1,\"order\":[\"recents\",\"lines\",\"stops\"],\"collapsed\":[\"stops\"]}",
+      "dropped": {}
+    },
+    {
+      "kind": "home",
+      "about": "unfolded on one side",
+      "base": "{\"v\":1,\"order\":[\"lines\",\"stops\"],\"collapsed\":[\"lines\",\"stops\"]}",
+      "local": "{\"v\":1,\"order\":[\"lines\",\"stops\"],\"collapsed\":[\"lines\"]}",
+      "remote": "{\"v\":1,\"order\":[\"lines\",\"stops\"],\"collapsed\":[\"lines\",\"stops\"]}",
+      "merged": "{\"v\":1,\"order\":[\"lines\",\"stops\"],\"collapsed\":[\"lines\"]}",
+      "dropped": {}
+    },
+    {
+      "kind": "home",
+      "about": "first sync: a remote order still at the default takes the local one",
+      "base": null,
+      "local": "{\"v\":1,\"order\":[\"reminders\",\"recents\",\"lines\",\"groups\",\"stops\",\"places\"],\"collapsed\":[\"groups\"]}",
+      "remote": "{\"v\":1,\"order\":[\"reminders\",\"lines\",\"groups\",\"stops\",\"places\",\"recents\"],\"collapsed\":[\"stops\"]}",
+      "merged": "{\"v\":1,\"order\":[\"reminders\",\"recents\",\"lines\",\"groups\",\"stops\",\"places\"],\"collapsed\":[\"stops\",\"groups\"]}",
+      "dropped": {}
     }
   ]
 }

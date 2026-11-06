@@ -21,11 +21,13 @@ import {
 import {
   emptyCity,
   emptyGroups,
+  emptyHome,
   emptyNews,
   emptyRecents,
   readCity,
   readDevices,
   readGroups,
+  readHome,
   readNews,
   readOptions,
   readRecents,
@@ -33,12 +35,13 @@ import {
   writeCity,
   writeDevices,
   writeGroups,
+  writeHome,
   writeNews,
   writeOptions,
   writeRecents,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeGroups, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
+import {mergeCity, mergeDevices, mergeGroups, mergeHome, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 
 // The shared files every client runs: made and checked by backend/devicesync/vectors_test.go.
 const testdata = (name: string) => JSON.parse(readFileSync(new URL(`../../../../../backend/devicesync/testdata/${name}`, import.meta.url), 'utf8'))
@@ -110,7 +113,9 @@ async function outcome(kind: string, raw: string) {
               ? readOptions(raw)
               : kind === 'groups'
                 ? readGroups(raw)
-                : readSettings(raw)
+                : kind === 'home'
+                  ? readHome(raw)
+                  : readSettings(raw)
   return read.ok ? 'ok' : read.newer ? 'newer' : 'refuse'
 }
 
@@ -151,6 +156,9 @@ describe('sync cases', () => {
       type Options = Parameters<typeof writeOptions>[0]
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<Options>(raw, readOptions)))
       expect(writeOptions(mergeOptions(base, local!, remote!))).toBe(c.merged)
+    } else if (c.kind === 'home') {
+      const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyHome>>(raw, readHome)))
+      expect(writeHome(mergeHome(base, local!, remote!))).toBe(c.merged)
     } else if (c.kind === 'news') {
       const [base, local, remote] = await Promise.all([c.base, c.local, c.remote].map((raw) => value<ReturnType<typeof emptyNews>>(raw, readNews)))
       expect(writeNews(mergeNews(base ?? emptyNews(), local!, remote!))).toBe(c.merged)

@@ -5,6 +5,7 @@ import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
 import {chooseCity, cities, cityChoice, cityToOpen, currentCity, knownCity} from '@/utils/city.ts'
 import type {GroupLine} from '@/utils/lineGroups.ts'
+import {applyHomeLayout, homeLayout} from '@/composables/useHomeSections.ts'
 import {
   blankEnd,
   CITY_CAP,
@@ -14,6 +15,7 @@ import {
   GROUP_LINES_CAP,
   groupId,
   type GroupsRecord,
+  type HomeRecord,
   LAT,
   type Line,
   LON,
@@ -225,6 +227,10 @@ export function applySettings(r: SettingsRecord) {
   if (s.autoFitMap !== r.autoFitMap) s.setAutoFitMap(r.autoFitMap)
   if (s.regionSetting('cluj', 'showGreenFriday') !== r.greenFriday) s.setRegionSetting('cluj', 'showGreenFriday', r.greenFriday)
 }
+
+export const homeFromLocal = (): HomeRecord => homeLayout()
+
+export const applyHome = (r: HomeRecord) => applyHomeLayout(r.order, r.collapsed)
 
 // What only the phone has stays as last agreed.
 export function optionsFromLocal(base: OptionsRecord | null): OptionsRecord {

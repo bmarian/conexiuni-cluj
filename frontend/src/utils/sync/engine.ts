@@ -28,6 +28,7 @@ import {
   type DeviceEntry,
   type DevicesRecord,
   type GroupsRecord,
+  type HomeRecord,
   emptyCity,
   emptyGroups,
   emptyNews,
@@ -38,6 +39,7 @@ import {
   readCity,
   readDevices,
   readGroups,
+  readHome,
   readNews,
   readOptions,
   readRecents,
@@ -47,21 +49,24 @@ import {
   writeCity,
   writeDevices,
   writeGroups,
+  writeHome,
   writeNews,
   writeOptions,
   writeRecents,
   writeSettings,
 } from '@/utils/sync/records.ts'
-import {mergeCity, mergeDevices, mergeGroups, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
+import {mergeCity, mergeDevices, mergeGroups, mergeHome, mergeNews, mergeOptions, mergeRecents, mergeSettings} from '@/utils/sync/merge.ts'
 import {
   applyCity,
   applyGroups,
+  applyHome,
   applyNews,
   applyOptions,
   applyRecents,
   applySettings,
   cityFromLocal,
   groupsFromLocal,
+  homeFromLocal,
   isEmptyCity,
   isEmptyGroups,
   isEmptyNews,
@@ -100,6 +105,7 @@ type Run = {m: Membership; keys: ChainKeys; bases: Record<string, Base>; report:
 
 const SETTINGS = 'settings'
 const OPTIONS = 'options'
+const HOME = 'home'
 const DEVICES = 'devices'
 const cityName = (slug: string) => `city:${slug}`
 const newsName = (slug: string) => `news:${slug}`
@@ -179,6 +185,14 @@ const optionsKind: Kind<OptionsRecord> = {
   local: optionsFromLocal,
   merge: mergeOptions,
   apply: applyOptions,
+}
+
+const homeKind: Kind<HomeRecord> = {
+  read: readHome,
+  write: writeHome,
+  local: homeFromLocal,
+  merge: mergeHome,
+  apply: applyHome,
 }
 
 const settingsKind: Kind<SettingsRecord> = {
@@ -342,7 +356,7 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
     }
   const steps = [
     step(DEVICES, devicesKind(run, label)),
-    ...(withSettings ? [step(SETTINGS, settingsKind), step(OPTIONS, optionsKind)] : []),
+    ...(withSettings ? [step(SETTINGS, settingsKind), step(OPTIONS, optionsKind), step(HOME, homeKind)] : []),
     ...syncedCities().flatMap((slug) => [
       step(cityName(slug), cityKind(slug, run)),
       step(newsName(slug), newsKind(slug)),
@@ -396,7 +410,7 @@ export async function removeDevice(id: string, withSettings: boolean, label: str
   const m = (await getMembership())!
   const st = await state(m)
   const keys = await chainKeys(m.s)
-  const logicals = [DEVICES, SETTINGS, OPTIONS, ...syncedCities().flatMap(cityRecords)]
+  const logicals = [DEVICES, SETTINGS, OPTIONS, HOME, ...syncedCities().flatMap(cityRecords)]
   const byName = new Map(await Promise.all(logicals.map(async (l): Promise<[string, string]> => [await recordName(keys.names, l), l])))
   const run: Run = {m, keys, bases: {}, report: {devices: [], dropped: 0, problems: []}, devices: []}
 
