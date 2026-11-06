@@ -34,6 +34,7 @@ type Engine struct {
 	Runner func() *jobs.Runner
 	// Called once the calendar reads differently, for what was built from it elsewhere.
 	ScheduleChanged func()
+	Traffic         func() map[string]models.Traffic
 	SchoolCalendar  SchoolCalendar
 
 	engineState
@@ -45,7 +46,7 @@ func New(slug string, loc *time.Location, store *database.Store, data *transit.D
 		learning = realtime
 	}
 	eng := &Engine{Slug: slug, Location: loc, Store: store, Data: data, Realtime: realtime, Learning: learning, Options: opts, offered: offered,
-		Runner: jobs.None, ScheduleChanged: func() {}}
+		Runner: jobs.None, ScheduleChanged: func() {}, Traffic: func() map[string]models.Traffic { return nil }}
 	eng.engineState = newEngineState()
 	eng.hub = newLiveHub(eng)
 	return eng

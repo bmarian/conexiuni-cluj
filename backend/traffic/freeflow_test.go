@@ -2,56 +2,62 @@ package traffic
 
 import "testing"
 
-func stats(cells map[cell][2]float64) *paceStats {
-	ps := &paceStats{pace: map[cell]float64{}, samples: map[cell]int{}}
-	for k, c := range cells {
-		ps.pace[k] = c[0] * c[1]
-		ps.samples[k] = int(c[1])
-	}
-	ps.typical = ps.medianPace(func(cell) bool { return true })
-	return ps
-}
-
-func TestMedianPaceIsSampleWeighted(t *testing.T) {
-	ps := stats(map[cell][2]float64{{"weekday", 5}: {0.10, 2}, {"weekday", 8}: {0.14, 5}, {"weekday", 17}: {0.30, 1}})
-	if ps.typical != 0.14 {
-		t.Fatalf("typical pace %v, want 0.14", ps.typical)
-	}
-	if got := ps.medianPace(func(k cell) bool { return k.hour == 5 }); got != 0.10 {
-		t.Fatalf("quiet pace %v, want 0.10", got)
+func TestTypicalIsSampleWeighted(t *testing.T) {
+	ss := newSecStats()
+	ss.add(cell{"weekday", 5}, 50, 2)
+	ss.add(cell{"weekday", 8}, 70, 5)
+	ss.add(cell{"weekday", 17}, 150, 1)
+	if got := ss.typical(); got != 70 {
+		t.Fatalf("typical %v, want 70", got)
 	}
 }
 
-func TestFreeFlowComesFromTheQuietHoursOrIsBorrowed(t *testing.T) {
-	var all []*paceStats
-	for range 6 {
-		all = append(all, stats(map[cell][2]float64{
-			{"weekday", 5}: {0.10, 5}, {"weekday", 8}: {0.15, 5}, {"weekday", 12}: {0.13, 5}, {"weekday", 17}: {0.16, 5},
-		}))
+func TestFreeFlowIsTheFastestHourOutsideTheQuietOnes(t *testing.T) {
+	pairs := map[pair]*secStats{}
+	for i := range 6 {
+		ss := newSecStats()
+		ss.add(cell{"weekday", 4}, 50, 5)
+		ss.add(cell{"weekday", 10}, 70, 5)
+		ss.add(cell{"weekday", 12}, 75, 5)
+		ss.add(cell{"weekday", 17}, 110, 5)
+		pairs[pair{i, i + 1}] = ss
 	}
-	daytimeOnly := stats(map[cell][2]float64{{"weekday", 8}: {0.30, 5}, {"weekday", 12}: {0.26, 5}})
-	all = append(all, daytimeOnly)
-	atQuiet, atBusy := rateFreeFlow(all)
-	if got := all[0].free; got != 0.10 {
-		t.Fatalf("free flow %v, want the 05:00 pace 0.10", got)
+	free, quiet, rush := freeFlow(pairs)
+	if !quiet[cell{"weekday", 4}] || quiet[cell{"weekday", 10}] {
+		t.Fatalf("quiet cells %v, want only 04:00", quiet)
 	}
-	if got, want := daytimeOnly.free, 0.26/(0.13/0.10); got < want-1e-9 || got > want+1e-9 {
-		t.Fatalf("borrowed free flow %v, want %v", got, want)
+	if !rush[cell{"weekday", 17}] || rush[cell{"weekday", 12}] {
+		t.Fatalf("rush cells %v, want only 17:00", rush)
 	}
-	if len(atQuiet) != 6 || len(atBusy) != 20 {
-		t.Fatalf("quiet %d busy %d slowdowns, want 6 and 20", len(atQuiet), len(atBusy))
+	if got := free[pair{0, 1}]; got != 70 {
+		t.Fatalf("free flow %v, want the 10:00 time 70", got)
+	}
+}
+
+func TestReadingPoolsNeighboursAndNeedsItsOwnBus(t *testing.T) {
+	line := []*measuredStretch{{pair: pair{1, 2}}, {pair: pair{2, 3}}, {pair: pair{3, 4}}, {pair: pair{4, 5}}}
+	m := &measured{free: map[pair]float64{{1, 2}: 60, {2, 3}: 60, {3, 4}: 60, {4, 5}: 60}}
+	runs := map[pair][]float64{{1, 2}: {60}, {2, 3}: {180}, {3, 4}: {66}}
+	if r, ok := m.reading(line, 1, runs); !ok || r != 1.1 {
+		t.Fatalf("reading %v %v, want the median 1.1 of the stretch and its neighbours", r, ok)
+	}
+	if _, ok := m.reading(line, 3, runs); ok {
+		t.Fatal("a stretch no bus drove was rated from its neighbour")
 	}
 }
 
 func TestSplitsKeepTheirOrder(t *testing.T) {
-	busy := make([]float64, 0, 100)
+	rush := make([]float64, 0, 100)
 	for i := 1; i <= 100; i++ {
-		busy = append(busy, 1+float64(i)/100)
+		rush = append(rush, 1+float64(i)/100)
 	}
-	if got := splits([]float64{1.05, 1.08, 1.12}, busy); got[0] != 112 || got[1] != 175 || got[2] != 190 {
+	if got := splits([]float64{1.05, 1.08, 1.12}, rush); got[0] != 112 || got[1] != 175 || got[2] != 190 {
 		t.Fatalf("splits %v, want [112 175 190]", got)
 	}
-	if got := splits([]float64{1.9}, busy); got[0] != 190 || got[1] != 190 {
+	if got := splits([]float64{1.9}, rush); got[0] != 190 || got[1] != 190 {
 		t.Fatalf("splits %v, want non-decreasing", got)
+	}
+	if got := splits(nil, rush); got != nil {
+		t.Fatalf("splits %v without quiet readings, want none", got)
 	}
 }

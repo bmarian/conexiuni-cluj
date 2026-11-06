@@ -1,10 +1,10 @@
 GET /api/fixturegtfs/live?once=1&stop_ids=701
 200
 Cache-Control: no-store
-Content-Length: 317
+Content-Length: 330
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tiles.openfreemap.org; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 Content-Type: application/json; charset=utf-8
-Etag: W/"317-1423646501"
+Etag: W/"330-2570296684"
 Strict-Transport-Security: max-age=31536000
 Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
@@ -50,5 +50,6 @@ X-Frame-Options: DENY
    ]
   }
  ],
- "vehicles": []
+ "vehicles": [],
+ "traffic": {}
 }

@@ -4,7 +4,7 @@ import {paced} from '@/utils/motion.ts'
 // In step with the badge's heart; the source needs lineMetrics.
 export const SWEEP_MS = paced(1130)
 
-const CLEAR = 'rgba(0, 0, 0, 0)'
+export const CLEAR = 'rgba(0, 0, 0, 0)'
 
 // A line's colours along it: each colour runs from its share of the length up to the next one's.
 export type Paint = {at: number; color: string}[]

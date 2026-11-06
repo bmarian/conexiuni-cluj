@@ -101,8 +101,8 @@ const origins = computed(() => {
       ]
         .filter(Boolean)
         .join(' · ')
-      const board = index.stopById.get(ride.board)?.stop_name ?? ''
-      const alight = index.stopById.get(ride.alight)?.stop_name ?? ''
+      const board = index.stopName(ride.board)
+      const alight = index.stopName(ride.alight)
       return [{ride, route, title: `${board} → ${alight}`, detail}]
     }),
   }))

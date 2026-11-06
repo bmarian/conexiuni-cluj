@@ -730,8 +730,8 @@ type sqlExecer interface {
 }
 
 func upsertSegmentProfile(db sqlExecer, key segmentProfileKey, sorted []float64, now time.Time) (float64, float64, error) {
-	median := nearestRank(sorted, 0.50)
-	p75 := nearestRank(sorted, 0.75)
+	median := NearestRank(sorted, 0.50)
+	p75 := NearestRank(sorted, 0.75)
 	_, err := db.Exec(`
 		INSERT INTO segment_travel_time_profiles
 		(route_id, direction_id, from_stop_id, to_stop_id, day_type, bucket_start_min, sample_count, median_sec, p75_sec, updated_at)
@@ -843,7 +843,7 @@ func (eng *Engine) loadSegmentProfileSnapshot(key segmentProfileKey) (int, float
 	return count, median, p75, true
 }
 
-func nearestRank(sortedValues []float64, percentile float64) float64 {
+func NearestRank(sortedValues []float64, percentile float64) float64 {
 	if len(sortedValues) == 0 {
 		return 0
 	}

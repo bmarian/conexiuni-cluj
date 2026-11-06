@@ -114,7 +114,7 @@ func replayProfiles(days [][]replaySample, dayType string) map[replayRoute][]seg
 		}
 		sort.Float64s(durations)
 		out[k.route] = append(out[k.route], segmentProfileRow{
-			pair: k.pair, dayType: dayType, bucket: k.bucket, sampleCount: len(durations), medianSec: nearestRank(durations, 0.5),
+			pair: k.pair, dayType: dayType, bucket: k.bucket, sampleCount: len(durations), medianSec: NearestRank(durations, 0.5),
 		})
 	}
 	return out

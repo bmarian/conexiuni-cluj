@@ -62,7 +62,7 @@ useHead(() => ({
   meta: [{name: 'robots', content: 'noindex'}],
 }))
 
-const stopName = (stopId: number | undefined) => (stopId === undefined ? '' : (network.value?.stopById.get(stopId)?.stop_name ?? ''))
+const stopName = (stopId: number | undefined) => (stopId === undefined ? '' : (network.value?.stopName(stopId) ?? ''))
 
 const rows = computed(() =>
   lines.value.flatMap((line, i) => {

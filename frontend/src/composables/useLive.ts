@@ -1,11 +1,12 @@
 import {onUnmounted, ref, type Ref, watch} from 'vue'
 import type {LiveEntry, LiveRow, LiveVehicle} from '@/types/tranzy.ts'
 import {apiPath} from '@/utils/city.ts'
+import {publishTraffic, type TrafficByTrip} from '@/utils/traffic.ts'
 
 export const liveRowKey = (tripId: string, stopId: number) => `${tripId}@${stopId}`
 
-type Snapshot = {as_of: number; rows: LiveRow[]; vehicles: LiveVehicle[]}
-type Delta = {as_of: number; rows: LiveRow[]; vehicles: {upsert: LiveVehicle[]; remove: number[]}}
+type Snapshot = {as_of: number; rows: LiveRow[]; vehicles: LiveVehicle[]; traffic?: TrafficByTrip}
+type Delta = {as_of: number; rows: LiveRow[]; vehicles: {upsert: LiveVehicle[]; remove: number[]}; traffic?: TrafficByTrip}
 
 export type ShownEntry = LiveEntry & {minutes: number}
 
@@ -23,6 +24,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>, {stands 
   const connected = ref(false)
   let es: EventSource | null = null
   let activeKey = ''
+  const stream = {}
 
   const buildKey = (stops: number[], trips: string[]) => `${[...new Set(stops)].sort((a, b) => a - b).join(',')}|${[...new Set(trips)].sort().join(',')}`
 
@@ -33,6 +35,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>, {stands 
     }
     connected.value = false
     activeKey = ''
+    publishTraffic(stream, null)
   }
 
   function start(stops: number[], trips: string[]) {
@@ -69,6 +72,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>, {stands 
         byId.clear()
         for (const v of snapshot.vehicles) byId.set(v.id, v)
         publishVehicles()
+        publishTraffic(stream, snapshot.traffic ?? null)
         asOfMs.value = snapshot.as_of * 1000
         connected.value = true
       } catch (e) {
@@ -84,6 +88,7 @@ export function useLive(stopIds: Ref<number[]>, tripIds: Ref<string[]>, {stands 
         for (const v of delta.vehicles.upsert) byId.set(v.id, v)
         for (const id of delta.vehicles.remove) byId.delete(id)
         publishVehicles()
+        if (delta.traffic) publishTraffic(stream, delta.traffic)
         asOfMs.value = delta.as_of * 1000
         connected.value = true
       } catch (e) {
