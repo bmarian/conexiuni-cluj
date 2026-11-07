@@ -65,10 +65,14 @@ func (e *Env) Placement() feeds.Placement { return &e.place }
 // Tracing answers once the city runs; until then there are no lines.
 func (e *Env) Tracing() feeds.Tracing { return &e.place }
 
+// School answers once the city runs; until then every day is a school day, as one no school year covers.
+func (e *Env) School() feeds.School { return &e.place }
+
 // What a running city tells its feeds.
 type Located interface {
 	feeds.Placement
 	feeds.Tracing
+	feeds.School
 }
 
 func (e *Env) Place(city Located) { e.place.city = city }
@@ -95,6 +99,8 @@ func (p *placement) Along(routeID, direction int, lat, lon float64) (float64, fl
 	}
 	return p.city.Along(routeID, direction, lat, lon)
 }
+
+func (p *placement) SchoolDay(t time.Time) bool { return p.city == nil || p.city.SchoolDay(t) }
 
 // GTFS is a whole network from a GTFS zip, its times included.
 func (e *Env) GTFS(url string) feeds.Static {

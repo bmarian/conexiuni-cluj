@@ -1,0 +1,76 @@
+<html><head><script>
+		function show_line_map() {
+		  var myLatlng = new google.maps.LatLng(46.069843, 23.570277);
+
+		  var mapOptions = {
+			zoom: 14,
+			center: myLatlng,
+			mapTypeId: google.maps.MapTypeId.ROADMAP
+		  };
+
+		  var infowindow = new google.maps.InfoWindow();
+		  var marker, i;
+
+		  var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+
+		  var flightPlanCoordinates = [
+			  new google.maps.LatLng(46.057942,23.576444),new google.maps.LatLng(46.070686,23.577950),new google.maps.LatLng(46.077550,23.581479),new google.maps.LatLng(46.074892,23.588461),new google.maps.LatLng(46.070712,23.599067),new google.maps.LatLng(46.074408,23.616050),new google.maps.LatLng(46.075240,23.616147),new google.maps.LatLng(46.077020,23.622583),new google.maps.LatLng(46.086997,23.628649),new google.maps.LatLng(46.090561,23.631127),new google.maps.LatLng(46.088976,23.635509),new google.maps.LatLng(46.083869,23.653514),new google.maps.LatLng(46.082396,23.666033),new google.maps.LatLng(46.080216,23.672878),new google.maps.LatLng(46.076443,23.685492),new google.maps.LatLng(46.064246,23.694535),new google.maps.LatLng(46.069780,23.735342),new google.maps.LatLng(46.074793,23.737621),new google.maps.LatLng(46.078409,23.737229),new google.maps.LatLng(46.074784,23.737487),new google.maps.LatLng(46.069923,23.735353),new google.maps.LatLng(46.036889,23.720257)		  ];
+
+		  var locations = [
+		   ['Autogara STP', 46.057942, 23.576444, 4],['Cons.Europei', 46.070686, 23.577950, 4],['Gh.Doja T', 46.077550, 23.581479, 4],['Marasesti T', 46.074892, 23.588461, 4],['Solina T', 46.070712, 23.599067, 4],['Gradinita Drambar T', 46.074408, 23.616050, 4],['PEMA T', 46.075240, 23.616147, 4],['Drambar-pod T', 46.077020, 23.622583, 4],['Teleac 1T', 46.086997, 23.628649, 4],['Teleac T', 46.090561, 23.631127, 4],['Teleac 2T', 46.088976, 23.635509, 4],['Caisului T', 46.083869, 23.653514, 4],['HAPRIA T', 46.082396, 23.666033, 4],['Hapria 1T', 46.080216, 23.672878, 4],['Hapria(sus) T', 46.076443, 23.685492, 4],['Straja T', 46.064246, 23.694535, 4],['Berghin 1T', 46.069780, 23.735342, 4],['BERGHIN T', 46.074793, 23.737621, 4],['Berghin(moara)', 46.078409, 23.737229, 4],['BERGHIN R', 46.074784, 23.737487, 4],['Berghin 1R', 46.069923, 23.735353, 4],['Ghirbom T', 46.036889, 23.720257, 4]			];
+
+		  var image = 'images/google_map_icon/bus_icon.gif';
+
+		  for (i = 0; i < locations.length; i++) {
+			marker = new google.maps.Marker({
+			  position: new google.maps.LatLng(locations[i][1], locations[i][2]),
+			  map: map,
+			  icon: image
+			});
+
+			google.maps.event.addListener(marker, 'click', (function(marker, i) {
+			  return function() {
+				infowindow.setContent(locations[i][0]);
+				infowindow.open(map, marker);
+			  }
+			})(marker, i));
+		  }
+
+		  var flightPath = new google.maps.Polyline({
+			path: flightPlanCoordinates,
+			geodesic: true,
+			strokeColor: '#FF0000',
+			strokeOpacity: 1.0,
+			strokeWeight: 2
+		  });
+		  flightPath.setMap(map);
+		}
+		google.maps.event.addDomListener(window, 'load', show_line_map);
+    </script></head><body>
+<div class='actualizare_orar' style='text-align:right;margin-top:-20px;margin-bottom:20px;'>Orarul a fost actualizat la: <strong>30-10-2026</strong>.</div><h1 style='background-image:none;'>
+				<span style='background-color:#f00;padding:10px;color:#fff;font-weight:bold;'>Linia 505 (Autogara STP -> Hapria -> Berghin -> Ghirbom)</span></h1><p style='font-style:italic;margin-left:20px;margin-top:20px;'>Click pe orele de plecare pentru a vedea orele de sosire in statie</p><br /><table style='width:250px;float:left;border-collapse: collapse;border-spacing: 0' border='0' cellpadding='0' cellspacing='0'><p style='font-size: 11px; font-weight: bold; margin-left: 205px; text-align: center;width: 55px;'>Ora sosire <br />in statie</p><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000329'>Autogara STP</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii1' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:40</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000211'>Cons.Europei</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii2' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:45</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000203'>Gh.Doja T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii3' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:49</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000205'>Marasesti T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii4' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:50</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000442'>Solina T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii5' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:52</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000285'>Gradinita Drambar T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii6' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:53</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000320'>PEMA T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii7' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:53</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000347'>Drambar-pod T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii8' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:53</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000349'>Teleac 1T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii9' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:56</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000351'>Teleac T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii10' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:57</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000353'>Teleac 2T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii11' style='vertical-align:middle;padding-right:-5px;text-align:right;'>07:59</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000476'>Caisului T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii12' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:01</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000355'>HAPRIA T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii13' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:02</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000357'>Hapria 1T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii14' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:04</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000551'>Hapria(sus) T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii15' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:06</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000552'>Straja T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii16' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:12</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000558'>Berghin 1T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii17' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:19</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000555'>BERGHIN T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii18' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:20</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000554'>Berghin(moara)</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii19' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:21</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000556'>BERGHIN R</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii20' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:22</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000559'>Berghin 1R</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii21' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:23</td></tr><tr><td style='vertical-align:middle;padding-right:5px;text-align:right;'><a href='statii.php?statia_curenta=1000560'>Ghirbom T</a></td><td><img src='images/reprezentare_statie.png' /></td><td class='ora_sosire_in_statii' id='ora_sosire_in_statii22' style='vertical-align:middle;padding-right:-5px;text-align:right;'>08:29</td></tr><tr><td></td><td><img src='images/reprezentare_statie_sageata_jos.png' /></td></tr><tr><td colspan='3'><br /><br /><a href='afisare_program_linie.php?linie_name=505_SBG' class='buton_download_program'>Download Program</a></td></tr></table><script>function addMinutes(date, minutes) {
+				return new Date(date.getTime() + minutes*60000);
+			}function modifOreStatii(oraPlecare) {dpcjs=[0,5,9,10,12,13,13,13,16,17,19,21,22,24,26,32,39,40,41,42,43,49,49];
+
+			oraPlecare_time = (new Date (new Date().toDateString() + ' ' + oraPlecare));
+			//alert (oraPlecare_time);
+
+			//orafinal = addMinutes(oraPlecare_time, 1);
+			//alert (orafinal);
+			//secunde = dpcjs[i] * 60;
+			//oraPlecare_time.setSeconds(oraPlecare_time.getSeconds() + secunde);
+			//alert (oraPlecare_time);
+
+			for (i = 0; i < dpcjs.length; i++){
+				//secunde = dpcjs[i] * 60;
+				//oraPlecare_time.setSeconds(oraPlecare_time.getSeconds() + secunde);
+				//oraPlecare_time = oraPlecare_time.getMinutes();
+				orafinal = addMinutes(oraPlecare_time, dpcjs[i]);
+
+				datetext = orafinal.toTimeString();
+				datetext = datetext.split(' ')[0];
+				datetext = datetext.slice(0,5);
+				document.getElementById('ora_sosire_in_statii'+(i+1)).innerHTML = datetext;
+			}
+			}</script><p style='margin-left:620px;margin-top:-50px;padding-bottom:5px;font-weight:bold;'>Durata cursa: 50:00 minute</p><table class='tabel_ore_plecare' style=''><tr><th>Ora</th><th>Luni-Vineri</th><th>Sambata</th><th>Duminica</th><th>Ora</th></tr><tr><td><strong>07</strong></td><td> <span class='link_click_ora' onclick="modifOreStatii('07:40')">40</span></td><td> <span class='link_click_ora' onclick="modifOreStatii('07:40')">40</span></td><td> <span class='link_click_ora' onclick="modifOreStatii('07:40')">40</span></td><td><strong>07</strong></td></tr><tr><td><strong>11</strong></td><td> <span class='link_click_ora' onclick="modifOreStatii('11:15')">15***</span></td><td></td><td></td><td><strong>11</strong></td></tr><tr><td><strong>19</strong></td><td></td><td> <span class='link_click_ora' onclick="modifOreStatii('19:30')">30</span></td><td> <span class='link_click_ora' onclick="modifOreStatii('19:30')">30</span></td><td><strong>19</strong></td></tr><tr><td><strong>23</strong></td><td> <span class='link_click_ora' onclick="modifOreStatii('23:30')">30</span></td><td></td><td></td><td><strong>23</strong></td></tr></table><div style='float:right;margin-top:10px;font-style:italic;'><p>*Circulă doar în perioada școlii.</p><p>**Circulă doar în perioada vacanțelor școlare.</p><p>***Circulă doar în zilele de marți.</p></div>
+</body></html>

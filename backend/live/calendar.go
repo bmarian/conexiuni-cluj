@@ -93,6 +93,7 @@ func (eng *Engine) setCalendar(c *calendar.Calendar) {
 
 func (eng *Engine) profileDay(t time.Time) string  { return eng.currentCalendar().ProfileDay(t) }
 func (eng *Engine) ScheduleDay(t time.Time) string { return eng.currentCalendar().ScheduleDay(t) }
+func (eng *Engine) SchoolDay(t time.Time) bool     { return eng.currentCalendar().SchoolDay(t) }
 
 func (eng *Engine) StartCalendar(r *jobs.Runner) {
 	if err := eng.LoadCalendar(); err != nil {

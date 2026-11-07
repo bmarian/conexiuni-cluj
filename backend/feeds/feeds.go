@@ -73,6 +73,11 @@ type Tracing interface {
 	Along(routeID, direction int, lat, lon float64) (along, off float64, ok bool)
 }
 
+// School says whether a day falls in a school term, whatever its weekday.
+type School interface {
+	SchoolDay(t time.Time) bool
+}
+
 type Credit struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`

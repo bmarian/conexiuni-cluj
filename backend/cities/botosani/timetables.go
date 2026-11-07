@@ -2,7 +2,6 @@ package botosani
 
 import (
 	"bytes"
-	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/feeds"
 	"fmt"
 	"math"
@@ -62,7 +61,7 @@ func parseProgram(rows [][]cell) map[string]*lineProgram {
 			if out[m[1]] == nil {
 				out[m[1]] = &lineProgram{from: map[string]map[string][][]departure{}}
 			}
-			line, from, days = out[m[1]], m[2], kindsOfDay(m[3])
+			line, from, days = out[m[1]], m[2], feeds.KindsOfDay(m[3])
 			continue
 		}
 		if line == nil || len(row) == 0 {
@@ -98,17 +97,6 @@ func parseProgram(rows [][]cell) map[string]*lineProgram {
 	}
 	if line != nil {
 		flush()
-	}
-	return out
-}
-
-func kindsOfDay(label string) []string {
-	label = feeds.NormalizeStopLabel(label)
-	var out []string
-	for word, day := range map[string]string{"luni": calendar.Weekday, "sambata": calendar.Saturday, "duminica": calendar.Sunday} {
-		if strings.Contains(label, word) {
-			out = append(out, day)
-		}
 	}
 	return out
 }
