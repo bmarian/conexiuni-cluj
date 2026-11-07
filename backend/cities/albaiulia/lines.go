@@ -2,16 +2,11 @@ package albaiulia
 
 import (
 	"conexiuni-cluj/feeds"
+	"conexiuni-cluj/feeds/sitegtfs"
 	"regexp"
 	"sort"
 	"strings"
 )
-
-// A line of the app: an outward route and the return that mirrors it, if any.
-type line struct {
-	name string
-	ways [2]*page
-}
 
 var (
 	// STP tells a road's two sides apart by a closing T or R, as in "Seliste T" and "Benic 1R".
@@ -30,7 +25,7 @@ func stationName(name string) string {
 func stationKey(name string) string { return feeds.NormalizeStopLabel(stationName(name)) }
 
 // A return (STP's label ends in R, or repeats the outward one) joins the outward route of its number whose ends it swaps and with which it shares the most stations.
-func lines(pages []page) []line {
+func lines(pages []page) []sitegtfs.Line {
 	type pair struct {
 		out, back int
 		shared    float64
@@ -52,13 +47,13 @@ func lines(pages []page) []line {
 			backOf[p.out] = p.back
 		}
 	}
-	var out []line
+	var out []sitegtfs.Line
 	for i := range pages {
 		switch b, ok := backOf[i]; {
 		case ok:
-			out = append(out, line{name: pairName(pages[i].label, pages[b].label), ways: [2]*page{&pages[i], &pages[b]}})
+			out = append(out, sitegtfs.Line{Name: pairName(pages[i].label, pages[b].label), Ways: [2]*sitegtfs.Route{&pages[i].Route, &pages[b].Route}})
 		case !used[i]:
-			out = append(out, line{name: pages[i].label, ways: [2]*page{&pages[i], nil}})
+			out = append(out, sitegtfs.Line{Name: pages[i].label, Ways: [2]*sitegtfs.Route{&pages[i].Route, nil}})
 		}
 	}
 	return out
@@ -75,7 +70,7 @@ func returns(out, back page, o, b int) bool {
 }
 
 func mirrored(out, back page) bool {
-	first, last := func(p page) string { return stationKey(p.stops[0].name) }, func(p page) string { return stationKey(p.stops[len(p.stops)-1].name) }
+	first, last := func(p page) string { return stationKey(p.Stops[0].Name) }, func(p page) string { return stationKey(p.Stops[len(p.Stops)-1].Name) }
 	return first(back) == last(out) || last(back) == first(out)
 }
 
@@ -84,8 +79,8 @@ func shared(a, b page) float64 {
 	both, all := 0, map[string]int{}
 	for _, p := range []page{a, b} {
 		seen := map[string]bool{}
-		for _, s := range p.stops {
-			if key := stationKey(s.name); !seen[key] {
+		for _, s := range p.Stops {
+			if key := stationKey(s.Name); !seen[key] {
 				seen[key] = true
 				all[key]++
 			}

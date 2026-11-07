@@ -2,8 +2,7 @@ package albaiulia
 
 import (
 	"conexiuni-cluj/feeds"
-	"conexiuni-cluj/feeds/roads"
-	"conexiuni-cluj/models"
+	"conexiuni-cluj/feeds/sitegtfs"
 	"conexiuni-cluj/router"
 	"fmt"
 	"log"
@@ -18,7 +17,7 @@ type site struct {
 
 	mu      sync.Mutex
 	updated string
-	pages   []page
+	lines   []sitegtfs.Line
 	shapes  map[string][]router.Point
 }
 
@@ -33,26 +32,24 @@ func (s *site) zip() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if s.pages == nil || updated == "" || updated != s.updated {
-		pages, err := s.crawl(links)
+	if s.lines == nil || updated == "" || updated != s.updated {
+		pages, err := crawl(links)
 		if err != nil {
 			return nil, err
 		}
-		s.pages, s.shapes, s.updated = pages, drawn(pages), updated
+		s.lines, s.shapes, s.updated = lines(pages), drawn(pages), updated
 	}
-	return writeZip(s.pages, s.shapes, s.school, time.Now())
+	return sitegtfs.Zip(s.lines, s.shapes, s.school, time.Now())
 }
 
-// One page at a time, each after a pause as long as the last one took to answer.
-func (s *site) crawl(links []link) ([]page, error) {
+// One page at a time, each after a pause as long as the last one took to answer; the stops then take the names the app shows.
+func crawl(links []link) ([]page, error) {
 	var out []page
 	for _, l := range links {
-		start := time.Now()
-		data, err := feeds.Download(l.url)
+		data, err := feeds.DownloadInTurn(l.url)
 		if err != nil {
 			return nil, fmt.Errorf("stpalba.ro: %w", err)
 		}
-		time.Sleep(time.Since(start))
 		p, err := parsePage(data, l)
 		if err != nil {
 			log.Printf("albaiulia: %s: %v; the route is left out", l.code, err)
@@ -60,54 +57,23 @@ func (s *site) crawl(links []link) ([]page, error) {
 		}
 		out = append(out, p)
 	}
-	placeEverywhere(out)
+	routes := make([]sitegtfs.Route, len(out))
+	for i := range out {
+		routes[i] = out[i].Route
+	}
+	sitegtfs.Place(routes)
+	for _, p := range out {
+		for i := range p.Stops {
+			p.Stops[i].Name = stationName(p.Stops[i].Name)
+		}
+	}
 	return out, nil
 }
 
-// A stop the map of one page skips takes its place from another page's map.
-func placeEverywhere(pages []page) {
-	at := map[string]router.Point{}
-	for _, p := range pages {
-		for _, s := range p.stops {
-			if s.placed {
-				at[s.id] = s.at
-			}
-		}
-	}
-	for _, p := range pages {
-		for i, s := range p.stops {
-			if pt, ok := at[s.id]; ok && !s.placed {
-				p.stops[i].at, p.stops[i].placed = pt, true
-			} else if !ok {
-				log.Printf("albaiulia: %s: no page places %s, so the route skips it", p.code, s.name)
-			}
-		}
-	}
-}
-
-// Each route on the roads from stop to stop; straight legs without the OSM extract.
 func drawn(pages []page) map[string][]router.Point {
-	var stops []models.Stop
-	for _, p := range pages {
-		for _, s := range p.stops {
-			if s.placed {
-				stops = append(stops, models.Stop{StopLat: s.at.Lat, StopLon: s.at.Lon})
-			}
-		}
+	routes := make([]sitegtfs.Route, len(pages))
+	for i := range pages {
+		routes[i] = pages[i].Route
 	}
-	g, _, err := roads.Around(stops)
-	if err != nil {
-		log.Printf("albaiulia: %v; the lines get straight legs", err)
-	}
-	out := make(map[string][]router.Point, len(pages))
-	for _, p := range pages {
-		var points []router.Point
-		for _, s := range p.stops {
-			if s.placed {
-				points = append(points, s.at)
-			}
-		}
-		out[p.code] = roads.Through(points, func(a, b router.Point) []router.Point { return roads.Path(g, a, b) })
-	}
-	return out
+	return sitegtfs.Draw(routes)
 }

@@ -4,17 +4,23 @@ import (
 	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
 
-// KindsOfDay are the kinds of day a timetable heading names, as in "Luni-Vineri" or "Sâmbătă și duminică".
+// KindsOfDay are the kinds of day a timetable heading names, as in "Luni-Vineri", "L-V", "Zile lucrătoare", "Sâmbătă și duminică" or "Sărbători și weekend".
 func KindsOfDay(label string) []string {
-	label = NormalizeStopLabel(label)
+	label = " " + NormalizeStopLabel(label) + " "
 	var out []string
-	for word, day := range map[string]string{"luni": calendar.Weekday, "sambata": calendar.Saturday, "duminica": calendar.Sunday} {
-		if strings.Contains(label, word) {
-			out = append(out, day)
+	for word, days := range map[string][]string{
+		"luni": {calendar.Weekday}, " l v ": {calendar.Weekday}, "lucratoare": {calendar.Weekday},
+		"sambata": {calendar.Saturday}, "duminica": {calendar.Sunday}, "weekend": {calendar.Saturday, calendar.Sunday},
+	} {
+		for _, day := range days {
+			if strings.Contains(label, word) && !slices.Contains(out, day) {
+				out = append(out, day)
+			}
 		}
 	}
 	return out

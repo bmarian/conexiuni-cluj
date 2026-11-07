@@ -1,9 +1,33 @@
 package feeds
 
 import (
+	"conexiuni-cluj/calendar"
 	"conexiuni-cluj/models"
+	"slices"
 	"testing"
 )
+
+func TestKindsOfDay(t *testing.T) {
+	weekend := []string{calendar.Saturday, calendar.Sunday}
+	for heading, want := range map[string][]string{
+		"Luni - Vineri":                {calendar.Weekday},
+		"Program L-V":                  {calendar.Weekday},
+		"ZILE LUCRĂTOARE":              {calendar.Weekday},
+		"Sâmbătă":                      {calendar.Saturday},
+		"Duminică și sărbători legale": {calendar.Sunday},
+		"SĂRBĂTORI ȘI WEEKEND":         weekend,
+		"Sâmbătă și duminică":          weekend,
+		"Ora":                          nil,
+		"Nivel":                        nil,
+	} {
+		got := KindsOfDay(heading)
+		slices.Sort(got)
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			t.Errorf("%q: %v, want %v", heading, got, want)
+		}
+	}
+}
 
 func TestCanonicalTime(t *testing.T) {
 	cases := map[string]string{

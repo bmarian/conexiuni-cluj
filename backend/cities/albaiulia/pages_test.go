@@ -2,6 +2,7 @@ package albaiulia
 
 import (
 	"conexiuni-cluj/calendar"
+	"conexiuni-cluj/feeds/sitegtfs"
 	"os"
 	"slices"
 	"strings"
@@ -37,40 +38,25 @@ func TestPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.stops) != 22 || len(p.minutes) != 22 {
-		t.Fatalf("%d stops, %d minutes", len(p.stops), len(p.minutes))
+	if len(p.Stops) != 22 || len(p.Minutes) != 22 {
+		t.Fatalf("%d stops, %d minutes", len(p.Stops), len(p.Minutes))
 	}
-	first, last := p.stops[0], p.stops[21]
-	if first.id != "1000329" || first.name != "Autogara STP" || !first.placed || last.name != "Ghirbom T" || p.minutes[21] != 49 {
-		t.Fatalf("ends %+v %+v, last minute %d", first, last, p.minutes[21])
+	first, last := p.Stops[0], p.Stops[21]
+	if first.ID != "1000329" || first.Name != "Autogara STP" || !first.Placed || last.Name != "Ghirbom T" || p.Minutes[21] != 49 {
+		t.Fatalf("ends %+v %+v, last minute %d", first, last, p.Minutes[21])
 	}
-	for _, s := range p.stops {
-		if s.placed == (s.name == "Straja T") {
-			t.Fatalf("%s placed %v", s.name, s.placed)
+	for _, s := range p.Stops {
+		if s.Placed == (s.Name == "Straja T") {
+			t.Fatalf("%s placed %v", s.Name, s.Placed)
 		}
 	}
-	want := []departure{
-		{day: calendar.Weekday, minute: 7*60 + 40}, {day: calendar.Saturday, minute: 7*60 + 40}, {day: calendar.Sunday, minute: 7*60 + 40},
-		{day: calendar.Weekday, minute: 11*60 + 15, only: limit(time.Tuesday.String())},
-		{day: calendar.Saturday, minute: 19*60 + 30}, {day: calendar.Sunday, minute: 19*60 + 30},
-		{day: calendar.Weekday, minute: 23*60 + 30},
+	want := []sitegtfs.Departure{
+		{Day: calendar.Weekday, Minute: 7*60 + 40}, {Day: calendar.Saturday, Minute: 7*60 + 40}, {Day: calendar.Sunday, Minute: 7*60 + 40},
+		{Day: calendar.Weekday, Minute: 11*60 + 15, Only: sitegtfs.Only(time.Tuesday)},
+		{Day: calendar.Saturday, Minute: 19*60 + 30}, {Day: calendar.Sunday, Minute: 19*60 + 30},
+		{Day: calendar.Weekday, Minute: 23*60 + 30},
 	}
-	if !slices.Equal(p.departures, want) {
-		t.Fatalf("departures %+v", p.departures)
-	}
-}
-
-func TestLegend(t *testing.T) {
-	for text, want := range map[string]limit{
-		"Circulă doar în perioada școlii.":             term,
-		"Circulă doar în perioada vacanțelor școlare.": holidays,
-		"Circulă doar în zilele de marți.":             limit(time.Tuesday.String()),
-	} {
-		if got, ok := limitOf(text); !ok || got != want {
-			t.Errorf("%q: %q", text, got)
-		}
-	}
-	if _, ok := limitOf("Circulă la cerere."); ok {
-		t.Error("an unknown legend has a meaning")
+	if !slices.Equal(p.Departures, want) {
+		t.Fatalf("departures %+v", p.Departures)
 	}
 }

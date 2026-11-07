@@ -28,6 +28,14 @@ func Download(url string) ([]byte, error) {
 	return fetch(client, url)
 }
 
+// DownloadInTurn is Download for reading a site page by page: it returns after a pause as long as the page took, so the next request never comes sooner.
+func DownloadInTurn(url string) ([]byte, error) {
+	start := time.Now()
+	data, err := Download(url)
+	time.Sleep(time.Since(start))
+	return data, err
+}
+
 type StatusError struct {
 	URL  string
 	Code int

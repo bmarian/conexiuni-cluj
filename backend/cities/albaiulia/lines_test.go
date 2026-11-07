@@ -1,15 +1,16 @@
 package albaiulia
 
 import (
+	"conexiuni-cluj/feeds/sitegtfs"
 	"slices"
 	"strings"
 	"testing"
 )
 
 func route(code, label string, stations ...string) page {
-	p := page{code: code, label: label}
+	p := page{label: label, Route: sitegtfs.Route{ID: code}}
 	for _, name := range stations {
-		p.stops = append(p.stops, stop{id: name, name: name})
+		p.Stops = append(p.Stops, sitegtfs.Stop{ID: name, Name: name})
 	}
 	return p
 }
@@ -29,11 +30,11 @@ func TestLines(t *testing.T) {
 	}
 	var got []string
 	for _, l := range lines(pages) {
-		ways := l.ways[0].code
-		if l.ways[1] != nil {
-			ways += "+" + l.ways[1].code
+		ways := l.Ways[0].ID
+		if l.Ways[1] != nil {
+			ways += "+" + l.Ways[1].ID
 		}
-		got = append(got, l.name+" "+ways)
+		got = append(got, l.Name+" "+ways)
 	}
 	want := []string{"101 101T_L1T+101R_L1R", "110 110_M1+110R_M2", "110B 110B_Z1+110R_Z2", "121 121_Am1", "121 121_Gm1", "440 440_IglTe+440_Telgl"}
 	if !slices.Equal(got, want) {

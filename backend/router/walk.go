@@ -11,6 +11,9 @@ import (
 
 type Point struct{ Lat, Lon float64 }
 
+// Meters is the distance to q along the earth's surface.
+func (p Point) Meters(q Point) float64 { return haversine(p.Lat, p.Lon, q.Lat, q.Lon) }
+
 type BBox struct{ MinLat, MinLon, MaxLat, MaxLon float64 }
 
 func (b BBox) contains(lat, lon float64) bool {
