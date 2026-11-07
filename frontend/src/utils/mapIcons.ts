@@ -23,6 +23,8 @@ export interface MarkerIcon {
   html: string | HTMLElement
   size: [number, number]
   anchor: [number, number]
+  cached?: boolean
+  slots?: string[]
 }
 
 export type StationMark = {mode: Mode; color: string}
@@ -37,6 +39,7 @@ const defaultStopIcon: MarkerIcon = {
   `,
   size: [24, 24],
   anchor: [12, 12],
+  cached: true,
 }
 
 const stationIcons = new Map<string, MarkerIcon>()
@@ -51,6 +54,7 @@ function stationIcon({mode, color}: StationMark): MarkerIcon {
       </div>`,
       size: [24, 24],
       anchor: [12, 12],
+      cached: true,
     }
     stationIcons.set(key, icon)
   }
@@ -65,7 +69,7 @@ export function lineStartIcon(routes: {name: string; color: string}[]): MarkerIc
 
 // A line's last stop: a station marker in the line's colour.
 export function lineEndIcon(color: string): MarkerIcon {
-  return {html: `<div class="line-end" style="background:${color}">${flagSvg}</div>`, size: [24, 24], anchor: [12, 12]}
+  return {html: `<div class="line-end" style="background:${color}">${flagSvg}</div>`, size: [24, 24], anchor: [12, 12], cached: true}
 }
 
 export function stationCardHtml(name: string, look?: {groups: ModeLines[]}): string {
@@ -97,6 +101,7 @@ const CLUSTER_ROW = 3
 export const CLUSTER_STATIONS_MAX = 3
 const CLUSTER_NAMES_MAX = 8
 const CLUSTER_CELL_PX = 24
+const CLUSTER_CELL_STYLE = `width:${CLUSTER_CELL_PX}px;height:${CLUSTER_CELL_PX}px;display:flex;align-items:center;justify-content:center;`
 
 function clusterPill(count: number): [number, number] {
   const rows = count > CLUSTER_ROW ? 2 : 1
@@ -115,18 +120,15 @@ export type ClusterIcon = StationMark | 'heart'
 export function makeClusterIcon(icons: ClusterIcon[], name: string, more: number, labelWidth: number): MarkerIcon {
   const [w, h] = clusterPill(icons.length)
   const box = clusterIconBox(icons.length, labelWidth)
-  const cells = icons
-    .map(
-      (icon) =>
-        `<div style="width:${CLUSTER_CELL_PX}px;height:${CLUSTER_CELL_PX}px;display:flex;align-items:center;justify-content:center;">${(icon === 'heart' ? makeHighlightIcon('favorite') : stationIcon(icon)).html}</div>`,
-    )
-    .join('')
+  const slots = icons.map((icon) => `<div style="${CLUSTER_CELL_STYLE}">${(icon === 'heart' ? makeHighlightIcon('favorite') : stationIcon(icon)).html}</div>`)
+  const pill = `width:${w}px;height:${h}px;padding:${CLUSTER_PAD_PX}px;gap:${CLUSTER_GAP_PX}px;border-radius:${CLUSTER_CELL_PX / 2 + CLUSTER_PAD_PX}px;`
   return {
     html: `<div class="stop-cluster" style="width:${box.size[0]}px;">
-      <div class="stop-cluster-pill" style="width:${w}px;height:${h}px;padding:${CLUSTER_PAD_PX}px;gap:${CLUSTER_GAP_PX}px;border-radius:${CLUSTER_CELL_PX / 2 + CLUSTER_PAD_PX}px;">${cells}</div>
+      <div class="stop-cluster-pill" style="${pill}">${'<i data-slot></i>'.repeat(slots.length)}</div>
       <div class="stop-cluster-label"><span>${escapeHtml(name)}</span>${more ? ` <span class="stop-cluster-more">+${more}</span>` : ''}</div>
     </div>`,
     ...box,
+    slots,
   }
 }
 
@@ -184,6 +186,7 @@ export function makeSelectedStopIcon(mark?: StationMark): MarkerIcon {
     `,
     size: [32, 32],
     anchor: [16, 16],
+    cached: true,
   }
 }
 
@@ -209,6 +212,7 @@ export function makeHighlightIcon(color: 'green' | 'purple' | 'red' | 'gray' | '
       </div>`,
       size: [24, 24],
       anchor: [12, 12],
+      cached: true,
     }
   }
 
@@ -218,6 +222,7 @@ export function makeHighlightIcon(color: 'green' | 'purple' | 'red' | 'gray' | '
     </div>`,
     size: [24, 24],
     anchor: [12, 12],
+    cached: true,
   }
 }
 

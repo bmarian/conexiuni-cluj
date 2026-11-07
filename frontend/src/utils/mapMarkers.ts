@@ -1,6 +1,7 @@
 import {Marker, type Map as MapLibreMap} from 'maplibre-gl'
 import type {MarkerIcon} from '@/utils/mapIcons.ts'
 import {HOLD_MS} from '@/composables/useLongPress.ts'
+import {cachedMarkup} from '@/utils/markup.ts'
 
 export type LatLng = {lat: number; lng: number}
 
@@ -21,8 +22,11 @@ function fillIcon(el: HTMLElement, icon: MarkerIcon) {
   el.style.height = `${icon.size[1]}px`
   const body = document.createElement('div')
   body.className = 'marker-body'
-  if (typeof icon.html === 'string') body.innerHTML = icon.html
-  else body.append(icon.html)
+  if (typeof icon.html !== 'string') body.append(icon.html)
+  else if (icon.cached) body.append(cachedMarkup(icon.html))
+  else body.innerHTML = icon.html
+  const slots = body.querySelectorAll('[data-slot]')
+  icon.slots?.forEach((html, i) => slots[i]!.replaceWith(cachedMarkup(html)))
   el.replaceChildren(body)
 }
 
