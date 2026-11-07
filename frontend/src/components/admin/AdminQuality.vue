@@ -9,7 +9,7 @@ import {came, dayName, minSec, num, pct} from '@/utils/adminFormat.ts'
 
 const BUSES_SHOWN = 3
 
-const props = defineProps<{overview: Overview; name: string; realtime: boolean}>()
+const props = defineProps<{overview: Overview; name: string; operator: string; realtime: boolean}>()
 
 const horizonLabels: Record<string, string> = {
   all: 'All',
@@ -19,7 +19,7 @@ const horizonLabels: Record<string, string> = {
   '11-20': '11–20 min',
   '21-30': '21–30 min',
 }
-const sourceLabels: Record<string, string> = {ours: 'Ours', ctp: 'CTP'}
+const sourceLabels = computed<Record<string, string>>(() => ({ours: 'Ours', ctp: props.operator || 'Operator'}))
 const planReasons: Record<string, string> = {walk: 'only a long walk', outside: 'outside the network'}
 const busReasons: Record<string, string> = {trip: 'unknown trip', route: 'off route'}
 

@@ -13,7 +13,7 @@ import LiveBadge from '@/components/ui/LiveBadge.vue'
 import TimetableBadge from '@/components/ui/TimetableBadge.vue'
 import type {Choice} from '@/components/ui/types.ts'
 import {useAdmin} from '@/composables/useAdmin.ts'
-import {cityPath, reloadCities} from '@/utils/city.ts'
+import {cities, cityPath, reloadCities} from '@/utils/city.ts'
 import {clockTime} from '@/utils/adminFormat.ts'
 import {CloseIcon, RefreshIcon, WarningAmberIcon} from '@/utils/icons.ts'
 
@@ -40,6 +40,7 @@ const tab = computed<Tab>(() => {
 })
 const summary = computed(() => site.value?.cities.find((c) => c.slug === city.value))
 const name = computed(() => summary.value?.name ?? city.value)
+const operator = computed(() => cities.value.find((c) => c.slug === city.value)?.operator ?? '')
 const realtime = computed(() => summary.value?.realtime ?? true)
 const hasProblems = computed(() => [...(site.value?.problems ?? []), ...(overview.value?.problems ?? [])].some((p) => !p.dismissed))
 const tabs = computed<Choice<Tab>[]>(() => [
@@ -132,7 +133,7 @@ async function onCitiesChanged() {
             @dismiss="dismiss"
           />
           <AdminPeople v-else-if="tab === 'people'" :overview="overview" :name="name" />
-          <AdminQuality v-else-if="tab === 'quality'" :overview="overview" :name="name" :realtime="realtime" />
+          <AdminQuality v-else-if="tab === 'quality'" :overview="overview" :name="name" :operator="operator" :realtime="realtime" />
           <AdminSettings v-else :city="city" :name="name" @saved="load" @changed="onCitiesChanged" @logout="logout" />
         </main>
         <p v-else-if="!loadError" class="admin-note page">Loading…</p>
