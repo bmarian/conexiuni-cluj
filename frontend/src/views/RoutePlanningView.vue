@@ -26,6 +26,7 @@ import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKe
 import {useLive} from '@/composables/useLive.ts'
 import {useSwapMotion} from '@/composables/useSwapMotion.ts'
 import {drawTimeline} from '@/utils/drawTimeline.ts'
+import {placeIcon} from '@/utils/placeLabel.ts'
 import type {DisplayShape} from '@/stores/map.ts'
 import type {DisplayVehicle} from '@/utils/mapIcons.ts'
 import {formatMinutesFromNow} from '@/utils/time.ts'
@@ -137,6 +138,7 @@ useHead(() => {
 const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon))
 
 const favoriteLabel = computed(() => favoritesStore.findPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon)?.label)
+const favoriteName = computed(() => (favoriteLabel.value ? placeIcon(favoriteLabel.value) : null))
 
 function toggleFavorite() {
   if (!isOnline.value) return
@@ -914,7 +916,10 @@ const chips = computed<ChipAction[]>(() => [
 
     <template v-else>
       <header class="header" data-kbd-section="rename" data-kbd-axis="x">
-        <span class="tile"><MapIcon class="m-icon" /></span>
+        <span class="tile">
+          <span v-if="favoriteName?.icon" class="tile-emoji">{{ favoriteName.icon }}</span>
+          <MapIcon v-else class="m-icon" />
+        </span>
         <div class="flex-1 min-w-0">
           <p class="text-label-medium text-tertiary">{{ t('planTitle') }}</p>
           <input
@@ -927,7 +932,7 @@ const chips = computed<ChipAction[]>(() => [
             @keydown.enter.prevent="confirmRename"
           />
           <h1 v-else class="text-title-large font-bold truncate" :title="favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric'))">
-            {{ favoriteLabel ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
+            {{ favoriteName?.name ?? (hasValidDest ? destName : t('planTitleGeneric')) }}
           </h1>
         </div>
         <template v-if="isRenaming">
@@ -1293,6 +1298,11 @@ const chips = computed<ChipAction[]>(() => [
   border-radius: 14px;
   background: var(--md-tertiary);
   color: var(--md-on-tertiary);
+}
+
+.tile-emoji {
+  font-size: 24px;
+  line-height: 1;
 }
 
 .rename-field {
