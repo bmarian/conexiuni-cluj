@@ -110,6 +110,7 @@ function settled(e: TransitionEvent) {
 }
 
 .section-inner {
+  min-width: 0;
   min-height: 0;
 }
 

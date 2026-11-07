@@ -9,7 +9,7 @@ import StationLines from '@/components/rows/StationLines.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
-import {HistoryIcon} from '@/utils/icons.ts'
+import {AltRouteIcon, PlaceIcon, RouteIcon} from '@/utils/icons.ts'
 import {useI18n} from 'vue-i18n'
 
 const {
@@ -36,7 +36,7 @@ const title = computed(() => {
 <template>
   <ListRow :title="title" :subtitle="kind" :remove-label="removeLabel" :chevron="!removeLabel" :busy="busy" @open="$emit('open')" @remove="$emit('remove')">
     <template v-if="byKind" #icon>
-      <RowIcon :icon="HistoryIcon" :size="iconSize" />
+      <RowIcon :icon="stop ? PlaceIcon : route ? RouteIcon : AltRouteIcon" :size="iconSize" />
     </template>
     <template v-else-if="!group" #icon>
       <LineBadge v-if="route" :name="route.route_short_name" :color="route.route_color" :height="28" :min-width="40" :corner="6" />
