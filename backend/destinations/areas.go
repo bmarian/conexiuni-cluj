@@ -31,8 +31,8 @@ func (x *Index) addAreas(areas []router.Area) {
 		if stop == nil {
 			continue
 		}
-		d, dm := nearest(districts, stop.StopLat, stop.StopLon)
-		t, tm := nearest(towns, stop.StopLat, stop.StopLon)
+		d, dm := Nearest(districts, stop.StopLat, stop.StopLon)
+		t, tm := Nearest(towns, stop.StopLat, stop.StopLon)
 		area := t
 		if d != nil && (t == nil || dm < tm) {
 			area = d
@@ -61,7 +61,7 @@ func (x *Index) addAreas(areas []router.Area) {
 					others = append(others, t)
 				}
 			}
-			if t, _ := nearest(others, dest.Lat, dest.Lon); t != nil {
+			if t, _ := Nearest(others, dest.Lat, dest.Lon); t != nil {
 				dest.Slug += "-" + router.Slug(t.Name)
 			}
 		}
@@ -85,7 +85,7 @@ func (x *Index) addAreas(areas []router.Area) {
 	sort.Slice(x.list, func(i, j int) bool { return router.Slug(x.list[i].Name) < router.Slug(x.list[j].Name) })
 }
 
-func nearest(among []router.Area, lat, lon float64) (*router.Area, float64) {
+func Nearest(among []router.Area, lat, lon float64) (*router.Area, float64) {
 	var best *router.Area
 	bestM := 0.0
 	for i := range among {

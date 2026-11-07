@@ -2,6 +2,7 @@ package botosani
 
 import (
 	"conexiuni-cluj/calendar"
+	"conexiuni-cluj/destinations"
 	"conexiuni-cluj/feeds"
 	"conexiuni-cluj/feeds/roads"
 	"conexiuni-cluj/feeds/traces"
@@ -16,8 +17,10 @@ import (
 
 type static struct {
 	page    string
+	mapPage string
 	cadence time.Duration
 	ids     feeds.IDMap
+	school  feeds.School
 }
 
 func (s *static) Cadence() time.Duration { return s.cadence }
@@ -27,40 +30,125 @@ func (s *static) Snapshot() (*feeds.Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("eltransbt.ro: %w", err)
 	}
-	lines, program, err := parsePage(page, s.page)
+	parsed, err := parsePage(page, s.page)
 	if err != nil {
 		return nil, err
 	}
-	data, err := feeds.Download(program)
+	data, err := feeds.Download(parsed.program)
 	if err != nil {
 		return nil, fmt.Errorf("eltransbt.ro: %w", err)
 	}
 	rows, err := readProgram(data)
 	if err != nil {
-		return nil, fmt.Errorf("eltransbt.ro: %s: %w", program, err)
+		return nil, fmt.Errorf("eltransbt.ro: %s: %w", parsed.program, err)
+	}
+	var adit aditMap
+	if len(parsed.suburban) == 0 {
+		log.Printf("botosani: no lines to the villages on %s", s.page)
+	} else if adit, err = s.aditMap(); err != nil {
+		return nil, err
 	}
 	var stops []models.Stop
-	for _, l := range lines {
+	for _, l := range parsed.lines {
 		for _, m := range l.markers {
 			stops = append(stops, models.Stop{StopLat: m.at.Lat, StopLon: m.at.Lon})
 		}
 	}
-	g, _, err := roads.Around(stops)
+	for _, t := range parsed.suburban {
+		for _, p := range adit.lines[t.short].points {
+			stops = append(stops, models.Stop{StopLat: p.Lat, StopLon: p.Lon})
+		}
+	}
+	g, places, err := roads.Around(stops)
 	if err != nil {
 		log.Printf("botosani: %v; the lines get straight legs", err)
 	}
-	return build(lines, parseProgram(rows), s.ids, streets{g})
+	var villages []router.Area
+	if places != nil {
+		for _, a := range places.Areas() {
+			if !destinations.IsDistrict(a.Place) {
+				villages = append(villages, a)
+			}
+		}
+	}
+	return build(sources{
+		lines: parsed.lines, programs: parseProgram(rows), suburban: parsed.suburban,
+		adit: adit, villages: villages, term: termRuns(s.school, time.Now()),
+	}, s.ids, streets{g})
 }
 
-func build(lines []pageLine, programs map[string]*lineProgram, ids feeds.IDMap, st streets) (*feeds.Snapshot, error) {
-	snap := &feeds.Snapshot{Timetables: map[string]*models.Timetable{}}
-	stopIDs := map[string]int{}
-	for _, line := range lines {
-		placed := placeRuns(line, st)
-		if len(placed.missing) > 0 || len(placed.unused) > 0 {
-			log.Printf("botosani: %s: stations not on the map %q, markers no run stops at %d", line.short, placed.missing, len(placed.unused))
+type sources struct {
+	lines    []pageLine
+	programs map[string]*lineProgram
+	suburban []suburbanTimes
+	adit     aditMap
+	villages []router.Area
+	// By kind of day.
+	term map[string]bool
+}
+
+type builder struct {
+	snap    *feeds.Snapshot
+	ids     feeds.IDMap
+	stopIDs map[string]int
+}
+
+type way struct {
+	stops   []marker
+	shape   []router.Point
+	offsets []float64
+}
+
+func (b *builder) route(short string, ways []way, name func(marker) string) (*models.Timetable, error) {
+	routeID, err := b.ids.ExternalID("route", short)
+	if err != nil {
+		return nil, err
+	}
+	t := &models.Timetable{RouteShortName: short}
+	for d, w := range ways {
+		patternID := models.PatternID(routeID, d)
+		for k, m := range w.stops {
+			key := m.source + ":" + m.id
+			id, ok := b.stopIDs[key]
+			if !ok {
+				if id, err = b.ids.ExternalID("stop", key); err != nil {
+					return nil, err
+				}
+				b.stopIDs[key] = id
+				stop := models.Stop{StopID: id, StopName: name(m), StopLat: m.at.Lat, StopLon: m.at.Lon}
+				b.snap.Stops = append(b.snap.Stops, stop)
+			}
+			b.snap.TripStops = append(b.snap.TripStops, models.TripStop{TripID: patternID, StopID: id, StopSequence: k})
 		}
-		spelling := map[string]string{}
+		headsign := name(w.stops[len(w.stops)-1])
+		trip := models.Trip{TripID: patternID, RouteID: routeID, DirectionID: models.DirectionType(d), TripHeadsign: headsign, ShapeID: patternID}
+		b.snap.Trips = append(b.snap.Trips, trip)
+		for k, p := range w.shape {
+			b.snap.Shapes = append(b.snap.Shapes, models.Shape{ShapeID: patternID, ShapePtLat: p.Lat, ShapePtLon: p.Lon, ShapePtSequence: k})
+		}
+		if w.offsets != nil {
+			if b.snap.Offsets == nil {
+				b.snap.Offsets = map[string][]float64{}
+			}
+			b.snap.Offsets[patternID] = w.offsets
+		}
+	}
+	t.InStopName = name(ways[0].stops[0])
+	if len(ways) > 1 {
+		t.OutStopName = name(ways[1].stops[0])
+	}
+	t.RouteLongName = t.InStopName + " - " + name(farEnd(ways[0].stops))
+	b.snap.Routes = append(b.snap.Routes, models.Route{
+		RouteID: routeID, RouteShortName: short, RouteLongName: t.RouteLongName, RouteType: models.Bus, RouteColor: models.FallbackRouteColor,
+	})
+	b.snap.Timetables[short] = t
+	return t, nil
+}
+
+func build(src sources, ids feeds.IDMap, st streets) (*feeds.Snapshot, error) {
+	b := &builder{snap: &feeds.Snapshot{Timetables: map[string]*models.Timetable{}}, ids: ids, stopIDs: map[string]int{}}
+	spelling := map[string]string{}
+	for _, line := range src.lines {
 		for _, r := range line.runs {
 			for _, name := range r.names {
 				if _, ok := spelling[nameKey(name)]; !ok {
@@ -68,13 +156,19 @@ func build(lines []pageLine, programs map[string]*lineProgram, ids feeds.IDMap, 
 				}
 			}
 		}
-		stopName := func(m marker) string {
-			if name, ok := spelling[nameKey(m.name)]; ok {
-				return name
-			}
-			return m.name
+	}
+	stopName := func(m marker) string {
+		if name, ok := spelling[nameKey(m.name)]; ok && m.source != aditSource {
+			return name
 		}
-		program := programs[line.short]
+		return m.name
+	}
+	for _, line := range src.lines {
+		placed := placeRuns(line, st)
+		if len(placed.missing) > 0 || len(placed.unused) > 0 {
+			log.Printf("botosani: %s: stations not on the map %q, markers no run stops at %d", line.short, placed.missing, len(placed.unused))
+		}
+		program := src.programs[line.short]
 		if program == nil {
 			log.Printf("botosani: %s has no departures in the programme", line.short)
 			program = &lineProgram{}
@@ -92,50 +186,20 @@ func build(lines []pageLine, programs map[string]*lineProgram, ids feeds.IDMap, 
 				variants = append(variants, placed.runs[i])
 			}
 		}
-		add := func(short string, dirs [][]marker) (*models.Timetable, [][]router.Point, error) {
-			routeID, err := ids.ExternalID("route", short)
-			if err != nil {
-				return nil, nil, err
+		onRoads := func(dir []marker) way {
+			points := make([]router.Point, len(dir))
+			for k, m := range dir {
+				points[k] = m.at
 			}
-			var shapes [][]router.Point
-			t := &models.Timetable{RouteShortName: short}
-			for d, dir := range dirs {
-				patternID := models.PatternID(routeID, d)
-				points := make([]router.Point, len(dir))
-				for k, m := range dir {
-					id, ok := stopIDs[m.id]
-					if !ok {
-						if id, err = ids.ExternalID("stop", "eltransbt.ro:"+m.id); err != nil {
-							return nil, nil, err
-						}
-						stopIDs[m.id] = id
-						snap.Stops = append(snap.Stops, models.Stop{StopID: id, StopName: stopName(m), StopLat: m.at.Lat, StopLon: m.at.Lon})
-					}
-					points[k] = m.at
-					snap.TripStops = append(snap.TripStops, models.TripStop{TripID: patternID, StopID: id, StopSequence: k})
-				}
-				snap.Trips = append(snap.Trips, models.Trip{TripID: patternID, RouteID: routeID, DirectionID: models.DirectionType(d), TripHeadsign: stopName(dir[len(dir)-1]), ShapeID: patternID})
-				shape := roads.Through(points, st.path)
-				for k, p := range shape {
-					snap.Shapes = append(snap.Shapes, models.Shape{ShapeID: patternID, ShapePtLat: p.Lat, ShapePtLon: p.Lon, ShapePtSequence: k})
-				}
-				shapes = append(shapes, shape)
-			}
-			t.InStopName = stopName(dirs[0][0])
-			if len(dirs) > 1 {
-				t.OutStopName = stopName(dirs[1][0])
-			}
-			t.RouteLongName = t.InStopName + " - " + stopName(farEnd(dirs[0]))
-			snap.Routes = append(snap.Routes, models.Route{RouteID: routeID, RouteShortName: short, RouteLongName: t.RouteLongName, RouteType: models.Bus, RouteColor: models.FallbackRouteColor})
-			snap.Timetables[short] = t
-			return t, shapes, nil
+			return way{stops: dir, shape: roads.Through(points, st.path)}
 		}
 		if main[0] != nil && main[1] != nil {
-			t, shapes, err := add(line.short, main[:])
+			ways := []way{onRoads(main[0]), onRoads(main[1])}
+			t, err := b.route(line.short, ways, stopName)
 			if err != nil {
 				return nil, err
 			}
-			lengths := [2]float64{traces.Length(shapes[0]), traces.Length(shapes[1])}
+			lengths := [2]float64{traces.Length(ways[0].shape), traces.Length(ways[1].shape)}
 			for day, schedule := range daySchedules(t) {
 				var columns [2][]int
 				for d, dir := range main {
@@ -155,7 +219,7 @@ func build(lines []pageLine, programs map[string]*lineProgram, ids feeds.IDMap, 
 				log.Printf("botosani: a short run of %s starting at %s has no departures of its own in the programme", line.short, stopName(run[0]))
 				continue
 			}
-			t, _, err := add(line.short+program.variant, [][]marker{run})
+			t, err := b.route(line.short+program.variant, []way{onRoads(run)}, stopName)
 			if err != nil {
 				return nil, err
 			}
@@ -164,7 +228,10 @@ func build(lines []pageLine, programs map[string]*lineProgram, ids feeds.IDMap, 
 			}
 		}
 	}
-	return snap, nil
+	if err := b.suburban(src, st, stopName); err != nil {
+		return nil, err
+	}
+	return b.snap, nil
 }
 
 func daySchedules(t *models.Timetable) map[string]*models.DaySchedule {

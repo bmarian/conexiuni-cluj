@@ -69,7 +69,7 @@ func TestRunsKeepRightOnTheRealRoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lines, _ := fixturePage(t)
+	lines := fixturePage(t).lines
 	want := [][][]string{
 		{
 			{"9", "11", "13", "15", "17", "19", "21", "23", "26", "28", "30", "32", "34"},
