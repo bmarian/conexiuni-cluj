@@ -110,6 +110,9 @@ func Siblings(a, b string) bool {
 	return a != b && ScheduleOf(a) == ScheduleOf(b)
 }
 
+// SchoolDay is whether the date falls in a term, whatever its weekday; a date no school year covers counts as one.
+func (c *Calendar) SchoolDay(t time.Time) bool { return c.schoolDay(t.Format(dateLayout)) == Weekday }
+
 func (c *Calendar) schoolDay(date string) string {
 	covered := false
 	for _, y := range c.years {

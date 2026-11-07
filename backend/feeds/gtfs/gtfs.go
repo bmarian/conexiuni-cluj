@@ -23,7 +23,7 @@ import (
 const serviceDayEndHour = 28
 
 // Weeks sampled ahead: enough to outvote a holiday.
-const representativeWeeks = 4
+const SampledWeeks = 4
 
 type Feed struct {
 	url     string
@@ -31,11 +31,17 @@ type Feed struct {
 	ids     feeds.IDMap
 	// Fills the Snapshot's Runs, for buses that name only their trip.
 	ListRuns bool
+	build    func() ([]byte, error)
 }
 
 // ids may be nil when the feed only adds times to another source's Snapshot.
 func New(url string, cadence time.Duration, ids feeds.IDMap) *Feed {
 	return &Feed{url: url, cadence: cadence, ids: ids}
+}
+
+// Built reads a zip written from an operator's own pages; name only labels it in logs.
+func Built(name string, build func() ([]byte, error), cadence time.Duration, ids feeds.IDMap) *Feed {
+	return &Feed{url: name, cadence: cadence, ids: ids, build: build}
 }
 
 func (f *Feed) Cadence() time.Duration { return f.cadence }
@@ -67,7 +73,11 @@ type feed struct {
 }
 
 func (f *Feed) fetch() (*feed, error) {
-	data, err := feeds.Download(f.url)
+	download := func() ([]byte, error) { return feeds.Download(f.url) }
+	if f.build != nil {
+		download = f.build
+	}
+	data, err := download()
 	if err != nil {
 		return nil, fmt.Errorf("gtfs: %w", err)
 	}
@@ -283,7 +293,8 @@ func (f *feed) validity() (start, end time.Time) {
 	return start, end
 }
 
-func dayKind(day time.Time) string {
+// DayKind is the kind of day the weekday alone makes it.
+func DayKind(day time.Time) string {
 	switch day.Weekday() {
 	case time.Saturday:
 		return calendar.Saturday
@@ -303,7 +314,7 @@ func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 	if end.Before(from) {
 		end = from.AddDate(0, 0, 6)
 	}
-	if horizon := from.AddDate(0, 0, representativeWeeks*7-1); end.After(horizon) {
+	if horizon := from.AddDate(0, 0, SampledWeeks*7-1); end.After(horizon) {
 		end = horizon
 	}
 	type tally struct {
@@ -318,7 +329,7 @@ func (f *feed) representativeDays(now time.Time) map[string]time.Time {
 			services = append(services, id)
 		}
 		sort.Strings(services)
-		kind, sig := dayKind(day), strings.Join(services, "\x00")
+		kind, sig := DayKind(day), strings.Join(services, "\x00")
 		if byKind[kind] == nil {
 			byKind[kind] = map[string]*tally{}
 		}

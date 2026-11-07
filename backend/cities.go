@@ -3,6 +3,7 @@ package main
 import (
 	"conexiuni-cluj/calendar/calendarscolar"
 	"conexiuni-cluj/cities"
+	"conexiuni-cluj/cities/albaiulia"
 	"conexiuni-cluj/cities/arad"
 	"conexiuni-cluj/cities/bistrita"
 	"conexiuni-cluj/cities/bocsa"
@@ -52,6 +53,7 @@ var allCities = []cities.Spec{
 	arad.City, braila.City, buzau.City, focsani.City, bistrita.City, tulcea.City,
 	drobeta.City, vaslui.City, sinaia.City, sighisoara.City, nasaud.City, calarasi.City,
 	dej.City, medias.City, giurgiu.City, bocsa.City, vicovudesus.City,
+	albaiulia.City,
 }
 
 func buildCities(cfg *config.Config) ([]*cities.City, error) {
