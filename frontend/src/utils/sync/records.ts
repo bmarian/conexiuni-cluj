@@ -310,29 +310,40 @@ export const readSettings = (raw: string) => read(raw, parseSettings, writeSetti
 
 const maybeBool = (value: unknown): boolean | null => (value === null ? null : bool(value))
 
-function parseOptions(record: unknown): OptionsRecord {
-  const m = object(record, 'v', 'colorfulLines', 'city', 'journeyVoice', 'fullScreenAlarms', 'traffic')
+const OPTION_KEYS = ['v', 'colorfulLines', 'city', 'journeyVoice', 'fullScreenAlarms']
+
+function parseOptions(record: unknown, withTraffic = true): OptionsRecord {
+  const m = object(record, ...OPTION_KEYS, ...(withTraffic ? ['traffic'] : []))
   return {
     colorfulLines: bool(m.colorfulLines),
     city: text(m.city, 0, 40),
     journeyVoice: maybeBool(m.journeyVoice),
     fullScreenAlarms: maybeBool(m.fullScreenAlarms),
-    traffic: maybeBool(m.traffic),
+    traffic: withTraffic ? maybeBool(m.traffic) : null,
   }
 }
 
-export function writeOptions(r: OptionsRecord): string {
+export function writeOptions(r: OptionsRecord, withTraffic = true): string {
   return JSON.stringify({
     v: 1,
     colorfulLines: r.colorfulLines,
     city: r.city,
     journeyVoice: r.journeyVoice,
     fullScreenAlarms: r.fullScreenAlarms,
-    traffic: r.traffic,
+    ...(withTraffic ? {traffic: r.traffic} : {}),
   })
 }
 
-export const readOptions = (raw: string) => read(raw, parseOptions, writeOptions)
+// A record from before traffic existed reads as traffic unknown; the next write adds the key.
+export function readOptions(raw: string): Read<OptionsRecord> {
+  const current = read(raw, parseOptions, (r) => writeOptions(r))
+  if (current.ok || current.newer) return current
+  return read(
+    raw,
+    (r) => parseOptions(r, false),
+    (r) => writeOptions(r, false),
+  )
+}
 
 function sections(value: unknown): string[] {
   const ids = list(value, HOME_CAP).map((id) => text(id, 1, 20))

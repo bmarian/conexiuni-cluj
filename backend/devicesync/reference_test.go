@@ -787,7 +787,13 @@ func parseOptions(raw string) (optionsRecord, error) {
 	if err := version(v); err != nil {
 		return rec, err
 	}
-	m, err := object(v, "v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms", "traffic")
+	// A record from before traffic existed reads as traffic unknown.
+	_, withTraffic := v.(map[string]any)["traffic"]
+	keys := []string{"v", "colorfulLines", "city", "journeyVoice", "fullScreenAlarms"}
+	if withTraffic {
+		keys = append(keys, "traffic")
+	}
+	m, err := object(v, keys...)
 	if err != nil {
 		return rec, err
 	}
@@ -806,7 +812,7 @@ func parseOptions(raw string) (optionsRecord, error) {
 	if rec.traffic, err = parseMaybe(m["traffic"]); err != nil {
 		return rec, err
 	}
-	return rec, canonical(raw, rec.write())
+	return rec, canonical(raw, rec.writeShape(withTraffic))
 }
 
 func parseSections(v any) ([]string, error) {
@@ -961,9 +967,15 @@ func (r settingsRecord) write() string {
 		`,"regions":{"cluj":{"showGreenFriday":` + strconv.FormatBool(r.greenFriday) + "}}}"
 }
 
-func (r optionsRecord) write() string {
-	return `{"v":1,"colorfulLines":` + strconv.FormatBool(r.colorfulLines) + `,"city":` + quote(r.city) +
-		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms) + `,"traffic":` + string(r.traffic) + "}"
+func (r optionsRecord) write() string { return r.writeShape(true) }
+
+func (r optionsRecord) writeShape(withTraffic bool) string {
+	out := `{"v":1,"colorfulLines":` + strconv.FormatBool(r.colorfulLines) + `,"city":` + quote(r.city) +
+		`,"journeyVoice":` + string(r.journeyVoice) + `,"fullScreenAlarms":` + string(r.fullScreenAlarms)
+	if withTraffic {
+		out += `,"traffic":` + string(r.traffic)
+	}
+	return out + "}"
 }
 
 func (r homeRecord) write() string {

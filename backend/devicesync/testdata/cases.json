@@ -830,6 +830,18 @@
       "outcome": "ok"
     },
     {
+      "kind": "options",
+      "about": "written before traffic",
+      "json": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "options",
+      "about": "written before traffic, wrong key order",
+      "json": "{\"v\":1,\"city\":\"cluj\",\"colorfulLines\":true,\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "outcome": "refuse"
+    },
+    {
       "kind": "groups",
       "about": "empty",
       "json": "{\"v\":1,\"groups\":[]}",
@@ -1314,6 +1326,14 @@
       "local": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":true}",
       "remote": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":null}",
       "merged": "{\"v\":1,\"colorfulLines\":false,\"city\":\"\",\"journeyVoice\":null,\"fullScreenAlarms\":null,\"traffic\":true}"
+    },
+    {
+      "kind": "options",
+      "about": "record from before traffic gains it",
+      "base": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "local": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":false,\"traffic\":true}",
+      "remote": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":false}",
+      "merged": "{\"v\":1,\"colorfulLines\":true,\"city\":\"cluj\",\"journeyVoice\":null,\"fullScreenAlarms\":false,\"traffic\":true}"
     },
     {
       "kind": "groups",
