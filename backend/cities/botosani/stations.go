@@ -25,14 +25,7 @@ func placeRuns(line pageLine, st streets) placedLine {
 	for _, m := range line.markers {
 		byKey[nameKey(m.name)] = append(byKey[nameKey(m.name)], m)
 	}
-	centre := func(key string) router.Point {
-		var c router.Point
-		for _, m := range byKey[key] {
-			c.Lat += m.at.Lat / float64(len(byKey[key]))
-			c.Lon += m.at.Lon / float64(len(byKey[key]))
-		}
-		return c
-	}
+	centre := func(key string) router.Point { return centreOf(byKey[key]) }
 	used := map[string]bool{}
 	out.runs = make([][]marker, len(line.runs))
 	for i, r := range line.runs {
@@ -175,3 +168,23 @@ func oppositePartner(runs [][]marker, m marker) bool {
 }
 
 func distance(a, b router.Point) float64 { return geo.Haversine(a.Lat, a.Lon, b.Lat, b.Lon) }
+
+func centreOf(markers []marker) router.Point {
+	var c router.Point
+	for _, m := range markers {
+		c.Lat += m.at.Lat / float64(len(markers))
+		c.Lon += m.at.Lon / float64(len(markers))
+	}
+	return c
+}
+
+// -1 when items is empty.
+func nearestTo[T any](items []T, p router.Point, at func(T) router.Point) int {
+	best := -1
+	for i, item := range items {
+		if best < 0 || distance(at(item), p) < distance(at(items[best]), p) {
+			best = i
+		}
+	}
+	return best
+}

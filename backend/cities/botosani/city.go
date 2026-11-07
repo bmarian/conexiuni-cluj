@@ -1,4 +1,4 @@
-// Package botosani is Botoșani from eltransbt.ro, timetables only.
+// Package botosani is Botoșani from eltransbt.ro and ADIT's map; timetables only.
 package botosani
 
 import "conexiuni-cluj/cities"
@@ -12,8 +12,10 @@ var City = cities.Spec{
 		}
 		return cities.Feeds{Static: &static{
 			page:    "https://eltransbt.ro/trasee",
+			mapPage: "https://aditmbt.ro/autoritatea-de-transport/harta-interactiva/",
 			cadence: env.Config.TimetableRefresh,
 			ids:     env.IDs(),
+			school:  env.School(),
 		}}, nil
 	},
 }

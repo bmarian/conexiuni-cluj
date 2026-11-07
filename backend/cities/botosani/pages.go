@@ -27,10 +27,19 @@ type run struct {
 	names []string
 }
 
+const eltransSource = "eltransbt.ro"
+
 type marker struct {
-	id   string
-	name string
-	at   router.Point
+	id     string
+	source string
+	name   string
+	at     router.Point
+}
+
+type parsedPage struct {
+	lines    []pageLine
+	suburban []suburbanTimes
+	program  string
 }
 
 const (
@@ -44,18 +53,18 @@ var (
 	stationSide = regexp.MustCompile(`\s+(?:-\s+)?\d$`)
 )
 
-func parsePage(page []byte, pageURL string) ([]pageLine, string, error) {
+func parsePage(page []byte, pageURL string) (parsedPage, error) {
 	maps, err := parseMaps(page)
 	if err != nil {
-		return nil, "", err
+		return parsedPage{}, err
 	}
 	doc, err := html.Parse(bytes.NewReader(page))
 	if err != nil {
-		return nil, "", fmt.Errorf("eltransbt.ro: %w", err)
+		return parsedPage{}, fmt.Errorf("eltransbt.ro: %w", err)
 	}
 	program, err := programLink(doc, pageURL)
 	if err != nil {
-		return nil, "", err
+		return parsedPage{}, err
 	}
 	var out []pageLine
 	var line *pageLine
@@ -86,7 +95,7 @@ func parsePage(page []byte, pageURL string) ([]pageLine, string, error) {
 			line.markers = maps[news.Attr(n, "data-map-id")]
 		}
 	}
-	return out, program, nil
+	return parsedPage{lines: out, suburban: parseSuburban(doc), program: program}, nil
 }
 
 // Not "Programul anual special de circulație", the holiday one.
@@ -138,7 +147,8 @@ func parseMaps(page []byte) (map[string][]marker, error) {
 			if first, rest, ok := strings.Cut(name, " "); ok && nameKey(first) == "statie" {
 				name = rest
 			}
-			out[string(m[1])] = append(out[string(m[1])], marker{id: p.ID, name: stationSide.ReplaceAllString(name, ""), at: router.Point{Lat: lat, Lon: lon}})
+			name = stationSide.ReplaceAllString(name, "")
+			out[string(m[1])] = append(out[string(m[1])], marker{id: p.ID, source: eltransSource, name: name, at: router.Point{Lat: lat, Lon: lon}})
 		}
 	}
 	return out, nil

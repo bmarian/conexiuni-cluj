@@ -1,0 +1,1574 @@
+[
+ {
+  "lat": 47.647001,
+  "lon": 26.252259900000002,
+  "name": "Suceava",
+  "place": "city"
+ },
+ {
+  "lat": 47.745070600000005,
+  "lon": 26.6599858,
+  "name": "Botoșani",
+  "place": "city"
+ },
+ {
+  "lat": 47.570708200000006,
+  "lon": 26.2738994,
+  "name": "Cumpărătura",
+  "place": "village"
+ },
+ {
+  "lat": 47.5251882,
+  "lon": 26.2811631,
+  "name": "Bunești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8754337,
+  "lon": 26.807236500000002,
+  "name": "Ungureni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8371064,
+  "lon": 26.2915779,
+  "name": "Zvoriștea",
+  "place": "village"
+ },
+ {
+  "lat": 47.706309600000004,
+  "lon": 26.339137400000002,
+  "name": "Fetești",
+  "place": "village"
+ },
+ {
+  "lat": 47.735122100000005,
+  "lon": 26.2951026,
+  "name": "Adâncata",
+  "place": "village"
+ },
+ {
+  "lat": 47.6605293,
+  "lon": 26.341163,
+  "name": "Plopeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6625723,
+  "lon": 26.3254033,
+  "name": "Mereni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6524082,
+  "lon": 26.370076200000003,
+  "name": "Salcea",
+  "place": "village"
+ },
+ {
+  "lat": 47.659946000000005,
+  "lon": 26.4224706,
+  "name": "Dumbrăveni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6774794,
+  "lon": 26.3895164,
+  "name": "Sălăgeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6998972,
+  "lon": 26.401189400000003,
+  "name": "Siminicea",
+  "place": "village"
+ },
+ {
+  "lat": 47.7190717,
+  "lon": 26.383336600000003,
+  "name": "Grigorești",
+  "place": "village"
+ },
+ {
+  "lat": 47.7565918,
+  "lon": 26.3682304,
+  "name": "Hănțești",
+  "place": "village"
+ },
+ {
+  "lat": 47.718934600000004,
+  "lon": 26.191484000000003,
+  "name": "Pătrăuți",
+  "place": "village"
+ },
+ {
+  "lat": 47.7245872,
+  "lon": 26.225620000000003,
+  "name": "Lipoveni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7285849,
+  "lon": 26.2608663,
+  "name": "Mitocași",
+  "place": "village"
+ },
+ {
+  "lat": 47.7647096,
+  "lon": 26.287162400000003,
+  "name": "Călugăreni",
+  "place": "village"
+ },
+ {
+  "lat": 47.813292600000004,
+  "lon": 26.3106489,
+  "name": "Șerbănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.837848,
+  "lon": 26.2578941,
+  "name": "Dealu",
+  "place": "village"
+ },
+ {
+  "lat": 47.8661855,
+  "lon": 26.203305800000003,
+  "name": "Zamostea",
+  "place": "village"
+ },
+ {
+  "lat": 47.9046351,
+  "lon": 26.1724068,
+  "name": "Bălinești",
+  "place": "village"
+ },
+ {
+  "lat": 47.836931,
+  "lon": 26.612928500000002,
+  "name": "Roma",
+  "place": "village"
+ },
+ {
+  "lat": 47.8568799,
+  "lon": 26.6339316,
+  "name": "Nicșeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.79875070000001,
+  "lon": 26.511491600000003,
+  "name": "Cervicești",
+  "place": "village"
+ },
+ {
+  "lat": 47.817136000000005,
+  "lon": 26.477462000000003,
+  "name": "Leorda",
+  "place": "village"
+ },
+ {
+  "lat": 47.8279164,
+  "lon": 26.454156500000003,
+  "name": "Dolina",
+  "place": "village"
+ },
+ {
+  "lat": 47.8592833,
+  "lon": 26.459895000000003,
+  "name": "Brăești",
+  "place": "village"
+ },
+ {
+  "lat": 47.878261300000005,
+  "lon": 26.405342800000003,
+  "name": "Văculești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8924359,
+  "lon": 26.3971456,
+  "name": "Saucenița",
+  "place": "village"
+ },
+ {
+  "lat": 47.924349600000006,
+  "lon": 26.414129900000002,
+  "name": "Dealu Mare",
+  "place": "village"
+ },
+ {
+  "lat": 47.953760900000006,
+  "lon": 26.396997300000002,
+  "name": "Dorohoi",
+  "place": "city"
+ },
+ {
+  "lat": 47.844856,
+  "lon": 26.327466400000002,
+  "name": "Vârfu Câmpului",
+  "place": "village"
+ },
+ {
+  "lat": 47.7698058,
+  "lon": 27.010561300000003,
+  "name": "Trușești",
+  "place": "village"
+ },
+ {
+  "lat": 47.766265600000004,
+  "lon": 26.970767700000003,
+  "name": "Drislea",
+  "place": "village"
+ },
+ {
+  "lat": 47.7118504,
+  "lon": 26.863109400000003,
+  "name": "Blândești",
+  "place": "village"
+ },
+ {
+  "lat": 47.7259401,
+  "lon": 26.8002813,
+  "name": "Victoria",
+  "place": "village"
+ },
+ {
+  "lat": 47.729437100000006,
+  "lon": 26.7486451,
+  "name": "Stăuceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.923333,
+  "lon": 26.651948700000002,
+  "name": "Podeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8816853,
+  "lon": 26.6512002,
+  "name": "Dorobanți",
+  "place": "village"
+ },
+ {
+  "lat": 47.9178541,
+  "lon": 26.6673741,
+  "name": "Călugărenii Noi",
+  "place": "village"
+ },
+ {
+  "lat": 47.9284351,
+  "lon": 26.551808400000002,
+  "name": "Corlăteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8434478,
+  "lon": 26.692404800000002,
+  "name": "Dacia",
+  "place": "village"
+ },
+ {
+  "lat": 47.7616017,
+  "lon": 26.4708225,
+  "name": "Călinești",
+  "place": "village"
+ },
+ {
+  "lat": 47.7798516,
+  "lon": 26.5159279,
+  "name": "Cucorăni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7593186,
+  "lon": 26.721449600000003,
+  "name": "Roșiori",
+  "place": "village"
+ },
+ {
+  "lat": 47.766415200000004,
+  "lon": 26.669810000000002,
+  "name": "Cișmea",
+  "place": "village"
+ },
+ {
+  "lat": 47.716950100000005,
+  "lon": 26.6474635,
+  "name": "Curtești",
+  "place": "village"
+ },
+ {
+  "lat": 47.7085184,
+  "lon": 26.598196700000003,
+  "name": "Agafton",
+  "place": "village"
+ },
+ {
+  "lat": 47.734794,
+  "lon": 26.629413800000002,
+  "name": "Hudum",
+  "place": "village"
+ },
+ {
+  "lat": 47.489064500000005,
+  "lon": 26.8593525,
+  "name": "Poiana",
+  "place": "village"
+ },
+ {
+  "lat": 47.4851204,
+  "lon": 26.876347000000003,
+  "name": "Feredeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6932333,
+  "lon": 26.6574129,
+  "name": "Băiceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.723439400000004,
+  "lon": 26.605633700000002,
+  "name": "Mănăstirea Doamnei",
+  "place": "village"
+ },
+ {
+  "lat": 47.6759745,
+  "lon": 26.676714,
+  "name": "Orășeni-Deal",
+  "place": "village"
+ },
+ {
+  "lat": 47.6649813,
+  "lon": 26.666126300000002,
+  "name": "Orășeni-Vale",
+  "place": "village"
+ },
+ {
+  "lat": 47.7637045,
+  "lon": 26.686628900000002,
+  "name": "Răchiți",
+  "place": "village"
+ },
+ {
+  "lat": 47.7999869,
+  "lon": 26.674407900000002,
+  "name": "Costești",
+  "place": "village"
+ },
+ {
+  "lat": 47.716646000000004,
+  "lon": 26.762282600000002,
+  "name": "Siliștea",
+  "place": "village"
+ },
+ {
+  "lat": 47.711040100000005,
+  "lon": 26.786566500000003,
+  "name": "Tocileni",
+  "place": "village"
+ },
+ {
+  "lat": 47.94470260000001,
+  "lon": 26.901467,
+  "name": "Bozieni",
+  "place": "village"
+ },
+ {
+  "lat": 47.9619767,
+  "lon": 26.8278804,
+  "name": "Chișcăreni",
+  "place": "village"
+ },
+ {
+  "lat": 47.956339,
+  "lon": 26.8434278,
+  "name": "Petricani",
+  "place": "village"
+ },
+ {
+  "lat": 47.685634900000004,
+  "lon": 27.0444238,
+  "name": "Coștiugeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.718685900000004,
+  "lon": 27.0423666,
+  "name": "Mășcăteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6691799,
+  "lon": 26.79617,
+  "name": "Bălușeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6861041,
+  "lon": 26.823825900000003,
+  "name": "Bălușenii Noi",
+  "place": "village"
+ },
+ {
+  "lat": 47.680210200000005,
+  "lon": 26.7452994,
+  "name": "Buzeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6835675,
+  "lon": 26.7583543,
+  "name": "Coșuleni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6564526,
+  "lon": 26.822951900000003,
+  "name": "Draxini",
+  "place": "village"
+ },
+ {
+  "lat": 47.689930600000004,
+  "lon": 26.724869,
+  "name": "Zăicești",
+  "place": "village"
+ },
+ {
+  "lat": 47.843029300000005,
+  "lon": 26.493121000000002,
+  "name": "Popeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8450695,
+  "lon": 26.4555371,
+  "name": "Vâlcelele",
+  "place": "village"
+ },
+ {
+  "lat": 47.9581904,
+  "lon": 26.4812398,
+  "name": "Slobozia",
+  "place": "village"
+ },
+ {
+  "lat": 47.8010504,
+  "lon": 26.412428000000002,
+  "name": "Bohoghina",
+  "place": "village"
+ },
+ {
+  "lat": 47.616059500000006,
+  "lon": 26.852981800000002,
+  "name": "Copălău",
+  "place": "village"
+ },
+ {
+  "lat": 47.625497800000005,
+  "lon": 26.8087571,
+  "name": "Buda",
+  "place": "village"
+ },
+ {
+  "lat": 47.6188281,
+  "lon": 26.885764400000003,
+  "name": "Cerbu",
+  "place": "village"
+ },
+ {
+  "lat": 47.624543100000004,
+  "lon": 26.777955600000002,
+  "name": "Coșula",
+  "place": "village"
+ },
+ {
+  "lat": 47.598366000000006,
+  "lon": 26.861010800000003,
+  "name": "Cotu",
+  "place": "village"
+ },
+ {
+  "lat": 47.615351100000005,
+  "lon": 26.7694985,
+  "name": "Pădureni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6094079,
+  "lon": 26.7835916,
+  "name": "Șupitca",
+  "place": "village"
+ },
+ {
+  "lat": 47.9103646,
+  "lon": 26.547539200000003,
+  "name": "Dimăcheni",
+  "place": "village"
+ },
+ {
+  "lat": 47.918199,
+  "lon": 26.5923872,
+  "name": "Mateieni",
+  "place": "village"
+ },
+ {
+  "lat": 47.924734,
+  "lon": 26.4916865,
+  "name": "Recia-Verbia",
+  "place": "village"
+ },
+ {
+  "lat": 47.92737,
+  "lon": 26.610623,
+  "name": "Vlădeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.646031400000005,
+  "lon": 26.5748938,
+  "name": "Corni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6746181,
+  "lon": 26.6226905,
+  "name": "Balta Arsă",
+  "place": "village"
+ },
+ {
+  "lat": 47.6232897,
+  "lon": 26.629784,
+  "name": "Mesteacăn",
+  "place": "village"
+ },
+ {
+  "lat": 47.617079700000005,
+  "lon": 26.6074021,
+  "name": "Sarafinești",
+  "place": "village"
+ },
+ {
+  "lat": 47.6360764,
+  "lon": 26.7361836,
+  "name": "Cristești",
+  "place": "village"
+ },
+ {
+  "lat": 47.576259,
+  "lon": 26.7324351,
+  "name": "Oneaga",
+  "place": "village"
+ },
+ {
+  "lat": 47.639481700000005,
+  "lon": 26.689573000000003,
+  "name": "Schit-Orășeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6106895,
+  "lon": 26.7020251,
+  "name": "Unguroaia",
+  "place": "village"
+ },
+ {
+  "lat": 47.951438,
+  "lon": 26.277228800000003,
+  "name": "Lozna",
+  "place": "village"
+ },
+ {
+  "lat": 47.936213,
+  "lon": 26.296234100000003,
+  "name": "Străteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8520229,
+  "lon": 26.968942400000003,
+  "name": "Dângeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.825798500000005,
+  "lon": 26.964879000000003,
+  "name": "Hulub",
+  "place": "village"
+ },
+ {
+  "lat": 47.8611489,
+  "lon": 26.913037300000003,
+  "name": "Iacobeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8511157,
+  "lon": 26.945213900000002,
+  "name": "Strahotin",
+  "place": "village"
+ },
+ {
+  "lat": 47.825771800000005,
+  "lon": 27.065701,
+  "name": "Dobârceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.814461400000006,
+  "lon": 27.058260800000003,
+  "name": "Bivolari",
+  "place": "village"
+ },
+ {
+  "lat": 47.8603071,
+  "lon": 27.026760200000002,
+  "name": "Brăteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5590059,
+  "lon": 26.894568500000002,
+  "name": "Flămânzi",
+  "place": "town"
+ },
+ {
+  "lat": 47.5322181,
+  "lon": 26.901105700000002,
+  "name": "Frumușica",
+  "place": "village"
+ },
+ {
+  "lat": 47.5076337,
+  "lon": 26.8696197,
+  "name": "Boscoteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5118601,
+  "lon": 26.8925021,
+  "name": "Rădeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5437705,
+  "lon": 26.8672314,
+  "name": "Storești",
+  "place": "village"
+ },
+ {
+  "lat": 47.539288500000005,
+  "lon": 26.870609700000003,
+  "name": "Șendreni",
+  "place": "village"
+ },
+ {
+  "lat": 47.520754800000006,
+  "lon": 26.869757500000002,
+  "name": "Vlădeni-Deal",
+  "place": "village"
+ },
+ {
+  "lat": 47.7753394,
+  "lon": 26.858889400000002,
+  "name": "Gorbănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.786731200000006,
+  "lon": 26.885504100000002,
+  "name": "Bătrânești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8007548,
+  "lon": 26.8697145,
+  "name": "George Coșbuc",
+  "place": "village"
+ },
+ {
+  "lat": 47.7294021,
+  "lon": 26.8548098,
+  "name": "Silișcani",
+  "place": "village"
+ },
+ {
+  "lat": 47.783149400000006,
+  "lon": 26.910077100000002,
+  "name": "Socrujeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7653831,
+  "lon": 26.944730000000003,
+  "name": "Viforeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.751514900000004,
+  "lon": 26.869857000000003,
+  "name": "Vânători",
+  "place": "village"
+ },
+ {
+  "lat": 47.9078346,
+  "lon": 26.9781744,
+  "name": "Hănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9526065,
+  "lon": 27.021402300000002,
+  "name": "Borolea",
+  "place": "village"
+ },
+ {
+  "lat": 47.884234600000006,
+  "lon": 27.020946600000002,
+  "name": "Moara Jorii",
+  "place": "village"
+ },
+ {
+  "lat": 47.940148900000004,
+  "lon": 27.0391428,
+  "name": "Sărata-Basarab",
+  "place": "village"
+ },
+ {
+  "lat": 47.913826300000004,
+  "lon": 26.9954824,
+  "name": "Slobozia Hănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.805698400000004,
+  "lon": 26.4592856,
+  "name": "Costinești",
+  "place": "village"
+ },
+ {
+  "lat": 47.836957600000005,
+  "lon": 26.440257600000002,
+  "name": "Mitoc",
+  "place": "village"
+ },
+ {
+  "lat": 47.6220292,
+  "lon": 27.003364,
+  "name": "Lunca",
+  "place": "village"
+ },
+ {
+  "lat": 47.6104203,
+  "lon": 26.965619500000003,
+  "name": "Stroiești",
+  "place": "village"
+ },
+ {
+  "lat": 47.650259600000005,
+  "lon": 27.0074341,
+  "name": "Zlătunoaia",
+  "place": "village"
+ },
+ {
+  "lat": 47.9616382,
+  "lon": 27.050207500000003,
+  "name": "Zahoreni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7662987,
+  "lon": 26.558187800000002,
+  "name": "Ipotești",
+  "place": "village"
+ },
+ {
+  "lat": 47.724330900000005,
+  "lon": 26.567026600000002,
+  "name": "Baisa",
+  "place": "village"
+ },
+ {
+  "lat": 47.808278300000005,
+  "lon": 26.5178121,
+  "name": "Cervicești-Deal",
+  "place": "village"
+ },
+ {
+  "lat": 47.748662200000005,
+  "lon": 26.6210786,
+  "name": "Manolești",
+  "place": "village"
+ },
+ {
+  "lat": 47.744484,
+  "lon": 26.597130500000002,
+  "name": "Stâncești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9257469,
+  "lon": 26.197133700000002,
+  "name": "Cândești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9627987,
+  "lon": 26.1761631,
+  "name": "Pârâu Negru",
+  "place": "village"
+ },
+ {
+  "lat": 47.938853200000004,
+  "lon": 26.162230100000002,
+  "name": "Rogojești",
+  "place": "village"
+ },
+ {
+  "lat": 47.901935900000005,
+  "lon": 26.236304200000003,
+  "name": "Talpa",
+  "place": "village"
+ },
+ {
+  "lat": 47.944225,
+  "lon": 26.210605200000003,
+  "name": "Vițcani",
+  "place": "village"
+ },
+ {
+  "lat": 47.567086100000004,
+  "lon": 26.8989879,
+  "name": "Nicolae Bălcescu",
+  "place": "village"
+ },
+ {
+  "lat": 47.567253300000004,
+  "lon": 26.9324134,
+  "name": "Chițoveni",
+  "place": "village"
+ },
+ {
+  "lat": 47.557660000000006,
+  "lon": 26.949361900000003,
+  "name": "Prisăcani",
+  "place": "village"
+ },
+ {
+  "lat": 47.5041786,
+  "lon": 27.0130228,
+  "name": "Prăjeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.506250900000005,
+  "lon": 26.995220000000003,
+  "name": "Câmpeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.4907939,
+  "lon": 27.021300500000002,
+  "name": "Lupăria",
+  "place": "village"
+ },
+ {
+  "lat": 47.854632,
+  "lon": 26.5421173,
+  "name": "Cotârgaci",
+  "place": "village"
+ },
+ {
+  "lat": 47.646911200000005,
+  "lon": 26.925130000000003,
+  "name": "Sulița",
+  "place": "village"
+ },
+ {
+  "lat": 47.691951200000005,
+  "lon": 26.882517,
+  "name": "Cerchejeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.6353481,
+  "lon": 26.9498855,
+  "name": "Cheliș",
+  "place": "village"
+ },
+ {
+  "lat": 47.6294484,
+  "lon": 26.930281700000002,
+  "name": "Dracșani",
+  "place": "village"
+ },
+ {
+  "lat": 47.7352196,
+  "lon": 26.9252861,
+  "name": "Șoldănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9532237,
+  "lon": 26.3299021,
+  "name": "Șendriceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.912152400000004,
+  "lon": 26.3420963,
+  "name": "Horlăceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.962033700000006,
+  "lon": 26.734817600000003,
+  "name": "Ibăneasa",
+  "place": "village"
+ },
+ {
+  "lat": 47.8126748,
+  "lon": 26.999726000000003,
+  "name": "Buhăceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7312158,
+  "lon": 26.9944662,
+  "name": "Ionășeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.806839000000004,
+  "lon": 26.9911998,
+  "name": "Păsăteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.507474200000004,
+  "lon": 26.6345914,
+  "name": "Tudora",
+  "place": "village"
+ },
+ {
+  "lat": 47.9109126,
+  "lon": 26.7542343,
+  "name": "Borzești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8939266,
+  "lon": 26.774372300000003,
+  "name": "Durnești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9285002,
+  "lon": 26.782668,
+  "name": "Mihai Viteazu",
+  "place": "village"
+ },
+ {
+  "lat": 47.909462700000006,
+  "lon": 26.735909200000002,
+  "name": "Mândrești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8904391,
+  "lon": 26.7910925,
+  "name": "Plopenii Mari",
+  "place": "village"
+ },
+ {
+  "lat": 47.9052736,
+  "lon": 26.7692541,
+  "name": "Plopenii Mici",
+  "place": "village"
+ },
+ {
+  "lat": 47.879581800000004,
+  "lon": 26.848255400000003,
+  "name": "Vicoleni",
+  "place": "village"
+ },
+ {
+  "lat": 47.793913,
+  "lon": 26.7795549,
+  "name": "Unțeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7843377,
+  "lon": 26.796854900000003,
+  "name": "Burla",
+  "place": "village"
+ },
+ {
+  "lat": 47.7578742,
+  "lon": 26.8248409,
+  "name": "Burlești",
+  "place": "village"
+ },
+ {
+  "lat": 47.83100820000001,
+  "lon": 26.763612600000002,
+  "name": "Mânăstireni",
+  "place": "village"
+ },
+ {
+  "lat": 47.7841317,
+  "lon": 26.820928400000003,
+  "name": "Soroceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.877087700000004,
+  "lon": 26.3440666,
+  "name": "Gorovei",
+  "place": "village"
+ },
+ {
+  "lat": 47.701769600000006,
+  "lon": 26.542149300000002,
+  "name": "Brehuiești",
+  "place": "village"
+ },
+ {
+  "lat": 47.746856900000004,
+  "lon": 26.5112761,
+  "name": "Hrișcani",
+  "place": "village"
+ },
+ {
+  "lat": 47.7107128,
+  "lon": 26.486259200000003,
+  "name": "Huțani",
+  "place": "village"
+ },
+ {
+  "lat": 47.9365943,
+  "lon": 26.887882400000002,
+  "name": "Vlăsinești",
+  "place": "village"
+ },
+ {
+  "lat": 47.9403681,
+  "lon": 26.950960700000003,
+  "name": "Miron Costin",
+  "place": "village"
+ },
+ {
+  "lat": 47.942599900000005,
+  "lon": 26.9178345,
+  "name": "Sârbi",
+  "place": "village"
+ },
+ {
+  "lat": 47.959907400000006,
+  "lon": 26.6282268,
+  "name": "Davidoaia",
+  "place": "village"
+ },
+ {
+  "lat": 47.938586400000005,
+  "lon": 26.6500065,
+  "name": "Dealu Crucii",
+  "place": "village"
+ },
+ {
+  "lat": 47.596675700000006,
+  "lon": 26.6448204,
+  "name": "Vorona",
+  "place": "village"
+ },
+ {
+  "lat": 47.592328800000004,
+  "lon": 26.5961073,
+  "name": "Icușeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5589115,
+  "lon": 26.576339200000003,
+  "name": "Joldești",
+  "place": "village"
+ },
+ {
+  "lat": 47.556137,
+  "lon": 26.615861600000002,
+  "name": "Vorona Mare",
+  "place": "village"
+ },
+ {
+  "lat": 47.5645238,
+  "lon": 26.6407525,
+  "name": "Vorona-Teodoru",
+  "place": "village"
+ },
+ {
+  "lat": 47.8938677,
+  "lon": 26.279685200000003,
+  "name": "Dobrinăuți-Hapăi",
+  "place": "village"
+ },
+ {
+  "lat": 47.8609353,
+  "lon": 26.302849900000002,
+  "name": "Maghera",
+  "place": "village"
+ },
+ {
+  "lat": 47.8698494,
+  "lon": 26.317974600000003,
+  "name": "Pustoaia",
+  "place": "village"
+ },
+ {
+  "lat": 47.6385663,
+  "lon": 26.2924942,
+  "name": "Lisaura",
+  "place": "village"
+ },
+ {
+  "lat": 47.624174000000004,
+  "lon": 26.308413700000003,
+  "name": "Tișăuți",
+  "place": "village"
+ },
+ {
+  "lat": 47.723914300000004,
+  "lon": 26.2443832,
+  "name": "Mitocu Dragomirnei",
+  "place": "village"
+ },
+ {
+  "lat": 47.7594774,
+  "lon": 26.2267577,
+  "name": "Dragomirna",
+  "place": "village"
+ },
+ {
+  "lat": 47.6108531,
+  "lon": 26.3541364,
+  "name": "Prelipca",
+  "place": "village"
+ },
+ {
+  "lat": 47.6406348,
+  "lon": 26.4022942,
+  "name": "Văratec",
+  "place": "village"
+ },
+ {
+  "lat": 47.6561,
+  "lon": 26.2263583,
+  "name": "Șcheia",
+  "place": "village"
+ },
+ {
+  "lat": 47.679733500000005,
+  "lon": 26.1800749,
+  "name": "Mihoveni",
+  "place": "village"
+ },
+ {
+  "lat": 47.636924400000005,
+  "lon": 26.208550900000002,
+  "name": "Sfântu Ilie",
+  "place": "village"
+ },
+ {
+  "lat": 47.7827818,
+  "lon": 26.334714100000003,
+  "name": "Berești",
+  "place": "village"
+ },
+ {
+  "lat": 47.587568100000006,
+  "lon": 26.317223700000003,
+  "name": "Bosanci",
+  "place": "village"
+ },
+ {
+  "lat": 47.51012780000001,
+  "lon": 26.3192592,
+  "name": "Petia",
+  "place": "village"
+ },
+ {
+  "lat": 47.528125700000004,
+  "lon": 26.323410600000003,
+  "name": "Uncești",
+  "place": "village"
+ },
+ {
+  "lat": 47.5746308,
+  "lon": 26.532765700000002,
+  "name": "Fântânele",
+  "place": "village"
+ },
+ {
+  "lat": 47.5894624,
+  "lon": 26.5233534,
+  "name": "Bănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.587372300000006,
+  "lon": 26.4733784,
+  "name": "Cotu Dobei",
+  "place": "village"
+ },
+ {
+  "lat": 47.6059806,
+  "lon": 26.516976800000002,
+  "name": "Stamate",
+  "place": "village"
+ },
+ {
+  "lat": 47.5284811,
+  "lon": 26.1634053,
+  "name": "Horodniceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.4995897,
+  "lon": 26.165907200000003,
+  "name": "Brădățel",
+  "place": "village"
+ },
+ {
+  "lat": 47.5156313,
+  "lon": 26.2173391,
+  "name": "Mihăiești",
+  "place": "village"
+ },
+ {
+  "lat": 47.507574500000004,
+  "lon": 26.184616300000002,
+  "name": "Rotopănești",
+  "place": "village"
+ },
+ {
+  "lat": 47.5204905,
+  "lon": 26.528299,
+  "name": "Liteni",
+  "place": "town"
+ },
+ {
+  "lat": 47.533452200000006,
+  "lon": 26.549094200000003,
+  "name": "Roșcani",
+  "place": "village"
+ },
+ {
+  "lat": 47.4874516,
+  "lon": 26.5246576,
+  "name": "Rotunda",
+  "place": "village"
+ },
+ {
+  "lat": 47.5268864,
+  "lon": 26.573413900000002,
+  "name": "Vercicani",
+  "place": "village"
+ },
+ {
+  "lat": 47.6008605,
+  "lon": 26.2226153,
+  "name": "Moara Nica",
+  "place": "village"
+ },
+ {
+  "lat": 47.615510300000004,
+  "lon": 26.221223000000002,
+  "name": "Bulai",
+  "place": "village"
+ },
+ {
+  "lat": 47.595845000000004,
+  "lon": 26.1928318,
+  "name": "Frumoasa",
+  "place": "village"
+ },
+ {
+  "lat": 47.57091500000001,
+  "lon": 26.181812,
+  "name": "Liteni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5817971,
+  "lon": 26.230526100000002,
+  "name": "Moara Carp",
+  "place": "village"
+ },
+ {
+  "lat": 47.5651676,
+  "lon": 26.1621473,
+  "name": "Vornicenii Mici",
+  "place": "village"
+ },
+ {
+  "lat": 47.4885461,
+  "lon": 26.444022800000003,
+  "name": "Bahna Arin",
+  "place": "village"
+ },
+ {
+  "lat": 47.49000160000001,
+  "lon": 26.372260400000002,
+  "name": "Hârtop",
+  "place": "village"
+ },
+ {
+  "lat": 47.4933124,
+  "lon": 26.227047300000002,
+  "name": "Lămășeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5020384,
+  "lon": 26.2661926,
+  "name": "Pocoleni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5755652,
+  "lon": 26.4122337,
+  "name": "Udești",
+  "place": "village"
+ },
+ {
+  "lat": 47.5624595,
+  "lon": 26.4792281,
+  "name": "Chilișeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5962364,
+  "lon": 26.359469,
+  "name": "Luncușoara",
+  "place": "village"
+ },
+ {
+  "lat": 47.5543028,
+  "lon": 26.397863100000002,
+  "name": "Mănăstioara",
+  "place": "village"
+ },
+ {
+  "lat": 47.5692187,
+  "lon": 26.357304900000003,
+  "name": "Plăvălari",
+  "place": "village"
+ },
+ {
+  "lat": 47.5744812,
+  "lon": 26.4627456,
+  "name": "Poieni-Suceava",
+  "place": "village"
+ },
+ {
+  "lat": 47.5512718,
+  "lon": 26.444129800000002,
+  "name": "Racova",
+  "place": "village"
+ },
+ {
+  "lat": 47.580162800000004,
+  "lon": 26.369334700000003,
+  "name": "Reuseni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5915705,
+  "lon": 26.3821148,
+  "name": "Rușii-Mănăstioara",
+  "place": "village"
+ },
+ {
+  "lat": 47.577930300000006,
+  "lon": 26.3432454,
+  "name": "Securiceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.5554162,
+  "lon": 26.4925661,
+  "name": "Știrbăț",
+  "place": "village"
+ },
+ {
+  "lat": 47.6069649,
+  "lon": 26.4396175,
+  "name": "Verești",
+  "place": "village"
+ },
+ {
+  "lat": 47.650716200000005,
+  "lon": 26.475587400000002,
+  "name": "Bursuceni",
+  "place": "village"
+ },
+ {
+  "lat": 47.638504600000005,
+  "lon": 26.488038200000002,
+  "name": "Corocăiești",
+  "place": "village"
+ },
+ {
+  "lat": 47.6037497,
+  "lon": 26.4543737,
+  "name": "Hancea",
+  "place": "village"
+ },
+ {
+  "lat": 47.522240200000006,
+  "lon": 26.381523700000002,
+  "name": "Pleșești",
+  "place": "village"
+ },
+ {
+  "lat": 47.5038101,
+  "lon": 26.4230495,
+  "name": "Giurgești",
+  "place": "village"
+ },
+ {
+  "lat": 47.527228400000006,
+  "lon": 26.354413200000003,
+  "name": "Hreațca",
+  "place": "village"
+ },
+ {
+  "lat": 47.509835700000004,
+  "lon": 26.3897657,
+  "name": "Jacota",
+  "place": "village"
+ },
+ {
+  "lat": 47.549204800000005,
+  "lon": 26.4080796,
+  "name": "Merești",
+  "place": "village"
+ },
+ {
+  "lat": 47.5205793,
+  "lon": 26.460614300000003,
+  "name": "Osoi",
+  "place": "village"
+ },
+ {
+  "lat": 47.509926300000004,
+  "lon": 26.448572000000002,
+  "name": "Valea Glodului",
+  "place": "village"
+ },
+ {
+  "lat": 47.520457300000004,
+  "lon": 26.410838700000003,
+  "name": "Vulturești",
+  "place": "village"
+ },
+ {
+  "lat": 47.8791882,
+  "lon": 26.1657815,
+  "name": "Badragi",
+  "place": "village"
+ },
+ {
+  "lat": 47.8737064,
+  "lon": 26.178734300000002,
+  "name": "Ciomârtan",
+  "place": "village"
+ },
+ {
+  "lat": 47.8604618,
+  "lon": 26.2168755,
+  "name": "Cojocăreni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8650819,
+  "lon": 26.1715246,
+  "name": "Corpaci",
+  "place": "village"
+ },
+ {
+  "lat": 47.8684445,
+  "lon": 26.227552600000003,
+  "name": "Nicani",
+  "place": "village"
+ },
+ {
+  "lat": 47.84907320000001,
+  "lon": 26.203211000000003,
+  "name": "Răuțeni",
+  "place": "village"
+ },
+ {
+  "lat": 47.8436012,
+  "lon": 26.2378904,
+  "name": "Tăutești",
+  "place": "village"
+ },
+ {
+  "lat": 47.821398800000004,
+  "lon": 26.270877700000003,
+  "name": "Stânca",
+  "place": "village"
+ },
+ {
+  "lat": 47.8097605,
+  "lon": 26.274122700000003,
+  "name": "Stâncuța",
+  "place": "village"
+ },
+ {
+  "lat": 47.7511705,
+  "lon": 26.5707138,
+  "name": "Cătămărești",
+  "place": "village"
+ },
+ {
+  "lat": 47.770702,
+  "lon": 26.600717000000003,
+  "name": "Cătămărești-Deal",
+  "place": "village"
+ },
+ {
+  "lat": 47.7726498,
+  "lon": 26.4397674,
+  "name": "Bucecea",
+  "place": "town"
+ },
+ {
+  "lat": 47.9562662,
+  "lon": 26.860285800000003,
+  "name": "Săveni",
+  "place": "town"
+ },
+ {
+  "lat": 47.9526296,
+  "lon": 26.450879800000003,
+  "name": "Broscăuți",
+  "place": "village"
+ },
+ {
+  "lat": 47.948442500000006,
+  "lon": 26.5071255,
+  "name": "Carasa",
+  "place": "village"
+ },
+ {
+  "lat": 47.868236,
+  "lon": 26.8272936,
+  "name": "Epureni",
+  "place": "village"
+ }
+]

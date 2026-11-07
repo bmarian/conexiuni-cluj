@@ -5,23 +5,24 @@ import (
 	"testing"
 )
 
-func fixturePage(t *testing.T) ([]pageLine, string) {
+func fixturePage(t *testing.T) parsedPage {
 	t.Helper()
 	page, err := os.ReadFile("testdata/trasee.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	lines, program, err := parsePage(page, "https://eltransbt.ro/trasee")
+	parsed, err := parsePage(page, "https://eltransbt.ro/trasee")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return lines, program
+	return parsed
 }
 
 func TestParsePageReadsEachLineWithItsMapAndRuns(t *testing.T) {
-	lines, program := fixturePage(t)
-	if program != "https://eltransbt.ro/wp-content/uploads/2026/10/Program-de-circulat%CC%A6ie-autobuze.pdf" {
-		t.Fatalf("program %q", program)
+	parsed := fixturePage(t)
+	lines := parsed.lines
+	if parsed.program != "https://eltransbt.ro/wp-content/uploads/2026/10/Program-de-circulat%CC%A6ie-autobuze.pdf" {
+		t.Fatalf("program %q", parsed.program)
 	}
 	if len(lines) != 2 || lines[0].short != "BT01" || lines[1].short != "BT02" {
 		t.Fatalf("lines %+v", lines)
@@ -49,7 +50,7 @@ func TestParsePageReadsEachLineWithItsMapAndRuns(t *testing.T) {
 }
 
 func TestMarkerNamesLoseTheirSide(t *testing.T) {
-	lines, _ := fixturePage(t)
+	lines := fixturePage(t).lines
 	names := map[string]string{}
 	for _, m := range lines[0].markers {
 		names[m.id] = m.name

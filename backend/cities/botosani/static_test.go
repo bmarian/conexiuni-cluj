@@ -37,7 +37,7 @@ func TestTheUnprintedEndIsTimedFromEachBusRound(t *testing.T) {
 	}}
 	bus := []departure{{minute: 600}, {minute: 660}, {minute: 720, variant: true}, {minute: 750}}
 	program := &lineProgram{from: map[string]map[string][][]departure{"A": {calendar.Weekday: {bus}}}, variant: "S"}
-	snap, err := build([]pageLine{line}, map[string]*lineProgram{"X1": program}, externalIDs{}, streets{})
+	snap, err := build(sources{lines: []pageLine{line}, programs: map[string]*lineProgram{"X1": program}}, externalIDs{}, streets{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,8 +61,7 @@ func TestTheUnprintedEndIsTimedFromEachBusRound(t *testing.T) {
 }
 
 func TestBuildFromTheOperatorsPageAndProgramme(t *testing.T) {
-	lines, _ := fixturePage(t)
-	snap, err := build(lines, fixtureProgram(t), externalIDs{}, streets{})
+	snap, err := build(sources{lines: fixturePage(t).lines, programs: fixtureProgram(t)}, externalIDs{}, streets{})
 	if err != nil {
 		t.Fatal(err)
 	}
