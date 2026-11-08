@@ -4,7 +4,7 @@ A live bus, tram and trolleybus tracker for Romanian cities. I ride CTP every da
 
 **[ceautobuziau.ro](https://ceautobuziau.ro)** (formerly Conexiuni Cluj)
 
-![Memorandumului Sud in Cluj-Napoca: live departures next to the map, with the 25 and 24B on their way](readme/desktop-stop.png)
+![Memorandumului Sud in Cluj-Napoca: live departures next to the map, with the 25 on its way](readme/desktop-stop.png)
 
 ## What it does
 
@@ -20,10 +20,10 @@ A live bus, tram and trolleybus tracker for Romanian cities. I ride CTP every da
 - Support from hardware keyboards too
 
 <p align="center">
-  <img src="readme/phone-home.png" width="200" alt="Home in light and dark: the dorm, UTCN and the library saved as places, favorite lines and stops">
+  <img src="readme/phone-home.png" width="200" alt="Home in light and dark: the dorm and UTCN saved as places, favorite lines and stops">
   <img src="readme/phone-route.png" width="200" alt="Line 35 in light and dark, with the next arrivals at every stop and the favorite stops marked with a heart">
-  <img src="readme/phone-planner.png" width="200" alt="A trip from the dorm to UTCN in light and dark, with a change from the 40 to the 25">
-  <img src="readme/phone-timetable.png" width="200" alt="Line 35's weekday timetable in light and dark, the times already gone faded out">
+  <img src="readme/phone-planner.png" width="200" alt="A trip from the dorm to UTCN in light and dark, straight there on the 35">
+  <img src="readme/phone-timetable.png" width="200" alt="Line 25's Sunday timetable in light and dark, the times already gone faded out">
 </p>
 
 There's an [Android app](https://github.com/bmarian/conexiuni-cluj-mobile) on [Google Play](https://play.google.com/store/apps/details?id=online.bmarian.bus) and a [Playdate app](https://github.com/bmarian/conexiuni-cluj-playdate) too.
