@@ -33,7 +33,7 @@ import {formatMinutesFromNow} from '@/utils/time.ts'
 import {decodePolyline} from '@/utils/geo.ts'
 import {legTrips, planQuery, rideLegs, type PlanOption, type PlanResponse, type PlanRide} from '@/utils/plan.ts'
 import {reversePlace, type Place} from '@/utils/places.ts'
-import {canonicalUrl, siteUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead, siteUrl} from '@/utils/site.ts'
 import {cityCenter, cityParams, cityPath} from '@/utils/city.ts'
 import {useShare} from '@/composables/useShare.ts'
 import {useOwnRoute} from '@/composables/useOwnRoute.ts'
@@ -97,18 +97,7 @@ function shortPlaceName(name: string): string {
 
 useHead(() => {
   if (!destName.value) {
-    return {
-      title: t('headPlanTitle'),
-      meta: [
-        {name: 'description', content: t('headPlanDesc', cityParams())},
-        {property: 'og:title', content: t('headPlanTitle')},
-        {property: 'og:description', content: t('headPlanDesc', cityParams())},
-        {property: 'og:url', content: canonicalUrl(cityPath('/plan'))},
-        {name: 'twitter:title', content: t('headPlanTitle')},
-        {name: 'twitter:description', content: t('headPlanDesc', cityParams())},
-      ],
-      link: [{rel: 'canonical', href: canonicalUrl(cityPath('/plan'))}],
-    }
+    return pageHead(t('headPlanTitle'), t('headPlanDesc', cityParams()), canonicalUrl(cityPath('/plan')))
   }
 
   const shortDest = shortPlaceName(destName.value)
@@ -121,18 +110,7 @@ useHead(() => {
   const desc = t(descKey, params)
   const url = siteUrl(route.value.fullPath)
 
-  return {
-    title,
-    meta: [
-      {name: 'description', content: desc},
-      {property: 'og:title', content: title},
-      {property: 'og:description', content: desc},
-      {property: 'og:url', content: url},
-      {name: 'twitter:title', content: title},
-      {name: 'twitter:description', content: desc},
-    ],
-    link: [{rel: 'canonical', href: url}],
-  }
+  return pageHead(title, desc, url)
 })
 
 const isFavorite = computed(() => favoritesStore.isPlanFavorite(destLat.value, destLon.value, customOrigin.value?.lat, customOrigin.value?.lon))

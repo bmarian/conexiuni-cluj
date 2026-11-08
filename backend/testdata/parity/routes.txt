@@ -65,6 +65,7 @@ GET /manifest.webmanifest
 GET /registerSW.js
 GET /robots.txt
 GET /sitemap.xml
+GET /surse
 GET /sw.js
 POST /api/admin/calendar/sync
 POST /api/admin/login

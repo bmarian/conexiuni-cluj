@@ -144,6 +144,7 @@ func newApp(cfg *config.Config, built []*cities.City, registry *cities.Registry,
 			return c.SendFile("./dist/robots.txt")
 		})
 		app.Get("/sitemap.xml", pages.Sitemap(registry))
+		app.Get(pages.SourcesPath, pages.Sources(registry))
 		for _, name := range []string{"sw.js", "registerSW.js"} {
 			app.Get("/"+name, func(c fiber.Ctx) error {
 				c.Set("Cache-Control", "no-cache, no-store, must-revalidate")

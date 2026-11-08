@@ -6,7 +6,7 @@ import {useRouter} from 'vue-router'
 import {type DestinationSummary, fetchDestinations} from '@/utils/destinationPages.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {areaPath} from '@/utils/pagePaths.ts'
-import {canonicalUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead} from '@/utils/site.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
 import ListRow from '@/components/ui/ListRow.vue'
@@ -41,18 +41,7 @@ useHead(() => {
   const title = t('headDestsTitle', cityParams())
   const description = t('headDestsDesc', cityParams())
   const url = canonicalUrl(cityPath('/destinatii'))
-  return {
-    title,
-    meta: [
-      {name: 'description', content: description},
-      {property: 'og:title', content: title},
-      {property: 'og:description', content: description},
-      {property: 'og:url', content: url},
-      {name: 'twitter:title', content: title},
-      {name: 'twitter:description', content: description},
-    ],
-    link: [{rel: 'canonical', href: url}],
-  }
+  return pageHead(title, description, url)
 })
 </script>
 

@@ -88,6 +88,10 @@ type ogLocale struct {
 	destsH1            string
 	destsDistricts     string
 	destsTowns         string
+	sourcesTitle       string
+	sourcesDesc        string
+	sourcesH1          string
+	sourcesMap         string
 }
 
 var ogLocales = map[string]ogLocale{
@@ -139,6 +143,10 @@ var ogLocales = map[string]ogLocale{
 		destsH1:            "Destinații în {city}",
 		destsDistricts:     "Cartiere",
 		destsTowns:         "Localități",
+		sourcesTitle:       "Surse — Ce autobuz iau?",
+		sourcesDesc:        "„Ce autobuz iau?” este o aplicație neoficială, fără legătură cu operatorii de transport sau primăriile. Stațiile, liniile, orarele și pozițiile vehiculelor vin de la operatorii de mai jos.",
+		sourcesH1:          "Surse",
+		sourcesMap:         "Harta: © contribuitorii OpenStreetMap, prin OpenFreeMap.",
 	},
 	"en": {
 		lang:               "en",
@@ -188,6 +196,10 @@ var ogLocales = map[string]ogLocale{
 		destsH1:            "Destinations in {city}",
 		destsDistricts:     "Districts",
 		destsTowns:         "Towns and villages",
+		sourcesTitle:       "Sources — Ce autobuz iau?",
+		sourcesDesc:        "“Ce autobuz iau?” is an unofficial app, not affiliated with the transit companies or city halls. Stops, lines, timetables and vehicle positions come from the operators below.",
+		sourcesH1:          "Sources",
+		sourcesMap:         "Map: © OpenStreetMap contributors, via OpenFreeMap.",
 	},
 }
 

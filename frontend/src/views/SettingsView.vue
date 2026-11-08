@@ -25,6 +25,7 @@ import {
   DarkModeIcon,
   EcoIcon,
   EmailIcon,
+  PublicIcon,
   ExpandMoreIcon,
   LightModeIcon,
   MyLocationIcon,
@@ -311,6 +312,13 @@ async function choose(slug: string | null) {
         :title="CONTACT_EMAIL"
         :description="t('contactDesc')"
         data-kbd-item="contact"
+      />
+      <ListItem
+        :icon="PublicIcon"
+        :title="t('sources')"
+        :description="t('sourcesDesc')"
+        data-kbd-item="sources"
+        @click="router.push('/surse')"
       />
     </div>
     <p v-if="release" class="version text-body-small text-on-surface-variant">v{{ release }}</p>

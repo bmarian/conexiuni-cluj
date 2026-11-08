@@ -18,7 +18,7 @@ import RouteChangeBanner from '@/components/RouteChangeBanner.vue'
 import {useRoute, useRouter} from 'vue-router'
 import {servedName} from '@/utils/servedName.ts'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {canonicalUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
 import {lineCanonicalPath, linePath, stopLocation, stopPath, type Direction} from '@/utils/pagePaths.ts'
 import {useShare} from '@/composables/useShare.ts'
@@ -155,18 +155,7 @@ useHead(() => {
   const title = t('headRouteTitle', {...cityParams(), shortName, longName: longName ? ` — ${directedRouteName(longName, currentDirection.value)}` : ''})
   const description = t('headRouteDesc', {...cityParams(), shortName})
   const url = canonicalUrl(lineCanonicalPath(props.routeId, props.direction as Direction))
-  return {
-    title,
-    meta: [
-      {name: 'description', content: description},
-      {property: 'og:title', content: title},
-      {property: 'og:description', content: description},
-      {property: 'og:url', content: url},
-      {name: 'twitter:title', content: title},
-      {name: 'twitter:description', content: description},
-    ],
-    link: [{rel: 'canonical', href: url}],
-  }
+  return pageHead(title, description, url)
 })
 
 function formatAbsoluteMinutes(absMin: number): string {

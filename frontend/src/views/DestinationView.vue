@@ -7,7 +7,7 @@ import {network, type NetworkRoute} from '@/utils/network.ts'
 import {type Destination, type DestinationSummary, fetchDestination, fetchDestinations, namedLike, type Ride, rideMinutes} from '@/utils/destinationPages.ts'
 import {ApiError} from '@/utils/api.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
-import {canonicalUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead} from '@/utils/site.ts'
 import {areaPath, linePath, stopPath} from '@/utils/pagePaths.ts'
 import {servedName} from '@/utils/servedName.ts'
 import {useMapStore} from '@/stores/map.ts'
@@ -141,18 +141,7 @@ useHead(() => {
   const title = t('headDestTitle', params)
   const description = t('headDestDesc', params)
   const url = canonicalUrl(areaPath(props.slug))
-  return {
-    title,
-    meta: [
-      {name: 'description', content: description},
-      {property: 'og:title', content: title},
-      {property: 'og:description', content: description},
-      {property: 'og:url', content: url},
-      {name: 'twitter:title', content: title},
-      {name: 'twitter:description', content: description},
-    ],
-    link: [{rel: 'canonical', href: url}],
-  }
+  return pageHead(title, description, url)
 })
 </script>
 

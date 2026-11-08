@@ -30,7 +30,7 @@ import {planQuery} from '@/utils/planQuery.ts'
 import {placeIcon} from '@/utils/placeLabel.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import {useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
-import {canonicalUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead} from '@/utils/site.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {type HomeSectionId, withShownOrder} from '@/utils/homeSections.ts'
 import {useHomeSections} from '@/composables/useHomeSections.ts'
@@ -41,18 +41,7 @@ const LONG_PRESS_MS = 350
 const {t} = useI18n()
 const router = useRouter()
 
-useHead(() => ({
-  title: t('headHomeTitle', cityParams()),
-  meta: [
-    {name: 'description', content: t('headHomeDesc', cityParams())},
-    {property: 'og:title', content: t('headHomeTitle', cityParams())},
-    {property: 'og:description', content: t('headHomeDesc', cityParams())},
-    {property: 'og:url', content: canonicalUrl(cityPath('/'))},
-    {name: 'twitter:title', content: t('headHomeTitle', cityParams())},
-    {name: 'twitter:description', content: t('headHomeDesc', cityParams())},
-  ],
-  link: [{rel: 'canonical', href: canonicalUrl(cityPath('/'))}],
-}))
+useHead(() => pageHead(t('headHomeTitle', cityParams()), t('headHomeDesc', cityParams()), canonicalUrl(cityPath('/'))))
 const favoritesStore = useFavoritesStore()
 const {favoriteRoutes, favoriteStopIds, favoritePlans, favoriteGroups, isHydrated} = storeToRefs(favoritesStore)
 

@@ -16,6 +16,7 @@ const DestinationsView = () => import('@/views/DestinationsView.vue')
 const DestinationView = () => import('@/views/DestinationView.vue')
 const GroupView = () => import('@/views/GroupView.vue')
 const GroupPickView = () => import('@/views/GroupPickView.vue')
+const SourcesView = () => import('@/views/SourcesView.vue')
 
 let uaVisualTransition = false
 window.addEventListener('popstate', (e) => {
@@ -50,6 +51,11 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: AdminView,
+    },
+    {
+      path: '/surse',
+      name: 'sources',
+      component: SourcesView,
     },
     {
       path: '/plan',

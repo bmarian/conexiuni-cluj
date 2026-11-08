@@ -208,7 +208,7 @@ type cityInfo struct {
 	Credits     []feeds.Credit  `json:"credits"`
 }
 
-func (c *City) credits() []feeds.Credit {
+func (c *City) Credits() []feeds.Credit {
 	out := []feeds.Credit{}
 	for _, source := range []any{c.Static, c.Timetables, c.Realtime, c.Learning} {
 		if credited, ok := source.(feeds.Credited); ok && !slices.Contains(out, credited.Credit()) {
@@ -220,7 +220,7 @@ func (c *City) credits() []feeds.Credit {
 
 // Provider is whom the city's data is credited to; empty when no source asks for credit.
 func (c *City) Provider() string {
-	if credits := c.credits(); len(credits) > 0 {
+	if credits := c.Credits(); len(credits) > 0 {
 		return credits[0].Name
 	}
 	return ""
@@ -245,7 +245,7 @@ func (c *City) refreshCentre() {
 }
 
 func (c *City) info() (cityInfo, bool) {
-	info := cityInfo{Slug: c.Slug, Name: c.Name, Operator: c.Operator, OperatorURL: c.OperatorURL, Realtime: c.Realtime != nil, News: c.News != nil, Traffic: c.Traffic.Ready(), Credits: c.credits()}
+	info := cityInfo{Slug: c.Slug, Name: c.Name, Operator: c.Operator, OperatorURL: c.OperatorURL, Realtime: c.Realtime != nil, News: c.News != nil, Traffic: c.Traffic.Ready(), Credits: c.Credits()}
 	c.centre.Lock()
 	ok := c.centre.ok
 	info.Lat, info.Lon = c.centre.lat, c.centre.lon

@@ -15,7 +15,7 @@ import {useRoute, useRouter} from 'vue-router'
 import {getDirectionFromTripId, getTripIdForRouteAtStop} from '@/utils/trips.ts'
 import {useMapStore} from '@/stores/map.ts'
 import {useKbdShortcuts} from '@/composables/useKeyboardNav.ts'
-import {canonicalUrl} from '@/utils/site.ts'
+import {canonicalUrl, pageHead} from '@/utils/site.ts'
 import {cityParams} from '@/utils/city.ts'
 import {linePath, stopPath} from '@/utils/pagePaths.ts'
 import {servedName} from '@/utils/servedName.ts'
@@ -99,18 +99,7 @@ useHead(() => {
   const title = t('headStopTitle', {...cityParams(), stopName: stopName.value})
   const description = t('headStopDesc', {...cityParams(), stopName: stopName.value})
   const url = canonicalUrl(stopPath(props.stopId))
-  return {
-    title,
-    meta: [
-      {name: 'description', content: description},
-      {property: 'og:title', content: title},
-      {property: 'og:description', content: description},
-      {property: 'og:url', content: url},
-      {name: 'twitter:title', content: title},
-      {name: 'twitter:description', content: description},
-    ],
-    link: [{rel: 'canonical', href: url}],
-  }
+  return pageHead(title, description, url)
 })
 
 function formatMinutes(minutes: number): string {
