@@ -52,6 +52,12 @@ export async function putJSON<T>(url: string, body: unknown): Promise<T> {
   return answer as T
 }
 
+export async function post(url: string): Promise<void> {
+  const res = await fetch(url, {method: 'POST', credentials: 'same-origin'})
+  if (res.status === 401) throw new SignedOut()
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `HTTP ${res.status}`)
+}
+
 export function useAdmin() {
   const state = ref<'login' | 'loading' | 'ready'>(adminAuthed() ? 'loading' : 'login')
   const site = ref<Site | null>(null)

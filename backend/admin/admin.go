@@ -4,6 +4,7 @@ import (
 	"conexiuni-cluj/cities"
 	"conexiuni-cluj/devicesync"
 	"conexiuni-cluj/live"
+	"conexiuni-cluj/web"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -206,6 +207,18 @@ func Register(api fiber.Router, registry *cities.Registry, syncStats func() (dev
 		}
 		c.Set("Cache-Control", "no-store")
 		return c.JSON(adminCityList(registry))
+	})
+
+	admin.Post("/read-sources", RequireSession(token), func(c fiber.Ctx) error {
+		if !web.SameOrigin(c) {
+			return c.SendStatus(fiber.StatusForbidden)
+		}
+		city := cityOf(c)
+		if !city.Enabled() {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": city.Name + " is off"})
+		}
+		city.Ingest.ReadNow()
+		return c.SendStatus(fiber.StatusAccepted)
 	})
 
 	registerHiddenStops(admin, cityOf, RequireSession(token))
