@@ -15,7 +15,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -44,10 +43,6 @@ type Importer struct {
 	OffsetsStored func()
 	Imported      func(stored bool)
 
-	// Set by ReadNow: the next run reads every source whatever is due.
-	forced atomic.Bool
-	wake   chan struct{}
-
 	mu              sync.RWMutex
 	lastStartedAt   time.Time
 	lastCompletedAt time.Time
@@ -56,7 +51,7 @@ type Importer struct {
 
 func New(store *database.Store, data *transit.Data, offered *transit.Availability, updates *updates.Service) *Importer {
 	nothing := func() {}
-	return &Importer{store: store, data: data, offered: offered, updates: updates, NetworkStored: nothing, OffsetsStored: nothing, Imported: func(bool) {}, wake: make(chan struct{}, 1)}
+	return &Importer{store: store, data: data, offered: offered, updates: updates, NetworkStored: nothing, OffsetsStored: nothing, Imported: func(bool) {}}
 }
 
 type Status struct {
@@ -95,48 +90,22 @@ func (im *Importer) Start(r *jobs.Runner) {
 					wait = time.Until(later.RetryAt())
 				}
 				im.store.Logf("ingest: %v; next try in %s", err, wait.Round(time.Second))
-				if !im.waitUntil(r, time.Now().Add(wait)) {
+				if !r.Sleep(wait) {
 					return
 				}
 				continue
 			}
 			retry = feeds.StallTimeout
 			next := im.nextIngestAt(time.Now())
-			if !next.IsZero() {
-				im.store.Logf("ingest: next at %s (in %s)", next.Format(time.RFC3339), time.Until(next).Round(time.Minute))
+			if next.IsZero() {
+				return
 			}
-			if !im.waitUntil(r, next) {
+			im.store.Logf("ingest: next at %s (in %s)", next.Format(time.RFC3339), time.Until(next).Round(time.Minute))
+			if !r.Sleep(time.Until(next)) {
 				return
 			}
 		}
 	})
-}
-
-// ReadNow makes the running importer read every source again at once.
-func (im *Importer) ReadNow() {
-	im.forced.Store(true)
-	select {
-	case im.wake <- struct{}{}:
-	default:
-	}
-}
-
-// Sleeps until at (zero: until a ReadNow), or a ReadNow; false once r stops.
-func (im *Importer) waitUntil(r *jobs.Runner, at time.Time) bool {
-	var due <-chan time.Time
-	if !at.IsZero() {
-		timer := time.NewTimer(time.Until(at))
-		defer timer.Stop()
-		due = timer.C
-	}
-	select {
-	case <-due:
-		return true
-	case <-im.wake:
-		return true
-	case <-r.Done():
-		return false
-	}
 }
 
 // Zero when the source is never due again.
@@ -163,16 +132,7 @@ func (im *Importer) nextIngestAt(now time.Time) time.Time {
 
 // Run reads what is due at now and lays the network out again.
 func (im *Importer) Run(now time.Time) error {
-	forced := im.forced.Swap(false)
-	err := im.run(now, forced)
-	if forced && err != nil {
-		im.forced.Store(true)
-	}
-	return err
-}
-
-func (im *Importer) run(now time.Time, forced bool) error {
-	isDue := func(due time.Time) bool { return forced || !due.IsZero() && !due.After(now) }
+	isDue := func(due time.Time) bool { return !due.IsZero() && !due.After(now) }
 	staticDue := isDue(im.dueAt(ingestStatic, im.Static.Cadence(), now))
 	timetablesDue := im.Timetables != nil && isDue(im.dueAt(ingestTimetables, im.Timetables.Cadence(), now))
 

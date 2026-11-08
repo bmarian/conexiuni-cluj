@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed} from 'vue'
 import AdminCard from '@/components/admin/AdminCard.vue'
 import AdminErrors from '@/components/admin/AdminErrors.vue'
 import AdminFailures from '@/components/admin/AdminFailures.vue'
@@ -7,12 +7,11 @@ import AdminProblems from '@/components/admin/AdminProblems.vue'
 import AdminSub from '@/components/admin/AdminSub.vue'
 import type {Overview, Problem, Site} from '@/components/admin/types.ts'
 import LineBadge from '@/components/ui/LineBadge.vue'
-import {post, SignedOut, writeAuthFlag} from '@/composables/useAdmin.ts'
 import {ago, bytes, clockTime, dayName, dur, num, pct, plural, windowLabels} from '@/utils/adminFormat.ts'
 import {ExpandMoreIcon} from '@/utils/icons.ts'
 
 const props = defineProps<{site: Site; overview: Overview; city: string; name: string; realtime: boolean; clock: number}>()
-const emit = defineEmits<{dismiss: [problems: (Problem & {scope: string})[], dismissed: boolean]; saved: []}>()
+const emit = defineEmits<{dismiss: [problems: (Problem & {scope: string})[], dismissed: boolean]}>()
 
 const changeLabels: Record<string, string> = {
   later: 'later',
@@ -52,23 +51,6 @@ const quotaGroups = computed(() => {
     .filter((g) => g.meters.length)
 })
 const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / limit) : 0)
-
-const reading = ref(false)
-const readError = ref('')
-
-async function readNow() {
-  reading.value = true
-  readError.value = ''
-  try {
-    await post(`/api/admin/read-sources?city=${props.city}`)
-    emit('saved')
-  } catch (err) {
-    if (err instanceof SignedOut) writeAuthFlag(false)
-    else readError.value = (err as Error).message
-  } finally {
-    reading.value = false
-  }
-}
 </script>
 
 <template>
@@ -167,18 +149,6 @@ async function readNow() {
           <div>
             <dt>Timetables</dt>
             <dd>{{ overview.data.warmup_running ? 'refreshing' : ago(overview.data.warmup_at, clock) }} · next {{ clockTime(overview.data.warmup_next) }}</dd>
-          </div>
-          <div class="has-action">
-            <dt>Read every source again</dt>
-            <dd>
-              <button type="button" class="btn btn-text" :disabled="reading || overview.data.warmup_running" @click="readNow">
-                {{ reading || overview.data.warmup_running ? 'Reading…' : 'Read now' }}
-              </button>
-            </dd>
-          </div>
-          <div v-if="readError">
-            <dt>Error</dt>
-            <dd class="admin-bad">{{ readError }}</dd>
           </div>
           <div v-if="overview.data.timetable_fetches">
             <dt>Timetable updates today</dt>

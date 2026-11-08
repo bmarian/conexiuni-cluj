@@ -131,7 +131,6 @@ async function onCitiesChanged() {
             :realtime="realtime"
             :clock="clock"
             @dismiss="dismiss"
-            @saved="load"
           />
           <AdminPeople v-else-if="tab === 'people'" :overview="overview" :name="name" />
           <AdminQuality v-else-if="tab === 'quality'" :overview="overview" :name="name" :operator="operator" :realtime="realtime" />

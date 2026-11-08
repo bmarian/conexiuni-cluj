@@ -2,7 +2,6 @@ package cities
 
 import (
 	"conexiuni-cluj/feeds"
-	"conexiuni-cluj/jobs"
 	"conexiuni-cluj/models"
 	"encoding/json"
 	"net/http/httptest"
@@ -57,37 +56,6 @@ func TestANewNetworkReplacesTheTrackedGeometry(t *testing.T) {
 	if shape, ok := eng.Live.Ride("1_0", 1, 2); !ok || shape[1].ShapePtLon != 24.02 {
 		t.Fatalf("the shape after the new network still ends at %v", shape[1].ShapePtLon)
 	}
-}
-
-func TestReadNowWakesTheImporter(t *testing.T) {
-	static := &swapStatic{snap: oneLineSnapshot(24.01)}
-	city := newNamedTestCity(t, "t", static)
-	r := jobs.New()
-	defer r.Stop()
-	city.Ingest.Start(r)
-	app := fiber.New()
-	city.Register(app.Group("/api/t"))
-	served := func(line string) bool {
-		resp, err := app.Test(httptest.NewRequest("GET", "/api/t/network", nil))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var bundle models.NetworkBundle
-		return json.NewDecoder(resp.Body).Decode(&bundle) == nil && len(bundle.Routes) == 1 && bundle.Routes[0].RouteShortName == line
-	}
-	waitFor := func(line string) {
-		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); !served(line); time.Sleep(10 * time.Millisecond) {
-			if time.Now().After(deadline) {
-				t.Fatalf("line %s never served", line)
-			}
-		}
-	}
-	waitFor("1")
-	static.snap = oneLineSnapshot(24.01)
-	static.snap.Routes[0].RouteShortName = "2"
-	city.Ingest.ReadNow()
-	waitFor("2")
 }
 
 func TestANewNetworkIsServedAsSoonAsItIsStored(t *testing.T) {
