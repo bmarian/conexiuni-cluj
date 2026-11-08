@@ -24,7 +24,7 @@ function check(m: Record<string, unknown>): Message | null {
   if (
     m.t === 'hello' &&
     keys.length === 5 &&
-    (m.kind === 'web' || m.kind === 'android' || m.kind === 'wear') &&
+    (m.kind === 'web' || m.kind === 'android') &&
     validText(m.label, 1, 40) &&
     typeof m.syncs === 'boolean' &&
     Number.isInteger(m.devices) &&

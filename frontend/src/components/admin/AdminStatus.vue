@@ -95,8 +95,8 @@ const share = (used: number, limit: number) => (limit > 0 ? Math.min(1, used / l
           <div v-if="server.sync">
             <dt>Sync</dt>
             <dd>
-              {{ num(server.sync.chains) }} groups · {{ num(server.sync.devices.web ?? 0) }} web, {{ num(server.sync.devices.android ?? 0) }} phone,
-              {{ num(server.sync.devices.wear ?? 0) }} watch · {{ bytes(server.sync.db_bytes) }}
+              {{ num(server.sync.chains) }} groups · {{ num(server.sync.devices.web ?? 0) }} web, {{ num(server.sync.devices.android ?? 0) }} phone ·
+              {{ bytes(server.sync.db_bytes) }}
             </dd>
           </div>
         </dl>

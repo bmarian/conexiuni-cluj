@@ -71,7 +71,7 @@ export type Overview = {
     new: number
     last_week: number
     platforms: {platform: string; today: number; last_week: number}[]
-    daily: {date: string; total: number; web: number; android: number; wear: number}[]
+    daily: {date: string; total: number; web: number; android: number}[]
     versions: {platform: string; version: string; today: number; last_seen: string}[]
     stops: Named[]
     lines: Named[]

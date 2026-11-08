@@ -4,13 +4,12 @@ import {useI18n} from 'vue-i18n'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {PLAY_URL} from '@/utils/androidApp.ts'
-import {AlarmIcon, NavigationIcon, NotificationsActiveIcon, WatchIcon} from '@/utils/icons.ts'
+import {AlarmIcon, NavigationIcon, NotificationsActiveIcon} from '@/utils/icons.ts'
 
 const FEATURES = [
   {icon: NavigationIcon, text: 'appFeatureNavigation'},
   {icon: AlarmIcon, text: 'appFeatureReminders'},
   {icon: NotificationsActiveIcon, text: 'appFeatureStopAlert'},
-  {icon: WatchIcon, text: 'appFeatureWatch'},
 ]
 
 const open = defineModel<boolean>('open', {required: true})

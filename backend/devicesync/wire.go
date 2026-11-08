@@ -25,7 +25,7 @@ const (
 
 var recordBuckets = []int{1 << 10, 4 << 10, 16 << 10, 64 << 10}
 
-var deviceKinds = []string{"web", "android", "wear"}
+var deviceKinds = []string{"web", "android"}
 
 var b64 = base64.RawURLEncoding.Strict()
 

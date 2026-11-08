@@ -246,6 +246,7 @@ export function writeGroups(r: GroupsRecord): string {
 
 export const readGroups = (raw: string) => read(raw, parseGroups, writeGroups)
 
+// Groups paired with the old watch app still list a 'wear' device.
 const KINDS: DeviceKind[] = ['web', 'android', 'wear']
 
 // Base64url of 16 bytes: the last character carries two bits.

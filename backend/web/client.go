@@ -69,12 +69,11 @@ func ClientHash(c fiber.Ctx) string {
 
 var appUserAgents = map[string]string{
 	"ConexiuniClujMobile/": "android",
-	"ConexiuniClujWear/":   "wear",
 }
 
 var botUserAgentWords = []string{"bot", "crawl", "spider", "slurp", "preview", "lighthouse", "headless"}
 
-// clientKind is "web", "android/1.4.0" or "wear/1.0.2"; empty for robots and scripts.
+// clientKind is "web" or "android/1.4.0"; empty for robots and scripts.
 func ClientKind(ua, fetchSite string) string {
 	for prefix, platform := range appUserAgents {
 		if version, ok := strings.CutPrefix(ua, prefix); ok {

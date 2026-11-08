@@ -20,7 +20,7 @@ const stats = computed(() => [
 
 const bars = computed<DayBar[]>(() =>
   people.value.daily.map((d) => {
-    const split = (['web', 'android', 'wear'] as const).filter((p) => d[p] > 0).map((p) => `${platformLabels[p]} ${num(d[p])}`)
+    const split = (['web', 'android'] as const).filter((p) => d[p] > 0).map((p) => `${platformLabels[p]} ${num(d[p])}`)
     return {date: d.date, value: d.total, caption: `${dayName(d.date)} · ${num(d.total)}${split.length ? ` (${split.join(', ')})` : ''}`}
   }),
 )

@@ -11,7 +11,6 @@ func TestClientKind(t *testing.T) {
 		ua, fetchSite, want string
 	}{
 		{"ConexiuniClujMobile/1.4.0", "", "android/1.4.0"},
-		{"ConexiuniClujWear/1.0.2", "", "wear/1.0.2"},
 		{"ConexiuniClujMobile/<junk>", "", "android"},
 		{chrome, "same-origin", "web"},
 		{chrome, "", ""},

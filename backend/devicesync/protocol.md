@@ -1,6 +1,6 @@
 # Device sync protocol, version 1
 
-What the website, the Android app and the Wear OS app must do to sync with each other through `/api/sync`. The server side is this package. `testdata/vectors.json` holds worked values for every derivation below and `testdata/cases.json` the accepted and refused records and the merge cases; every client runs both files in its tests. `vectors_test.go` is the reference that produced and checks them.
+What the website and the Android app must do to sync with each other through `/api/sync`. The server side is this package. `testdata/vectors.json` holds worked values for every derivation below and `testdata/cases.json` the accepted and refused records and the merge cases; every client runs both files in its tests. `vectors_test.go` is the reference that produced and checks them.
 
 ## 1. Encodings
 
@@ -117,7 +117,7 @@ A record for a city the device does not know is left alone.
 {"v": 1, "devices": [{"id": "…", "kind": "web", "label": "Chrome on Windows", "pub": "…"}]}
 ```
 
-`id` a device id; `kind` `web`, `android` or `wear`; `label` text 1–40, made by the device (browser and system, `Build.MODEL`), never typed; `pub` its long-term SPKI. At most 10, no duplicate ids.
+`id` a device id; `kind` `web` or `android` (groups paired with the old watch app may also list `wear`, which readers keep accepting); `label` text 1–40, made by the device (browser and system, `Build.MODEL`), never typed; `pub` its long-term SPKI. At most 10, no duplicate ids.
 
 ### 4.7 `settings`
 

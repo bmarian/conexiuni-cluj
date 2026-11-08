@@ -51,7 +51,6 @@ export function came(sec: number) {
 export const platformLabels: Record<string, string> = {
   web: 'Web',
   android: 'Android',
-  wear: 'Watch',
 }
 
 export const timetableLabels: Record<string, string> = {

@@ -83,7 +83,6 @@ type peopleDay struct {
 	Total   int    `json:"total"`
 	Web     int    `json:"web"`
 	Android int    `json:"android"`
-	Wear    int    `json:"wear"`
 }
 
 type platformCount struct {
@@ -364,7 +363,7 @@ func accuracySection(city *cities.City, now time.Time) (adminAccuracy, error) {
 	return a, nil
 }
 
-var platformNames = []string{"web", "android", "wear"}
+var platformNames = []string{"web", "android"}
 
 func clientPlatform(client string) (platform, version string) {
 	platform, version, _ = strings.Cut(client, "/")
@@ -438,8 +437,6 @@ func peopleSection(city *cities.City, now time.Time) (adminPeople, error) {
 				d.Web += r.Count
 			case "android":
 				d.Android += r.Count
-			case "wear":
-				d.Wear += r.Count
 			}
 		}
 		if pc := platforms[platform]; pc != nil {
