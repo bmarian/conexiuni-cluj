@@ -19,6 +19,7 @@ import {useSettingsStore} from '@/stores/settings.ts'
 import {useKbdShortcuts, useKeyboardNav, useKeyboardNavRoot} from '@/composables/useKeyboardNav.ts'
 import {cityParams, cityPath} from '@/utils/city.ts'
 import {useSheetMetrics} from '@/composables/useSheetMetrics.ts'
+import {providePhoneSheet} from '@/composables/usePhoneSheet.ts'
 import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
 import {useSheetGestures, type SheetSnap} from '@/composables/useSheetGestures.ts'
 import {useIOSKeyboard} from '@/composables/useIOSKeyboard.ts'
@@ -67,6 +68,7 @@ const {height: sheetH, safeTop, safeBottom} = useSheetMetrics(drawerEl)
 
 // Landscape and desktop let CSS handle the transform, so drawerStyle must not set one there.
 const isPortraitMobile = ref(false)
+providePhoneSheet(isPortraitMobile)
 let mqlLandscape: MediaQueryList | null = null
 let mqlDesktop: MediaQueryList | null = null
 let keyboardOpen = false

@@ -145,6 +145,14 @@ The settings added after `settings` reached released apps, in a record of their 
 
 `groups`: the saved line groups, at most 50, no two with the same lines. A group is `[lines, name]` or `[lines, name, destination name, lat, lon]`: `lines` 1–10 `[route id, "0" or "1"]` (as in §4.3) in the order they are ridden, no route twice; `name` text 0–40 (`""` = none); the destination, a name text 1–100 and coordinates, comes only from older app versions: current ones never set it.
 
+A line followed between two of its stops is `[route id, "0" or "1", from, to]`: the stop ids where the rider gets on and off, `0` for the one not chosen (the stop nearest the rider, the end of the line), never both `0` and never the same stop. Lines that differ only in these stops make different groups. The record is `"v": 2` exactly when at least one line has stops, and `"v": 1` otherwise, so a device that knows only version 1 keeps syncing until someone saves such a group, then leaves the record alone like any later version.
+
+```json
+{"v": 2, "groups": [[[[45, "1", 391, 402], [25, "1"]], "Acasă"]]}
+```
+
+A group in `recents:<slug>` (§4.5) never carries stops: a device that has a group with the same lines, saved or recent, opens that one.
+
 ### 4.10 `home`
 
 ```json

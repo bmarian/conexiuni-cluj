@@ -50,9 +50,11 @@ onBeforeUnmount(() => scroller?.removeEventListener("scroll", onScroll));
     >
       <ArrowBackIcon class="m-icon" />
     </button>
-    <span class="bar-title text-title-medium" :class="{ 'is-shown': pastHeader && title }">{{
-      title
-    }}</span>
+    <slot name="lead">
+      <span class="bar-title text-title-medium" :class="{ 'is-shown': pastHeader && title }">{{
+        title
+      }}</span>
+    </slot>
     <slot />
     <MenuButton v-if="menu?.length" :actions="menu" />
     <button

@@ -195,7 +195,7 @@ func worstCity() cityRecord {
 	var rec cityRecord
 	for i := range cityCap {
 		rec.stops = append(rec.stops, int64(maxInt-i))
-		rec.lines = append(rec.lines, line{int64(maxInt - i), "1"})
+		rec.lines = append(rec.lines, line{route: int64(maxInt - i), dir: "1"})
 		rec.places = append(rec.places, place{name: wide(100), label: wide(40), lat: at(43.6, i), lon: at(20.2, i),
 			origin: &spot{name: wide(100), lat: at(44.6, i), lon: at(21.2, i)}})
 		rec.followed = append(rec.followed, wide(14)+fmt.Sprintf("%02d", i))
@@ -295,7 +295,7 @@ func worstGroups() groupsRecord {
 	for i := range cityCap {
 		g := group{name: wide(40), to: &spot{name: wide(100), lat: 43.611111, lon: 20.211111}}
 		for k := range groupLinesCap {
-			g.lines = append(g.lines, line{int64(maxInt - i*groupLinesCap - k), "1"})
+			g.lines = append(g.lines, line{route: int64(maxInt - i*groupLinesCap - k), dir: "1"})
 		}
 		rec.groups = append(rec.groups, g)
 	}

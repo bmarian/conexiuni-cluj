@@ -17,7 +17,8 @@ export type CityRecord = {stops: number[]; lines: Line[]; places: Place[]; follo
 export type NewsRecord = {seen: number[]}
 export type RecentItem = {kind: 'stop' | 'line'; id: number} | {kind: 'group'; lines: Line[]} | {kind: 'place'; place: Place}
 export type RecentsRecord = {recent: RecentItem[]}
-export type Group = {lines: Line[]; name: string; to?: Spot}
+export type RideLine = Line & {from?: number; to?: number}
+export type Group = {lines: RideLine[]; name: string; to?: Spot}
 export type GroupsRecord = {groups: Group[]}
 export type DeviceKind = 'web' | 'android' | 'wear'
 export type DeviceEntry = {id: string; kind: DeviceKind; label: string; pub: string}
@@ -127,14 +128,16 @@ export function recentId(r: RecentItem): string {
   if (r.kind === 'place') return `place:${placeId(r.place)}`
   return r.kind === 'group' ? `group:${linesId(r.lines)}` : `${r.kind}:${r.id}`
 }
-export const groupId = (g: Group) => linesId(g.lines)
+const hasStops = (l: RideLine) => l.from !== undefined || l.to !== undefined
+const rideId = (l: RideLine) => (hasStops(l) ? `${lineId(l)}/${l.from ?? ''}/${l.to ?? ''}` : lineId(l))
+export const groupId = (g: Group) => g.lines.map(rideId).join(',')
 
 // Parses, checks the rules and the canonical form; the version check comes first, so a later shape is "newer", not refused.
-function read<T>(raw: string, parse: (record: unknown) => T, write: (value: T) => string): Read<T> {
+function read<T>(raw: string, parse: (record: unknown) => T, write: (value: T) => string, latest = 1): Read<T> {
   try {
     const record: unknown = JSON.parse(raw)
     const v = typeof record === 'object' && record !== null ? (record as {v?: unknown}).v : undefined
-    if (integer(v, 1, MAX_INT) > 1) return {ok: false, newer: true}
+    if (integer(v, 1, MAX_INT) > latest) return {ok: false, newer: true}
     const value = parse(record)
     return write(value) === raw ? {ok: true, value} : {ok: false, newer: false}
   } catch {
@@ -163,8 +166,20 @@ function parseLine(l: unknown): Line {
 
 const lineFields = (l: Line) => [l.route, l.dir]
 
-function parseGroupLines(value: unknown): Line[] {
-  const lines = list(value, GROUP_LINES_CAP).map(parseLine)
+function parseRide(l: unknown): RideLine {
+  const f = list(l, 4)
+  if (f.length === 2) return parseLine(f)
+  if (f.length !== 4) refuse('line')
+  const from = integer(f[2], 0, MAX_INT)
+  const to = integer(f[3], 0, MAX_INT)
+  if (from === to) refuse('stops')
+  return {...parseLine(f.slice(0, 2)), ...(from ? {from} : {}), ...(to ? {to} : {})}
+}
+
+const rideFields = (l: RideLine) => (hasStops(l) ? [l.route, l.dir, l.from ?? 0, l.to ?? 0] : lineFields(l))
+
+function parseGroupLines<T extends Line>(value: unknown, parse: (l: unknown) => T): T[] {
+  const lines = list(value, GROUP_LINES_CAP).map(parse)
   if (!lines.length) refuse('group')
   unique(lines, (l) => String(l.route))
   return lines
@@ -209,7 +224,7 @@ function parseRecents(record: unknown): RecentsRecord {
   const recent = list(object(record, 'v', 'recent').recent, RECENT_CAP).map((item): RecentItem => {
     const f = list(item, 8)
     if (f[0] === 'place') return {kind: 'place', place: parsePlace(f.slice(1))}
-    if (f[0] === 'group' && f.length === 2) return {kind: 'group', lines: parseGroupLines(f[1])}
+    if (f[0] === 'group' && f.length === 2) return {kind: 'group', lines: parseGroupLines(f[1], parseLine)}
     if ((f[0] !== 'stop' && f[0] !== 'line') || f.length !== 2) refuse('recent')
     return {kind: f[0] as 'stop' | 'line', id: integer(f[1], 1, MAX_INT)}
   })
@@ -232,7 +247,7 @@ function parseGroups(record: unknown): GroupsRecord {
   const groups = list(object(record, 'v', 'groups').groups, CITY_CAP).map((item): Group => {
     const f = list(item, 5)
     if (f.length !== 2 && f.length !== 5) refuse('group')
-    const group: Group = {lines: parseGroupLines(f[0]), name: text(f[1], 0, 40)}
+    const group: Group = {lines: parseGroupLines(f[0], parseRide), name: text(f[1], 0, 40)}
     if (f.length === 5) group.to = parseSpot(f.slice(2))
     return group
   })
@@ -240,11 +255,15 @@ function parseGroups(record: unknown): GroupsRecord {
   return {groups}
 }
 
+const GROUPS_WITH_STOPS = 2
+
+// Version 1 while no line has stops, so apps that only know it keep syncing.
 export function writeGroups(r: GroupsRecord): string {
-  return JSON.stringify({v: 1, groups: r.groups.map((g) => [g.lines.map(lineFields), g.name, ...spotFields(g.to)])})
+  const v = r.groups.some((g) => g.lines.some(hasStops)) ? GROUPS_WITH_STOPS : 1
+  return JSON.stringify({v, groups: r.groups.map((g) => [g.lines.map(rideFields), g.name, ...spotFields(g.to)])})
 }
 
-export const readGroups = (raw: string) => read(raw, parseGroups, writeGroups)
+export const readGroups = (raw: string) => read(raw, parseGroups, writeGroups, GROUPS_WITH_STOPS)
 
 // Groups paired with the old watch app still list a 'wear' device.
 const KINDS: DeviceKind[] = ['web', 'android', 'wear']

@@ -37,7 +37,7 @@ import {directionKeys} from '@/utils/stopPairs.ts'
 import {network} from '@/utils/network.ts'
 import {displayColor} from '@/utils/lineColor.ts'
 import {modeOf} from '@/utils/modes.ts'
-import {writeLines} from '@/utils/lineGroups.ts'
+import {withStops, writeLines} from '@/utils/lineGroups.ts'
 import {recordUse} from '@/utils/lineUsage.ts'
 import type {ChipAction, Choice, MenuAction} from '@/components/ui/types.ts'
 import {
@@ -105,7 +105,8 @@ watch(
 
 function createGroup() {
   if (!network.value) return
-  void router.push({name: 'group-pick', query: {linii: writeLines(network.value, [{routeId: routeIdNum.value, direction: currentDirection.value}])}})
+  const line = withStops({routeId: routeIdNum.value, direction: currentDirection.value}, Number(fromStopId.value) || undefined, undefined)
+  void router.push({name: 'group-stops', query: {linie: writeLines(network.value, [line])}})
 }
 const isFollowing = computed(() => !!shapeInfo.value && routeUpdates.isFollowing(shapeInfo.value.route_short_name))
 

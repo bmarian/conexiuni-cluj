@@ -360,8 +360,8 @@ async function syncPass(withSettings: boolean, label: string): Promise<Report> {
     ...syncedCities().flatMap((slug) => [
       step(cityName(slug), cityKind(slug, run)),
       step(newsName(slug), newsKind(slug)),
-      step(recentsName(slug), recentsKind(slug)),
       step(groupsName(slug), groupsKind(slug, run)),
+      step(recentsName(slug), recentsKind(slug)),
     ]),
   ]
   try {

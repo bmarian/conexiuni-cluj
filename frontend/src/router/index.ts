@@ -16,6 +16,8 @@ const DestinationsView = () => import('@/views/DestinationsView.vue')
 const DestinationView = () => import('@/views/DestinationView.vue')
 const GroupView = () => import('@/views/GroupView.vue')
 const GroupPickView = () => import('@/views/GroupPickView.vue')
+const GroupAddView = () => import('@/views/GroupAddView.vue')
+const GroupStopsView = () => import('@/views/GroupStopsView.vue')
 const SourcesView = () => import('@/views/SourcesView.vue')
 
 let uaVisualTransition = false
@@ -123,6 +125,16 @@ const router = createRouter({
           path: 'grup/alege',
           name: 'group-pick',
           component: GroupPickView,
+        },
+        {
+          path: 'grup/alege/linie',
+          name: 'group-add',
+          component: GroupAddView,
+        },
+        {
+          path: 'grup/alege/statii',
+          name: 'group-stops',
+          component: GroupStopsView,
         },
         {
           path: 'plan',

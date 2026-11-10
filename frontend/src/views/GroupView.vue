@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
@@ -7,6 +7,8 @@ import {storeToRefs} from 'pinia'
 import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
+import {useScrollStart} from '@/composables/useDrawerScroll.ts'
+import {useStretchLabel} from '@/composables/useGroupBuilder.ts'
 import {useLineGroup} from '@/composables/useLineGroup.ts'
 import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useShare} from '@/composables/useShare.ts'
@@ -19,7 +21,7 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {buildStopInfo, network} from '@/utils/network.ts'
-import {type GroupLine, groupKey, groupLabel, groupRoutes, readLines, tripOf, writeLines} from '@/utils/lineGroups.ts'
+import {flipLine, type GroupLine, groupKey, groupLabel, groupRoutes, readLines, stretchNames, tripOf, writeLines} from '@/utils/lineGroups.ts'
 import {directedDestination, formatMinutesFromNow} from '@/utils/time.ts'
 import {groupLocation, linePath} from '@/utils/pagePaths.ts'
 import {EditIcon, FavoriteBorderIcon, FavoriteIcon, ShareIcon, SwapHorizIcon, VisibilityIcon, VisibilityOffIcon} from '@/utils/icons.ts'
@@ -30,6 +32,7 @@ const router = useRouter()
 const favorites = useFavoritesStore()
 const routeStore = useRouteStore()
 const {userTime} = storeToRefs(useUserStore())
+const stretchLabel = useStretchLabel()
 
 const raw = computed(() => String(route.query.linii ?? ''))
 const lines = computed(() => (network.value ? readLines(network.value, raw.value) : []))
@@ -40,12 +43,8 @@ const routes = computed(() => (network.value ? groupRoutes(network.value, lines.
 const {hidden, toggleHidden, boards, departures, asOfMs} = useLineGroup(lines)
 provideLiveBeat(asOfMs)
 
-// The shared drawer scroller keeps the picker's offset.
 const view = ref<HTMLElement>()
-onMounted(() => {
-  const scroller = view.value?.closest('.drawer-view')
-  if (scroller) scroller.scrollTop = 0
-})
+useScrollStart(view)
 
 watch(
   key,
@@ -69,12 +68,14 @@ const rows = computed(() =>
     const r = network.value?.routeById.get(line.routeId)
     if (!r) return []
     const stopId = boards.value[i]
+    const from = stopName(stopId)
+    const to = network.value ? stretchNames(network.value, line).to : undefined
     return [
       {
         line,
         route: r,
         stopId,
-        from: stopName(stopId),
+        stretch: from ? stretchLabel(from, to) : undefined,
         departure: departures.value[i] ?? null,
         destination: directedDestination(r.route_long_name, line.direction),
       },
@@ -87,7 +88,7 @@ const label = (minutes: number) => formatMinutesFromNow(minutes, userTime.value 
 function flip(routeId: number) {
   const index = network.value
   if (!index) return
-  const next = lines.value.map((l): GroupLine => (l.routeId === routeId ? {...l, direction: l.direction === '0' ? '1' : '0'} : l))
+  const next = lines.value.map((l) => (l.routeId === routeId ? flipLine(index, l) : l))
   if (saved.value) favorites.replaceGroupLines(lines.value, next)
   favorites.removeRecent({lines: lines.value})
   void router.replace(groupLocation(index, next))
@@ -171,7 +172,7 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
         :name="row.route.route_short_name"
         :color="row.route.route_color"
         :destination="row.destination"
-        :subtitle="row.from ? t('from', {name: row.from}) : undefined"
+        :subtitle="row.stretch"
         :kbd="`line-${row.line.routeId}`"
         @open="openLine(row.line, row.stopId)"
       >

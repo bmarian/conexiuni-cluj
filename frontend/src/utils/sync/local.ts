@@ -4,7 +4,7 @@ import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
 import {chooseCity, cities, cityChoice, cityToOpen, currentCity, knownCity} from '@/utils/city.ts'
-import type {GroupLine} from '@/utils/lineGroups.ts'
+import {groupKey, type GroupLine, withStops} from '@/utils/lineGroups.ts'
 import {applyHomeLayout, homeLayout} from '@/composables/useHomeSections.ts'
 import {
   blankEnd,
@@ -27,6 +27,7 @@ import {
   type RecentItem,
   recentId,
   type RecentsRecord,
+  type RideLine,
   roundCoordinate,
   type SettingsRecord,
   type Spot,
@@ -151,18 +152,36 @@ export const recentsFromLocal = (slug: string): RecentsRecord => ({
 
 export const isEmptyRecents = (r: RecentsRecord) => !r.recent.length
 
-export const applyRecents = (slug: string, r: RecentsRecord) => useFavoritesStore().importRecents(r.recent.map(toRecent), slug)
+// Recents carry no stops: a known group with the same lines keeps its own.
+export function applyRecents(slug: string, r: RecentsRecord) {
+  const saved = savedFavorites(slug)
+  const known = [...saved.recentPlans.flatMap((recent) => ('lines' in recent ? [recent.lines] : [])), ...saved.groups.map((g) => g.lines)]
+  const withKnownStops = (recent: Recent): Recent => {
+    if (!('lines' in recent)) return recent
+    const key = groupKey(recent.lines)
+    return {lines: known.find((lines) => groupKey(fromLines(toLines(lines))) === key) ?? recent.lines}
+  }
+  useFavoritesStore().importRecents(r.recent.map(toRecent).map(withKnownStops), slug)
+}
 
-const toLines = (lines: GroupLine[]): Line[] =>
+const toRides = (lines: GroupLine[]): RideLine[] =>
   distinct(
-    lines.filter((l) => validId(l.routeId)).map((l) => ({route: l.routeId, dir: l.direction})),
+    lines
+      .filter((l) => validId(l.routeId))
+      .map((l) => {
+        const from = l.from !== undefined && validId(l.from) ? l.from : undefined
+        const to = l.to !== undefined && validId(l.to) && l.to !== from ? l.to : undefined
+        return {route: l.routeId, dir: l.direction, ...(from === undefined ? {} : {from}), ...(to === undefined ? {} : {to})}
+      }),
     (l) => String(l.route),
   ).slice(0, GROUP_LINES_CAP)
 
-const fromLines = (lines: Line[]): GroupLine[] => lines.map((l) => ({routeId: l.route, direction: l.dir}))
+const toLines = (lines: GroupLine[]): Line[] => toRides(lines).map((l) => ({route: l.route, dir: l.dir}))
+
+const fromLines = (lines: RideLine[]): GroupLine[] => lines.map((l) => withStops({routeId: l.route, direction: l.dir}, l.from, l.to))
 
 function toGroup(g: FavoriteGroup): Group | null {
-  const lines = toLines(g.lines)
+  const lines = toRides(g.lines)
   if (!lines.length) return null
   return {lines, name: cleanText(g.name, 40)}
 }

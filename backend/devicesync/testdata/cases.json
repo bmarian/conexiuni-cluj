@@ -963,8 +963,56 @@
     },
     {
       "kind": "groups",
+      "about": "a line followed between two stops, one from a stop on, one up to a stop",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391,402],[25,\"1\",391,0],[47,\"0\",0,402],[24,\"0\"]],\"Acasă\"]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "groups",
+      "about": "the same lines between other stops are another group",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391,402]],\"\"],[[[45,\"1\",391,0]],\"\"],[[[45,\"1\"]],\"\"]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "groups",
+      "about": "the same lines between the same stops twice",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391,402]],\"a\"],[[[45,\"1\",391,402]],\"b\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "stops in version 1",
+      "json": "{\"v\":1,\"groups\":[[[[45,\"1\",391,402]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "version 2 without stops",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\"]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "neither stop chosen",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",0,0]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "on and off at the same stop",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391,391]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "one stop only",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
       "about": "later version",
-      "json": "{\"v\":2,\"groups\":\"all\"}",
+      "json": "{\"v\":3,\"groups\":\"all\"}",
       "outcome": "newer"
     },
     {

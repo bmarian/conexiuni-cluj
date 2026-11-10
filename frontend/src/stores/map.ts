@@ -1,7 +1,7 @@
 import type {Shape, Vehicle} from '@/types/tranzy'
 import type {RouteType} from '@/types/tranzy'
 import {defineStore} from 'pinia'
-import {computed, ref, watch} from 'vue'
+import {computed, ref, shallowRef, watch} from 'vue'
 import {apiRequest} from '@/utils/api.ts'
 import {decodePolyline, network} from '@/utils/network.ts'
 import {currentCity} from '@/utils/city.ts'
@@ -46,6 +46,8 @@ export type DisplayShape = {
   route_long_name: string
   route_color: string
   route_type: RouteType
+  faint?: boolean
+  skipFit?: boolean
 }
 
 export type HighlightedStop = {stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite'}
@@ -61,6 +63,8 @@ export const useMapStore = defineStore('map', () => {
   const linesApart = ref(true)
   // Line starts and ends stay beside highlighted stops.
   const lineEnds = ref(false)
+  const stopPick = shallowRef<((stopId: number) => void) | null>(null)
+  const keepView = ref(false)
   const centerOnUser = ref(false)
   const revealDrawer = ref(false)
   const centerRequest = ref(0)
@@ -182,6 +186,8 @@ export const useMapStore = defineStore('map', () => {
     lineColors,
     linesApart,
     lineEnds,
+    stopPick,
+    keepView,
     walkingPolylines,
     zoomOut,
     vehiclesToDisplay,

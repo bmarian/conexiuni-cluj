@@ -16,16 +16,18 @@ defineProps<{
   trailingHighlight?: boolean
   href?: string
   paint?: boolean
+  painted?: {top: boolean; bottom: boolean}
+  dimmed?: boolean
 }>()
 const emit = defineEmits<{open: []}>()
 </script>
 
 <template>
-  <RowLink class="stop-line state squish" :class="`is-${mark}`" :href="href" @open="emit('open')">
+  <RowLink class="stop-line state squish" :class="[`is-${mark}`, {'is-dimmed': dimmed}]" :href="href" @open="emit('open')">
     <span class="rail" :class="{'is-first': first, 'is-last': last}">
-      <template v-if="paint">
-        <span class="paint is-top"></span>
-        <span class="paint is-bottom"></span>
+      <template v-if="paint || painted">
+        <span class="paint is-top" :class="{'is-on': painted?.top}"></span>
+        <span class="paint is-bottom" :class="{'is-on': painted?.bottom}"></span>
       </template>
       <span class="dot"></span>
     </span>
@@ -108,6 +110,14 @@ const emit = defineEmits<{open: []}>()
   width: 4px;
   background: var(--paint);
   clip-path: inset(0 0 100% 0);
+}
+
+.paint.is-on {
+  clip-path: none;
+}
+
+.is-dimmed {
+  opacity: 0.45;
 }
 
 .paint.is-top {

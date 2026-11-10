@@ -8,8 +8,8 @@ import {cacheKey, currentCity} from '@/utils/city.ts'
 import {network} from '@/utils/network.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
-import {CITY_CAP, RECENT_CAP, roundCoordinate} from '@/utils/sync/records.ts'
-import {groupKey, type GroupLine} from '@/utils/lineGroups.ts'
+import {CITY_CAP, RECENT_CAP, roundCoordinate, validId} from '@/utils/sync/records.ts'
+import {groupKey, type GroupLine, withStops} from '@/utils/lineGroups.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
 import {readSaved} from '@/utils/storage.ts'
@@ -82,7 +82,16 @@ export function parseFavoriteRoutes(raw: unknown): FavoriteRoute[] {
   return parsed
 }
 
-const groupLines = (raw: unknown): GroupLine[] => parseFavoriteRoutes(raw).map((r) => ({routeId: r.routeId, direction: r.direction}))
+const stopOf = (raw: unknown) => (typeof raw === 'number' && validId(raw) ? raw : undefined)
+
+function groupLines(raw: unknown): GroupLine[] {
+  const lines: GroupLine[] = []
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const [route] = parseFavoriteRoutes([item])
+    if (route && !lines.some((l) => l.routeId === route.routeId)) lines.push(withStops(route, stopOf(item?.from), stopOf(item?.to)))
+  }
+  return lines
+}
 
 export function parseGroups(raw: unknown): FavoriteGroup[] {
   if (!Array.isArray(raw)) return []

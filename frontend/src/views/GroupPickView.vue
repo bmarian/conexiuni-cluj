@@ -1,207 +1,98 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue'
+import {computed, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
-import {useRoute, useRouter} from 'vue-router'
-import {atCap, useFavoritesStore} from '@/stores/favorites.ts'
+import {useRouter} from 'vue-router'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import {useScrollStart} from '@/composables/useDrawerScroll.ts'
+import {useGroupBuilder} from '@/composables/useGroupBuilder.ts'
+import {useGroupShapes} from '@/composables/useGroupShapes.ts'
+import {usePhoneSheet} from '@/composables/usePhoneSheet.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
-import SubLabel from '@/components/ui/SubLabel.vue'
-import LineBadge from '@/components/ui/LineBadge.vue'
-import PickRow from '@/components/rows/PickRow.vue'
-import type {RouteDirection} from '@/types/tranzy.ts'
-import {network, type NetworkRoute} from '@/utils/network.ts'
-import {type GroupLine, readLines} from '@/utils/lineGroups.ts'
+import ListRow from '@/components/ui/ListRow.vue'
+import RowIcon from '@/components/ui/RowIcon.vue'
+import BusCard from '@/components/rows/BusCard.vue'
+import {network} from '@/utils/network.ts'
+import {readLines} from '@/utils/lineGroups.ts'
 import {groupLocation} from '@/utils/pagePaths.ts'
-import {compareUse, lineUse, readUsage, totalUses, whenOf} from '@/utils/lineUsage.ts'
-import {displayColor} from '@/utils/lineColor.ts'
-import {byModeThenNumber, groupByMode} from '@/utils/modes.ts'
-import {matching} from '@/utils/stopSearch.ts'
-import {fold} from '@/utils/text.ts'
-import {GROUP_LINES_CAP} from '@/utils/sync/records.ts'
-import {directedDestination, hasTimetableEntries} from '@/utils/time.ts'
-import {CloseIcon, SearchIcon, SwapHorizIcon} from '@/utils/icons.ts'
+import {directedDestination} from '@/utils/time.ts'
+import {AddIcon, CloseIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
-const route = useRoute()
 const router = useRouter()
 const favorites = useFavoritesStore()
+const phone = usePhoneSheet()
+const {lines, editing, openAdd, openStops, showGroup, stretchLabel} = useGroupBuilder()
+useGroupShapes(lines)
 
 useHead(() => ({title: `${t('lineGroups')} | Ce autobuz iau?`, meta: [{name: 'robots', content: 'noindex'}]}))
 
-const chosen = ref<GroupLine[]>([])
-const query = ref('')
+const view = ref<HTMLElement>()
+useScrollStart(view)
 
-watch(
-  network,
-  (index, before) => {
-    if (index && !before) chosen.value = readLines(index, String(route.query.linii ?? ''))
-  },
-  {immediate: true},
-)
-
-const routes = computed(() => (network.value?.bundle.routes ?? []).filter((r) => r.timetable && hasTimetableEntries(r.timetable)))
-const routeOf = (routeId: number) => network.value?.routeById.get(routeId)
-const isChosen = (routeId: number) => chosen.value.some((l) => l.routeId === routeId)
-
-// Read once so the lists don't reorder under the finger.
-const lineUsage = readUsage()
-const now = whenOf(Date.now())
-
-const usageOf = (routeId: number) => lineUse(lineUsage, routeId)
-
-const isFavorite = (routeId: number) => favorites.isRouteFavorite(routeId)
-const recentIds = new Set(favorites.recents.flatMap((r) => ('routeId' in r ? [r.routeId] : [])))
-const byUse = (a: number, b: number) => compareUse(usageOf(a), usageOf(b), now) || Number(isFavorite(b)) - Number(isFavorite(a))
-
-const servable = computed(() => new Set(routes.value.map((r) => r.route_id)))
-
-const often = computed(() => {
-  const ids = new Set<number>([
-    ...Object.keys(lineUsage).map((key) => Number(key.split('/')[0])),
-    ...favorites.favoriteRoutes.map((r) => r.routeId),
-    ...recentIds,
-  ])
-  return [...ids]
-    .filter((id) => servable.value.has(id))
-    .map((id) => routeOf(id)!)
-    .sort((a, b) => byUse(a.route_id, b.route_id) || byModeThenNumber(a, b))
-})
-
-const allByMode = computed(() => groupByMode(routes.value))
-
-const found = computed(() => {
-  const q = fold(query.value.trim())
-  return q
-    ? matching(routes.value, (r) => fold(`${r.route_short_name} ${r.route_long_name}`), q)
-        .sort((a, b) => a.rank - b.rank)
-        .map((m) => m.item)
-    : []
-})
-
-function directionFor(routeId: number): RouteDirection {
-  const [u0, u1] = [totalUses(lineUsage[`${routeId}/0`]), totalUses(lineUsage[`${routeId}/1`])]
-  if (u0 !== u1) return u1 > u0 ? '1' : '0'
-  return favorites.favoriteRoutes.find((r) => r.routeId === routeId)?.direction ?? '0'
-}
-
-function toggle(routeId: number) {
-  if (isChosen(routeId)) chosen.value = chosen.value.filter((l) => l.routeId !== routeId)
-  else if (!atCap(chosen.value, GROUP_LINES_CAP)) chosen.value = [...chosen.value, {routeId, direction: directionFor(routeId)}]
-}
-
-function flip(routeId: number) {
-  chosen.value = chosen.value.map((l) => (l.routeId === routeId ? {...l, direction: l.direction === '0' ? '1' : '0'} : l))
-}
-
-const badgeColor = (r: NetworkRoute) => displayColor(r.route_short_name, r.route_color)
-
-const chosenRows = computed(() =>
-  chosen.value.flatMap((line) => {
-    const r = routeOf(line.routeId)
-    return r ? [{line, route: r, destination: directedDestination(r.route_long_name, line.direction)}] : []
+const rows = computed(() =>
+  lines.value.flatMap((line) => {
+    const r = network.value?.routeById.get(line.routeId)
+    return r ? [{line, route: r, destination: directedDestination(r.route_long_name, line.direction), stretch: stretchLabel(line)}] : []
   }),
 )
 
+function remove(routeId: number) {
+  showGroup(lines.value.filter((l) => l.routeId !== routeId))
+}
+
 function show() {
   const index = network.value
-  if (!index || !chosen.value.length) return
-  const editing = route.query.schimba
-  if (editing) favorites.replaceGroupLines(readLines(index, String(editing)), chosen.value)
-  void router.replace(groupLocation(index, chosen.value))
+  if (!index || !lines.value.length) return
+  if (editing.value) favorites.replaceGroupLines(readLines(index, editing.value), lines.value)
+  void router.replace(groupLocation(index, lines.value))
 }
 </script>
 
 <template>
-  <div class="group-pick-view">
+  <div ref="view" class="has-bottom-bar">
     <SheetTopBar :title="t('lineGroups')" />
     <h1 class="text-title-large font-bold px-4 pb-2">{{ t('lineGroups') }}</h1>
 
-    <label class="search-pill mx-4 mb-2">
-      <SearchIcon class="m-icon text-on-surface" />
-      <input v-model="query" class="search-input text-body-large" type="search" :placeholder="t('groupSearch')" :aria-label="t('groupSearch')" />
-      <button v-if="query" type="button" class="icon-btn" :aria-label="t('clearSearch')" :title="t('clearSearch')" @click="query = ''">
-        <CloseIcon class="m-icon" />
-      </button>
-    </label>
-
-    <section v-if="chosenRows.length" class="pt-1" data-kbd-section="chosen">
-      <SubLabel :text="t('groupChosen')" />
-      <div v-for="row in chosenRows" :key="row.line.routeId" class="chosen-row">
-        <LineBadge :name="row.route.route_short_name" :color="badgeColor(row.route)" plain :height="32" :min-width="40" :corner="10" />
-        <span class="flex-1 min-w-0 text-title-small truncate">→ {{ row.destination }}</span>
-        <button type="button" class="icon-btn text-on-surface-variant" :aria-label="t('groupFlip')" :title="t('groupFlip')" @click="flip(row.line.routeId)">
-          <SwapHorizIcon class="m-icon" />
-        </button>
-        <button type="button" class="icon-btn text-outline" :aria-label="t('groupRemoveLine')" :title="t('groupRemoveLine')" @click="toggle(row.line.routeId)">
-          <CloseIcon class="m-icon size-5" />
-        </button>
-      </div>
-    </section>
-
-    <template v-if="!query.trim()">
-      <section v-if="often.length" class="pt-2" data-kbd-section="often">
-        <SubLabel :text="t('groupOften')" />
-        <PickRow
-          v-for="r in often"
-          :key="r.route_id"
-          :name="r.route_short_name"
-          :color="badgeColor(r)"
-          :title="r.route_long_name"
-          :checked="isChosen(r.route_id)"
-          @toggle="toggle(r.route_id)"
-        />
-      </section>
-
-      <section class="pt-2" data-kbd-section="all-lines">
-        <template v-for="group in allByMode" :key="group.mode">
-          <SubLabel :text="t(`modeLines_${group.mode}`)" class="pt-2" />
-          <PickRow
-            v-for="r in group.lines"
-            :key="r.route_id"
-            :name="r.route_short_name"
-            :color="badgeColor(r)"
-            :title="r.route_long_name"
-            :checked="isChosen(r.route_id)"
-            @toggle="toggle(r.route_id)"
-          />
+    <section class="flex flex-col" data-kbd-section="lines" data-kbd-axis="grid" data-kbd-entry="1">
+      <BusCard
+        v-for="row in rows"
+        :key="row.line.routeId"
+        :live="false"
+        :name="row.route.route_short_name"
+        :color="row.route.route_color"
+        :destination="row.destination"
+        :subtitle="row.stretch"
+        :kbd="`line-${row.line.routeId}`"
+        @open="openStops(row.line)"
+      >
+        <template #trailing>
+          <button
+            type="button"
+            class="icon-btn text-outline"
+            :aria-label="t('groupRemoveLine')"
+            :title="t('groupRemoveLine')"
+            :data-kbd-item="`remove-${row.line.routeId}`"
+            @click="remove(row.line.routeId)"
+          >
+            <CloseIcon class="m-icon size-5" />
+          </button>
         </template>
-      </section>
-    </template>
-
-    <section v-else class="pt-2" data-kbd-section="found">
-      <PickRow
-        v-for="r in found"
-        :key="r.route_id"
-        :name="r.route_short_name"
-        :color="badgeColor(r)"
-        :title="r.route_long_name"
-        :checked="isChosen(r.route_id)"
-        @toggle="toggle(r.route_id)"
-      />
-      <p v-if="!found.length" class="text-body-medium text-on-surface-variant px-4 py-3">{{ t('noResults') }}</p>
+      </BusCard>
+      <ListRow v-if="!phone" :title="t('groupAddLine')" data-kbd-item="add" @open="openAdd">
+        <template #icon>
+          <RowIcon :icon="AddIcon" tone="primary" />
+        </template>
+      </ListRow>
     </section>
+    <div class="h-4"></div>
 
-    <div class="pick-bar">
-      <button type="button" class="btn btn-filled w-full" :disabled="!chosen.length" @click="show">{{ t('groupShow') }}</button>
+    <div class="bottom-bar" data-kbd-section="show" data-kbd-axis="x">
+      <button v-if="phone" type="button" class="btn btn-tonal flex-1" data-kbd-item="add" @click="openAdd">
+        <AddIcon class="m-icon" />
+        {{ t('groupAddLine') }}
+      </button>
+      <button type="button" class="btn btn-filled flex-1" :disabled="!lines.length" data-kbd-item="show" @click="show">{{ t('groupShow') }}</button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.chosen-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 4px 0 16px;
-}
-
-.pick-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  padding: 12px 16px 16px;
-  background: var(--md-surface-container-low);
-  box-shadow: 0 -1px 0 var(--md-outline-variant);
-}
-</style>

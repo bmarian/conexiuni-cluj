@@ -179,6 +179,8 @@ const EARTH_RADIUS_M = 6371008.8
 const OVERLAY = 'cc-'
 const SLOTS = ['shapes', 'walks', 'accuracy'] as const
 const SHAPE_WIDTH = 5
+const FAINT_SHAPE_WIDTH = 3
+const FAINT_SHAPE_OPACITY = 0.3
 
 type LatLngTuple = [number, number]
 type ShapeLayerEntry = [DisplayShape, ShapePoint[]]
@@ -204,6 +206,8 @@ type LineSpec = {
   width: number
   opacity: number
   dash?: number[]
+  faint?: boolean
+  skipFit?: boolean
 }
 
 type Fix = LatLng & {accuracy: number; heading: number | null}
@@ -333,7 +337,7 @@ const syncLines = (group: LineGroup) => {
       m.addLayer(layer, slotId(group))
     }
     if (group === 'shapes') syncRails(m, id, line, trafficOf(line))
-    if (!shown.includes(path) && !line.dash) grow(m, id, line)
+    if (!shown.includes(path) && !line.dash && !line.faint) grow(m, id, line)
   })
   drawnPaths[group] = lines[group].map((line) => pathKey(line.coords))
   drawnFavorites = new Set(favoritesStore.favoriteLineNames)
@@ -407,7 +411,7 @@ const cityMaxBounds = (): LngLatBounds | null => {
 
 const linesBounds = (...groups: LineSpec[][]) => {
   const bounds = new LngLatBounds()
-  for (const group of groups) for (const line of group) for (const point of line.coords) bounds.extend(toLngLat(point))
+  for (const group of groups) for (const line of group) if (!line.skipFit) for (const point of line.coords) bounds.extend(toLngLat(point))
   return bounds.isEmpty() ? null : bounds
 }
 
@@ -1258,7 +1262,7 @@ const shapeColor = (displayShape: DisplayShape) => lineColors.value.get(displayS
 const getShapeColorCounts = (shapes: ShapeLayerEntry[]) => {
   const colorCounts = new Map<string, number>()
   for (const [displayShape, shapeData] of shapes) {
-    if (!Array.isArray(shapeData) || shapeData.length === 0) continue
+    if (displayShape.faint || !Array.isArray(shapeData) || shapeData.length === 0) continue
     const routeColor = shapeColor(displayShape)
     colorCounts.set(routeColor, (colorCounts.get(routeColor) ?? 0) + 1)
   }
@@ -1339,6 +1343,21 @@ const renderShapes = (newShapes: ShapeLayerEntry[]) => {
     const latLngs: LatLngTuple[] = shapeData.map((sd) => [sd.shape_pt_lat, sd.shape_pt_lon])
     const routeColor = shapeColor(displayShape)
 
+    if (displayShape.faint) {
+      const signature = getShapeSignature(latLngs, 'faint')
+      if (drawnPaths.has(signature)) continue
+      drawnPaths.add(signature)
+      shapeLines.push({
+        coords: latLngs,
+        color: routeColor || '#94a3b8',
+        width: FAINT_SHAPE_WIDTH,
+        opacity: FAINT_SHAPE_OPACITY,
+        faint: true,
+        skipFit: displayShape.skipFit,
+      })
+      continue
+    }
+
     const colorVariantIdx = colorSeen.get(routeColor) ?? 0
     colorSeen.set(routeColor, colorVariantIdx + 1)
     const dashArray = (colorCounts.get(routeColor) ?? 0) > 1 ? (DUPLICATE_DASH_PATTERNS[colorVariantIdx % DUPLICATE_DASH_PATTERNS.length] ?? '') : ''
@@ -1392,7 +1411,7 @@ watch(
 watch(
   shapesToDisplay,
   (newShapes) => {
-    if (!settingsStore.autoFitMap || !map.value) return
+    if (!settingsStore.autoFitMap || !map.value || mapStore.keepView) return
     if (newShapes.length && mapStore.fitWalkingPolylines) return
     if (newShapes.length) {
       const bounds = linesBounds(lines.shapes)
@@ -1446,7 +1465,7 @@ const renderHighlightedStops = () => {
       zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
     })
     tooltip?.bind(highlight, stationCard(stopId, stop.name), '', 14)
-    onMarkerClick(highlight, () => openStop(stopId))
+    onMarkerClick(highlight, () => (mapStore.stopPick ? mapStore.stopPick(Number(stopId)) : openStop(stopId)))
     highlightMarkers.push(highlight.addTo(m))
     revealStop(highlight)
   }
