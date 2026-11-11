@@ -17,3 +17,4 @@ backend/services/osm/
 docs/*
 /parity/
 backend/devicesync/protocol.md
+.claude-memory
