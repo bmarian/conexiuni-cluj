@@ -82,7 +82,12 @@ func (x *Index) addAreas(areas []router.Area) {
 	for _, dest := range x.list {
 		x.fill(dest, sizes)
 	}
-	sort.Slice(x.list, func(i, j int) bool { return router.Slug(x.list[i].Name) < router.Slug(x.list[j].Name) })
+	sort.Slice(x.list, func(i, j int) bool {
+		if a, b := router.Slug(x.list[i].Name), router.Slug(x.list[j].Name); a != b {
+			return a < b
+		}
+		return x.list[i].Slug < x.list[j].Slug
+	})
 }
 
 func Nearest(among []router.Area, lat, lon float64) (*router.Area, float64) {
@@ -107,12 +112,15 @@ func (x *Index) fill(dest *Destination, sizes map[*Destination]int) {
 		dest.RouteIDs = append(dest.RouteIDs, id)
 	}
 	x.sortRoutes(dest.RouteIDs)
-	sort.SliceStable(dest.StopIDs, func(i, j int) bool {
-		a, b := len(x.calls[dest.StopIDs[i]]), len(x.calls[dest.StopIDs[j]])
-		if a != b {
-			return a > b
+	sort.Slice(dest.StopIDs, func(i, j int) bool {
+		a, b := dest.StopIDs[i], dest.StopIDs[j]
+		if ca, cb := len(x.calls[a]), len(x.calls[b]); ca != cb {
+			return ca > cb
 		}
-		return x.stops[dest.StopIDs[i]].StopName < x.stops[dest.StopIDs[j]].StopName
+		if na, nb := x.stops[a].StopName, x.stops[b].StopName; na != nb {
+			return na < nb
+		}
+		return a < b
 	})
 
 	byOrigin := map[*Destination]map[int]Ride{}
@@ -168,7 +176,10 @@ func (x *Index) fill(dest *Destination, sizes map[*Destination]int) {
 			if a, b := o.Rides[i].expected(), o.Rides[j].expected(); a != b {
 				return a < b
 			}
-			return lineLess(x.routes[o.Rides[i].RouteID].RouteShortName, x.routes[o.Rides[j].RouteID].RouteShortName)
+			if a, b := o.Rides[i].RouteID, o.Rides[j].RouteID; a != b {
+				return x.routeLess(a, b)
+			}
+			return o.Rides[i].Direction < o.Rides[j].Direction
 		})
 		dest.From = append(dest.From, o)
 	}

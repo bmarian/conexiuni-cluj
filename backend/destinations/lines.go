@@ -37,10 +37,16 @@ func chunk(s string) (string, string) {
 	return s[:end], s[end:]
 }
 
+func (x *Index) routeLess(a, b int) bool {
+	na, nb := x.routes[a].RouteShortName, x.routes[b].RouteShortName
+	if lineLess(na, nb) || lineLess(nb, na) {
+		return lineLess(na, nb)
+	}
+	return a < b
+}
+
 func (x *Index) sortRoutes(ids []int) {
-	sort.Slice(ids, func(i, j int) bool {
-		return lineLess(x.routes[ids[i]].RouteShortName, x.routes[ids[j]].RouteShortName)
-	})
+	sort.Slice(ids, func(i, j int) bool { return x.routeLess(ids[i], ids[j]) })
 }
 
 func (x *Index) Lines() []*models.NetworkRoute {
@@ -131,9 +137,7 @@ func (x *Index) StationLines(stopID int) []Departing {
 	}
 	for i := range out {
 		lines := out[i].Lines
-		sort.Slice(lines, func(a, b int) bool {
-			return lineLess(x.routes[lines[a].RouteID].RouteShortName, x.routes[lines[b].RouteID].RouteShortName)
-		})
+		sort.Slice(lines, func(a, b int) bool { return x.routeLess(lines[a].RouteID, lines[b].RouteID) })
 	}
 	return out
 }

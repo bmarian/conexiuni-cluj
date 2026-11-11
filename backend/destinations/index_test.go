@@ -136,6 +136,21 @@ func TestAreasWait(t *testing.T) {
 	}
 }
 
+func TestLinesSharingANumber(t *testing.T) {
+	for range 20 {
+		bundle := &models.NetworkBundle{Routes: []models.NetworkRoute{
+			{RouteID: 21, RouteShortName: "6"}, {RouteID: 20, RouteShortName: "6"}, {RouteID: 22, RouteShortName: "6"}, {RouteID: 5, RouteShortName: "7"},
+		}}
+		var ids []int
+		for _, r := range build(bundle, nil).Lines() {
+			ids = append(ids, r.RouteID)
+		}
+		if want := []int{20, 21, 22, 5}; !reflect.DeepEqual(ids, want) {
+			t.Fatalf("lines = %v, want %v", ids, want)
+		}
+	}
+}
+
 func TestLineLess(t *testing.T) {
 	names := []string{"M11", "24B", "5", "TE10", "TE3", "24", "5B"}
 	sort.Slice(names, func(i, j int) bool { return lineLess(names[i], names[j]) })
