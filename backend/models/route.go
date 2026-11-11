@@ -28,7 +28,7 @@ type Route struct {
 }
 
 // For a line whose feed gives it no colour.
-const FallbackRouteColor = "#64748B"
+const FallbackRouteColor = "#1D71B8"
 
 // A feed's route_color counts only as GTFS's six hex digits.
 func FeedRouteColor(raw string) string {
