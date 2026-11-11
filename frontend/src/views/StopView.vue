@@ -35,6 +35,11 @@ import {displayColor} from '@/utils/lineColor.ts'
 import RouteRow from '@/components/rows/RouteRow.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {DirectionsIcon, FavoriteBorderIcon, FavoriteIcon, MapIcon, RefreshIcon, ShareIcon} from '@/utils/icons.ts'
+import {useSettingsStore} from '@/stores/settings'
+import {currentCity} from '@/utils/city.ts'
+import {writeLines} from '@/utils/lineGroups.ts'
+import type {Hint, HintLine} from '@/utils/hints.ts'
+import {hintShown, nextHint, noteLineFromStop, noteStopVisit} from '@/composables/useHints.ts'
 
 const props = defineProps<{stopId: string}>()
 
@@ -127,9 +132,49 @@ const departuresSorted = computed(() => {
   })
 })
 
+const settings = useSettingsStore()
+const hintStop = computed(() => (network.value && stopInfo.value ? `${currentCity.value}:${network.value.stationId(stopInfo.value.stop_id)}` : null))
+
+const inSavedGroup = (a: HintLine, b: HintLine) =>
+  favoritesStore.favoriteGroups.some((g) => g.lines.some((l) => l.routeId === a.routeId) && g.lines.some((l) => l.routeId === b.routeId))
+
+function showHint(hint: Hint) {
+  const index = network.value
+  if (hint.id === 'save') {
+    settings.showToast(t('hintSaveTitle'), {body: t('hintSaveBody'), action: {label: t('save'), run: () => isFavorite.value || toggleFavorite()}})
+  } else if (hint.id === 'group' && index) {
+    const [a, b] = hint.lines.map((l) => index.routeById.get(l.routeId)?.route_short_name ?? '')
+    const linii = writeLines(
+      index,
+      hint.lines.map((l) => ({routeId: l.routeId, direction: l.direction, from: l.platform})),
+    )
+    settings.showToast(t('hintGroupTitle', {a, b}), {
+      body: t('hintGroupBody'),
+      action: {label: t('createGroup'), run: () => void router.push({name: 'group-pick', query: {linii}})},
+    })
+  } else return
+  hintShown(hint.id)
+}
+
+watch(
+  hintStop,
+  (stop) => {
+    if (!stop) return
+    noteStopVisit(stop)
+    const hint = nextHint({stop, saved: isFavorite.value, grouped: inSavedGroup, canRemind: false})
+    if (hint) showHint(hint)
+  },
+  {immediate: true},
+)
+
+function noteLine(routeId: number, tripId: string, platform: number) {
+  if (hintStop.value) noteLineFromStop(hintStop.value, {routeId, direction: getDirectionFromTripId(tripId), platform})
+}
+
 const navigateToRoute = (shape: VehiclesInStop) => {
   const si = platformOf(shape.route_id)?.shapes_info.find((s: ShapeInfo) => s.route_id === shape.route_id)
   if (!si) return
+  noteLine(shape.route_id, shape.trip_id, platformAt(shape))
   routeStore.setSelectedRoute(si, shape.trip_id, String(platformAt(shape)), stopName.value || '')
   router.push(linePath(shape.route_id, getDirectionFromTripId(shape.trip_id)))
 }
@@ -144,6 +189,7 @@ const allRouteHref = (shape: ShapeInfo) => linePath(shape.route_id, getDirection
 const navigateToAllRoute = (shape: ShapeInfo) => {
   const platform = platformOf(shape.route_id) ?? stopInfo.value
   const tripId = tripAtStop(shape)
+  noteLine(shape.route_id, tripId, platform?.stop_id ?? stopIdNum.value)
   routeStore.setSelectedRoute(shape, tripId, String(platform?.stop_id ?? props.stopId), stopName.value || '')
   router.push(linePath(shape.route_id, getDirectionFromTripId(tripId)))
 }

@@ -65,6 +65,7 @@ import {
 } from '@/utils/icons.ts'
 import {displayColor, lineInk, manyLines} from '@/utils/lineColor.ts'
 import {linePath, stopLocation} from '@/utils/pagePaths.ts'
+import {markFirstStep} from '@/composables/useFirstSteps.ts'
 
 const {t} = useI18n()
 const route = useOwnRoute('plan')
@@ -685,6 +686,7 @@ async function calculateRoutes(silent = false) {
     currentQueryKey.value = qk
 
     if (!silent && data.options.length) {
+      markFirstStep('plan')
       mapStore.fitWalkingPolylines = true
       if (isOnline.value) {
         favoritesStore.addRecent({

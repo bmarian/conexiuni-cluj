@@ -23,6 +23,8 @@ import RowIcon from '@/components/ui/RowIcon.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import AllLines from '@/components/home/AllLines.vue'
 import PlaceChips from '@/components/home/PlaceChips.vue'
+import FirstSteps from '@/components/home/FirstSteps.vue'
+import {useFirstSteps} from '@/composables/useFirstSteps.ts'
 import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
 import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
 import {CheckIcon, MapIcon, SwapHorizIcon} from '@/utils/icons.ts'
@@ -121,6 +123,8 @@ function openGroup(lines: GroupLine[]) {
 }
 
 const recents = useRecents(RECENTS_SHOWN)
+
+const {left: firstStepsLeft} = useFirstSteps()
 
 const lookOf = (stopId: number) => network.value?.look(stopId)
 
@@ -292,6 +296,7 @@ const sectionDragOptions = computed(() => ({
         <span class="text-body-medium text-on-surface-variant">{{ t('sectionsArrangeHint') }}</span>
         <button type="button" class="btn btn-tonal" @click="arranging = false"><CheckIcon class="m-icon" />{{ t('save') }}</button>
       </div>
+      <FirstSteps v-else />
       <Draggable v-model="sectionsModel" :item-key="(id: HomeSectionId) => id" tag="div" v-bind="sectionDragOptions">
         <template #item="{element: id}">
           <HomeSection
@@ -451,10 +456,10 @@ const sectionDragOptions = computed(() => ({
         </template>
       </Draggable>
 
-      <p v-if="!hasFavorites && !recents.length" class="empty">
+      <p v-if="!hasFavorites && !recents.length && !firstStepsLeft.length" class="empty">
         {{ t('noFavorites') }}
       </p>
-      <AllLines v-if="!hasFavorites" />
+      <AllLines v-if="!hasFavorites || firstStepsLeft.length" />
     </template>
     <div class="h-6"></div>
   </div>

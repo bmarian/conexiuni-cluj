@@ -20,7 +20,9 @@ import {placeDetail, searchPlaces, type Place} from '@/utils/places.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {network} from '@/utils/network.ts'
-import {cityCenter, cityParams} from '@/utils/city.ts'
+import {cityCenter, cityParams, currentCity} from '@/utils/city.ts'
+import {type DestinationSummary, fetchDestinations} from '@/utils/destinationPages.ts'
+import {searchExamples} from '@/utils/searchExamples.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
 import type {GroupLine} from '@/utils/lineGroups.ts'
@@ -32,6 +34,8 @@ import RecentRow from '@/components/rows/RecentRow.vue'
 import RouteRow from '@/components/rows/RouteRow.vue'
 import StationRow from '@/components/rows/StationRow.vue'
 import LoadMore from '@/components/LoadMore.vue'
+import LineBadge from '@/components/ui/LineBadge.vue'
+import StationIcon from '@/components/StationIcon.vue'
 
 const PLACE_DEBOUNCE_MS = 350
 const PLACE_MIN_CHARS = 3
@@ -62,10 +66,30 @@ function close(clear: boolean) {
 
 useKbdLayer(open, {el: () => panel.value, close: () => close(true)})
 
+const areasByCity = new Map<string, DestinationSummary[]>()
+const areas = ref<DestinationSummary[]>([])
+
+async function loadAreas() {
+  const city = currentCity.value
+  const known = areasByCity.get(city)
+  if (known) {
+    areas.value = known
+    return
+  }
+  try {
+    const list = await fetchDestinations()
+    areasByCity.set(city, list)
+    if (currentCity.value === city) areas.value = list
+  } catch {
+    areas.value = []
+  }
+}
+
 watch(open, async (isOpen) => {
   if (!isOpen) return
   void fetchRoutes()
   void fetchStops()
+  void loadAreas()
   await nextTick()
   input.value?.focus({preventScroll: true})
 })
@@ -174,6 +198,14 @@ const noResults = computed(
 )
 
 const recents = useRecents(RECENTS_SHOWN)
+
+const examples = computed(() => (network.value ? searchExamples(network.value, isOnline.value ? areas.value : []) : {}))
+const hasExamples = computed(() => !!(examples.value.line || examples.value.stop || examples.value.place))
+
+function tryExample(text: string) {
+  query.value = text
+  input.value?.focus()
+}
 
 function persistedToggle(key: string) {
   const on = ref(localStorage.getItem(key) === 'true')
@@ -365,6 +397,40 @@ function dropPin() {
         </template>
 
         <template v-else>
+          <section v-if="!recents.length && hasExamples" data-kbd-section="search-examples">
+            <SubLabel :text="t('searchExamples')" class="pt-2" />
+            <ListRow
+              v-if="examples.line"
+              :title="examples.line.route_short_name"
+              :subtitle="t('searchExampleLine')"
+              data-kbd-item="example-line"
+              @open="tryExample(examples.line!.route_short_name)"
+            >
+              <template #icon>
+                <span class="example-icon">
+                  <LineBadge :name="examples.line.route_short_name" :color="examples.line.route_color" :height="26" :min-width="36" :corner="6" />
+                </span>
+              </template>
+            </ListRow>
+            <ListRow
+              v-if="examples.stop"
+              :title="examples.stop.stop_name"
+              :subtitle="t('searchExampleStop')"
+              data-kbd-item="example-stop"
+              @open="tryExample(examples.stop!.stop_name)"
+            >
+              <template #icon><StationIcon :look="network?.look(examples.stop.stop_id)" class="size-9" /></template>
+            </ListRow>
+            <ListRow
+              v-if="examples.place"
+              :title="examples.place"
+              :subtitle="t('searchExamplePlace')"
+              data-kbd-item="example-place"
+              @open="tryExample(examples.place!)"
+            >
+              <template #icon><RowIcon :icon="PlaceIcon" tone="tertiary" /></template>
+            </ListRow>
+          </section>
           <section v-if="recents.length" data-kbd-section="recent-plans">
             <SubLabel :text="t('recentDestinations')" class="pt-2" />
             <template v-for="item in recents" :key="item.key">
@@ -468,6 +534,13 @@ function dropPin() {
 </template>
 
 <style scoped>
+.example-icon {
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+}
+
 .search-overlay {
   position: fixed;
   inset: 0;
