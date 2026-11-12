@@ -24,8 +24,7 @@ const places = computed(() => (isOnline.value ? favorites.favoritePlans.map((pla
 
 <template>
   <div v-if="showApp || places.length" class="place-chips" data-kbd-section="places" data-kbd-axis="x">
-    <!-- TODO: Remove when android app is released -->
-    <button v-if="showApp && false" type="button" class="place-chip app-chip squish" @click="installing = true">
+    <button v-if="showApp" type="button" class="place-chip app-chip squish" @click="installing = true">
       <span class="app-bot"><AndroidIcon class="m-icon size-[18px]" /></span>
       <span>{{ t('getApp') }}</span>
     </button>

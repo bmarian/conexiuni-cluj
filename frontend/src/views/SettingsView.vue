@@ -285,8 +285,7 @@ async function choose(slug: string | null) {
       </div>
     </template>
 
-    <!-- TODO: Remove when android app is released -->
-    <template v-if="offersAndroidApp && false">
+    <template v-if="offersAndroidApp">
       <h2 class="section">{{ t("appSection") }}</h2>
       <div data-kbd-section="app">
         <ListItem
