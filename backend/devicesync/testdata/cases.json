@@ -1011,8 +1011,56 @@
     },
     {
       "kind": "groups",
+      "about": "a round trip, the way back on other lines",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\",391,402]],\"Serviciu\",[[47,\"0\",402,391],[25,\"0\"]]],[[[24,\"0\"]],\"\"]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "groups",
+      "about": "the same way there with another way back is another group",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[[45,\"0\"]]],[[[45,\"1\"]],\"\",[[47,\"0\"]]],[[[45,\"1\"]],\"\"]]}",
+      "outcome": "ok"
+    },
+    {
+      "kind": "groups",
+      "about": "the same round trip twice",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"a\",[[45,\"0\"]]],[[[45,\"1\"]],\"b\",[[45,\"0\"]]]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "a way back in version 2",
+      "json": "{\"v\":2,\"groups\":[[[[45,\"1\",391,402]],\"\",[[45,\"0\"]]]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "version 3 without a way back",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\",391,402]],\"\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "an empty way back",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[]]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "a route twice on the way back",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[[47,\"0\"],[47,\"1\"]]]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
+      "about": "four fields",
+      "json": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[[47,\"0\"]],\"x\"]]}",
+      "outcome": "refuse"
+    },
+    {
+      "kind": "groups",
       "about": "later version",
-      "json": "{\"v\":3,\"groups\":\"all\"}",
+      "json": "{\"v\":4,\"groups\":\"all\"}",
       "outcome": "newer"
     },
     {
@@ -1408,6 +1456,15 @@
       "local": "{\"v\":1,\"groups\":[[[[45,\"1\"],[25,\"1\"]],\"Acasă\"]]}",
       "remote": "{\"v\":1,\"groups\":[[[[45,\"1\"],[25,\"1\"]],\"\"]]}",
       "merged": "{\"v\":1,\"groups\":[[[[45,\"1\"],[25,\"1\"]],\"Acasă\"]]}",
+      "dropped": {}
+    },
+    {
+      "kind": "groups",
+      "about": "a round trip named on one side, a group added on the other",
+      "base": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[[47,\"0\"]]]]}",
+      "local": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"Serviciu\",[[47,\"0\"]]]]}",
+      "remote": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"\",[[47,\"0\"]]],[[[24,\"0\"]],\"\"]]}",
+      "merged": "{\"v\":3,\"groups\":[[[[45,\"1\"]],\"Serviciu\",[[47,\"0\"]]],[[[24,\"0\"]],\"\"]]}",
       "dropped": {}
     },
     {

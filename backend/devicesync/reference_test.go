@@ -201,6 +201,7 @@ type group struct {
 	lines []line
 	name  string
 	to    *spot
+	back  []line
 }
 
 type groupsRecord struct{ groups []group }
@@ -245,6 +246,7 @@ const (
 	cityCap         = 50
 	groupLinesCap   = 10
 	groupsWithStops = 2
+	groupsWithBack  = 3
 	newsCap         = 200
 	recentCap       = 10
 	citySlug        = 40
@@ -616,7 +618,7 @@ func parseGroups(raw string) (groupsRecord, error) {
 	if err != nil {
 		return rec, err
 	}
-	if err := versionUpTo(v, groupsWithStops); err != nil {
+	if err := versionUpTo(v, groupsWithBack); err != nil {
 		return rec, err
 	}
 	m, err := object(v, "v", "groups")
@@ -629,8 +631,8 @@ func parseGroups(raw string) (groupsRecord, error) {
 	}
 	for _, item := range items {
 		f, err := list(item, 5)
-		if err != nil || (len(f) != 2 && len(f) != 5) {
-			return rec, refuse("group is not 2 or 5 fields")
+		if err != nil || len(f) < 2 || len(f) == 4 {
+			return rec, refuse("group is not 2, 3 or 5 fields")
 		}
 		var g group
 		if g.lines, err = parseGroupLines(f[0], parseRide); err != nil {
@@ -638,6 +640,11 @@ func parseGroups(raw string) (groupsRecord, error) {
 		}
 		if g.name, err = text(f[1], 0, 40); err != nil {
 			return rec, err
+		}
+		if len(f) == 3 {
+			if g.back, err = parseGroupLines(f[2], parseRide); err != nil {
+				return rec, err
+			}
 		}
 		if len(f) == 5 {
 			if g.to, err = parseSpot(f[2:]); err != nil {
@@ -926,12 +933,19 @@ func rideID(l line) string {
 	return lineID(l) + "/" + stopID(l.from) + "/" + stopID(l.to)
 }
 
-func groupID(g group) string {
-	ids := make([]string, len(g.lines))
-	for i, l := range g.lines {
+func ridesID(lines []line) string {
+	ids := make([]string, len(lines))
+	for i, l := range lines {
 		ids[i] = rideID(l)
 	}
 	return strings.Join(ids, ",")
+}
+
+func groupID(g group) string {
+	if g.back == nil {
+		return ridesID(g.lines)
+	}
+	return ridesID(g.lines) + "|" + ridesID(g.back)
 }
 
 func coord(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
@@ -992,6 +1006,9 @@ func writeRide(l line) string {
 
 func writeGroup(g group) string {
 	out := "[" + joined(g.lines, writeRide) + "," + quote(g.name)
+	if g.back != nil {
+		out += "," + joined(g.back, writeRide)
+	}
 	if g.to != nil {
 		out += "," + g.to.write()
 	}
@@ -999,13 +1016,15 @@ func writeGroup(g group) string {
 }
 
 func (r groupsRecord) write() string {
-	v := "1"
+	v := 1
 	for _, g := range r.groups {
-		if slices.ContainsFunc(g.lines, hasStops) {
-			v = strconv.Itoa(groupsWithStops)
+		if g.back != nil {
+			v = groupsWithBack
+		} else if v < groupsWithStops && slices.ContainsFunc(g.lines, hasStops) {
+			v = groupsWithStops
 		}
 	}
-	return `{"v":` + v + `,"groups":` + joined(r.groups, writeGroup) + "}"
+	return `{"v":` + strconv.Itoa(v) + `,"groups":` + joined(r.groups, writeGroup) + "}"
 }
 
 func writeDevices(devices []deviceEntry) string {

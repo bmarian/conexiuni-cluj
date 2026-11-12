@@ -8,7 +8,7 @@ import {useUserStore} from '@/stores/user.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useRouteStore} from '@/stores/route.ts'
 import {useScrollStart} from '@/composables/useDrawerScroll.ts'
-import {useStretchLabel} from '@/composables/useGroupBuilder.ts'
+import {readLeg, useStretchLabel, writeEdited} from '@/composables/useGroupBuilder.ts'
 import {useLineGroup} from '@/composables/useLineGroup.ts'
 import {provideLiveBeat} from '@/composables/useLiveBeat.ts'
 import {useShare} from '@/composables/useShare.ts'
@@ -21,9 +21,9 @@ import LineBadge from '@/components/ui/LineBadge.vue'
 import GroupNameDialog from '@/components/GroupNameDialog.vue'
 import type {ChipAction, MenuAction} from '@/components/ui/types.ts'
 import {buildStopInfo, network} from '@/utils/network.ts'
-import {flipLine, type GroupLine, groupKey, groupLabel, groupRoutes, readLines, stretchNames, tripOf, writeLines} from '@/utils/lineGroups.ts'
+import {type GroupLine, groupLabel, groupRoutes, type Leg, legLines, legsKey, legsOf, nearerLeg, readLines, stretchNames, tripOf} from '@/utils/lineGroups.ts'
 import {directedDestination, formatMinutesFromNow} from '@/utils/time.ts'
-import {groupLocation, linePath} from '@/utils/pagePaths.ts'
+import {groupLocation, groupQuery, linePath} from '@/utils/pagePaths.ts'
 import {EditIcon, FavoriteBorderIcon, FavoriteIcon, ShareIcon, SwapHorizIcon, VisibilityIcon, VisibilityOffIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
@@ -31,17 +31,36 @@ const route = useRoute()
 const router = useRouter()
 const favorites = useFavoritesStore()
 const routeStore = useRouteStore()
-const {userTime} = storeToRefs(useUserStore())
+const {userTime, userLocation} = storeToRefs(useUserStore())
 const stretchLabel = useStretchLabel()
 
-const raw = computed(() => String(route.query.linii ?? ''))
-const lines = computed(() => (network.value ? readLines(network.value, raw.value) : []))
-const key = computed(() => groupKey(lines.value))
-const saved = computed(() => favorites.findGroup(lines.value))
+const legs = computed(() => {
+  const index = network.value
+  return index ? legsOf(readLines(index, String(route.query.linii ?? '')), readLines(index, String(route.query.intors ?? ''))) : {lines: []}
+})
+const key = computed(() => legsKey(legs.value))
+const saved = computed(() => favorites.findGroup(legs.value))
+
+// Picked once per group, not on every fix.
+const nearLeg = ref<{key: string; leg: Leg}>()
+watch(
+  [key, userLocation],
+  ([k, loc]) => {
+    if (nearLeg.value?.key !== k && network.value && loc) nearLeg.value = {key: k, leg: nearerLeg(network.value, legs.value, loc)}
+  },
+  {immediate: true},
+)
+const leg = computed<Leg>(() => {
+  if (route.query.sens) return readLeg(route.query.sens)
+  return nearLeg.value?.key === key.value ? nearLeg.value.leg : 'dus'
+})
+const kicker = computed(() => (legs.value.back ? `${t('lineGroups')} · ${t(leg.value === 'dus' ? 'groupLegDus' : 'groupLegIntors')}` : t('lineGroups')))
+const lines = computed(() => legLines(legs.value, leg.value))
 const routes = computed(() => (network.value ? groupRoutes(network.value, lines.value) : []))
 
 const {hidden, toggleHidden, boards, departures, asOfMs} = useLineGroup(lines)
 provideLiveBeat(asOfMs)
+watch(leg, () => (hidden.value = new Set()))
 
 const view = ref<HTMLElement>()
 useScrollStart(view)
@@ -49,7 +68,7 @@ useScrollStart(view)
 watch(
   key,
   (k) => {
-    if (k) favorites.addRecent({lines: lines.value})
+    if (k) favorites.addRecent(legs.value)
   },
   {immediate: true},
 )
@@ -85,13 +104,8 @@ const rows = computed(() =>
 
 const label = (minutes: number) => formatMinutesFromNow(minutes, userTime.value || new Date(), t('now'))
 
-function flip(routeId: number) {
-  const index = network.value
-  if (!index) return
-  const next = lines.value.map((l) => (l.routeId === routeId ? flipLine(index, l) : l))
-  if (saved.value) favorites.replaceGroupLines(lines.value, next)
-  favorites.removeRecent({lines: lines.value})
-  void router.replace(groupLocation(index, next))
+function switchLeg() {
+  if (network.value) void router.replace(groupLocation(network.value, legs.value, leg.value === 'dus' ? 'intors' : 'dus'))
 }
 
 function openLine(line: GroupLine, stopId: number | undefined) {
@@ -104,19 +118,19 @@ function openLine(line: GroupLine, stopId: number | undefined) {
 const naming = ref(false)
 
 function saveNamed(name: string) {
-  favorites.saveGroup(lines.value, name || undefined)
+  favorites.saveGroup(legs.value, name || undefined)
 }
 
 function toggleSaved() {
-  if (saved.value) favorites.removeGroup(lines.value)
+  if (saved.value) favorites.removeGroup(legs.value)
   else naming.value = true
 }
 
 function editLines() {
   const index = network.value
   if (!index) return
-  const linii = writeLines(index, lines.value)
-  void router.replace({name: 'group-pick', query: saved.value ? {linii, schimba: linii} : {linii}})
+  const query = groupQuery(index, legs.value, leg.value)
+  void router.replace({name: 'group-pick', query: saved.value ? {...query, schimba: writeEdited(index, legs.value)} : query})
 }
 
 const {share} = useShare()
@@ -134,6 +148,7 @@ const chips = computed<ChipAction[]>(() => {
       onClick: toggleSaved,
     },
     edit,
+    ...(legs.value.back ? [{label: t('groupFlip'), icon: SwapHorizIcon, kbd: 'leg', onClick: switchLeg}] : []),
     {label: t('share'), icon: ShareIcon, kbd: 'share', onClick: () => void share()},
   ]
 })
@@ -147,7 +162,7 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
 
     <header class="header">
       <h1 class="flex flex-col gap-1.5">
-        <span class="text-label-medium text-primary">{{ t('lineGroups') }}</span>
+        <span class="text-label-medium text-primary">{{ kicker }}</span>
         <span v-if="saved?.name" class="text-headline-small font-bold">{{ saved.name }}</span>
         <span class="flex flex-wrap gap-1.5">
           <LineBadge v-for="r in routes" :key="r.route_id" :name="r.route_short_name" :color="r.route_color" :height="36" :min-width="44" :corner="12" />
@@ -179,16 +194,6 @@ const topMenu = computed<MenuAction[]>(() => (saved.value ? [{label: t('groupRen
         <DepartureTimes v-if="row.departure" :shape="row.departure" :label="label" />
         <span v-else class="text-body-small text-on-surface-variant pt-1">{{ t('groupNoMore') }}</span>
         <template #trailing>
-          <button
-            type="button"
-            class="icon-btn text-on-surface-variant"
-            :aria-label="t('groupFlip')"
-            :title="t('groupFlip')"
-            :data-kbd-item="`flip-${row.line.routeId}`"
-            @click="flip(row.line.routeId)"
-          >
-            <SwapHorizIcon class="m-icon" />
-          </button>
           <button
             type="button"
             class="icon-btn text-on-surface-variant"

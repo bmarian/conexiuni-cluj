@@ -25,7 +25,7 @@ import {type DestinationSummary, fetchDestinations} from '@/utils/destinationPag
 import {searchExamples} from '@/utils/searchExamples.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {groupLocation, stopLocation} from '@/utils/pagePaths.ts'
-import type {GroupLine} from '@/utils/lineGroups.ts'
+import type {GroupLegs} from '@/utils/lineGroups.ts'
 import {ArrowBackIcon, CloseIcon, DirectionsBusIcon, KeyboardArrowRightIcon, MapIcon, PlaceIcon, PushPinIcon, ScheduleIcon} from '@/utils/icons.ts'
 import SubLabel from '@/components/ui/SubLabel.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
@@ -251,9 +251,9 @@ function openStop(stop: Stop) {
   })
 }
 
-function openGroup(lines: GroupLine[]) {
+function openGroup(legs: GroupLegs) {
   const index = network.value
-  if (index) go(() => void router.push(groupLocation(index, lines)))
+  if (index) go(() => void router.push(groupLocation(index, legs)))
 }
 
 function pickRoute(route: Route) {

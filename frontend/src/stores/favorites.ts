@@ -9,7 +9,7 @@ import {network} from '@/utils/network.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {CITY_CAP, RECENT_CAP, roundCoordinate, validId} from '@/utils/sync/records.ts'
-import {groupKey, type GroupLine, withStops} from '@/utils/lineGroups.ts'
+import {type GroupLegs, type GroupLine, legsKey, legsOf, withStops} from '@/utils/lineGroups.ts'
 import {useSettingsStore} from '@/stores/settings'
 import {translate} from '@/i18n'
 import {readSaved} from '@/utils/storage.ts'
@@ -31,17 +31,16 @@ export interface FavoritePlan {
   originLon?: number
 }
 
-export type Recent = FavoritePlan | {stopId: number} | {routeId: number} | {lines: GroupLine[]}
+export type Recent = FavoritePlan | {stopId: number} | {routeId: number} | GroupLegs
 
 export function recentKey(r: Recent): string {
   if ('stopId' in r) return `stop-${r.stopId}`
   if ('routeId' in r) return `route-${r.routeId}`
-  if ('lines' in r) return `group-${groupKey(r.lines)}`
+  if ('lines' in r) return `group-${legsKey(r)}`
   return `${r.lat}_${r.lon}_${r.originLat ?? ''}_${r.originLon ?? ''}`
 }
 
-export interface FavoriteGroup {
-  lines: GroupLine[]
+export interface FavoriteGroup extends GroupLegs {
   name?: string
 }
 
@@ -98,7 +97,7 @@ export function parseGroups(raw: unknown): FavoriteGroup[] {
   return raw.flatMap((item): FavoriteGroup[] => {
     const lines = groupLines(item?.lines)
     if (!lines.length) return []
-    const group: FavoriteGroup = {lines}
+    const group: FavoriteGroup = legsOf(lines, groupLines(item.back))
     if (typeof item.name === 'string' && item.name.trim()) group.name = item.name.trim()
     return [group]
   })
@@ -118,7 +117,7 @@ export function parseRecents(raw: unknown): Recent[] {
   return raw.flatMap((r): Recent[] => {
     if (Number.isInteger(r?.stopId) || Number.isInteger(r?.routeId) || parsePlans([r]).length > 0) return [r]
     const lines = groupLines(r?.lines)
-    return lines.length ? [{lines}] : []
+    return lines.length ? [legsOf(lines, groupLines(r.back))] : []
   })
 }
 
@@ -256,35 +255,37 @@ export const useFavoritesStore = defineStore('favorites', () => {
     }
   }
 
-  function findGroup(lines: GroupLine[]): FavoriteGroup | undefined {
-    const key = groupKey(lines)
-    return favoriteGroups.value.find((g) => groupKey(g.lines) === key)
+  function findGroup(legs: GroupLegs): FavoriteGroup | undefined {
+    const key = legsKey(legs)
+    return favoriteGroups.value.find((g) => legsKey(g) === key)
   }
 
-  function saveGroup(lines: GroupLine[], name?: string) {
-    if (!lines.length) return
-    const group = findGroup(lines)
+  function saveGroup(legs: GroupLegs, name?: string) {
+    if (!legs.lines.length) return
+    const group = findGroup(legs)
     if (group) {
       group.name = name || undefined
     } else {
       if (atCap(favoriteGroups.value)) return
-      favoriteGroups.value.push(name ? {lines, name} : {lines})
+      favoriteGroups.value.push({...legsOf(legs.lines, legs.back), ...(name ? {name} : {})})
     }
     persistGroups()
   }
 
-  function removeGroup(lines: GroupLine[]) {
-    const key = groupKey(lines)
-    favoriteGroups.value = favoriteGroups.value.filter((g) => groupKey(g.lines) !== key)
+  function removeGroup(legs: GroupLegs) {
+    const key = legsKey(legs)
+    favoriteGroups.value = favoriteGroups.value.filter((g) => legsKey(g) !== key)
     persistGroups()
   }
 
-  function replaceGroupLines(from: GroupLine[], lines: GroupLine[]) {
+  function replaceGroup(from: GroupLegs, legs: GroupLegs) {
     const group = findGroup(from)
     if (!group) return
-    const taken = findGroup(lines)
+    const taken = findGroup(legs)
     if (taken && taken !== group) favoriteGroups.value = favoriteGroups.value.filter((g) => g !== taken)
-    group.lines = lines
+    group.lines = legs.lines
+    if (legs.back?.length) group.back = legs.back
+    else delete group.back
     persistGroups()
   }
 
@@ -397,7 +398,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     findGroup,
     saveGroup,
     removeGroup,
-    replaceGroupLines,
+    replaceGroup,
     reorderGroups,
     importGroups,
     reorderRoutes,

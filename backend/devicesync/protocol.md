@@ -151,7 +151,13 @@ A line followed between two of its stops is `[route id, "0" or "1", from, to]`: 
 {"v": 2, "groups": [[[[45, "1", 391, 402], [25, "1"]], "Acasă"]]}
 ```
 
-A group in `recents:<slug>` (§4.5) never carries stops: a device that has a group with the same lines, saved or recent, opens that one.
+A round trip has its own lines for the way back: `[lines, name, back]`, where `back` follows the rules of `lines`. The way there and the way back together make its identity, so the same lines with another way back, or none, are another group. The record is `"v": 3` exactly when at least one group has a way back.
+
+```json
+{"v": 3, "groups": [[[[45, "1", 391, 402]], "Serviciu", [[47, "0", 402, 391], [25, "0"]]]]}
+```
+
+A group in `recents:<slug>` (§4.5) never carries stops or a way back: a device that has a group with the same lines, saved or recent, opens that one.
 
 ### 4.10 `home`
 

@@ -18,7 +18,7 @@ export type NewsRecord = {seen: number[]}
 export type RecentItem = {kind: 'stop' | 'line'; id: number} | {kind: 'group'; lines: Line[]} | {kind: 'place'; place: Place}
 export type RecentsRecord = {recent: RecentItem[]}
 export type RideLine = Line & {from?: number; to?: number}
-export type Group = {lines: RideLine[]; name: string; to?: Spot}
+export type Group = {lines: RideLine[]; name: string; to?: Spot; back?: RideLine[]}
 export type GroupsRecord = {groups: Group[]}
 export type DeviceKind = 'web' | 'android' | 'wear'
 export type DeviceEntry = {id: string; kind: DeviceKind; label: string; pub: string}
@@ -130,7 +130,8 @@ export function recentId(r: RecentItem): string {
 }
 const hasStops = (l: RideLine) => l.from !== undefined || l.to !== undefined
 const rideId = (l: RideLine) => (hasStops(l) ? `${lineId(l)}/${l.from ?? ''}/${l.to ?? ''}` : lineId(l))
-export const groupId = (g: Group) => g.lines.map(rideId).join(',')
+const ridesId = (lines: RideLine[]) => lines.map(rideId).join(',')
+export const groupId = (g: Group) => (g.back ? `${ridesId(g.lines)}|${ridesId(g.back)}` : ridesId(g.lines))
 
 // Parses, checks the rules and the canonical form; the version check comes first, so a later shape is "newer", not refused.
 function read<T>(raw: string, parse: (record: unknown) => T, write: (value: T) => string, latest = 1): Read<T> {
@@ -246,8 +247,9 @@ export const readRecents = (raw: string) => read(raw, parseRecents, writeRecents
 function parseGroups(record: unknown): GroupsRecord {
   const groups = list(object(record, 'v', 'groups').groups, CITY_CAP).map((item): Group => {
     const f = list(item, 5)
-    if (f.length !== 2 && f.length !== 5) refuse('group')
+    if (f.length < 2 || f.length === 4) refuse('group')
     const group: Group = {lines: parseGroupLines(f[0], parseRide), name: text(f[1], 0, 40)}
+    if (f.length === 3) group.back = parseGroupLines(f[2], parseRide)
     if (f.length === 5) group.to = parseSpot(f.slice(2))
     return group
   })
@@ -256,14 +258,16 @@ function parseGroups(record: unknown): GroupsRecord {
 }
 
 const GROUPS_WITH_STOPS = 2
+const GROUPS_WITH_BACK = 3
 
-// Version 1 while no line has stops, so apps that only know it keep syncing.
+// The lowest version that fits, so older apps keep syncing.
 export function writeGroups(r: GroupsRecord): string {
-  const v = r.groups.some((g) => g.lines.some(hasStops)) ? GROUPS_WITH_STOPS : 1
-  return JSON.stringify({v, groups: r.groups.map((g) => [g.lines.map(rideFields), g.name, ...spotFields(g.to)])})
+  const v = r.groups.some((g) => g.back) ? GROUPS_WITH_BACK : r.groups.some((g) => g.lines.some(hasStops)) ? GROUPS_WITH_STOPS : 1
+  const back = (g: Group) => (g.back ? [g.back.map(rideFields)] : [])
+  return JSON.stringify({v, groups: r.groups.map((g) => [g.lines.map(rideFields), g.name, ...back(g), ...spotFields(g.to)])})
 }
 
-export const readGroups = (raw: string) => read(raw, parseGroups, writeGroups, GROUPS_WITH_STOPS)
+export const readGroups = (raw: string) => read(raw, parseGroups, writeGroups, GROUPS_WITH_BACK)
 
 // Groups paired with the old watch app still list a 'wear' device.
 const KINDS: DeviceKind[] = ['web', 'android', 'wear']

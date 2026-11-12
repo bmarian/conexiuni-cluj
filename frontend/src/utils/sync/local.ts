@@ -4,7 +4,7 @@ import {useRouteUpdatesStore} from '@/stores/routeUpdates'
 import {useSettingsStore} from '@/stores/settings'
 import {i18n, translate} from '@/i18n'
 import {chooseCity, cities, cityChoice, cityToOpen, currentCity, knownCity} from '@/utils/city.ts'
-import {groupKey, type GroupLine, withStops} from '@/utils/lineGroups.ts'
+import {groupKey, type GroupLegs, type GroupLine, legsOf, withStops} from '@/utils/lineGroups.ts'
 import {applyHomeLayout, homeLayout} from '@/composables/useHomeSections.ts'
 import {
   blankEnd,
@@ -152,14 +152,15 @@ export const recentsFromLocal = (slug: string): RecentsRecord => ({
 
 export const isEmptyRecents = (r: RecentsRecord) => !r.recent.length
 
-// Recents carry no stops: a known group with the same lines keeps its own.
+// A known group with the same lines keeps its stops and way back.
 export function applyRecents(slug: string, r: RecentsRecord) {
   const saved = savedFavorites(slug)
-  const known = [...saved.recentPlans.flatMap((recent) => ('lines' in recent ? [recent.lines] : [])), ...saved.groups.map((g) => g.lines)]
+  const known: GroupLegs[] = [...saved.recentPlans.flatMap((recent) => ('lines' in recent ? [recent] : [])), ...saved.groups]
   const withKnownStops = (recent: Recent): Recent => {
     if (!('lines' in recent)) return recent
     const key = groupKey(recent.lines)
-    return {lines: known.find((lines) => groupKey(fromLines(toLines(lines))) === key) ?? recent.lines}
+    const legs = known.find((k) => groupKey(fromLines(toLines(k.lines))) === key)
+    return legs ? legsOf(legs.lines, legs.back) : recent
   }
   useFavoritesStore().importRecents(r.recent.map(toRecent).map(withKnownStops), slug)
 }
@@ -183,11 +184,12 @@ const fromLines = (lines: RideLine[]): GroupLine[] => lines.map((l) => withStops
 function toGroup(g: FavoriteGroup): Group | null {
   const lines = toRides(g.lines)
   if (!lines.length) return null
-  return {lines, name: cleanText(g.name, 40)}
+  const back = toRides(g.back ?? [])
+  return {lines, name: cleanText(g.name, 40), ...(back.length ? {back} : {})}
 }
 
 function fromGroup(g: Group): FavoriteGroup {
-  const group: FavoriteGroup = {lines: fromLines(g.lines)}
+  const group: FavoriteGroup = legsOf(fromLines(g.lines), g.back && fromLines(g.back))
   if (g.name) group.name = g.name
   return group
 }

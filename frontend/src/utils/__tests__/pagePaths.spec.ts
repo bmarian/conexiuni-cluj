@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {RouteLocationNormalized} from 'vue-router'
 import {network, NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
 import {currentCity} from '@/utils/city.ts'
-import {lineCanonicalPath, lineProps, linePath, stationProps, stationsProps, stopPath, stopsPath} from '@/utils/pagePaths.ts'
+import {groupQuery, lineCanonicalPath, lineProps, linePath, stationProps, stationsProps, stopPath, stopsPath} from '@/utils/pagePaths.ts'
 
 const stop = (stop_id: number, station_id: number, slug?: string) => ({stop_id, station_id, slug, stop_name: 'Piața Unirii'})
 
@@ -65,5 +65,15 @@ describe('page paths', () => {
     expect(lineProps(at({line: '24b', direction: ''}))).toEqual({routeId: '7', direction: '0'})
     expect(lineProps(at({line: '24b', direction: 'intors'}))).toEqual({routeId: '7', direction: '1'})
     expect(lineProps(at({line: '24b', direction: 'auto'}))).toEqual({routeId: '7', direction: 'auto'})
+  })
+})
+
+describe('group addresses', () => {
+  it('keeps a chosen leg, so the page does not pick the nearer one again', () => {
+    const index = new NetworkIndex(bundle)
+    const legs = {lines: [{routeId: 7, direction: '0' as const}], back: [{routeId: 8, direction: '1' as const}]}
+    expect(groupQuery(index, legs)).toEqual({linii: '24b', intors: '~8.intors'})
+    expect(groupQuery(index, legs, 'dus')).toEqual({linii: '24b', intors: '~8.intors', sens: 'dus'})
+    expect(groupQuery(index, legs, 'intors')).toEqual({linii: '24b', intors: '~8.intors', sens: 'intors'})
   })
 })

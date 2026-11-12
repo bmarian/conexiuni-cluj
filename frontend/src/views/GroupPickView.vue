@@ -5,30 +5,39 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useScrollStart} from '@/composables/useDrawerScroll.ts'
-import {useGroupBuilder} from '@/composables/useGroupBuilder.ts'
+import {readEdited, useGroupBuilder} from '@/composables/useGroupBuilder.ts'
 import {useGroupShapes} from '@/composables/useGroupShapes.ts'
 import {usePhoneSheet} from '@/composables/usePhoneSheet.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
+import ChoiceRow from '@/components/ui/ChoiceRow.vue'
 import ListRow from '@/components/ui/ListRow.vue'
 import RowIcon from '@/components/ui/RowIcon.vue'
 import BusCard from '@/components/rows/BusCard.vue'
+import type {Choice} from '@/components/ui/types.ts'
 import {network} from '@/utils/network.ts'
-import {readLines} from '@/utils/lineGroups.ts'
+import type {Leg} from '@/utils/lineGroups.ts'
 import {groupLocation} from '@/utils/pagePaths.ts'
 import {directedDestination} from '@/utils/time.ts'
-import {AddIcon, CloseIcon} from '@/utils/icons.ts'
+import {AddIcon, CloseIcon, SwapHorizIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 const router = useRouter()
 const favorites = useFavoritesStore()
 const phone = usePhoneSheet()
-const {lines, editing, openAdd, openStops, showGroup, stretchLabel} = useGroupBuilder()
+const {legs, leg, lines, editing, openAdd, openStops, showGroup, showLeg, fillBack, stretchLabel} = useGroupBuilder()
 useGroupShapes(lines)
 
 useHead(() => ({title: `${t('lineGroups')} | Ce autobuz iau?`, meta: [{name: 'robots', content: 'noindex'}]}))
 
 const view = ref<HTMLElement>()
 useScrollStart(view)
+
+const legChoices = computed<Choice<Leg>[]>(() => [
+  {value: 'dus', label: t('groupLegDus')},
+  {value: 'intors', label: t('groupLegIntors')},
+])
+
+const offersBack = computed(() => leg.value === 'intors' && !lines.value.length && legs.value.lines.length > 0)
 
 const rows = computed(() =>
   lines.value.flatMap((line) => {
@@ -43,9 +52,9 @@ function remove(routeId: number) {
 
 function show() {
   const index = network.value
-  if (!index || !lines.value.length) return
-  if (editing.value) favorites.replaceGroupLines(readLines(index, editing.value), lines.value)
-  void router.replace(groupLocation(index, lines.value))
+  if (!index || !legs.value.lines.length) return
+  if (editing.value) favorites.replaceGroup(readEdited(index, editing.value), legs.value)
+  void router.replace(groupLocation(index, legs.value))
 }
 </script>
 
@@ -53,6 +62,7 @@ function show() {
   <div ref="view" class="has-bottom-bar">
     <SheetTopBar :title="t('lineGroups')" />
     <h1 class="text-title-large font-bold px-4 pb-2">{{ t('lineGroups') }}</h1>
+    <ChoiceRow :model-value="leg" :options="legChoices" kbd="leg" class="mx-4 mb-2" @update:model-value="showLeg" />
 
     <section class="flex flex-col" data-kbd-section="lines" data-kbd-axis="grid" data-kbd-entry="1">
       <BusCard
@@ -79,6 +89,11 @@ function show() {
           </button>
         </template>
       </BusCard>
+      <ListRow v-if="offersBack" :title="t('groupSameBack')" data-kbd-item="same-back" @open="fillBack">
+        <template #icon>
+          <RowIcon :icon="SwapHorizIcon" tone="primary" />
+        </template>
+      </ListRow>
       <ListRow v-if="!phone" :title="t('groupAddLine')" data-kbd-item="add" @open="openAdd">
         <template #icon>
           <RowIcon :icon="AddIcon" tone="primary" />
@@ -92,7 +107,7 @@ function show() {
         <AddIcon class="m-icon" />
         {{ t('groupAddLine') }}
       </button>
-      <button type="button" class="btn btn-filled flex-1" :disabled="!lines.length" data-kbd-item="show" @click="show">{{ t('groupShow') }}</button>
+      <button type="button" class="btn btn-filled flex-1" :disabled="!legs.lines.length" data-kbd-item="show" @click="show">{{ t('groupShow') }}</button>
     </div>
   </div>
 </template>

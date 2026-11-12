@@ -6,6 +6,10 @@ import {GROUP_LINES_CAP, validId} from '@/utils/sync/records.ts'
 // No from: the stop nearest you. No to: the end of the line.
 export type GroupLine = {routeId: number; direction: RouteDirection; from?: number; to?: number}
 
+export type GroupLegs = {lines: GroupLine[]; back?: GroupLine[]}
+
+export type Leg = 'dus' | 'intors'
+
 export type StretchEnd = 'from' | 'to'
 
 export type StopRole = 'board' | 'near' | 'leave' | 'pass'
@@ -23,6 +27,12 @@ const hasStops = (line: GroupLine) => line.from !== undefined || line.to !== und
 export const lineKey = (line: GroupLine) => `${line.routeId}/${line.direction}${hasStops(line) ? `/${line.from ?? ''}/${line.to ?? ''}` : ''}`
 
 export const groupKey = (lines: GroupLine[]) => lines.map(lineKey).join(',')
+
+export const legsKey = (legs: GroupLegs) => (legs.back?.length ? `${groupKey(legs.lines)}|${groupKey(legs.back)}` : groupKey(legs.lines))
+
+export const legsOf = (lines: GroupLine[], back: GroupLine[] | undefined): GroupLegs => (back?.length ? {lines, back} : {lines})
+
+export const legLines = (legs: GroupLegs, leg: Leg) => (leg === 'intors' ? (legs.back ?? []) : legs.lines)
 
 export const withStops = (line: GroupLine, from: number | undefined, to: number | undefined): GroupLine => ({
   routeId: line.routeId,
@@ -104,6 +114,21 @@ export function boardingStop(index: NetworkIndex, line: GroupLine, loc: UserLoca
     }
   }
   return best
+}
+
+function boardingDistance(index: NetworkIndex, lines: GroupLine[], loc: UserLocation): number {
+  return Math.min(
+    ...lines.map((line) => {
+      const stop = index.stopById.get(boardingStop(index, line, loc) ?? -1)
+      return stop ? haversineMeters(loc.latitude, loc.longitude, stop.stop_lat, stop.stop_lon) : Infinity
+    }),
+  )
+}
+
+// The way there on a tie.
+export function nearerLeg(index: NetworkIndex, legs: GroupLegs, loc: UserLocation): Leg {
+  if (!legs.back?.length) return 'dus'
+  return boardingDistance(index, legs.back, loc) < boardingDistance(index, legs.lines, loc) ? 'intors' : 'dus'
 }
 
 export function stretchNames(index: NetworkIndex, line: GroupLine): {from?: string; to?: string} {

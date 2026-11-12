@@ -3,7 +3,7 @@ import {computed} from 'vue'
 import type {Route, Stop} from '@/types/tranzy.ts'
 import {useFavoritesStore} from '@/stores/favorites.ts'
 import {network} from '@/utils/network.ts'
-import {type GroupLine, groupLabel, groupRoutes} from '@/utils/lineGroups.ts'
+import {type GroupLegs, groupLabel, groupRoutes} from '@/utils/lineGroups.ts'
 import StationIcon from '@/components/StationIcon.vue'
 import StationLines from '@/components/rows/StationLines.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
@@ -18,7 +18,7 @@ const {
   route,
   group,
   byKind = false,
-} = defineProps<{route?: Route; stop?: Stop; group?: GroupLine[]; iconSize?: number; removeLabel?: string; busy?: boolean; byKind?: boolean}>()
+} = defineProps<{route?: Route; stop?: Stop; group?: GroupLegs; iconSize?: number; removeLabel?: string; busy?: boolean; byKind?: boolean}>()
 defineEmits<{open: []; remove: []}>()
 
 const favorites = useFavoritesStore()
@@ -26,7 +26,7 @@ const {t} = useI18n()
 const kind = computed(() => (!byKind ? undefined : stop ? t('recentKindStop') : route ? t('route') : t('lineGroups')))
 
 const look = computed(() => (stop ? network.value?.look(stop.stop_id) : undefined))
-const groupLines = computed(() => (group && network.value ? groupRoutes(network.value, group) : []))
+const groupLines = computed(() => (group && network.value ? groupRoutes(network.value, group.lines) : []))
 const title = computed(() => {
   const name = stop?.stop_name ?? (route && (byKind ? route.route_short_name : route.route_long_name)) ?? (group && favorites.findGroup(group)?.name)
   return name ?? (byKind && group ? groupLabel(groupLines.value) : undefined)

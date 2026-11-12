@@ -1,7 +1,20 @@
 import {describe, expect, it} from 'vitest'
 import {NetworkIndex, type NetworkBundle} from '@/utils/network.ts'
 import type {Shape} from '@/types/tranzy.ts'
-import {boardingStop, flipLine, groupKey, pickStop, readLines, stopRows, stretchNames, withStops, writeLines} from '@/utils/lineGroups.ts'
+import {
+  boardingStop,
+  flipLine,
+  groupKey,
+  legsKey,
+  legsOf,
+  nearerLeg,
+  pickStop,
+  readLines,
+  stopRows,
+  stretchNames,
+  withStops,
+  writeLines,
+} from '@/utils/lineGroups.ts'
 import {pastStretch, stretchShape, stretchSpan} from '@/utils/lineStretch.ts'
 
 const stop = (stop_id: number) => ({stop_id, stop_name: `S${stop_id}`, stop_lat: 46.77 + stop_id / 1000, stop_lon: 23.6, station_id: stop_id})
@@ -54,6 +67,25 @@ describe('boarding stop', () => {
     const a = {routeId: 1, direction: '1' as const}
     expect(boardingStop(index, withStops(a, 4, undefined), near(1))).toBe(4)
     expect(boardingStop(index, withStops(a, undefined, 3), near(6))).toBe(2)
+  })
+})
+
+describe('round trips', () => {
+  const there = [withStops({routeId: 1, direction: '1' as const}, 1, 3)]
+  const back = [withStops({routeId: 1, direction: '0' as const}, 3, 1)]
+  const at = (stopId: number) => ({latitude: 46.77 + stopId / 1000, longitude: 23.6})
+
+  it('keeps a group without a way back one-way', () => {
+    expect(legsOf(there, [])).toEqual({lines: there})
+    expect(legsKey(legsOf(there, back))).not.toBe(legsKey({lines: there}))
+  })
+
+  it('opens on the leg you board nearest to, the way there on a tie', () => {
+    const legs = legsOf(there, back)
+    expect(nearerLeg(index, legs, at(1))).toBe('dus')
+    expect(nearerLeg(index, legs, at(3))).toBe('intors')
+    expect(nearerLeg(index, legsOf(there, there), at(3))).toBe('dus')
+    expect(nearerLeg(index, {lines: there}, at(3))).toBe('dus')
   })
 })
 

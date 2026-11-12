@@ -26,7 +26,7 @@ import PlaceChips from '@/components/home/PlaceChips.vue'
 import FirstSteps from '@/components/home/FirstSteps.vue'
 import {useFirstSteps} from '@/composables/useFirstSteps.ts'
 import {useFavoriteDrag} from '@/composables/useFavoriteDrag.ts'
-import {groupKey, type GroupLine, groupRoutes} from '@/utils/lineGroups.ts'
+import {type GroupLegs, groupRoutes, legsKey} from '@/utils/lineGroups.ts'
 import {CheckIcon, MapIcon, SwapHorizIcon} from '@/utils/icons.ts'
 import {planQuery} from '@/utils/planQuery.ts'
 import {placeIcon} from '@/utils/placeLabel.ts'
@@ -118,8 +118,8 @@ const groupLines = computed(() => {
   return index ? favoriteGroups.value.map((g) => groupRoutes(index, g.lines)) : []
 })
 
-function openGroup(lines: GroupLine[]) {
-  if (network.value) void router.push(groupLocation(network.value, lines))
+function openGroup(legs: GroupLegs) {
+  if (network.value) void router.push(groupLocation(network.value, legs))
 }
 
 const recents = useRecents(RECENTS_SHOWN)
@@ -201,7 +201,7 @@ const arranging = ref(false)
 const kbd = useKeyboardNav()
 
 const favRouteItemKey = (group: FavoriteRouteGroup) => `fav-route-${group.routeId}`
-const favGroupItemKey = (group: FavoriteGroup) => `fav-group-${groupKey(group.lines)}`
+const favGroupItemKey = (group: FavoriteGroup) => `fav-group-${legsKey(group)}`
 const favStopItemKey = (id: number) => `fav-stop-${id}`
 const planKey = (p: FavoritePlan) => `${p.lat}_${p.lon}_${p.originLat ?? ''}_${p.originLon ?? ''}`
 const favPlanItemKey = (p: FavoritePlan) => `fav-plan-${planKey(p)}`
@@ -218,7 +218,7 @@ function removeFocused(): boolean {
   const plan = favoritePlans.value.find((p) => favPlanItemKey(p) === key)
   const recent = recents.value.find((item) => recentItemKey(item) === key)
   const lineGroup = favoriteGroups.value.find((g) => favGroupItemKey(g) === key)
-  if (lineGroup) removeWithUndo(() => favoritesStore.removeGroup(lineGroup.lines))
+  if (lineGroup) removeWithUndo(() => favoritesStore.removeGroup(lineGroup))
   else if (group) removeWithUndo(() => removeRouteGroup(group))
   else if (stopId !== undefined) removeWithUndo(() => favoritesStore.toggleStopFavorite(stopId))
   else if (plan && isOnline.value) removeWithUndo(() => favoritesStore.togglePlanFavorite(plan))
@@ -351,7 +351,7 @@ const sectionDragOptions = computed(() => ({
             <div v-else-if="id === 'groups'" data-kbd-section="fav-groups" data-kbd-entry="1">
               <Draggable
                 v-model="groupFavoritesModel"
-                :item-key="(g: FavoriteGroup) => groupKey(g.lines)"
+                :item-key="legsKey"
                 class="fav-list"
                 tag="div"
                 v-bind="dragOptions"
@@ -359,11 +359,7 @@ const sectionDragOptions = computed(() => ({
                 @end="holdEnd('groups', $event)"
               >
                 <template #item="{element: group, index: i}">
-                  <ListRow
-                    :title="group.name"
-                    :data-kbd-item="favGroupItemKey(group)"
-                    @open="openGroup(group.lines)"
-                  >
+                  <ListRow :title="group.name" :data-kbd-item="favGroupItemKey(group)" @open="openGroup(group)">
                     <template #lines>
                       <StationLines :routes="groupLines[i] ?? []" />
                     </template>

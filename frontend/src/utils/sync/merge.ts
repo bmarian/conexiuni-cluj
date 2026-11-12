@@ -76,7 +76,7 @@ const toId = (g: Group) => (g.to ? [g.to.name, g.to.lat, g.to.lon].join('\n') : 
 
 function mergeGroup(base: Group | undefined, local: Group, remote: Group): Group {
   const to = pick(base && toId(base), toId(local), toId(remote), !!base) === toId(remote) ? remote.to : local.to
-  return {lines: remote.lines, name: pick(base?.name, local.name, remote.name, !!base), ...(to ? {to} : {})}
+  return {lines: remote.lines, name: pick(base?.name, local.name, remote.name, !!base), ...(remote.back ? {back: remote.back} : {}), ...(to ? {to} : {})}
 }
 
 export function mergeGroups(base: GroupsRecord, local: GroupsRecord, remote: GroupsRecord): {merged: GroupsRecord; dropped: Group[]} {
