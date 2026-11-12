@@ -274,13 +274,15 @@ const whenAiming = async (m: MapLibreMap) => {
 
 const grow = (m: MapLibreMap, id: string, line: LineSpec) => {
   if (reducedMotion()) return
-  const starts = [growLine(m, id, line.color), ...growRails(m, id)]
+  const start = growLine(m, id, line.color)
+  growRails(m, id)
   const growth = lineReveal.grow(id, pathAlong(line.coords), line.name)
   revealAll()
   void whenAiming(m).then(() => {
     const at = lineReveal.start(id, growth)
     if (at === undefined) return
-    for (const start of starts) start()
+    start(at)
+    growRails(m, id)
     revealAll(at)
   })
 }
@@ -293,6 +295,7 @@ const syncLines = (group: LineGroup) => {
   for (let i = lines[group].length; i < shown.length; i++) {
     const id = `${OVERLAY}${group}-${i}`
     lineReveal.end(id)
+    stopSweep(m, id)
     dropRails(m, id)
     if (m.getLayer(id)) m.removeLayer(id)
     if (m.getSource(id)) m.removeSource(id)

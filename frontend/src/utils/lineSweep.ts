@@ -13,6 +13,8 @@ export const solid = (color: string): Paint => [{at: 0, color}]
 
 const sweeps = new Map<string, number>()
 const paints = new Map<string, Paint>()
+// Undefined while the grown line waits to start.
+const growing = new Map<string, number | undefined>()
 
 export const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
 
@@ -34,6 +36,7 @@ export function stopSweep(m: MapLibreMap, id: string) {
   if (frame === undefined) return
   cancelAnimationFrame(frame)
   sweeps.delete(id)
+  growing.delete(id)
   if (m.getLayer(id)) settle(m, id)
 }
 
@@ -43,10 +46,9 @@ export function paintLine(m: MapLibreMap, id: string, paint?: Paint) {
   if (!sweeps.has(id) && m.getLayer(id)) settle(m, id)
 }
 
-function animate(m: MapLibreMap, id: string, gradientAt: (done: number) => ExpressionSpecification) {
+function animate(m: MapLibreMap, id: string, gradientAt: (done: number) => ExpressionSpecification, start = performance.now()) {
   stopSweep(m, id)
   m.setPaintProperty(id, 'line-gradient', gradientAt(0))
-  const start = performance.now()
   const frame = (now: number) => {
     const t = (now - start) / SWEEP_MS
     if (t >= 1 || !m.getLayer(id)) return stopSweep(m, id)
@@ -68,11 +70,22 @@ export function sweepLine(m: MapLibreMap, id: string, from: string, to: string, 
   animate(m, id, (done) => gradient(was, paints.get(id) ?? solid(to), done, backwards))
 }
 
-export function growLine(m: MapLibreMap, id: string, color: string): () => void {
+export function growLine(m: MapLibreMap, id: string, color: string): (start?: number) => void {
   stopSweep(m, id)
   const paint = () => paints.get(id) ?? solid(color)
   m.setPaintProperty(id, 'line-gradient', gradient(solid(CLEAR), paint(), 0, false))
   // So stopSweep clears the hidden line too.
   sweeps.set(id, 0)
-  return () => animate(m, id, (done) => gradient(solid(CLEAR), paint(), done, false))
+  growing.set(id, undefined)
+  return (start = performance.now()) => {
+    animate(m, id, (done) => gradient(solid(CLEAR), paint(), done, false), start)
+    growing.set(id, start)
+  }
+}
+
+export function followGrowth(m: MapLibreMap, id: string, lead: string) {
+  if (!growing.has(lead)) return
+  const start = growLine(m, id, CLEAR)
+  const at = growing.get(lead)
+  if (at !== undefined) start(at)
 }

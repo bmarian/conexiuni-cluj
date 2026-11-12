@@ -1,5 +1,5 @@
 import type {Map as MapLibreMap} from 'maplibre-gl'
-import {CLEAR, growLine, paintLine, stopSweep} from '@/utils/lineSweep.ts'
+import {CLEAR, followGrowth, paintLine, stopSweep} from '@/utils/lineSweep.ts'
 import {type Traffic, trafficPaint} from '@/utils/traffic.ts'
 
 const GAP = 1.5
@@ -18,12 +18,14 @@ export function syncRails(m: MapLibreMap, id: string, line: {coords: [number, nu
       dropRail(m, rid)
       continue
     }
-    if (!m.getLayer(rid)) {
+    const added = !m.getLayer(rid)
+    if (added) {
       const layout = {'line-cap': 'round', 'line-join': 'round'} as const
       m.addLayer({id: rid, type: 'line', source: id, layout, paint: {'line-color': CLEAR, 'line-width': width}}, id)
     }
     m.setPaintProperty(rid, 'line-gap-width', line.width + 2 * GAP)
     paintLine(m, rid, trafficPaint(stretches, line.coords, CLEAR))
+    if (added) followGrowth(m, rid, id)
   }
 }
 
@@ -37,7 +39,6 @@ export function dropRails(m: MapLibreMap, id: string) {
   for (const {band} of RAILS) dropRail(m, railId(id, band))
 }
 
-export const growRails = (m: MapLibreMap, id: string) =>
-  RAILS.map(({band}) => railId(id, band))
-    .filter((rid) => m.getLayer(rid))
-    .map((rid) => growLine(m, rid, CLEAR))
+export function growRails(m: MapLibreMap, id: string) {
+  for (const {band} of RAILS) if (m.getLayer(railId(id, band))) followGrowth(m, railId(id, band), id)
+}
