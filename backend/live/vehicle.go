@@ -44,6 +44,7 @@ func (eng *Engine) observeVehicles(source feeds.Realtime) ([]models.Vehicle, err
 	if err := eng.storeVehiclesInDB(smoothed); err != nil {
 		eng.log("vehicles: store: %v", err)
 	}
+	eng.followEndedTrips(smoothed)
 	table := eng.RecomputeLive(smoothed, time.Now())
 	// Arrivals of this poll are scored against what was shown before it.
 	eng.running().Go(func() {

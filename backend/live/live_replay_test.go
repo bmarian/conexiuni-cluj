@@ -72,6 +72,7 @@ func TestReplayLiveRows(t *testing.T) {
 			carryTripChange(v, prev, had)
 			previous[v.ID] = *v
 		}
+		eng.followEndedTrips(frame.Vehicles)
 		table := eng.RecomputeLive(frame.Vehicles, at)
 		eng.liveTrips.RLock()
 		trips := eng.liveTrips.byTrip

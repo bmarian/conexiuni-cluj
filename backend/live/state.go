@@ -34,6 +34,7 @@ type engineState struct {
 	turnaroundWrites     turnaroundWritesState
 	turnaroundCache      turnaroundCacheState
 	turnaroundPrune      throttle
+	endedTrips           endedTripsState
 }
 
 func newEngineState() engineState {
@@ -49,6 +50,7 @@ func newEngineState() engineState {
 		tripSegmentTrackers:  tripSegmentTrackersState{byTrip: make(map[string]*tripSegmentTracker)},
 		vehicleSegmentStates: vehicleSegmentsState{byVehicle: make(map[int]vehicleSegmentState)},
 		turnaroundPending:    turnaroundPendingState{byVehicle: make(map[int]pendingTurnaround)},
+		endedTrips:           endedTripsState{byVehicle: make(map[int]endedTrip)},
 	}
 }
 
