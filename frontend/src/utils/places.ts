@@ -1,4 +1,5 @@
 import {apiPath} from '@/utils/city.ts'
+import {recentCache} from '@/utils/recentCache.ts'
 
 export interface Place {
   id: string
@@ -18,13 +19,7 @@ interface ApiPlace {
 
 const CACHED = 64
 
-const cache = new Map<string, Place[]>()
-
-function remember(url: string, places: Place[]) {
-  cache.delete(url)
-  cache.set(url, places)
-  while (cache.size > CACHED) cache.delete(cache.keys().next().value!)
-}
+const cache = recentCache<Place[]>(CACHED)
 
 export function placeFromApi(raw: ApiPlace): Place | null {
   const lat = typeof raw.lat === 'number' ? raw.lat : Number.NaN
@@ -45,15 +40,12 @@ export const placeDetail = (place: Place): string => place.label.slice(place.nam
 
 async function request(url: string, signal?: AbortSignal): Promise<Place[]> {
   const hit = cache.get(url)
-  if (hit) {
-    remember(url, hit)
-    return hit
-  }
+  if (hit) return hit
   const resp = await fetch(url, {signal})
   if (!resp.ok) return []
   const data = (await resp.json()) as unknown
   const places = (Array.isArray(data) ? data : []).map((raw) => placeFromApi(raw as ApiPlace)).filter((place): place is Place => place !== null)
-  remember(url, places)
+  cache.set(url, places)
   return places
 }
 

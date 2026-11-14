@@ -53,13 +53,13 @@ func (s *Service) namedElsewhere(slug string) (bool, error) {
 	return false, nil
 }
 
-// Keys "reason|from|to"; reason "outside" the map, or "walk": only a walk longer than any walk to a stop.
-func (s *Service) notePlanMiss(c fiber.Ctx, n *router.Network, q router.Query, options []router.Option, covered bool) {
+// Keys "reason|from|to": "far" (no stop near an end) or "walk" (only a walk longer than any walk to a stop).
+func (s *Service) notePlanMiss(c fiber.Ctx, n *router.Network, q router.Query, options []router.Option, far bool) {
 	if !web.IsPerson(c) || q.Last {
 		return
 	}
-	reason := "outside"
-	if covered {
+	reason := "far"
+	if !far {
 		for _, o := range options {
 			if o.Rides > 0 || o.Runs[0].Arrive-o.Runs[0].Depart <= int64(plannerMaxWalk.Seconds()) {
 				return

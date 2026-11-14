@@ -48,12 +48,24 @@ export interface PlanLine {
   type: number
 }
 
+export interface PlanEnd {
+  stop_id: number
+  meters: number
+}
+
+// Ends out of walking reach; the options use their nearest stop.
+export interface PlanBeyond {
+  from?: PlanEnd
+  to?: PlanEnd
+}
+
 export interface PlanResponse {
   options: PlanOption[]
   stops: Record<string, PlanStop>
   lines: Record<string, PlanLine>
   // Seconds until the timings change (a new vehicle poll, a first bus leaving); 0 when they don't.
   refresh_in: number
+  beyond?: PlanBeyond
 }
 
 export function planQuery(from: {lat: number; lon: number}, to: {lat: number; lon: number}, mode: PlanTimeMode, time: string): string {

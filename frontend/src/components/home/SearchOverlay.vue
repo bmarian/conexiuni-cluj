@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onUnmounted, ref, watch} from 'vue'
+import {computed, nextTick, ref, watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {storeToRefs} from 'pinia'
@@ -10,13 +10,15 @@ import {useRoutesApi} from '@/composables/useRoutesApi.ts'
 import {useStopsApi} from '@/composables/useStopsApi.ts'
 import {useOnline} from '@/composables/useOnline.ts'
 import {useSearch} from '@/composables/useSearch.ts'
-import {useOpenRoute} from '@/composables/useOpenRoute.ts'
+import {TIMETABLE_HASH, useOpenRoute} from '@/composables/useOpenRoute.ts'
 import {useRecents} from '@/composables/useRecents.ts'
 import {useKbdLayer} from '@/composables/useKeyboardNav.ts'
 import {useOpenOnEnter} from '@/composables/useOpenOnEnter.ts'
-import type {Route, Stop} from '@/types/tranzy.ts'
+import {INCOMING_SUFFIX, type Route, type Stop} from '@/types/tranzy.ts'
 import {formatMeters, haversineMeters, sortByDistance} from '@/utils/geo.ts'
-import {placeDetail, searchPlaces, type Place} from '@/utils/places.ts'
+import {placeDetail, type Place} from '@/utils/places.ts'
+import type {SearchBus, SearchOtherLine} from '@/utils/search.ts'
+import {useSearchAnswer} from '@/composables/useSearchAnswer.ts'
 import {matching, RESULTS_PER_KIND} from '@/utils/stopSearch.ts'
 import {fold} from '@/utils/text.ts'
 import {network} from '@/utils/network.ts'
@@ -36,10 +38,8 @@ import StationRow from '@/components/rows/StationRow.vue'
 import LoadMore from '@/components/LoadMore.vue'
 import LineBadge from '@/components/ui/LineBadge.vue'
 import StationIcon from '@/components/StationIcon.vue'
+import SearchTop from '@/components/home/SearchTop.vue'
 
-const PLACE_DEBOUNCE_MS = 350
-const PLACE_MIN_CHARS = 3
-const PLACES_KEPT = 10
 const RECENTS_SHOWN = 8
 const PAGE_SIZE = 30
 
@@ -105,7 +105,18 @@ const sortedStops = computed(() => {
 
 const savedResults = computed(() => matchingPlans(favoritePlans.value, query.value))
 
+const {answer, loading: placesLoading} = useSearchAnswer(query, isOnline)
+const best = computed(() => answer.value?.best)
+
+const routeById = computed(() => new Map(routes.value.map((r) => [r.route_id, r])))
+const stopById = computed(() => new Map(stops.value.map((s) => [s.stop_id, s])))
+
 const routeResults = computed<Route[]>(() => {
+  const found = answer.value
+  if (found) {
+    const ids = best.value === 'line' ? found.lines.slice(1) : found.lines
+    return ids.flatMap((id) => routeById.value.get(id) ?? []).slice(0, RESULTS_PER_KIND)
+  }
   const q = fold(query.value.trim())
   if (!q) return []
   return matching(sortedRoutes.value, (r) => fold(`${r.route_short_name} ${r.route_long_name}`), q)
@@ -116,7 +127,13 @@ const routeResults = computed<Route[]>(() => {
 const stopResults = computed<Stop[]>(() => {
   const q = fold(query.value.trim())
   if (!q) return []
-  const matches = matching(stops.value, (stop) => fold(stop.stop_name), q)
+  const found = answer.value
+  const matches = found
+    ? (best.value === 'stop' ? found.stops.slice(1) : found.stops).flatMap((s) => {
+        const item = stopById.value.get(s.id)
+        return item ? [{item, rank: s.rank}] : []
+      })
+    : matching(stops.value, (stop) => fold(stop.stop_name), q)
   const loc = userStore.userLocation
   const sorted = loc
     ? sortByDistance(
@@ -131,39 +148,12 @@ const stopResults = computed<Stop[]>(() => {
   return (network.value?.oneStopPerStation(ranked) ?? ranked).slice(0, RESULTS_PER_KIND)
 })
 
-const places = ref<Place[]>([])
-const placesOpen = ref(false)
-const placesLoading = ref(false)
-let placeTimer: ReturnType<typeof setTimeout> | null = null
-let placeRequest: AbortController | null = null
-
-async function fetchPlaces(q: string) {
-  const request = new AbortController()
-  placeRequest = request
-  try {
-    const found = await searchPlaces(q, PLACES_KEPT, request.signal)
-    if (request.signal.aborted) return
-    places.value = found
-  } catch {
-    if (!request.signal.aborted) places.value = []
-  } finally {
-    if (placeRequest === request) {
-      placeRequest = null
-      placesLoading.value = false
-    }
-  }
-}
-
-watch(query, (q) => {
-  if (placeTimer) clearTimeout(placeTimer)
-  placeRequest?.abort()
-  placeRequest = null
-  places.value = []
-  placesOpen.value = false
-  const trimmed = q.trim()
-  placesLoading.value = isOnline.value && trimmed.length >= PLACE_MIN_CHARS
-  if (placesLoading.value) placeTimer = setTimeout(() => fetchPlaces(trimmed), PLACE_DEBOUNCE_MS)
+const places = computed<Place[]>(() => {
+  const found = answer.value?.places ?? []
+  return best.value === 'place' ? found.slice(1) : found
 })
+const placesOpen = ref(false)
+watch(query, () => (placesOpen.value = false))
 
 function nearestFirst(found: Place[]): Place[] {
   const loc = userStore.userLocation
@@ -183,18 +173,20 @@ const shownPlaces = computed(() => [
   ...(placesOpen.value ? nearestFirst(places.value.slice(RESULTS_PER_KIND)) : []),
 ])
 
-onUnmounted(() => {
-  if (placeTimer) clearTimeout(placeTimer)
-  placeRequest?.abort()
-})
-
 function distanceTo(lat: number, lon: number): string | null {
   const loc = userStore.userLocation
   return loc ? formatMeters(haversineMeters(loc.latitude, loc.longitude, lat, lon)) : null
 }
 
 const noResults = computed(
-  () => !placesLoading.value && !places.value.length && !savedResults.value.length && !routeResults.value.length && !stopResults.value.length,
+  () =>
+    !placesLoading.value &&
+    !best.value &&
+    !answer.value?.notice &&
+    !places.value.length &&
+    !savedResults.value.length &&
+    !routeResults.value.length &&
+    !stopResults.value.length,
 )
 
 const recents = useRecents(RECENTS_SHOWN)
@@ -256,15 +248,66 @@ function openGroup(legs: GroupLegs) {
   if (index) go(() => void router.push(groupLocation(index, legs)))
 }
 
-function pickRoute(route: Route) {
+function pickRoute(route: Route, timetable = false) {
   input.value?.blur()
-  void openRoute(route).then(() => {
+  void openRoute(route, undefined, timetable ? TIMETABLE_HASH : undefined).then(() => {
     favorites.addRecent({routeId: route.route_id})
     close(false)
   })
 }
 
+function pickRouteId(routeId: number, timetable: boolean) {
+  const route = routeById.value.get(routeId)
+  if (route) pickRoute(route, timetable)
+}
+
+function openBus(bus: SearchBus) {
+  const route = routeById.value.get(bus.route_id)
+  if (!route) return
+  input.value?.blur()
+  void openRoute(route, bus.trip_id.endsWith(INCOMING_SUFFIX) ? '1' : '0').then(() => {
+    mapStore.setFlyToLocation(bus.lat, bus.lon)
+    close(false)
+  })
+}
+
+function openOtherLine(line: SearchOtherLine) {
+  go(() => void router.push(line.slug ? `/${line.city}/linia/${line.slug}/auto` : `/${line.city}/route/${line.route_id}/auto`))
+}
+
+function openCity(slug: string) {
+  go(() => void router.push(`/${slug}/`))
+}
+
+function openTrip() {
+  const trip = answer.value?.trip
+  if (!trip) return
+  const {to, from} = trip
+  openPlan(from ? {...to, originName: from.name, originLat: from.lat, originLon: from.lon} : to)
+}
+
+function openLink(url: string) {
+  window.open(url, '_blank', 'noopener')
+}
+
+function openBest(): boolean {
+  const found = answer.value
+  const kind = best.value
+  if (!found || !kind) return false
+  const place = found.places[0]
+  const stop = found.stops[0] && stopById.value.get(found.stops[0].id)
+  if (kind === 'line') pickRouteId(found.lines[0]!, found.show === 'timetable')
+  else if (kind === 'stop' && stop) openStop(stop)
+  else if ((kind === 'place' || kind === 'far') && place) openPlace(place)
+  else if (kind === 'bus') openBus(found.buses[0]!)
+  else if (kind === 'other') openOtherLine(found.other[0]!)
+  else if (kind === 'city') openCity(found.cities[0]!.slug)
+  else if (kind === 'trip') openTrip()
+  return true
+}
+
 function openTopResult(): boolean {
+  if (openBest()) return true
   const plan = isOnline.value ? savedResults.value[0] : undefined
   const route = routeResults.value[0]
   const stop = stopResults.value[0]
@@ -319,6 +362,19 @@ function dropPin() {
       <div ref="scroller" class="search-scroll">
         <template v-if="searching">
           <div v-if="placesLoading" class="progress" aria-hidden="true"><span></span></div>
+          <SearchTop
+            v-if="isOnline && answer"
+            :answer="answer"
+            :distance-to="distanceTo"
+            @line="pickRouteId"
+            @stop="openStop"
+            @place="openPlace"
+            @bus="openBus"
+            @other="openOtherLine"
+            @city="openCity"
+            @trip="openTrip"
+            @link="openLink"
+          />
           <section v-if="isOnline && savedResults.length" data-kbd-section="search-results">
             <SubLabel :text="t('favoritePlans')" class="pt-2" />
             <ListRow

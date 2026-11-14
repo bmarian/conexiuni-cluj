@@ -109,7 +109,7 @@ export type Overview = {
 export type Quota = {key: 'main' | 'learner'; key_label: string; kind: string; label: string; used: number; limit: number}
 
 export type Fix = {
-  searches: {query: string; count: number}[]
+  searches: {query: string; reason: string; count: number}[]
   plans: {reason: string; from: string; to: string; count: number}[]
   lines: {id: number; name: string; color?: string; n: number; off: number; avg_abs_sec: number}[]
   buses: {id: number; name: string; color?: string; reason: string; buses: string[]; count: number; share: number}[]

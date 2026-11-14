@@ -101,6 +101,7 @@ type Place struct {
 	Label string  `json:"label"`
 	// The start of Label.
 	Name string `json:"name"`
+	Town bool   `json:"town,omitempty"`
 }
 
 type placeEntry struct {
@@ -290,7 +291,7 @@ func (p *Places) Nearby(lat, lon float64) (Place, bool) {
 
 func (p *Places) place(id int32) Place {
 	e := &p.entries[id]
-	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label, Name: e.label[:e.nameLen]}
+	return Place{ID: strconv.Itoa(int(id)), Lat: e.lat, Lon: e.lon, Label: e.label, Name: e.label[:e.nameLen], Town: e.kind == placeTown}
 }
 
 // A Chain keeps state, and cities build their places concurrently.

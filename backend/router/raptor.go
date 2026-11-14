@@ -72,6 +72,25 @@ func NewStreets(walk *WalkGraph, stops []Stop, opt Options) *Streets {
 
 func (s *Streets) Covers(p Point) bool { return s.walk.box.contains(p.Lat, p.Lon) }
 
+// A stop is a walk of at most MaxWalk away.
+func (s *Streets) Reaches(p Point) bool { return s.Covers(p) && len(s.reach(p)) > 0 }
+
+func (s *Streets) Nearest(p Point) (Stop, float64) {
+	best, bestM := Stop{}, math.Inf(1)
+	for _, st := range s.stops {
+		if m := haversine(p.Lat, p.Lon, st.Lat, st.Lon); m < bestM {
+			best, bestM = st, m
+		}
+	}
+	return best, bestM
+}
+
+// As the crow flies, a cheap stand-in for Reaches.
+func (s *Streets) Near(p Point) bool {
+	_, m := s.Nearest(p)
+	return s.Covers(p) && m <= s.maxWalkMeters()
+}
+
 func (s *Streets) maxWalkMeters() float64 { return s.opt.WalkSpeed * s.opt.MaxWalk.Seconds() }
 
 func (s *Streets) walkSecs(meters float64) int64 { return int64(math.Round(meters / s.opt.WalkSpeed)) }

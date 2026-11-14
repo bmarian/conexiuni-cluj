@@ -51,6 +51,9 @@ func Locate(points []feeds.Point) ([]string, []string, error) {
 // nil until the walk graph is read.
 func (s *Service) Places() *router.Places { return s.places.Load() }
 
+// Nil until first read.
+func (s *Service) Streets() *router.Streets { return s.reached.Load() }
+
 // plannerNetwork is the timetable around at's service day, rebuilt when the learned offsets roll over.
 func (s *Service) plannerNetwork(at time.Time) (*router.Network, error) {
 	s.mu.Lock()
@@ -105,6 +108,7 @@ func (s *Service) readPlannerStreets() error {
 	}
 	s.streets, s.stopsKey, s.networks = streets, stopsKey, nil
 	s.places.Store(places)
+	s.reached.Store(streets)
 	return nil
 }
 
@@ -318,6 +322,7 @@ type planResponse struct {
 	Stops     map[string]planStop `json:"stops"`
 	Lines     map[string]planLine `json:"lines"`
 	RefreshIn int64               `json:"refresh_in"`
+	Beyond    *planBeyond         `json:"beyond,omitempty"`
 }
 
 // Runs after every ingest and every hidden stop, the only changes to served stops, so plans never re-read them.
@@ -371,8 +376,10 @@ func (s *Service) plan(c fiber.Ctx) error {
 	from, to := router.Point{Lat: fromLat, Lon: fromLng}, router.Point{Lat: toLat, Lon: toLng}
 	resp := planResponse{Options: []planOption{}, Stops: map[string]planStop{}, Lines: map[string]planLine{}}
 	q := router.Query{From: from, To: to, Time: when, ArriveBy: arriveBy, Runs: runsShown, Last: last}
-	if !n.Covers(from) || !n.Covers(to) {
-		s.notePlanMiss(c, n, q, nil, false)
+	wanted := q
+	resp.Beyond = beyondReach(n, &q)
+	if resp.Beyond != nil && q.From == q.To {
+		s.notePlanMiss(c, n, wanted, nil, true)
 		c.Set("Cache-Control", web.Revalidate)
 		return c.JSON(resp)
 	}
@@ -381,7 +388,11 @@ func (s *Service) plan(c fiber.Ctx) error {
 		q.Live, refresh = s.timing.LiveAt(when)
 	}
 	options := n.Plan(q)
-	s.notePlanMiss(c, n, q, options, true)
+	if resp.Beyond != nil {
+		// Walking to the nearest stop of a place no line reaches is no answer.
+		options = slices.DeleteFunc(options, func(o router.Option) bool { return o.Rides == 0 })
+	}
+	s.notePlanMiss(c, n, wanted, options, resp.Beyond != nil)
 	if last && len(options) == 1 && options[0].Rides == 0 {
 		// No bus at all: the walk, from now.
 		options[0].Runs[0] = router.Run{Depart: asked.Unix(), Arrive: asked.Unix() + options[0].Legs[0].Secs}

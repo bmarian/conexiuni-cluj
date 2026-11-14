@@ -10,6 +10,7 @@ import (
 	"conexiuni-cluj/live"
 	"conexiuni-cluj/network"
 	"conexiuni-cluj/planner"
+	"conexiuni-cluj/search"
 	"conexiuni-cluj/slugs"
 	"conexiuni-cluj/traffic"
 	"conexiuni-cluj/transit"
@@ -49,6 +50,7 @@ type City struct {
 	Traffic      *traffic.Service
 	Slugs        *slugs.Service
 	Ingest       *ingest.Importer
+	Search       *search.Service
 
 	offered transit.Availability
 	run     cityRun
@@ -81,6 +83,8 @@ func New(slug, name string, store *database.Store, static feeds.Static, timetabl
 	c.Planner.Colorful = c.Network.Colorful
 	c.Updates.Colorful = c.Network.Colorful
 	c.Destinations = destinations.New(c.Network, c.Planner.Places)
+	c.Search = search.New(search.City{Slug: slug, Name: name, Network: c.Network.Current}, c.Network, c.Planner.Places, c.Planner.Streets,
+		c.Destinations.Index, c.Live.Buses, store)
 	c.Traffic = traffic.New(loc, store, c.Data, &c.offered, c.Live, realtime != nil)
 	c.Traffic.Runner = c.running
 	c.Live.Traffic = c.Traffic.Lines
@@ -131,6 +135,7 @@ func (c *City) Register(api fiber.Router) {
 	c.Planner.Register(api)
 	c.Network.Register(api)
 	c.Destinations.Register(api)
+	c.Search.Register(api)
 	c.Traffic.Register(api)
 	c.Updates.Register(api)
 }
@@ -275,4 +280,8 @@ func Handler(cities *Registry) fiber.Handler {
 		c.Set("Cache-Control", web.Revalidate)
 		return c.JSON(out)
 	}
+}
+
+func (c *City) searchCity() search.City {
+	return search.City{Slug: c.Slug, Name: c.Name, Operator: c.Operator, OperatorURL: c.OperatorURL, Network: c.Network.Current}
 }

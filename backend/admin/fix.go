@@ -14,8 +14,9 @@ import (
 const adminFixDays = 7
 
 type fixSearch struct {
-	Query string `json:"query"`
-	Count int    `json:"count"`
+	Query  string `json:"query"`
+	Reason string `json:"reason"`
+	Count  int    `json:"count"`
 }
 
 type fixPlan struct {
@@ -87,17 +88,27 @@ func fixSearches(city *cities.City, since string) ([]fixSearch, error) {
 	if err != nil {
 		return nil, err
 	}
+	byQuery := map[fixSearch]int{}
+	for key, n := range counts {
+		// Older keys hold only the query.
+		reason, q, found := strings.Cut(key, "|")
+		if !found {
+			reason, q = "nothing", key
+		}
+		byQuery[fixSearch{Query: q, Reason: reason}] += n
+	}
 	out := []fixSearch{}
-	for q, n := range counts {
+	for miss, n := range byQuery {
 		typing := false
-		for other := range counts {
-			if len(other) > len(q) && strings.HasPrefix(other, q) {
+		for other := range byQuery {
+			if len(other.Query) > len(miss.Query) && strings.HasPrefix(other.Query, miss.Query) {
 				typing = true
 				break
 			}
 		}
 		if !typing {
-			out = append(out, fixSearch{Query: q, Count: n})
+			miss.Count = n
+			out = append(out, miss)
 		}
 	}
 	return top(out, func(a, b fixSearch) int { return cmp.Or(cmp.Compare(b.Count, a.Count), cmp.Compare(a.Query, b.Query)) }), nil

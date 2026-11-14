@@ -20,7 +20,14 @@ const horizonLabels: Record<string, string> = {
   '21-30': '21–30 min',
 }
 const sourceLabels = computed<Record<string, string>>(() => ({ours: 'Ours', ctp: props.operator || 'Operator'}))
-const planReasons: Record<string, string> = {walk: 'only a long walk', outside: 'outside the network'}
+const planReasons: Record<string, string> = {walk: 'only a long walk', far: 'no stop near', outside: 'outside the network'}
+const searchReasons: Record<string, string> = {
+  nothing: 'nothing',
+  far: 'no stop near',
+  city_missing: 'city not in the app',
+  bus_off: 'bus not running',
+  tickets: 'tickets',
+}
 const busReasons: Record<string, string> = {trip: 'unknown trip', route: 'off route'}
 
 const fix = computed(() => props.overview.fix)
@@ -89,18 +96,20 @@ const accuracyBars = computed<DayBar[]>(() =>
         <p v-else class="admin-note">None</p>
       </AdminCard>
 
-      <AdminCard title="Searches with no result" :scope="name" hint="7 days">
+      <AdminCard title="Searches with no answer" :scope="name" hint="7 days">
         <div v-if="fix.searches.length" class="admin-scroll">
           <table class="admin-table">
             <thead>
               <tr>
                 <th>Typed</th>
+                <th>Why</th>
                 <th>Times</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in fix.searches" :key="s.query">
+              <tr v-for="s in fix.searches" :key="`${s.reason}|${s.query}`">
                 <td class="strong wrap">{{ s.query }}</td>
+                <td>{{ searchReasons[s.reason] ?? s.reason }}</td>
                 <td>{{ num(s.count) }}</td>
               </tr>
             </tbody>

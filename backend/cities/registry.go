@@ -1,6 +1,7 @@
 package cities
 
 import (
+	"conexiuni-cluj/search"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,9 @@ func NewRegistry(all []*City, path string) (*Registry, error) {
 		}
 	}
 	cs := &Registry{all: all, path: path}
+	for _, c := range all {
+		c.Search.Here, c.Search.Cities, c.Search.Towns = c.searchCity(), cs.searchCities, search.CountryTowns
+	}
 	if len(cs.Enabled()) == 0 {
 		return nil, fmt.Errorf("%s turns off every city", path)
 	}
@@ -85,9 +89,18 @@ func (cs *Registry) Find(slug string) *City {
 }
 
 func (cs *Registry) Start() {
+	search.ReadTowns()
 	for _, c := range cs.all {
 		c.Start()
 	}
+}
+
+func (cs *Registry) searchCities() []search.City {
+	var out []search.City
+	for _, c := range cs.Enabled() {
+		out = append(out, c.searchCity())
+	}
+	return out
 }
 
 // Stops every city's background work and waits for it.

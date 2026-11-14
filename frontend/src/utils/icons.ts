@@ -26,6 +26,7 @@ export {default as FavoriteIcon} from '@material-design-icons/svg/round/favorite
 export {default as FavoriteBorderIcon} from '@material-design-icons/svg/round/favorite_border.svg?component'
 export {default as FileUploadIcon} from '@material-design-icons/svg/round/file_upload.svg?component'
 export {default as FlagIcon} from '@material-design-icons/svg/round/flag.svg?component'
+export {default as InfoIcon} from '@material-design-icons/svg/round/info.svg?component'
 export {default as KeyboardArrowLeftIcon} from '@material-design-icons/svg/round/keyboard_arrow_left.svg?component'
 export {default as KeyboardArrowRightIcon} from '@material-design-icons/svg/round/keyboard_arrow_right.svg?component'
 export {default as KeyboardIcon} from '@material-design-icons/svg/round/keyboard.svg?component'

@@ -52,6 +52,7 @@ type Service struct {
 
 	// Read without mu, which the walk graph's read holds for seconds.
 	places atomic.Pointer[router.Places]
+	reached atomic.Pointer[router.Streets]
 }
 
 func New(loc *time.Location, store *database.Store, data *transit.Data, timing Timing) *Service {

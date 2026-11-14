@@ -11,6 +11,7 @@ import {directedRouteName, getTimetableDayKey, plainTimetableDayKey, specialDayO
 import {frequencyLabel} from '@/utils/frequencyText.ts'
 import {type IndexedStop, useRouteArrivals} from '@/composables/useRouteArrivals.ts'
 import {fetchHourlyStopOffsets} from '@/composables/useRouteShapeInfoApi.ts'
+import {TIMETABLE_HASH} from '@/composables/useOpenRoute.ts'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
 import {useSettingsStore} from '@/stores/settings.ts'
 import {MAX_FOLLOWED_LINES, type RouteChange, useRouteUpdatesStore} from '@/stores/routeUpdates.ts'
@@ -211,6 +212,17 @@ const availableTabs = computed(() => {
 })
 
 // A line with no service on the picked day shows the next day that has some.
+const timetableHead = ref<HTMLElement | null>(null)
+watch(
+  [timetableHead, () => currentRoute.hash],
+  async ([head, hash]) => {
+    if (!head || hash !== TIMETABLE_HASH) return
+    await nextTick()
+    head.scrollIntoView({block: 'start'})
+  },
+  {immediate: true},
+)
+
 const selectedTimetableTab = computed<TimetableTab>({
   get: () => {
     const picked = pickedTimetableTab.value
@@ -544,7 +556,7 @@ const jam = computed(() => jams(`${routeIdNum.value}_${currentDirection.value}`)
         </div>
 
         <template v-if="availableTabs.length">
-          <div class="tt-head">
+          <div ref="timetableHead" class="tt-head">
             <span class="text-title-small text-on-surface-variant">{{ t('timetable') }}</span>
             <span class="divider"></span>
             <span class="text-label-small text-outline">{{ t('timetableClickHint') }}</span>

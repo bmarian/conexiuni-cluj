@@ -19,6 +19,7 @@ import type {RouteType, Shape} from '@/types/tranzy.ts'
 import {storeToRefs} from 'pinia'
 import ViewErrorState from '@/components/ViewErrorState.vue'
 import LoadingIndicator from '@/components/LoadingIndicator.vue'
+import PlanBeyond from '@/components/plan/PlanBeyond.vue'
 import {useOnline} from '@/composables/useOnline.ts'
 import {usePlaceSearch} from '@/composables/usePlaceSearch.ts'
 import {useKbdEscape, useKbdShortcuts, useKeyboardNav} from '@/composables/useKeyboardNav.ts'
@@ -1191,6 +1192,7 @@ const chips = computed<ChipAction[]>(() => [
         <PlanTimeFields v-if="(timeMode === 'leave' || timeMode === 'arrive') && timeValue" v-model="timeValue" :now="now" />
       </div>
 
+      <PlanBeyond v-if="planData?.beyond && !isCalculating" :beyond="planData.beyond" />
       <LoadingIndicator v-if="isGpsResolving" :text="t('planLocating')" />
       <LoadingIndicator v-else-if="isCalculating" :text="t('planCalculating')" />
 
@@ -1251,7 +1253,7 @@ const chips = computed<ChipAction[]>(() => [
         </div>
       </div>
 
-      <div v-else class="empty">
+      <div v-else-if="!planData?.beyond" class="empty">
         <DirectionsBusIcon class="m-icon size-10 text-outline-variant" />
         <p class="text-body-medium text-on-surface-variant text-center">{{ t('planNoResults') }}</p>
       </div>

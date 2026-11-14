@@ -20,6 +20,7 @@ GET /api/fixture/network/version
 GET /api/fixture/places
 GET /api/fixture/plan
 GET /api/fixture/route-changes
+GET /api/fixture/search
 GET /api/fixture/shapes
 GET /api/fixture/traffic
 GET /api/fixture/updates
@@ -32,6 +33,7 @@ GET /api/fixturegtfs/network/version
 GET /api/fixturegtfs/places
 GET /api/fixturegtfs/plan
 GET /api/fixturegtfs/route-changes
+GET /api/fixturegtfs/search
 GET /api/fixturegtfs/shapes
 GET /api/fixturegtfs/traffic
 GET /api/fixturegtfs/updates
