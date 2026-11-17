@@ -1,11 +1,15 @@
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRoute, useRouter} from 'vue-router'
+import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
+import {useFavoritesStore} from '@/stores/favorites.ts'
+import {useSettingsStore} from '@/stores/settings.ts'
 import {network, type NetworkIndex} from '@/utils/network.ts'
 import {flipLine, type GroupLegs, type GroupLine, type Leg, legLines, legsOf, readLines, stretchNames, writeLines} from '@/utils/lineGroups.ts'
 import {groupQuery} from '@/utils/pagePaths.ts'
 
 const EDITED_BACK = '|'
+
+export const GROUP_BUILDER = new Set(['group-pick', 'group-add', 'group-stops'])
 
 export function useStretchLabel() {
   const {t} = useI18n()
@@ -30,6 +34,9 @@ export function useGroupBuilder() {
   const route = useRoute()
   const router = useRouter()
   const label = useStretchLabel()
+  const favorites = useFavoritesStore()
+  const settings = useSettingsStore()
+  const {t} = useI18n()
 
   const legs = computed<GroupLegs>(() => {
     const index = network.value
@@ -47,6 +54,19 @@ export function useGroupBuilder() {
   })
 
   const depth = () => Number(history.state?.groupDepth) || 0
+
+  function saveBuilt() {
+    const index = network.value
+    if (!index || !legs.value.lines.length) return
+    const before = JSON.stringify(favorites.favoriteGroups)
+    if (editing.value) favorites.replaceGroup(readEdited(index, editing.value), legs.value)
+    else if (!favorites.findGroup(legs.value)) favorites.saveGroup(legs.value)
+    if (JSON.stringify(favorites.favoriteGroups) !== before) settings.showToast(t('groupSaved'))
+  }
+
+  onBeforeRouteLeave((to) => {
+    if (!GROUP_BUILDER.has(String(to.name))) saveBuilt()
+  })
 
   function openAdd() {
     void router.push({name: 'group-add', query: query(legs.value, leg.value), state: {groupDepth: depth() + 1}})

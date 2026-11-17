@@ -3,9 +3,8 @@ import {computed, ref} from 'vue'
 import {useHead} from '@unhead/vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import {useFavoritesStore} from '@/stores/favorites.ts'
 import {useScrollStart} from '@/composables/useDrawerScroll.ts'
-import {readEdited, useGroupBuilder} from '@/composables/useGroupBuilder.ts'
+import {useGroupBuilder} from '@/composables/useGroupBuilder.ts'
 import {useGroupShapes} from '@/composables/useGroupShapes.ts'
 import {usePhoneSheet} from '@/composables/usePhoneSheet.ts'
 import SheetTopBar from '@/components/ui/SheetTopBar.vue'
@@ -22,9 +21,8 @@ import {AddIcon, CloseIcon, SwapHorizIcon} from '@/utils/icons.ts'
 
 const {t} = useI18n()
 const router = useRouter()
-const favorites = useFavoritesStore()
 const phone = usePhoneSheet()
-const {legs, leg, lines, editing, openAdd, openStops, showGroup, showLeg, fillBack, stretchLabel} = useGroupBuilder()
+const {legs, leg, lines, openAdd, openStops, showGroup, showLeg, fillBack, stretchLabel} = useGroupBuilder()
 useGroupShapes(lines)
 
 useHead(() => ({title: `${t('lineGroups')} | Ce autobuz iau?`, meta: [{name: 'robots', content: 'noindex'}]}))
@@ -50,11 +48,8 @@ function remove(routeId: number) {
   showGroup(lines.value.filter((l) => l.routeId !== routeId))
 }
 
-function show() {
-  const index = network.value
-  if (!index || !legs.value.lines.length) return
-  if (editing.value) favorites.replaceGroup(readEdited(index, editing.value), legs.value)
-  void router.replace(groupLocation(index, legs.value))
+function save() {
+  if (network.value && legs.value.lines.length) void router.replace(groupLocation(network.value, legs.value))
 }
 </script>
 
@@ -102,12 +97,12 @@ function show() {
     </section>
     <div class="h-4"></div>
 
-    <div class="bottom-bar" data-kbd-section="show" data-kbd-axis="x">
+    <div class="bottom-bar" data-kbd-section="save" data-kbd-axis="x">
       <button v-if="phone" type="button" class="btn btn-tonal flex-1" data-kbd-item="add" @click="openAdd">
         <AddIcon class="m-icon" />
         {{ t('groupAddLine') }}
       </button>
-      <button type="button" class="btn btn-filled flex-1" :disabled="!legs.lines.length" data-kbd-item="show" @click="show">{{ t('groupShow') }}</button>
+      <button type="button" class="btn btn-filled flex-1" :disabled="!legs.lines.length" data-kbd-item="save" @click="save">{{ t('groupSave') }}</button>
     </div>
   </div>
 </template>

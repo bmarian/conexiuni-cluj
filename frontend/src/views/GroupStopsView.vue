@@ -188,7 +188,7 @@ const lineColor = computed(() => mapStore.lineColors.get(info.value?.route_short
     <div class="bottom-bar" data-kbd-section="done" data-kbd-axis="x">
       <button v-if="chosen" type="button" class="btn btn-text" data-kbd-item="whole" @click="wholeLine">{{ t('groupWholeLine') }}</button>
       <button type="button" class="btn btn-filled flex-1" :disabled="!line" data-kbd-item="done" @click="done">
-        {{ t(isNew ? 'groupAddToGroup' : 'done') }}
+        {{ t(isNew ? 'groupAddToGroup' : 'groupApply') }}
       </button>
     </div>
   </div>
