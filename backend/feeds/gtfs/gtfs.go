@@ -29,8 +29,6 @@ type Feed struct {
 	url     string
 	cadence time.Duration
 	ids     feeds.IDMap
-	// Fills the Snapshot's Runs, for buses that name only their trip.
-	ListRuns bool
 	build    func() ([]byte, error)
 }
 
@@ -471,22 +469,7 @@ func (f *Feed) Snapshot() (*feeds.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	snap, err := data.snapshot(f.ids, time.Now())
-	if err == nil && f.ListRuns {
-		snap.Runs = data.runs()
-	}
-	return snap, err
-}
-
-// Trips whose line and direction have a pattern; a short run is placed on its direction's.
-func (f *feed) runs() map[string]int {
-	out := map[string]int{}
-	for tripID, info := range f.trips {
-		if _, ok := f.patterns[lineDir{info.routeID, info.direction}.id()]; ok {
-			out[tripID] = info.direction
-		}
-	}
-	return out
+	return data.snapshot(f.ids, time.Now())
 }
 
 type pattern struct {
