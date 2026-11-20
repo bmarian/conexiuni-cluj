@@ -7,6 +7,7 @@ import (
 	"conexiuni-cluj/cities/botosani"
 	"conexiuni-cluj/cities/brasov"
 	"conexiuni-cluj/cities/bucuresti"
+	"conexiuni-cluj/cities/buzau"
 	"conexiuni-cluj/cities/cluj"
 	"conexiuni-cluj/cities/constanta"
 	"conexiuni-cluj/cities/galati"
@@ -39,7 +40,7 @@ import (
 var allCities = []cities.Spec{
 	cluj.City, iasi.City, botosani.City, oradea.City, constanta.City,
 	sibiu.City, bucuresti.City, timisoara.City, suceava.City,
-	ploiesti.City, targumures.City, galati.City,
+	ploiesti.City, targumures.City, galati.City, buzau.City,
 	albaiulia.City, resita.City, targoviste.City, satumare.City, zalau.City,
 	slobozia.City, pitesti.City, ramnicuvalcea.City, brasov.City,
 }
