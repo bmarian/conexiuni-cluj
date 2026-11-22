@@ -25,7 +25,7 @@ export default defineConfig(({ command }): UserConfig => ({
     }),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["bus.svg", "favicon.ico", "apple-touch-icon-180x180.png"],
+      includeAssets: ["favicon.ico", "apple-touch-icon-180x180.png"],
       manifest: {
         id: "/",
         name: "Ce autobuz iau?",
