@@ -1465,7 +1465,7 @@ const renderHighlightedStops = () => {
     const stop = stopData.get(stopId)
     if (!stop) continue
     const highlight = htmlMarker(stop, makeHighlightIcon(color), {
-      zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'purple' ? 1100 : color === 'amber' ? 1050 : 800,
+      zIndex: color === 'green' ? 1200 : color === 'red' || color === 'favorite' ? 1000 : color === 'periwinkle' ? 1100 : color === 'amber' ? 1050 : 800,
     })
     tooltip?.bind(highlight, stationCard(stopId, stop.name), '', 14)
     onMarkerClick(highlight, () => (mapStore.stopPick ? mapStore.stopPick(Number(stopId)) : openStop(stopId)))

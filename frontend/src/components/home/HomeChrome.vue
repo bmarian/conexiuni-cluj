@@ -60,7 +60,7 @@ onMounted(() => void routeUpdates.fetchUpdates())
 
 .search-pill {
   margin: 0 16px;
-  box-shadow: var(--md-elevation-2);
+  box-shadow: var(--md-line);
   pointer-events: auto;
 }
 

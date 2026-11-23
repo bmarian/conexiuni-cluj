@@ -176,7 +176,8 @@ const host = (url: string) => {
   margin: 8px 12px 4px;
   padding: 2px 0;
   border-radius: 20px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .chips {

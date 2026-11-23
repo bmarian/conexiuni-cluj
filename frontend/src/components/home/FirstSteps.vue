@@ -106,7 +106,8 @@ function scrollToLines() {
   margin: 8px 12px 0;
   padding-bottom: 6px;
   border-radius: 20px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .head {

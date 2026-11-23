@@ -63,7 +63,7 @@ defineEmits<{change: [checked: boolean]}>()
 }
 
 .switch.is-on {
-  background: var(--md-primary);
+  background: var(--md-primary-fixed);
   box-shadow: none;
 }
 
@@ -74,7 +74,7 @@ defineEmits<{change: [checked: boolean]}>()
 }
 
 :root.dark .switch.is-on .thumb {
-  color: var(--md-primary-container);
+  color: var(--md-primary);
 }
 
 .switch:disabled {

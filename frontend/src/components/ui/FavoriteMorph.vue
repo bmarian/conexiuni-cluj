@@ -88,7 +88,7 @@ watch(
 }
 
 .is-on {
-  --mark: var(--md-rose);
+  --mark: var(--md-favorite);
 }
 
 .is-on > .content > :deep(*),
@@ -144,7 +144,7 @@ watch(
   width: 22%;
   height: 22%;
   border-radius: 50%;
-  background: var(--md-rose);
+  background: var(--md-favorite);
   pointer-events: none;
   animation: spark calc(450ms * var(--pace-long)) linear calc(85ms * var(--pace-long)) both;
 }

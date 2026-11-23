@@ -106,7 +106,7 @@ function onPointerCancel() {
   border-radius: 4px;
   background: var(--md-surface-container-highest);
   color: var(--md-on-surface);
-  box-shadow: var(--md-elevation-3);
+  box-shadow: var(--md-line);
   pointer-events: auto;
   cursor: pointer;
   touch-action: none;

@@ -27,7 +27,7 @@ defineEmits<{open: []}>()
 }
 
 .route-row.is-favorite {
-  background: color-mix(in srgb, var(--md-rose) 6%, transparent);
+  background: color-mix(in srgb, var(--md-favorite) 6%, transparent);
 }
 
 .route-row.is-busy {

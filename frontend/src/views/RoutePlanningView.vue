@@ -296,7 +296,7 @@ watch(
           shape_dist_traveled: -1,
         })),
       ])
-      highlighted.push({stopId: String(leg.from), color: i === 0 ? 'green' : 'purple'})
+      highlighted.push({stopId: String(leg.from), color: i === 0 ? 'green' : 'periwinkle'})
       for (const stopId of leg.passed ?? []) highlighted.push({stopId: String(stopId), color: 'gray'})
       if (i === rides.length - 1) highlighted.push({stopId: String(leg.to), color: 'red'})
       else if (leg.to !== rides[i + 1]!.from) highlighted.push({stopId: String(leg.to), color: 'amber'})
@@ -880,7 +880,7 @@ const chips = computed<ChipAction[]>(() => [
     label: t(isFavorite.value ? 'saved' : 'save'),
     icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
     selected: isFavorite.value,
-    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    tint: isFavorite.value ? 'var(--md-favorite)' : undefined,
     disabled: !isOnline.value,
     kbd: 'fav',
     onClick: toggleFavorite,
@@ -1154,7 +1154,7 @@ const chips = computed<ChipAction[]>(() => [
           <button
             v-if="timeMode === 'leave' || timeMode === 'arrive'"
             type="button"
-            class="btn btn-tonal"
+            class="btn btn-filled"
             data-kbd-item="time-search"
             :title="t('planTimeSearchAria')"
             :aria-label="t('planTimeSearchAria')"
@@ -1278,8 +1278,8 @@ const chips = computed<ChipAction[]>(() => [
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: var(--md-tertiary);
-  color: var(--md-on-tertiary);
+  background: var(--md-tertiary-container);
+  color: var(--md-on-tertiary-container);
 }
 
 .tile-emoji {
@@ -1302,8 +1302,8 @@ const chips = computed<ChipAction[]>(() => [
   margin: 4px 12px;
   padding: 12px 0;
   border-radius: 12px;
-  background: var(--md-secondary-container);
-  color: var(--md-on-secondary-container);
+  box-shadow: var(--md-line);
+  color: var(--md-on-surface);
 }
 
 .stat {
@@ -1323,7 +1323,7 @@ const chips = computed<ChipAction[]>(() => [
   gap: 6px;
   font-size: 22px;
   line-height: 28px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .stat-value.is-live {
@@ -1357,7 +1357,8 @@ const chips = computed<ChipAction[]>(() => [
   margin: 8px 12px;
   padding: 8px 0;
   border-radius: 12px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .endpoint {
@@ -1549,14 +1550,15 @@ const chips = computed<ChipAction[]>(() => [
   margin: 4px 12px;
   padding: 12px;
   border-radius: 12px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
   color: var(--md-on-surface);
   cursor: pointer;
 }
 
 .plan-card.is-selected {
-  background: var(--md-secondary-container);
-  box-shadow: inset 0 0 0 1.5px var(--md-primary);
+  background: var(--md-primary-container);
+  box-shadow: inset 0 0 0 1px var(--md-primary-fixed);
 }
 
 .line-chip {

@@ -154,7 +154,6 @@ onUnmounted(() => cancelAnimationFrame(frame))
   border-radius: 50%;
   background: var(--line);
   color: #fff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
 .bus-body svg {

@@ -421,7 +421,7 @@ const chips = computed<ChipAction[]>(() => [
     label: t(isFavorite.value ? 'saved' : 'save'),
     icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
     selected: isFavorite.value,
-    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    tint: isFavorite.value ? 'var(--md-favorite)' : undefined,
     kbd: 'fav',
     onClick: () => favoritesStore.toggleRouteFavorite(routeIdNum.value, currentDirection.value),
   },
@@ -795,8 +795,8 @@ const jam = computed(() => jams(`${routeIdNum.value}_${currentDirection.value}`)
 
 .minute.is-selected {
   border-radius: 16px;
-  background: var(--md-primary);
-  color: var(--md-on-primary);
+  background: var(--md-primary-fixed);
+  color: var(--md-on-primary-fixed);
   font-weight: 700;
 }
 

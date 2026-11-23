@@ -366,7 +366,8 @@ async function choose(slug: string | null) {
   margin: 0 16px 8px;
   padding: 8px 0;
   border-radius: 16px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .city-search {

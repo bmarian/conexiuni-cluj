@@ -57,7 +57,8 @@ function settled(e: TransitionEvent) {
 .home-section {
   margin: 8px 12px 0;
   border-radius: 20px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .section-head {

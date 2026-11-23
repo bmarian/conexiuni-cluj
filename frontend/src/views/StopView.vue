@@ -204,7 +204,7 @@ const chips = computed<ChipAction[]>(() => [
     label: isFavorite.value ? t('saved') : t('save'),
     icon: isFavorite.value ? FavoriteIcon : FavoriteBorderIcon,
     selected: isFavorite.value,
-    tint: isFavorite.value ? 'var(--md-rose)' : undefined,
+    tint: isFavorite.value ? 'var(--md-favorite)' : undefined,
     kbd: 'fav',
     onClick: toggleFavorite,
   },

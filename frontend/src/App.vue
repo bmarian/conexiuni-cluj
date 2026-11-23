@@ -561,9 +561,7 @@ useKbdShortcuts(
   flex-direction: column;
   background: var(--md-surface-container-low);
   color: var(--md-on-surface);
-  box-shadow:
-    0 -1px 3px rgb(0 0 0 / 0.12),
-    0 -4px 12px rgb(0 0 0 / 0.08);
+  box-shadow: var(--md-line);
   transition: transform var(--spring-sheet-ms) var(--spring-sheet);
   will-change: transform;
 }
@@ -766,9 +764,7 @@ useKbdShortcuts(
     transform: translateX(calc(-100% - env(safe-area-inset-left)));
     pointer-events: none;
     z-index: 4400;
-    box-shadow:
-      1px 0 3px rgb(0 0 0 / 0.12),
-      4px 0 12px rgb(0 0 0 / 0.08);
+    box-shadow: 1px 0 0 var(--md-outline-variant);
   }
 
   .app-drawer.is-landscape-open {
@@ -798,25 +794,10 @@ useKbdShortcuts(
     width: var(--panel-w);
     height: 100dvh !important;
     border-radius: 0;
-    box-shadow:
-      1px 0 3px rgb(0 0 0 / 0.12),
-      4px 0 12px rgb(0 0 0 / 0.08);
+    box-shadow: 1px 0 0 var(--md-outline-variant);
     transition: none;
     z-index: 4400;
   }
 }
 
-:root.dark .app-drawer {
-  box-shadow:
-    0 -1px 0 var(--md-outline-variant),
-    0 -4px 16px rgb(0 0 0 / 0.5);
-}
-
-@media (max-width: 1023px) and (orientation: landscape), (min-width: 1024px) {
-  :root.dark .app-drawer {
-    box-shadow:
-      1px 0 0 var(--md-outline-variant),
-      4px 0 16px rgb(0 0 0 / 0.5);
-  }
-}
 </style>

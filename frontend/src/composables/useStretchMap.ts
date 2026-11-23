@@ -48,7 +48,7 @@ export function useStretchMap(line: Ref<GroupLine | null>, others: Ref<GroupLine
     if (!index || !line.value) return mapStore.setHighlightedStops([])
     const {stops, from} = stretchOf(index, line.value)
     const marks = new Map<number, HighlightedStop['color']>()
-    stops.forEach((id, i) => marks.set(id, i === from ? 'green' : id === nearest.value ? 'purple' : (marks.get(id) ?? 'gray')))
+    stops.forEach((id, i) => marks.set(id, i === from ? 'green' : id === nearest.value ? 'periwinkle' : (marks.get(id) ?? 'gray')))
     mapStore.setHighlightedStops([...marks].map(([id, color]) => ({stopId: String(id), color})))
   })
 

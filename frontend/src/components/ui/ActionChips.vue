@@ -94,8 +94,8 @@ defineProps<{actions: ChipAction[]}>()
 }
 
 .chip.is-primary {
-  background: var(--md-primary);
-  color: var(--md-on-primary);
+  background: var(--md-primary-fixed);
+  color: var(--md-on-primary-fixed);
   box-shadow: none;
 }
 

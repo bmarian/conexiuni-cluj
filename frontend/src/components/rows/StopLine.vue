@@ -35,7 +35,7 @@ const emit = defineEmits<{open: []}>()
       <span class="name text-body-medium"><Ticker :text="name" /></span>
       <PlaceIcon v-if="mark === 'from'" class="m-icon size-3.5 mark-tint" />
       <MyLocationIcon v-else-if="mark === 'nearest'" class="m-icon size-3.5 mark-tint" />
-      <FavoriteIcon v-if="favorite" class="m-icon size-3 text-rose" />
+      <FavoriteIcon v-if="favorite" class="m-icon size-3 text-favorite" />
     </span>
     <span v-if="trailing" class="trailing" :class="{'is-highlight': trailingHighlight}">{{ trailing }}</span>
     <span v-else class="times">
@@ -63,13 +63,13 @@ const emit = defineEmits<{open: []}>()
 }
 
 .is-nearest {
-  --mark: #a855f7;
-  background: rgb(168 85 247 / 0.08);
+  --mark: var(--md-tertiary);
+  background: color-mix(in srgb, var(--md-tertiary) 8%, transparent);
 }
 
 .is-favorite {
-  --mark: var(--md-rose);
-  background: color-mix(in srgb, var(--md-rose) 6%, transparent);
+  --mark: var(--md-favorite);
+  background: color-mix(in srgb, var(--md-favorite) 6%, transparent);
 }
 
 .is-terminal {
@@ -160,7 +160,7 @@ const emit = defineEmits<{open: []}>()
 }
 
 .is-nearest .name {
-  color: #a855f7;
+  color: var(--md-tertiary);
   font-weight: 600;
 }
 

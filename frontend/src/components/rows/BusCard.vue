@@ -36,7 +36,8 @@ const emit = defineEmits<{open: []}>()
   align-items: center;
   margin: 4px 12px;
   border-radius: 12px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
   color: var(--md-on-surface);
 }
 
@@ -80,7 +81,7 @@ const emit = defineEmits<{open: []}>()
 
 .bus-card.is-favorite {
   background: var(--md-surface-container-high);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--md-rose) 45%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--md-favorite) 45%, transparent);
 }
 
 .live-bar {

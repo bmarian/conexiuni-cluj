@@ -399,7 +399,8 @@ async function confirmAsk() {
   gap: 10px;
   padding: 12px;
   border-radius: 16px;
-  background: var(--md-surface-container);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .note {

@@ -486,7 +486,8 @@ const sectionDragOptions = computed(() => ({
   min-width: 0;
   padding: 6px 12px 6px 10px;
   border-radius: 14px;
-  background: var(--md-surface-container-high);
+  background: transparent;
+  box-shadow: var(--md-line);
   color: var(--md-on-surface);
   cursor: pointer;
 }
@@ -564,12 +565,12 @@ const sectionDragOptions = computed(() => ({
 
 .drag-chosen:not(.chip-cell) {
   border-radius: 16px;
-  box-shadow: var(--md-elevation-3);
+  box-shadow: var(--md-line);
   background: var(--md-surface-container-high);
 }
 
 .drag-chosen > .route-chip {
-  box-shadow: var(--md-elevation-3);
+  box-shadow: var(--md-line);
   background: var(--md-surface-container-highest);
 }
 </style>

@@ -83,8 +83,8 @@ watch(
 }
 
 .time-pill.is-due {
-  background: var(--md-live);
-  color: var(--md-live-container);
+  background: var(--md-due);
+  color: var(--md-on-due);
   transition:
     background-color 190ms linear calc(485ms * var(--pace-delay)),
     color 190ms linear calc(485ms * var(--pace-delay));

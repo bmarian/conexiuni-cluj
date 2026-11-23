@@ -366,7 +366,7 @@ function onKey(e: KeyboardEvent) {
   height: 256px;
   margin-top: 36px;
   border-radius: 50%;
-  background: var(--md-surface-container-highest);
+  box-shadow: var(--md-line);
   touch-action: none;
   user-select: none;
   cursor: pointer;
@@ -380,7 +380,7 @@ function onKey(e: KeyboardEvent) {
   height: 8px;
   margin: -4px;
   border-radius: 50%;
-  background: var(--md-primary);
+  background: var(--md-primary-fixed);
 }
 
 .hand {
@@ -404,7 +404,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 .hand-line {
-  background: var(--md-primary);
+  background: var(--md-primary-fixed);
   left: -1px;
   bottom: 0;
   width: 2px;
@@ -418,7 +418,7 @@ function onKey(e: KeyboardEvent) {
   height: 48px;
   overflow: hidden;
   border-radius: 50%;
-  background: var(--md-primary);
+  background: var(--md-primary-fixed);
 }
 
 .knob-face {
@@ -429,7 +429,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 .knob-face .mark {
-  color: var(--md-on-primary);
+  color: var(--md-on-primary-fixed);
 }
 
 .hand.is-dragging,

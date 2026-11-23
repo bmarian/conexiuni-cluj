@@ -72,7 +72,8 @@ const places = computed(() => (isOnline.value ? favorites.favoritePlans.map((pla
   padding: 0 14px 0 12px;
   border: 0;
   border-radius: 18px;
-  background: var(--md-surface-container-high);
+  background: transparent;
+  box-shadow: var(--md-line);
   color: var(--md-on-surface);
   font-size: 14px;
   line-height: 20px;

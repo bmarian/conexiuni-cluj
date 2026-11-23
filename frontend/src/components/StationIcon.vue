@@ -9,7 +9,7 @@ defineProps<{look?: StationLook; corner?: number; favorite?: boolean; heart?: bo
 
 <template>
   <FavoriteMorph
-    :color="heart ? 'var(--md-rose)' : (look?.color ?? 'var(--md-secondary-container)')"
+    :color="heart ? 'var(--md-favorite)' : (look?.color ?? 'var(--md-secondary-container)')"
     :favorite="favorite"
     class="station-icon"
     :class="{'is-plain': !look && !heart}"

@@ -50,7 +50,7 @@ export type DisplayShape = {
   skipFit?: boolean
 }
 
-export type HighlightedStop = {stopId: string; color: 'green' | 'purple' | 'red' | 'gray' | 'amber' | 'favorite'}
+export type HighlightedStop = {stopId: string; color: 'green' | 'periwinkle' | 'red' | 'gray' | 'amber' | 'favorite'}
 
 export const useMapStore = defineStore('map', () => {
   const shapesToDisplay = ref<Array<[DisplayShape, Shape[]]>>([])

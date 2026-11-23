@@ -723,7 +723,7 @@ function dropPin() {
     overflow: hidden;
     border-radius: 28px;
     background: var(--md-surface-container-high);
-    box-shadow: var(--md-elevation-3);
+    box-shadow: var(--md-line);
   }
 
   .search-bar {

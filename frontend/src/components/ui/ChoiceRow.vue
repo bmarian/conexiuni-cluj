@@ -48,7 +48,8 @@ watch(index, () => moving.value++)
   height: 48px;
   padding: 4px;
   border-radius: 24px;
-  background: var(--md-surface-container-highest);
+  background: transparent;
+  box-shadow: var(--md-line);
 }
 
 .pill {
@@ -58,7 +59,7 @@ watch(index, () => moving.value++)
   left: 4px;
   width: calc((100% - 8px) / var(--n));
   border-radius: 20px;
-  background: var(--md-primary);
+  background: var(--md-primary-fixed);
   translate: calc(var(--i) * 100%) 0;
   transition: translate var(--spring-slide-ms) var(--spring-slide);
 }
@@ -107,7 +108,7 @@ watch(index, () => moving.value++)
 }
 
 .choice.is-checked {
-  color: var(--md-on-primary);
+  color: var(--md-on-primary-fixed);
 }
 
 .choice:disabled {

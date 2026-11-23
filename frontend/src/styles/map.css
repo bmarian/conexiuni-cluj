@@ -10,7 +10,7 @@
   font-size: 14px;
   line-height: 20px;
   white-space: nowrap;
-  box-shadow: var(--md-elevation-2);
+  box-shadow: var(--md-line);
 }
 
 .map-tooltip::before {
@@ -156,7 +156,7 @@
   background: var(--md-surface-container);
   color: var(--md-on-surface);
   white-space: nowrap;
-  box-shadow: var(--md-elevation-2);
+  box-shadow: var(--md-line);
   pointer-events: none;
 }
 

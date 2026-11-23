@@ -255,7 +255,7 @@ export function useRouteArrivals(routeId: Ref<string>, direction: Ref<string>) {
     stopsForDirection.value.forEach((stop, idx) => {
       const stopId = String(stop.stop_id)
       if (stopId === fromStopId.value) highlights.push({stopId, color: 'green'})
-      else if (idx === nearestStopIdx.value) highlights.push({stopId, color: 'purple'})
+      else if (idx === nearestStopIdx.value) highlights.push({stopId, color: 'periwinkle'})
       else if (favoriteStopIds.value.includes(stop.stop_id)) highlights.push({stopId, color: 'favorite'})
       else highlights.push({stopId, color: 'gray'})
     })
